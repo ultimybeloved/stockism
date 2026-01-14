@@ -560,12 +560,19 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
   ];
 
   const chartData = useMemo(() => {
-    if (!portfolioHistory || portfolioHistory.length === 0) return [];
+    if (!portfolioHistory || portfolioHistory.length === 0) {
+      // No history at all - create two points for a flat line
+      const now = Date.now();
+      return [
+        { timestamp: now - 60000, value: currentValue, date: 'Now', fullDate: 'Now' },
+        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
+      ];
+    }
     
     const range = timeRanges.find(r => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
     
-    return portfolioHistory
+    let data = portfolioHistory
       .filter(point => point.timestamp >= cutoff)
       .map(point => ({
         ...point,
@@ -574,9 +581,28 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
         }),
       }));
-  }, [portfolioHistory, timeRange]);
+    
+    // If only 1 point, add current value as second point to show a line
+    if (data.length === 1) {
+      data = [
+        ...data,
+        { timestamp: Date.now(), value: currentValue, date: 'Now', fullDate: 'Now' }
+      ];
+    }
+    
+    // If no data in range, show current value as flat line
+    if (data.length === 0) {
+      const now = Date.now();
+      data = [
+        { timestamp: now - 60000, value: currentValue, date: 'Now', fullDate: 'Now' },
+        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
+      ];
+    }
+    
+    return data;
+  }, [portfolioHistory, timeRange, currentValue]);
 
-  const hasChartData = chartData.length >= 2;
+  const hasChartData = chartData.length >= 2; // Will always be true now
   const chartValues = hasChartData ? chartData.map(d => d.value) : [currentValue];
   const minValue = Math.min(...chartValues);
   const maxValue = Math.max(...chartValues);
@@ -663,34 +689,26 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
           
           {showChart && (
             <div className={`px-4 pb-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
-              {!hasChartData ? (
-                <div className={`flex items-center justify-center h-32 ${mutedClass}`}>
-                  <div className="text-center">
-                    <p className="text-sm">📊 Chart building...</p>
-                    <p className="text-xs mt-1">Make trades to build your history</p>
-                  </div>
-                </div>
-              ) : (
-                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
-                  {/* Grid lines */}
-                  {[0, 0.5, 1].map((ratio, i) => {
-                    const y = paddingY + ratio * chartHeight;
-                    const value = maxValue - ratio * valueRange;
-                    return (
-                      <g key={i}>
-                        <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
-                          stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-                        <text x={paddingX - 5} y={y + 4} textAnchor="end"
-                          fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
-                          ${(value / 1000).toFixed(1)}k
-                        </text>
-                      </g>
-                    );
-                  })}
-                  <path d={areaPath} fill={fillColor} />
-                  <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
-                </svg>
-              )}
+              <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
+                {/* Grid lines */}
+                {[0, 0.5, 1].map((ratio, i) => {
+                  const y = paddingY + ratio * chartHeight;
+                  const value = maxValue - ratio * valueRange;
+                  return (
+                    <g key={i}>
+                      <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
+                        stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+                      <text x={paddingX - 5} y={y + 4} textAnchor="end"
+                        fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
+                        ${(value / 1000).toFixed(1)}k
+                      </text>
+                    </g>
+                  );
+                })}
+                <path d={areaPath} fill={fillColor} />
+                <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
+              </svg>
+            </div>
             </div>
           )}
         </div>
@@ -1058,12 +1076,14 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
     try {
       // Create user document with chosen username (no real name stored!)
       const userDocRef = doc(db, 'users', user.uid);
+      const now = Date.now();
       await setDoc(userDocRef, {
         displayName: trimmed,
         // We intentionally do NOT store firebaseUser.displayName or email
         cash: STARTING_CASH,
         holdings: {},
         portfolioValue: STARTING_CASH,
+        portfolioHistory: [{ timestamp: now, value: STARTING_CASH }], // Initial data point
         lastCheckin: null,
         createdAt: serverTimestamp()
       });
@@ -1874,15 +1894,33 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory]);
 
-  // Update portfolio value periodically
+  // Update portfolio value and record history periodically
   useEffect(() => {
-    if (!user || !userData) return;
+    if (!user || !userData || Object.keys(prices).length === 0) return;
 
     const portfolioValue = userData.cash + Object.entries(userData.holdings || {})
       .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
 
+    const roundedValue = Math.round(portfolioValue * 100) / 100;
     const userRef = doc(db, 'users', user.uid);
-    updateDoc(userRef, { portfolioValue: Math.round(portfolioValue * 100) / 100 });
+    
+    // Update current portfolio value
+    updateDoc(userRef, { portfolioValue: roundedValue });
+    
+    // Also record to history periodically (every 10 minutes max)
+    const currentHistory = userData.portfolioHistory || [];
+    const lastRecord = currentHistory[currentHistory.length - 1];
+    const now = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+    
+    // Record if: no history yet, OR last record was 10+ minutes ago, OR value changed significantly (>1%)
+    const valueChanged = lastRecord && Math.abs(roundedValue - lastRecord.value) / lastRecord.value > 0.01;
+    const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
+    
+    if (!lastRecord || timeElapsed || valueChanged) {
+      const updatedHistory = [...currentHistory, { timestamp: now, value: roundedValue }].slice(-500);
+      updateDoc(userRef, { portfolioHistory: updatedHistory });
+    }
   }, [user, userData, prices]);
 
   // Daily checkin
