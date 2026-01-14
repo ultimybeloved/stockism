@@ -1559,30 +1559,36 @@ export default function App() {
     checkMarginCalls();
   }, [user, userData, prices]);
 
-  // Calculate sentiment based on recent price changes
+  // Calculate sentiment based on price changes
   const getSentiment = useCallback((ticker) => {
-    const history = priceHistory[ticker] || [];
-    
-    // Need at least 5 data points over time for meaningful sentiment
-    if (history.length < 5) return 'Neutral';
-    
-    // Look at price change from base price (more stable than recent changes)
     const currentPrice = prices[ticker];
     const basePrice = CHARACTER_MAP[ticker]?.basePrice || currentPrice || 1;
+    
+    // If no current price, return neutral
+    if (!currentPrice) return 'Neutral';
+    
+    // Calculate overall change from base price (always available)
     const overallChange = ((currentPrice - basePrice) / basePrice) * 100;
     
-    // Also factor in recent momentum (last 20 points or all if less)
-    const recent = history.slice(-20);
-    if (recent.length < 2) return 'Neutral';
+    const history = priceHistory[ticker] || [];
     
-    const oldPrice = recent[0].price;
-    const newPrice = recent[recent.length - 1].price;
-    const recentChange = ((newPrice - oldPrice) / oldPrice) * 100;
+    let weightedChange;
     
-    // Weighted: 60% overall position, 40% recent momentum
-    const weightedChange = (overallChange * 0.6) + (recentChange * 0.4);
+    if (history.length >= 5) {
+      // We have enough history - factor in recent momentum
+      const recent = history.slice(-20);
+      const oldPrice = recent[0].price;
+      const newPrice = recent[recent.length - 1].price;
+      const recentChange = ((newPrice - oldPrice) / oldPrice) * 100;
+      
+      // Weighted: 60% overall position, 40% recent momentum
+      weightedChange = (overallChange * 0.6) + (recentChange * 0.4);
+    } else {
+      // Not enough history - just use overall change from base price
+      weightedChange = overallChange;
+    }
     
-    // Higher thresholds for more stability
+    // Thresholds for sentiment
     if (weightedChange > 15) return 'Strong Buy';
     if (weightedChange > 5) return 'Bullish';
     if (weightedChange < -15) return 'Strong Sell';
