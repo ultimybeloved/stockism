@@ -31,7 +31,7 @@ export const CHARACTERS = [
   { name: "Lang Jin", ticker: "WOLF", basePrice: 55, volatility: 0.03 },
   { name: "Changsu Oh", ticker: "DOTS", basePrice: 75, volatility: 0.06 },
   { name: "Jichang Kwak", ticker: "SNEK", basePrice: 55, volatility: 0.03 },
-  { name: "J", ticker: "J", basePrice: 75, volatility: 0.06 },
+  { name: "J", ticker: "COP", basePrice: 75, volatility: 0.06 },
   { name: "Seokdu Wang", ticker: "HDBT", basePrice: 48, volatility: 0.06 },
   { name: "Zack Lee", ticker: "ZACK", basePrice: 53, volatility: 0.04 },
   { name: "Warren Chae", ticker: "CHAE", basePrice: 50, volatility: 0.04 },
