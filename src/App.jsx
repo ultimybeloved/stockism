@@ -1020,6 +1020,83 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Check for margin calls on short positions
+  useEffect(() => {
+    const checkMarginCalls = async () => {
+      if (!user || !userData || !userData.shorts || Object.keys(prices).length === 0) return;
+      
+      const shorts = userData.shorts;
+      const liquidations = [];
+      
+      for (const [ticker, position] of Object.entries(shorts)) {
+        if (!position || position.shares <= 0) continue;
+        
+        const currentPrice = prices[ticker];
+        if (!currentPrice) continue;
+        
+        // Calculate current loss on position
+        const loss = (currentPrice - position.entryPrice) * position.shares;
+        const equityRemaining = position.margin - loss;
+        const equityRatio = equityRemaining / (currentPrice * position.shares);
+        
+        // If equity drops below 25% of position value, liquidate
+        if (equityRatio < SHORT_MARGIN_CALL_THRESHOLD) {
+          liquidations.push({
+            ticker,
+            shares: position.shares,
+            entryPrice: position.entryPrice,
+            currentPrice,
+            loss,
+            margin: position.margin
+          });
+        }
+      }
+      
+      // Process liquidations
+      if (liquidations.length > 0) {
+        const userRef = doc(db, 'users', user.uid);
+        const marketRef = doc(db, 'market', 'current');
+        let totalLoss = 0;
+        const updateData = {};
+        
+        for (const liq of liquidations) {
+          // Force cover at current price (no slippage benefit for liquidation)
+          const coverCost = liq.currentPrice * liq.shares;
+          const proceeds = liq.entryPrice * liq.shares;
+          const netLoss = coverCost - proceeds;
+          totalLoss += Math.max(0, netLoss - liq.margin); // Loss beyond margin
+          
+          // Clear the short position
+          updateData[`shorts.${liq.ticker}`] = { shares: 0, entryPrice: 0, margin: 0 };
+          
+          // Price impact from forced cover (buying pressure)
+          const basePrice = CHARACTER_MAP[liq.ticker]?.basePrice || liq.currentPrice;
+          const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / liq.shares);
+          const priceImpact = liq.currentPrice * TRADE_IMPACT_FACTOR * liq.shares * impactMultiplier;
+          const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), liq.currentPrice + priceImpact);
+          
+          await updateDoc(marketRef, {
+            [`prices.${liq.ticker}`]: Math.round(newPrice * 100) / 100
+          });
+        }
+        
+        // Deduct any losses beyond margin from cash (can go negative as a penalty)
+        updateData.cash = Math.max(0, userData.cash - totalLoss);
+        
+        await updateDoc(userRef, updateData);
+        
+        const tickerList = liquidations.map(l => l.ticker).join(', ');
+        setNotification({ 
+          type: 'error', 
+          message: `⚠️ MARGIN CALL: ${tickerList} position(s) liquidated!` 
+        });
+        setTimeout(() => setNotification(null), 5000);
+      }
+    };
+    
+    checkMarginCalls();
+  }, [user, userData, prices]);
+
   // Calculate sentiment based on recent price changes
   const getSentiment = useCallback((ticker) => {
     const history = priceHistory[ticker] || [];
@@ -1139,14 +1216,22 @@ export default function App() {
         return;
       }
 
-      const proceeds = price * amount;
+      // Calculate price drop FIRST (your short causes selling pressure)
+      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
+      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
+      const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
+      
+      // You get the AVERAGE price (worse for you)
+      const shortPrice = (price + newPrice) / 2;
+      const proceeds = shortPrice * amount;
+      
       const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
       
       // Average entry price if adding to existing short
       const totalShares = existingShort.shares + amount;
       const avgEntryPrice = existingShort.shares > 0 
-        ? ((existingShort.entryPrice * existingShort.shares) + (price * amount)) / totalShares
-        : price;
+        ? ((existingShort.entryPrice * existingShort.shares) + (shortPrice * amount)) / totalShares
+        : shortPrice;
 
       // Update user - hold margin as collateral, get proceeds
       await updateDoc(userRef, {
@@ -1160,17 +1245,12 @@ export default function App() {
         lastTradeTime: now
       });
 
-      // Price goes down when shorting (selling pressure)
-      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
-      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
-      
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
         totalTrades: increment(1)
       });
 
-      setNotification({ type: 'success', message: `Shorted ${amount} ${ticker} at ${formatCurrency(price)}` });
+      setNotification({ type: 'success', message: `Shorted ${amount} ${ticker} at ${formatCurrency(shortPrice)}` });
     
     } else if (action === 'cover') {
       // COVER: Buy back shares to close short position
@@ -1182,8 +1262,16 @@ export default function App() {
         return;
       }
 
-      const coverCost = price * amount;
-      const profitPerShare = existingShort.entryPrice - price;
+      // Calculate price INCREASE first (your cover causes buying pressure)
+      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
+      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
+      const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
+      
+      // You pay the AVERAGE price (worse for you - higher)
+      const coverPrice = (price + newPrice) / 2;
+      const coverCost = coverPrice * amount;
+      
+      const profitPerShare = existingShort.entryPrice - coverPrice;
       const profit = profitPerShare * amount;
       const marginReturned = (existingShort.margin / existingShort.shares) * amount;
 
@@ -1197,7 +1285,7 @@ export default function App() {
       const remainingShares = existingShort.shares - amount;
       const remainingMargin = existingShort.margin - marginReturned;
 
-      // Update user
+      // Update user: get margin back, pay cover cost, get original short proceeds
       const updateData = {
         cash: userData.cash + marginReturned - coverCost + (existingShort.entryPrice * amount),
         lastTradeTime: now
@@ -1216,11 +1304,6 @@ export default function App() {
 
       await updateDoc(userRef, updateData);
 
-      // Price goes up when covering (buying pressure)
-      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
-      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
-      
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
         totalTrades: increment(1)
