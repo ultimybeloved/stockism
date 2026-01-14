@@ -404,20 +404,20 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
 
       <div className="mb-3">
         <div className={`text-xs ${mutedClass} mb-2`}>Pool: {formatCurrency(totalPool)}</div>
-        <div className="space-y-1">
+        <div className="space-y-2">
           {options.map((option, idx) => {
             const percent = getOptionPercent(option);
             const colors = optionColors[idx % optionColors.length];
             const isWinner = prediction.resolved && prediction.outcome === option;
             return (
               <div key={option} className="flex items-center gap-2">
-                <div className={`w-24 text-xs font-semibold truncate ${colors.text} ${isWinner ? 'underline' : ''}`}>
+                <div className={`w-32 sm:w-40 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
                   {option} {isWinner && '✓'}
                 </div>
                 <div className="flex-1 h-4 bg-slate-700 rounded-sm overflow-hidden">
                   <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${percent}%` }} />
                 </div>
-                <div className={`w-12 text-xs text-right ${mutedClass}`}>{percent}%</div>
+                <div className={`w-10 text-xs text-right ${mutedClass}`}>{percent}%</div>
               </div>
             );
           })}
@@ -1538,20 +1538,33 @@ export default function App() {
   // Calculate sentiment based on recent price changes
   const getSentiment = useCallback((ticker) => {
     const history = priceHistory[ticker] || [];
-    if (history.length < 2) return 'Neutral';
     
-    const recent = history.slice(-10);
-    const changes = recent.slice(1).map((p, i) => p.price - recent[i].price);
-    const avgChange = changes.reduce((a, b) => a + b, 0) / changes.length;
-    const basePrice = CHARACTER_MAP[ticker]?.basePrice || 1;
-    const changePercent = (avgChange / basePrice) * 100;
+    // Need at least 5 data points over time for meaningful sentiment
+    if (history.length < 5) return 'Neutral';
     
-    if (changePercent > 2) return 'Strong Buy';
-    if (changePercent > 0.5) return 'Bullish';
-    if (changePercent < -2) return 'Strong Sell';
-    if (changePercent < -0.5) return 'Bearish';
+    // Look at price change from base price (more stable than recent changes)
+    const currentPrice = prices[ticker];
+    const basePrice = CHARACTER_MAP[ticker]?.basePrice || currentPrice || 1;
+    const overallChange = ((currentPrice - basePrice) / basePrice) * 100;
+    
+    // Also factor in recent momentum (last 20 points or all if less)
+    const recent = history.slice(-20);
+    if (recent.length < 2) return 'Neutral';
+    
+    const oldPrice = recent[0].price;
+    const newPrice = recent[recent.length - 1].price;
+    const recentChange = ((newPrice - oldPrice) / oldPrice) * 100;
+    
+    // Weighted: 60% overall position, 40% recent momentum
+    const weightedChange = (overallChange * 0.6) + (recentChange * 0.4);
+    
+    // Higher thresholds for more stability
+    if (weightedChange > 15) return 'Strong Buy';
+    if (weightedChange > 5) return 'Bullish';
+    if (weightedChange < -15) return 'Strong Sell';
+    if (weightedChange < -5) return 'Bearish';
     return 'Neutral';
-  }, [priceHistory]);
+  }, [priceHistory, prices]);
 
   // Helper function to record price history (called after trades)
   const recordPriceHistory = useCallback(async (ticker, newPrice) => {
