@@ -515,11 +515,13 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
 };
 
 // ============================================
-// PORTFOLIO MODAL
+// PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, prices, onClose, onTrade, darkMode }) => {
+const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode }) => {
   const [sellAmounts, setSellAmounts] = useState({});
+  const [showChart, setShowChart] = useState(true);
+  const [timeRange, setTimeRange] = useState('7d');
   
   const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
   const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
@@ -544,19 +546,148 @@ const PortfolioModal = ({ holdings, prices, onClose, onTrade, darkMode }) => {
     onTrade(ticker, 'sell', amount);
   };
 
+  // Chart data processing
+  const timeRanges = [
+    { key: '1d', label: '24h', hours: 24 },
+    { key: '7d', label: '7D', hours: 168 },
+    { key: '1m', label: '1M', hours: 720 },
+    { key: 'all', label: 'All', hours: Infinity },
+  ];
+
+  const chartData = useMemo(() => {
+    if (!portfolioHistory || portfolioHistory.length === 0) return [];
+    
+    const range = timeRanges.find(r => r.key === timeRange);
+    const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
+    
+    return portfolioHistory
+      .filter(point => point.timestamp >= cutoff)
+      .map(point => ({
+        ...point,
+        date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: new Date(point.timestamp).toLocaleDateString('en-US', { 
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+        }),
+      }));
+  }, [portfolioHistory, timeRange]);
+
+  const hasChartData = chartData.length >= 2;
+  const chartValues = hasChartData ? chartData.map(d => d.value) : [currentValue];
+  const minValue = Math.min(...chartValues);
+  const maxValue = Math.max(...chartValues);
+  const valueRange = maxValue - minValue || 1;
+
+  const firstValue = chartData[0]?.value || currentValue;
+  const lastValue = chartData[chartData.length - 1]?.value || currentValue;
+  const periodChange = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
+  const isUp = lastValue >= firstValue;
+
+  // SVG chart dimensions
+  const svgWidth = 500;
+  const svgHeight = 150;
+  const paddingX = 40;
+  const paddingY = 20;
+  const chartWidth = svgWidth - paddingX * 2;
+  const chartHeight = svgHeight - paddingY * 2;
+
+  const getX = (index) => paddingX + (index / (chartData.length - 1 || 1)) * chartWidth;
+  const getY = (value) => paddingY + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+  const pathData = chartData.map((d, i) => {
+    const x = getX(i);
+    const y = getY(d.value);
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  const areaPath = chartData.length > 0 
+    ? `${pathData} L ${getX(chartData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
+    : '';
+
+  const strokeColor = isUp ? '#22c55e' : '#ef4444';
+  const fillColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[80vh] flex flex-col`}
+      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
         <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <div className="flex justify-between items-center">
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h2>
-              <p className={`text-sm ${mutedClass}`}>Total Value: {formatCurrency(totalValue)}</p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(currentValue)}</span>
+                {hasChartData && (
+                  <span className={`text-sm font-semibold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                    {isUp ? '▲' : '▼'} {formatChange(periodChange)}
+                  </span>
+                )}
+              </div>
             </div>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
           </div>
+        </div>
+
+        {/* Portfolio Chart */}
+        <div className={`border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between px-4 py-2">
+            <button
+              onClick={() => setShowChart(!showChart)}
+              className={`text-xs font-semibold ${mutedClass} hover:text-teal-500`}
+            >
+              {showChart ? '▼ Hide Chart' : '▶ Show Chart'}
+            </button>
+            {showChart && (
+              <div className="flex gap-1">
+                {timeRanges.map(range => (
+                  <button
+                    key={range.key}
+                    onClick={() => setTimeRange(range.key)}
+                    className={`px-2 py-1 text-xs font-semibold rounded-sm ${
+                      timeRange === range.key
+                        ? 'bg-teal-600 text-white'
+                        : darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {showChart && (
+            <div className={`px-4 pb-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+              {!hasChartData ? (
+                <div className={`flex items-center justify-center h-32 ${mutedClass}`}>
+                  <div className="text-center">
+                    <p className="text-sm">📊 Chart building...</p>
+                    <p className="text-xs mt-1">Make trades to build your history</p>
+                  </div>
+                </div>
+              ) : (
+                <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
+                  {/* Grid lines */}
+                  {[0, 0.5, 1].map((ratio, i) => {
+                    const y = paddingY + ratio * chartHeight;
+                    const value = maxValue - ratio * valueRange;
+                    return (
+                      <g key={i}>
+                        <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
+                          stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+                        <text x={paddingX - 5} y={y + 4} textAnchor="end"
+                          fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
+                          ${(value / 1000).toFixed(1)}k
+                        </text>
+                      </g>
+                    );
+                  })}
+                  <path d={areaPath} fill={fillColor} />
+                  <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
+                </svg>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -1422,6 +1553,59 @@ export default function App() {
     return 'Neutral';
   }, [priceHistory]);
 
+  // Helper function to record price history (called after trades)
+  const recordPriceHistory = useCallback(async (ticker, newPrice) => {
+    const marketRef = doc(db, 'market', 'current');
+    const now = Date.now();
+    
+    // Get current history
+    const snap = await getDoc(marketRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const currentHistory = data.priceHistory?.[ticker] || [];
+      
+      // Only record if price changed or last record was > 5 minutes ago
+      const lastRecord = currentHistory[currentHistory.length - 1];
+      const shouldRecord = !lastRecord || 
+        lastRecord.price !== newPrice || 
+        (now - lastRecord.timestamp) > 5 * 60 * 1000;
+      
+      if (shouldRecord) {
+        // Keep last 1000 records per ticker to avoid huge arrays
+        const updatedHistory = [...currentHistory, { timestamp: now, price: newPrice }].slice(-1000);
+        
+        await updateDoc(marketRef, {
+          [`priceHistory.${ticker}`]: updatedHistory
+        });
+      }
+    }
+  }, []);
+
+  // Helper function to record user portfolio history
+  const recordPortfolioHistory = useCallback(async (userId, portfolioValue) => {
+    const userRef = doc(db, 'users', userId);
+    const now = Date.now();
+    
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const currentHistory = data.portfolioHistory || [];
+      
+      // Only record if last record was > 5 minutes ago
+      const lastRecord = currentHistory[currentHistory.length - 1];
+      const shouldRecord = !lastRecord || (now - lastRecord.timestamp) > 5 * 60 * 1000;
+      
+      if (shouldRecord) {
+        // Keep last 500 records per user
+        const updatedHistory = [...currentHistory, { timestamp: now, value: portfolioValue }].slice(-500);
+        
+        await updateDoc(userRef, {
+          portfolioHistory: updatedHistory
+        });
+      }
+    }
+  }, []);
+
   // Handle trade
   const handleTrade = useCallback(async (ticker, action, amount) => {
     if (!user || !userData) {
@@ -1481,6 +1665,9 @@ export default function App() {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100
       });
 
+      // Record price history
+      await recordPriceHistory(ticker, Math.round(newPrice * 100) / 100);
+
       // Update user
       await updateDoc(userRef, {
         cash: userData.cash - totalCost,
@@ -1489,6 +1676,12 @@ export default function App() {
       });
 
       await updateDoc(marketRef, { totalTrades: increment(1) });
+      
+      // Record portfolio history
+      const newPortfolioValue = (userData.cash - totalCost) + Object.entries(userData.holdings || {})
+        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares + amount : shares), 0);
+      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      
       setNotification({ type: 'success', message: `Bought ${amount} ${ticker} for ${formatCurrency(totalCost)}` });
     
     } else if (action === 'sell') {
@@ -1512,6 +1705,9 @@ export default function App() {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100
       });
 
+      // Record price history
+      await recordPriceHistory(ticker, Math.round(newPrice * 100) / 100);
+
       // Update user
       await updateDoc(userRef, {
         cash: userData.cash + totalRevenue,
@@ -1520,6 +1716,12 @@ export default function App() {
       });
 
       await updateDoc(marketRef, { totalTrades: increment(1) });
+      
+      // Record portfolio history
+      const newPortfolioValue = (userData.cash + totalRevenue) + Object.entries(userData.holdings || {})
+        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares - amount : shares), 0);
+      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      
       setNotification({ type: 'success', message: `Sold ${amount} ${ticker} for ${formatCurrency(totalRevenue)}` });
     
     } else if (action === 'short') {
@@ -1569,6 +1771,14 @@ export default function App() {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
         totalTrades: increment(1)
       });
+
+      // Record price history
+      await recordPriceHistory(ticker, Math.round(newPrice * 100) / 100);
+      
+      // Record portfolio history
+      const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
+        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
+      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
 
       setNotification({ type: 'success', message: `Shorted ${amount} ${ticker} at ${formatCurrency(shortPrice)}` });
     
@@ -1631,12 +1841,20 @@ export default function App() {
         totalTrades: increment(1)
       });
 
+      // Record price history
+      await recordPriceHistory(ticker, Math.round(newPrice * 100) / 100);
+      
+      // Record portfolio history
+      const newPortfolioValue = (userData.cash + cashBack) + Object.entries(userData.holdings || {})
+        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
+      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+
       const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : formatCurrency(profit);
       setNotification({ type: profit >= 0 ? 'success' : 'error', message: `Covered ${amount} ${ticker} (${profitMsg})` });
     }
 
     setTimeout(() => setNotification(null), 3000);
-  }, [user, userData, prices]);
+  }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory]);
 
   // Update portfolio value periodically
   useEffect(() => {
@@ -2001,6 +2219,8 @@ export default function App() {
         <PortfolioModal
           holdings={activeUserData.holdings || {}}
           prices={prices}
+          portfolioHistory={userData?.portfolioHistory || []}
+          currentValue={portfolioValue}
           onClose={() => setShowPortfolio(false)}
           onTrade={handleTrade}
           darkMode={darkMode}
