@@ -1144,6 +1144,11 @@ export default function App() {
     }
 
     const price = prices[ticker];
+    if (!price || isNaN(price)) {
+      setNotification({ type: 'error', message: 'Price unavailable, try again' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     const asset = CHARACTER_MAP[ticker];
     const basePrice = asset?.basePrice || price;
     const userRef = doc(db, 'users', user.uid);
@@ -1235,8 +1240,15 @@ export default function App() {
         : shortPrice;
 
       // You ONLY lose the margin as collateral - no proceeds yet
+      const newCash = userData.cash - marginRequired;
+      if (isNaN(newCash)) {
+        setNotification({ type: 'error', message: 'Calculation error, try again' });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+      
       await updateDoc(userRef, {
-        cash: userData.cash - marginRequired,
+        cash: newCash,
         [`shorts.${ticker}`]: {
           shares: totalShares,
           entryPrice: Math.round(avgEntryPrice * 100) / 100,
