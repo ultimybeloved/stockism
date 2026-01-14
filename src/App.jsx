@@ -22,7 +22,7 @@ import {
   arrayUnion
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
-import { CHARACTERS, CHARACTER_MAP } from './characters';
+import { CHARACTERS, CHARACTER_MAP, ETFS, ETF_MAP, ALL_ASSETS } from './characters';
 
 // ============================================
 // CONSTANTS
@@ -39,6 +39,11 @@ const TRADE_IMPACT_FACTOR = 0.008; // How much trades affect price (lower = more
 const PRICE_GRAVITY_FACTOR = 0.001; // How fast prices drift back to base (lower = slower)
 const MAX_PRICE_DEVIATION = 0.3; // Max 30% deviation from base price
 const DIMINISHING_RETURNS_THRESHOLD = 5; // Shares before diminishing returns kick in
+
+// Shorting constants (realistic NYSE-style)
+const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
+const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
+const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -770,16 +775,19 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, onTrade, onViewChart, priceHistory, darkMode }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode }) => {
   const [showTrade, setShowTrade] = useState(false);
   const [tradeAmount, setTradeAmount] = useState(1);
+  const [tradeMode, setTradeMode] = useState('normal'); // 'normal' or 'short'
 
   const owned = holdings > 0;
+  const shorted = shortPosition && shortPosition.shares > 0;
   const isUp = priceChange >= 0;
+  const isETF = character.isETF;
 
   const cardClass = darkMode 
-    ? `bg-slate-800 border-slate-700 ${owned ? 'ring-1 ring-blue-500' : ''}` 
-    : `bg-white border-slate-300 ${owned ? 'ring-1 ring-blue-500' : ''}`;
+    ? `bg-slate-800 border-slate-700 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}` 
+    : `bg-white border-slate-300 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
   const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
 
@@ -800,13 +808,20 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, onT
     return data.filter(p => p.timestamp >= cutoff);
   }, [priceHistory, character.ticker]);
 
+  // Calculate short P/L if shorted
+  const shortPL = shorted ? (shortPosition.entryPrice - price) * shortPosition.shares : 0;
+
   return (
     <div className={`${cardClass} border rounded-sm p-4 transition-all`}>
       <div className="cursor-pointer" onClick={() => !showTrade && onViewChart(character)}>
         <div className="flex justify-between items-start mb-2">
           <div>
-            <p className="text-teal-600 font-mono text-sm font-semibold">${character.ticker}</p>
+            <div className="flex items-center gap-1">
+              <p className="text-teal-600 font-mono text-sm font-semibold">${character.ticker}</p>
+              {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
+            </div>
             <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>
+            {character.description && <p className={`text-xs ${mutedClass}`}>{character.description}</p>}
           </div>
           <div className="text-right">
             <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
@@ -828,12 +843,19 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, onT
 
       <div className="flex justify-between items-center mb-3">
         <span className={`text-xs ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
-        {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} shares</span>}
+        <div className="flex gap-2">
+          {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
+          {shorted && (
+            <span className={`text-xs font-semibold ${shortPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}{formatCurrency(shortPL)})
+            </span>
+          )}
+        </div>
       </div>
 
       {!showTrade ? (
         <button
-          onClick={(e) => { e.stopPropagation(); setShowTrade(true); }}
+          onClick={(e) => { e.stopPropagation(); setShowTrade(true); setTradeMode('normal'); }}
           className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
             darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'
           }`}
@@ -842,26 +864,64 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, onT
         </button>
       ) : (
         <div className="space-y-2" onClick={e => e.stopPropagation()}>
+          {/* Trade mode tabs */}
+          <div className="flex gap-1 mb-2">
+            <button 
+              onClick={() => setTradeMode('normal')}
+              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'normal' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}
+            >
+              Buy/Sell
+            </button>
+            <button 
+              onClick={() => setTradeMode('short')}
+              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'short' ? 'bg-orange-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}
+            >
+              Short
+            </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>-</button>
             <input type="number" min="1" value={tradeAmount}
               onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-              className={`w-full text-center py-1 text-sm rounded-sm border ${inputClass}`} />
+              className={`w-full text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-900'}`} />
             <button onClick={() => setTradeAmount(tradeAmount + 1)}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>+</button>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => { onTrade(character.ticker, 'buy', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
-              className="flex-1 py-1.5 text-xs font-semibold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm">
-              Buy
-            </button>
-            <button onClick={() => { onTrade(character.ticker, 'sell', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
-              disabled={holdings < tradeAmount}
-              className="flex-1 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50">
-              Sell
-            </button>
-          </div>
+
+          {tradeMode === 'normal' ? (
+            <div className="flex gap-2">
+              <button onClick={() => { onTrade(character.ticker, 'buy', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+                className="flex-1 py-1.5 text-xs font-semibold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm">
+                Buy
+              </button>
+              <button onClick={() => { onTrade(character.ticker, 'sell', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+                disabled={holdings < tradeAmount}
+                className="flex-1 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50">
+                Sell
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => { onTrade(character.ticker, 'short', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+                className="flex-1 py-1.5 text-xs font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm">
+                Open Short
+              </button>
+              <button onClick={() => { onTrade(character.ticker, 'cover', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+                disabled={!shorted || shortPosition.shares < tradeAmount}
+                className="flex-1 py-1.5 text-xs font-semibold uppercase bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50">
+                Cover
+              </button>
+            </div>
+          )}
+          
+          {tradeMode === 'short' && (
+            <p className={`text-xs ${mutedClass} text-center`}>
+              50% margin required • 0.1% daily interest
+            </p>
+          )}
+          
           <button onClick={() => { setShowTrade(false); setTradeAmount(1); }}
             className={`w-full py-1 text-xs ${mutedClass} hover:text-teal-600`}>Cancel</button>
         </div>
@@ -944,6 +1004,14 @@ export default function App() {
           initialPrices[c.ticker] = c.basePrice;
           initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
         });
+        // Add ETFs
+        ETFS.forEach(e => {
+          if (e.isStandalone) {
+            initialPrices[e.ticker] = e.basePrice;
+            initialHistory[e.ticker] = [{ timestamp: Date.now(), price: e.basePrice }];
+          }
+          // Component ETFs derive price from components, no need to store
+        });
         
         setDoc(marketRef, {
           prices: initialPrices,
@@ -1007,12 +1075,20 @@ export default function App() {
     }
 
     const price = prices[ticker];
-    const basePrice = CHARACTER_MAP[ticker].basePrice;
+    const asset = ALL_ASSETS[ticker] || CHARACTER_MAP[ticker];
+    const basePrice = asset?.basePrice || price;
     const userRef = doc(db, 'users', user.uid);
     const marketRef = doc(db, 'market', 'current');
 
+    // Handle ETF component pricing for Daniel Pack
+    let etfPrice = price;
+    if (asset?.isETF && asset?.components) {
+      etfPrice = asset.components.reduce((sum, t) => sum + (prices[t] || 0), 0);
+    }
+    const effectivePrice = asset?.components ? etfPrice : price;
+
     if (action === 'buy') {
-      const totalCost = price * amount;
+      const totalCost = effectivePrice * amount;
       
       if (userData.cash < totalCost) {
         setNotification({ type: 'error', message: 'Insufficient funds!' });
@@ -1022,11 +1098,24 @@ export default function App() {
 
       // Calculate new price with diminishing returns
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
-      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.min(
-        basePrice * (1 + MAX_PRICE_DEVIATION),
-        price + priceImpact
-      );
+      const priceImpact = effectivePrice * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
+      
+      // For ETF with components, update component prices
+      if (asset?.components) {
+        for (const compTicker of asset.components) {
+          const compPrice = prices[compTicker];
+          const compBase = CHARACTER_MAP[compTicker]?.basePrice || compPrice;
+          const newCompPrice = Math.min(compBase * (1 + MAX_PRICE_DEVIATION), compPrice + priceImpact / asset.components.length);
+          await updateDoc(marketRef, {
+            [`prices.${compTicker}`]: Math.round(newCompPrice * 100) / 100
+          });
+        }
+      } else {
+        const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
+        await updateDoc(marketRef, {
+          [`prices.${ticker}`]: Math.round(newPrice * 100) / 100
+        });
+      }
 
       // Update user
       await updateDoc(userRef, {
@@ -1035,14 +1124,10 @@ export default function App() {
         lastTradeTime: now
       });
 
-      // Update market price
-      await updateDoc(marketRef, {
-        [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
-        totalTrades: increment(1)
-      });
-
+      await updateDoc(marketRef, { totalTrades: increment(1) });
       setNotification({ type: 'success', message: `Bought ${amount} ${ticker} for ${formatCurrency(totalCost)}` });
-    } else {
+    
+    } else if (action === 'sell') {
       const currentHoldings = userData.holdings[ticker] || 0;
       if (currentHoldings < amount) {
         setNotification({ type: 'error', message: 'Not enough shares!' });
@@ -1051,16 +1136,29 @@ export default function App() {
       }
 
       // Calculate price drop FIRST, then sell at the NEW lower price
-      // This prevents buy-high-sell-higher exploit
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
-      const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.max(
-        basePrice * (1 - MAX_PRICE_DEVIATION),
-        price - priceImpact
-      );
+      const priceImpact = effectivePrice * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
       
-      // Sell at the LOWER price (average of current and new)
-      const sellPrice = (price + newPrice) / 2;
+      let sellPrice = effectivePrice;
+      
+      if (asset?.components) {
+        for (const compTicker of asset.components) {
+          const compPrice = prices[compTicker];
+          const compBase = CHARACTER_MAP[compTicker]?.basePrice || compPrice;
+          const newCompPrice = Math.max(compBase * (1 - MAX_PRICE_DEVIATION), compPrice - priceImpact / asset.components.length);
+          await updateDoc(marketRef, {
+            [`prices.${compTicker}`]: Math.round(newCompPrice * 100) / 100
+          });
+        }
+        sellPrice = (etfPrice + (etfPrice - priceImpact)) / 2;
+      } else {
+        const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
+        sellPrice = (price + newPrice) / 2;
+        await updateDoc(marketRef, {
+          [`prices.${ticker}`]: Math.round(newPrice * 100) / 100
+        });
+      }
+      
       const totalRevenue = sellPrice * amount;
 
       // Update user
@@ -1070,13 +1168,108 @@ export default function App() {
         lastTradeTime: now
       });
 
-      // Update market price
+      await updateDoc(marketRef, { totalTrades: increment(1) });
+      setNotification({ type: 'success', message: `Sold ${amount} ${ticker} for ${formatCurrency(totalRevenue)}` });
+    
+    } else if (action === 'short') {
+      // SHORTING: Borrow shares and sell them, hoping to buy back cheaper
+      const marginRequired = effectivePrice * amount * SHORT_MARGIN_REQUIREMENT;
+      
+      if (userData.cash < marginRequired) {
+        setNotification({ type: 'error', message: `Need ${formatCurrency(marginRequired)} margin (50% of position)` });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      const proceeds = effectivePrice * amount;
+      const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
+      
+      // Average entry price if adding to existing short
+      const totalShares = existingShort.shares + amount;
+      const avgEntryPrice = existingShort.shares > 0 
+        ? ((existingShort.entryPrice * existingShort.shares) + (effectivePrice * amount)) / totalShares
+        : effectivePrice;
+
+      // Update user - hold margin as collateral, get proceeds
+      await updateDoc(userRef, {
+        cash: userData.cash - marginRequired + proceeds,
+        [`shorts.${ticker}`]: {
+          shares: totalShares,
+          entryPrice: Math.round(avgEntryPrice * 100) / 100,
+          margin: existingShort.margin + marginRequired,
+          openedAt: existingShort.openedAt || now
+        },
+        lastTradeTime: now
+      });
+
+      // Price goes down when shorting (selling pressure)
+      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
+      const priceImpact = effectivePrice * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
+      const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
+      
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
         totalTrades: increment(1)
       });
 
-      setNotification({ type: 'success', message: `Sold ${amount} ${ticker} for ${formatCurrency(totalRevenue)}` });
+      setNotification({ type: 'success', message: `Shorted ${amount} ${ticker} at ${formatCurrency(effectivePrice)}` });
+    
+    } else if (action === 'cover') {
+      // COVER: Buy back shares to close short position
+      const existingShort = userData.shorts?.[ticker];
+      
+      if (!existingShort || existingShort.shares < amount) {
+        setNotification({ type: 'error', message: 'No short position to cover!' });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      const coverCost = effectivePrice * amount;
+      const profitPerShare = existingShort.entryPrice - effectivePrice;
+      const profit = profitPerShare * amount;
+      const marginReturned = (existingShort.margin / existingShort.shares) * amount;
+
+      // Check if user can afford to cover (might have lost money)
+      if (userData.cash + marginReturned < coverCost) {
+        setNotification({ type: 'error', message: 'Insufficient funds to cover!' });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      const remainingShares = existingShort.shares - amount;
+      const remainingMargin = existingShort.margin - marginReturned;
+
+      // Update user
+      const updateData = {
+        cash: userData.cash + marginReturned - coverCost + (existingShort.entryPrice * amount),
+        lastTradeTime: now
+      };
+
+      if (remainingShares <= 0) {
+        updateData[`shorts.${ticker}`] = { shares: 0, entryPrice: 0, margin: 0 };
+      } else {
+        updateData[`shorts.${ticker}`] = {
+          shares: remainingShares,
+          entryPrice: existingShort.entryPrice,
+          margin: remainingMargin,
+          openedAt: existingShort.openedAt
+        };
+      }
+
+      await updateDoc(userRef, updateData);
+
+      // Price goes up when covering (buying pressure)
+      const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
+      const priceImpact = effectivePrice * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
+      const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
+      
+      await updateDoc(marketRef, {
+        [`prices.${ticker}`]: Math.round(newPrice * 100) / 100,
+        totalTrades: increment(1)
+      });
+
+      const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : formatCurrency(profit);
+      setNotification({ type: profit >= 0 ? 'success' : 'error', message: `Covered ${amount} ${ticker} (${profitMsg})` });
     }
 
     setTimeout(() => setNotification(null), 3000);
@@ -1298,6 +1491,7 @@ export default function App() {
               priceChange={((prices[character.ticker] || character.basePrice) - character.basePrice) / character.basePrice * 100}
               sentiment={getSentiment(character.ticker)}
               holdings={activeUserData.holdings?.[character.ticker] || 0}
+              shortPosition={activeUserData.shorts?.[character.ticker]}
               onTrade={handleTrade}
               onViewChart={setSelectedCharacter}
               priceHistory={priceHistory}
@@ -1367,4 +1561,3 @@ export default function App() {
     </div>
   );
 }
-
