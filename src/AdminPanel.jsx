@@ -5,7 +5,7 @@ import { db } from './firebase';
 // Put your admin user IDs here (your Firebase Auth UID)
 // Find your UID in Firebase Console → Authentication → Users
 const ADMIN_UIDS = [
-4usiVxPmHLhmitEKH2HfCpbx4Yi1
+'4usiVxPmHLhmitEKH2HfCpbx4Yi1'
 ];
 
 const AdminPanel = ({ user, predictions, darkMode, onClose }) => {
