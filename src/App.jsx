@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
+import AdminPanel from './AdminPanel';
 
 // ============================================
 // CONSTANTS
@@ -1180,6 +1181,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
   const [predictions, setPredictions] = useState([]);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // Listen to auth state
   useEffect(() => {
@@ -1801,6 +1803,12 @@ export default function App() {
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
                 🏆 Leaderboard
               </button>
+              {user && (
+                <button onClick={() => setShowAdmin(true)}
+                  className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+                  🔧 Admin
+                </button>
+              )}
               <button onClick={() => setDarkMode(!darkMode)}
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
                 {darkMode ? '☀️' : '🌙'}
@@ -1981,6 +1989,14 @@ export default function App() {
         />
       )}
       {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} darkMode={darkMode} />}
+      {showAdmin && (
+        <AdminPanel
+          user={user}
+          predictions={predictions}
+          darkMode={darkMode}
+          onClose={() => setShowAdmin(false)}
+        />
+      )}
       {showPortfolio && !isGuest && (
         <PortfolioModal
           holdings={activeUserData.holdings || {}}
