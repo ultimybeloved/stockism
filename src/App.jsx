@@ -709,7 +709,6 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                 <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
               </svg>
             </div>
-            </div>
           )}
         </div>
 
