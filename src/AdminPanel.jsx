@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 import { CHARACTERS } from './characters';
 
@@ -41,6 +41,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [adjustmentType, setAdjustmentType] = useState('set'); // 'set' or 'percent'
   const [newPrice, setNewPrice] = useState('');
   const [percentChange, setPercentChange] = useState('');
+  
+  // Recovery tool state
+  const [recoveryPredictionId, setRecoveryPredictionId] = useState('');
+  const [recoveryBets, setRecoveryBets] = useState([]);
+  const [recoveryWinner, setRecoveryWinner] = useState('');
+  const [recoveryOptions, setRecoveryOptions] = useState([]);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
 
@@ -245,6 +251,122 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Scan all users for bets on a specific prediction ID
+  const handleScanForBets = async () => {
+    if (!recoveryPredictionId.trim()) {
+      showMessage('error', 'Please enter a prediction ID (e.g., pred_1)');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      const bets = [];
+      const optionsFound = new Set();
+      
+      snapshot.forEach(doc => {
+        const userData = doc.data();
+        const userBet = userData.bets?.[recoveryPredictionId.trim()];
+        if (userBet) {
+          bets.push({
+            userId: doc.id,
+            displayName: userData.displayName || 'Unknown',
+            option: userBet.option,
+            amount: userBet.amount,
+            paid: userBet.paid || false,
+            cash: userData.cash || 0
+          });
+          optionsFound.add(userBet.option);
+        }
+      });
+
+      setRecoveryBets(bets);
+      setRecoveryOptions(Array.from(optionsFound));
+      
+      if (bets.length === 0) {
+        showMessage('error', `No bets found for prediction "${recoveryPredictionId}"`);
+      } else {
+        showMessage('success', `Found ${bets.length} bets across ${optionsFound.size} options`);
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to scan users');
+    }
+    setLoading(false);
+  };
+
+  // Process payouts for recovered prediction
+  const handleProcessRecovery = async (action) => {
+    if (recoveryBets.length === 0) {
+      showMessage('error', 'No bets to process');
+      return;
+    }
+
+    if (action === 'payout' && !recoveryWinner) {
+      showMessage('error', 'Please select a winning option');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Calculate total pool and winning pool
+      const totalPool = recoveryBets.reduce((sum, bet) => sum + bet.amount, 0);
+      const winningPool = action === 'payout' 
+        ? recoveryBets.filter(b => b.option === recoveryWinner).reduce((sum, bet) => sum + bet.amount, 0)
+        : 0;
+
+      let processed = 0;
+      
+      for (const bet of recoveryBets) {
+        if (bet.paid) continue; // Skip already paid bets
+        
+        const userRef = doc(db, 'users', bet.userId);
+        
+        if (action === 'refund') {
+          // Refund: give back original bet amount
+          await updateDoc(userRef, {
+            cash: bet.cash + bet.amount,
+            [`bets.${recoveryPredictionId}.paid`]: true,
+            [`bets.${recoveryPredictionId}.payout`]: bet.amount,
+            [`bets.${recoveryPredictionId}.refunded`]: true
+          });
+          processed++;
+        } else if (action === 'payout') {
+          // Payout: winners split the pot
+          if (bet.option === recoveryWinner && winningPool > 0) {
+            const userShare = bet.amount / winningPool;
+            const payout = userShare * totalPool;
+            await updateDoc(userRef, {
+              cash: bet.cash + payout,
+              [`bets.${recoveryPredictionId}.paid`]: true,
+              [`bets.${recoveryPredictionId}.payout`]: payout,
+              predictionWins: (await getDoc(userRef)).data()?.predictionWins || 0 + 1
+            });
+          } else {
+            // Losers get nothing but mark as paid
+            await updateDoc(userRef, {
+              [`bets.${recoveryPredictionId}.paid`]: true,
+              [`bets.${recoveryPredictionId}.payout`]: 0
+            });
+          }
+          processed++;
+        }
+      }
+
+      showMessage('success', `${action === 'refund' ? 'Refunded' : 'Paid out'} ${processed} users!`);
+      setRecoveryBets([]);
+      setRecoveryWinner('');
+      setRecoveryOptions([]);
+      setRecoveryPredictionId('');
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to process: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Check admin access
   if (!isAdmin) {
     return (
@@ -296,6 +418,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'resolve' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
           >
             ✅ Resolve ({unresolvedPredictions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('recover')}
+            className={`flex-1 py-3 text-sm font-semibold ${activeTab === 'recover' ? 'text-amber-500 border-b-2 border-amber-500' : mutedClass}`}
+          >
+            🔧 Recover
           </button>
           <button
             onClick={() => setActiveTab('manage')}
@@ -596,6 +724,111 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          )}
+
+          {/* RECOVER TAB */}
+          {activeTab === 'recover' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20 border border-amber-700' : 'bg-amber-50 border border-amber-200'}`}>
+                <p className={`text-sm text-amber-500`}>
+                  ⚠️ Use this to recover bets from a lost/deleted prediction. 
+                  Enter the prediction ID to find all users who placed bets.
+                </p>
+              </div>
+
+              <div>
+                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Prediction ID</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={recoveryPredictionId}
+                    onChange={e => setRecoveryPredictionId(e.target.value)}
+                    placeholder="pred_1"
+                    className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
+                  />
+                  <button
+                    onClick={handleScanForBets}
+                    disabled={loading}
+                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {loading ? '...' : '🔍 Scan'}
+                  </button>
+                </div>
+              </div>
+
+              {recoveryBets.length > 0 && (
+                <>
+                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                    <h4 className={`font-semibold ${textClass} mb-2`}>Found {recoveryBets.length} Bets</h4>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {recoveryBets.map((bet, i) => (
+                        <div key={i} className={`text-sm flex justify-between ${bet.paid ? 'text-slate-500 line-through' : textClass}`}>
+                          <span>{bet.displayName}</span>
+                          <span>
+                            <span className="text-teal-500">${bet.amount}</span>
+                            {' on '}
+                            <span className="font-semibold">{bet.option}</span>
+                            {bet.paid && <span className="ml-2 text-xs">(paid)</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
+                      <div className="flex justify-between text-sm">
+                        <span className={mutedClass}>Total Pool:</span>
+                        <span className={`font-bold ${textClass}`}>
+                          ${recoveryBets.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className={`text-xs ${mutedClass} mt-1`}>
+                        Options: {recoveryOptions.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner (for payout)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {recoveryOptions.map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setRecoveryWinner(opt)}
+                          className={`px-4 py-2 rounded-sm border-2 font-semibold transition-all ${
+                            recoveryWinner === opt
+                              ? 'border-green-500 bg-green-500 text-white'
+                              : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleProcessRecovery('refund')}
+                      disabled={loading}
+                      className="py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? '...' : '💰 Refund All'}
+                    </button>
+                    <button
+                      onClick={() => handleProcessRecovery('payout')}
+                      disabled={loading || !recoveryWinner}
+                      className="py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? '...' : `✅ Payout Winners`}
+                    </button>
+                  </div>
+                  
+                  <p className={`text-xs ${mutedClass}`}>
+                    <strong>Refund All:</strong> Returns original bet amount to everyone.<br/>
+                    <strong>Payout Winners:</strong> Winners split the total pool (select winner first).
+                  </p>
+                </>
               )}
             </div>
           )}
