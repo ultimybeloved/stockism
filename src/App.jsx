@@ -2880,11 +2880,12 @@ export default function App() {
         ? ((currentCostBasis * currentHoldings) + (buyPrice * amount)) / newHoldings
         : buyPrice;
 
-      // Update user with trade count and cost basis
+      // Update user with trade count, cost basis, and last buy time for holding period
       await updateDoc(userRef, {
         cash: userData.cash - totalCost,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
+        [`lastBuyTime.${ticker}`]: now,
         lastTradeTime: now,
         totalTrades: increment(1)
       });
@@ -2917,6 +2918,21 @@ export default function App() {
       const currentHoldings = userData.holdings[ticker] || 0;
       if (currentHoldings < amount) {
         setNotification({ type: 'error', message: 'Not enough shares!' });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Holding period check - must hold shares for 10 minutes before selling
+      const HOLDING_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+      const lastBuyTime = userData.lastBuyTime?.[ticker] || 0;
+      const timeSinceBuy = now - lastBuyTime;
+      
+      if (lastBuyTime > 0 && timeSinceBuy < HOLDING_PERIOD_MS) {
+        const remainingMs = HOLDING_PERIOD_MS - timeSinceBuy;
+        const remainingMins = Math.ceil(remainingMs / 60000);
+        const remainingSecs = Math.ceil((remainingMs % 60000) / 1000);
+        const timeStr = remainingMins > 1 ? `${remainingMins} min` : `${remainingSecs} sec`;
+        setNotification({ type: 'error', message: `Hold period: wait ${timeStr} before selling ${ticker}` });
         setTimeout(() => setNotification(null), 3000);
         return;
       }
@@ -3070,6 +3086,21 @@ export default function App() {
       
       if (!existingShort || existingShort.shares < amount) {
         setNotification({ type: 'error', message: 'No short position to cover!' });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Holding period check - must hold short for 10 minutes before covering
+      const HOLDING_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+      const openedAt = existingShort.openedAt || 0;
+      const timeSinceOpen = now - openedAt;
+      
+      if (openedAt > 0 && timeSinceOpen < HOLDING_PERIOD_MS) {
+        const remainingMs = HOLDING_PERIOD_MS - timeSinceOpen;
+        const remainingMins = Math.ceil(remainingMs / 60000);
+        const remainingSecs = Math.ceil((remainingMs % 60000) / 1000);
+        const timeStr = remainingMins > 1 ? `${remainingMins} min` : `${remainingSecs} sec`;
+        setNotification({ type: 'error', message: `Hold period: wait ${timeStr} before covering ${ticker}` });
         setTimeout(() => setNotification(null), 3000);
         return;
       }
