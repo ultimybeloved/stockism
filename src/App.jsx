@@ -42,8 +42,6 @@ const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
 
 // Economy balancing constants
 const TRADE_IMPACT_FACTOR = 0.008; // How much trades affect price (lower = more stable)
-const PRICE_GRAVITY_FACTOR = 0.001; // How fast prices drift back to base (lower = slower)
-const MAX_PRICE_DEVIATION = 0.3; // Max 30% deviation from base price
 const DIMINISHING_RETURNS_THRESHOLD = 5; // Shares before diminishing returns kick in
 
 // Shorting constants (realistic NYSE-style)
@@ -1554,10 +1552,9 @@ export default function App() {
           updateData[`shorts.${liq.ticker}`] = { shares: 0, entryPrice: 0, margin: 0 };
           
           // Price impact from forced cover (buying pressure)
-          const basePrice = CHARACTER_MAP[liq.ticker]?.basePrice || liq.currentPrice;
           const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / liq.shares);
           const priceImpact = liq.currentPrice * TRADE_IMPACT_FACTOR * liq.shares * impactMultiplier;
-          const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), liq.currentPrice + priceImpact);
+          const newPrice = liq.currentPrice + priceImpact; // No cap
           
           await updateDoc(marketRef, {
             [`prices.${liq.ticker}`]: Math.round(newPrice * 100) / 100
@@ -1714,7 +1711,7 @@ export default function App() {
       // Calculate new price FIRST - you buy at the HIGHER price
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
       const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
+      const newPrice = price + priceImpact; // No cap - prices can go as high as demand pushes them
       
       // You pay the HIGHER price (after your buying pressure)
       const buyPrice = newPrice;
@@ -1760,7 +1757,7 @@ export default function App() {
       // Calculate new price FIRST - you sell at the LOWER price
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
       const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
+      const newPrice = Math.max(0.01, price - priceImpact); // Floor at $0.01, no ceiling
       
       // You get the LOWER price (after your selling pressure)
       const sellPrice = newPrice;
@@ -1794,7 +1791,7 @@ export default function App() {
       // You need margin as collateral but DON'T get proceeds until you cover
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
       const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.max(basePrice * (1 - MAX_PRICE_DEVIATION), price - priceImpact);
+      const newPrice = Math.max(0.01, price - priceImpact); // Floor at $0.01, no ceiling
       
       // Entry price is the lower price after your selling pressure
       const shortPrice = newPrice;
@@ -1860,7 +1857,7 @@ export default function App() {
       // Calculate price INCREASE (your cover causes buying pressure)
       const impactMultiplier = Math.min(1, DIMINISHING_RETURNS_THRESHOLD / amount);
       const priceImpact = price * TRADE_IMPACT_FACTOR * amount * impactMultiplier;
-      const newPrice = Math.min(basePrice * (1 + MAX_PRICE_DEVIATION), price + priceImpact);
+      const newPrice = price + priceImpact; // No cap - prices can go as high as demand pushes them
       
       // You pay the HIGHER price to cover
       const coverPrice = newPrice;
@@ -2095,7 +2092,7 @@ export default function App() {
           <img 
             src="/stockism logo.png" 
             alt="Stockism" 
-            className="h-[100px] sm:h-[115px] md:h-[150px] w-auto"
+            className="h-[50px] sm:h-[70px] md:h-[90px] w-auto"
           />
         </div>
 
@@ -2295,6 +2292,7 @@ export default function App() {
         <AdminPanel
           user={user}
           predictions={predictions}
+          prices={prices}
           darkMode={darkMode}
           onClose={() => setShowAdmin(false)}
         />
