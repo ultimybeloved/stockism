@@ -314,11 +314,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         let holdingsValue = 0;
         for (const [ticker, holdingData] of Object.entries(holdings)) {
           const currentPrice = prices[ticker] || 0;
-          const shares = holdingData.shares || 0;
+          // Support both formats: { shares: 5 } or just 5
+          const shares = typeof holdingData === 'number' ? holdingData : (holdingData.shares || 0);
           holdingsValue += currentPrice * shares;
+          console.log(`${userData.displayName}: ${ticker} = ${shares} shares @ $${currentPrice} = $${currentPrice * shares}`);
         }
         
         const newPortfolioValue = Math.round((cash + holdingsValue) * 100) / 100;
+        
+        console.log(`${userData.displayName}: cash=$${cash} + holdings=$${holdingsValue} = $${newPortfolioValue} (was $${userData.portfolioValue})`);
         
         // Only update if different
         if (Math.abs(newPortfolioValue - (userData.portfolioValue || 0)) > 0.01) {
