@@ -2097,7 +2097,7 @@ export default function App() {
               <img 
                 src="/stockism logo.png" 
                 alt="Stockism" 
-                className="h-15 sm:h-15 w-auto"
+                className="h-15 sm:h-13 w-auto"
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
