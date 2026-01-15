@@ -291,6 +291,55 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Recalculate portfolio values for all users
+  const handleRecalculatePortfolios = async () => {
+    if (!prices || Object.keys(prices).length === 0) {
+      showMessage('error', 'No price data available');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      let updated = 0;
+      
+      for (const userDoc of snapshot.docs) {
+        const userData = userDoc.data();
+        const holdings = userData.holdings || {};
+        const cash = userData.cash || 0;
+        
+        // Calculate holdings value
+        let holdingsValue = 0;
+        for (const [ticker, holdingData] of Object.entries(holdings)) {
+          const currentPrice = prices[ticker] || 0;
+          const shares = holdingData.shares || 0;
+          holdingsValue += currentPrice * shares;
+        }
+        
+        const newPortfolioValue = Math.round((cash + holdingsValue) * 100) / 100;
+        
+        // Only update if different
+        if (Math.abs(newPortfolioValue - (userData.portfolioValue || 0)) > 0.01) {
+          await updateDoc(doc(db, 'users', userDoc.id), {
+            portfolioValue: newPortfolioValue
+          });
+          console.log(`Updated ${userData.displayName}: ${userData.portfolioValue} -> ${newPortfolioValue}`);
+          updated++;
+        }
+      }
+      
+      showMessage('success', `Recalculated ${updated} portfolios`);
+      // Reload users to see updated values
+      await handleLoadAllUsers();
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to recalculate: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Filter users by search query
   const handleUserSearch = (query) => {
     setUserSearchQuery(query);
@@ -935,6 +984,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
                 >
                   {loading ? '...' : '🔄 Load'}
+                </button>
+                <button
+                  onClick={handleRecalculatePortfolios}
+                  disabled={loading}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  title="Recalculate all portfolio values based on current prices"
+                >
+                  {loading ? '...' : '📊 Recalc'}
                 </button>
               </div>
 
