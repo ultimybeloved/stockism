@@ -602,7 +602,6 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
             <svg 
               viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
               className="w-full"
-              onMouseLeave={() => setHoveredPoint(null)}
             >
               {/* Grid lines */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
@@ -612,45 +611,82 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
                   <g key={i}>
                     <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
                       stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-                      <text x={paddingX - 8} y={y + 4} textAnchor="end"
-                        fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
-                        ${price.toFixed(0)}
-                      </text>
-                    </g>
-                  );
-                })}
-                <path d={areaPath} fill={fillColor} />
-                <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
-                {currentData.map((point, i) => (
-                  <g key={i}>
-                    <circle cx={getX(i)} cy={getY(point.price)} r="12" fill="transparent"
-                      className="cursor-pointer"
-                      onMouseEnter={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.price) })}
-                      onTouchStart={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.price) })} />
-                    {hoveredPoint?.timestamp === point.timestamp && (
-                      <>
-                        <line x1={getX(i)} y1={paddingY} x2={getX(i)} y2={paddingY + chartHeight}
-                          stroke={darkMode ? '#475569' : '#cbd5e1'} strokeDasharray="4" />
-                        <circle cx={getX(i)} cy={getY(point.price)} r="5" fill={strokeColor}
-                          stroke={darkMode ? '#1e293b' : '#fff'} strokeWidth="2" />
-                      </>
-                    )}
+                    <text x={paddingX - 8} y={y + 4} textAnchor="end"
+                      fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
+                      ${price.toFixed(0)}
+                    </text>
                   </g>
-                ))}
-              </svg>
+                );
+              })}
+              <path d={areaPath} fill={fillColor} />
+              <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
+              
+              {/* Dots for each data point */}
+              {currentData.map((point, i) => {
+                const x = getX(i);
+                const y = getY(point.price);
+                const isHovered = hoveredPoint?.timestamp === point.timestamp;
+                
+                return (
+                  <circle
+                    key={i}
+                    cx={x}
+                    cy={y}
+                    r={isHovered ? 6 : 4}
+                    fill={isHovered ? strokeColor : (darkMode ? '#1e293b' : '#f8fafc')}
+                    stroke={strokeColor}
+                    strokeWidth={2}
+                  />
+                );
+              })}
+              
+              {/* Hover vertical line */}
               {hoveredPoint && (
-                <div className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm ${
+                <line
+                  x1={hoveredPoint.x}
+                  y1={paddingY}
+                  x2={hoveredPoint.x}
+                  y2={paddingY + chartHeight}
+                  stroke={darkMode ? '#475569' : '#cbd5e1'}
+                  strokeDasharray="4"
+                />
+              )}
+            </svg>
+            
+            {/* Invisible hit areas as absolute positioned divs */}
+            {currentData.map((point, i) => {
+              const xPercent = (getX(i) / svgWidth) * 100;
+              const yPercent = (getY(point.price) / svgHeight) * 100;
+              
+              return (
+                <div
+                  key={i}
+                  className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                  style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
+                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.price) })}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  onClick={() => setHoveredPoint(hoveredPoint?.timestamp === point.timestamp ? null : { ...point, x: getX(i), y: getY(point.price) })}
+                />
+              );
+            })}
+            
+            {/* Tooltip */}
+            {hoveredPoint && (
+              <div 
+                className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 ${
                   darkMode ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-900 border'
-                }`} style={{
+                }`}
+                style={{
                   left: `${(hoveredPoint.x / svgWidth) * 100}%`,
                   top: `${(hoveredPoint.y / svgHeight) * 100}%`,
-                  transform: 'translate(-50%, -120%)'
-                }}>
-                  <div className="font-semibold">{formatCurrency(hoveredPoint.price)}</div>
-                  <div className={`text-xs ${mutedClass}`}>{hoveredPoint.fullDate}</div>
-                </div>
-              )}
-            </div>
+                  transform: 'translate(-50%, -130%)'
+                }}
+              >
+                <div className="font-bold text-teal-400">{formatCurrency(hoveredPoint.price)}</div>
+                <div className={`text-xs ${mutedClass}`}>{hoveredPoint.fullDate}</div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Footer */}
@@ -1050,11 +1086,10 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
           </div>
           
           {showChart && (
-            <div className={`px-4 pb-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+            <div className={`px-4 pb-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'} relative`}>
               <svg 
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
                 className="w-full"
-                onMouseLeave={() => setHoveredPoint(null)}
               >
                 {/* Grid lines */}
                 {[0, 0.5, 1].map((ratio, i) => {
@@ -1078,100 +1113,73 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                 {/* Line */}
                 <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
                 
-                {/* Interactive points */}
+                {/* Dots for each data point */}
                 {chartData.map((point, i) => {
                   const x = getX(i);
                   const y = getY(point.value);
                   const isHovered = hoveredPoint === i;
                   
                   return (
-                    <g key={i}>
-                      {/* Invisible larger hit area for easier touch/hover */}
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r={15}
-                        fill="transparent"
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={() => setHoveredPoint(i)}
-                        onTouchStart={() => setHoveredPoint(i)}
-                      />
-                      {/* Visible dot */}
-                      <circle
-                        cx={x}
-                        cy={y}
-                        r={isHovered ? 6 : 3}
-                        fill={isHovered ? strokeColor : (darkMode ? '#1e293b' : '#f8fafc')}
-                        stroke={strokeColor}
-                        strokeWidth={isHovered ? 3 : 2}
-                        style={{ transition: 'all 0.15s ease' }}
-                      />
-                    </g>
+                    <circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r={isHovered ? 6 : 4}
+                      fill={isHovered ? strokeColor : (darkMode ? '#1e293b' : '#f8fafc')}
+                      stroke={strokeColor}
+                      strokeWidth={2}
+                    />
                   );
                 })}
                 
-                {/* Hover tooltip */}
-                {hoveredPoint !== null && chartData[hoveredPoint] && (() => {
-                  const point = chartData[hoveredPoint];
-                  const x = getX(hoveredPoint);
-                  const y = getY(point.value);
-                  const tooltipWidth = 100;
-                  const tooltipHeight = 40;
-                  
-                  // Adjust tooltip position to stay in bounds
-                  let tooltipX = x - tooltipWidth / 2;
-                  if (tooltipX < 5) tooltipX = 5;
-                  if (tooltipX + tooltipWidth > svgWidth - 5) tooltipX = svgWidth - tooltipWidth - 5;
-                  
-                  const tooltipY = y - tooltipHeight - 10;
-                  
-                  return (
-                    <g>
-                      {/* Vertical line */}
-                      <line
-                        x1={x}
-                        y1={paddingY}
-                        x2={x}
-                        y2={paddingY + chartHeight}
-                        stroke={strokeColor}
-                        strokeWidth="1"
-                        strokeDasharray="4,4"
-                        opacity="0.5"
-                      />
-                      {/* Tooltip background */}
-                      <rect
-                        x={tooltipX}
-                        y={tooltipY}
-                        width={tooltipWidth}
-                        height={tooltipHeight}
-                        rx="4"
-                        fill={darkMode ? '#334155' : '#1e293b'}
-                      />
-                      {/* Tooltip value */}
-                      <text
-                        x={tooltipX + tooltipWidth / 2}
-                        y={tooltipY + 16}
-                        textAnchor="middle"
-                        fill="#14b8a6"
-                        fontSize="12"
-                        fontWeight="bold"
-                      >
-                        {formatCurrency(point.value)}
-                      </text>
-                      {/* Tooltip date */}
-                      <text
-                        x={tooltipX + tooltipWidth / 2}
-                        y={tooltipY + 32}
-                        textAnchor="middle"
-                        fill="#94a3b8"
-                        fontSize="9"
-                      >
-                        {point.fullDate}
-                      </text>
-                    </g>
-                  );
-                })()}
+                {/* Hover vertical line */}
+                {hoveredPoint !== null && (
+                  <line
+                    x1={getX(hoveredPoint)}
+                    y1={paddingY}
+                    x2={getX(hoveredPoint)}
+                    y2={paddingY + chartHeight}
+                    stroke={strokeColor}
+                    strokeWidth="1"
+                    strokeDasharray="4,4"
+                    opacity="0.5"
+                  />
+                )}
               </svg>
+              
+              {/* Invisible hit areas as absolute positioned divs */}
+              {chartData.map((point, i) => {
+                const xPercent = (getX(i) / svgWidth) * 100;
+                const yPercent = (getY(point.value) / svgHeight) * 100;
+                
+                return (
+                  <div
+                    key={i}
+                    className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                    style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
+                    onMouseEnter={() => setHoveredPoint(i)}
+                    onMouseLeave={() => setHoveredPoint(null)}
+                    onClick={() => setHoveredPoint(hoveredPoint === i ? null : i)}
+                  />
+                );
+              })}
+              
+              {/* Tooltip */}
+              {hoveredPoint !== null && chartData[hoveredPoint] && (
+                <div 
+                  className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${
+                    darkMode ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white'
+                  }`}
+                  style={{
+                    left: `${(getX(hoveredPoint) / svgWidth) * 100}%`,
+                    top: `${(getY(chartData[hoveredPoint].value) / svgHeight) * 100}%`,
+                    transform: 'translate(-50%, -130%)'
+                  }}
+                >
+                  <div className="font-bold text-teal-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
+                  <div className="text-slate-400">{chartData[hoveredPoint].fullDate}</div>
+                </div>
+              )}
             </div>
           )}
         </div>
