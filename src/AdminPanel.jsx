@@ -309,6 +309,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       return;
     }
 
+    const predId = recoveryPredictionId.trim();
+    
     setLoading(true);
     try {
       // Calculate total pool and winning pool
@@ -317,41 +319,52 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         ? recoveryBets.filter(b => b.option === recoveryWinner).reduce((sum, bet) => sum + bet.amount, 0)
         : 0;
 
+      console.log('Processing recovery:', { action, totalPool, winningPool, recoveryWinner, betsCount: recoveryBets.length });
+
       let processed = 0;
       
       for (const bet of recoveryBets) {
-        if (bet.paid) continue; // Skip already paid bets
+        if (bet.paid) {
+          console.log('Skipping already paid bet:', bet.displayName);
+          continue;
+        }
         
         const userRef = doc(db, 'users', bet.userId);
         
-        if (action === 'refund') {
-          // Refund: give back original bet amount
-          await updateDoc(userRef, {
-            cash: bet.cash + bet.amount,
-            [`bets.${recoveryPredictionId}.paid`]: true,
-            [`bets.${recoveryPredictionId}.payout`]: bet.amount,
-            [`bets.${recoveryPredictionId}.refunded`]: true
-          });
-          processed++;
-        } else if (action === 'payout') {
-          // Payout: winners split the pot
-          if (bet.option === recoveryWinner && winningPool > 0) {
-            const userShare = bet.amount / winningPool;
-            const payout = userShare * totalPool;
+        try {
+          if (action === 'refund') {
+            // Refund: give back original bet amount
             await updateDoc(userRef, {
-              cash: bet.cash + payout,
-              [`bets.${recoveryPredictionId}.paid`]: true,
-              [`bets.${recoveryPredictionId}.payout`]: payout,
-              predictionWins: (await getDoc(userRef)).data()?.predictionWins || 0 + 1
+              cash: bet.cash + bet.amount,
+              [`bets.${predId}.paid`]: true,
+              [`bets.${predId}.payout`]: bet.amount,
+              [`bets.${predId}.refunded`]: true
             });
-          } else {
-            // Losers get nothing but mark as paid
-            await updateDoc(userRef, {
-              [`bets.${recoveryPredictionId}.paid`]: true,
-              [`bets.${recoveryPredictionId}.payout`]: 0
-            });
+            console.log('Refunded:', bet.displayName, bet.amount);
+            processed++;
+          } else if (action === 'payout') {
+            // Payout: winners split the pot
+            if (bet.option === recoveryWinner && winningPool > 0) {
+              const userShare = bet.amount / winningPool;
+              const payout = Math.round(userShare * totalPool * 100) / 100;
+              await updateDoc(userRef, {
+                cash: bet.cash + payout,
+                [`bets.${predId}.paid`]: true,
+                [`bets.${predId}.payout`]: payout
+              });
+              console.log('Paid winner:', bet.displayName, payout);
+            } else {
+              // Losers get nothing but mark as paid
+              await updateDoc(userRef, {
+                [`bets.${predId}.paid`]: true,
+                [`bets.${predId}.payout`]: 0
+              });
+              console.log('Marked loser as paid:', bet.displayName);
+            }
+            processed++;
           }
-          processed++;
+        } catch (userErr) {
+          console.error('Error processing user:', bet.displayName, userErr);
         }
       }
 
