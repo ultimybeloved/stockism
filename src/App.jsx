@@ -41,10 +41,11 @@ const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
 
 // Economy balancing constants - Realistic Market Model
-const BASE_IMPACT = 0.005; // 0.5% base impact per sqrt(share)
+const BASE_IMPACT = 0.003; // 0.3% base impact per sqrt(share) - very gradual
 const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
 const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
 const MIN_PRICE = 0.01; // Minimum price floor
+const MAX_PRICE_CHANGE_PERCENT = 0.02; // Max 2% price change per single trade
 
 // Shorting constants (realistic NYSE-style)
 const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
@@ -346,7 +347,12 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
 const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
   // Square root model: impact = price * base_impact * sqrt(shares / liquidity)
   // This means: 4x the shares = 2x the impact (not 4x)
-  const impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
+  let impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
+  
+  // Cap the impact at MAX_PRICE_CHANGE_PERCENT per trade to prevent manipulation
+  const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+  impact = Math.min(impact, maxImpact);
+  
   return impact;
 };
 
@@ -2543,20 +2549,9 @@ export default function App() {
       if (snap.exists()) {
         setPredictions(snap.data().list || []);
       } else {
-        // Initialize with a sample prediction
-        const samplePrediction = {
-          id: 'pred_1',
-          question: 'Will the fight between Tom Lee and J end this chapter?',
-          options: ['Yes', 'No', 'Fight continues', 'New character appears'],
-          pools: { 'Yes': 0, 'No': 0, 'Fight continues': 0, 'New character appears': 0 },
-          endsAt: Date.now() + (4 * 24 * 60 * 60 * 1000),
-          resolved: false,
-          outcome: null,
-          payoutsProcessed: false,
-          createdAt: Date.now()
-        };
-        setDoc(predictionsRef, { list: [samplePrediction] });
-        setPredictions([samplePrediction]);
+        // No predictions document - just show empty state
+        // Only admins can create predictions via Admin Panel
+        setPredictions([]);
       }
     });
 
