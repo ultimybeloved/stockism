@@ -276,6 +276,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             option: userBet.option,
             amount: userBet.amount,
             paid: userBet.paid || false,
+            payout: userBet.payout || 0,
             cash: userData.cash || 0
           });
           optionsFound.add(userBet.option);
@@ -777,13 +778,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     <h4 className={`font-semibold ${textClass} mb-2`}>Found {recoveryBets.length} Bets</h4>
                     <div className="max-h-48 overflow-y-auto space-y-1">
                       {recoveryBets.map((bet, i) => (
-                        <div key={i} className={`text-sm flex justify-between ${bet.paid ? 'text-slate-500 line-through' : textClass}`}>
-                          <span>{bet.displayName}</span>
+                        <div key={i} className={`text-sm flex justify-between ${bet.paid ? 'text-slate-500' : textClass}`}>
+                          <span className={bet.paid ? 'line-through' : ''}>{bet.displayName}</span>
                           <span>
                             <span className="text-teal-500">${bet.amount}</span>
                             {' on '}
                             <span className="font-semibold">{bet.option}</span>
-                            {bet.paid && <span className="ml-2 text-xs">(paid)</span>}
+                            {bet.paid && (
+                              <span className={`ml-2 text-xs ${bet.payout > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                {bet.payout > 0 ? `(won $${bet.payout.toFixed(2)})` : '(lost)'}
+                              </span>
+                            )}
                           </span>
                         </div>
                       ))}
