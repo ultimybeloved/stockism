@@ -229,7 +229,7 @@ const checkLendingEligibility = (userData) => {
   const peakPortfolioValue = userData.peakPortfolioValue || 0;
   
   const requirements = [
-    { met: totalCheckins >= 14, label: '14+ daily check-ins', current: totalCheckins, required: 14 },
+    { met: totalCheckins >= 7, label: '7+ daily check-ins', current: totalCheckins, required: 7 },
     { met: totalTrades >= 20, label: '20+ total trades', current: totalTrades, required: 20 },
     { met: peakPortfolioValue >= 2500, label: '$2,500+ peak portfolio', current: peakPortfolioValue, required: 2500 }
   ];
