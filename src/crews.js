@@ -8,63 +8,63 @@ export const CREWS = {
     name: 'Allied',
     color: '#FFD700',
     emblem: '🏛️',
-    members: ['ELIT', 'CRYS']
+    members: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN']
   },
   BIG_DEAL: {
     id: 'BIG_DEAL',
     name: 'Big Deal',
     color: '#3B82F6',
     emblem: '🤝',
-    members: ['JAKE', 'SINU', 'BRAD', 'SWRD', 'LOGN']
+    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU']
   },
   FIST_GANG: {
     id: 'FIST_GANG',
     name: 'Fist Gang',
     color: '#EF4444',
     emblem: '👊',
-    members: ['VSCO', 'ZACK', 'JAY', 'BDNL', 'LDNL']
+    members: ['GAP', 'ELIT', 'JYNG', 'TOM']
   },
   GOD_DOG: {
     id: 'GOD_DOG',
     name: 'God Dog',
     color: '#8B5CF6',
     emblem: '🐕',
-    members: ['GDOG', 'XIAO', 'WOLF']
+    members: ['GDOG']
   },
   SECRET_FRIENDS: {
     id: 'SECRET_FRIENDS',
     name: 'Secret Friends',
     color: '#EC4899',
     emblem: '🤫',
-    members: ['MIRA', 'SLLY', 'ZOE', 'CRYS']
+    members: ['GOO', 'LOGN', 'SAM']
   },
   HOSTEL: {
     id: 'HOSTEL',
     name: 'Hostel',
     color: '#F97316',
     emblem: '🏠',
-    members: ['ELI', 'CHAE', 'AHN']
+    members: ['ELI', 'SLLY', 'CHAE']
   },
   WTJC: {
     id: 'WTJC',
     name: 'WTJC',
     color: '#14B8A6',
     emblem: '🐯',
-    members: ['SRMK', 'CAPG']
+    members: ['TOM', 'SRMK']
   },
   WORKERS: {
     id: 'WORKERS',
     name: 'Workers',
     color: '#22C55E',
     emblem: '⚒️',
-    members: ['WRKR', 'JYNG', 'BNGY']
+    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
     name: 'Yamazaki Syndicate',
     color: '#DC2626',
     emblem: '⛩️',
-    members: ['SHNG', 'SHRO', 'NOMN']
+    members: ['GUN', 'SHNG', 'SHRO']
   }
 };
 
