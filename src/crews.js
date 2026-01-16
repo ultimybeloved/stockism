@@ -8,6 +8,7 @@ export const CREWS = {
     name: 'Allied',
     color: '#FFD700',
     emblem: '🏛️',
+    icon: '/crews/allied.png',
     members: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN']
   },
   BIG_DEAL: {
@@ -15,6 +16,7 @@ export const CREWS = {
     name: 'Big Deal',
     color: '#3B82F6',
     emblem: '🤝',
+    icon: '/crews/big deal.png',
     members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU']
   },
   FIST_GANG: {
@@ -22,6 +24,7 @@ export const CREWS = {
     name: 'Fist Gang',
     color: '#EF4444',
     emblem: '👊',
+    icon: '/crews/fist gang.png',
     members: ['GAP', 'ELIT', 'JYNG', 'TOM']
   },
   GOD_DOG: {
@@ -29,6 +32,7 @@ export const CREWS = {
     name: 'God Dog',
     color: '#8B5CF6',
     emblem: '🐕',
+    icon: '/crews/god dog.png',
     members: ['GDOG']
   },
   SECRET_FRIENDS: {
@@ -36,6 +40,7 @@ export const CREWS = {
     name: 'Secret Friends',
     color: '#EC4899',
     emblem: '🤫',
+    icon: '/crews/secret friends.png',
     members: ['GOO', 'LOGN', 'SAM']
   },
   HOSTEL: {
@@ -43,6 +48,7 @@ export const CREWS = {
     name: 'Hostel',
     color: '#F97316',
     emblem: '🏠',
+    icon: '/crews/hostel.png',
     members: ['ELI', 'SLLY', 'CHAE']
   },
   WTJC: {
@@ -50,6 +56,7 @@ export const CREWS = {
     name: 'WTJC',
     color: '#14B8A6',
     emblem: '🐯',
+    icon: '/crews/wtjc.png',
     members: ['TOM', 'SRMK']
   },
   WORKERS: {
@@ -57,6 +64,7 @@ export const CREWS = {
     name: 'Workers',
     color: '#22C55E',
     emblem: '⚒️',
+    icon: '/crews/workers.png',
     members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN']
   },
   YAMAZAKI: {
@@ -64,6 +72,7 @@ export const CREWS = {
     name: 'Yamazaki Syndicate',
     color: '#DC2626',
     emblem: '⛩️',
+    icon: '/crews/yamazaki.png',
     members: ['GUN', 'SHNG', 'SHRO']
   }
 };
