@@ -1371,14 +1371,19 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
               <button
                 key={crew.id}
                 onClick={() => setCrewFilter(crew.id)}
-                className={`px-3 py-1 text-xs rounded-sm font-semibold ${
+                className={`px-3 py-1 text-xs rounded-sm font-semibold flex items-center gap-1 ${
                   crewFilter === crew.id 
                     ? 'text-white' 
                     : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
                 }`}
                 style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
               >
-                {crew.emblem} {crew.name}
+                {crew.icon ? (
+                  <img src={crew.icon} alt="" className="w-4 h-4 object-contain" />
+                ) : (
+                  crew.emblem
+                )}
+                {crew.name}
               </button>
             ))}
           </div>
@@ -1651,6 +1656,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
   
   const pins = [];
   const sizeClass = size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base';
+  const imgSize = size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6';
   
   // Crew pin - ALWAYS shown if user is Crew Head, otherwise optional based on displayCrewPin
   if (userData.crew) {
@@ -1661,8 +1667,12 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
       const shouldShowCrewPin = isCrewHead || userData.displayCrewPin !== false;
       if (shouldShowCrewPin) {
         pins.push(
-          <span key="crew" title={`${crew.name}${isCrewHead ? ' (Crew Head)' : ''}`} className={sizeClass}>
-            {isCrewHead ? '👑' : crew.emblem}
+          <span key="crew" title={`${crew.name}${isCrewHead ? ' (Crew Head)' : ''}`} className={`inline-flex items-center ${sizeClass}`}>
+            {isCrewHead ? '👑' : (
+              crew.icon ? (
+                <img src={crew.icon} alt={crew.name} className={`${imgSize} object-contain`} />
+              ) : crew.emblem
+            )}
           </span>
         );
       }
@@ -1697,7 +1707,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
   
   if (pins.length === 0) return null;
   
-  return <span className="inline-flex gap-0.5 ml-1">{pins}</span>;
+  return <span className="inline-flex items-center gap-0.5 ml-1">{pins}</span>;
 };
 
 // ============================================
@@ -1798,7 +1808,13 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
           </div>
         ) : confirming ? (
           <div className="p-6 text-center">
-            <div className="text-4xl mb-4">{CREW_MAP[selectedCrew]?.emblem}</div>
+            <div className="mb-4">
+              {CREW_MAP[selectedCrew]?.icon ? (
+                <img src={CREW_MAP[selectedCrew]?.icon} alt={CREW_MAP[selectedCrew]?.name} className="w-16 h-16 object-contain mx-auto" />
+              ) : (
+                <span className="text-4xl">{CREW_MAP[selectedCrew]?.emblem}</span>
+              )}
+            </div>
             <h3 className={`text-xl font-bold mb-2 ${textClass}`} style={{ color: CREW_MAP[selectedCrew]?.color }}>
               {currentCrew ? `Switch to ${CREW_MAP[selectedCrew]?.name}?` : `Join ${CREW_MAP[selectedCrew]?.name}?`}
             </h3>
@@ -1870,7 +1886,11 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
                   }`}
                 >
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-2xl">{crew.emblem}</span>
+                    {crew.icon ? (
+                      <img src={crew.icon} alt={crew.name} className="w-8 h-8 object-contain" />
+                    ) : (
+                      <span className="text-2xl">{crew.emblem}</span>
+                    )}
                     <span className={`font-bold ${textClass}`} style={{ color: crew.color }}>
                       {crew.name}
                     </span>
@@ -2065,13 +2085,17 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                   ) : (
                     <button
                       onClick={() => onPurchase('toggleCrewPin', !userData.displayCrewPin, 0)}
-                      className={`px-3 py-2 rounded-sm border ${
+                      className={`px-3 py-2 rounded-sm border flex items-center ${
                         userData.displayCrewPin !== false
                           ? 'border-teal-500 bg-teal-500/10' 
                           : darkMode ? 'border-slate-600' : 'border-slate-300'
                       }`}
                     >
-                      <span className="mr-1">{CREW_MAP[userData.crew]?.emblem}</span>
+                      {CREW_MAP[userData.crew]?.icon ? (
+                        <img src={CREW_MAP[userData.crew]?.icon} alt="" className="w-5 h-5 object-contain mr-1" />
+                      ) : (
+                        <span className="mr-1">{CREW_MAP[userData.crew]?.emblem}</span>
+                      )}
                       <span className={`text-sm ${textClass}`}>{CREW_MAP[userData.crew]?.name}</span>
                       {userData.displayCrewPin !== false && <span className="text-xs text-teal-500 ml-2">✓ Displayed</span>}
                     </button>
@@ -2287,8 +2311,13 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
               
               {/* Crew member hint */}
               <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-100'}`}>
-                <p className={`text-xs ${mutedClass}`}>
-                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem} {CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
+                  {CREW_MAP[userCrew]?.icon ? (
+                    <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
+                  ) : (
+                    <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
+                  )}
+                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>
@@ -4524,9 +4553,18 @@ export default function App() {
             </button>
             {!isGuest && (
               <button onClick={() => setShowCrewSelection(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}
+                className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}
                 style={userData?.crew ? { borderColor: CREW_MAP[userData.crew]?.color, color: CREW_MAP[userData.crew]?.color } : {}}>
-                {userData?.crew ? `${CREW_MAP[userData.crew]?.emblem} ${CREW_MAP[userData.crew]?.name}` : '🏴 Join Crew'}
+                {userData?.crew ? (
+                  <>
+                    {CREW_MAP[userData.crew]?.icon ? (
+                      <img src={CREW_MAP[userData.crew]?.icon} alt="" className="w-4 h-4 object-contain" />
+                    ) : (
+                      CREW_MAP[userData.crew]?.emblem
+                    )}
+                    {CREW_MAP[userData.crew]?.name}
+                  </>
+                ) : '🏴 Join Crew'}
               </button>
             )}
             {!isGuest && (
