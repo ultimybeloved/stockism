@@ -1730,13 +1730,13 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
           )}
         </div>
 
-        {/* Warning Banner for switching/leaving - only show if user has a crew */}
-        {currentCrew && !confirming && !leavingCrew && (
-          <div className={`p-3 ${darkMode ? 'bg-red-900/30' : 'bg-red-100'} border-b border-red-500/30`}>
-            <p className="text-red-400 text-sm text-center">
-              ⚠️ <strong>Warning:</strong> Leaving or switching crews costs <strong>50% of your entire portfolio</strong> (~{formatCurrency(penaltyAmount)})
+        {/* Warning Banner - show for users without a crew AND users with a crew */}
+        {!confirming && !leavingCrew && (
+          <div className={`p-3 ${darkMode ? 'bg-amber-900/30' : 'bg-amber-100'} border-b border-amber-500/30`}>
+            <p className="text-amber-400 text-sm text-center">
+              ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>50% of your entire portfolio</strong>
               <br />
-              <span className={`text-xs ${mutedClass}`}>Half your cash and half your shares will be taken.</span>
+              <span className={`text-xs ${mutedClass}`}>Half your cash and half your shares will be taken if you ever leave.</span>
             </p>
           </div>
         )}
@@ -1787,9 +1787,19 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
                 </p>
               </div>
             ) : (
-              <p className={`text-sm ${mutedClass} mb-4`}>
-                Joining a crew is free!
-              </p>
+              <div className="mb-4">
+                <p className={`text-sm text-teal-500 mb-3`}>
+                  ✓ Joining a crew is free!
+                </p>
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}>
+                  <p className="text-amber-400 text-sm">
+                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose <strong>50% of your portfolio</strong>.
+                  </p>
+                  <p className={`text-xs ${mutedClass} mt-1`}>
+                    You don't have to join a crew — this is optional!
+                  </p>
+                </div>
+              </div>
             )}
             
             <div className="flex gap-3 justify-center">
