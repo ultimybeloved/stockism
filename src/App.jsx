@@ -1689,7 +1689,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
   
   const currentCrew = userData?.crew;
   const portfolioValue = userData?.portfolioValue || 0;
-  const switchCost = Math.floor(portfolioValue * 0.5);
+  const penaltyAmount = Math.floor(portfolioValue * 0.5);
   
   const handleSelect = (crewId) => {
     if (crewId === currentCrew) return;
@@ -1698,17 +1698,18 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
   };
   
   const handleConfirm = () => {
-    onSelect(selectedCrew, isInitialSelection ? 0 : switchCost);
+    // Pass true if switching crews (has existing crew), false if initial selection
+    onSelect(selectedCrew, !isInitialSelection && currentCrew);
     onClose();
   };
 
   const handleLeave = () => {
-    onLeave(switchCost);
+    onLeave();
     onClose();
   };
   
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={isInitialSelection ? undefined : onClose}>
       <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
@@ -1724,7 +1725,6 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
           {!isInitialSelection && currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1`}>
               Current: <span style={{ color: CREW_MAP[currentCrew]?.color }}>{CREW_MAP[currentCrew]?.emblem} {CREW_MAP[currentCrew]?.name}</span>
-              {' • '}Leaving or switching costs <span className="text-red-400">{formatCurrency(switchCost)}</span> (50% of portfolio)
             </p>
           )}
           {isInitialSelection && (
@@ -1733,15 +1733,31 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
             </p>
           )}
         </div>
+
+        {/* Warning Banner for switching/leaving */}
+        {!isInitialSelection && currentCrew && !confirming && !leavingCrew && (
+          <div className={`p-3 ${darkMode ? 'bg-red-900/30' : 'bg-red-100'} border-b border-red-500/30`}>
+            <p className="text-red-400 text-sm text-center">
+              ⚠️ <strong>Warning:</strong> Leaving or switching crews costs <strong>50% of your entire portfolio</strong> (~{formatCurrency(penaltyAmount)})
+              <br />
+              <span className={`text-xs ${mutedClass}`}>Half your cash and half your shares will be taken.</span>
+            </p>
+          </div>
+        )}
         
         {leavingCrew ? (
           <div className="p-6 text-center">
             <div className="text-4xl mb-4">🚪</div>
             <h3 className={`text-xl font-bold mb-2 ${textClass}`}>Leave {CREW_MAP[currentCrew]?.name}?</h3>
-            <p className="text-red-400 mb-4">
-              This will cost you <span className="font-bold">{formatCurrency(switchCost)}</span>
-            </p>
-            <p className={`text-sm ${mutedClass} mb-6`}>You can rejoin any crew later (for another 50% cost).</p>
+            <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}>
+              <p className="text-red-400 font-semibold mb-2">
+                You will lose approximately {formatCurrency(penaltyAmount)}
+              </p>
+              <p className={`text-xs ${mutedClass}`}>
+                Half of your cash and half of each stock you own will be taken.
+              </p>
+            </div>
+            <p className={`text-sm ${mutedClass} mb-6`}>You can rejoin any crew later (for another 50% penalty).</p>
             
             <div className="flex gap-3 justify-center">
               <button
@@ -1762,12 +1778,23 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
           <div className="p-6 text-center">
             <div className="text-4xl mb-4">{CREW_MAP[selectedCrew]?.emblem}</div>
             <h3 className={`text-xl font-bold mb-2 ${textClass}`} style={{ color: CREW_MAP[selectedCrew]?.color }}>
-              {CREW_MAP[selectedCrew]?.name}
+              {isInitialSelection ? `Join ${CREW_MAP[selectedCrew]?.name}?` : `Switch to ${CREW_MAP[selectedCrew]?.name}?`}
             </h3>
             
-            {!isInitialSelection && switchCost > 0 && (
-              <p className="text-red-400 mb-4">
-                This will cost you <span className="font-bold">{formatCurrency(switchCost)}</span>
+            {!isInitialSelection && currentCrew && (
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}>
+                <p className="text-red-400 font-semibold mb-2">
+                  You will lose approximately {formatCurrency(penaltyAmount)}
+                </p>
+                <p className={`text-xs ${mutedClass}`}>
+                  Half of your cash and half of each stock you own will be taken.
+                </p>
+              </div>
+            )}
+
+            {isInitialSelection && (
+              <p className={`text-sm ${mutedClass} mb-4`}>
+                Your first crew is free to join!
               </p>
             )}
             
@@ -3343,7 +3370,7 @@ export default function App() {
   }, []);
 
   // Handle crew selection
-  const handleCrewSelect = useCallback(async (crewId, cost) => {
+  const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
     
     try {
@@ -3353,60 +3380,112 @@ export default function App() {
         crewJoinedAt: Date.now()
       };
       
-      // Deduct cost if switching crews
-      if (cost > 0) {
-        updateData.cash = userData.cash - cost;
-        // Also update portfolio value
-        const newPortfolioValue = userData.portfolioValue - cost;
-        updateData.portfolioValue = newPortfolioValue;
+      // If switching crews (not initial selection), take 50% penalty
+      if (isSwitch && userData.crew) {
+        // Take half of cash and half of each holding
+        const newCash = Math.floor(userData.cash / 2);
+        const cashTaken = userData.cash - newCash;
+        
+        const newHoldings = {};
+        let holdingsValueTaken = 0;
+        
+        Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
+          if (shares > 0) {
+            const sharesToTake = Math.ceil(shares / 2);
+            const sharesToKeep = shares - sharesToTake;
+            newHoldings[ticker] = sharesToKeep;
+            holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+          }
+        });
+        
+        const totalTaken = cashTaken + holdingsValueTaken;
+        
+        updateData.cash = newCash;
+        updateData.holdings = newHoldings;
+        updateData.portfolioValue = Math.max(0, userData.portfolioValue - totalTaken);
+        
+        const crew = CREW_MAP[crewId];
+        await updateDoc(userRef, updateData);
+        setNeedsCrewSelection(false);
+        
+        setNotification({ 
+          type: 'success', 
+          message: `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (50% penalty)`
+        });
+      } else {
+        // Initial selection - no cost
+        await updateDoc(userRef, updateData);
+        setNeedsCrewSelection(false);
+        
+        const crew = CREW_MAP[crewId];
+        setNotification({ 
+          type: 'success', 
+          message: `Welcome to ${crew.name}! ${crew.emblem}`
+        });
       }
       
-      await updateDoc(userRef, updateData);
-      setNeedsCrewSelection(false);
-      
-      const crew = CREW_MAP[crewId];
-      setNotification({ 
-        type: 'success', 
-        message: cost > 0 
-          ? `Switched to ${crew.name} for ${formatCurrency(cost)}!`
-          : `Welcome to ${crew.name}! ${crew.emblem}`
-      });
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       console.error('Failed to select crew:', err);
       setNotification({ type: 'error', message: 'Failed to join crew' });
       setTimeout(() => setNotification(null), 3000);
     }
-  }, [user, userData]);
+  }, [user, userData, prices]);
 
   // Handle leaving crew
-  const handleCrewLeave = useCallback(async (cost) => {
+  const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
     
     try {
       const userRef = doc(db, 'users', user.uid);
       const oldCrew = CREW_MAP[userData.crew];
       
-      await updateDoc(userRef, {
+      // Calculate 50% penalty from portfolio
+      // Take half of cash and half of each holding
+      const newCash = Math.floor(userData.cash / 2);
+      const cashTaken = userData.cash - newCash;
+      
+      const newHoldings = {};
+      const holdingsTaken = {};
+      let holdingsValueTaken = 0;
+      
+      Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
+        if (shares > 0) {
+          const sharesToTake = Math.ceil(shares / 2); // Take half (round up)
+          const sharesToKeep = shares - sharesToTake;
+          newHoldings[ticker] = sharesToKeep;
+          holdingsTaken[ticker] = sharesToTake;
+          holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+        }
+      });
+      
+      const totalTaken = cashTaken + holdingsValueTaken;
+      const newPortfolioValue = userData.portfolioValue - totalTaken;
+      
+      // Also update cost basis for remaining shares
+      const updateData = {
         crew: null,
         crewJoinedAt: null,
         isCrewHead: false,
         crewHeadColor: null,
-        cash: userData.cash - cost,
-        portfolioValue: userData.portfolioValue - cost
-      });
+        cash: newCash,
+        holdings: newHoldings,
+        portfolioValue: Math.max(0, newPortfolioValue)
+      };
+      
+      await updateDoc(userRef, updateData);
       
       setNotification({ 
         type: 'success', 
-        message: `Left ${oldCrew?.name || 'crew'} for ${formatCurrency(cost)}`
+        message: `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (50% penalty)`
       });
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
       console.error('Failed to leave crew:', err);
       setNotification({ type: 'error', message: 'Failed to leave crew' });
       setTimeout(() => setNotification(null), 3000);
     }
-  }, [user, userData]);
+  }, [user, userData, prices]);
 
   // Handle pin shop purchases and updates
   const handlePinAction = useCallback(async (action, payload, cost) => {
