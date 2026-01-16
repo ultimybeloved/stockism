@@ -28,7 +28,7 @@ export const CHARACTERS = [
   { name: "Gongseop Ji", ticker: "GONG", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-13T00:23:00" },
   { name: "Seongji Yuk", ticker: "6KNG", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:24:00" },
   { name: "Lang Jin", ticker: "WOLF", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:25:00" },
-  { name: "J", ticker: "J", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:26:00" },
+  { name: "J", ticker: "COP", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:26:00" },
   { name: "Vin Jin", ticker: "VIN", basePrice: 57, volatility: 0.045, dateAdded: "2026-01-13T00:27:00" },
   { name: "Vasco", ticker: "VSCO", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:28:00" },
   { name: "Zack Lee", ticker: "ZACK", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:29:00" },
