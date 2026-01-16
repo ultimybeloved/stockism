@@ -1614,7 +1614,7 @@ const AboutModal = ({ onClose, darkMode }) => {
       </div>
     </div>
   );
-}};
+};
 
 // ============================================
 // PIN DISPLAY COMPONENT
@@ -1626,16 +1626,20 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
   const pins = [];
   const sizeClass = size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base';
   
-  // Crew pin
+  // Crew pin - ALWAYS shown if user is Crew Head, otherwise optional based on displayCrewPin
   if (userData.crew) {
     const crew = CREW_MAP[userData.crew];
     if (crew) {
       const isCrewHead = userData.isCrewHead;
-      pins.push(
-        <span key="crew" title={`${crew.name}${isCrewHead ? ' (Crew Head)' : ''}`} className={sizeClass}>
-          {isCrewHead ? '👑' : crew.emblem}
-        </span>
-      );
+      // Crew Heads must always display their crew pin, others can toggle
+      const shouldShowCrewPin = isCrewHead || userData.displayCrewPin !== false;
+      if (shouldShowCrewPin) {
+        pins.push(
+          <span key="crew" title={`${crew.name}${isCrewHead ? ' (Crew Head)' : ''}`} className={sizeClass}>
+            {isCrewHead ? '👑' : crew.emblem}
+          </span>
+        );
+      }
     }
   }
   
@@ -1954,6 +1958,33 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
           
           {activeTab === 'manage' && (
             <div className="space-y-6">
+              {/* Crew Pin Toggle */}
+              {userData?.crew && (
+                <div>
+                  <h3 className={`font-semibold ${textClass} mb-2`}>Crew Pin</h3>
+                  {userData?.isCrewHead ? (
+                    <div className={`p-3 rounded-sm border border-yellow-500 bg-yellow-500/10`}>
+                      <span className="text-xl mr-2">👑</span>
+                      <span className={textClass}>Crew Head pin (always displayed)</span>
+                      <p className={`text-xs ${mutedClass} mt-1`}>As Crew Head, your crown is always visible!</p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onPurchase('toggleCrewPin', !userData.displayCrewPin, 0)}
+                      className={`px-3 py-2 rounded-sm border ${
+                        userData.displayCrewPin !== false
+                          ? 'border-teal-500 bg-teal-500/10' 
+                          : darkMode ? 'border-slate-600' : 'border-slate-300'
+                      }`}
+                    >
+                      <span className="mr-1">{CREW_MAP[userData.crew]?.emblem}</span>
+                      <span className={`text-sm ${textClass}`}>{CREW_MAP[userData.crew]?.name}</span>
+                      {userData.displayCrewPin !== false && <span className="text-xs text-teal-500 ml-2">✓ Displayed</span>}
+                    </button>
+                  )}
+                </div>
+              )}
+              
               {/* Displayed Shop Pins */}
               <div>
                 <h3 className={`font-semibold ${textClass} mb-2`}>
@@ -3339,6 +3370,12 @@ export default function App() {
       } else if (action === 'setAchievementPins') {
         // Update displayed achievement pins
         await updateDoc(userRef, { displayedAchievementPins: payload });
+        
+      } else if (action === 'toggleCrewPin') {
+        // Toggle crew pin visibility (only for non-Crew Heads)
+        if (!userData.isCrewHead) {
+          await updateDoc(userRef, { displayCrewPin: payload });
+        }
         
       } else if (action === 'buySlot') {
         // Buy extra slot
