@@ -1409,11 +1409,8 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
                         </span>
                         <PinDisplay userData={leader} size="sm" />
                       </div>
-                      <div className={`text-xs ${mutedClass} flex items-center gap-2`}>
-                        {crew && (
-                          <span style={{ color: crew.color }}>{crew.emblem} {crew.name}</span>
-                        )}
-                        <span>{Object.keys(leader.holdings || {}).filter(k => leader.holdings[k] > 0).length} characters</span>
+                      <div className={`text-xs ${mutedClass}`}>
+                        {Object.keys(leader.holdings || {}).filter(k => leader.holdings[k] > 0).length} characters
                       </div>
                     </div>
                     <div className="text-right">
