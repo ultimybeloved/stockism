@@ -6,74 +6,64 @@ export const CREWS = {
   ALLIED: {
     id: 'ALLIED',
     name: 'Allied',
-    color: '#FFD700', // Gold
+    color: '#FFD700',
     emblem: '🏛️',
-    description: 'The corporate elite',
-    // Characters associated with this crew (for dividend bonuses)
     members: ['ELIT', 'CRYS']
   },
   BIG_DEAL: {
     id: 'BIG_DEAL',
     name: 'Big Deal',
-    color: '#3B82F6', // Blue
+    color: '#3B82F6',
     emblem: '🤝',
-    description: 'Strength in unity',
     members: ['JAKE', 'SINU', 'BRAD', 'SWRD', 'LOGN']
   },
   FIST_GANG: {
     id: 'FIST_GANG',
     name: 'Fist Gang',
-    color: '#EF4444', // Red
+    color: '#EF4444',
     emblem: '👊',
-    description: 'Rule with an iron fist',
     members: ['VSCO', 'ZACK', 'JAY', 'BDNL', 'LDNL']
   },
   GOD_DOG: {
     id: 'GOD_DOG',
     name: 'God Dog',
-    color: '#8B5CF6', // Purple
+    color: '#8B5CF6',
     emblem: '🐕',
-    description: 'Loyalty above all',
     members: ['GDOG', 'XIAO', 'WOLF']
   },
   SECRET_FRIENDS: {
     id: 'SECRET_FRIENDS',
     name: 'Secret Friends',
-    color: '#EC4899', // Pink
+    color: '#EC4899',
     emblem: '🤫',
-    description: 'Hidden bonds',
     members: ['MIRA', 'SLLY', 'ZOE', 'CRYS']
   },
   HOSTEL: {
     id: 'HOSTEL',
     name: 'Hostel',
-    color: '#F97316', // Orange
+    color: '#F97316',
     emblem: '🏠',
-    description: 'Family forged in fire',
     members: ['ELI', 'CHAE', 'AHN']
   },
   WTJC: {
     id: 'WTJC',
     name: 'WTJC',
-    color: '#14B8A6', // Teal
+    color: '#14B8A6',
     emblem: '🐯',
-    description: 'White Tiger Job Center',
     members: ['SRMK', 'CAPG']
   },
   WORKERS: {
     id: 'WORKERS',
     name: 'Workers',
-    color: '#22C55E', // Green
+    color: '#22C55E',
     emblem: '⚒️',
-    description: 'Built from the ground up',
     members: ['WRKR', 'JYNG', 'BNGY']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
     name: 'Yamazaki Syndicate',
-    color: '#DC2626', // Dark Red
+    color: '#DC2626',
     emblem: '⛩️',
-    description: 'The Japanese empire',
     members: ['SHNG', 'SHRO', 'NOMN']
   }
 };
