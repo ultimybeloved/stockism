@@ -210,14 +210,14 @@ export const DAILY_MISSIONS = {
     id: 'BUY_CREW_MEMBER',
     name: 'Crew Support',
     description: 'Buy shares of any crew member',
-    reward: 50,
+    reward: 150,
     checkType: 'BUY_CREW'
   },
   HOLD_CREW_SHARES: {
     id: 'HOLD_CREW_SHARES',
     name: 'Loyal Holder',
     description: 'Hold 10+ shares of crew members',
-    reward: 25,
+    reward: 75,
     checkType: 'HOLD_CREW',
     requirement: 10
   },
@@ -225,7 +225,7 @@ export const DAILY_MISSIONS = {
     id: 'MAKE_TRADES',
     name: 'Active Trader',
     description: 'Make 3 trades today',
-    reward: 30,
+    reward: 100,
     checkType: 'TRADE_COUNT',
     requirement: 3
   }
