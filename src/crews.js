@@ -17,7 +17,7 @@ export const CREWS = {
     color: '#3B82F6',
     emblem: '🤝',
     icon: '/crews/big deal.png',
-    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU']
+    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH']
   },
   FIST_GANG: {
     id: 'FIST_GANG',
@@ -25,7 +25,7 @@ export const CREWS = {
     color: '#EF4444',
     emblem: '👊',
     icon: '/crews/fist gang.png',
-    members: ['GAP', 'ELIT', 'JYNG', 'TOM']
+    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL']
   },
   GOD_DOG: {
     id: 'GOD_DOG',
@@ -41,7 +41,7 @@ export const CREWS = {
     color: '#EC4899',
     emblem: '🤫',
     icon: '/crews/secret friends.png',
-    members: ['GOO', 'LOGN', 'SAM']
+    members: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN']
   },
   HOSTEL: {
     id: 'HOSTEL',
@@ -49,7 +49,7 @@ export const CREWS = {
     color: '#F97316',
     emblem: '🏠',
     icon: '/crews/hostel.png',
-    members: ['ELI', 'SLLY', 'CHAE']
+    members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN']
   },
   WTJC: {
     id: 'WTJC',
@@ -57,7 +57,7 @@ export const CREWS = {
     color: '#14B8A6',
     emblem: '🐯',
     icon: '/crews/wtjc.png',
-    members: ['TOM', 'SRMK']
+    members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA']
   },
   WORKERS: {
     id: 'WORKERS',
@@ -65,7 +65,7 @@ export const CREWS = {
     color: '#22C55E',
     emblem: '⚒️',
     icon: '/crews/workers.png',
-    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN']
+    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
@@ -73,7 +73,7 @@ export const CREWS = {
     color: '#DC2626',
     emblem: '⛩️',
     icon: '/crews/yamazaki.png',
-    members: ['GUN', 'SHNG', 'SHRO']
+    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO']
   }
 };
 
