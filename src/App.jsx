@@ -22,7 +22,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db } from './firebase';
+import { auth, googleProvider, db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE } from './crews';
 import AdminPanel from './AdminPanel';
@@ -3250,26 +3250,6 @@ const LoginModal = ({ onClose, darkMode }) => {
     setLoading(false);
   };
 
-  const handleTwitterSignIn = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      await signInWithPopup(auth, twitterProvider);
-      onClose();
-    } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user') {
-        // User closed popup, not an error
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError('Domain not authorized. Please add this domain to Firebase Auth settings.');
-      } else if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with this email. Try signing in with Google instead.');
-      } else {
-        setError(err.message);
-      }
-    }
-    setLoading(false);
-  };
-
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -3329,7 +3309,7 @@ const LoginModal = ({ onClose, darkMode }) => {
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className={`w-full py-2.5 px-4 rounded-sm border flex items-center justify-center gap-2 mb-3 ${
+          className={`w-full py-2.5 px-4 rounded-sm border flex items-center justify-center gap-2 mb-4 ${
             darkMode ? 'border-zinc-700 text-slate-200 hover:bg-zinc-800' : 'border-amber-200 text-slate-700 hover:bg-amber-50'
           } disabled:opacity-50`}
         >
@@ -3340,20 +3320,6 @@ const LoginModal = ({ onClose, darkMode }) => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Continue with Google
-        </button>
-
-        {/* Twitter/X Sign In */}
-        <button
-          onClick={handleTwitterSignIn}
-          disabled={loading}
-          className={`w-full py-2.5 px-4 rounded-sm border flex items-center justify-center gap-2 mb-4 ${
-            darkMode ? 'border-zinc-700 text-slate-200 hover:bg-zinc-800' : 'border-amber-200 text-slate-700 hover:bg-amber-50'
-          } disabled:opacity-50`}
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-          </svg>
-          Continue with X
         </button>
 
         <div className={`flex items-center gap-3 mb-4 ${mutedClass}`}>
