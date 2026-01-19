@@ -346,14 +346,6 @@ export const DAILY_MISSIONS = {
     reward: 75,
     checkType: 'UNDERDOG_INVESTOR'
   },
-  WHALE_WATCH: {
-    id: 'WHALE_WATCH',
-    name: 'Whale Watch',
-    description: 'Own 50+ shares of any single character',
-    reward: 150,
-    checkType: 'WHALE_WATCH',
-    requirement: 50
-  },
   
   // ============================================
   // CREW VALUE (2)
