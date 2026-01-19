@@ -112,12 +112,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       
       if (snap.exists()) {
         const data = snap.data();
-        const currentHistory = data.priceHistory?.[selectedTicker] || [];
+        let currentHistory = data.priceHistory?.[selectedTicker] || [];
+        
+        // If no history exists, add the current price as the first entry
+        if (currentHistory.length === 0 && currentPrice) {
+          currentHistory = [{ timestamp: now - 1000, price: currentPrice }]; // 1 second before
+        }
         
         console.log('Current history length for', selectedTicker, ':', currentHistory.length);
         console.log('Last entry:', currentHistory[currentHistory.length - 1]);
         
-        // Add to price history for natural chart appearance
+        // Add new price to history
         const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
         // Keep last 1000 entries
         const trimmedHistory = updatedHistory.slice(-1000);
