@@ -19,7 +19,8 @@ import {
   getDocs,
   increment,
   serverTimestamp,
-  arrayUnion
+  arrayUnion,
+  deleteField
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -86,7 +87,7 @@ const ACHIEVEMENTS = {
     id: 'BULL_RUN',
     name: 'Bull Run',
     emoji: '📈',
-    description: 'Sell a stock for 50%+ profit',
+    description: 'Sell a stock for 25%+ profit',
     hint: 'Buy low, sell high'
   },
   DIAMOND_HANDS: {
@@ -341,9 +342,14 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
     newAchievements.push('COLD_BLOODED');
   }
   
-  // Bull Run achievement (sell for 50%+ profit)
-  if (context.sellProfitPercent && context.sellProfitPercent >= 50 && !currentAchievements.includes('BULL_RUN')) {
+  // Bull Run achievement (sell for 25%+ profit)
+  if (context.sellProfitPercent && context.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) {
     newAchievements.push('BULL_RUN');
+  }
+  
+  // Diamond Hands achievement (held through 30%+ dip and sold at profit)
+  if (context.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) {
+    newAchievements.push('DIAMOND_HANDS');
   }
   
   // Update peak portfolio value
@@ -581,10 +587,10 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
   const strokeColor = isUp ? '#22c55e' : '#ef4444';
   const fillColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
-  const bgClass = darkMode ? 'bg-slate-900' : 'bg-slate-50';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -593,11 +599,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-teal-600 font-mono text-lg font-semibold">${character.ticker}</span>
+                <span className="text-orange-600 font-mono text-lg font-semibold">${character.ticker}</span>
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
@@ -607,12 +613,12 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
                 </span>
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
         </div>
 
         {/* Time Range Selector */}
-        <div className={`px-4 py-2 border-b ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+        <div className={`px-4 py-2 border-b ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
           <div className="flex gap-1">
             {timeRanges.map(range => (
               <button
@@ -620,10 +626,10 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
                 onClick={() => setTimeRange(range.key)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                   timeRange === range.key
-                    ? 'bg-teal-600 text-white'
+                    ? 'bg-orange-600 text-white'
                     : darkMode
-                      ? 'text-slate-400 hover:bg-slate-700'
-                      : 'text-slate-600 hover:bg-slate-200'
+                      ? 'text-zinc-400 hover:bg-zinc-800'
+                      : 'text-zinc-600 hover:bg-slate-200'
                 }`}
               >
                 {range.label}
@@ -710,7 +716,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
             {hoveredPoint && (
               <div 
                 className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 ${
-                  darkMode ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-900 border'
+                  darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-white text-slate-900 border'
                 }`}
                 style={{
                   left: `${(hoveredPoint.x / svgWidth) * 100}%`,
@@ -718,7 +724,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
                   transform: 'translate(-50%, -130%)'
                 }}
               >
-                <div className="font-bold text-teal-400">{formatCurrency(hoveredPoint.price)}</div>
+                <div className="font-bold text-orange-400">{formatCurrency(hoveredPoint.price)}</div>
                 <div className={`text-xs ${mutedClass}`}>{hoveredPoint.fullDate}</div>
               </div>
             )}
@@ -726,7 +732,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }
         </div>
 
         {/* Stats Footer */}
-        <div className={`p-4 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Open</div>
@@ -768,9 +774,9 @@ const getWeekStart = () => {
 };
 
 const NewCharactersBoard = ({ prices, priceHistory, darkMode }) => {
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const weekStart = getWeekStart();
   
@@ -806,7 +812,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode }) => {
           const price = prices[char.ticker] || char.basePrice;
           const change = getWeeklyChange(char.ticker);
           return (
-            <div key={char.ticker} className={`flex items-center justify-between py-1 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} last:border-0`}>
+            <div key={char.ticker} className={`flex items-center justify-between py-1 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} last:border-0`}>
               <div className="min-w-0 flex-1">
                 <span className={`text-sm font-semibold ${textClass}`}>{char.name}</span>
                 <span className={`text-xs ${mutedClass} ml-1`}>${char.ticker}</span>
@@ -834,9 +840,9 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const timeRemaining = prediction.endsAt - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
@@ -885,7 +891,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🔮</span>
-            <span className={`text-xs font-semibold uppercase ${isActive ? 'text-teal-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}>
+            <span className={`text-xs font-semibold uppercase ${isActive ? 'text-orange-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}>
               {isActive ? 'Active' : prediction.resolved ? 'Resolved' : 'Ended'}
             </span>
           </div>
@@ -893,7 +899,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
         </div>
         <div className="text-right">
           <div className={`text-xs ${mutedClass}`}>{isActive ? 'Ends in' : 'Ended'}</div>
-          <div className={`text-sm font-semibold ${isActive ? 'text-teal-500' : mutedClass}`}>
+          <div className={`text-sm font-semibold ${isActive ? 'text-orange-500' : mutedClass}`}>
             {isActive ? formatTimeRemaining(timeRemaining) : '—'}
           </div>
         </div>
@@ -911,7 +917,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
                 <div className={`w-32 sm:w-40 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
                   {option} {isWinner && '✓'}
                 </div>
-                <div className="flex-1 h-4 bg-slate-700 rounded-sm overflow-hidden">
+                <div className="flex-1 h-4 bg-zinc-800 rounded-sm overflow-hidden">
                   <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${percent}%` }} />
                 </div>
                 <div className={`w-10 text-xs text-right ${mutedClass}`}>{percent}%</div>
@@ -922,9 +928,9 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
       </div>
 
       {userBet && (
-        <div className={`mb-3 p-2 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+        <div className={`mb-3 p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
           <div className={`text-xs ${mutedClass}`}>Your bet</div>
-          <div className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-teal-500'}`}>
+          <div className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}>
             {formatCurrency(userBet.amount)} on "{userBet.option}"
           </div>
           {prediction.resolved && (
@@ -939,7 +945,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
         <>
           {!showBetUI ? (
             <button onClick={() => setShowBetUI(true)}
-              className="w-full py-2 text-sm font-semibold uppercase bg-teal-600 hover:bg-teal-700 text-white rounded-sm">
+              className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm">
               Place Bet
             </button>
           ) : (
@@ -965,7 +971,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
                   {[25, 50, 100, 250].map(amount => (
                     <button key={amount} onClick={() => setBetAmount(amount)}
                       className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${
-                        betAmount === amount ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
+                        betAmount === amount ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
                       }`}>
                       ${amount}
                     </button>
@@ -973,21 +979,21 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
                 </div>
                 <input type="number" value={betAmount}
                   onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 0))}
-                  className={`w-full mt-2 px-3 py-2 text-sm rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300'}`}
+                  className={`w-full mt-2 px-3 py-2 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
                   placeholder="Custom amount..." />
               </div>
               {selectedOption && betAmount > 0 && (
                 <div className={`text-sm ${mutedClass}`}>
-                  Potential payout: <span className="text-teal-500 font-semibold">{formatCurrency(calculatePayout(selectedOption, betAmount))}</span>
+                  Potential payout: <span className="text-orange-500 font-semibold">{formatCurrency(calculatePayout(selectedOption, betAmount))}</span>
                 </div>
               )}
               <div className="flex gap-2">
                 <button onClick={() => { setShowBetUI(false); setSelectedOption(null); }}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
+                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}>
                   Cancel
                 </button>
                 <button onClick={handlePlaceBet} disabled={!selectedOption || betAmount <= 0}
-                  className="flex-1 py-2 text-sm font-semibold uppercase bg-teal-600 hover:bg-teal-700 text-white rounded-sm disabled:opacity-50">
+                  className="flex-1 py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50">
                   Confirm
                 </button>
               </div>
@@ -1001,8 +1007,8 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
       )}
 
       {prediction.resolved && (
-        <div className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.bg || 'bg-teal-600'} bg-opacity-20`}>
-          <span className={`font-semibold ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.text || 'text-teal-500'}`}>
+        <div className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}>
+          <span className={`font-semibold ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.text || 'text-orange-500'}`}>
             Winner: {prediction.outcome}
           </span>
         </div>
@@ -1021,9 +1027,9 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const portfolioItems = useMemo(() => {
     return Object.entries(holdings)
@@ -1150,7 +1156,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
       <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h2>
@@ -1163,16 +1169,16 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                 )}
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
         </div>
 
         {/* Portfolio Chart */}
-        <div className={`border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex items-center justify-between px-4 py-2">
             <button
               onClick={() => setShowChart(!showChart)}
-              className={`text-xs font-semibold ${mutedClass} hover:text-teal-500`}
+              className={`text-xs font-semibold ${mutedClass} hover:text-orange-500`}
             >
               {showChart ? '▼ Hide Chart' : '▶ Show Chart'}
             </button>
@@ -1184,8 +1190,8 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                     onClick={() => setTimeRange(range.key)}
                     className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                       timeRange === range.key
-                        ? 'bg-teal-600 text-white'
-                        : darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-200'
+                        ? 'bg-orange-600 text-white'
+                        : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'
                     }`}
                   >
                     {range.label}
@@ -1196,7 +1202,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
           </div>
           
           {showChart && (
-            <div className={`px-4 pb-4 ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'} relative`}>
+            <div className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} relative`}>
               <svg 
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
                 className="w-full"
@@ -1278,7 +1284,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
               {hoveredPoint !== null && chartData[hoveredPoint] && (
                 <div 
                   className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${
-                    darkMode ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white'
+                    darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
                   }`}
                   style={{
                     left: `${(getX(hoveredPoint) / svgWidth) * 100}%`,
@@ -1286,8 +1292,8 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                     transform: 'translate(-50%, -130%)'
                   }}
                 >
-                  <div className="font-bold text-teal-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
-                  <div className="text-slate-400">{chartData[hoveredPoint].fullDate}</div>
+                  <div className="font-bold text-orange-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
+                  <div className="text-zinc-400">{chartData[hoveredPoint].fullDate}</div>
                 </div>
               )}
             </div>
@@ -1303,11 +1309,11 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
           ) : (
             <div className="space-y-3">
               {portfolioItems.map(item => (
-                <div key={item.ticker} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+                <div key={item.ticker} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-teal-600 font-mono font-semibold">${item.ticker}</span>
+                        <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
                         <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
                       </div>
                       <div className={`text-sm ${mutedClass} mt-1`}>
@@ -1321,7 +1327,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-600">
+                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-700">
                     <input
                       type="number"
                       min="1"
@@ -1332,7 +1338,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                         [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1)) 
                       }))}
                       className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
-                        darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300'
+                        darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
                       }`}
                     />
                     <button
@@ -1344,7 +1350,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                     <button
                       onClick={() => handleSell(item.ticker, item.shares)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
-                        darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
                       }`}
                     >
                       Sell All
@@ -1392,13 +1398,13 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
     fetchLeaderboard();
   }, []);
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const getRankStyle = (rank) => {
     if (rank === 1) return 'text-yellow-500';
-    if (rank === 2) return 'text-slate-400';
+    if (rank === 2) return 'text-zinc-400';
     if (rank === 3) return 'text-amber-600';
     return mutedClass;
   };
@@ -1423,10 +1429,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
       <div className={`w-full max-w-lg ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[80vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center mb-3">
             <h2 className={`text-lg font-semibold ${textClass}`}>🏆 Leaderboard</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
           
           {/* Crew Filter */}
@@ -1435,8 +1441,8 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
               onClick={() => setCrewFilter('ALL')}
               className={`px-3 py-1 text-xs rounded-sm font-semibold ${
                 crewFilter === 'ALL' 
-                  ? 'bg-teal-600 text-white' 
-                  : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
+                  ? 'bg-orange-600 text-white' 
+                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
               }`}
             >
               All
@@ -1448,7 +1454,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
                 className={`px-3 py-1 text-xs rounded-sm font-semibold flex items-center gap-1 ${
                   crewFilter === crew.id 
                     ? 'text-white' 
-                    : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
+                    : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
                 }`}
                 style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
               >
@@ -1477,7 +1483,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
                 const displayRank = crewFilter === 'ALL' ? leader.rank : leader.crewRank;
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
                 return (
-                  <div key={leader.id} className={`p-3 flex items-center gap-3 ${displayRank <= 3 ? (darkMode ? 'bg-slate-800/50' : 'bg-slate-50') : ''}`}>
+                  <div key={leader.id} className={`p-3 flex items-center gap-3 ${displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''}`}>
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
                       {getRankEmoji(displayRank)}
                     </div>
@@ -1513,10 +1519,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
 const AboutModal = ({ onClose, darkMode }) => {
   const [activeTab, setActiveTab] = useState('about');
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
-  const linkClass = 'text-teal-500 hover:text-teal-400 underline';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const linkClass = 'text-orange-500 hover:text-orange-400 underline';
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -1524,15 +1530,15 @@ const AboutModal = ({ onClose, darkMode }) => {
         onClick={e => e.stopPropagation()}>
         
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>About Stockism</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className={`flex border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           {[
             { key: 'about', label: '📖 About' },
             { key: 'faq', label: '❓ FAQ' },
@@ -1542,7 +1548,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 py-3 text-sm font-semibold ${
-                activeTab === tab.key ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass
+                activeTab === tab.key ? 'text-orange-500 border-b-2 border-orange-500' : mutedClass
               }`}
             >
               {tab.label}
@@ -1557,7 +1563,7 @@ const AboutModal = ({ onClose, darkMode }) => {
           {activeTab === 'about' && (
             <div className={`space-y-4 ${textClass}`}>
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">What is Stockism?</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">What is Stockism?</h3>
                 <p className={mutedClass}>
                   Stockism is a free fan-made stock market simulation game based on the Lookism webtoon universe. 
                   Trade fictional characters like stocks, predict story outcomes, and compete on the leaderboard!
@@ -1565,7 +1571,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
               
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">How does it work?</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">How does it work?</h3>
                 <p className={mutedClass}>
                   Each character has a stock price that changes based on player trading activity. 
                   Buy low, sell high, and use your knowledge of the webtoon to make smart investments. 
@@ -1574,7 +1580,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
               
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">Is real money involved?</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">Is real money involved?</h3>
                 <p className={mutedClass}>
                   <span className="text-green-500 font-semibold">Absolutely not.</span> Stockism uses entirely fictional currency. 
                   You start with $1,000 of fake money and can earn more through daily check-ins. 
@@ -1583,9 +1589,9 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">Who made this?</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">Who made this?</h3>
                 <p className={mutedClass}>
-                  Stockism was created by <a href="https://github.com/UltiMyBeloved" target="_blank" rel="noopener noreferrer" className="text-teal-500 hover:text-teal-400 underline">Darth YG</a> for the Lookism community. 
+                  Stockism was created by <a href="https://github.com/UltiMyBeloved" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">Darth YG</a> for the Lookism community. 
                   It's a free, open-source project with no ads or monetization.
                 </p>
               </div>
@@ -1596,7 +1602,7 @@ const AboutModal = ({ onClose, darkMode }) => {
           {activeTab === 'faq' && (
             <div className={`space-y-4 ${textClass}`}>
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">What's the "bid-ask spread"?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">What's the "bid-ask spread"?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Just like real stock markets, there's a tiny gap between buy and sell prices (0.2%). 
                   This prevents instant arbitrage and makes the simulation more realistic.
@@ -1604,7 +1610,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">How do prices change?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">How do prices change?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Prices are driven by player activity using a realistic "square root" model. 
                   Buying pushes prices up, selling pushes them down. Large orders have diminishing 
@@ -1613,7 +1619,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">What is shorting?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">What is shorting?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Shorting lets you profit when a stock goes DOWN. You "borrow" shares, sell them, 
                   and hope to buy them back cheaper later. It's risky — if the price goes up instead, 
@@ -1622,7 +1628,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">How do predictions work?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">How do predictions work?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool, 
                   and winners split the entire pool proportionally. If everyone picks the same answer 
@@ -1631,7 +1637,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">Can I lose all my money?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">Can I lose all my money?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Yes, through bad trades or losing prediction bets. But you can always earn more 
                   through the daily check-in bonus ($300/day). You can never go below $0.
@@ -1639,9 +1645,9 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-1">How do I report bugs or suggest features?</h3>
+                <h3 className="font-semibold text-orange-500 mb-1">How do I report bugs or suggest features?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Reach out to <a href="https://reddit.com/u/SupremeExalted" target="_blank" rel="noopener noreferrer" className="text-teal-500 hover:text-teal-400 underline">u/SupremeExalted</a> on Reddit. We're always looking to improve!
+                  Reach out to <a href="https://reddit.com/u/SupremeExalted" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">u/SupremeExalted</a> on Reddit. We're always looking to improve!
                 </p>
               </div>
             </div>
@@ -1657,16 +1663,16 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">What we store in our game database:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">What we store in our game database:</h3>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
-                  <li>• <span className={darkMode ? 'text-slate-300' : 'text-slate-700'}>Username</span> — The name YOU choose (not your Google name)</li>
-                  <li>• <span className={darkMode ? 'text-slate-300' : 'text-slate-700'}>Game data</span> — Your cash balance, holdings, and trade history</li>
-                  <li>• <span className={darkMode ? 'text-slate-300' : 'text-slate-700'}>Account ID</span> — A random ID to identify your account</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Username</span> — The name YOU choose (not your Google name)</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Game data</span> — Your cash balance, holdings, and trade history</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Account ID</span> — A random ID to identify your account</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">What Firebase Authentication stores:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">What Firebase Authentication stores:</h3>
                 <p className={`text-sm ${mutedClass} mb-2`}>
                   Firebase (Google's service) handles login and stores your email to manage your account. 
                   This is standard for any website with login — it's how you can sign back in later.
@@ -1677,7 +1683,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">What we DON'T store anywhere:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">What we DON'T store anywhere:</h3>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
                   <li>• <span className="text-red-400">❌ Your real name</span> — We never save your Google display name</li>
                   <li>• <span className="text-red-400">❌ Your profile picture</span> — We never save your Google photo</li>
@@ -1688,7 +1694,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">About the Google Sign-In popup:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">About the Google Sign-In popup:</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   When you sign in, Google shows a standard message saying we "could" access your name and 
                   profile picture. This is Google's default OAuth screen — it shows the <em>maximum possible</em> permissions, not what we actually use.
@@ -1701,13 +1707,13 @@ const AboutModal = ({ onClose, darkMode }) => {
               </div>
 
               <div>
-                <h3 className="font-semibold text-teal-500 mb-2">Data deletion:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">Data deletion:</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Want your data deleted? Contact us and we'll remove your account/data entirely.
                 </p>
               </div>
 
-              <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+              <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <p className={`text-xs ${mutedClass}`}>
                   Last updated: January 2025. This is a fan project with no legal entity behind it. 
                   If you have privacy concerns, please reach out to us directly.
@@ -1793,9 +1799,9 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
   const [confirming, setConfirming] = useState(false);
   const [leavingCrew, setLeavingCrew] = useState(false);
   
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const currentCrew = userData?.crew;
   const portfolioValue = userData?.portfolioValue || 0;
@@ -1823,10 +1829,10 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
       <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🏴 Crew</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
           {currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1 flex items-center gap-1`}>
@@ -1874,7 +1880,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setLeavingCrew(false)}
-                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300'}`}
+                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
               >
                 Back
               </button>
@@ -1910,7 +1916,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
               </div>
             ) : (
               <div className="mb-4">
-                <p className={`text-sm text-teal-500 mb-3`}>
+                <p className={`text-sm text-orange-500 mb-3`}>
                   ✓ Joining a crew is free!
                 </p>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}>
@@ -1927,13 +1933,13 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setConfirming(false)}
-                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300'}`}
+                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
               >
                 Back
               </button>
               <button
                 onClick={handleConfirm}
-                className="px-6 py-2 rounded-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                className="px-6 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold"
               >
                 {currentCrew ? 'Confirm Switch' : 'Join Crew'}
               </button>
@@ -1959,10 +1965,10 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
                   disabled={crew.id === currentCrew}
                   className={`p-4 rounded-sm border-2 text-center transition-all ${
                     crew.id === currentCrew
-                      ? 'opacity-50 cursor-not-allowed border-slate-600'
+                      ? 'opacity-50 cursor-not-allowed border-zinc-700'
                       : darkMode 
-                        ? 'border-slate-600 hover:border-teal-500 bg-slate-700/50' 
-                        : 'border-slate-300 hover:border-teal-500 bg-slate-50'
+                        ? 'border-zinc-700 hover:border-orange-500 bg-zinc-800/50' 
+                        : 'border-amber-200 hover:border-orange-500 bg-amber-50'
                   }`}
                 >
                   <div className="flex items-center justify-center gap-2">
@@ -1976,7 +1982,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
                     </span>
                   </div>
                   {crew.id === currentCrew && (
-                    <span className="text-xs text-teal-500 mt-2 block">✓ Current crew</span>
+                    <span className="text-xs text-orange-500 mt-2 block">✓ Current crew</span>
                   )}
                 </button>
               ))}
@@ -1997,9 +2003,9 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
   const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'manage'
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot', item: pin | slotType, price: number }
   
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const ownedPins = userData?.ownedShopPins || [];
   const displayedShopPins = userData?.displayedShopPins || [];
@@ -2064,23 +2070,23 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
       <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>📌 Pins</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
-          <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-teal-500 font-semibold">{formatCurrency(cash)}</span></p>
+          <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-orange-500 font-semibold">{formatCurrency(cash)}</span></p>
         </div>
         
         {/* Tabs */}
-        <div className={`flex border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           {['shop', 'achievement', 'manage'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-sm font-semibold ${
                 activeTab === tab 
-                  ? 'text-teal-500 border-b-2 border-teal-500' 
+                  ? 'text-orange-500 border-b-2 border-orange-500' 
                   : mutedClass
               }`}
             >
@@ -2100,23 +2106,23 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                     key={pin.id}
                     className={`p-3 rounded-sm border ${
                       owned 
-                        ? 'border-teal-500 bg-teal-500/10' 
-                        : darkMode ? 'border-slate-600' : 'border-slate-300'
+                        ? 'border-orange-500 bg-orange-500/10' 
+                        : darkMode ? 'border-zinc-700' : 'border-amber-200'
                     }`}
                   >
                     <div className="text-2xl text-center mb-2">{pin.emoji}</div>
                     <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
                     <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
                     {owned ? (
-                      <div className="text-xs text-center text-teal-500 font-semibold">✓ Owned</div>
+                      <div className="text-xs text-center text-orange-500 font-semibold">✓ Owned</div>
                     ) : (
                       <button
                         onClick={() => handleBuyPin(pin)}
                         disabled={!canAfford}
                         className={`w-full py-1 text-xs rounded-sm font-semibold ${
                           canAfford 
-                            ? 'bg-teal-600 hover:bg-teal-700 text-white' 
-                            : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                            ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                            : 'bg-slate-600 text-zinc-400 cursor-not-allowed'
                         }`}
                       >
                         {formatCurrency(pin.price)}
@@ -2145,13 +2151,13 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                       onClick={() => handleToggleAchievementPin(achId)}
                       className={`p-3 rounded-sm border text-left ${
                         isDisplayed 
-                          ? 'border-teal-500 bg-teal-500/10' 
-                          : darkMode ? 'border-slate-600' : 'border-slate-300'
+                          ? 'border-orange-500 bg-orange-500/10' 
+                          : darkMode ? 'border-zinc-700' : 'border-amber-200'
                       }`}
                     >
                       <div className="text-2xl mb-1">{ach.emoji}</div>
                       <div className={`text-sm font-semibold ${textClass}`}>{ach.name}</div>
-                      {isDisplayed && <span className="text-xs text-teal-500">✓ Displayed</span>}
+                      {isDisplayed && <span className="text-xs text-orange-500">✓ Displayed</span>}
                     </button>
                   );
                 })}
@@ -2179,8 +2185,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                       onClick={() => onPurchase('toggleCrewPin', !userData.displayCrewPin, 0)}
                       className={`px-3 py-2 rounded-sm border flex items-center ${
                         userData.displayCrewPin !== false
-                          ? 'border-teal-500 bg-teal-500/10' 
-                          : darkMode ? 'border-slate-600' : 'border-slate-300'
+                          ? 'border-orange-500 bg-orange-500/10' 
+                          : darkMode ? 'border-zinc-700' : 'border-amber-200'
                       }`}
                     >
                       {CREW_MAP[userData.crew]?.icon ? (
@@ -2189,7 +2195,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                         <span className="mr-1">{CREW_MAP[userData.crew]?.emblem}</span>
                       )}
                       <span className={`text-sm ${textClass}`}>{CREW_MAP[userData.crew]?.name}</span>
-                      {userData.displayCrewPin !== false && <span className="text-xs text-teal-500 ml-2">✓ Displayed</span>}
+                      {userData.displayCrewPin !== false && <span className="text-xs text-orange-500 ml-2">✓ Displayed</span>}
                     </button>
                   )}
                 </div>
@@ -2212,8 +2218,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                           onClick={() => handleToggleShopPin(pinId)}
                           className={`px-3 py-2 rounded-sm border ${
                             isDisplayed 
-                              ? 'border-teal-500 bg-teal-500/10' 
-                              : darkMode ? 'border-slate-600' : 'border-slate-300'
+                              ? 'border-orange-500 bg-orange-500/10' 
+                              : darkMode ? 'border-zinc-700' : 'border-amber-200'
                           }`}
                         >
                           <span className="mr-1">{pin.emoji}</span>
@@ -2237,8 +2243,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                       disabled={cash < PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT}
                       className={`px-4 py-2 rounded-sm border ${
                         cash >= PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT
-                          ? 'border-teal-500 text-teal-500 hover:bg-teal-500/10'
-                          : 'border-slate-600 text-slate-500 cursor-not-allowed'
+                          ? 'border-orange-500 text-orange-500 hover:bg-orange-500/10'
+                          : 'border-zinc-700 text-zinc-500 cursor-not-allowed'
                       }`}
                     >
                       +1 Achievement Slot ({formatCurrency(PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT)})
@@ -2250,8 +2256,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                       disabled={cash < PIN_SLOT_COSTS.EXTRA_SHOP_SLOT}
                       className={`px-4 py-2 rounded-sm border ${
                         cash >= PIN_SLOT_COSTS.EXTRA_SHOP_SLOT
-                          ? 'border-teal-500 text-teal-500 hover:bg-teal-500/10'
-                          : 'border-slate-600 text-slate-500 cursor-not-allowed'
+                          ? 'border-orange-500 text-orange-500 hover:bg-orange-500/10'
+                          : 'border-zinc-700 text-zinc-500 cursor-not-allowed'
                       }`}
                     >
                       +1 Shop Slot ({formatCurrency(PIN_SLOT_COSTS.EXTRA_SHOP_SLOT)})
@@ -2273,21 +2279,21 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
               <h3 className={`text-lg font-semibold ${textClass} mb-3`}>Confirm Purchase</h3>
               <p className={`${mutedClass} mb-4`}>
                 {confirmPurchase.type === 'pin' ? (
-                  <>Buy <span className="text-xl">{confirmPurchase.item.emoji}</span> <strong>{confirmPurchase.item.name}</strong> for <span className="text-teal-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                  <>Buy <span className="text-xl">{confirmPurchase.item.emoji}</span> <strong>{confirmPurchase.item.name}</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 ) : (
-                  <>Buy <strong>+1 {confirmPurchase.item === 'achievement' ? 'Achievement' : 'Shop'} Slot</strong> for <span className="text-teal-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                  <>Buy <strong>+1 {confirmPurchase.item === 'achievement' ? 'Achievement' : 'Shop'} Slot</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 )}
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmPurchase(null)}
-                  className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+                  className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200 text-zinc-600'}`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmPurchase}
-                  className="flex-1 py-2 rounded-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                  className="flex-1 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold"
                 >
                   Confirm
                 </button>
@@ -2305,9 +2311,9 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
 // ============================================
 
 const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, portfolioValue }) => {
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const today = getTodayDateString();
   const dailyProgress = userData?.dailyMissions?.[today] || {};
@@ -2555,19 +2561,19 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
       <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
         onClick={e => e.stopPropagation()}>
         
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>📋 Daily Missions</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
           <p className={`text-sm ${mutedClass}`}>
-            Resets daily • Earned: <span className="text-teal-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
+            Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
           </p>
         </div>
         
         <div className="p-4 space-y-3">
           {noCrew ? (
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'} text-center`}>
+            <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
               <p className={`${mutedClass} mb-2`}>Join a crew to unlock daily missions!</p>
               <p className={`text-xs ${mutedClass}`}>Crew missions give you bonus cash rewards every day.</p>
             </div>
@@ -2578,10 +2584,10 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                   key={mission.id}
                   className={`p-3 rounded-sm border ${
                     mission.claimed 
-                      ? 'border-teal-500/30 bg-teal-500/5' 
+                      ? 'border-orange-500/30 bg-orange-500/5' 
                       : mission.complete 
-                        ? 'border-teal-500 bg-teal-500/10' 
-                        : darkMode ? 'border-slate-600' : 'border-slate-300'
+                        ? 'border-orange-500 bg-orange-500/10' 
+                        : darkMode ? 'border-zinc-700' : 'border-amber-200'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -2589,16 +2595,16 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                       <h3 className={`font-semibold ${textClass}`}>{mission.name}</h3>
                       <p className={`text-xs ${mutedClass}`}>{mission.description}</p>
                     </div>
-                    <span className={`text-sm font-bold ${mission.complete ? 'text-teal-500' : mutedClass}`}>
+                    <span className={`text-sm font-bold ${mission.complete ? 'text-orange-500' : mutedClass}`}>
                       +{formatCurrency(mission.reward)}
                     </span>
                   </div>
                   
                   {/* Progress bar */}
                   <div className="flex items-center gap-2">
-                    <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                    <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                       <div 
-                        className={`h-full rounded-full transition-all ${mission.complete ? 'bg-teal-500' : 'bg-amber-500'}`}
+                        className={`h-full rounded-full transition-all ${mission.complete ? 'bg-orange-500' : 'bg-amber-500'}`}
                         style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }}
                       />
                     </div>
@@ -2611,19 +2617,19 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                   {mission.complete && !mission.claimed && (
                     <button
                       onClick={() => onClaimReward(mission.id, mission.reward)}
-                      className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-teal-600 hover:bg-teal-700 text-white"
+                      className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
                     >
                       Claim Reward
                     </button>
                   )}
                   {mission.claimed && (
-                    <p className="text-xs text-teal-500 mt-2 text-center">✓ Claimed</p>
+                    <p className="text-xs text-orange-500 mt-2 text-center">✓ Claimed</p>
                   )}
                 </div>
               ))}
               
               {/* Crew member hint */}
-              <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-100'}`}>
+              <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-amber-50'}`}>
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
@@ -2646,9 +2652,9 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 // ============================================
 
 const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;
@@ -2684,27 +2690,31 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
         className={`w-full max-w-lg max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
               <p className={`text-sm ${mutedClass}`}>Prediction History</p>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Stats Summary */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-            <div className="grid grid-cols-2 gap-4 text-center">
+          <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+            <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className={`text-2xl font-bold text-teal-500`}>{predictionWins}</p>
+                <p className={`text-2xl font-bold text-orange-500`}>{userData?.totalTrades || 0}</p>
+                <p className={`text-xs ${mutedClass}`}>Total Trades</p>
+              </div>
+              <div>
+                <p className={`text-2xl font-bold text-orange-500`}>{predictionWins}</p>
                 <p className={`text-xs ${mutedClass}`}>Correct Predictions</p>
               </div>
               <div>
                 <p className={`text-2xl font-bold ${textClass}`}>{userBetHistory.length}</p>
-                <p className={`text-xs ${mutedClass}`}>Total Bets Placed</p>
+                <p className={`text-xs ${mutedClass}`}>Bets Placed</p>
               </div>
             </div>
           </div>
@@ -2717,12 +2727,12 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
                 {userBetHistory.filter(b => b.prediction && !b.prediction.resolved).map(bet => {
                   const potentialPayout = calculatePotentialPayout(bet);
                   return (
-                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
+                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
                       <p className={`text-sm font-semibold ${textClass}`}>{bet.prediction?.question || bet.question}</p>
                       <div className="flex justify-between items-center mt-2">
                         <div>
                           <span className={`text-xs ${mutedClass}`}>Your bet: </span>
-                          <span className="text-teal-500 font-semibold">{formatCurrency(bet.amount)}</span>
+                          <span className="text-orange-500 font-semibold">{formatCurrency(bet.amount)}</span>
                           <span className={`text-xs ${mutedClass}`}> on </span>
                           <span className={`text-sm font-semibold ${textClass}`}>"{bet.option}"</span>
                         </div>
@@ -2767,7 +2777,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
                           <p className={`text-xs ${mutedClass} mt-1`}>
                             Your answer: <span className={`font-semibold ${won ? 'text-green-500' : 'text-red-400'}`}>"{bet.option}"</span>
                             {(bet.prediction?.outcome || bet.outcome) && (
-                              <span> • Correct answer: <span className="text-teal-500">"{bet.prediction?.outcome || bet.outcome}"</span></span>
+                              <span> • Correct answer: <span className="text-orange-500">"{bet.prediction?.outcome || bet.outcome}"</span></span>
                             )}
                           </p>
                         </div>
@@ -2807,10 +2817,10 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
 // ============================================
 
 const AchievementsModal = ({ onClose, darkMode, userData }) => {
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
-  const bgClass = darkMode ? 'bg-slate-900' : 'bg-slate-100';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
   
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);
@@ -2832,14 +2842,14 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
         className={`w-full max-w-2xl max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex justify-between items-center`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} flex justify-between items-center`}>
           <div>
             <h2 className={`text-xl font-bold ${textClass}`}>🏆 Achievements</h2>
             <p className={`text-sm ${mutedClass}`}>
               {earnedAchievements.length} / {allAchievements.length} unlocked
             </p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -2857,8 +2867,8 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
                       key={id}
                       className={`p-3 rounded-sm border ${
                         earned 
-                          ? (darkMode ? 'bg-teal-900/30 border-teal-700' : 'bg-teal-50 border-teal-300')
-                          : (darkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-slate-50 border-slate-200')
+                          ? (darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-300')
+                          : (darkMode ? 'bg-zinc-800/30 border-zinc-700' : 'bg-amber-50 border-amber-200')
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -2866,7 +2876,7 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
                           {achievement.emoji}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className={`font-semibold text-sm ${earned ? 'text-teal-500' : mutedClass}`}>
+                          <div className={`font-semibold text-sm ${earned ? 'text-orange-500' : mutedClass}`}>
                             {achievement.name}
                           </div>
                           <div className={`text-xs ${mutedClass}`}>
@@ -2899,9 +2909,9 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
   const [borrowAmount, setBorrowAmount] = useState(500);
   const [repayAmount, setRepayAmount] = useState(0);
   
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
   const lendingStatus = checkLendingEligibility(userData);
   const activeLoan = userData?.activeLoan || null;
@@ -2952,18 +2962,18 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
         className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} flex justify-between items-center`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} flex justify-between items-center`}>
           <div>
             <h2 className={`text-xl font-bold ${textClass}`}>🏦 Lending</h2>
             <p className={`text-sm ${mutedClass}`}>Borrow cash to trade with</p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
         </div>
         
         <div className="p-4 space-y-4">
           {!lendingStatus.eligible ? (
             // Locked state
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+            <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
               <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Lending Locked</h3>
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
@@ -2995,13 +3005,13 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                     <span className={mutedClass}>Interest accrued:</span>
                     <span className="text-red-500">+{formatCurrency(loanDetails?.interest || 0)}</span>
                   </div>
-                  <div className={`flex justify-between font-bold pt-1 border-t ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
+                  <div className={`flex justify-between font-bold pt-1 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
                     <span className={textClass}>Total owed:</span>
                     <span className="text-amber-500">{formatCurrency(loanDetails?.totalOwed || 0)}</span>
                   </div>
                   <div className="flex justify-between pt-2">
                     <span className={mutedClass}>Time remaining:</span>
-                    <span className={loanDetails?.isOverdue ? 'text-red-500 font-bold' : 'text-teal-500'}>
+                    <span className={loanDetails?.isOverdue ? 'text-red-500 font-bold' : 'text-orange-500'}>
                       {loanDetails?.isOverdue ? 'OVERDUE' : `${loanDetails?.daysRemaining} days`}
                     </span>
                   </div>
@@ -3024,13 +3034,13 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                     value={repayAmount}
                     onChange={(e) => setRepayAmount(Math.max(0, parseFloat(e.target.value) || 0))}
                     className={`flex-1 px-3 py-2 rounded-sm border ${
-                      darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300'
+                      darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
                     }`}
                   />
                   <button
                     onClick={() => setRepayAmount(Math.min(userData?.cash || 0, loanDetails?.totalOwed || 0))}
                     className={`px-3 py-2 text-xs font-semibold rounded-sm ${
-                      darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
+                      darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
                     }`}
                   >
                     Max
@@ -3047,7 +3057,7 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                 className={`w-full py-3 font-semibold rounded-sm ${
                   repayAmount > 0 && repayAmount <= (userData?.cash || 0)
                     ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-slate-500 cursor-not-allowed text-slate-300'
+                    : 'bg-amber-500 cursor-not-allowed text-zinc-300'
                 }`}
               >
                 Repay {formatCurrency(repayAmount)}
@@ -3066,15 +3076,15 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                 </p>
               </div>
               
-              <div className={`p-3 rounded-sm text-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+              <div className={`p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <span>📊</span>
                   <span className={`font-semibold ${textClass}`}>Loan Terms</span>
                 </div>
                 <ul className={`text-xs ${mutedClass} space-y-1`}>
                   <li>• Interest rate: <span className="text-amber-500">5% per day</span></li>
-                  <li>• Maximum term: <span className="text-teal-500">7 days</span></li>
-                  <li>• Minimum loan: <span className="text-teal-500">{formatCurrency(LOAN_MIN_AMOUNT)}</span></li>
+                  <li>• Maximum term: <span className="text-orange-500">7 days</span></li>
+                  <li>• Minimum loan: <span className="text-orange-500">{formatCurrency(LOAN_MIN_AMOUNT)}</span></li>
                   <li>• Overdue loans may result in account restrictions</li>
                 </ul>
               </div>
@@ -3097,7 +3107,7 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                 </div>
               </div>
               
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-amber-50'}`}>
                 <div className="text-xs space-y-1">
                   <div className="flex justify-between">
                     <span className={mutedClass}>If repaid in 1 day:</span>
@@ -3112,7 +3122,7 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
               
               <button
                 onClick={handleBorrow}
-                className="w-full py-3 font-semibold rounded-sm bg-teal-600 hover:bg-teal-700 text-white"
+                className="w-full py-3 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
               >
                 Borrow {formatCurrency(borrowAmount)}
               </button>
@@ -3171,7 +3181,7 @@ const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
         className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm ${
           hasCheckedIn
             ? 'bg-slate-400 cursor-pointer' 
-            : 'bg-teal-600 hover:bg-teal-700'
+            : 'bg-orange-600 hover:bg-orange-700'
         } text-white`}
       >
         {hasCheckedIn ? 'Checked In ✓' : 'Daily Check-in (+$300)'}
@@ -3179,11 +3189,11 @@ const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
       
       {showTooltip && hasCheckedIn && (
         <div className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 rounded-sm text-xs whitespace-nowrap z-50 ${
-          darkMode ? 'bg-slate-700 text-slate-100' : 'bg-slate-800 text-white'
+          darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
         } shadow-lg`}>
           <div className="text-center">
             <div className="font-semibold">Next check-in available in:</div>
-            <div className="text-teal-400 font-mono mt-1">{timeUntilReset}</div>
+            <div className="text-orange-400 font-mono mt-1">{timeUntilReset}</div>
           </div>
           <div className={`absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent ${
             darkMode ? 'border-t-slate-700' : 'border-t-slate-800'
@@ -3265,17 +3275,17 @@ const LoginModal = ({ onClose, darkMode }) => {
     setLoading(false);
   };
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   const inputClass = darkMode 
-    ? 'bg-slate-900 border-slate-600 text-slate-100' 
-    : 'bg-white border-slate-300 text-slate-900';
+    ? 'bg-zinc-950 border-zinc-700 text-zinc-100' 
+    : 'bg-white border-amber-200 text-slate-900';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6`} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+        <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
 
         <h2 className={`text-lg font-semibold mb-6 ${textClass}`}>
           {isRegistering ? 'Create Account' : 'Sign In'}
@@ -3286,7 +3296,7 @@ const LoginModal = ({ onClose, darkMode }) => {
           onClick={handleGoogleSignIn}
           disabled={loading}
           className={`w-full py-2.5 px-4 rounded-sm border flex items-center justify-center gap-2 mb-4 ${
-            darkMode ? 'border-slate-600 text-slate-200 hover:bg-slate-700' : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+            darkMode ? 'border-zinc-700 text-slate-200 hover:bg-zinc-800' : 'border-amber-200 text-slate-700 hover:bg-amber-50'
           } disabled:opacity-50`}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -3331,7 +3341,7 @@ const LoginModal = ({ onClose, darkMode }) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-sm text-sm uppercase disabled:opacity-50"
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-sm text-sm uppercase disabled:opacity-50"
             >
               {loading ? 'Please wait...' : 'Sign In'}
             </button>
@@ -3346,7 +3356,7 @@ const LoginModal = ({ onClose, darkMode }) => {
         <div className="mt-4 text-center">
           <button
             onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-            className={`text-sm ${mutedClass} hover:text-teal-600`}
+            className={`text-sm ${mutedClass} hover:text-orange-600`}
           >
             {isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register"}
           </button>
@@ -3421,12 +3431,12 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
     setLoading(false);
   };
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   const inputClass = darkMode 
-    ? 'bg-slate-900 border-slate-600 text-slate-100' 
-    : 'bg-white border-slate-300 text-slate-900';
+    ? 'bg-zinc-950 border-zinc-700 text-zinc-100' 
+    : 'bg-white border-amber-200 text-slate-900';
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
@@ -3446,7 +3456,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter a username..."
-              className={`w-full px-3 py-2 border rounded-sm text-sm ${inputClass} focus:outline-none focus:ring-1 focus:ring-teal-600`}
+              className={`w-full px-3 py-2 border rounded-sm text-sm ${inputClass} focus:outline-none focus:ring-1 focus:ring-orange-600`}
               disabled={loading}
               autoFocus
               maxLength={20}
@@ -3465,7 +3475,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-4 rounded-sm text-sm uppercase tracking-wide transition-colors disabled:opacity-50"
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2.5 px-4 rounded-sm text-sm uppercase tracking-wide transition-colors disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Start Trading'}
           </button>
@@ -3494,10 +3504,10 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const isETF = character.isETF;
 
   const cardClass = darkMode 
-    ? `bg-slate-800 border-slate-700 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}` 
-    : `bg-white border-slate-300 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+    ? `bg-zinc-900 border-zinc-800 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}` 
+    : `bg-white border-amber-200 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const getSentimentColor = () => {
     switch (sentiment) {
@@ -3540,7 +3550,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
         <div className="flex justify-between items-start mb-2">
           <div>
             <div className="flex items-center gap-1">
-              <p className="text-teal-600 font-mono text-sm font-semibold">${character.ticker}</p>
+              <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
               {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
             </div>
             <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>
@@ -3574,7 +3584,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
         <button
           onClick={(e) => { e.stopPropagation(); setShowTrade(true); setTradeMode('normal'); }}
           className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
-            darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+            darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
           }`}
         >
           Trade
@@ -3585,13 +3595,13 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           <div className="flex gap-1 mb-2">
             <button 
               onClick={() => setTradeMode('normal')}
-              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'normal' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}
+              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'normal' ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
             >
               Buy/Sell
             </button>
             <button 
               onClick={() => setTradeMode('short')}
-              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'short' ? 'bg-orange-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}
+              className={`flex-1 py-1 text-xs font-semibold rounded-sm ${tradeMode === 'short' ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
             >
               Short
             </button>
@@ -3599,12 +3609,12 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
           <div className="flex items-center gap-2">
             <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
-              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>-</button>
+              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
             <input type="number" min="1" value={tradeAmount}
               onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-              className={`w-full text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-900'}`} />
+              className={`w-full text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
             <button onClick={() => setTradeAmount(tradeAmount + 1)}
-              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>+</button>
+              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
           </div>
 
           {tradeMode === 'normal' ? (
@@ -3640,14 +3650,14 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           )}
           
           <button onClick={() => { setShowTrade(false); setTradeAmount(1); }}
-            className={`w-full py-1 text-xs ${mutedClass} hover:text-teal-600`}>Cancel</button>
+            className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-600`}>Cancel</button>
         </div>
       )}
     </div>
   );
 };
 
-const inputClass = 'bg-slate-900 border-slate-600 text-slate-100';
+const inputClass = 'bg-zinc-950 border-zinc-700 text-zinc-100';
 
 // ============================================
 // MAIN APP
@@ -3752,6 +3762,38 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Track lowest prices while holding for Diamond Hands achievement
+  useEffect(() => {
+    const updateLowestPrices = async () => {
+      if (!user || !userData || !prices || Object.keys(prices).length === 0) return;
+      
+      const holdings = userData.holdings || {};
+      const lowestWhileHolding = userData.lowestWhileHolding || {};
+      const updates = {};
+      
+      // Check each held stock
+      for (const [ticker, shares] of Object.entries(holdings)) {
+        if (shares > 0 && prices[ticker]) {
+          const currentPrice = prices[ticker];
+          const currentLowest = lowestWhileHolding[ticker];
+          
+          // If we have a lower price than recorded, update it
+          if (currentLowest === undefined || currentPrice < currentLowest) {
+            updates[`lowestWhileHolding.${ticker}`] = Math.round(currentPrice * 100) / 100;
+          }
+        }
+      }
+      
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, updates);
+      }
+    };
+    
+    updateLowestPrices();
+  }, [user, userData?.holdings, prices]);
 
   // Listen to predictions
   useEffect(() => {
@@ -4302,6 +4344,12 @@ export default function App() {
       const newCostBasis = currentHoldings > 0
         ? ((currentCostBasis * currentHoldings) + (buyPrice * amount)) / newHoldings
         : buyPrice;
+      
+      // Track lowest price while holding for Diamond Hands achievement
+      const currentLowest = userData.lowestWhileHolding?.[ticker];
+      const newLowest = currentHoldings === 0 
+        ? buyPrice  // First buy, set to buy price
+        : Math.min(currentLowest || buyPrice, buyPrice);  // Keep tracking lowest
 
       // Check if this is a crew member purchase for daily missions
       const today = getTodayDateString();
@@ -4323,6 +4371,7 @@ export default function App() {
         cash: userData.cash - totalCost,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
+        [`lowestWhileHolding.${ticker}`]: Math.round(newLowest * 100) / 100,
         [`lastBuyTime.${ticker}`]: now,
         lastTradeTime: now,
         totalTrades: increment(1),
@@ -4423,17 +4472,23 @@ export default function App() {
       const costBasis = userData.costBasis?.[ticker] || 0;
       const profitPercent = costBasis > 0 ? ((sellPrice - costBasis) / costBasis) * 100 : 0;
       
+      // Check for Diamond Hands - sold at profit after 30%+ dip
+      const lowestWhileHolding = userData.lowestWhileHolding?.[ticker] || costBasis;
+      const dipPercent = costBasis > 0 ? ((costBasis - lowestWhileHolding) / costBasis) * 100 : 0;
+      const isDiamondHands = dipPercent >= 30 && profitPercent > 0;
+      
       // Update cost basis if selling all shares, otherwise keep it
       const newHoldings = currentHoldings - amount;
       const costBasisUpdate = newHoldings <= 0 ? 0 : userData.costBasis?.[ticker] || 0;
+      const lowestUpdate = newHoldings <= 0 ? null : userData.lowestWhileHolding?.[ticker];
 
       // Track daily mission progress
       const today = getTodayDateString();
       const currentTradesCount = userData.dailyMissions?.[today]?.tradesCount || 0;
       const currentTradeVolume = userData.dailyMissions?.[today]?.tradeVolume || 0;
 
-      // Update user with trade count and daily mission progress
-      await updateDoc(userRef, {
+      // Build update data
+      const sellUpdateData = {
         cash: userData.cash + totalRevenue,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: costBasisUpdate,
@@ -4442,7 +4497,15 @@ export default function App() {
         [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
         [`dailyMissions.${today}.tradeVolume`]: currentTradeVolume + amount,
         [`dailyMissions.${today}.soldAny`]: true
-      });
+      };
+      
+      // Clear lowestWhileHolding if selling all shares
+      if (newHoldings <= 0) {
+        sellUpdateData[`lowestWhileHolding.${ticker}`] = deleteField();
+      }
+
+      // Update user with trade count and daily mission progress
+      await updateDoc(userRef, sellUpdateData);
 
       await updateDoc(marketRef, { totalTrades: increment(1) });
       
@@ -4451,13 +4514,13 @@ export default function App() {
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares - amount : shares), 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
       
-      // Check achievements (pass profit percent for Bull Run)
+      // Check achievements (pass profit percent for Bull Run, isDiamondHands for Diamond Hands)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
         cash: userData.cash + totalRevenue,
         holdings: { ...userData.holdings, [ticker]: newHoldings },
         totalTrades: (userData.totalTrades || 0) + 1
-      }, prices, { tradeValue: totalRevenue, sellProfitPercent: profitPercent });
+      }, prices, { tradeValue: totalRevenue, sellProfitPercent: profitPercent, isDiamondHands });
       
       const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
       
@@ -5051,12 +5114,12 @@ export default function App() {
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // Styling
-  const bgClass = darkMode ? 'bg-slate-900' : 'bg-slate-100';
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
-  const inputClassStyle = darkMode ? 'bg-slate-900 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-900';
+  // Styling - Orange/Yellow theme inspired by logo
+  const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const inputClassStyle = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-zinc-900';
 
   if (loading) {
     return (
@@ -5074,7 +5137,10 @@ export default function App() {
           <img 
             src="/stockism logo.png" 
             alt="Stockism" 
-            className="h-[100px] sm:h-[115px] md:h-[200px] w-auto"
+            className="h-[100px] sm:h-[115px] md:h-[200px] w-auto select-none pointer-events-none"
+            draggable="false"
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           />
         </div>
 
@@ -5082,12 +5148,12 @@ export default function App() {
         <div className={`${cardClass} border rounded-sm p-3 mb-4`}>
           <div className="flex flex-wrap justify-center sm:justify-end items-center gap-2">
             <button onClick={() => setShowLeaderboard(true)}
-              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               🏆 Leaderboard
             </button>
             {!isGuest && (
               <button onClick={() => setShowCrewSelection(true)}
-                className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}
+                className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
                 style={userData?.crew ? { borderColor: CREW_MAP[userData.crew]?.color, color: CREW_MAP[userData.crew]?.color } : {}}>
                 {userData?.crew ? (
                   <>
@@ -5103,19 +5169,19 @@ export default function App() {
             )}
             {!isGuest && (
               <button onClick={() => setShowDailyMissions(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
                 📋 Missions
               </button>
             )}
             {!isGuest && (
               <button onClick={() => setShowPinShop(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
                 📌 Pins
               </button>
             )}
             {!isGuest && (
               <button onClick={() => setShowAchievements(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
                 🎯 Achievements
               </button>
             )}
@@ -5124,35 +5190,35 @@ export default function App() {
                 className={`px-3 py-1 text-xs rounded-sm border ${
                   userData?.activeLoan 
                     ? 'border-amber-500 text-amber-500 hover:bg-amber-900/20' 
-                    : darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'
+                    : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'
                 }`}>
                 🏦 {userData?.activeLoan ? 'Loan Active' : 'Lending'}
               </button>
             )}
             {user && ADMIN_UIDS.includes(user.uid) && (
               <button onClick={() => setShowAdmin(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
                 🔧 Admin
               </button>
             )}
             <button onClick={() => setShowAbout(true)}
-              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               ℹ️ About
             </button>
             <button onClick={() => setDarkMode(!darkMode)}
-              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
+              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               {darkMode ? '☀️' : '🌙'}
             </button>
             {isGuest ? (
               <button onClick={() => setShowLoginModal(true)}
-                className="px-3 py-1 text-xs rounded-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold uppercase">
+                className="px-3 py-1 text-xs rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold uppercase">
                 Sign In
               </button>
             ) : (
               <>
                 <button 
                   onClick={() => setShowProfile(true)}
-                  className={`text-sm ${mutedClass} flex items-center hover:text-teal-500 transition-colors`}
+                  className={`text-sm ${mutedClass} flex items-center hover:text-orange-500 transition-colors`}
                 >
                   <span style={userData?.isCrewHead && userData?.crew ? { color: userData.crewHeadColor || CREW_MAP[userData.crew]?.color } : {}}>
                     {userData?.displayName}
@@ -5180,8 +5246,8 @@ export default function App() {
 
         {/* Guest Banner */}
         {isGuest && (
-          <div className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-slate-800 border border-slate-700 text-slate-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-            👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-teal-600 hover:underline">Sign in</button> to trade and save progress!
+          <div className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+            👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-orange-600 hover:underline">Sign in</button> to trade and save progress!
           </div>
         )}
 
@@ -5235,14 +5301,14 @@ export default function App() {
               {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {formatChange(((portfolioValue - STARTING_CASH) / STARTING_CASH) * 100)} from start
             </p>
           </div>
-          <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-teal-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
+          <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Holdings</p>
             <p className={`text-2xl font-bold ${textClass}`}>
               {Object.values(activeUserData.holdings || {}).reduce((a, b) => a + b, 0)} shares
             </p>
             <p className={`text-xs ${mutedClass}`}>
               {Object.keys(activeUserData.holdings || {}).filter(k => activeUserData.holdings[k] > 0).length} characters
-              {!isGuest && <span className="text-teal-600 ml-2">→ View details</span>}
+              {!isGuest && <span className="text-orange-600 ml-2">→ View details</span>}
             </p>
           </div>
         </div>
@@ -5264,17 +5330,17 @@ export default function App() {
               className={`px-3 py-2 text-sm rounded-sm border ${inputClassStyle}`} />
             <div className="flex items-center justify-center gap-2">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={showAll || currentPage === 1}
-                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'} disabled:opacity-50`}>
+                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
                 Prev
               </button>
               <span className={`text-sm ${mutedClass}`}>{currentPage}/{totalPages}</span>
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={showAll || currentPage === totalPages}
-                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'} disabled:opacity-50`}>
+                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
                 Next
               </button>
             </div>
             <button onClick={() => setShowAll(!showAll)}
-              className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}`}>
+              className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}`}>
               {showAll ? 'Show Pages' : 'Show All'}
             </button>
           </div>
@@ -5304,12 +5370,12 @@ export default function App() {
           <div className={`${cardClass} border rounded-sm p-4 mt-4`}>
             <div className="flex justify-center items-center gap-4">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'} disabled:opacity-50`}>
+                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
                 Previous
               </button>
               <span className={`text-sm ${mutedClass}`}>Page {currentPage} of {totalPages}</span>
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'} disabled:opacity-50`}>
+                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
                 Next
               </button>
             </div>
