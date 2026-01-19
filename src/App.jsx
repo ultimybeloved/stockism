@@ -1035,15 +1035,30 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest }) => {
 // PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode }) => {
+const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory }) => {
   const [sellAmounts, setSellAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [expandedTicker, setExpandedTicker] = useState(null);
   
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+
+  // Helper to get price from 24h ago
+  const getPrice24hAgo = (ticker) => {
+    const history = priceHistory?.[ticker] || [];
+    if (history.length === 0) return prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+    
+    const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp <= dayAgo) {
+        return history[i].price;
+      }
+    }
+    return history[0]?.price || prices[ticker] || 0;
+  };
 
   const portfolioItems = useMemo(() => {
     return Object.entries(holdings)
@@ -1052,16 +1067,48 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
         const character = CHARACTER_MAP[ticker];
         const currentPrice = prices[ticker] || character?.basePrice || 0;
         const value = currentPrice * shares;
-        const change = character ? ((currentPrice - character.basePrice) / character.basePrice) * 100 : 0;
-        return { ticker, shares, character, currentPrice, value, change };
+        const avgCost = costBasis?.[ticker] || character?.basePrice || currentPrice;
+        const totalCost = avgCost * shares;
+        
+        // Total return (from avg cost)
+        const totalReturnDollar = value - totalCost;
+        const totalReturnPercent = totalCost > 0 ? ((value - totalCost) / totalCost) * 100 : 0;
+        
+        // Today's return (from 24h ago price)
+        const price24hAgo = getPrice24hAgo(ticker);
+        const value24hAgo = price24hAgo * shares;
+        const todayReturnDollar = value - value24hAgo;
+        const todayReturnPercent = value24hAgo > 0 ? ((value - value24hAgo) / value24hAgo) * 100 : 0;
+        
+        return { 
+          ticker, 
+          shares, 
+          character, 
+          currentPrice, 
+          value, 
+          avgCost,
+          totalCost,
+          totalReturnDollar,
+          totalReturnPercent,
+          todayReturnDollar,
+          todayReturnPercent
+        };
       })
       .sort((a, b) => b.value - a.value);
-  }, [holdings, prices]);
+  }, [holdings, prices, costBasis, priceHistory]);
 
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.value, 0);
+  const totalCostBasis = portfolioItems.reduce((sum, item) => sum + item.totalCost, 0);
+  const overallTotalReturn = totalValue - totalCostBasis;
+  const overallTotalReturnPercent = totalCostBasis > 0 ? ((totalValue - totalCostBasis) / totalCostBasis) * 100 : 0;
+  const overallTodayReturn = portfolioItems.reduce((sum, item) => sum + item.todayReturnDollar, 0);
 
   const handleSell = (ticker, amount) => {
     onTrade(ticker, 'sell', amount);
+  };
+
+  const toggleExpand = (ticker) => {
+    setExpandedTicker(expandedTicker === ticker ? null : ticker);
   };
 
   // Chart data processing
@@ -1321,58 +1368,140 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
               <p className="text-sm">Start trading to build your portfolio!</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {portfolioItems.map(item => (
-                <div key={item.ticker} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
-                        <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
-                      </div>
-                      <div className={`text-sm ${mutedClass} mt-1`}>
-                        {item.shares} shares @ {formatCurrency(item.currentPrice)}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-semibold ${textClass}`}>{formatCurrency(item.value)}</div>
-                      <div className={`text-xs ${item.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {item.change >= 0 ? '▲' : '▼'} {formatChange(item.change)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-700">
-                    <input
-                      type="number"
-                      min="1"
-                      max={item.shares}
-                      value={sellAmounts[item.ticker] || 1}
-                      onChange={(e) => setSellAmounts(prev => ({ 
-                        ...prev, 
-                        [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1)) 
-                      }))}
-                      className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
-                        darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
-                      }`}
-                    />
-                    <button
-                      onClick={() => handleSell(item.ticker, sellAmounts[item.ticker] || 1)}
-                      className="px-4 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm"
-                    >
-                      Sell
-                    </button>
-                    <button
-                      onClick={() => handleSell(item.ticker, item.shares)}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
-                        darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-                      }`}
-                    >
-                      Sell All
-                    </button>
-                  </div>
+            <>
+              {/* Portfolio Summary */}
+              <div className={`mb-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-100/50'}`}>
+                <div className="flex justify-between items-center">
+                  <span className={`text-sm ${mutedClass}`}>Total Holdings Value</span>
+                  <span className={`font-bold ${textClass}`}>{formatCurrency(totalValue)}</span>
                 </div>
-              ))}
-            </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className={`text-sm ${mutedClass}`}>Total Return</span>
+                  <span className={`font-semibold ${overallTotalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {overallTotalReturn >= 0 ? '+' : ''}{formatCurrency(overallTotalReturn)} ({overallTotalReturnPercent >= 0 ? '+' : ''}{overallTotalReturnPercent.toFixed(2)}%)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className={`text-sm ${mutedClass}`}>Today's Return</span>
+                  <span className={`font-semibold ${overallTodayReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {overallTodayReturn >= 0 ? '+' : ''}{formatCurrency(overallTodayReturn)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Holdings List */}
+              <div className="space-y-2">
+                {portfolioItems.map(item => {
+                  const isExpanded = expandedTicker === item.ticker;
+                  const diversityPercent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                  
+                  return (
+                    <div key={item.ticker} className={`rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
+                      {/* Main Row - Clickable */}
+                      <div 
+                        className="p-3 cursor-pointer hover:bg-opacity-80"
+                        onClick={() => toggleExpand(item.ticker)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
+                              <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
+                              <span className={`text-xs ${mutedClass}`}>
+                                {isExpanded ? '▼' : '▶'}
+                              </span>
+                            </div>
+                            <div className={`text-sm ${mutedClass} mt-0.5`}>
+                              {item.shares} shares • {diversityPercent.toFixed(1)}% of portfolio
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`font-semibold ${textClass}`}>{formatCurrency(item.value)}</div>
+                            <div className={`text-xs ${item.totalReturnPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {item.totalReturnPercent >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(item.totalReturnDollar))} ({item.totalReturnPercent >= 0 ? '+' : ''}{item.totalReturnPercent.toFixed(2)}%)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className={`px-3 pb-3 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+                          {/* Stats Grid */}
+                          <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+                            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                              <div className={`text-xs ${mutedClass}`}>Avg Cost / Share</div>
+                              <div className={`font-semibold ${textClass}`}>{formatCurrency(item.avgCost)}</div>
+                            </div>
+                            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                              <div className={`text-xs ${mutedClass}`}>Current Price</div>
+                              <div className={`font-semibold ${textClass}`}>{formatCurrency(item.currentPrice)}</div>
+                            </div>
+                            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                              <div className={`text-xs ${mutedClass}`}>Today's Return</div>
+                              <div className={`font-semibold ${item.todayReturnDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {item.todayReturnDollar >= 0 ? '+' : ''}{formatCurrency(item.todayReturnDollar)}
+                                <span className="text-xs ml-1">({item.todayReturnPercent >= 0 ? '+' : ''}{item.todayReturnPercent.toFixed(2)}%)</span>
+                              </div>
+                            </div>
+                            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                              <div className={`text-xs ${mutedClass}`}>Total Return</div>
+                              <div className={`font-semibold ${item.totalReturnDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {item.totalReturnDollar >= 0 ? '+' : ''}{formatCurrency(item.totalReturnDollar)}
+                                <span className="text-xs ml-1">({item.totalReturnPercent >= 0 ? '+' : ''}{item.totalReturnPercent.toFixed(2)}%)</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Portfolio Diversity Bar */}
+                          <div className="mb-3">
+                            <div className={`text-xs ${mutedClass} mb-1`}>Portfolio Weight: {diversityPercent.toFixed(1)}%</div>
+                            <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+                              <div 
+                                className="h-full rounded-full bg-orange-500"
+                                style={{ width: `${Math.min(100, diversityPercent)}%` }}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Sell Controls */}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max={item.shares}
+                              value={sellAmounts[item.ticker] || 1}
+                              onChange={(e) => setSellAmounts(prev => ({ 
+                                ...prev, 
+                                [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1)) 
+                              }))}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
+                                darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
+                              }`}
+                            />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, sellAmounts[item.ticker] || 1); }}
+                              className="px-4 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm"
+                            >
+                              Sell
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, item.shares); }}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
+                                darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                              }`}
+                            >
+                              Sell All
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -4444,8 +4573,8 @@ export default function App() {
         return;
       }
 
-      // Holding period check - must hold shares for 10 minutes before selling
-      const HOLDING_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+      // Holding period check - must hold shares for 45 seconds before selling
+      const HOLDING_PERIOD_MS = 45 * 1000; // 45 seconds
       const lastBuyTime = userData.lastBuyTime?.[ticker] || 0;
       const timeSinceBuy = now - lastBuyTime;
       
@@ -4634,8 +4763,8 @@ export default function App() {
         return;
       }
 
-      // Holding period check - must hold short for 10 minutes before covering
-      const HOLDING_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+      // Holding period check - must hold short for 45 seconds before covering
+      const HOLDING_PERIOD_MS = 45 * 1000; // 45 seconds
       const openedAt = existingShort.openedAt || 0;
       const timeSinceOpen = now - openedAt;
       
@@ -5489,6 +5618,8 @@ export default function App() {
           onClose={() => setShowPortfolio(false)}
           onTrade={handleTrade}
           darkMode={darkMode}
+          costBasis={userData?.costBasis || {}}
+          priceHistory={priceHistory}
         />
       )}
       {selectedCharacter && (
