@@ -215,6 +215,9 @@ export const SHOP_PINS_LIST = Object.values(SHOP_PINS).sort((a, b) => a.price - 
 // ============================================
 
 export const DAILY_MISSIONS = {
+  // ============================================
+  // ORIGINAL 3
+  // ============================================
   BUY_CREW_MEMBER: {
     id: 'BUY_CREW_MEMBER',
     name: 'Crew Support',
@@ -237,6 +240,139 @@ export const DAILY_MISSIONS = {
     reward: 100,
     checkType: 'TRADE_COUNT',
     requirement: 3
+  },
+  
+  // ============================================
+  // GENERAL TRADING (4)
+  // ============================================
+  BUY_ANY_STOCK: {
+    id: 'BUY_ANY_STOCK',
+    name: 'Market Buyer',
+    description: 'Buy any stock today',
+    reward: 75,
+    checkType: 'BUY_ANY'
+  },
+  SELL_ANY_STOCK: {
+    id: 'SELL_ANY_STOCK',
+    name: 'Profit Taker',
+    description: 'Sell any stock today',
+    reward: 75,
+    checkType: 'SELL_ANY'
+  },
+  HOLD_LARGE_POSITION: {
+    id: 'HOLD_LARGE_POSITION',
+    name: 'Big Believer',
+    description: 'Hold 25+ shares of any single character',
+    reward: 125,
+    checkType: 'HOLD_LARGE',
+    requirement: 25
+  },
+  TRADE_VOLUME: {
+    id: 'TRADE_VOLUME',
+    name: 'Volume Trader',
+    description: 'Trade 10+ total shares today',
+    reward: 100,
+    checkType: 'TRADE_VOLUME',
+    requirement: 10
+  },
+  
+  // ============================================
+  // CREW LOYALTY (4)
+  // ============================================
+  CREW_MAJORITY: {
+    id: 'CREW_MAJORITY',
+    name: 'Crew Majority',
+    description: 'Have 50%+ of your holdings in crew members',
+    reward: 125,
+    checkType: 'CREW_MAJORITY',
+    requirement: 50
+  },
+  CREW_COLLECTOR: {
+    id: 'CREW_COLLECTOR',
+    name: 'Crew Collector',
+    description: 'Own shares of 3+ different crew members',
+    reward: 100,
+    checkType: 'CREW_COLLECTOR',
+    requirement: 3
+  },
+  FULL_ROSTER: {
+    id: 'FULL_ROSTER',
+    name: 'Full Roster',
+    description: 'Own at least 1 share of every crew member',
+    reward: 200,
+    checkType: 'FULL_ROSTER'
+  },
+  CREW_LEADER: {
+    id: 'CREW_LEADER',
+    name: 'Crew Leader',
+    description: 'Be the top holder of any crew member stock',
+    reward: 150,
+    checkType: 'CREW_LEADER'
+  },
+  
+  // ============================================
+  // CREW VS CREW (2)
+  // ============================================
+  RIVAL_TRADER: {
+    id: 'RIVAL_TRADER',
+    name: 'Rival Trader',
+    description: 'Buy shares of a rival crew member today',
+    reward: 75,
+    checkType: 'RIVAL_TRADER'
+  },
+  SPY_GAME: {
+    id: 'SPY_GAME',
+    name: 'Spy Game',
+    description: 'Own shares in 3+ different crews',
+    reward: 100,
+    checkType: 'SPY_GAME',
+    requirement: 3
+  },
+  
+  // ============================================
+  // CHARACTER-SPECIFIC (3)
+  // ============================================
+  TOP_DOG: {
+    id: 'TOP_DOG',
+    name: 'Top Dog',
+    description: 'Own shares of the highest-priced character',
+    reward: 100,
+    checkType: 'TOP_DOG'
+  },
+  UNDERDOG_INVESTOR: {
+    id: 'UNDERDOG_INVESTOR',
+    name: 'Underdog Investor',
+    description: 'Buy a character priced under $20 today',
+    reward: 75,
+    checkType: 'UNDERDOG_INVESTOR'
+  },
+  WHALE_WATCH: {
+    id: 'WHALE_WATCH',
+    name: 'Whale Watch',
+    description: 'Own 50+ shares of any single character',
+    reward: 150,
+    checkType: 'WHALE_WATCH',
+    requirement: 50
+  },
+  
+  // ============================================
+  // CREW VALUE (2)
+  // ============================================
+  BALANCED_CREW: {
+    id: 'BALANCED_CREW',
+    name: 'Balanced Crew',
+    description: 'Own at least 5 shares of 2+ different crew members',
+    reward: 100,
+    checkType: 'BALANCED_CREW',
+    requirement: 2
+  },
+  CREW_ACCUMULATOR: {
+    id: 'CREW_ACCUMULATOR',
+    name: 'Crew Accumulator',
+    description: 'Buy 10+ total shares of crew members today',
+    reward: 150,
+    checkType: 'CREW_ACCUMULATOR',
+    requirement: 10
   }
 };
 
