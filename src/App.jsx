@@ -4571,6 +4571,29 @@ export default function App() {
   const portfolioValue = activeUserData.cash + Object.entries(activeUserData.holdings || {})
     .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
 
+  // Helper to calculate 24h price change
+  const get24hChange = useCallback((ticker) => {
+    const currentPrice = prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+    const history = priceHistory[ticker] || [];
+    const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    
+    if (history.length === 0) return 0;
+    
+    // Find price from ~24 hours ago
+    let price24hAgo = currentPrice;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp <= dayAgo) {
+        price24hAgo = history[i].price;
+        break;
+      }
+      if (i === 0) {
+        price24hAgo = history[0].price;
+      }
+    }
+    
+    return price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
+  }, [prices, priceHistory]);
+
   // Filter and sort
   const filteredCharacters = useMemo(() => {
     let filtered = CHARACTERS.filter(c =>
@@ -4578,9 +4601,10 @@ export default function App() {
       c.ticker.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Calculate 24h price changes from actual history
     const priceChanges = {};
     CHARACTERS.forEach(c => {
-      priceChanges[c.ticker] = ((prices[c.ticker] || c.basePrice) - c.basePrice) / c.basePrice * 100;
+      priceChanges[c.ticker] = get24hChange(c.ticker);
     });
 
     switch (sortBy) {
@@ -4592,7 +4616,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -4830,7 +4854,7 @@ export default function App() {
               key={character.ticker}
               character={character}
               price={prices[character.ticker] || character.basePrice}
-              priceChange={((prices[character.ticker] || character.basePrice) - character.basePrice) / character.basePrice * 100}
+              priceChange={get24hChange(character.ticker)}
               sentiment={getSentiment(character.ticker)}
               holdings={activeUserData.holdings?.[character.ticker] || 0}
               shortPosition={activeUserData.shorts?.[character.ticker]}
