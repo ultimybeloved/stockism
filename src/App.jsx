@@ -4579,15 +4579,13 @@ export default function App() {
     
     if (history.length === 0) return 0;
     
-    // Find price from ~24 hours ago
-    let price24hAgo = currentPrice;
+    // Find price from ~24 hours ago, or use oldest available
+    let price24hAgo = history[0].price; // Default to oldest point
+    
     for (let i = history.length - 1; i >= 0; i--) {
       if (history[i].timestamp <= dayAgo) {
         price24hAgo = history[i].price;
         break;
-      }
-      if (i === 0) {
-        price24hAgo = history[0].price;
       }
     }
     
