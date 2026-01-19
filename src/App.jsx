@@ -1995,6 +1995,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData }) 
 const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
   const [selectedPin, setSelectedPin] = useState(null);
   const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'manage'
+  const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot', item: pin | slotType, price: number }
   
   const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
   const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
@@ -2018,8 +2019,19 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
   
   const handleBuyPin = (pin) => {
     if (cash >= pin.price && !ownedPins.includes(pin.id)) {
-      onPurchase('buyPin', pin.id, pin.price);
+      setConfirmPurchase({ type: 'pin', item: pin, price: pin.price });
     }
+  };
+  
+  const handleConfirmPurchase = () => {
+    if (!confirmPurchase) return;
+    
+    if (confirmPurchase.type === 'pin') {
+      onPurchase('buyPin', confirmPurchase.item.id, confirmPurchase.price);
+    } else if (confirmPurchase.type === 'slot') {
+      onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
+    }
+    setConfirmPurchase(null);
   };
   
   const handleToggleShopPin = (pinId) => {
@@ -2043,7 +2055,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
   const handleBuySlot = (slotType) => {
     const cost = slotType === 'achievement' ? PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT : PIN_SLOT_COSTS.EXTRA_SHOP_SLOT;
     if (cash >= cost) {
-      onPurchase('buySlot', slotType, cost);
+      setConfirmPurchase({ type: 'slot', item: slotType, price: cost });
     }
   };
   
@@ -2054,7 +2066,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
         
         <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>🏪 Pin Shop</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>📌 Pins</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
           </div>
           <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-teal-500 font-semibold">{formatCurrency(cash)}</span></p>
@@ -2072,7 +2084,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                   : mutedClass
               }`}
             >
-              {tab === 'shop' ? '🛒 Buy Pins' : tab === 'achievement' ? '🏆 Achievements' : '⚙️ Manage'}
+              {tab === 'shop' ? '🛒 Buy Pins' : tab === 'achievement' ? '🏆 Achievements' : '📋 Display'}
             </button>
           ))}
         </div>
@@ -2253,6 +2265,36 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
             </div>
           )}
         </div>
+        
+        {/* Purchase Confirmation Dialog */}
+        {confirmPurchase && (
+          <div className={`absolute inset-0 bg-black/50 flex items-center justify-center`}>
+            <div className={`${cardClass} border rounded-sm p-6 m-4 max-w-sm`}>
+              <h3 className={`text-lg font-semibold ${textClass} mb-3`}>Confirm Purchase</h3>
+              <p className={`${mutedClass} mb-4`}>
+                {confirmPurchase.type === 'pin' ? (
+                  <>Buy <span className="text-xl">{confirmPurchase.item.emoji}</span> <strong>{confirmPurchase.item.name}</strong> for <span className="text-teal-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                ) : (
+                  <>Buy <strong>+1 {confirmPurchase.item === 'achievement' ? 'Achievement' : 'Shop'} Slot</strong> for <span className="text-teal-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                )}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmPurchase(null)}
+                  className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmPurchase}
+                  className="flex-1 py-2 rounded-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2596,6 +2638,167 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 };
 
 // ============================================
+// PROFILE MODAL (Prediction History)
+// ============================================
+
+const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
+  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
+  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  
+  const bets = userData?.bets || {};
+  const predictionWins = userData?.predictionWins || 0;
+  
+  // Get all predictions user has bet on (from their bets object)
+  const userBetHistory = Object.entries(bets).map(([predictionId, betData]) => {
+    // Try to find the prediction in current predictions
+    const prediction = predictions.find(p => p.id === predictionId);
+    return {
+      predictionId,
+      ...betData,
+      prediction
+    };
+  }).sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
+  
+  // Calculate potential payout for active bets
+  const calculatePotentialPayout = (bet) => {
+    if (!bet.prediction || bet.prediction.resolved) return null;
+    
+    const pools = bet.prediction.pools || {};
+    const totalPool = Object.values(pools).reduce((sum, p) => sum + p, 0);
+    const myPool = pools[bet.option] || 0;
+    
+    if (myPool === 0) return 0;
+    
+    const myShare = bet.amount / myPool;
+    return myShare * totalPool;
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div 
+        className={`w-full max-w-lg max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
+              <p className={`text-sm ${mutedClass}`}>Prediction History</p>
+            </div>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Stats Summary */}
+          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div>
+                <p className={`text-2xl font-bold text-teal-500`}>{predictionWins}</p>
+                <p className={`text-xs ${mutedClass}`}>Correct Predictions</p>
+              </div>
+              <div>
+                <p className={`text-2xl font-bold ${textClass}`}>{userBetHistory.length}</p>
+                <p className={`text-xs ${mutedClass}`}>Total Bets Placed</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Active Bets */}
+          {userBetHistory.filter(b => b.prediction && !b.prediction.resolved).length > 0 && (
+            <div>
+              <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Active Bets</h3>
+              <div className="space-y-2">
+                {userBetHistory.filter(b => b.prediction && !b.prediction.resolved).map(bet => {
+                  const potentialPayout = calculatePotentialPayout(bet);
+                  return (
+                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
+                      <p className={`text-sm font-semibold ${textClass}`}>{bet.prediction.question}</p>
+                      <div className="flex justify-between items-center mt-2">
+                        <div>
+                          <span className={`text-xs ${mutedClass}`}>Your bet: </span>
+                          <span className="text-teal-500 font-semibold">{formatCurrency(bet.amount)}</span>
+                          <span className={`text-xs ${mutedClass}`}> on </span>
+                          <span className={`text-sm font-semibold ${textClass}`}>"{bet.option}"</span>
+                        </div>
+                        {potentialPayout !== null && (
+                          <div className="text-right">
+                            <p className={`text-xs ${mutedClass}`}>Potential payout</p>
+                            <p className="text-green-500 font-semibold">{formatCurrency(potentialPayout)}</p>
+                          </div>
+                        )}
+                      </div>
+                      {!bet.paid && (
+                        <p className={`text-xs ${mutedClass} mt-1`}>⏳ Awaiting results...</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Past Predictions */}
+          <div>
+            <h3 className={`font-semibold ${textClass} mb-2`}>📜 Past Predictions</h3>
+            {userBetHistory.filter(b => b.prediction?.resolved || b.paid !== undefined).length === 0 ? (
+              <p className={`text-sm ${mutedClass}`}>No past predictions yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {userBetHistory.filter(b => b.prediction?.resolved || b.paid !== undefined).map(bet => {
+                  const won = bet.prediction?.outcome === bet.option;
+                  const paidOut = bet.paid === true;
+                  return (
+                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${
+                      won 
+                        ? (darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-300 bg-green-50')
+                        : (darkMode ? 'border-red-700/50 bg-red-900/10' : 'border-red-200 bg-red-50')
+                    }`}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className={`text-sm font-semibold ${textClass}`}>
+                            {bet.prediction?.question || `Prediction #${bet.predictionId}`}
+                          </p>
+                          <p className={`text-xs ${mutedClass} mt-1`}>
+                            Your answer: <span className={`font-semibold ${won ? 'text-green-500' : 'text-red-400'}`}>"{bet.option}"</span>
+                            {bet.prediction?.outcome && (
+                              <span> • Correct answer: <span className="text-teal-500">"{bet.prediction.outcome}"</span></span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-right ml-2">
+                          {won ? (
+                            <>
+                              <p className="text-green-500 font-bold">✓ Won</p>
+                              {bet.payout && <p className="text-green-500 text-sm">+{formatCurrency(bet.payout)}</p>}
+                            </>
+                          ) : (
+                            <p className="text-red-400 font-semibold">✗ Lost</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`text-xs mt-2 ${mutedClass}`}>
+                        Bet: {formatCurrency(bet.amount)}
+                        {paidOut ? (
+                          <span className="text-green-500 ml-2">✓ Paid out</span>
+                        ) : bet.prediction?.resolved ? (
+                          <span className="text-amber-500 ml-2">⏳ Payout pending</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // ACHIEVEMENTS MODAL
 // ============================================
 
@@ -2618,9 +2821,6 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
     'Missions': ['MISSION_10', 'MISSION_50', 'MISSION_100'],
     'Leaderboard': ['TOP_10', 'TOP_3', 'TOP_1']
   };
-  
-  // Get lending eligibility
-  const lendingStatus = checkLendingEligibility(userData);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -2639,34 +2839,6 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* Lending Status Banner */}
-          <div className={`p-4 rounded-sm ${lendingStatus.eligible 
-            ? (darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200')
-            : (darkMode ? 'bg-slate-700/50' : 'bg-slate-100')
-          }`}>
-            <h3 className={`font-semibold mb-2 ${lendingStatus.eligible ? 'text-green-500' : textClass}`}>
-              {lendingStatus.eligible ? '✅ Lending Unlocked!' : '🔒 Lending System (Locked)'}
-            </h3>
-            {lendingStatus.eligible ? (
-              <p className={`text-sm ${mutedClass}`}>
-                Credit limit: <span className="text-green-500 font-semibold">${lendingStatus.creditLimit.toLocaleString()}</span>
-                <br />
-                <span className="text-teal-500 text-xs">Click the 🏦 Lending button in the nav bar to borrow!</span>
-              </p>
-            ) : (
-              <div className="space-y-1">
-                <p className={`text-xs ${mutedClass} mb-2`}>Unlock requirements:</p>
-                {lendingStatus.requirements.map((req, i) => (
-                  <div key={i} className={`text-sm flex items-center gap-2 ${req.met ? 'text-green-500' : mutedClass}`}>
-                    <span>{req.met ? '✓' : '○'}</span>
-                    <span>{req.label}</span>
-                    {!req.met && <span className="text-xs">({req.current}/{req.required})</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
           {/* Achievement Categories */}
           {Object.entries(categories).map(([category, achievementIds]) => (
             <div key={category}>
@@ -3494,6 +3666,7 @@ export default function App() {
   const [showCrewSelection, setShowCrewSelection] = useState(false);
   const [showPinShop, setShowPinShop] = useState(false);
   const [showDailyMissions, setShowDailyMissions] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notification, setNotification] = useState(null);
   const [needsUsername, setNeedsUsername] = useState(false);
@@ -4901,7 +5074,7 @@ export default function App() {
             {!isGuest && (
               <button onClick={() => setShowPinShop(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}>
-                🏪 Pin Shop
+                📌 Pins
               </button>
             )}
             {!isGuest && (
@@ -4941,12 +5114,15 @@ export default function App() {
               </button>
             ) : (
               <>
-                <span className={`text-sm ${mutedClass} flex items-center`}>
+                <button 
+                  onClick={() => setShowProfile(true)}
+                  className={`text-sm ${mutedClass} flex items-center hover:text-teal-500 transition-colors`}
+                >
                   <span style={userData?.isCrewHead && userData?.crew ? { color: userData.crewHeadColor || CREW_MAP[userData.crew]?.color } : {}}>
                     {userData?.displayName}
                   </span>
                   <PinDisplay userData={userData} size="sm" />
-                </span>
+                </button>
                 <button onClick={handleLogout}
                   className="px-3 py-1 text-xs rounded-sm bg-red-600 hover:bg-red-700 text-white font-semibold uppercase">
                   Logout
@@ -5133,6 +5309,14 @@ export default function App() {
           onClose={() => setShowAchievements(false)} 
           darkMode={darkMode} 
           userData={userData}
+        />
+      )}
+      {showProfile && !isGuest && (
+        <ProfileModal 
+          onClose={() => setShowProfile(false)} 
+          darkMode={darkMode} 
+          userData={userData}
+          predictions={predictions}
         />
       )}
       {showLending && !isGuest && (
