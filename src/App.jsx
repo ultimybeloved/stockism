@@ -1237,7 +1237,7 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                 <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(currentValue)}</span>
                 {hasChartData && (
                   <span className={`text-sm font-semibold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
-                    {isUp ? '▲' : '▼'} {formatChange(periodChange)}
+                    {isUp ? '▲' : '▼'} {formatCurrency(Math.abs(lastValue - firstValue))} ({formatChange(periodChange)})
                   </span>
                 )}
               </div>
