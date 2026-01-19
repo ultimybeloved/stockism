@@ -2314,11 +2314,15 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
   const userCrew = userData?.crew;
   const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
   
-  // Seeded random to pick 3 missions consistently for the day
+  // Seeded random to pick 3 missions consistently for the day, varying by crew
   const getDailyMissions = () => {
     const allMissions = Object.values(DAILY_MISSIONS);
-    // Use date string as seed for consistent daily selection
-    const seed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
+    
+    // Create seed from date + crew ID for crew-specific missions
+    // Users without a crew get a default seed
+    const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
+    const crewSeed = userCrew ? userCrew.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+    const seed = dateSeed + crewSeed;
     
     // Fisher-Yates shuffle with seeded random
     const shuffled = [...allMissions];
@@ -4247,14 +4251,6 @@ export default function App() {
       const remaining = Math.ceil((cooldownMs - (now - lastTrade)) / 1000);
       setNotification({ type: 'error', message: `Please wait ${remaining}s between trades` });
       setTimeout(() => setNotification(null), 2000);
-      return;
-    }
-
-    // Limit trade size to prevent market manipulation
-    const maxTradeSize = 50;
-    if (amount > maxTradeSize) {
-      setNotification({ type: 'error', message: `Max ${maxTradeSize} shares per trade` });
-      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
