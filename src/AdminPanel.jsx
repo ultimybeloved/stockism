@@ -59,8 +59,26 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [ipoHoursUntilStart, setIpoHoursUntilStart] = useState(24); // Hours until IPO buying starts (hype phase)
   const [ipoDurationHours, setIpoDurationHours] = useState(24); // How long IPO buying lasts
   const [activeIPOs, setActiveIPOs] = useState([]);
+  const [completedIPOTickers, setCompletedIPOTickers] = useState([]); // Tickers that have had IPOs
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
+  
+  // Characters eligible for IPO: those with ipoRequired flag OR not yet in the market
+  // We'll track which characters have completed IPOs in Firestore
+  const ipoEligibleCharacters = CHARACTERS.filter(c => {
+    // Check if there's already an active IPO for this character
+    const hasActiveIPO = activeIPOs.some(ipo => ipo.ticker === c.ticker && !ipo.priceJumped);
+    if (hasActiveIPO) return false;
+    
+    // Check if character has ipoRequired flag (new characters)
+    if (c.ipoRequired) return true;
+    
+    // Don't show characters that have already completed IPO or are established
+    if (completedIPOTickers.includes(c.ticker)) return false;
+    
+    // For now, only show characters explicitly marked as needing IPO
+    return c.ipoRequired === true;
+  });
 
   const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
   const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
@@ -226,9 +244,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       const ipoRef = doc(db, 'market', 'ipos');
       const snap = await getDoc(ipoRef);
       if (snap.exists()) {
-        setActiveIPOs(snap.data().list || []);
+        const list = snap.data().list || [];
+        setActiveIPOs(list);
+        // Track which tickers have completed IPOs
+        const completed = list.filter(ipo => ipo.priceJumped).map(ipo => ipo.ticker);
+        setCompletedIPOTickers(completed);
       } else {
         setActiveIPOs([]);
+        setCompletedIPOTickers([]);
       }
     } catch (err) {
       console.error('Failed to load IPOs:', err);
@@ -839,12 +862,21 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
                     >
                       <option value="">Select character...</option>
-                      {CHARACTERS.map(c => (
-                        <option key={c.ticker} value={c.ticker}>
-                          ${c.ticker} - {c.name} (Base: ${c.basePrice})
-                        </option>
-                      ))}
+                      {ipoEligibleCharacters.length === 0 ? (
+                        <option disabled>No characters need IPO (add ipoRequired: true to characters.js)</option>
+                      ) : (
+                        ipoEligibleCharacters.map(c => (
+                          <option key={c.ticker} value={c.ticker}>
+                            ${c.ticker} - {c.name} (Base: ${c.basePrice})
+                          </option>
+                        ))
+                      )}
                     </select>
+                    {ipoEligibleCharacters.length === 0 && (
+                      <p className={`text-xs ${mutedClass} mt-1`}>
+                        💡 To add a new character for IPO, add them to characters.js with <code className="bg-slate-700 px-1 rounded">ipoRequired: true</code>
+                      </p>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
