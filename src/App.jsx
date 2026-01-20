@@ -269,6 +269,35 @@ const getTodayDateString = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
+// Transaction logging - records all significant financial actions for auditing
+const logTransaction = async (db, userId, type, details) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data() || {};
+    
+    const transaction = {
+      type, // 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE', 'CHECKIN', 'BET', 'BET_WIN', 'BET_LOSS', 'MARGIN_INTEREST', 'LIQUIDATION', etc.
+      timestamp: Date.now(),
+      ...details,
+      // Snapshot of user state at time of transaction
+      cashBefore: details.cashBefore ?? userData.cash,
+      cashAfter: details.cashAfter,
+      portfolioBefore: details.portfolioBefore ?? userData.portfolioValue,
+      portfolioAfter: details.portfolioAfter
+    };
+    
+    // Keep last 100 transactions per user
+    const transactionLog = userData.transactionLog || [];
+    const updatedLog = [...transactionLog, transaction].slice(-100);
+    
+    await updateDoc(userRef, { transactionLog: updatedLog });
+  } catch (err) {
+    console.error('Failed to log transaction:', err);
+    // Don't throw - logging failure shouldn't break the actual transaction
+  }
+};
+
 // Check if user qualifies for margin trading (requires commitment + skill)
 const checkMarginEligibility = (userData, isAdmin = false) => {
   if (!userData) return { eligible: false, requirements: [] };
@@ -5099,14 +5128,27 @@ export default function App() {
       await updateDoc(marketRef, { totalTrades: increment(1) });
       
       // Record portfolio history
-      const newPortfolioValue = (userData.cash - totalCost) + Object.entries(userData.holdings || {})
+      const newPortfolioValue = (cashAvailable - cashToUse) + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares + amount : shares), 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'BUY', {
+        ticker,
+        shares: amount,
+        pricePerShare: buyPrice,
+        totalCost,
+        cashUsed: cashToUse,
+        marginUsed: marginToUse,
+        cashBefore: cashAvailable,
+        cashAfter: cashAvailable - cashToUse,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      });
       
       // Check achievements (pass trade value for Shark achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
-        cash: userData.cash - totalCost,
+        cash: cashAvailable - cashToUse,
         holdings: { ...userData.holdings, [ticker]: (userData.holdings[ticker] || 0) + amount },
         totalTrades: (userData.totalTrades || 0) + 1
       }, prices, { tradeValue: totalCost });
@@ -5212,6 +5254,19 @@ export default function App() {
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares - amount : shares), 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
       
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'SELL', {
+        ticker,
+        shares: amount,
+        pricePerShare: sellPrice,
+        totalRevenue,
+        costBasis,
+        profitPercent: Math.round(profitPercent * 100) / 100,
+        cashBefore: userData.cash,
+        cashAfter: userData.cash + totalRevenue,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      });
+      
       // Check achievements (pass profit percent for Bull Run, isDiamondHands for Diamond Hands)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
@@ -5291,6 +5346,19 @@ export default function App() {
       const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'SHORT_OPEN', {
+        ticker,
+        shares: amount,
+        entryPrice: shortPrice,
+        marginRequired,
+        totalShares,
+        avgEntryPrice: Math.round(avgEntryPrice * 100) / 100,
+        cashBefore: userData.cash,
+        cashAfter: newCash,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      });
       
       // Check achievements
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
@@ -5397,6 +5465,21 @@ export default function App() {
       const newPortfolioValue = (userData.cash + cashBack) + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'SHORT_CLOSE', {
+        ticker,
+        shares: amount,
+        entryPrice: existingShort.entryPrice,
+        coverPrice,
+        profitPerShare: Math.round(profitPerShare * 100) / 100,
+        totalProfit: Math.round(profit * 100) / 100,
+        marginReturned: Math.round(marginReturned * 100) / 100,
+        cashBack: Math.round(cashBack * 100) / 100,
+        cashBefore: userData.cash,
+        cashAfter: userData.cash + cashBack,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      });
       
       // Check achievements (pass short profit for Cold Blooded achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
@@ -5703,6 +5786,14 @@ export default function App() {
     }
     
     await updateDoc(userRef, updateData);
+    
+    // Log transaction for auditing
+    await logTransaction(db, user.uid, 'CHECKIN', {
+      bonus: DAILY_BONUS,
+      totalCheckins: newTotalCheckins,
+      cashBefore: userData.cash,
+      cashAfter: userData.cash + DAILY_BONUS
+    });
 
     // Show achievement notification if earned
     if (newAchievements.length > 0) {
@@ -5885,6 +5976,17 @@ export default function App() {
         question: prediction.question // Store question for history
       },
       [`dailyMissions.${getTodayDateString()}.placedBet`]: true
+    });
+    
+    // Log transaction for auditing
+    await logTransaction(db, user.uid, 'BET', {
+      predictionId,
+      option,
+      amount,
+      totalBetAmount: newBetAmount,
+      question: prediction.question,
+      cashBefore: userData.cash,
+      cashAfter: userData.cash - amount
     });
 
     setNotification({ type: 'success', message: `Bet ${formatCurrency(amount)} on "${option}"!` });
