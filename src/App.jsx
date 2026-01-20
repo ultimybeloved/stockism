@@ -379,9 +379,20 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
   const currentAchievements = userData.achievements || [];
   const newAchievements = [];
   
-  // Calculate current portfolio value
-  const portfolioValue = (userData.cash || 0) + Object.entries(userData.holdings || {})
+  // Calculate current portfolio value (including shorts)
+  const holdingsValue = Object.entries(userData.holdings || {})
     .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+  
+  const shortsValue = Object.entries(userData.shorts || {})
+    .reduce((sum, [ticker, position]) => {
+      if (!position || position.shares <= 0) return sum;
+      const currentPrice = prices[ticker] || position.entryPrice;
+      const collateral = position.margin || 0;
+      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      return sum + collateral + pnl;
+    }, 0);
+  
+  const portfolioValue = (userData.cash || 0) + holdingsValue + shortsValue;
   
   // Calculate total holdings count
   const holdingsCount = Object.values(userData.holdings || {}).filter(shares => shares > 0).length;
@@ -5415,9 +5426,22 @@ export default function App() {
   useEffect(() => {
     if (!user || !userData || Object.keys(prices).length === 0) return;
 
-    const portfolioValue = userData.cash + Object.entries(userData.holdings || {})
+    // Calculate holdings value
+    const holdingsValue = Object.entries(userData.holdings || {})
       .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+    
+    // Calculate shorts value (collateral + P&L)
+    const shortsValue = Object.entries(userData.shorts || {})
+      .reduce((sum, [ticker, position]) => {
+        if (!position || position.shares <= 0) return sum;
+        const currentPrice = prices[ticker] || position.entryPrice;
+        const collateral = position.margin || 0;
+        // P&L = (entry price - current price) * shares (profit when price goes down)
+        const pnl = (position.entryPrice - currentPrice) * position.shares;
+        return sum + collateral + pnl;
+      }, 0);
 
+    const portfolioValue = userData.cash + holdingsValue + shortsValue;
     const roundedValue = Math.round(portfolioValue * 100) / 100;
     const userRef = doc(db, 'users', user.uid);
     
@@ -5957,8 +5981,20 @@ export default function App() {
   const getUserBet = (predictionId) => activeUserData.bets?.[predictionId] || null;
 
   // Portfolio calculations
-  const portfolioValue = activeUserData.cash + Object.entries(activeUserData.holdings || {})
+  const holdingsValue = Object.entries(activeUserData.holdings || {})
     .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+  
+  const shortsValue = Object.entries(activeUserData.shorts || {})
+    .reduce((sum, [ticker, position]) => {
+      if (!position || position.shares <= 0) return sum;
+      const currentPrice = prices[ticker] || position.entryPrice;
+      const collateral = position.margin || 0;
+      // P&L = (entry price - current price) * shares (profit when price goes down)
+      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      return sum + collateral + pnl;
+    }, 0);
+  
+  const portfolioValue = activeUserData.cash + holdingsValue + shortsValue;
 
   // Helper to calculate 24h price change
   const get24hChange = useCallback((ticker) => {
