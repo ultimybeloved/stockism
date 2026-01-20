@@ -6420,6 +6420,17 @@ export default function App() {
           <div className={`${cardClass} border rounded-sm p-4`}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Cash</p>
             <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(activeUserData.cash)}</p>
+            {activeUserData.marginEnabled && (() => {
+              const marginStatus = calculateMarginStatus(activeUserData, prices);
+              return (
+                <p className={`text-xs ${mutedClass}`}>
+                  <span className="text-amber-500">+ {formatCurrency(marginStatus.availableMargin)} margin</span>
+                  {activeUserData.marginUsed > 0 && (
+                    <span className="text-orange-500 ml-2">({formatCurrency(activeUserData.marginUsed)} used)</span>
+                  )}
+                </p>
+              );
+            })()}
             <CheckInButton 
               isGuest={isGuest}
               lastCheckin={userData?.lastCheckin}
