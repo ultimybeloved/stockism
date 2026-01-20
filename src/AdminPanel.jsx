@@ -645,7 +645,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     let totalCash = 0;
     let totalShares = 0;
     let totalValue = 0;
+    let totalShortShares = 0;
+    let totalShortCollateral = 0;
     const holdingsSummary = {};
+    const shortsSummary = {};
     
     for (const userId of selectedForDeletion) {
       const user = allUsers.find(u => u.id === userId);
@@ -656,15 +659,24 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       // Sum up holdings
       if (user.holdings) {
         Object.entries(user.holdings).forEach(([ticker, shares]) => {
-          // holdings can be a number or an object with shares property
           const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
           if (shareCount > 0) {
             totalShares += shareCount;
             holdingsSummary[ticker] = (holdingsSummary[ticker] || 0) + shareCount;
-            // Use market price, or fall back to base price from characters
             const character = CHARACTERS.find(c => c.ticker === ticker);
             const price = prices[ticker] || character?.basePrice || 0;
             totalValue += shareCount * price;
+          }
+        });
+      }
+      
+      // Sum up shorts
+      if (user.shorts) {
+        Object.entries(user.shorts).forEach(([ticker, position]) => {
+          if (position && position.shares > 0) {
+            totalShortShares += position.shares;
+            totalShortCollateral += position.margin || 0;
+            shortsSummary[ticker] = (shortsSummary[ticker] || 0) + position.shares;
           }
         });
       }
@@ -677,12 +689,27 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       .map(([ticker, shares]) => `${ticker}: ${shares}`)
       .join(', ');
     
-    const summaryMsg = `DELETE ${selectedForDeletion.size} USERS?\n\n` +
+    const topShorts = Object.entries(shortsSummary)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([ticker, shares]) => `${ticker}: ${shares}`)
+      .join(', ');
+    
+    let summaryMsg = `DELETE ${selectedForDeletion.size} USERS?\n\n` +
       `💰 Total Cash: $${totalCash.toFixed(2)}\n` +
-      `📊 Total Shares: ${totalShares}\n` +
-      `💵 Holdings Value: $${totalValue.toFixed(2)}\n` +
-      `📈 Top Holdings: ${topHoldings || 'None'}\n\n` +
-      `This cannot be undone!`;
+      `📊 Long Shares: ${totalShares}\n` +
+      `💵 Long Value: $${totalValue.toFixed(2)}\n`;
+    
+    if (totalShortShares > 0) {
+      summaryMsg += `🩳 Short Shares: ${totalShortShares}\n` +
+        `🔒 Short Collateral: $${totalShortCollateral.toFixed(2)}\n`;
+    }
+    
+    summaryMsg += `\n📈 Top Holdings: ${topHoldings || 'None'}`;
+    if (topShorts) {
+      summaryMsg += `\n📉 Top Shorts: ${topShorts}`;
+    }
+    summaryMsg += `\n\nThis cannot be undone!`;
     
     if (!window.confirm(summaryMsg)) return;
     if (!window.confirm(`FINAL CONFIRMATION: Permanently delete ${selectedForDeletion.size} user accounts?`)) return;
@@ -1865,45 +1892,67 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     let totalCash = 0;
                     let totalShares = 0;
                     let totalValue = 0;
+                    let totalShortShares = 0;
+                    let totalShortValue = 0;
                     
                     for (const userId of selectedForDeletion) {
                       const user = allUsers.find(u => u.id === userId);
                       if (!user) continue;
                       totalCash += user.cash || 0;
+                      
+                      // Count long holdings
                       if (user.holdings && Object.keys(user.holdings).length > 0) {
-                        console.log(`User ${user.displayName} holdings:`, user.holdings);
                         Object.entries(user.holdings).forEach(([ticker, shares]) => {
-                          console.log(`  ${ticker}:`, shares, typeof shares);
-                          // holdings can be a number or an object with shares property
                           const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
                           if (shareCount > 0) {
                             totalShares += shareCount;
-                            // Use market price, or fall back to base price from characters
                             const character = CHARACTERS.find(c => c.ticker === ticker);
                             const price = prices[ticker] || character?.basePrice || 0;
                             totalValue += shareCount * price;
-                            console.log(`  -> ${shareCount} shares @ $${price} = $${shareCount * price}`);
+                          }
+                        });
+                      }
+                      
+                      // Count short positions
+                      if (user.shorts && Object.keys(user.shorts).length > 0) {
+                        Object.entries(user.shorts).forEach(([ticker, position]) => {
+                          if (position && position.shares > 0) {
+                            totalShortShares += position.shares;
+                            totalShortValue += position.margin || 0;
                           }
                         });
                       }
                     }
                     
-                    console.log(`Total: ${totalShares} shares, $${totalValue} value, $${totalCash} cash`);
-                    
                     return (
-                      <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} grid grid-cols-3 gap-2 text-xs`}>
-                        <div>
-                          <span className={mutedClass}>Cash: </span>
-                          <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
+                      <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <span className={mutedClass}>Cash: </span>
+                            <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className={mutedClass}>Shares: </span>
+                            <span className={`font-semibold ${textClass}`}>{totalShares}</span>
+                          </div>
+                          <div>
+                            <span className={mutedClass}>Value: </span>
+                            <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className={mutedClass}>Shares: </span>
-                          <span className={`font-semibold ${textClass}`}>{totalShares}</span>
-                        </div>
-                        <div>
-                          <span className={mutedClass}>Value: </span>
-                          <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
-                        </div>
+                        {totalShortShares > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            <div>
+                              <span className={mutedClass}>Shorts: </span>
+                              <span className="text-orange-500 font-semibold">{totalShortShares}</span>
+                            </div>
+                            <div>
+                              <span className={mutedClass}>Collateral: </span>
+                              <span className="text-orange-500 font-semibold">${totalShortValue.toFixed(2)}</span>
+                            </div>
+                            <div></div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
