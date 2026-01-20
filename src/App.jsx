@@ -1682,9 +1682,11 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
   const [leaders, setLeaders] = useState([]);
+  const [crewLeaders, setCrewLeaders] = useState([]); // Separate state for crew-specific leaderboard
   const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
 
+  // Fetch main top 50 leaderboard
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
@@ -1708,6 +1710,35 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
     fetchLeaderboard();
   }, []);
 
+  // Fetch crew-specific leaderboard when crew filter changes
+  useEffect(() => {
+    if (crewFilter === 'ALL') {
+      setCrewLeaders([]);
+      return;
+    }
+    
+    const fetchCrewLeaderboard = async () => {
+      try {
+        // Fetch all users in this crew, sorted by portfolio value
+        const q = query(
+          collection(db, 'users'),
+          orderBy('portfolioValue', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        const crewMembers = snapshot.docs
+          .map(doc => ({ ...doc.data(), id: doc.id }))
+          .filter(user => user.crew === crewFilter)
+          .slice(0, 50) // Limit to top 50 crew members
+          .map((user, idx) => ({ ...user, crewRank: idx + 1 }));
+        
+        setCrewLeaders(crewMembers);
+      } catch (err) {
+        console.error('Failed to fetch crew leaderboard:', err);
+      }
+    };
+    fetchCrewLeaderboard();
+  }, [crewFilter]);
+
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -1726,13 +1757,11 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
     return `#${rank}`;
   };
 
-  // Filter and re-rank based on crew
+  // Use crew-specific leaderboard when filtering, otherwise use main leaderboard
   const filteredLeaders = useMemo(() => {
     if (crewFilter === 'ALL') return leaders;
-    return leaders
-      .filter(l => l.crew === crewFilter)
-      .map((l, idx) => ({ ...l, crewRank: idx + 1 }));
-  }, [leaders, crewFilter]);
+    return crewLeaders;
+  }, [leaders, crewLeaders, crewFilter]);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -5259,9 +5288,18 @@ export default function App() {
   useEffect(() => {
     if (!user || !userData) return;
     
+    // Make sure userData belongs to the current user (prevent cross-account issues)
+    if (userData.oddsSnaps && Object.keys(userData).length < 3) return; // Incomplete data
+    
     const checkLeaderboardAchievements = async () => {
       try {
-        const currentAchievements = userData.achievements || [];
+        // Re-verify we have the right user data
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) return;
+        
+        const currentUserData = userSnap.data();
+        const currentAchievements = currentUserData.achievements || [];
         
         // Skip if already has all leaderboard achievements
         if (currentAchievements.includes('TOP_1')) return;
@@ -5294,7 +5332,6 @@ export default function App() {
         }
         
         if (newAchievements.length > 0) {
-          const userRef = doc(db, 'users', user.uid);
           await updateDoc(userRef, {
             achievements: arrayUnion(...newAchievements)
           });
