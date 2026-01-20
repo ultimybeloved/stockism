@@ -686,26 +686,39 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     if (!window.confirm(`FINAL CONFIRMATION: Permanently delete ${selectedForDeletion.size} user accounts?`)) return;
     
     setLoading(true);
-    try {
-      let deleted = 0;
-      for (const userId of selectedForDeletion) {
-        // Don't allow deleting admin
-        if (ADMIN_UIDS.includes(userId)) continue;
+    let deleted = 0;
+    let failed = 0;
+    const failedIds = [];
+    
+    for (const userId of selectedForDeletion) {
+      // Don't allow deleting admin
+      if (ADMIN_UIDS.includes(userId)) continue;
+      
+      try {
         await deleteDoc(doc(db, 'users', userId));
         deleted++;
+      } catch (err) {
+        console.error(`Failed to delete user ${userId}:`, err);
+        failed++;
+        failedIds.push(userId);
       }
-      
-      // Remove deleted users from allUsers and search results
-      setAllUsers(prev => prev.filter(u => !selectedForDeletion.has(u.id)));
-      setUserSearchResults(prev => prev.filter(u => !selectedForDeletion.has(u.id)));
+    }
+    
+    // Remove successfully deleted users from lists
+    const successfullyDeleted = new Set([...selectedForDeletion].filter(id => !failedIds.includes(id)));
+    setAllUsers(prev => prev.filter(u => !successfullyDeleted.has(u.id)));
+    setUserSearchResults(prev => prev.filter(u => !successfullyDeleted.has(u.id)));
+    
+    // Keep failed ones selected so user can retry
+    if (failed > 0) {
+      setSelectedForDeletion(new Set(failedIds));
+      showMessage('error', `Deleted ${deleted}, but ${failed} failed. Check console for details. Failed IDs still selected.`);
+    } else {
       setSelectedForDeletion(new Set());
       setDeleteMode(false);
-      
       showMessage('success', `Deleted ${deleted} users. Removed $${totalCash.toFixed(2)} cash and ${totalShares} shares.`);
-    } catch (err) {
-      console.error('Failed to delete users:', err);
-      showMessage('error', 'Failed to delete some users');
     }
+    
     setLoading(false);
   };
 
