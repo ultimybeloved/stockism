@@ -65,6 +65,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [holdersTicker, setHoldersTicker] = useState('');
   const [holdersData, setHoldersData] = useState([]); // Array of { userId, displayName, shares, value }
   const [holdersLoading, setHoldersLoading] = useState(false);
+  
+  // Market Stats state
+  const [marketStats, setMarketStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
@@ -384,6 +388,127 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', 'Failed to load holders');
     }
     setHoldersLoading(false);
+  };
+
+  // Load market stats
+  const loadMarketStats = async () => {
+    setStatsLoading(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      
+      let totalUsers = 0;
+      let activeUsers24h = 0;
+      let activeUsers7d = 0;
+      let totalCashInSystem = 0;
+      let totalPortfolioValue = 0;
+      let totalSharesHeld = 0;
+      let totalMarginUsed = 0;
+      let usersWithMargin = 0;
+      let totalBetsPlaced = 0;
+      let totalTradesAllTime = 0;
+      
+      // Holdings by character
+      const holdingsByTicker = {};
+      CHARACTERS.forEach(c => { holdingsByTicker[c.ticker] = 0; });
+      
+      // Crew membership counts
+      const crewCounts = {};
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        totalUsers++;
+        
+        // Activity tracking
+        const lastActive = data.lastTradeTime || data.lastCheckin || 0;
+        if (lastActive > oneDayAgo) activeUsers24h++;
+        if (lastActive > oneWeekAgo) activeUsers7d++;
+        
+        // Cash and portfolio
+        totalCashInSystem += data.cash || 0;
+        totalPortfolioValue += data.portfolioValue || 0;
+        
+        // Holdings
+        const holdings = data.holdings || {};
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0) {
+            totalSharesHeld += shares;
+            if (holdingsByTicker[ticker] !== undefined) {
+              holdingsByTicker[ticker] += shares;
+            }
+          }
+        });
+        
+        // Margin
+        if (data.marginEnabled) {
+          usersWithMargin++;
+          totalMarginUsed += data.marginUsed || 0;
+        }
+        
+        // Bets
+        const bets = data.bets || {};
+        totalBetsPlaced += Object.keys(bets).length;
+        
+        // Trades
+        totalTradesAllTime += data.totalTrades || 0;
+        
+        // Crew
+        if (data.crew) {
+          crewCounts[data.crew] = (crewCounts[data.crew] || 0) + 1;
+        }
+      });
+      
+      // Calculate total market cap (all shares * current prices)
+      let totalMarketCap = 0;
+      CHARACTERS.forEach(c => {
+        const price = prices[c.ticker] || c.basePrice;
+        const sharesHeld = holdingsByTicker[c.ticker] || 0;
+        totalMarketCap += price * sharesHeld;
+      });
+      
+      // Top 5 most held characters
+      const topHeld = Object.entries(holdingsByTicker)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([ticker, shares]) => ({ ticker, shares }));
+      
+      // Top gainers/losers (comparing to base price)
+      const priceChanges = CHARACTERS.map(c => {
+        const current = prices[c.ticker] || c.basePrice;
+        const change = ((current - c.basePrice) / c.basePrice) * 100;
+        return { ticker: c.ticker, name: c.name, price: current, basePrice: c.basePrice, change };
+      }).sort((a, b) => b.change - a.change);
+      
+      const topGainers = priceChanges.slice(0, 5);
+      const topLosers = priceChanges.slice(-5).reverse();
+      
+      setMarketStats({
+        totalUsers,
+        activeUsers24h,
+        activeUsers7d,
+        totalCashInSystem,
+        totalPortfolioValue,
+        totalSharesHeld,
+        totalMarketCap,
+        totalMarginUsed,
+        usersWithMargin,
+        totalBetsPlaced,
+        totalTradesAllTime,
+        topHeld,
+        topGainers,
+        topLosers,
+        crewCounts,
+        lastUpdated: now
+      });
+    } catch (err) {
+      console.error('Failed to load market stats:', err);
+      showMessage('error', 'Failed to load market stats');
+    }
+    setStatsLoading(false);
   };
 
   // Resolve prediction
@@ -758,6 +883,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'manage' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
           >
             📋 All
+          </button>
+          <button
+            onClick={() => { setActiveTab('stats'); loadMarketStats(); }}
+            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'stats' ? 'text-cyan-500 border-b-2 border-cyan-500' : mutedClass}`}
+          >
+            📈 Stats
           </button>
         </div>
 
@@ -1576,6 +1707,166 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 <p className={`text-center ${mutedClass} py-8`}>
                   Click "Load" to fetch all users
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* STATS TAB */}
+          {activeTab === 'stats' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
+                <div className="flex justify-between items-center">
+                  <p className={`text-sm ${mutedClass}`}>
+                    📈 Market overview and platform statistics
+                  </p>
+                  <button
+                    onClick={loadMarketStats}
+                    disabled={statsLoading}
+                    className="px-3 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded-sm disabled:opacity-50"
+                  >
+                    {statsLoading ? '...' : '🔄 Refresh'}
+                  </button>
+                </div>
+              </div>
+
+              {statsLoading ? (
+                <p className={`text-center py-8 ${mutedClass}`}>Loading market stats...</p>
+              ) : !marketStats ? (
+                <p className={`text-center py-8 ${mutedClass}`}>Click refresh to load stats</p>
+              ) : (
+                <>
+                  {/* User Stats */}
+                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h3 className={`font-semibold mb-3 ${textClass}`}>👥 Users</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className={`text-2xl font-bold ${textClass}`}>{marketStats.totalUsers}</p>
+                        <p className={`text-xs ${mutedClass}`}>Total Users</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-500">{marketStats.activeUsers24h}</p>
+                        <p className={`text-xs ${mutedClass}`}>Active (24h)</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-cyan-500">{marketStats.activeUsers7d}</p>
+                        <p className={`text-xs ${mutedClass}`}>Active (7d)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial Stats */}
+                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h3 className={`font-semibold mb-3 ${textClass}`}>💰 Financials</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Cash in System:</span>
+                        <span className="font-bold text-green-500">${marketStats.totalCashInSystem.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Portfolio Value:</span>
+                        <span className={`font-bold ${textClass}`}>${marketStats.totalPortfolioValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Market Cap:</span>
+                        <span className="font-bold text-cyan-500">${marketStats.totalMarketCap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Shares Held:</span>
+                        <span className={`font-bold ${textClass}`}>{marketStats.totalSharesHeld.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Margin Used:</span>
+                        <span className="font-bold text-amber-500">${marketStats.totalMarginUsed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Users with Margin:</span>
+                        <span className={`font-bold ${textClass}`}>{marketStats.usersWithMargin}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Activity Stats */}
+                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Activity</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Trades (All Time):</span>
+                        <span className={`font-bold ${textClass}`}>{marketStats.totalTradesAllTime.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Total Bets Placed:</span>
+                        <span className={`font-bold ${textClass}`}>{marketStats.totalBetsPlaced.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Held Characters */}
+                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h3 className={`font-semibold mb-3 ${textClass}`}>🏆 Most Held Characters</h3>
+                    <div className="space-y-2">
+                      {marketStats.topHeld.map((item, i) => {
+                        const char = CHARACTERS.find(c => c.ticker === item.ticker);
+                        return (
+                          <div key={item.ticker} className="flex justify-between items-center">
+                            <span className={textClass}>
+                              <span className={mutedClass}>{i + 1}.</span> {char?.name || item.ticker} <span className={mutedClass}>(${item.ticker})</span>
+                            </span>
+                            <span className="font-bold text-cyan-500">{item.shares.toLocaleString()} shares</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Price Movers */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Top Gainers */}
+                    <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                      <h3 className={`font-semibold mb-3 text-green-500`}>📈 Top Gainers</h3>
+                      <div className="space-y-1">
+                        {marketStats.topGainers.map((item, i) => (
+                          <div key={item.ticker} className="flex justify-between text-sm">
+                            <span className={textClass}>${item.ticker}</span>
+                            <span className="font-bold text-green-500">+{item.change.toFixed(1)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Top Losers */}
+                    <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                      <h3 className={`font-semibold mb-3 text-red-500`}>📉 Top Losers</h3>
+                      <div className="space-y-1">
+                        {marketStats.topLosers.map((item, i) => (
+                          <div key={item.ticker} className="flex justify-between text-sm">
+                            <span className={textClass}>${item.ticker}</span>
+                            <span className="font-bold text-red-500">{item.change.toFixed(1)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Crew Membership */}
+                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h3 className={`font-semibold mb-3 ${textClass}`}>🏴 Crew Membership</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {Object.entries(marketStats.crewCounts).sort((a, b) => b[1] - a[1]).map(([crewId, count]) => (
+                        <div key={crewId} className="flex justify-between text-sm">
+                          <span className={textClass}>{crewId}</span>
+                          <span className="font-bold text-purple-500">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {Object.keys(marketStats.crewCounts).length === 0 && (
+                      <p className={`text-sm ${mutedClass}`}>No crew memberships yet</p>
+                    )}
+                  </div>
+
+                  <p className={`text-xs ${mutedClass} text-center`}>
+                    Last updated: {new Date(marketStats.lastUpdated).toLocaleString()}
+                  </p>
+                </>
               )}
             </div>
           )}
