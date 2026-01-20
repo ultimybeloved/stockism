@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, TwitterAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize App Check with reCAPTCHA v3
 const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider('6Lf-LEwsAAAAADc8tvjTERwlELg-EQIg0ag80whE'),
+  provider: new ReCaptchaV3Provider('YOUR_RECAPTCHA_SITE_KEY'),
   isTokenAutoRefreshEnabled: true
 });
 
@@ -26,5 +26,8 @@ export const googleProvider = new GoogleAuthProvider();
 // Request email scope explicitly
 googleProvider.addScope('email');
 googleProvider.addScope('profile');
+
+export const twitterProvider = new TwitterAuthProvider();
+
 export const db = getFirestore(app);
 export default app;
