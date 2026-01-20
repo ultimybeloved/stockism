@@ -18,7 +18,7 @@ export const CHARACTERS = [
   { name: "Manager Kim", ticker: "SRMK", basePrice: 74, volatility: 0.03, dateAdded: "2026-01-13T00:12:00" },
   { name: "Charles Choi", ticker: "ELIT", basePrice: 72, volatility: 0.025, dateAdded: "2026-01-13T00:13:00" },
   { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, volatility: 0.03, dateAdded: "2026-01-13T00:14:00" },
-  { name: "Daniel Park", ticker: "LDNL", basePrice: 70, volatility: 0.05, dateAdded: "2026-01-13T00:15:00" },
+  { name: "Daniel Park (Small)", ticker: "LDNL", basePrice: 70, volatility: 0.05, dateAdded: "2026-01-13T00:15:00" },
   { name: "Paecheon Jo", ticker: "CROC", basePrice: 66, volatility: 0.03, dateAdded: "2026-01-13T00:16:00" },
   { name: "Jake Kim", ticker: "JAKE", basePrice: 65, volatility: 0.04, dateAdded: "2026-01-13T00:17:00" },
   { name: "Jaegyeon Na", ticker: "JAEG", basePrice: 62, volatility: 0.035, dateAdded: "2026-01-13T00:18:00" },
