@@ -83,6 +83,18 @@ Object.values(CREWS).forEach(crew => {
   CREW_MAP[crew.id] = crew;
 });
 
+// Create a ticker-to-crew lookup map
+export const TICKER_TO_CREW = {};
+Object.values(CREWS).forEach(crew => {
+  crew.members.forEach(ticker => {
+    TICKER_TO_CREW[ticker] = crew;
+  });
+});
+
+export const getCrewByTicker = (ticker) => {
+  return TICKER_TO_CREW[ticker] || null;
+};
+
 // ============================================
 // SHOP PINS - LOOKISM THEMED
 // ============================================
