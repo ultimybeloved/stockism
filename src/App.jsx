@@ -42,6 +42,13 @@ const DAILY_BONUS = 300;
 const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
 
+// IPO System Constants
+const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
+const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
+const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
+const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
+const IPO_PRICE_JUMP = 0.30; // 30% price jump after IPO ends
+
 // Economy balancing constants - Realistic Market Model
 const BASE_IMPACT = 0.003; // 0.3% base impact per sqrt(share) - very gradual
 const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
@@ -1037,6 +1044,174 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
           <span className={`font-semibold ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.text || 'text-orange-500'}`}>
             Winner: {prediction.outcome}
           </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// IPO HYPE CARD (24h announcement phase)
+// ============================================
+
+const IPOHypeCard = ({ ipo, darkMode }) => {
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  
+  const timeRemaining = ipo.ipoStartsAt - Date.now();
+  const character = CHARACTER_MAP[ipo.ticker];
+  
+  return (
+    <div className={`${cardClass} border rounded-sm p-4 relative overflow-hidden`}>
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-r from-orange-600/10 via-amber-500/10 to-orange-600/10 animate-pulse" />
+      
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">🚀</span>
+          <span className="text-xs font-bold uppercase text-orange-500 tracking-wider">IPO Coming Soon</span>
+        </div>
+        
+        <h3 className={`text-lg font-bold ${textClass}`}>
+          ${ipo.ticker} - {character?.name}
+        </h3>
+        
+        {character?.description && (
+          <p className={`text-sm ${mutedClass} mt-1 line-clamp-2`}>{character.description}</p>
+        )}
+        
+        <div className={`mt-3 p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div>
+              <p className={`text-xs ${mutedClass}`}>IPO Price</p>
+              <p className="text-lg font-bold text-green-500">{formatCurrency(ipo.basePrice)}</p>
+            </div>
+            <div>
+              <p className={`text-xs ${mutedClass}`}>Shares Available</p>
+              <p className="text-lg font-bold text-orange-500">{IPO_TOTAL_SHARES}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-3 text-center">
+          <p className={`text-xs ${mutedClass}`}>IPO Opens In</p>
+          <p className={`text-xl font-bold text-orange-500`}>{formatTimeRemaining(timeRemaining)}</p>
+        </div>
+        
+        <p className={`text-xs ${mutedClass} mt-2 text-center`}>
+          Max {IPO_MAX_PER_USER} shares per person • First come, first served
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// IPO ACTIVE CARD (buying window)
+// ============================================
+
+const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
+  const [quantity, setQuantity] = useState(1);
+  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  
+  const character = CHARACTER_MAP[ipo.ticker];
+  const timeRemaining = ipo.ipoEndsAt - Date.now();
+  const sharesRemaining = ipo.sharesRemaining || IPO_TOTAL_SHARES;
+  const userIPOPurchases = userData?.ipoPurchases?.[ipo.ticker] || 0;
+  const maxCanBuy = Math.min(IPO_MAX_PER_USER - userIPOPurchases, sharesRemaining);
+  const totalCost = quantity * ipo.basePrice;
+  const canAfford = (userData?.cash || 0) >= totalCost;
+  
+  const soldOut = sharesRemaining <= 0;
+  const userMaxedOut = userIPOPurchases >= IPO_MAX_PER_USER;
+  
+  return (
+    <div className={`${cardClass} border-2 border-green-500 rounded-sm p-4 relative overflow-hidden`}>
+      {/* Live indicator */}
+      <div className="absolute top-2 right-2 flex items-center gap-1">
+        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        <span className="text-xs font-bold text-green-500">LIVE</span>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xl">📈</span>
+        <span className="text-xs font-bold uppercase text-green-500 tracking-wider">IPO Now Open</span>
+      </div>
+      
+      <h3 className={`text-lg font-bold ${textClass}`}>
+        ${ipo.ticker} - {character?.name}
+      </h3>
+      
+      <div className={`mt-3 p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className={`text-xs ${mutedClass}`}>Price</p>
+            <p className="text-lg font-bold text-green-500">{formatCurrency(ipo.basePrice)}</p>
+          </div>
+          <div>
+            <p className={`text-xs ${mutedClass}`}>Left</p>
+            <p className={`text-lg font-bold ${sharesRemaining <= 20 ? 'text-red-500' : 'text-orange-500'}`}>
+              {sharesRemaining}/{IPO_TOTAL_SHARES}
+            </p>
+          </div>
+          <div>
+            <p className={`text-xs ${mutedClass}`}>Ends In</p>
+            <p className="text-lg font-bold text-amber-500">{formatTimeRemaining(timeRemaining)}</p>
+          </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="mt-2">
+          <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}>
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-green-500 to-orange-500 transition-all"
+              style={{ width: `${((IPO_TOTAL_SHARES - sharesRemaining) / IPO_TOTAL_SHARES) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {isGuest ? (
+        <p className={`text-center text-sm ${mutedClass} mt-3`}>Sign in to participate in IPO</p>
+      ) : soldOut ? (
+        <div className="mt-3 text-center">
+          <p className="text-red-500 font-bold">🚫 SOLD OUT</p>
+          <p className={`text-xs ${mutedClass}`}>Normal trading begins soon with 30% price increase</p>
+        </div>
+      ) : userMaxedOut ? (
+        <div className="mt-3 text-center">
+          <p className="text-amber-500 font-semibold">✓ You've reached max IPO allocation</p>
+          <p className={`text-xs ${mutedClass}`}>You purchased {userIPOPurchases} shares</p>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max={maxCanBuy}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.min(maxCanBuy, Math.max(1, parseInt(e.target.value) || 1)))}
+              className={`w-20 px-2 py-1 text-center rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
+            />
+            <span className={`text-sm ${mutedClass}`}>shares</span>
+            <span className={`text-sm font-semibold ${textClass}`}>= {formatCurrency(totalCost)}</span>
+          </div>
+          
+          <button
+            onClick={() => onBuyIPO(ipo.ticker, quantity)}
+            disabled={!canAfford || quantity > maxCanBuy}
+            className="w-full py-2 text-sm font-bold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {!canAfford ? 'Insufficient Funds' : `Buy ${quantity} Share${quantity > 1 ? 's' : ''}`}
+          </button>
+          
+          <p className={`text-xs ${mutedClass} text-center`}>
+            You can buy up to {maxCanBuy} more shares
+          </p>
         </div>
       )}
     </div>
@@ -2786,13 +2961,16 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 // PROFILE MODAL (Prediction History)
 // ============================================
 
-const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
+const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection }) => {
+  const [showCrewSection, setShowCrewSection] = useState(false);
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;
+  const userCrew = userData?.crew;
+  const crewData = userCrew ? CREW_MAP[userCrew] : null;
   
   // Get all predictions user has bet on (from their bets object)
   const userBetHistory = Object.entries(bets).map(([predictionId, betData]) => {
@@ -2829,13 +3007,69 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions }) => {
           <div className="flex justify-between items-center">
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
-              <p className={`text-sm ${mutedClass}`}>Prediction History</p>
+              <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
             </div>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Crew Section - Collapsible */}
+          {userCrew && crewData && (
+            <div 
+              className={`rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} overflow-hidden`}
+              style={{ borderColor: crewData.color }}
+            >
+              <button
+                onClick={() => setShowCrewSection(!showCrewSection)}
+                className={`w-full p-3 flex items-center justify-between ${darkMode ? 'bg-zinc-800/50 hover:bg-zinc-800' : 'bg-amber-50 hover:bg-amber-100'}`}
+              >
+                <div className="flex items-center gap-2">
+                  {crewData.icon ? (
+                    <img src={crewData.icon} alt="" className="w-6 h-6 object-contain" />
+                  ) : (
+                    <span className="text-xl">{crewData.emblem}</span>
+                  )}
+                  <span className={`font-semibold ${textClass}`} style={{ color: crewData.color }}>
+                    {crewData.name}
+                  </span>
+                  {userData.isCrewHead && (
+                    <span className="text-amber-400">👑</span>
+                  )}
+                </div>
+                <span className={mutedClass}>{showCrewSection ? '▼' : '▶'}</span>
+              </button>
+              
+              {showCrewSection && (
+                <div className={`p-3 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                  <div className={`text-sm ${mutedClass} mb-2`}>
+                    <strong>Crew Members:</strong> {crewData.members?.join(', ')}
+                  </div>
+                  {userData.isCrewHead && (
+                    <div className="text-sm text-amber-400 mb-2">
+                      👑 You are the Crew Head (highest portfolio value)
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { onClose(); onOpenCrewSelection(); }}
+                    className={`w-full py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Switch Crew (50% penalty)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!userCrew && (
+            <button
+              onClick={() => { onClose(); onOpenCrewSelection(); }}
+              className="w-full py-3 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              🏴 Join a Crew
+            </button>
+          )}
+          
           {/* Stats Summary */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -3825,6 +4059,7 @@ export default function App() {
   const [showAll, setShowAll] = useState(false);
   const [predictions, setPredictions] = useState([]);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
 
@@ -3894,6 +4129,50 @@ export default function App() {
         
         setPrices(initialPrices);
         setPriceHistory(initialHistory);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to IPO data
+  useEffect(() => {
+    const ipoRef = doc(db, 'market', 'ipos');
+    
+    const unsubscribe = onSnapshot(ipoRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const ipos = data.list || [];
+        const now = Date.now();
+        
+        // Filter to only show active IPOs (in hype or buying phase)
+        const activeOnes = ipos.filter(ipo => {
+          const inHypePhase = now < ipo.ipoStartsAt;
+          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining || IPO_TOTAL_SHARES) > 0;
+          return inHypePhase || inBuyingPhase;
+        });
+        
+        setActiveIPOs(activeOnes);
+        
+        // Check for IPOs that just ended and need price jump
+        ipos.forEach(async (ipo) => {
+          if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
+            // IPO ended - apply 30% price jump and mark as complete
+            const marketRef = doc(db, 'market', 'current');
+            const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+            
+            await updateDoc(marketRef, {
+              [`prices.${ipo.ticker}`]: newPrice,
+              [`priceHistory.${ipo.ticker}`]: arrayUnion({ timestamp: now, price: newPrice })
+            });
+            
+            // Mark IPO as price jumped
+            const updatedList = ipos.map(i => 
+              i.ticker === ipo.ticker ? { ...i, priceJumped: true } : i
+            );
+            await updateDoc(ipoRef, { list: updatedList });
+          }
+        });
       }
     });
 
@@ -5043,6 +5322,120 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   }, [user, userData]);
 
+  // Handle IPO purchase
+  const handleBuyIPO = useCallback(async (ticker, quantity) => {
+    if (!user || !userData) {
+      setNotification({ type: 'info', message: 'Sign in to participate in IPO!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const ipoRef = doc(db, 'market', 'ipos');
+    const ipoSnap = await getDoc(ipoRef);
+    if (!ipoSnap.exists()) {
+      setNotification({ type: 'error', message: 'IPO not found' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const ipoData = ipoSnap.data();
+    const ipo = ipoData.list?.find(i => i.ticker === ticker);
+    
+    if (!ipo) {
+      setNotification({ type: 'error', message: 'IPO not found' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const now = Date.now();
+    if (now < ipo.ipoStartsAt) {
+      setNotification({ type: 'error', message: 'IPO has not started yet!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    if (now >= ipo.ipoEndsAt) {
+      setNotification({ type: 'error', message: 'IPO has ended!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const sharesRemaining = ipo.sharesRemaining ?? IPO_TOTAL_SHARES;
+    if (sharesRemaining <= 0) {
+      setNotification({ type: 'error', message: 'IPO sold out!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const userIPOPurchases = userData.ipoPurchases?.[ticker] || 0;
+    if (userIPOPurchases + quantity > IPO_MAX_PER_USER) {
+      setNotification({ type: 'error', message: `Max ${IPO_MAX_PER_USER} shares per person!` });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    if (quantity > sharesRemaining) {
+      setNotification({ type: 'error', message: `Only ${sharesRemaining} shares left!` });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const totalCost = ipo.basePrice * quantity;
+    if (userData.cash < totalCost) {
+      setNotification({ type: 'error', message: 'Insufficient funds!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const marketRef = doc(db, 'market', 'current');
+      
+      // Update user's holdings, cash, and IPO purchases
+      const currentHoldings = userData.holdings?.[ticker] || 0;
+      const currentCostBasis = userData.costBasis?.[ticker] || ipo.basePrice;
+      const newHoldings = currentHoldings + quantity;
+      const newCostBasis = ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings;
+      
+      await updateDoc(userRef, {
+        cash: userData.cash - totalCost,
+        [`holdings.${ticker}`]: newHoldings,
+        [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
+        [`ipoPurchases.${ticker}`]: userIPOPurchases + quantity,
+        [`lastBuyTime.${ticker}`]: now,
+        totalTrades: (userData.totalTrades || 0) + 1
+      });
+      
+      // Update IPO shares remaining
+      const updatedList = ipoData.list.map(i => 
+        i.ticker === ticker ? { ...i, sharesRemaining: sharesRemaining - quantity } : i
+      );
+      await updateDoc(ipoRef, { list: updatedList });
+      
+      // Initialize price if not set (first IPO purchase sets the price)
+      const marketSnap = await getDoc(marketRef);
+      const marketPrices = marketSnap.data()?.prices || {};
+      if (!marketPrices[ticker]) {
+        await updateDoc(marketRef, {
+          [`prices.${ticker}`]: ipo.basePrice,
+          [`priceHistory.${ticker}`]: [{ timestamp: now, price: ipo.basePrice }]
+        });
+      }
+      
+      const character = CHARACTER_MAP[ticker];
+      setNotification({ 
+        type: 'success', 
+        message: `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!` 
+      });
+      setTimeout(() => setNotification(null), 4000);
+      
+    } catch (err) {
+      console.error('IPO purchase failed:', err);
+      setNotification({ type: 'error', message: 'IPO purchase failed!' });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  }, [user, userData]);
+
   // Handle prediction bet
   const handleBet = useCallback(async (predictionId, option, amount) => {
     if (!user || !userData) {
@@ -5314,20 +5707,10 @@ export default function App() {
               className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               🏆 Leaderboard
             </button>
-            {!isGuest && (
+            {!isGuest && !userData?.crew && (
               <button onClick={() => setShowCrewSelection(true)}
-                className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
-                style={userData?.crew ? { borderColor: CREW_MAP[userData.crew]?.color, color: CREW_MAP[userData.crew]?.color } : {}}>
-                {userData?.crew ? (
-                  <>
-                    {CREW_MAP[userData.crew]?.icon ? (
-                      <img src={CREW_MAP[userData.crew]?.icon} alt="" className="w-4 h-4 object-contain" />
-                    ) : (
-                      CREW_MAP[userData.crew]?.emblem
-                    )}
-                    {CREW_MAP[userData.crew]?.name}
-                  </>
-                ) : '🏴 Join Crew'}
+                className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+                🏴 Join Crew
               </button>
             )}
             {!isGuest && (
@@ -5411,6 +5794,32 @@ export default function App() {
         {isGuest && (
           <div className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
             👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-orange-600 hover:underline">Sign in</button> to trade and save progress!
+          </div>
+        )}
+
+        {/* IPO Announcements */}
+        {activeIPOs.length > 0 && (
+          <div className="mb-4">
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>🚀 IPO</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeIPOs.map(ipo => {
+                const now = Date.now();
+                const inHypePhase = now < ipo.ipoStartsAt;
+                
+                return inHypePhase ? (
+                  <IPOHypeCard key={ipo.ticker} ipo={ipo} darkMode={darkMode} />
+                ) : (
+                  <IPOActiveCard 
+                    key={ipo.ticker} 
+                    ipo={ipo} 
+                    userData={userData}
+                    onBuyIPO={handleBuyIPO}
+                    darkMode={darkMode}
+                    isGuest={isGuest}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -5583,6 +5992,7 @@ export default function App() {
           darkMode={darkMode} 
           userData={userData}
           predictions={predictions}
+          onOpenCrewSelection={() => setShowCrewSelection(true)}
         />
       )}
       {showLending && !isGuest && (
