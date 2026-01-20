@@ -53,7 +53,7 @@ export const CREWS = {
   },
   WTJC: {
     id: 'WTJC',
-    name: 'WTJC',
+    name: 'White Tiger Job Center',
     color: '#14B8A6',
     emblem: '🐯',
     icon: '/crews/wtjc.png',
@@ -84,126 +84,241 @@ Object.values(CREWS).forEach(crew => {
 });
 
 // ============================================
-// SHOP PINS
+// SHOP PINS - LOOKISM THEMED
 // ============================================
 
 export const SHOP_PINS = {
-  // Cheap ($500-1,000)
-  STAR: {
-    id: 'STAR',
-    name: 'Star',
-    emoji: '⭐',
+  // ============================================
+  // CHEAP ($500-1,500) - Common References
+  // ============================================
+  SECOND_BODY: {
+    id: 'SECOND_BODY',
+    name: 'Second Body',
+    emoji: '👥',
     price: 500,
-    description: 'A simple star'
+    description: 'Two bodies, one soul'
   },
-  FIRE: {
-    id: 'FIRE',
-    name: 'Fire',
-    emoji: '🔥',
-    price: 500,
-    description: 'You\'re on fire'
-  },
-  LIGHTNING: {
-    id: 'LIGHTNING',
-    name: 'Lightning',
-    emoji: '⚡',
-    price: 750,
-    description: 'Quick and powerful'
-  },
-  SKULL: {
-    id: 'SKULL',
-    name: 'Skull',
-    emoji: '💀',
-    price: 1000,
-    description: 'Fear me'
-  },
-  CROWN_BASIC: {
-    id: 'CROWN_BASIC',
-    name: 'Bronze Crown',
-    emoji: '👑',
-    price: 1000,
-    description: 'Royalty starter pack'
-  },
-
-  // Mid ($2,000-5,000)
-  GLASSES: {
-    id: 'GLASSES',
-    name: 'Glasses',
+  GLASSES_DANIEL: {
+    id: 'GLASSES_DANIEL',
+    name: 'Daniel\'s Glasses',
     emoji: '👓',
-    price: 2000,
-    description: 'See clearly now'
+    price: 500,
+    description: 'The iconic round frames'
+  },
+  FRIED_CHICKEN: {
+    id: 'FRIED_CHICKEN',
+    name: 'Fried Chicken',
+    emoji: '🍗',
+    price: 500,
+    description: 'Daniel\'s part-time job'
+  },
+  CONVENIENCE_STORE: {
+    id: 'CONVENIENCE_STORE',
+    name: '24/7 Shift',
+    emoji: '🏪',
+    price: 750,
+    description: 'Working the night shift'
+  },
+  RAMEN: {
+    id: 'RAMEN',
+    name: 'Instant Ramen',
+    emoji: '🍜',
+    price: 750,
+    description: 'Broke boy meals'
+  },
+  SCHOOL_BAG: {
+    id: 'SCHOOL_BAG',
+    name: 'J High Bag',
+    emoji: '🎒',
+    price: 750,
+    description: 'J High student'
+  },
+  PHONE_CRACK: {
+    id: 'PHONE_CRACK',
+    name: 'Cracked Phone',
+    emoji: '📱',
+    price: 1000,
+    description: 'Another fight, another screen'
+  },
+  BANDAGE: {
+    id: 'BANDAGE',
+    name: 'Battle Scar',
+    emoji: '🩹',
+    price: 1000,
+    description: 'Proof of survival'
+  },
+  ROOFTOP: {
+    id: 'ROOFTOP',
+    name: 'Rooftop',
+    emoji: '🏗️',
+    price: 1000,
+    description: 'Where beef gets settled'
   },
   CIGARETTE: {
     id: 'CIGARETTE',
     name: 'Cigarette',
     emoji: '🚬',
-    price: 2500,
-    description: 'Cool and composed'
+    price: 1500,
+    description: 'Cool delinquent vibes'
   },
-  BANDANA: {
-    id: 'BANDANA',
-    name: 'Bandana',
-    emoji: '🎀',
-    price: 2500,
-    description: 'Style points'
+  
+  // ============================================
+  // MID ($2,000-5,000) - Character Items
+  // ============================================
+  BRASS_KNUCKLES: {
+    id: 'BRASS_KNUCKLES',
+    name: 'Brass Knuckles',
+    emoji: '🥊',
+    price: 2000,
+    description: 'Street fighting essentials'
   },
-  KNIFE: {
-    id: 'KNIFE',
-    name: 'Knife',
-    emoji: '🗡️',
-    price: 3000,
-    description: 'Watch your back'
-  },
-  MUSCLE: {
-    id: 'MUSCLE',
-    name: 'Muscle',
-    emoji: '💪',
-    price: 3500,
-    description: 'Strength is everything'
-  },
-  MONEY_BAG: {
-    id: 'MONEY_BAG',
-    name: 'Money Bag',
-    emoji: '💰',
-    price: 5000,
-    description: 'Filthy rich'
-  },
-
-  // Expensive ($10,000-25,000)
-  DIAMOND: {
-    id: 'DIAMOND',
-    name: 'Diamond',
-    emoji: '💎',
-    price: 10000,
-    description: 'Unbreakable'
-  },
-  GHOST: {
-    id: 'GHOST',
-    name: 'Ghost',
-    emoji: '👻',
-    price: 12000,
-    description: 'Now you see me...'
-  },
-  DRAGON: {
-    id: 'DRAGON',
-    name: 'Dragon',
+  TATTOO: {
+    id: 'TATTOO',
+    name: 'Crew Tattoo',
     emoji: '🐉',
+    price: 2500,
+    description: 'Inked for life'
+  },
+  GOLD_CHAIN: {
+    id: 'GOLD_CHAIN',
+    name: 'Gold Chain',
+    emoji: '⛓️',
+    price: 2500,
+    description: 'Drip or drown'
+  },
+  GYM_RAT: {
+    id: 'GYM_RAT',
+    name: 'Gym Membership',
+    emoji: '🏋️',
+    price: 3000,
+    description: 'Get those gains'
+  },
+  KATANA: {
+    id: 'KATANA',
+    name: 'Katana',
+    emoji: '⚔️',
+    price: 3500,
+    description: 'Goo\'s weapon of choice'
+  },
+  GUN_GLASSES: {
+    id: 'GUN_GLASSES',
+    name: 'Gun\'s Shades',
+    emoji: '🕶️',
+    price: 4000,
+    description: 'The man, the myth, the glasses'
+  },
+  WHITE_SUIT: {
+    id: 'WHITE_SUIT',
+    name: 'White Suit',
+    emoji: '🤵',
+    price: 4500,
+    description: 'Charles Choi energy'
+  },
+  MONEY_STACK: {
+    id: 'MONEY_STACK',
+    name: 'Workers Stack',
+    emoji: '💵',
+    price: 5000,
+    description: 'Eugene approved'
+  },
+  
+  // ============================================
+  // EXPENSIVE ($7,500-15,000) - Iconic Moments
+  // ============================================
+  SLEEPING: {
+    id: 'SLEEPING',
+    name: 'Body Swap',
+    emoji: '😴',
+    price: 7500,
+    description: 'Fall asleep, wake up different'
+  },
+  FIST: {
+    id: 'FIST',
+    name: 'One Punch',
+    emoji: '👊',
+    price: 8000,
+    description: 'UI Daniel activated'
+  },
+  INVISIBLE: {
+    id: 'INVISIBLE',
+    name: 'Invisible',
+    emoji: '👻',
+    price: 10000,
+    description: 'Small Daniel in public'
+  },
+  KING_CROWN: {
+    id: 'KING_CROWN',
+    name: 'King\'s Crown',
+    emoji: '👑',
+    price: 10000,
+    description: 'Ruler of the streets'
+  },
+  BEAST_MODE: {
+    id: 'BEAST_MODE',
+    name: 'Beast Mode',
+    emoji: '🔥',
+    price: 12000,
+    description: 'Unlimited power awakened'
+  },
+  FOUR_CREWS: {
+    id: 'FOUR_CREWS',
+    name: 'Four Crews',
+    emoji: '4️⃣',
+    price: 12500,
+    description: 'The major powers'
+  },
+  DOG_TAG: {
+    id: 'DOG_TAG',
+    name: 'God Dog Tag',
+    emoji: '🏷️',
     price: 15000,
-    description: 'Legendary beast'
+    description: 'Johan\'s legacy'
   },
-  ALIEN: {
-    id: 'ALIEN',
-    name: 'Alien',
-    emoji: '👽',
-    price: 18000,
-    description: 'Out of this world'
+  
+  // ============================================
+  // LEGENDARY ($20,000-50,000) - Ultimate Pins
+  // ============================================
+  GAPRYONG_FIST: {
+    id: 'GAPRYONG_FIST',
+    name: 'Gapryong\'s Fist',
+    emoji: '✊',
+    price: 20000,
+    description: 'The legend himself'
   },
-  INFINITY: {
-    id: 'INFINITY',
-    name: 'Infinity',
-    emoji: '♾️',
+  JAMES_LEE: {
+    id: 'JAMES_LEE',
+    name: 'DG',
+    emoji: '🎭',
     price: 25000,
-    description: 'Unlimited power'
+    description: 'The First Generation King'
+  },
+  GUN_GOO: {
+    id: 'GUN_GOO',
+    name: 'Gun & Goo',
+    emoji: '⚡',
+    price: 30000,
+    description: 'The untouchable duo'
+  },
+  THREE_CREWS: {
+    id: 'THREE_CREWS',
+    name: 'Big 3 Affiliate',
+    emoji: '🏆',
+    price: 35000,
+    description: 'Workers, Big Deal, Hostel'
+  },
+  UI_DANIEL: {
+    id: 'UI_DANIEL',
+    name: 'UI Daniel',
+    emoji: '💀',
+    price: 40000,
+    description: 'Unconscious instinct'
+  },
+  FIRST_GEN: {
+    id: 'FIRST_GEN',
+    name: '1st Generation',
+    emoji: '🐐',
+    price: 50000,
+    description: 'The OG legends'
   }
 };
 
