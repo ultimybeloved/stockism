@@ -641,7 +641,47 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       return;
     }
     
-    if (!window.confirm(`Delete ${selectedForDeletion.size} selected users? This cannot be undone!`)) return;
+    // Calculate what's being deleted
+    let totalCash = 0;
+    let totalShares = 0;
+    let totalValue = 0;
+    const holdingsSummary = {};
+    
+    for (const userId of selectedForDeletion) {
+      const user = allUsers.find(u => u.id === userId);
+      if (!user) continue;
+      
+      totalCash += user.cash || 0;
+      
+      // Sum up holdings
+      if (user.holdings) {
+        Object.entries(user.holdings).forEach(([ticker, data]) => {
+          const shares = data.shares || 0;
+          if (shares > 0) {
+            totalShares += shares;
+            holdingsSummary[ticker] = (holdingsSummary[ticker] || 0) + shares;
+            const price = prices[ticker] || 0;
+            totalValue += shares * price;
+          }
+        });
+      }
+    }
+    
+    // Build summary message
+    const topHoldings = Object.entries(holdingsSummary)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([ticker, shares]) => `${ticker}: ${shares}`)
+      .join(', ');
+    
+    const summaryMsg = `DELETE ${selectedForDeletion.size} USERS?\n\n` +
+      `💰 Total Cash: $${totalCash.toFixed(2)}\n` +
+      `📊 Total Shares: ${totalShares}\n` +
+      `💵 Holdings Value: $${totalValue.toFixed(2)}\n` +
+      `📈 Top Holdings: ${topHoldings || 'None'}\n\n` +
+      `This cannot be undone!`;
+    
+    if (!window.confirm(summaryMsg)) return;
     if (!window.confirm(`FINAL CONFIRMATION: Permanently delete ${selectedForDeletion.size} user accounts?`)) return;
     
     setLoading(true);
@@ -660,7 +700,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       setSelectedForDeletion(new Set());
       setDeleteMode(false);
       
-      showMessage('success', `Deleted ${deleted} users`);
+      showMessage('success', `Deleted ${deleted} users. Removed $${totalCash.toFixed(2)} cash and ${totalShares} shares.`);
     } catch (err) {
       console.error('Failed to delete users:', err);
       showMessage('error', 'Failed to delete some users');
@@ -1786,6 +1826,47 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       {loading ? '...' : `🗑️ Delete ${selectedForDeletion.size} Users`}
                     </button>
                   </div>
+                  
+                  {/* Live selection summary */}
+                  {selectedForDeletion.size > 0 && (() => {
+                    let totalCash = 0;
+                    let totalShares = 0;
+                    let totalValue = 0;
+                    
+                    for (const userId of selectedForDeletion) {
+                      const user = allUsers.find(u => u.id === userId);
+                      if (!user) continue;
+                      totalCash += user.cash || 0;
+                      if (user.holdings) {
+                        Object.entries(user.holdings).forEach(([ticker, data]) => {
+                          const shares = data.shares || 0;
+                          if (shares > 0) {
+                            totalShares += shares;
+                            const price = prices[ticker] || 0;
+                            totalValue += shares * price;
+                          }
+                        });
+                      }
+                    }
+                    
+                    return (
+                      <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} grid grid-cols-3 gap-2 text-xs`}>
+                        <div>
+                          <span className={mutedClass}>Cash: </span>
+                          <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className={mutedClass}>Shares: </span>
+                          <span className={`font-semibold ${textClass}`}>{totalShares}</span>
+                        </div>
+                        <div>
+                          <span className={mutedClass}>Value: </span>
+                          <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
                   <p className={`text-xs ${mutedClass} mt-2`}>
                     Click on users to select them for deletion. Admin accounts cannot be deleted.
                   </p>
