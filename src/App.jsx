@@ -4211,6 +4211,27 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             </button>
           </div>
 
+          {/* Bid/Ask Spread Display */}
+          {(() => {
+            const { bid, ask, spread } = getBidAskPrices(price);
+            return (
+              <div className={`flex justify-between items-center text-xs px-2 py-1.5 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+                <div className="text-center">
+                  <div className={mutedClass}>Bid</div>
+                  <div className="text-red-400 font-semibold">{formatCurrency(bid)}</div>
+                </div>
+                <div className="text-center">
+                  <div className={mutedClass}>Spread</div>
+                  <div className={`${mutedClass} font-mono`}>{(spread / price * 100).toFixed(2)}%</div>
+                </div>
+                <div className="text-center">
+                  <div className={mutedClass}>Ask</div>
+                  <div className="text-green-400 font-semibold">{formatCurrency(ask)}</div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex items-center gap-2">
             <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
