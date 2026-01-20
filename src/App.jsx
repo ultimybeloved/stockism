@@ -24,8 +24,10 @@ import {
 } from 'firebase/firestore';
 import { auth, googleProvider, twitterProvider, db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
-import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE } from './crews';
+import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getCrewByTicker } from './crews';
 import AdminPanel from './AdminPanel';
+import CrewProfilePanel from './CrewProfilePanel';
+import CrewLeaderboardModal from './CrewLeaderboardModal';
 
 // ============================================
 // CONSTANTS
@@ -4097,7 +4099,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, isFavorite, onToggleFavorite, isGuest }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, isFavorite, onToggleFavorite, isGuest, onCrewClick }) => {
   const [showTrade, setShowTrade] = useState(false);
   const [tradeAmount, setTradeAmount] = useState(1);
   const [tradeMode, setTradeMode] = useState('normal'); // 'normal' or 'short'
@@ -4148,14 +4150,40 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   // Calculate short P/L if shorted
   const shortPL = shorted ? (shortPosition.entryPrice - price) * shortPosition.shares : 0;
 
+  // Get crew for this character
+  const crew = getCrewByTicker(character.ticker);
+
   return (
     <div className={`${cardClass} border rounded-sm p-4 transition-all`}>
       <div className="cursor-pointer" onClick={() => !showTrade && onViewChart(character)}>
         <div className="flex justify-between items-start mb-2">
           <div className="flex-1">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
               {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
+              {crew && (
+                <button
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onCrewClick && onCrewClick(crew); 
+                  }}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs transition-all hover:opacity-80"
+                  style={{ 
+                    backgroundColor: `${crew.color}20`,
+                    border: `1px solid ${crew.color}60`
+                  }}
+                  title={`View ${crew.name}`}
+                >
+                  <span className="text-xs">{crew.emblem}</span>
+                  {crew.icon && (
+                    <img 
+                      src={crew.icon} 
+                      alt={crew.name} 
+                      className="w-3 h-3 rounded object-cover"
+                    />
+                  )}
+                </button>
+              )}
               {!isGuest && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleFavorite(character.ticker); }}
@@ -4328,6 +4356,9 @@ export default function App() {
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
+  const [selectedCrew, setSelectedCrew] = useState(null); // For crew profile panel
+  const [allUserData, setAllUserData] = useState(null); // For crew leaderboard calculations
+  const [showCrewLeaderboard, setShowCrewLeaderboard] = useState(false); // For crew leaderboard modal
 
   // Listen to auth state
   useEffect(() => {
@@ -4444,6 +4475,23 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Listen to all users data for crew leaderboard calculations
+  // Note: This requires Firestore read permissions for the users collection
+  // For now, we'll fetch this data only when the crew leaderboard modal is opened
+  // useEffect(() => {
+  //   const usersQuery = query(collection(db, 'users'));
+  //   
+  //   const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+  //     const users = {};
+  //     snapshot.forEach((doc) => {
+  //       users[doc.id] = doc.data();
+  //     });
+  //     setAllUserData(users);
+  //   });
+
+  //   return () => unsubscribe();
+  // }, []);
 
   // Track lowest prices while holding for Diamond Hands achievement
   useEffect(() => {
@@ -6348,6 +6396,10 @@ export default function App() {
               className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               🏆 Leaderboard
             </button>
+            <button onClick={() => setShowCrewLeaderboard(true)}
+              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+              👥 Crews
+            </button>
             {!isGuest && !userData?.crew && (
               <button onClick={() => setShowCrewSelection(true)}
                 className={`px-3 py-1 text-xs rounded-sm border flex items-center gap-1 ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
@@ -6625,6 +6677,7 @@ export default function App() {
               isFavorite={(activeUserData.favorites || []).includes(character.ticker)}
               onToggleFavorite={toggleFavorite}
               isGuest={isGuest}
+              onCrewClick={setSelectedCrew}
             />
           ))}
         </div>
@@ -6669,6 +6722,17 @@ export default function App() {
         />
       )}
       {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} darkMode={darkMode} currentUserCrew={userData?.crew} />}
+      {showCrewLeaderboard && (
+        <CrewLeaderboardModal
+          onClose={() => setShowCrewLeaderboard(false)}
+          darkMode={darkMode}
+          prices={prices}
+          onCrewClick={(crew) => {
+            setSelectedCrew(crew);
+            setShowCrewLeaderboard(false);
+          }}
+        />
+      )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} darkMode={darkMode} />}
       {showAchievements && !isGuest && (
         <AchievementsModal 
@@ -6753,6 +6817,16 @@ export default function App() {
           currentPrice={prices[selectedCharacter.ticker] || selectedCharacter.basePrice}
           priceHistory={priceHistory}
           onClose={() => setSelectedCharacter(null)}
+          darkMode={darkMode}
+        />
+      )}
+
+      {/* Crew Profile Panel */}
+      {selectedCrew && (
+        <CrewProfilePanel
+          crew={selectedCrew}
+          prices={prices}
+          onClose={() => setSelectedCrew(null)}
           darkMode={darkMode}
         />
       )}
