@@ -62,6 +62,18 @@ const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
 const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 
 // ============================================
+// MARGIN TRADING SYSTEM
+// ============================================
+
+const MARGIN_BORROWING_POWER_RATIO = 0.5; // Can borrow up to 50% of portfolio value
+const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
+const MARGIN_WARNING_THRESHOLD = 0.35; // Warning at 35% equity ratio
+const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio
+const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Auto-liquidate at 25% equity ratio
+const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
+const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
+
+// ============================================
 // ACHIEVEMENTS SYSTEM
 // ============================================
 
@@ -257,11 +269,10 @@ const getTodayDateString = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-// Check if user qualifies for lending (requires commitment + skill)
-const checkLendingEligibility = (userData) => {
-  if (!userData) return { eligible: false, reasons: [] };
+// Check if user qualifies for margin trading (requires commitment + skill)
+const checkMarginEligibility = (userData) => {
+  if (!userData) return { eligible: false, requirements: [] };
   
-  const achievements = userData.achievements || [];
   const totalCheckins = userData.totalCheckins || 0;
   const totalTrades = userData.totalTrades || 0;
   const peakPortfolioValue = userData.peakPortfolioValue || 0;
@@ -276,24 +287,79 @@ const checkLendingEligibility = (userData) => {
   
   return {
     eligible: allMet,
-    requirements,
-    creditLimit: allMet ? calculateCreditLimit(userData) : 0
+    requirements
   };
 };
 
-// Calculate credit limit based on achievements and stats
-const calculateCreditLimit = (userData) => {
-  const achievements = userData.achievements || [];
-  let limit = 500; // Base limit
+// Calculate margin status for a user
+const calculateMarginStatus = (userData, prices) => {
+  if (!userData || !userData.marginEnabled) {
+    return { 
+      enabled: false, 
+      marginUsed: 0, 
+      availableMargin: 0,
+      portfolioValue: 0,
+      totalMaintenanceRequired: 0,
+      equityRatio: 1,
+      status: 'disabled'
+    };
+  }
   
-  // Bonus for achievements
-  if (achievements.includes('BROKE_5K')) limit += 500;
-  if (achievements.includes('BROKE_10K')) limit += 1000;
-  if (achievements.includes('BROKE_25K')) limit += 2000;
-  if (achievements.includes('DEDICATED_30')) limit += 500;
-  if (achievements.includes('TRADER_100')) limit += 500;
+  const cash = userData.cash || 0;
+  const holdings = userData.holdings || {};
+  const marginUsed = userData.marginUsed || 0;
   
-  return Math.min(limit, 5000); // Cap at $5,000
+  // Calculate total holdings value and maintenance requirement
+  let holdingsValue = 0;
+  let totalMaintenanceRequired = 0;
+  
+  Object.entries(holdings).forEach(([ticker, shares]) => {
+    if (shares > 0) {
+      const price = prices[ticker] || 0;
+      const positionValue = price * shares;
+      holdingsValue += positionValue;
+      
+      // Get character volatility for maintenance ratio
+      const character = CHARACTER_MAP[ticker];
+      totalMaintenanceRequired += positionValue * MARGIN_MAINTENANCE_RATIO;
+    }
+  });
+  
+  // Portfolio value = cash + holdings - margin debt
+  const grossValue = cash + holdingsValue;
+  const portfolioValue = grossValue - marginUsed;
+  
+  // Equity ratio = portfolio value / gross value (how much you actually own)
+  const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 1;
+  
+  // Available margin = (portfolio value * borrowing ratio) - margin already used
+  const maxBorrowable = Math.max(0, portfolioValue * MARGIN_BORROWING_POWER_RATIO);
+  const availableMargin = Math.max(0, maxBorrowable - marginUsed);
+  
+  // Determine status
+  let status = 'safe';
+  if (marginUsed > 0) {
+    if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
+      status = 'liquidation';
+    } else if (equityRatio <= MARGIN_CALL_THRESHOLD) {
+      status = 'margin_call';
+    } else if (equityRatio <= MARGIN_WARNING_THRESHOLD) {
+      status = 'warning';
+    }
+  }
+  
+  return {
+    enabled: true,
+    marginUsed,
+    availableMargin: Math.round(availableMargin * 100) / 100,
+    portfolioValue: Math.round(portfolioValue * 100) / 100,
+    grossValue: Math.round(grossValue * 100) / 100,
+    holdingsValue: Math.round(holdingsValue * 100) / 100,
+    totalMaintenanceRequired: Math.round(totalMaintenanceRequired * 100) / 100,
+    equityRatio: Math.round(equityRatio * 1000) / 1000,
+    status,
+    marginCallAt: userData.marginCallAt || null
+  };
 };
 
 // Helper function to check and award achievements after an action
@@ -3296,86 +3362,72 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
 };
 
 // ============================================
-// LENDING MODAL
+// MARGIN MODAL
 // ============================================
 
-const LOAN_INTEREST_RATE = 0.05; // 5% per day
-const LOAN_MAX_DAYS = 7;
-const LOAN_MIN_AMOUNT = 100;
-
-const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
-  const [borrowAmount, setBorrowAmount] = useState(500);
+const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDisableMargin, onRepayMargin }) => {
   const [repayAmount, setRepayAmount] = useState(0);
+  const [showConfirmEnable, setShowConfirmEnable] = useState(false);
   
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
-  const lendingStatus = checkLendingEligibility(userData);
-  const activeLoan = userData?.activeLoan || null;
+  const eligibility = checkMarginEligibility(userData);
+  const marginStatus = calculateMarginStatus(userData, prices);
   
-  // Calculate loan details if active
-  const loanDetails = useMemo(() => {
-    if (!activeLoan) return null;
-    
-    const now = Date.now();
-    const daysPassed = (now - activeLoan.borrowedAt) / (1000 * 60 * 60 * 24);
-    const interest = activeLoan.principal * LOAN_INTEREST_RATE * daysPassed;
-    const totalOwed = activeLoan.principal + interest;
-    const daysRemaining = LOAN_MAX_DAYS - daysPassed;
-    const isOverdue = daysRemaining <= 0;
-    
-    return {
-      principal: activeLoan.principal,
-      interest: Math.round(interest * 100) / 100,
-      totalOwed: Math.round(totalOwed * 100) / 100,
-      daysPassed: Math.floor(daysPassed),
-      daysRemaining: Math.max(0, Math.ceil(daysRemaining)),
-      isOverdue
-    };
-  }, [activeLoan]);
-  
-  // Set default repay amount to total owed
-  useEffect(() => {
-    if (loanDetails) {
-      setRepayAmount(loanDetails.totalOwed);
-    }
-  }, [loanDetails]);
-  
-  const handleBorrow = () => {
-    if (borrowAmount >= LOAN_MIN_AMOUNT && borrowAmount <= lendingStatus.creditLimit) {
-      onBorrow(borrowAmount);
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'safe': return 'text-green-500';
+      case 'warning': return 'text-amber-500';
+      case 'margin_call': return 'text-orange-500';
+      case 'liquidation': return 'text-red-500';
+      default: return mutedClass;
     }
   };
   
-  const handleRepay = () => {
-    if (repayAmount > 0 && repayAmount <= (userData?.cash || 0)) {
-      onRepay(Math.min(repayAmount, loanDetails?.totalOwed || 0));
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'safe': return '✓ Safe';
+      case 'warning': return '⚠️ Warning';
+      case 'margin_call': return '🚨 Margin Call';
+      case 'liquidation': return '💀 Liquidation Risk';
+      default: return 'Disabled';
+    }
+  };
+
+  const getStatusBg = (status) => {
+    switch (status) {
+      case 'safe': return darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200';
+      case 'warning': return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
+      case 'margin_call': return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
+      case 'liquidation': return darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200';
+      default: return darkMode ? 'bg-zinc-800/50' : 'bg-slate-100';
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div 
-        className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
+        className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} flex justify-between items-center`}>
           <div>
-            <h2 className={`text-xl font-bold ${textClass}`}>🏦 Lending</h2>
-            <p className={`text-sm ${mutedClass}`}>Borrow cash to trade with</p>
+            <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
+            <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>
           </div>
           <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
         </div>
         
-        <div className="p-4 space-y-4">
-          {!lendingStatus.eligible ? (
-            // Locked state
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {!eligibility.eligible ? (
+            // Locked state - show requirements
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
-              <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Lending Locked</h3>
+              <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Margin Trading Locked</h3>
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
-                {lendingStatus.requirements.map((req, i) => (
+                {eligibility.requirements.map((req, i) => (
                   <div key={i} className={`text-sm flex items-center gap-2 ${req.met ? 'text-green-500' : mutedClass}`}>
                     <span>{req.met ? '✓' : '○'}</span>
                     <span>{req.label}</span>
@@ -3384,146 +3436,214 @@ const LendingModal = ({ onClose, darkMode, userData, onBorrow, onRepay }) => {
                 ))}
               </div>
             </div>
-          ) : activeLoan ? (
-            // Active loan - repayment UI
-            <div className="space-y-4">
-              <div className={`p-4 rounded-sm ${loanDetails?.isOverdue 
-                ? (darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200')
-                : (darkMode ? 'bg-amber-900/30 border border-amber-700' : 'bg-amber-50 border border-amber-200')
-              }`}>
-                <h3 className={`font-semibold mb-2 ${loanDetails?.isOverdue ? 'text-red-500' : 'text-amber-500'}`}>
-                  {loanDetails?.isOverdue ? '⚠️ LOAN OVERDUE!' : '📋 Active Loan'}
-                </h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className={mutedClass}>Principal:</span>
-                    <span className={textClass}>{formatCurrency(loanDetails?.principal || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={mutedClass}>Interest accrued:</span>
-                    <span className="text-red-500">+{formatCurrency(loanDetails?.interest || 0)}</span>
-                  </div>
-                  <div className={`flex justify-between font-bold pt-1 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
-                    <span className={textClass}>Total owed:</span>
-                    <span className="text-amber-500">{formatCurrency(loanDetails?.totalOwed || 0)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className={mutedClass}>Time remaining:</span>
-                    <span className={loanDetails?.isOverdue ? 'text-red-500 font-bold' : 'text-orange-500'}>
-                      {loanDetails?.isOverdue ? 'OVERDUE' : `${loanDetails?.daysRemaining} days`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {loanDetails?.isOverdue && (
-                <div className={`p-3 rounded-sm text-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} text-red-500`}>
-                  ⚠️ Your loan is overdue! Repay immediately to avoid account restrictions.
-                </div>
-              )}
-              
-              <div>
-                <label className={`text-sm font-semibold ${textClass} block mb-2`}>Repay Amount</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    max={Math.min(userData?.cash || 0, loanDetails?.totalOwed || 0)}
-                    value={repayAmount}
-                    onChange={(e) => setRepayAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className={`flex-1 px-3 py-2 rounded-sm border ${
-                      darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
-                    }`}
-                  />
-                  <button
-                    onClick={() => setRepayAmount(Math.min(userData?.cash || 0, loanDetails?.totalOwed || 0))}
-                    className={`px-3 py-2 text-xs font-semibold rounded-sm ${
-                      darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
-                    }`}
-                  >
-                    Max
-                  </button>
-                </div>
-                <p className={`text-xs ${mutedClass} mt-1`}>
-                  Your cash: {formatCurrency(userData?.cash || 0)}
-                </p>
-              </div>
-              
-              <button
-                onClick={handleRepay}
-                disabled={repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
-                className={`w-full py-3 font-semibold rounded-sm ${
-                  repayAmount > 0 && repayAmount <= (userData?.cash || 0)
-                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-amber-500 cursor-not-allowed text-zinc-300'
-                }`}
-              >
-                Repay {formatCurrency(repayAmount)}
-              </button>
-            </div>
-          ) : (
-            // No active loan - borrow UI
+          ) : !marginStatus.enabled ? (
+            // Eligible but not enabled
             <div className="space-y-4">
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className={`font-semibold ${textClass}`}>Credit Limit</span>
-                  <span className="text-green-500 font-bold text-lg">{formatCurrency(lendingStatus.creditLimit)}</span>
-                </div>
-                <p className={`text-xs ${mutedClass}`}>
-                  Based on your achievements and trading history
+                <h3 className={`font-semibold mb-2 text-green-500`}>✓ Eligible for Margin</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  You qualify for margin trading! Enable it to access additional buying power.
                 </p>
               </div>
               
-              <div className={`p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span>📊</span>
-                  <span className={`font-semibold ${textClass}`}>Loan Terms</span>
-                </div>
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+                <h4 className={`font-semibold mb-2 ${textClass}`}>How Margin Works</h4>
                 <ul className={`text-xs ${mutedClass} space-y-1`}>
-                  <li>• Interest rate: <span className="text-amber-500">5% per day</span></li>
-                  <li>• Maximum term: <span className="text-orange-500">7 days</span></li>
-                  <li>• Minimum loan: <span className="text-orange-500">{formatCurrency(LOAN_MIN_AMOUNT)}</span></li>
-                  <li>• Overdue loans may result in account restrictions</li>
+                  <li>• Borrow up to <span className="text-orange-500">50%</span> of your portfolio value</li>
+                  <li>• Interest rate: <span className="text-amber-500">0.5% daily</span> on borrowed amount</li>
+                  <li>• Maintenance: Keep <span className="text-orange-500">30%</span> equity minimum</li>
+                  <li>• <span className="text-red-400">Margin call</span> if equity drops below 30%</li>
+                  <li>• <span className="text-red-500">Auto-liquidation</span> at 25% equity</li>
                 </ul>
               </div>
               
-              <div>
-                <label className={`text-sm font-semibold ${textClass} block mb-2`}>Borrow Amount</label>
-                <input
-                  type="range"
-                  min={LOAN_MIN_AMOUNT}
-                  max={lendingStatus.creditLimit}
-                  step={50}
-                  value={borrowAmount}
-                  onChange={(e) => setBorrowAmount(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <div className="flex justify-between mt-1">
-                  <span className={`text-xs ${mutedClass}`}>{formatCurrency(LOAN_MIN_AMOUNT)}</span>
-                  <span className={`text-lg font-bold ${textClass}`}>{formatCurrency(borrowAmount)}</span>
-                  <span className={`text-xs ${mutedClass}`}>{formatCurrency(lendingStatus.creditLimit)}</span>
+              <div className={`p-3 rounded-sm border ${darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200'}`}>
+                <h4 className="font-semibold mb-1 text-red-500">⚠️ Risk Warning</h4>
+                <p className={`text-xs ${mutedClass}`}>
+                  Margin trading amplifies both gains AND losses. You can lose more than your initial investment. 
+                  If your portfolio drops significantly, your positions may be automatically liquidated.
+                </p>
+              </div>
+              
+              {!showConfirmEnable ? (
+                <button
+                  onClick={() => setShowConfirmEnable(true)}
+                  className="w-full py-3 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  Enable Margin Trading
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className={`text-sm text-center ${textClass}`}>Are you sure? This enables borrowing.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowConfirmEnable(false)}
+                      className={`flex-1 py-2 font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-slate-200 text-slate-600'}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => { onEnableMargin(); setShowConfirmEnable(false); }}
+                      className="flex-1 py-2 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      Yes, Enable
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Margin enabled - show status
+            <div className="space-y-4">
+              {/* Status Card */}
+              <div className={`p-4 rounded-sm border ${getStatusBg(marginStatus.status)}`}>
+                <div className="flex justify-between items-center mb-3">
+                  <span className={`font-semibold ${textClass}`}>Margin Status</span>
+                  <span className={`font-bold ${getStatusColor(marginStatus.status)}`}>
+                    {getStatusLabel(marginStatus.status)}
+                  </span>
+                </div>
+                
+                {/* Equity Ratio Bar */}
+                <div className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className={mutedClass}>Equity Ratio</span>
+                    <span className={getStatusColor(marginStatus.status)}>
+                      {(marginStatus.equityRatio * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        marginStatus.equityRatio > 0.35 ? 'bg-green-500' :
+                        marginStatus.equityRatio > 0.30 ? 'bg-amber-500' :
+                        marginStatus.equityRatio > 0.25 ? 'bg-orange-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(100, marginStatus.equityRatio * 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-red-500">25%</span>
+                    <span className="text-orange-500">30%</span>
+                    <span className="text-amber-500">35%</span>
+                    <span className="text-green-500">100%</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className={mutedClass}>Portfolio Value:</span>
+                    <p className={`font-bold ${textClass}`}>{formatCurrency(marginStatus.portfolioValue)}</p>
+                  </div>
+                  <div>
+                    <span className={mutedClass}>Margin Used:</span>
+                    <p className={`font-bold ${marginStatus.marginUsed > 0 ? 'text-amber-500' : textClass}`}>
+                      {formatCurrency(marginStatus.marginUsed)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className={mutedClass}>Available Margin:</span>
+                    <p className="font-bold text-green-500">{formatCurrency(marginStatus.availableMargin)}</p>
+                  </div>
+                  <div>
+                    <span className={mutedClass}>Maintenance Req:</span>
+                    <p className={`font-bold ${textClass}`}>{formatCurrency(marginStatus.totalMaintenanceRequired)}</p>
+                  </div>
                 </div>
               </div>
               
+              {/* Margin Call Warning */}
+              {marginStatus.status === 'margin_call' && (
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border border-orange-500`}>
+                  <h4 className="font-bold text-orange-500 mb-1">🚨 Margin Call!</h4>
+                  <p className={`text-xs ${mutedClass}`}>
+                    Deposit funds or sell positions to bring your equity above 30%. 
+                    Auto-liquidation occurs at 25% equity.
+                  </p>
+                  {marginStatus.marginCallAt && (
+                    <p className="text-xs text-orange-400 mt-1">
+                      Grace period ends: {new Date(marginStatus.marginCallAt + MARGIN_CALL_GRACE_PERIOD).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {marginStatus.status === 'liquidation' && (
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30' : 'bg-red-50'} border border-red-500`}>
+                  <h4 className="font-bold text-red-500 mb-1">💀 Liquidation Imminent!</h4>
+                  <p className={`text-xs ${mutedClass}`}>
+                    Your positions will be automatically sold to cover margin debt. Act immediately!
+                  </p>
+                </div>
+              )}
+              
+              {/* Repay Margin */}
+              {marginStatus.marginUsed > 0 && (
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-100'}`}>
+                  <h4 className={`font-semibold mb-2 ${textClass}`}>Repay Margin</h4>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={Math.min(userData?.cash || 0, marginStatus.marginUsed)}
+                      value={repayAmount}
+                      onChange={(e) => setRepayAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="Amount"
+                      className={`flex-1 px-3 py-2 rounded-sm border text-sm ${
+                        darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
+                      }`}
+                    />
+                    <button
+                      onClick={() => setRepayAmount(Math.min(userData?.cash || 0, marginStatus.marginUsed))}
+                      className={`px-3 py-2 text-xs font-semibold rounded-sm ${
+                        darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                      }`}
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <p className={`text-xs ${mutedClass} mb-2`}>
+                    Your cash: {formatCurrency(userData?.cash || 0)}
+                  </p>
+                  <button
+                    onClick={() => { onRepayMargin(repayAmount); setRepayAmount(0); }}
+                    disabled={repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
+                    className="w-full py-2 font-semibold rounded-sm bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Repay {formatCurrency(repayAmount)}
+                  </button>
+                </div>
+              )}
+              
+              {/* Interest Info */}
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-amber-50'}`}>
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className={mutedClass}>If repaid in 1 day:</span>
-                    <span className={textClass}>{formatCurrency(borrowAmount * 1.05)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={mutedClass}>If repaid in 7 days:</span>
-                    <span className="text-amber-500">{formatCurrency(borrowAmount * 1.35)}</span>
-                  </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span>💰</span>
+                  <span className={`text-sm font-semibold ${textClass}`}>Daily Interest</span>
                 </div>
+                <p className={`text-xs ${mutedClass}`}>
+                  {marginStatus.marginUsed > 0 ? (
+                    <>
+                      You're paying <span className="text-amber-500">{formatCurrency(marginStatus.marginUsed * MARGIN_INTEREST_RATE)}/day</span> in interest
+                      ({(MARGIN_INTEREST_RATE * 100).toFixed(1)}% of {formatCurrency(marginStatus.marginUsed)})
+                    </>
+                  ) : (
+                    <>No interest charged when not using margin</>
+                  )}
+                </p>
               </div>
               
-              <button
-                onClick={handleBorrow}
-                className="w-full py-3 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
-              >
-                Borrow {formatCurrency(borrowAmount)}
-              </button>
+              {/* Disable Margin */}
+              {marginStatus.marginUsed === 0 && (
+                <button
+                  onClick={onDisableMargin}
+                  className={`w-full py-2 text-sm font-semibold rounded-sm ${
+                    darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  }`}
+                >
+                  Disable Margin Trading
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -4851,8 +4971,31 @@ export default function App() {
       const buyPrice = ask;
       const totalCost = buyPrice * amount;
       
-      if (userData.cash < totalCost) {
-        setNotification({ type: 'error', message: 'Insufficient funds!' });
+      // Check if user has enough cash or can use margin
+      const cashAvailable = userData.cash || 0;
+      const marginEnabled = userData.marginEnabled || false;
+      const marginUsed = userData.marginUsed || 0;
+      const marginStatus = calculateMarginStatus(userData, prices);
+      const availableMargin = marginStatus.availableMargin || 0;
+      
+      let cashToUse = 0;
+      let marginToUse = 0;
+      
+      if (cashAvailable >= totalCost) {
+        // Can pay with cash
+        cashToUse = totalCost;
+        marginToUse = 0;
+      } else if (marginEnabled && cashAvailable + availableMargin >= totalCost) {
+        // Use all cash + some margin
+        cashToUse = cashAvailable;
+        marginToUse = totalCost - cashAvailable;
+      } else {
+        // Not enough funds even with margin
+        if (marginEnabled) {
+          setNotification({ type: 'error', message: `Insufficient funds! Need ${formatCurrency(totalCost)}, have ${formatCurrency(cashAvailable)} cash + ${formatCurrency(availableMargin)} margin` });
+        } else {
+          setNotification({ type: 'error', message: 'Insufficient funds!' });
+        }
         setTimeout(() => setNotification(null), 3000);
         return;
       }
@@ -4899,7 +5042,8 @@ export default function App() {
 
       // Update user with trade count, cost basis, last buy time, and daily mission progress
       const updateData = {
-        cash: userData.cash - totalCost,
+        cash: cashAvailable - cashToUse,
+        marginUsed: marginUsed + marginToUse,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
         [`lowestWhileHolding.${ticker}`]: Math.round(newLowest * 100) / 100,
@@ -5284,6 +5428,124 @@ export default function App() {
     }
   }, [user, userData, prices]);
 
+  // Margin monitoring - check for margin calls and auto-liquidation
+  useEffect(() => {
+    if (!user || !userData || !userData.marginEnabled || !prices || Object.keys(prices).length === 0) return;
+    
+    const marginUsed = userData.marginUsed || 0;
+    if (marginUsed <= 0) return; // No margin debt, nothing to check
+    
+    const checkMarginStatus = async () => {
+      const status = calculateMarginStatus(userData, prices);
+      const userRef = doc(db, 'users', user.uid);
+      const now = Date.now();
+      
+      if (status.status === 'liquidation') {
+        // AUTO-LIQUIDATION: Sell positions to cover margin debt
+        console.log('MARGIN LIQUIDATION TRIGGERED', status);
+        
+        // Get holdings sorted by value (sell largest first)
+        const holdings = userData.holdings || {};
+        const sortedHoldings = Object.entries(holdings)
+          .filter(([_, shares]) => shares > 0)
+          .map(([ticker, shares]) => ({
+            ticker,
+            shares,
+            value: (prices[ticker] || 0) * shares
+          }))
+          .sort((a, b) => b.value - a.value);
+        
+        let totalRecovered = 0;
+        const updateData = {};
+        
+        // Sell positions until margin is covered
+        for (const position of sortedHoldings) {
+          if (totalRecovered >= marginUsed) break;
+          
+          const sellValue = position.value * 0.95; // 5% slippage on forced liquidation
+          totalRecovered += sellValue;
+          updateData[`holdings.${position.ticker}`] = 0;
+          updateData[`costBasis.${position.ticker}`] = 0;
+        }
+        
+        // Update user - add recovered cash, reduce margin
+        const marginCovered = Math.min(totalRecovered, marginUsed);
+        const remainingCash = totalRecovered - marginCovered;
+        
+        updateData.cash = (userData.cash || 0) + remainingCash;
+        updateData.marginUsed = Math.max(0, marginUsed - totalRecovered);
+        updateData.marginCallAt = null;
+        updateData.lastLiquidation = now;
+        
+        await updateDoc(userRef, updateData);
+        
+        setNotification({ 
+          type: 'error', 
+          message: `💀 MARGIN LIQUIDATION: Positions sold to cover ${formatCurrency(marginCovered)} debt` 
+        });
+        setTimeout(() => setNotification(null), 10000);
+        
+      } else if (status.status === 'margin_call' && !userData.marginCallAt) {
+        // First margin call - set grace period
+        await updateDoc(userRef, { marginCallAt: now });
+        
+        setNotification({ 
+          type: 'error', 
+          message: `🚨 MARGIN CALL! Deposit funds or sell positions within 24h to avoid liquidation.` 
+        });
+        setTimeout(() => setNotification(null), 10000);
+        
+      } else if (status.status === 'margin_call' && userData.marginCallAt) {
+        // Check if grace period expired
+        const gracePeriodEnd = userData.marginCallAt + MARGIN_CALL_GRACE_PERIOD;
+        if (now >= gracePeriodEnd) {
+          // Grace period expired - trigger liquidation on next check
+          // (The liquidation branch above will handle it)
+        }
+      } else if (status.status === 'warning') {
+        // Just a warning, no action needed but could show notification
+      } else if (status.status === 'safe' && userData.marginCallAt) {
+        // Recovered from margin call
+        await updateDoc(userRef, { marginCallAt: null });
+      }
+    };
+    
+    // Check immediately and every 30 seconds
+    checkMarginStatus();
+    const interval = setInterval(checkMarginStatus, 30000);
+    
+    return () => clearInterval(interval);
+  }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.marginCallAt, prices]);
+
+  // Daily margin interest (charged at midnight or on login)
+  useEffect(() => {
+    if (!user || !userData || !userData.marginEnabled) return;
+    
+    const marginUsed = userData.marginUsed || 0;
+    if (marginUsed <= 0) return;
+    
+    const lastInterestCharge = userData.lastMarginInterestCharge || 0;
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    // Charge interest if it's been more than 24 hours
+    if (now - lastInterestCharge >= oneDayMs) {
+      const chargeInterest = async () => {
+        const interest = marginUsed * MARGIN_INTEREST_RATE;
+        const userRef = doc(db, 'users', user.uid);
+        
+        await updateDoc(userRef, {
+          marginUsed: marginUsed + interest,
+          lastMarginInterestCharge: now
+        });
+        
+        console.log(`Margin interest charged: ${formatCurrency(interest)}`);
+      };
+      
+      chargeInterest();
+    }
+  }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.lastMarginInterestCharge]);
+
   // Check leaderboard position for achievements (runs every 30 seconds)
   useEffect(() => {
     if (!user || !userData) return;
@@ -5596,46 +5858,59 @@ export default function App() {
   // Logout
   const handleLogout = () => signOut(auth);
 
-  // Borrow money
-  const handleBorrow = useCallback(async (amount) => {
+  // Enable margin trading
+  const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
     
-    const lendingStatus = checkLendingEligibility(userData);
-    if (!lendingStatus.eligible || amount > lendingStatus.creditLimit) {
-      setNotification({ type: 'error', message: 'Not eligible to borrow this amount!' });
-      setTimeout(() => setNotification(null), 3000);
-      return;
-    }
-    
-    if (userData.activeLoan) {
-      setNotification({ type: 'error', message: 'You already have an active loan!' });
+    const eligibility = checkMarginEligibility(userData);
+    if (!eligibility.eligible) {
+      setNotification({ type: 'error', message: 'Not eligible for margin trading!' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
     
     const userRef = doc(db, 'users', user.uid);
     await updateDoc(userRef, {
-      cash: userData.cash + amount,
-      activeLoan: {
-        principal: amount,
-        borrowedAt: Date.now()
-      },
-      lendingUnlocked: true
+      marginEnabled: true,
+      marginUsed: 0,
+      marginEnabledAt: Date.now()
     });
     
-    setNotification({ type: 'success', message: `Borrowed ${formatCurrency(amount)}! Remember to repay within 7 days.` });
+    setNotification({ type: 'success', message: '📊 Margin trading enabled! You now have extra buying power.' });
     setTimeout(() => setNotification(null), 5000);
+  }, [user, userData]);
+
+  // Disable margin trading
+  const handleDisableMargin = useCallback(async () => {
+    if (!user || !userData) return;
+    
+    if ((userData.marginUsed || 0) > 0) {
+      setNotification({ type: 'error', message: 'Repay all margin debt before disabling!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, {
+      marginEnabled: false,
+      marginUsed: 0
+    });
+    
+    setNotification({ type: 'success', message: 'Margin trading disabled.' });
+    setTimeout(() => setNotification(null), 3000);
     setShowLending(false);
   }, [user, userData]);
 
-  // Repay loan
-  const handleRepay = useCallback(async (amount) => {
-    if (!user || !userData || !userData.activeLoan) return;
+  // Repay margin
+  const handleRepayMargin = useCallback(async (amount) => {
+    if (!user || !userData) return;
     
-    const now = Date.now();
-    const daysPassed = (now - userData.activeLoan.borrowedAt) / (1000 * 60 * 60 * 24);
-    const interest = userData.activeLoan.principal * 0.05 * daysPassed; // 5% per day
-    const totalOwed = userData.activeLoan.principal + interest;
+    const marginUsed = userData.marginUsed || 0;
+    if (marginUsed <= 0) {
+      setNotification({ type: 'error', message: 'No margin debt to repay!' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     
     if (amount > userData.cash) {
       setNotification({ type: 'error', message: 'Insufficient funds!' });
@@ -5643,27 +5918,19 @@ export default function App() {
       return;
     }
     
+    const repayAmount = Math.min(amount, marginUsed);
     const userRef = doc(db, 'users', user.uid);
     
-    if (amount >= totalOwed) {
-      // Full repayment
-      await updateDoc(userRef, {
-        cash: userData.cash - totalOwed,
-        activeLoan: null
-      });
-      setNotification({ type: 'success', message: `Loan repaid in full! Paid ${formatCurrency(totalOwed)}` });
-      setShowLending(false);
+    await updateDoc(userRef, {
+      cash: userData.cash - repayAmount,
+      marginUsed: marginUsed - repayAmount,
+      marginCallAt: null // Clear margin call if repaying
+    });
+    
+    if (repayAmount >= marginUsed) {
+      setNotification({ type: 'success', message: `Margin fully repaid! Paid ${formatCurrency(repayAmount)}` });
     } else {
-      // Partial repayment - reduce principal
-      const remainingOwed = totalOwed - amount;
-      await updateDoc(userRef, {
-        cash: userData.cash - amount,
-        activeLoan: {
-          principal: remainingOwed,
-          borrowedAt: Date.now() // Reset timer for remaining amount
-        }
-      });
-      setNotification({ type: 'success', message: `Paid ${formatCurrency(amount)}. Remaining: ${formatCurrency(remainingOwed)}` });
+      setNotification({ type: 'success', message: `Repaid ${formatCurrency(repayAmount)}. Remaining debt: ${formatCurrency(marginUsed - repayAmount)}` });
     }
     setTimeout(() => setNotification(null), 5000);
   }, [user, userData]);
@@ -5853,11 +6120,13 @@ export default function App() {
             {!isGuest && (
               <button onClick={() => setShowLending(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${
-                  userData?.activeLoan 
+                  userData?.marginUsed > 0
                     ? 'border-amber-500 text-amber-500 hover:bg-amber-900/20' 
+                    : userData?.marginEnabled
+                    ? 'border-green-600 text-green-500 hover:bg-green-900/20'
                     : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'
                 }`}>
-                🏦 {userData?.activeLoan ? 'Loan Active' : 'Lending'}
+                📊 {userData?.marginUsed > 0 ? `Margin: ${formatCurrency(userData.marginUsed)}` : userData?.marginEnabled ? 'Margin ✓' : 'Margin'}
               </button>
             )}
             {user && ADMIN_UIDS.includes(user.uid) && (
@@ -6115,12 +6384,14 @@ export default function App() {
         />
       )}
       {showLending && !isGuest && (
-        <LendingModal 
+        <MarginModal 
           onClose={() => setShowLending(false)} 
           darkMode={darkMode} 
           userData={userData}
-          onBorrow={handleBorrow}
-          onRepay={handleRepay}
+          prices={prices}
+          onEnableMargin={handleEnableMargin}
+          onDisableMargin={handleDisableMargin}
+          onRepayMargin={handleRepayMargin}
         />
       )}
       {showCrewSelection && !isGuest && (
