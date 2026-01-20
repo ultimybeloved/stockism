@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { doc, updateDoc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { CHARACTERS } from './characters';
 
@@ -53,6 +53,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [usersPage, setUsersPage] = useState(0);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState(new Set());
+  const USERS_PER_PAGE = 25;
   
   // IPO state
   const [ipoTicker, setIpoTicker] = useState('');
@@ -69,6 +73,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   // Market Stats state
   const [marketStats, setMarketStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  
+  // Orphan cleanup state
+  const [orphanedUsers, setOrphanedUsers] = useState([]);
+  const [orphanScanComplete, setOrphanScanComplete] = useState(false);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
@@ -509,6 +517,155 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', 'Failed to load market stats');
     }
     setStatsLoading(false);
+  };
+
+  // Scan for likely orphaned/bot accounts
+  const scanForOrphanedUsers = async () => {
+    setLoading(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const snapshot = await getDocs(usersRef);
+      
+      const suspicious = [];
+      const now = Date.now();
+      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const id = docSnap.id;
+        
+        // Skip admin accounts
+        if (ADMIN_UIDS.includes(id)) return;
+        
+        // Criteria for likely orphaned/bot accounts:
+        // 1. No trades ever AND no checkins AND created more than a day ago
+        // 2. Still has exactly starting cash ($1000) and no holdings
+        // 3. No activity in over a week
+        
+        const totalTrades = data.totalTrades || 0;
+        const totalCheckins = data.totalCheckins || 0;
+        const cash = data.cash || 0;
+        const holdings = data.holdings || {};
+        const holdingsCount = Object.values(holdings).filter(s => s > 0).length;
+        const lastActive = data.lastTradeTime || data.lastCheckin || data.createdAt || 0;
+        const createdAt = data.createdAt || 0;
+        const portfolioValue = data.portfolioValue || 0;
+        
+        // Flag as suspicious if:
+        // - Zero activity (no trades, no checkins) AND default cash AND no holdings
+        const isInactive = totalTrades === 0 && totalCheckins === 0 && holdingsCount === 0;
+        const hasDefaultCash = cash === 1000 || (cash >= 999 && cash <= 1001);
+        const noRecentActivity = lastActive < oneWeekAgo || lastActive === 0;
+        
+        if (isInactive && hasDefaultCash) {
+          suspicious.push({
+            id,
+            displayName: data.displayName || 'Unknown',
+            cash,
+            portfolioValue,
+            totalTrades,
+            totalCheckins,
+            holdingsCount,
+            createdAt,
+            lastActive,
+            reason: 'Zero activity + default cash'
+          });
+        }
+      });
+      
+      // Sort by creation date (oldest first)
+      suspicious.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      
+      setOrphanedUsers(suspicious);
+      setOrphanScanComplete(true);
+      showMessage('success', `Found ${suspicious.length} likely orphaned/bot accounts`);
+    } catch (err) {
+      console.error('Failed to scan for orphans:', err);
+      showMessage('error', 'Failed to scan for orphaned users');
+    }
+    setLoading(false);
+  };
+
+  // Delete a single orphaned user
+  const deleteOrphanedUser = async (userId) => {
+    if (!window.confirm(`Delete user ${userId}? This cannot be undone.`)) return;
+    
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      setOrphanedUsers(prev => prev.filter(u => u.id !== userId));
+      showMessage('success', `Deleted user ${userId}`);
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      showMessage('error', 'Failed to delete user');
+    }
+  };
+
+  // Delete all orphaned users
+  const deleteAllOrphanedUsers = async () => {
+    if (!window.confirm(`Delete ALL ${orphanedUsers.length} orphaned users? This cannot be undone!`)) return;
+    if (!window.confirm(`Are you REALLY sure? This will permanently delete ${orphanedUsers.length} user documents.`)) return;
+    
+    setLoading(true);
+    try {
+      let deleted = 0;
+      for (const user of orphanedUsers) {
+        await deleteDoc(doc(db, 'users', user.id));
+        deleted++;
+      }
+      setOrphanedUsers([]);
+      showMessage('success', `Deleted ${deleted} orphaned users`);
+    } catch (err) {
+      console.error('Failed to delete orphaned users:', err);
+      showMessage('error', 'Failed to delete some users');
+    }
+    setLoading(false);
+  };
+
+  // Toggle user selection for deletion
+  const toggleUserForDeletion = (userId) => {
+    setSelectedForDeletion(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  // Delete selected users
+  const deleteSelectedUsers = async () => {
+    if (selectedForDeletion.size === 0) {
+      showMessage('error', 'No users selected for deletion');
+      return;
+    }
+    
+    if (!window.confirm(`Delete ${selectedForDeletion.size} selected users? This cannot be undone!`)) return;
+    if (!window.confirm(`FINAL CONFIRMATION: Permanently delete ${selectedForDeletion.size} user accounts?`)) return;
+    
+    setLoading(true);
+    try {
+      let deleted = 0;
+      for (const userId of selectedForDeletion) {
+        // Don't allow deleting admin
+        if (ADMIN_UIDS.includes(userId)) continue;
+        await deleteDoc(doc(db, 'users', userId));
+        deleted++;
+      }
+      
+      // Remove deleted users from allUsers and search results
+      setAllUsers(prev => prev.filter(u => !selectedForDeletion.has(u.id)));
+      setUserSearchResults(prev => prev.filter(u => !selectedForDeletion.has(u.id)));
+      setSelectedForDeletion(new Set());
+      setDeleteMode(false);
+      
+      showMessage('success', `Deleted ${deleted} users`);
+    } catch (err) {
+      console.error('Failed to delete users:', err);
+      showMessage('error', 'Failed to delete some users');
+    }
+    setLoading(false);
   };
 
   // Resolve prediction
@@ -1572,17 +1729,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             <div className="space-y-4">
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
                 <p className={`text-sm ${mutedClass}`}>
-                  👥 Search and view user details. Click "Load Users" first.
+                  👥 Browse, search, and manage users. Click "Load" to fetch all users.
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <input
                   type="text"
                   value={userSearchQuery}
-                  onChange={e => handleUserSearch(e.target.value)}
+                  onChange={e => { handleUserSearch(e.target.value); setUsersPage(0); }}
                   placeholder="Search by name or ID..."
-                  className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
+                  className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
                 />
                 <button
                   onClick={handleLoadAllUsers}
@@ -1599,16 +1756,51 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 >
                   {loading ? '...' : '📊 Recalc'}
                 </button>
+                <button
+                  onClick={() => { setDeleteMode(!deleteMode); setSelectedForDeletion(new Set()); }}
+                  className={`px-4 py-2 font-semibold rounded-sm ${
+                    deleteMode 
+                      ? 'bg-red-600 hover:bg-red-700 text-white' 
+                      : darkMode ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
+                  }`}
+                >
+                  {deleteMode ? '✕ Cancel' : '🗑️ Delete Mode'}
+                </button>
               </div>
 
-              {userSearchResults.length > 0 && (
-                <div className={`text-xs ${mutedClass} mb-2`}>
-                  Showing {userSearchResults.length} of {allUsers.length} users
+              {/* Delete Mode Controls */}
+              {deleteMode && (
+                <div className={`p-3 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-red-500 font-semibold">Delete Mode Active</span>
+                      <span className={`ml-2 ${mutedClass}`}>
+                        {selectedForDeletion.size} selected
+                      </span>
+                    </div>
+                    <button
+                      onClick={deleteSelectedUsers}
+                      disabled={loading || selectedForDeletion.size === 0}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? '...' : `🗑️ Delete ${selectedForDeletion.size} Users`}
+                    </button>
+                  </div>
+                  <p className={`text-xs ${mutedClass} mt-2`}>
+                    Click on users to select them for deletion. Admin accounts cannot be deleted.
+                  </p>
+                </div>
+              )}
+
+              {allUsers.length > 0 && (
+                <div className={`text-xs ${mutedClass}`}>
+                  Showing {Math.min(usersPage * USERS_PER_PAGE + 1, userSearchResults.length)}-{Math.min((usersPage + 1) * USERS_PER_PAGE, userSearchResults.length)} of {userSearchResults.length} users
+                  {userSearchQuery && ` (filtered from ${allUsers.length})`}
                 </div>
               )}
 
               {/* Selected User Detail */}
-              {selectedUser && (
+              {selectedUser && !deleteMode && (
                 <div className={`p-4 rounded-sm border-2 border-teal-500 ${darkMode ? 'bg-slate-700' : 'bg-teal-50'}`}>
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -1676,31 +1868,97 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
               {/* User List */}
               {!selectedUser && userSearchResults.length > 0 && (
-                <div className="space-y-1 max-h-96 overflow-y-auto">
-                  {userSearchResults.slice(0, 50).map((u, i) => (
-                    <div 
-                      key={u.id}
-                      onClick={() => setSelectedUser(u)}
-                      className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${
-                        darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
-                      }`}
-                    >
-                      <div>
-                        <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
-                        {u.isAdmin && <span className="ml-2 text-xs text-amber-500">👑</span>}
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-bold ${textClass}`}>${u.portfolioValue.toFixed(2)}</div>
-                        <div className={`text-xs ${mutedClass}`}>Cash: ${u.cash.toFixed(2)}</div>
-                      </div>
+                <>
+                  <div className="space-y-1">
+                    {userSearchResults
+                      .slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE)
+                      .map((u, i) => {
+                        const isSelected = selectedForDeletion.has(u.id);
+                        const isAdmin = ADMIN_UIDS.includes(u.id);
+                        
+                        return (
+                          <div 
+                            key={u.id}
+                            onClick={() => {
+                              if (deleteMode) {
+                                if (!isAdmin) toggleUserForDeletion(u.id);
+                              } else {
+                                setSelectedUser(u);
+                              }
+                            }}
+                            className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${
+                              deleteMode && isSelected
+                                ? 'bg-red-500/30 border border-red-500'
+                                : deleteMode && isAdmin
+                                ? `${darkMode ? 'bg-slate-800 opacity-50' : 'bg-slate-200 opacity-50'} cursor-not-allowed`
+                                : darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {deleteMode && (
+                                <span className={`text-lg ${isSelected ? 'text-red-500' : mutedClass}`}>
+                                  {isSelected ? '☑' : isAdmin ? '🔒' : '☐'}
+                                </span>
+                              )}
+                              <div>
+                                <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
+                                {isAdmin && <span className="ml-2 text-xs text-amber-500">👑 Admin</span>}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-sm font-bold ${textClass}`}>${u.portfolioValue.toFixed(2)}</div>
+                              <div className={`text-xs ${mutedClass}`}>Cash: ${u.cash.toFixed(2)}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Pagination */}
+                  {userSearchResults.length > USERS_PER_PAGE && (
+                    <div className="flex justify-center items-center gap-2 pt-2">
+                      <button
+                        onClick={() => setUsersPage(0)}
+                        disabled={usersPage === 0}
+                        className={`px-2 py-1 text-xs rounded-sm ${
+                          usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
+                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                      >
+                        ««
+                      </button>
+                      <button
+                        onClick={() => setUsersPage(p => Math.max(0, p - 1))}
+                        disabled={usersPage === 0}
+                        className={`px-3 py-1 text-xs rounded-sm ${
+                          usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
+                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                      >
+                        ‹ Prev
+                      </button>
+                      <span className={`px-3 py-1 text-sm ${textClass}`}>
+                        Page {usersPage + 1} of {Math.ceil(userSearchResults.length / USERS_PER_PAGE)}
+                      </span>
+                      <button
+                        onClick={() => setUsersPage(p => Math.min(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1, p + 1))}
+                        disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
+                        className={`px-3 py-1 text-xs rounded-sm ${
+                          usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
+                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                      >
+                        Next ›
+                      </button>
+                      <button
+                        onClick={() => setUsersPage(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1)}
+                        disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
+                        className={`px-2 py-1 text-xs rounded-sm ${
+                          usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
+                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                      >
+                        »»
+                      </button>
                     </div>
-                  ))}
-                  {userSearchResults.length > 50 && (
-                    <p className={`text-center text-xs ${mutedClass} py-2`}>
-                      Showing first 50 results. Use search to narrow down.
-                    </p>
                   )}
-                </div>
+                </>
               )}
 
               {allUsers.length === 0 && (
@@ -1868,6 +2126,75 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </p>
                 </>
               )}
+
+              {/* Orphan Cleanup Section */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+                <h3 className={`font-semibold mb-3 text-red-500`}>🧹 Orphaned Account Cleanup</h3>
+                <p className={`text-xs ${mutedClass} mb-3`}>
+                  Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash).
+                  These are likely bot accounts or users who were deleted from Firebase Auth.
+                </p>
+                
+                <button
+                  onClick={scanForOrphanedUsers}
+                  disabled={loading}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50 mr-2"
+                >
+                  {loading ? 'Scanning...' : '🔍 Scan for Orphans'}
+                </button>
+                
+                {orphanScanComplete && (
+                  <span className={`text-sm ${mutedClass}`}>
+                    Found {orphanedUsers.length} suspicious accounts
+                  </span>
+                )}
+
+                {orphanedUsers.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`text-sm font-semibold ${textClass}`}>
+                        {orphanedUsers.length} Orphaned Accounts
+                      </span>
+                      <button
+                        onClick={deleteAllOrphanedUsers}
+                        disabled={loading}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-sm disabled:opacity-50"
+                      >
+                        🗑️ Delete All ({orphanedUsers.length})
+                      </button>
+                    </div>
+                    
+                    <div className="max-h-60 overflow-y-auto space-y-1">
+                      {orphanedUsers.slice(0, 100).map(u => (
+                        <div 
+                          key={u.id} 
+                          className={`p-2 rounded-sm flex justify-between items-center text-sm ${
+                            darkMode ? 'bg-slate-800' : 'bg-white'
+                          }`}
+                        >
+                          <div>
+                            <span className={textClass}>{u.displayName}</span>
+                            <span className={`text-xs ${mutedClass} ml-2`}>
+                              ${u.cash.toFixed(0)} • {u.totalTrades} trades
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => deleteOrphanedUser(u.id)}
+                            className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-sm"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                      {orphanedUsers.length > 100 && (
+                        <p className={`text-xs ${mutedClass} text-center py-2`}>
+                          Showing first 100 of {orphanedUsers.length}. Use "Delete All" for the rest.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
