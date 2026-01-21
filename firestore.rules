@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns this document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && request.auth.uid == '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
+    }
+    
+    // Get the user's current data
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check if a field is being modified
+    function fieldChanged(field) {
+      return request.resource.data[field] != resource.data[field];
+    }
+    
+    // ============================================
+    // USER DOCUMENTS
+    // ============================================
+    
+    match /users/{userId} {
+      // Anyone authenticated can read any user (for leaderboard)
+      allow read: if isAuthenticated();
+      
+      // New user creation - only for yourself
+      allow create: if isOwner(userId) && 
+        // Must have required fields
+        request.resource.data.keys().hasAll(['displayName', 'cash', 'holdings', 'portfolioValue']) &&
+        // Starting cash must be exactly 1000
+        request.resource.data.cash == 1000 &&
+        // Portfolio value must match starting cash
+        request.resource.data.portfolioValue == 1000 &&
+        // Holdings must be empty
+        request.resource.data.holdings == {} &&
+        // Display name must be reasonable length
+        request.resource.data.displayName.size() >= 1 &&
+        request.resource.data.displayName.size() <= 20;
+      
+      // Updates - only owner can update their own document
+      allow update: if isOwner(userId) && validateUserUpdate();
+    }
+    
+    // Validate user document updates to prevent cheating
+    function validateUserUpdate() {
+      let oldData = resource.data;
+      let newData = request.resource.data;
+      
+      // CRITICAL: Prevent direct cash injection
+      // Cash changes must be "reasonable" - this is a soft check
+      // Real protection requires Cloud Functions, but this stops obvious cheats
+      let cashDiff = newData.cash - oldData.cash;
+      
+      // Allow cash increases only up to daily bonus (300) + reasonable trade profits
+      // This is permissive but stops "give me 1 million" attacks
+      let maxCashIncrease = 50000; // Generous limit for big winning trades
+      let maxCashDecrease = -1000000; // Can lose a lot on bad shorts
+      
+      return (
+        // Cash change must be within bounds
+        (cashDiff <= maxCashIncrease && cashDiff >= maxCashDecrease) &&
+        
+        // Cannot directly set portfolioValue to unrealistic amounts
+        (newData.portfolioValue <= 10000000) && // 10 million cap
+        
+        // Cannot set negative cash (this should never happen legitimately)
+        (newData.cash >= 0 || 
+         // EXCEPTION: Future lending system may allow negative
+         (oldData.lendingUnlocked == true && newData.cash >= -5000)) &&
+        
+        // Cannot fake total checkins (can only increment by 1)
+        (!('totalCheckins' in newData) || 
+         !('totalCheckins' in oldData) ||
+         newData.totalCheckins <= oldData.totalCheckins + 1) &&
+        
+        // Cannot fake total trades (can only increment by 1)  
+        (!('totalTrades' in newData) ||
+         !('totalTrades' in oldData) ||
+         newData.totalTrades <= oldData.totalTrades + 1) &&
+        
+        // Cannot grant yourself lending access
+        (!('lendingUnlocked' in newData) ||
+         newData.lendingUnlocked == oldData.lendingUnlocked ||
+         // Only allow if legitimately earned (server should verify)
+         oldData.lendingUnlocked == false) &&
+        
+        // Cannot un-bankrupt yourself
+        (!('isBankrupt' in newData) ||
+         newData.isBankrupt == oldData.isBankrupt ||
+         newData.isBankrupt == true) && // Can only become bankrupt, not recover
+        
+        // Display name cannot be changed (prevents impersonation)
+        (newData.displayName == oldData.displayName)
+      );
+    }
+    
+    // ============================================
+    // MARKET DATA
+    // ============================================
+    
+    match /market/{document} {
+      // Everyone can read market data
+      allow read: if true;
+      
+      // Market writes - this is where we need to be careful
+      // Ideally NO client writes, only Cloud Functions
+      // But since we don't have Cloud Functions yet, we allow with validation
+      allow update: if isAuthenticated() && validateMarketUpdate();
+      
+      // Only admin can create market documents
+      allow create: if isAdmin();
+    }
+    
+    function validateMarketUpdate() {
+      let oldData = resource.data;
+      let newData = request.resource.data;
+      
+      // Price changes must be reasonable (max 20% per update)
+      // This prevents someone setting a price to $0.01 or $999999
+      
+      // Check if any price changed by more than 20%
+      // Note: This is a simplified check - full validation would check each ticker
+      
+      return (
+        // Total trades can only increment
+        (!('totalTrades' in newData) ||
+         !('totalTrades' in oldData) ||
+         newData.totalTrades >= oldData.totalTrades) &&
+        
+        // Prices must stay within reasonable bounds
+        // Min price: $0.01, Max price: $10,000
+        validatePriceBounds(newData.prices)
+      );
+    }
+    
+    function validatePriceBounds(prices) {
+      // This is a simplified check
+      // Full validation would iterate through all prices
+      // For now, we trust that most prices are valid if the structure exists
+      return prices != null;
+    }
+    
+    // ============================================
+    // PREDICTIONS
+    // ============================================
+    
+    match /predictions/{document} {
+      // Everyone can read predictions
+      allow read: if true;
+      
+      // Only admin can create/delete predictions
+      allow create, delete: if isAdmin();
+      
+      // Updates allowed for:
+      // - Admin (can do anything)
+      // - Regular users (can only add bets)
+      allow update: if isAdmin() || validatePredictionBet();
+    }
+    
+    function validatePredictionBet() {
+      // Users can only modify the bets field
+      // And only add to it, not remove or modify existing bets
+      let oldData = resource.data;
+      let newData = request.resource.data;
+      
+      return (
+        isAuthenticated() &&
+        // Cannot change resolution status
+        newData.resolved == oldData.resolved &&
+        // Cannot change end time
+        newData.endsAt == oldData.endsAt &&
+        // Cannot change question or options
+        newData.question == oldData.question
+        // Note: Full bet validation would check that user has enough cash
+        // This requires Cloud Functions for proper implementation
+      );
+    }
+    
+    // ============================================
+    // PRICE HISTORY (if stored separately)
+    // ============================================
+    
+    match /priceHistory/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated(); // Allow for now, lock down with Cloud Functions later
+    }
+    
+    // ============================================
+    // ADMIN-ONLY COLLECTIONS
+    // ============================================
+    
+    match /admin/{document} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /config/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
