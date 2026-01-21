@@ -6219,7 +6219,7 @@ export default function App() {
       const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.ticker.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
-      const favorites = activeUserData.favorites || [];
+      const favorites = activeUserData?.favorites || [];
       switch (marketFilter) {
         case 'favorites':
           if (!favorites.includes(c.ticker)) return false;
@@ -6582,9 +6582,9 @@ export default function App() {
               <option value="ticker">Ticker A-Z</option>
               <option value="newest">Newest</option>
               <option value="oldest">Oldest</option>
-              <option value="gainers" disabled={marketFilter !== 'gainers'}>Biggest Gainers</option>
-              <option value="losers" disabled={marketFilter !== 'losers'}>Biggest Losers</option>
-              <option value="volatile" disabled={marketFilter !== 'volatile'}>Most Volatile</option>
+              <option value="gainers">Biggest Gainers</option>
+              <option value="losers">Biggest Losers</option>
+              <option value="volatile">Most Volatile</option>
             </select>
             <input type="text" placeholder="Search..." value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
