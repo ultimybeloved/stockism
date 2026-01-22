@@ -894,17 +894,32 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         await updateDoc(userRef, updateData);
       }
       
-      // Now rollback all prices
+      // Now rollback all prices AND clean price history
       const priceUpdates = {};
       for (const [ticker, price] of Object.entries(priceRollbacks)) {
         priceUpdates[`prices.${ticker}`] = price;
       }
-      
-      if (Object.keys(priceUpdates).length > 0) {
-        await updateDoc(marketRef, priceUpdates);
+
+      // Also trim price history to remove bad data after rollback point
+      const historyUpdates = {};
+      for (const [ticker, history] of Object.entries(priceHistory)) {
+        if (!history || history.length === 0) continue;
+        // Keep only entries at or before the rollback timestamp
+        const cleanedHistory = history.filter(h => h.timestamp <= rollbackTimestamp);
+        if (cleanedHistory.length !== history.length) {
+          historyUpdates[`priceHistory.${ticker}`] = cleanedHistory;
+        }
       }
-      
-      showMessage('success', `Rollback complete! Reversed ${tradesReversed} trades for ${usersAffected} users. Prices restored.`);
+
+      // Combine price and history updates
+      const marketUpdates = { ...priceUpdates, ...historyUpdates };
+
+      if (Object.keys(marketUpdates).length > 0) {
+        await updateDoc(marketRef, marketUpdates);
+      }
+
+      const historyTrimmed = Object.keys(historyUpdates).length;
+      showMessage('success', `Rollback complete! Reversed ${tradesReversed} trades for ${usersAffected} users. Prices restored. ${historyTrimmed > 0 ? `Cleaned history for ${historyTrimmed} tickers.` : ''}`);
       
     } catch (err) {
       console.error('Full rollback failed:', err);
