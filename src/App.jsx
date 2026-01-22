@@ -11,6 +11,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   collection,
   query,
@@ -1874,7 +1875,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">How do I report bugs or suggest features?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Reach out to <a href="https://reddit.com/u/SupremeExalted" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">u/SupremeExalted</a> on Reddit. We're always looking to improve!
+                  Report issues or suggest features on <a href="https://github.com/ultimybeloved/stockism" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">GitHub</a>. We're always looking to improve!
                 </p>
               </div>
             </div>
@@ -1936,13 +1937,13 @@ const AboutModal = ({ onClose, darkMode }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">Data deletion:</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Want your data deleted? Contact us and we'll remove your account/data entirely.
+                  You can delete your account and all associated data anytime from your Profile (click your username → scroll to bottom → Delete Account).
                 </p>
               </div>
 
               <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <p className={`text-xs ${mutedClass}`}>
-                  Last updated: January 2025. This is a fan project with no legal entity behind it. 
+                  Last updated: January 2026. This is a fan project with no legal entity behind it. 
                   If you have privacy concerns, please reach out to us directly.
                 </p>
               </div>
@@ -3163,8 +3164,10 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 // PROFILE MODAL (Prediction History)
 // ============================================
 
-const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection }) => {
+const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection, user, onDeleteAccount }) => {
   const [showCrewSection, setShowCrewSection] = useState(false);
+  const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=info, 2=confirm1, 3=confirm2, 4=final
+  const [deleting, setDeleting] = useState(false);
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -3331,7 +3334,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   const paidOut = bet.paid === true;
                   return (
                     <div key={bet.predictionId} className={`p-3 rounded-sm border ${
-                      won 
+                      won
                         ? (darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-300 bg-green-50')
                         : (darkMode ? 'border-red-700/50 bg-red-900/10' : 'border-red-200 bg-red-50')
                     }`}>
@@ -3369,6 +3372,104 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Delete Account Section */}
+          <div className={`mt-6 pt-4 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+            {deleteStep === 0 && (
+              <button
+                onClick={() => setDeleteStep(1)}
+                className={`text-xs ${mutedClass} hover:text-red-500 transition-colors`}
+              >
+                🗑️ Delete Account
+              </button>
+            )}
+
+            {deleteStep === 1 && (
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+                <h4 className={`font-semibold text-red-500 mb-2`}>Delete Your Account</h4>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  This will permanently delete your account and all associated data including:
+                </p>
+                <ul className={`text-sm ${mutedClass} mb-3 ml-4 list-disc`}>
+                  <li>Your username and profile</li>
+                  <li>All cash and holdings</li>
+                  <li>Trade history and achievements</li>
+                  <li>Prediction bets and results</li>
+                </ul>
+                <p className={`text-xs text-red-400 mb-3`}>This action cannot be undone.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDeleteStep(0)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setDeleteStep(2)}
+                    className="flex-1 py-2 text-sm font-semibold rounded-sm bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === 2 && (
+              <div className={`p-3 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
+                <h4 className={`font-semibold text-red-500 mb-2`}>⚠️ Are you sure?</h4>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  You're about to permanently delete your account "{userData?.displayName}".
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDeleteStep(0)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setDeleteStep(3)}
+                    className="flex-1 py-2 text-sm font-semibold rounded-sm bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Yes, Delete My Account
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === 3 && (
+              <div className={`p-3 rounded-sm border-2 border-red-600 ${darkMode ? 'bg-red-900/30' : 'bg-red-100'}`}>
+                <h4 className={`font-semibold text-red-600 mb-2`}>🚨 Final Confirmation</h4>
+                <p className={`text-sm text-red-500 mb-3`}>
+                  This is your LAST chance. Click below to permanently delete everything.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDeleteStep(0)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setDeleting(true);
+                      try {
+                        await onDeleteAccount();
+                      } catch (err) {
+                        console.error('Failed to delete account:', err);
+                        setDeleting(false);
+                        setDeleteStep(0);
+                      }
+                    }}
+                    disabled={deleting}
+                    className="flex-1 py-2 text-sm font-bold rounded-sm bg-red-700 hover:bg-red-800 text-white disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting...' : '🗑️ YES, DELETE PERMANENTLY'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -6458,6 +6559,32 @@ export default function App() {
   // Logout
   const handleLogout = () => signOut(auth);
 
+  // Delete account
+  const handleDeleteAccount = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Delete user document from Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await deleteDoc(userRef);
+
+      // Delete username reservation
+      if (userData?.displayNameLower) {
+        const usernameRef = doc(db, 'usernames', userData.displayNameLower);
+        await deleteDoc(usernameRef);
+      }
+
+      // Sign out (this will trigger auth state change)
+      await signOut(auth);
+
+      showNotification('success', 'Account deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete account:', err);
+      showNotification('error', 'Failed to delete account. Please try again.');
+      throw err;
+    }
+  }, [user, userData, showNotification]);
+
   // Enable margin trading
   const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
@@ -7005,12 +7132,14 @@ export default function App() {
         />
       )}
       {showProfile && !isGuest && (
-        <ProfileModal 
-          onClose={() => setShowProfile(false)} 
-          darkMode={darkMode} 
+        <ProfileModal
+          onClose={() => setShowProfile(false)}
+          darkMode={darkMode}
           userData={userData}
           predictions={predictions}
           onOpenCrewSelection={() => setShowCrewSelection(true)}
+          user={user}
+          onDeleteAccount={handleDeleteAccount}
         />
       )}
       {showLending && !isGuest && (
