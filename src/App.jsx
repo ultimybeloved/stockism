@@ -24,7 +24,7 @@ import {
 } from 'firebase/firestore';
 import { auth, googleProvider, twitterProvider, db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
-import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE } from './crews';
+import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
 
 // Import from new modular structure
@@ -2538,16 +2538,20 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
 };
 
 // ============================================
-// DAILY MISSIONS MODAL
+// MISSIONS MODAL (Daily + Weekly)
 // ============================================
 
-const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, portfolioValue, isGuest }) => {
+const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, portfolioValue, isGuest }) => {
+  const [activeTab, setActiveTab] = useState('daily');
+
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
-  
+
   const today = getTodayDateString();
+  const weekId = getWeekId();
   const dailyProgress = userData?.dailyMissions?.[today] || {};
+  const weeklyProgress = userData?.weeklyMissions?.[weekId] || {};
   const userCrew = userData?.crew;
   const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
   
@@ -2779,43 +2783,243 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
     ...getMissionProgress(mission),
     claimed: dailyProgress.claimed?.[mission.id] || false
   }));
-  
+
   const totalRewards = missions.reduce((sum, m) => sum + m.reward, 0);
   const earnedRewards = missions.filter(m => m.complete && m.claimed).reduce((sum, m) => sum + m.reward, 0);
   const claimableRewards = missions.filter(m => m.complete && !m.claimed).reduce((sum, m) => sum + m.reward, 0);
-  
+
+  // ============================================
+  // WEEKLY MISSIONS
+  // ============================================
+
+  // Get this crew's 2 weekly missions
+  const thisWeeksMissions = userCrew ? getCrewWeeklyMissions(userCrew, weekId) : [];
+
+  // Helper to get all crew tickers a character belongs to (for weekly too)
+  const getCharacterCrewsForWeekly = (ticker) => {
+    const crews = [];
+    Object.values(CREWS).forEach(crew => {
+      if (crew.members.includes(ticker)) {
+        crews.push(crew.id);
+      }
+    });
+    return crews;
+  };
+
+  // Calculate weekly mission progress
+  const getWeeklyMissionProgress = (mission) => {
+    const holdings = userData?.holdings || {};
+    const wp = weeklyProgress; // shorthand
+
+    switch (mission.checkType) {
+      // ============================================
+      // TRADING VOLUME
+      // ============================================
+      case 'WEEKLY_TRADE_VALUE': {
+        const value = wp.tradeValue || 0;
+        return {
+          complete: value >= mission.requirement,
+          progress: Math.floor(value),
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_TRADE_VOLUME': {
+        const volume = wp.tradeVolume || 0;
+        return {
+          complete: volume >= mission.requirement,
+          progress: volume,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_TRADE_COUNT': {
+        const count = wp.tradeCount || 0;
+        return {
+          complete: count >= mission.requirement,
+          progress: count,
+          target: mission.requirement
+        };
+      }
+
+      // ============================================
+      // CONSISTENCY
+      // ============================================
+      case 'WEEKLY_TRADING_DAYS': {
+        const days = Object.keys(wp.tradingDays || {}).length;
+        return {
+          complete: days >= mission.requirement,
+          progress: days,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_CHECKIN_STREAK': {
+        const days = Object.keys(wp.checkinDays || {}).length;
+        return {
+          complete: days >= mission.requirement,
+          progress: days,
+          target: mission.requirement
+        };
+      }
+
+      // ============================================
+      // CREW LOYALTY
+      // ============================================
+      case 'WEEKLY_CREW_PERCENT': {
+        // Calculate % of portfolio in crew members by value
+        let totalValue = 0;
+        let crewValue = 0;
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0) {
+            const price = prices[ticker] || 0;
+            const value = shares * price;
+            totalValue += value;
+            if (crewMembers.includes(ticker)) {
+              crewValue += value;
+            }
+          }
+        });
+        const percent = totalValue > 0 ? (crewValue / totalValue) * 100 : 0;
+        return {
+          complete: percent >= mission.requirement,
+          progress: Math.floor(percent),
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_CREW_SHARES': {
+        const totalCrewShares = crewMembers.reduce((sum, ticker) => sum + (holdings[ticker] || 0), 0);
+        return {
+          complete: totalCrewShares >= mission.requirement,
+          progress: totalCrewShares,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_FULL_CREW': {
+        // Own 5+ shares of EVERY crew member
+        const qualifyingMembers = crewMembers.filter(ticker => (holdings[ticker] || 0) >= mission.requirement).length;
+        const totalMembers = crewMembers.length;
+        return {
+          complete: qualifyingMembers >= totalMembers && totalMembers > 0,
+          progress: qualifyingMembers,
+          target: totalMembers
+        };
+      }
+
+      // ============================================
+      // PORTFOLIO
+      // ============================================
+      case 'WEEKLY_CREW_DIVERSITY': {
+        // Own shares in 5+ different crews
+        const crewsOwned = new Set();
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0) {
+            getCharacterCrewsForWeekly(ticker).forEach(crewId => crewsOwned.add(crewId));
+          }
+        });
+        return {
+          complete: crewsOwned.size >= mission.requirement,
+          progress: crewsOwned.size,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_PORTFOLIO_GROWTH': {
+        const startValue = wp.startPortfolioValue || portfolioValue;
+        const growth = portfolioValue - startValue;
+        return {
+          complete: growth >= mission.requirement,
+          progress: Math.max(0, Math.floor(growth)),
+          target: mission.requirement
+        };
+      }
+
+      default:
+        return { complete: false, progress: 0, target: 1 };
+    }
+  };
+
+  const weeklyMissions = thisWeeksMissions.map(mission => ({
+    ...mission,
+    ...getWeeklyMissionProgress(mission),
+    claimed: weeklyProgress.claimed?.[mission.id] || false
+  }));
+
+  const weeklyTotalRewards = weeklyMissions.reduce((sum, m) => sum + m.reward, 0);
+  const weeklyEarnedRewards = weeklyMissions.filter(m => m.complete && m.claimed).reduce((sum, m) => sum + m.reward, 0);
+  const weeklyClaimableRewards = weeklyMissions.filter(m => m.complete && !m.claimed).reduce((sum, m) => sum + m.reward, 0);
+
+  // Days until week resets (next Monday)
+  const getDaysUntilReset = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const daysUntilMonday = day === 0 ? 1 : (8 - day);
+    return daysUntilMonday;
+  };
+
   // Check if user has no crew
   const noCrew = !userCrew;
-  
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
         onClick={e => e.stopPropagation()}>
-        
+
+        {/* Header */}
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>📋 Daily Missions</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>📋 Missions</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
-          {!isGuest && (
-            <p className={`text-sm ${mutedClass}`}>
-              Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
-            </p>
-          )}
         </div>
-        
-        <div className="p-4 space-y-3">
+
+        {/* Tabs */}
+        <div className={`grid grid-cols-2 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+          <button
+            onClick={() => setActiveTab('daily')}
+            className={`py-2.5 text-sm font-semibold transition-colors ${
+              activeTab === 'daily'
+                ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10'
+                : `${mutedClass} hover:bg-slate-500/10`
+            }`}
+          >
+            Daily {claimableRewards > 0 && <span className="text-green-500 ml-1">●</span>}
+          </button>
+          <button
+            onClick={() => setActiveTab('weekly')}
+            className={`py-2.5 text-sm font-semibold transition-colors ${
+              activeTab === 'weekly'
+                ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10'
+                : `${mutedClass} hover:bg-slate-500/10`
+            }`}
+          >
+            Weekly {weeklyClaimableRewards > 0 && <span className="text-green-500 ml-1">●</span>}
+          </button>
+        </div>
+
+        {/* Subheader */}
+        {!isGuest && !noCrew && (
+          <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+            {activeTab === 'daily' ? (
+              <p className={`text-xs ${mutedClass}`}>
+                Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
+              </p>
+            ) : (
+              <p className={`text-xs ${mutedClass}`}>
+                Resets Monday • {getDaysUntilReset()} days left • Earned: <span className="text-purple-500">{formatCurrency(weeklyEarnedRewards)}</span> / {formatCurrency(weeklyTotalRewards)}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
           {isGuest ? (
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
-              <p className={`text-amber-500 mb-2`}>Sign in to access daily missions!</p>
-              <p className={`text-xs ${mutedClass}`}>Complete missions every day to earn bonus cash rewards.</p>
+              <p className={`text-amber-500 mb-2`}>Sign in to access missions!</p>
+              <p className={`text-xs ${mutedClass}`}>Complete missions to earn bonus cash rewards.</p>
             </div>
           ) : noCrew ? (
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
-              <p className={`${mutedClass} mb-2`}>Join a crew to unlock daily missions!</p>
-              <p className={`text-xs ${mutedClass}`}>Crew missions give you bonus cash rewards every day.</p>
+              <p className={`${mutedClass} mb-2`}>Join a crew to unlock missions!</p>
+              <p className={`text-xs ${mutedClass}`}>Crew missions give you bonus cash rewards.</p>
             </div>
-          ) : (
+          ) : activeTab === 'daily' ? (
             <>
               {missions.map(mission => (
                 <div 
@@ -2875,6 +3079,76 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                     <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
                   )}
                   <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                </p>
+              </div>
+            </>
+          ) : (
+            /* WEEKLY MISSIONS TAB */
+            <>
+              {weeklyMissions.length === 0 ? (
+                <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-purple-50'} text-center`}>
+                  <p className={`${mutedClass}`}>No weekly missions available</p>
+                </div>
+              ) : (
+                weeklyMissions.map(mission => (
+                  <div
+                    key={mission.id}
+                    className={`p-3 rounded-sm border ${
+                      mission.claimed
+                        ? 'border-purple-500/30 bg-purple-500/5'
+                        : mission.complete
+                          ? 'border-purple-500 bg-purple-500/10'
+                          : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className={`font-semibold ${textClass}`}>{mission.name}</h3>
+                        <p className={`text-xs ${mutedClass}`}>{mission.description}</p>
+                      </div>
+                      <span className={`text-sm font-bold ${mission.complete ? 'text-purple-500' : mutedClass}`}>
+                        +{formatCurrency(mission.reward)}
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2">
+                      <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                        <div
+                          className={`h-full rounded-full transition-all ${mission.complete ? 'bg-purple-500' : 'bg-purple-400'}`}
+                          style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs ${mutedClass} w-16 text-right`}>
+                        {mission.progress >= 1000 ? `${(mission.progress/1000).toFixed(1)}k` : mission.progress}/{mission.target >= 1000 ? `${(mission.target/1000).toFixed(0)}k` : mission.target}
+                      </span>
+                    </div>
+
+                    {/* Claim button */}
+                    {mission.complete && !mission.claimed && (
+                      <button
+                        onClick={() => onClaimWeeklyReward(mission.id, mission.reward)}
+                        className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        Claim Reward
+                      </button>
+                    )}
+                    {mission.claimed && (
+                      <p className="text-xs text-purple-500 mt-2 text-center">✓ Claimed</p>
+                    )}
+                  </div>
+                ))
+              )}
+
+              {/* Crew member hint */}
+              <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-purple-50'}`}>
+                <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
+                  {CREW_MAP[userCrew]?.icon ? (
+                    <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
+                  ) : (
+                    <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
+                  )}
+                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> • 2 weekly missions assigned per crew
                 </p>
               </div>
             </>
@@ -4522,6 +4796,31 @@ export default function App() {
     updateLowestPrices();
   }, [user, userData?.holdings, prices]);
 
+  // Initialize weekly mission data if new week
+  useEffect(() => {
+    const initializeWeeklyMissions = async () => {
+      if (!user || !userData || !prices || Object.keys(prices).length === 0) return;
+
+      const weekId = getWeekId();
+      const weeklyData = userData.weeklyMissions?.[weekId];
+
+      // If no data for this week yet, or no startPortfolioValue set, initialize it
+      if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
+        // Calculate current portfolio value
+        const holdingsValue = Object.entries(userData.holdings || {})
+          .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+        const currentPortfolioValue = Math.round(((userData.cash || 0) + holdingsValue) * 100) / 100;
+
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          [`weeklyMissions.${weekId}.startPortfolioValue`]: currentPortfolioValue
+        });
+      }
+    };
+
+    initializeWeeklyMissions();
+  }, [user, userData?.weeklyMissions, prices]);
+
   // Listen to predictions
   useEffect(() => {
     const predictionsRef = doc(db, 'predictions', 'current');
@@ -4978,6 +5277,52 @@ export default function App() {
     }
   }, [user, userData, addActivity]);
 
+  // Handle claiming weekly mission rewards
+  const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
+    if (!user || !userData) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const weekId = getWeekId();
+      const currentTotalMissions = userData.totalMissionsCompleted || 0;
+      const newTotalMissions = currentTotalMissions + 1;
+
+      await updateDoc(userRef, {
+        [`weeklyMissions.${weekId}.claimed.${missionId}`]: true,
+        cash: userData.cash + reward,
+        totalMissionsCompleted: newTotalMissions
+      });
+
+      // Add to activity feed
+      addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
+
+      // Check for mission achievements (same as daily)
+      const achievements = userData.achievements || [];
+      let earnedAchievement = null;
+
+      if (newTotalMissions >= 10 && !achievements.includes('MISSION_10')) {
+        await updateDoc(userRef, { achievements: arrayUnion('MISSION_10') });
+        earnedAchievement = ACHIEVEMENTS.MISSION_10;
+      } else if (newTotalMissions >= 50 && !achievements.includes('MISSION_50')) {
+        await updateDoc(userRef, { achievements: arrayUnion('MISSION_50') });
+        earnedAchievement = ACHIEVEMENTS.MISSION_50;
+      } else if (newTotalMissions >= 100 && !achievements.includes('MISSION_100')) {
+        await updateDoc(userRef, { achievements: arrayUnion('MISSION_100') });
+        earnedAchievement = ACHIEVEMENTS.MISSION_100;
+      }
+
+      if (earnedAchievement) {
+        addActivity('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+        showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+      } else {
+        showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
+      }
+    } catch (err) {
+      console.error('Failed to claim weekly reward:', err);
+      showNotification('error', 'Failed to claim reward');
+    }
+  }, [user, userData, addActivity]);
+
   // Request trade confirmation
   const requestTrade = useCallback((ticker, action, amount) => {
     if (!user || !userData) {
@@ -5120,20 +5465,30 @@ export default function App() {
 
       // Check if this is a crew member purchase for daily missions
       const today = getTodayDateString();
+      const weekId = getWeekId();
       const userCrew = userData.crew;
       const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
       const isBuyingCrewMember = crewMembers.includes(ticker);
       const currentTradesCount = userData.dailyMissions?.[today]?.tradesCount || 0;
       const currentTradeVolume = userData.dailyMissions?.[today]?.tradeVolume || 0;
       const currentCrewSharesBought = userData.dailyMissions?.[today]?.crewSharesBought || 0;
-      
+
+      // Weekly mission progress
+      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
+      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
+      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
+
       // Check if buying a rival (any crew member that's not user's crew)
       const isRival = !isBuyingCrewMember && Object.values(CREWS).some(crew => crew.members.includes(ticker));
-      
+
       // Check if underdog (price under $20)
       const isUnderdog = price < 20;
 
-      // Update user with trade count, cost basis, last buy time, and daily mission progress
+      // Calculate trade value for weekly missions
+      const tradeValue = amount * buyPrice;
+
+      // Update user with trade count, cost basis, last buy time, and daily/weekly mission progress
       const updateData = {
         cash: cashAvailable - cashToUse,
         marginUsed: marginUsed + marginToUse,
@@ -5144,9 +5499,15 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: now,
         lastTradeTime: now,
         totalTrades: increment(1),
+        // Daily missions
         [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
         [`dailyMissions.${today}.tradeVolume`]: currentTradeVolume + amount,
-        [`dailyMissions.${today}.boughtAny`]: true
+        [`dailyMissions.${today}.boughtAny`]: true,
+        // Weekly missions
+        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + tradeValue,
+        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
+        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
       
       // Mark crew member purchase if applicable
@@ -5268,8 +5629,15 @@ export default function App() {
 
       // Track daily mission progress
       const today = getTodayDateString();
+      const weekId = getWeekId();
       const currentTradesCount = userData.dailyMissions?.[today]?.tradesCount || 0;
       const currentTradeVolume = userData.dailyMissions?.[today]?.tradeVolume || 0;
+
+      // Weekly mission progress
+      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
+      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
+      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
       // Build update data
       const sellUpdateData = {
@@ -5279,9 +5647,15 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: now,
         lastTradeTime: now,
         totalTrades: increment(1),
+        // Daily missions
         [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
         [`dailyMissions.${today}.tradeVolume`]: currentTradeVolume + amount,
-        [`dailyMissions.${today}.soldAny`]: true
+        [`dailyMissions.${today}.soldAny`]: true,
+        // Weekly missions
+        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + totalRevenue,
+        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
+        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
       
       // Clear lowestWhileHolding if selling all shares
@@ -5370,6 +5744,14 @@ export default function App() {
       
       const settledPrice = Math.round(newMidPrice * 100) / 100;
       
+      // Weekly mission tracking for shorts
+      const today = getTodayDateString();
+      const weekId = getWeekId();
+      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
+      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
+      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
+
       await updateDoc(userRef, {
         cash: newCash,
         [`shorts.${ticker}`]: {
@@ -5380,7 +5762,12 @@ export default function App() {
         },
         [`lastTickerTradeTime.${ticker}`]: now,
         lastTradeTime: now,
-        totalTrades: increment(1)
+        totalTrades: increment(1),
+        // Weekly missions
+        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * shortPrice),
+        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
+        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       });
 
       // Atomic price + history update
@@ -5481,11 +5868,24 @@ export default function App() {
       const remainingMargin = existingShort.margin - marginReturned;
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
+      // Weekly mission tracking for covers
+      const today = getTodayDateString();
+      const weekId = getWeekId();
+      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
+      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
+      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
+
       // Update user: simply add cashBack (margin + profit or margin - loss)
       const updateData = {
         cash: userData.cash + cashBack,
         [`lastTickerTradeTime.${ticker}`]: now,
-        lastTradeTime: now
+        lastTradeTime: now,
+        // Weekly missions
+        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * coverPrice),
+        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
+        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
 
       if (remainingShares <= 0) {
@@ -5498,7 +5898,7 @@ export default function App() {
           openedAt: existingShort.openedAt
         };
       }
-      
+
       // Add trade count
       updateData.totalTrades = increment(1);
 
@@ -5815,17 +6215,22 @@ export default function App() {
       newAchievements.push('DEDICATED_100');
     }
     
+    // Weekly check-in tracking
+    const weekId = getWeekId();
+
     const updateData = {
       cash: userData.cash + DAILY_BONUS,
       lastCheckin: today,
       totalCheckins: newTotalCheckins,
-      [`dailyMissions.${getTodayDateString()}.checkedIn`]: true
+      [`dailyMissions.${getTodayDateString()}.checkedIn`]: true,
+      // Weekly missions - track check-in days
+      [`weeklyMissions.${weekId}.checkinDays.${today}`]: true
     };
-    
+
     if (newAchievements.length > 0) {
       updateData.achievements = arrayUnion(...newAchievements);
     }
-    
+
     await updateDoc(userRef, updateData);
     
     // Log transaction for auditing
@@ -6641,6 +7046,7 @@ export default function App() {
           userData={userData}
           prices={prices}
           onClaimReward={handleClaimMissionReward}
+          onClaimWeeklyReward={handleClaimWeeklyMissionReward}
           portfolioValue={portfolioValue}
           isGuest={isGuest}
         />
