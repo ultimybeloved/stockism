@@ -22,7 +22,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -4053,34 +4053,19 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 
     setLoading(true);
     try {
-      // Create user document with chosen username (no real name stored!)
-      const userDocRef = doc(db, 'users', user.uid);
-      const now = Date.now();
-      await setDoc(userDocRef, {
-        displayName: trimmed,
-        // We intentionally do NOT store firebaseUser.displayName or email
-        cash: STARTING_CASH,
-        holdings: {},
-        portfolioValue: STARTING_CASH,
-        portfolioHistory: [{ timestamp: now, value: STARTING_CASH }], // Initial data point
-        lastCheckin: null,
-        createdAt: serverTimestamp(),
-        // Achievement tracking
-        achievements: [],
-        totalCheckins: 0,
-        totalTrades: 0,
-        peakPortfolioValue: STARTING_CASH,
-        predictionWins: 0,
-        // Track cost basis for profit calculations
-        costBasis: {}, // { ticker: averageCostPerShare }
-        // Lending system (unlocked later)
-        lendingUnlocked: false,
-        isBankrupt: false
-      });
+      // Create user via Cloud Function (ensures case-insensitive username uniqueness)
+      await createUserFunction({ displayName: trimmed });
       onComplete();
     } catch (err) {
-      setError('Failed to create account. Please try again.');
-      console.error(err);
+      // Handle specific error codes from Cloud Function
+      if (err.code === 'functions/already-exists') {
+        setError('This username is already taken. Please choose another.');
+      } else if (err.code === 'functions/invalid-argument') {
+        setError(err.message || 'Invalid username.');
+      } else {
+        setError('Failed to create account. Please try again.');
+        console.error(err);
+      }
     }
     setLoading(false);
   };

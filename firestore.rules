@@ -32,26 +32,30 @@ service cloud.firestore {
     }
     
     // ============================================
+    // USERNAMES COLLECTION (case-insensitive uniqueness)
+    // ============================================
+
+    match /usernames/{username} {
+      // Anyone can read (for availability checking)
+      allow read: if true;
+
+      // Only Cloud Functions can write (via admin SDK)
+      // This ensures atomic username reservation
+      allow write: if false;
+    }
+
+    // ============================================
     // USER DOCUMENTS
     // ============================================
-    
+
     match /users/{userId} {
       // Anyone authenticated can read any user (for leaderboard)
       allow read: if isAuthenticated();
 
-      // New user creation - only for yourself
-      allow create: if isOwner(userId) &&
-        // Must have required fields
-        request.resource.data.keys().hasAll(['displayName', 'cash', 'holdings', 'portfolioValue']) &&
-        // Starting cash must be exactly 1000
-        request.resource.data.cash == 1000 &&
-        // Portfolio value must match starting cash
-        request.resource.data.portfolioValue == 1000 &&
-        // Holdings must be empty
-        request.resource.data.holdings == {} &&
-        // Display name must be reasonable length
-        request.resource.data.displayName.size() >= 1 &&
-        request.resource.data.displayName.size() <= 20;
+      // User creation is now handled by Cloud Functions
+      // This ensures atomic username uniqueness checking
+      // Direct creation is disabled - use createUser Cloud Function
+      allow create: if false;
 
       // Updates - owner can update their own document, admin can update any
       allow update: if isAdmin() || (isOwner(userId) && validateUserUpdate());

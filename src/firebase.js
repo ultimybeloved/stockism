@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, TwitterAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
@@ -26,4 +27,11 @@ googleProvider.addScope('email');
 googleProvider.addScope('profile');
 export const twitterProvider = new TwitterAuthProvider();
 export const db = getFirestore(app);
+export const functions = getFunctions(app);
+
+// Cloud Functions
+export const createUserFunction = httpsCallable(functions, 'createUser');
+export const checkUsernameFunction = httpsCallable(functions, 'checkUsername');
+export const migrateUsernamesFunction = httpsCallable(functions, 'migrateUsernames');
+
 export default app;

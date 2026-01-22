@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, migrateUsernamesFunction } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -91,6 +91,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   // Orphan cleanup state
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
+
+  // Migration state
+  const [migrationResult, setMigrationResult] = useState(null);
+  const [migrationLoading, setMigrationLoading] = useState(false);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
@@ -1990,6 +1994,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           >
             🔧 Recovery
           </button>
+          <button
+            onClick={() => setActiveTab('migration')}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'migration' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🔄 Migration
+          </button>
         </div>
 
         {/* Message */}
@@ -3765,6 +3775,80 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* MIGRATION TAB */}
+          {activeTab === 'migration' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                <p className={`text-sm ${mutedClass} mb-2`}>
+                  🔄 Migrate existing usernames to the new case-insensitive uniqueness system. This creates entries in the <code className="bg-black/20 px-1 rounded">usernames</code> collection for all existing users.
+                </p>
+                <p className={`text-xs ${mutedClass}`}>
+                  <strong>Warning:</strong> Run this only once after deploying Cloud Functions. It will detect conflicts (users with same name, different case).
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-3 ${textClass}`}>Username Migration</h3>
+
+                <button
+                  onClick={async () => {
+                    setMigrationLoading(true);
+                    setMigrationResult(null);
+                    try {
+                      const result = await migrateUsernamesFunction();
+                      setMigrationResult(result.data);
+                    } catch (err) {
+                      setMigrationResult({ error: err.message });
+                    }
+                    setMigrationLoading(false);
+                  }}
+                  disabled={migrationLoading}
+                  className="px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {migrationLoading ? 'Migrating...' : '🔄 Run Username Migration'}
+                </button>
+
+                {migrationResult && (
+                  <div className={`mt-4 p-3 rounded-sm ${migrationResult.error ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {migrationResult.error ? (
+                      <p><strong>Error:</strong> {migrationResult.error}</p>
+                    ) : (
+                      <div>
+                        <p className="font-semibold">{migrationResult.message}</p>
+                        {migrationResult.migrated > 0 && (
+                          <p>Migrated: {migrationResult.migrated} usernames</p>
+                        )}
+                        {migrationResult.conflicts && migrationResult.conflicts.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-semibold text-orange-700">Conflicts detected ({migrationResult.conflicts.length}):</p>
+                            <ul className="mt-1 text-sm list-disc list-inside">
+                              {migrationResult.conflicts.map((conflict, i) => (
+                                <li key={i}>
+                                  <strong>{conflict.username}</strong>: {conflict.users.map(u => `${u.displayName} (${u.uid.slice(0,8)}...)`).join(' vs ')}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="mt-2 text-xs">Resolve conflicts manually by renaming one user, then run migration again.</p>
+                          </div>
+                        )}
+                        {migrationResult.errors && migrationResult.errors.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-semibold text-red-700">Errors ({migrationResult.errors.length}):</p>
+                            <ul className="mt-1 text-sm list-disc list-inside">
+                              {migrationResult.errors.map((err, i) => (
+                                <li key={i}>{err.uid}: {err.error}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
