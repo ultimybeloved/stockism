@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Stockism</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #18181b;
+      color: #e4e4e7;
+      line-height: 1.6;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #f97316; margin-bottom: 0.5rem; }
+    h2 { color: #f97316; margin: 2rem 0 1rem; font-size: 1.25rem; }
+    .subtitle { color: #71717a; margin-bottom: 2rem; }
+    .highlight {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid #166534;
+      border-radius: 4px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      color: #22c55e;
+      font-weight: 600;
+    }
+    ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.5rem; color: #a1a1aa; }
+    li strong { color: #e4e4e7; }
+    p { color: #a1a1aa; margin-bottom: 1rem; }
+    .no { color: #f87171; }
+    .yes { color: #fbbf24; }
+    a { color: #f97316; }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #3f3f46;
+      color: #71717a;
+      font-size: 0.875rem;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 2rem;
+      color: #f97316;
+      text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">&larr; Back to Stockism</a>
+
+  <h1>Privacy Policy</h1>
+  <p class="subtitle">Stockism - A Lookism Stock Market Simulation Game</p>
+
+  <div class="highlight">
+    TL;DR: We store almost nothing about you. No real names, no profile pictures, no tracking.
+  </div>
+
+  <h2>What We Store in Our Game Database</h2>
+  <ul>
+    <li><strong>Username</strong> - The name YOU choose (not your Google name)</li>
+    <li><strong>Game data</strong> - Your cash balance, stock holdings, and trade history</li>
+    <li><strong>Account ID</strong> - A random ID to identify your account</li>
+  </ul>
+
+  <h2>What Firebase Authentication Stores</h2>
+  <p>
+    Firebase (Google's service) handles login and stores your email to manage your account.
+    This is standard for any website with login - it's how you can sign back in later.
+  </p>
+  <ul>
+    <li><span class="yes">Email</span> - Stored by Firebase Auth (not our game database). Never visible to other players or used for marketing.</li>
+  </ul>
+
+  <h2>What We DON'T Store Anywhere</h2>
+  <ul>
+    <li><span class="no">Your real name</span> - We never save your Google display name</li>
+    <li><span class="no">Your profile picture</span> - We never save your Google photo</li>
+    <li><span class="no">Your password</span> - Google handles authentication securely</li>
+    <li><span class="no">Your contacts or Google data</span> - We have no access</li>
+    <li><span class="no">Tracking cookies or analytics</span> - We don't use any</li>
+  </ul>
+
+  <h2>About the Google Sign-In Popup</h2>
+  <p>
+    When you sign in, Google shows a standard message saying we "could" access your name and
+    profile picture. This is Google's default OAuth screen - it shows the <em>maximum possible</em>
+    permissions, not what we actually use.
+  </p>
+  <p>
+    In reality, our code immediately discards this information. We only use Google to verify
+    you're a real person, then we ask you to create a username. That username is the only
+    identifier visible to other players.
+  </p>
+
+  <h2>Data Deletion</h2>
+  <p>
+    Want your data deleted? Contact us at <a href="https://reddit.com/u/SupremeExalted">u/SupremeExalted on Reddit</a>
+    and we'll remove your account and data entirely.
+  </p>
+
+  <h2>Third-Party Services</h2>
+  <p>Stockism uses the following third-party services:</p>
+  <ul>
+    <li><strong>Firebase Authentication</strong> - For secure login (Google, Twitter, Email)</li>
+    <li><strong>Firebase Firestore</strong> - For storing game data</li>
+    <li><strong>Firebase Hosting</strong> - For serving the website</li>
+    <li><strong>reCAPTCHA</strong> - For bot protection</li>
+  </ul>
+  <p>
+    These services are provided by Google and are subject to
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.
+  </p>
+
+  <h2>Children's Privacy</h2>
+  <p>
+    Stockism is not directed at children under 13. We do not knowingly collect personal
+    information from children under 13. If you believe a child has provided us with personal
+    information, please contact us.
+  </p>
+
+  <h2>Changes to This Policy</h2>
+  <p>
+    We may update this privacy policy from time to time. Any changes will be reflected on this page
+    with an updated revision date.
+  </p>
+
+  <div class="footer">
+    <p>Last updated: January 2025</p>
+    <p>
+      Stockism is a free, open-source fan project with no legal entity behind it.
+      Not affiliated with Lookism or WEBTOON.
+    </p>
+    <p>Contact: <a href="https://reddit.com/u/SupremeExalted">u/SupremeExalted on Reddit</a></p>
+  </div>
+</body>
+</html>
