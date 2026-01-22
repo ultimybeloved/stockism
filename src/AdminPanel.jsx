@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
-import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from './firebase';
 import { CHARACTERS } from './characters';
-
-// Put your admin user IDs here (your Firebase Auth UID)
-// Find your UID in Firebase Console → Authentication → Users
-const ADMIN_UIDS = [
-  '4usiVxPmHLhmitEKH2HfCpbx4Yi1'
-];
+import { ADMIN_UIDS } from './constants';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [activeTab, setActiveTab] = useState('users');
@@ -970,19 +965,20 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   };
 
   // RESTORE PRICES FROM USER COSTBASIS DATA
+  // Uses transaction to prevent concurrent updates from being lost
   const restorePricesFromCostBasis = async () => {
     setLoading(true);
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       // Collect all costBasis values per ticker
       const priceData = {};
-      
+
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const costBasis = data.costBasis || {};
-        
+
         Object.entries(costBasis).forEach(([ticker, price]) => {
           if (price && price > 0 && price < 10000) { // Filter out crazy values
             if (!priceData[ticker]) {
@@ -992,34 +988,47 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           }
         });
       });
-      
+
       // Calculate best price estimate using median (avoids manipulation outliers)
       const restoredPrices = {};
-      
+
       Object.entries(priceData).forEach(([ticker, prices]) => {
         if (prices.length > 0) {
           prices.sort((a, b) => a - b);
           const mid = Math.floor(prices.length / 2);
-          const median = prices.length % 2 === 0 
-            ? (prices[mid - 1] + prices[mid]) / 2 
+          const median = prices.length % 2 === 0
+            ? (prices[mid - 1] + prices[mid]) / 2
             : prices[mid];
           restoredPrices[ticker] = Math.round(median * 100) / 100;
         }
       });
-      
-      // Get current market to preserve tickers with no costBasis data
+
+      // Use transaction to safely merge with current data (prevents race conditions)
       const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
-      const currentPrices = marketSnap.data()?.prices || {};
-      
-      // Merge: use restored prices where available, keep current otherwise
-      const finalPrices = { ...currentPrices, ...restoredPrices };
-      
-      // Update market
-      await updateDoc(marketRef, {
-        prices: finalPrices
+      await runTransaction(db, async (transaction) => {
+        const marketSnap = await transaction.get(marketRef);
+        const currentData = marketSnap.data() || {};
+        const currentPrices = currentData.prices || {};
+        const currentHistory = currentData.priceHistory || {};
+
+        // Merge: use restored prices where available, keep current otherwise
+        const finalPrices = { ...currentPrices, ...restoredPrices };
+
+        // Record the restoration in price history
+        const now = Date.now();
+        const historyUpdates = {};
+        Object.entries(restoredPrices).forEach(([ticker, price]) => {
+          const tickerHistory = currentHistory[ticker] || [];
+          historyUpdates[ticker] = [...tickerHistory, { timestamp: now, price, source: 'admin_restore' }].slice(-1000);
+        });
+
+        transaction.update(marketRef, {
+          prices: finalPrices,
+          priceHistory: { ...currentHistory, ...historyUpdates },
+          lastAdminRestore: now
+        });
       });
-      
+
       showMessage('success', `Restored prices for ${Object.keys(restoredPrices).length} tickers from user costBasis data`);
       console.log('Restored prices:', restoredPrices);
     } catch (err) {

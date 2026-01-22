@@ -1,0 +1,46 @@
+// ============================================
+// ECONOMY CONSTANTS
+// ============================================
+
+// General
+export const ITEMS_PER_PAGE = 15;
+export const STARTING_CASH = 1000;
+export const DAILY_BONUS = 300;
+export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
+export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
+
+// IPO System Constants
+export const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
+export const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
+export const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
+export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
+export const IPO_PRICE_JUMP = 0.30; // 30% price jump after IPO ends
+
+// Economy balancing constants - Realistic Market Model
+export const BASE_IMPACT = 0.003; // 0.3% base impact per sqrt(share) - very gradual
+export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
+export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
+export const MIN_PRICE = 0.01; // Minimum price floor
+export const MAX_PRICE_CHANGE_PERCENT = 0.02; // Max 2% price change per single trade
+
+// Shorting constants (realistic NYSE-style)
+export const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
+export const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
+export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
+
+// ============================================
+// MARGIN TRADING SYSTEM
+// ============================================
+
+export const MARGIN_BORROWING_POWER_RATIO = 0.5; // Can borrow up to 50% of portfolio value
+export const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
+export const MARGIN_WARNING_THRESHOLD = 0.35; // Warning at 35% equity ratio
+export const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio
+export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Auto-liquidate at 25% equity ratio
+export const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
+export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
+
+// Admin user IDs - only these users can see the Admin button
+export const ADMIN_UIDS = [
+  '4usiVxPmHLhmitEKH2HfCpbx4Yi1'
+];

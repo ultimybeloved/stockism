@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  signInWithPopup, 
+import {
+  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -27,247 +27,44 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE } from './crews';
 import AdminPanel from './AdminPanel';
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-// Admin user IDs - only these users can see the Admin button
-const ADMIN_UIDS = [
-  '4usiVxPmHLhmitEKH2HfCpbx4Yi1'
-];
-
-const ITEMS_PER_PAGE = 15;
-const STARTING_CASH = 1000;
-const DAILY_BONUS = 300;
-const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
-const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
-
-// IPO System Constants
-const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
-const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
-const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
-const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
-const IPO_PRICE_JUMP = 0.30; // 30% price jump after IPO ends
-
-// Economy balancing constants - Realistic Market Model
-const BASE_IMPACT = 0.003; // 0.3% base impact per sqrt(share) - very gradual
-const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
-const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
-const MIN_PRICE = 0.01; // Minimum price floor
-const MAX_PRICE_CHANGE_PERCENT = 0.02; // Max 2% price change per single trade
-
-// Shorting constants (realistic NYSE-style)
-const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
-const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
-const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
-
-// ============================================
-// MARGIN TRADING SYSTEM
-// ============================================
-
-const MARGIN_BORROWING_POWER_RATIO = 0.5; // Can borrow up to 50% of portfolio value
-const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
-const MARGIN_WARNING_THRESHOLD = 0.35; // Warning at 35% equity ratio
-const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio
-const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Auto-liquidate at 25% equity ratio
-const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
-const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
-
-// ============================================
-// ACHIEVEMENTS SYSTEM
-// ============================================
-
-const ACHIEVEMENTS = {
-  // Trading milestones
-  FIRST_BLOOD: {
-    id: 'FIRST_BLOOD',
-    name: 'First Blood',
-    emoji: '🎯',
-    description: 'Make your first trade',
-    hint: 'Buy or sell any stock'
-  },
-  SHARK: {
-    id: 'SHARK',
-    name: 'Shark',
-    emoji: '🦈',
-    description: 'Execute a single trade worth $1,000+',
-    hint: 'Go big or go home'
-  },
-  DIVERSIFIED: {
-    id: 'DIVERSIFIED',
-    name: 'Diversified',
-    emoji: '🎨',
-    description: 'Hold 5+ different characters at once',
-    hint: 'Don\'t put all your eggs in one basket'
-  },
-  
-  // Profit milestones
-  BULL_RUN: {
-    id: 'BULL_RUN',
-    name: 'Bull Run',
-    emoji: '📈',
-    description: 'Sell a stock for 25%+ profit',
-    hint: 'Buy low, sell high'
-  },
-  DIAMOND_HANDS: {
-    id: 'DIAMOND_HANDS',
-    name: 'Diamond Hands',
-    emoji: '🙌',
-    description: 'Hold through a 30% dip and recover to profit',
-    hint: 'Hold strong through the storm'
-  },
-  COLD_BLOODED: {
-    id: 'COLD_BLOODED',
-    name: 'Cold Blooded',
-    emoji: '❄️',
-    description: 'Profit from closing a short position',
-    hint: 'Bet against the market and win'
-  },
-  
-  // Portfolio milestones
-  BROKE_2K: {
-    id: 'BROKE_2K',
-    name: 'Breaking Even... Kinda',
-    emoji: '💵',
-    description: 'Reach $2,500 portfolio value',
-    hint: 'Build your wealth'
-  },
-  BROKE_5K: {
-    id: 'BROKE_5K',
-    name: 'High Roller',
-    emoji: '🎰',
-    description: 'Reach $5,000 portfolio value',
-    hint: 'Keep growing'
-  },
-  BROKE_10K: {
-    id: 'BROKE_10K',
-    name: 'Big Shot',
-    emoji: '🌟',
-    description: 'Reach $10,000 portfolio value',
-    hint: 'You\'re getting serious'
-  },
-  BROKE_25K: {
-    id: 'BROKE_25K',
-    name: 'Tycoon',
-    emoji: '🏛️',
-    description: 'Reach $25,000 portfolio value',
-    hint: 'Market domination'
-  },
-  
-  // Prediction milestones
-  ORACLE: {
-    id: 'ORACLE',
-    name: 'Oracle',
-    emoji: '🔮',
-    description: 'Win 3 prediction bets',
-    hint: 'See the future'
-  },
-  PROPHET: {
-    id: 'PROPHET',
-    name: 'Prophet',
-    emoji: '📿',
-    description: 'Win 10 prediction bets',
-    hint: 'Your foresight is legendary'
-  },
-  
-  // Dedication milestones
-  DEDICATED_7: {
-    id: 'DEDICATED_7',
-    name: 'Regular',
-    emoji: '📅',
-    description: 'Check in 7 days total',
-    hint: 'Keep coming back'
-  },
-  DEDICATED_14: {
-    id: 'DEDICATED_14',
-    name: 'Committed',
-    emoji: '🔄',
-    description: 'Check in 14 days total',
-    hint: 'Two weeks strong'
-  },
-  DEDICATED_30: {
-    id: 'DEDICATED_30',
-    name: 'Devoted',
-    emoji: '✨',
-    description: 'Check in 30 days total',
-    hint: 'A month of dedication'
-  },
-  DEDICATED_100: {
-    id: 'DEDICATED_100',
-    name: 'Legendary',
-    emoji: '🏆',
-    description: 'Check in 100 days total',
-    hint: 'True commitment'
-  },
-  
-  // Leaderboard
-  TOP_10: {
-    id: 'TOP_10',
-    name: 'Contender',
-    emoji: '🥉',
-    description: 'Reach the top 10 on the leaderboard',
-    hint: 'Climb the ranks'
-  },
-  TOP_3: {
-    id: 'TOP_3',
-    name: 'Elite',
-    emoji: '🥈',
-    description: 'Reach the top 3 on the leaderboard',
-    hint: 'Almost at the top'
-  },
-  TOP_1: {
-    id: 'TOP_1',
-    name: 'Champion',
-    emoji: '🥇',
-    description: 'Reach #1 on the leaderboard',
-    hint: 'The very best'
-  },
-  
-  // Special
-  TRADER_20: {
-    id: 'TRADER_20',
-    name: 'Active Trader',
-    emoji: '📊',
-    description: 'Complete 20 trades',
-    hint: 'Keep trading'
-  },
-  TRADER_100: {
-    id: 'TRADER_100',
-    name: 'Day Trader',
-    emoji: '💹',
-    description: 'Complete 100 trades',
-    hint: 'Trading is your life now'
-  },
-  
-  // Daily Mission milestones
-  MISSION_10: {
-    id: 'MISSION_10',
-    name: 'Task Runner',
-    emoji: '📋',
-    description: 'Complete 10 daily missions',
-    hint: 'Stay on task'
-  },
-  MISSION_50: {
-    id: 'MISSION_50',
-    name: 'Mission Master',
-    emoji: '🎖️',
-    description: 'Complete 50 daily missions',
-    hint: 'Dedicated to the grind'
-  },
-  MISSION_100: {
-    id: 'MISSION_100',
-    name: 'Mission Legend',
-    emoji: '🎗️',
-    description: 'Complete 100 daily missions',
-    hint: 'Never miss a mission'
-  }
-};
-
-// Helper to get today's date string for mission tracking
-const getTodayDateString = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
+// Import from new modular structure
+import {
+  ADMIN_UIDS,
+  ITEMS_PER_PAGE,
+  STARTING_CASH,
+  DAILY_BONUS,
+  PRICE_UPDATE_INTERVAL,
+  HISTORY_RECORD_INTERVAL,
+  IPO_HYPE_DURATION,
+  IPO_WINDOW_DURATION,
+  IPO_TOTAL_SHARES,
+  IPO_MAX_PER_USER,
+  IPO_PRICE_JUMP,
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  BID_ASK_SPREAD,
+  MIN_PRICE,
+  MAX_PRICE_CHANGE_PERCENT,
+  SHORT_MARGIN_REQUIREMENT,
+  SHORT_INTEREST_RATE,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  MARGIN_BORROWING_POWER_RATIO,
+  MARGIN_INTEREST_RATE,
+  MARGIN_WARNING_THRESHOLD,
+  MARGIN_CALL_THRESHOLD,
+  MARGIN_LIQUIDATION_THRESHOLD,
+  MARGIN_CALL_GRACE_PERIOD,
+  MARGIN_MAINTENANCE_RATIO
+} from './constants';
+import { ACHIEVEMENTS } from './constants/achievements';
+import {
+  formatCurrency,
+  formatChange,
+  formatNumber,
+  formatTimeRemaining,
+  round2
+} from './utils/formatters';
+import { getTodayDateString } from './utils/date';
 
 // Transaction logging - records all significant financial actions for auditing
 const logTransaction = async (db, userId, type, details) => {
@@ -536,41 +333,8 @@ const getBidAskPrices = (midPrice) => {
 };
 
 // ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
-};
-
-const formatChange = (change) => {
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(2)}%`;
-};
-
-const formatNumber = (num) => {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-  return num.toString();
-};
-
-const formatTimeRemaining = (ms) => {
-  if (ms <= 0) return 'Ended';
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-};
-
-// ============================================
 // SIMPLE LINE CHART COMPONENT
+// (utilities are imported from ./utils)
 // ============================================
 
 const SimpleLineChart = ({ data, darkMode }) => {
@@ -4587,7 +4351,7 @@ export default function App() {
           priceHistory: initialHistory,
           lastUpdate: serverTimestamp(),
           totalTrades: 0
-        });
+        }, { merge: true });
         
         setPrices(initialPrices);
         setPriceHistory(initialHistory);
@@ -5247,14 +5011,13 @@ export default function App() {
 
       // Market settles at new mid price (not ask)
       const settledPrice = Math.round(newMidPrice * 100) / 100;
-      
+
+      // Atomic price + history update (prevents data loss if one write fails)
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount) // Track trading volume
+        [`volume.${ticker}`]: increment(amount), // Track trading volume
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       });
-
-      // Record price history
-      await recordPriceHistory(ticker, settledPrice);
 
       // Calculate new cost basis (weighted average)
       const currentHoldings = userData.holdings[ticker] || 0;
@@ -5397,13 +5160,12 @@ export default function App() {
       // Market settles at new mid price
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
+      // Atomic price + history update
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount)
+        [`volume.${ticker}`]: increment(amount),
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       });
-
-      // Record price history
-      await recordPriceHistory(ticker, settledPrice);
 
       // Calculate profit percentage for Bull Run achievement
       const costBasis = userData.costBasis?.[ticker] || 0;
@@ -5536,15 +5298,14 @@ export default function App() {
         totalTrades: increment(1)
       });
 
+      // Atomic price + history update
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
-        totalTrades: increment(1)
+        totalTrades: increment(1),
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       });
 
-      // Record price history
-      await recordPriceHistory(ticker, settledPrice);
-      
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
@@ -5658,15 +5419,14 @@ export default function App() {
 
       await updateDoc(userRef, updateData);
 
+      // Atomic price + history update
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
-        totalTrades: increment(1)
+        totalTrades: increment(1),
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       });
 
-      // Record price history
-      await recordPriceHistory(ticker, settledPrice);
-      
       // Record portfolio history
       const newPortfolioValue = (userData.cash + cashBack) + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
