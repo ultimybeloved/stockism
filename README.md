@@ -52,7 +52,7 @@ Sort stocks by:
 - **Bid/Ask Spread**: 0.2%
 - **Short Margin**: 50% of position value
 - **Daily Interest**: 0.1% on short positions
-- **Daily Check-in Bonus**: $25
+- **Daily Check-in Bonus**: $300
 
 ## Tech Stack
 
