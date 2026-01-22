@@ -2,7 +2,7 @@
 
 A social stock market simulation game where you trade characters from Lookism. Real-time shared prices, crew competition, predictions, short selling, and more.
 
-**Live at:** https://stockism-abb28.web.app
+**Live at:** https://stockism.app
 
 ## Core Features
 
