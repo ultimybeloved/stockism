@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, migrateUsernamesFunction } from './firebase';
+import { db } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -91,13 +91,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   // Orphan cleanup state
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
-
-  // Migration state
-  const [migrationResult, setMigrationResult] = useState(null);
-  const [migrationLoading, setMigrationLoading] = useState(false);
-  const [renameUserId, setRenameUserId] = useState('');
-  const [renameNewName, setRenameNewName] = useState('');
-  const [renameLoading, setRenameLoading] = useState(false);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
@@ -1997,12 +1990,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           >
             🔧 Recovery
           </button>
-          <button
-            onClick={() => setActiveTab('migration')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'migration' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🔄 Migration
-          </button>
         </div>
 
         {/* Message */}
@@ -3781,137 +3768,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             </div>
           )}
 
-          {/* MIGRATION TAB */}
-          {activeTab === 'migration' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                <p className={`text-sm ${mutedClass} mb-2`}>
-                  🔄 Migrate existing usernames to the new case-insensitive uniqueness system. This creates entries in the <code className="bg-black/20 px-1 rounded">usernames</code> collection for all existing users.
-                </p>
-                <p className={`text-xs ${mutedClass}`}>
-                  <strong>Warning:</strong> Run this only once after deploying Cloud Functions. It will detect conflicts (users with same name, different case).
-                </p>
-              </div>
-
-              {/* Rename Tool for resolving conflicts */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-3 ${textClass}`}>Rename User (Resolve Conflicts)</h3>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Use the full User ID from the conflict list above (e.g., 9yUZvISX...)
-                </p>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={renameUserId}
-                    onChange={(e) => setRenameUserId(e.target.value)}
-                    placeholder="User ID (e.g., 9yUZvISXabc123)"
-                    className={`flex-1 px-3 py-2 rounded-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                  />
-                  <input
-                    type="text"
-                    value={renameNewName}
-                    onChange={(e) => setRenameNewName(e.target.value)}
-                    placeholder="New username"
-                    className={`flex-1 px-3 py-2 rounded-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                  />
-                </div>
-                <button
-                  onClick={async () => {
-                    if (!renameUserId.trim() || !renameNewName.trim()) {
-                      setMessage({ type: 'error', text: 'Please enter both User ID and new username' });
-                      return;
-                    }
-                    if (renameNewName.trim().length < 3 || renameNewName.trim().length > 20) {
-                      setMessage({ type: 'error', text: 'Username must be 3-20 characters' });
-                      return;
-                    }
-                    if (!/^[a-zA-Z0-9_]+$/.test(renameNewName.trim())) {
-                      setMessage({ type: 'error', text: 'Username can only contain letters, numbers, and underscores' });
-                      return;
-                    }
-                    setRenameLoading(true);
-                    try {
-                      const userRef = doc(db, 'users', renameUserId.trim());
-                      await updateDoc(userRef, {
-                        displayName: renameNewName.trim(),
-                        displayNameLower: renameNewName.trim().toLowerCase()
-                      });
-                      setMessage({ type: 'success', text: `Renamed user ${renameUserId.slice(0,8)}... to "${renameNewName.trim()}"` });
-                      setRenameUserId('');
-                      setRenameNewName('');
-                    } catch (err) {
-                      setMessage({ type: 'error', text: `Failed to rename: ${err.message}` });
-                    }
-                    setRenameLoading(false);
-                  }}
-                  disabled={renameLoading}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {renameLoading ? 'Renaming...' : '✏️ Rename User'}
-                </button>
-              </div>
-
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-3 ${textClass}`}>Username Migration</h3>
-
-                <button
-                  onClick={async () => {
-                    setMigrationLoading(true);
-                    setMigrationResult(null);
-                    try {
-                      const result = await migrateUsernamesFunction();
-                      setMigrationResult(result.data);
-                    } catch (err) {
-                      setMigrationResult({ error: err.message });
-                    }
-                    setMigrationLoading(false);
-                  }}
-                  disabled={migrationLoading}
-                  className="px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {migrationLoading ? 'Migrating...' : '🔄 Run Username Migration'}
-                </button>
-
-                {migrationResult && (
-                  <div className={`mt-4 p-3 rounded-sm ${migrationResult.error ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {migrationResult.error ? (
-                      <p><strong>Error:</strong> {migrationResult.error}</p>
-                    ) : (
-                      <div>
-                        <p className="font-semibold">{migrationResult.message}</p>
-                        {migrationResult.migrated > 0 && (
-                          <p>Migrated: {migrationResult.migrated} usernames</p>
-                        )}
-                        {migrationResult.conflicts && migrationResult.conflicts.length > 0 && (
-                          <div className="mt-2">
-                            <p className="font-semibold text-orange-700">Conflicts detected ({migrationResult.conflicts.length}):</p>
-                            <ul className="mt-1 text-sm list-disc list-inside">
-                              {migrationResult.conflicts.map((conflict, i) => (
-                                <li key={i}>
-                                  <strong>{conflict.username}</strong>: {conflict.users.map(u => `${u.displayName} (${u.uid.slice(0,8)}...)`).join(' vs ')}
-                                </li>
-                              ))}
-                            </ul>
-                            <p className="mt-2 text-xs">Resolve conflicts manually by renaming one user, then run migration again.</p>
-                          </div>
-                        )}
-                        {migrationResult.errors && migrationResult.errors.length > 0 && (
-                          <div className="mt-2">
-                            <p className="font-semibold text-red-700">Errors ({migrationResult.errors.length}):</p>
-                            <ul className="mt-1 text-sm list-disc list-inside">
-                              {migrationResult.errors.map((err, i) => (
-                                <li key={i}>{err.uid}: {err.error}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
