@@ -6643,11 +6643,19 @@ export default function App() {
     switch (sortBy) {
       case 'price-high': filtered.sort((a, b) => (prices[b.ticker] || b.basePrice) - (prices[a.ticker] || a.basePrice)); break;
       case 'price-low': filtered.sort((a, b) => (prices[a.ticker] || a.basePrice) - (prices[b.ticker] || b.basePrice)); break;
-      case 'active': 
+      case 'change-high':
+        // Top gainers - highest positive % change first
+        filtered.sort((a, b) => (priceChanges[b.ticker] || 0) - (priceChanges[a.ticker] || 0));
+        break;
+      case 'change-low':
+        // Top losers - lowest (most negative) % change first
+        filtered.sort((a, b) => (priceChanges[a.ticker] || 0) - (priceChanges[b.ticker] || 0));
+        break;
+      case 'active':
         filtered.sort((a, b) => {
           const activityA = getTradeActivity(a.ticker);
           const activityB = getTradeActivity(b.ticker);
-          
+
           // Primary: most trades in last week
           if (activityB.weekTrades !== activityA.weekTrades) {
             return activityB.weekTrades - activityA.weekTrades;
@@ -6906,6 +6914,8 @@ export default function App() {
               className={`px-3 py-2 text-sm rounded-sm border ${inputClassStyle}`}>
               <option value="price-high">Price: High</option>
               <option value="price-low">Price: Low</option>
+              <option value="change-high">Top Gainers</option>
+              <option value="change-low">Top Losers</option>
               <option value="active">Most Active</option>
               <option value="ticker">Ticker A-Z</option>
               <option value="newest">Newest</option>
