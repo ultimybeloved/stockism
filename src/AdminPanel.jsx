@@ -1900,16 +1900,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             🚀 IPO
           </button>
           <button
-            onClick={() => setActiveTab('create')}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'create' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
+            onClick={() => { setActiveTab('predictions'); loadAllBets(); }}
+            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'predictions' ? 'text-purple-500 border-b-2 border-purple-500' : mutedClass}`}
           >
-            ➕ Pred
-          </button>
-          <button
-            onClick={() => setActiveTab('resolve')}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'resolve' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
-          >
-            ✅ ({unresolvedPredictions.length})
+            🎲 Predictions {unresolvedPredictions.length > 0 && `(${unresolvedPredictions.length})`}
           </button>
           <button
             onClick={() => setActiveTab('holders')}
@@ -1918,34 +1912,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             📊 Holders
           </button>
           <button
-            onClick={() => setActiveTab('recover')}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'recover' ? 'text-amber-500 border-b-2 border-amber-500' : mutedClass}`}
-          >
-            🔧 Fix
-          </button>
-          <button
             onClick={() => setActiveTab('users')}
             className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'users' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
           >
             👥 Users
-          </button>
-          <button
-            onClick={() => setActiveTab('manage')}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'manage' ? 'text-teal-500 border-b-2 border-teal-500' : mutedClass}`}
-          >
-            📋 All
-          </button>
-          <button
-            onClick={() => { setActiveTab('bets'); loadAllBets(); }}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'bets' ? 'text-purple-500 border-b-2 border-purple-500' : mutedClass}`}
-          >
-            🎲 Bets
-          </button>
-          <button
-            onClick={() => { setActiveTab('trades'); loadRecentTrades(); }}
-            className={`flex-1 py-3 text-sm font-semibold whitespace-nowrap px-2 ${activeTab === 'trades' ? 'text-red-500 border-b-2 border-red-500' : mutedClass}`}
-          >
-            🔍 Trades
           </button>
           <button
             onClick={() => { setActiveTab('stats'); loadMarketStats(); }}
@@ -2249,65 +2219,223 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             </div>
           )}
 
-          {/* CREATE TAB */}
-          {activeTab === 'create' && (
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
-                <input
-                  type="text"
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
-                  placeholder=""
-                  className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                />
-              </div>
+          {/* PREDICTIONS TAB (Consolidated: Create + Resolve + View All + Bets) */}
+          {activeTab === 'predictions' && (
+            <div className="space-y-6">
 
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Options (2-6)</label>
-                <div className="space-y-2">
-                  {options.map((opt, idx) => (
+              {/* SECTION 1: Resolve Pending Predictions */}
+              {unresolvedPredictions.length > 0 && (
+                <div className={`p-4 rounded-sm border-2 border-amber-500 ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'}`}>
+                  <h3 className={`font-semibold text-amber-500 mb-3`}>⏳ Pending Resolution ({unresolvedPredictions.length})</h3>
+                  <div className="space-y-2 mb-3">
+                    {unresolvedPredictions.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setSelectedPrediction(p); setSelectedOutcome(''); }}
+                        className={`w-full p-3 text-left rounded-sm border transition-all ${
+                          selectedPrediction?.id === p.id
+                            ? 'border-teal-500 bg-teal-500/10'
+                            : darkMode ? 'border-slate-600 hover:border-slate-500' : 'border-slate-300 hover:border-slate-400'
+                        }`}
+                      >
+                        <div className={`font-semibold ${textClass}`}>{p.question}</div>
+                        <div className={`text-xs ${mutedClass} mt-1`}>
+                          {p.options.join(' • ')} | Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedPrediction && (
+                    <>
+                      <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner</label>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {selectedPrediction.options.map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setSelectedOutcome(opt)}
+                            className={`p-3 rounded-sm border-2 font-semibold transition-all ${
+                              selectedOutcome === opt
+                                ? 'border-green-500 bg-green-500 text-white'
+                                : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedOutcome && (
+                        <button
+                          onClick={handleResolvePrediction}
+                          disabled={loading}
+                          className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                        >
+                          {loading ? 'Resolving...' : `✅ Confirm Winner: "${selectedOutcome}"`}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* SECTION 2: Create New Prediction */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
                     <input
-                      key={idx}
                       type="text"
-                      value={opt}
-                      onChange={e => {
-                        const newOpts = [...options];
-                        newOpts[idx] = e.target.value;
-                        setOptions(newOpts);
-                      }}
-                      placeholder={idx < 2 ? `Option ${idx + 1} (required)` : `Option ${idx + 1} (optional)`}
+                      value={question}
+                      onChange={e => setQuestion(e.target.value)}
+                      placeholder=""
                       className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
                     />
-                  ))}
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Options (2-6)</label>
+                    <div className="space-y-2">
+                      {options.map((opt, idx) => (
+                        <input
+                          key={idx}
+                          type="text"
+                          value={opt}
+                          onChange={e => {
+                            const newOpts = [...options];
+                            newOpts[idx] = e.target.value;
+                            setOptions(newOpts);
+                          }}
+                          placeholder={idx < 2 ? `Option ${idx + 1} (required)` : `Option ${idx + 1} (optional)`}
+                          className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="1"
+                        max="14"
+                        value={daysUntilEnd}
+                        onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
+                        className="flex-1"
+                      />
+                      <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
+                    </div>
+                    <p className={`text-xs ${mutedClass} mt-1`}>
+                      Ends: {endDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} at 8:55 AM CST
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleCreatePrediction}
+                    disabled={loading}
+                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Creating...' : '➕ Create Prediction'}
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="1"
-                    max="14"
-                    value={daysUntilEnd}
-                    onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
-                    className="flex-1"
-                  />
-                  <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
+              {/* SECTION 3: All Predictions List */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
+                  <button
+                    onClick={loadAllBets}
+                    disabled={betsLoading}
+                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-sm disabled:opacity-50"
+                  >
+                    {betsLoading ? '...' : '🔄 Refresh Bets'}
+                  </button>
                 </div>
-                <p className={`text-xs ${mutedClass} mt-1`}>
-                  Ends: {endDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} at 8:55 AM CST
-                </p>
+
+                {predictions.length === 0 ? (
+                  <p className={`text-center py-4 ${mutedClass}`}>No predictions yet</p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {predictions.map(p => (
+                      <div key={p.id} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-semibold ${p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
+                                {p.resolved ? '✅ Resolved' : '⏳ Active'}
+                              </span>
+                            </div>
+                            <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
+                            <div className={`text-xs ${mutedClass} mt-1`}>
+                              Options: {p.options.join(', ')}
+                            </div>
+                            {p.resolved && (
+                              <div className="text-xs text-green-500 mt-1">Winner: {p.outcome}</div>
+                            )}
+                            <div className={`text-xs ${mutedClass} mt-1`}>
+                              Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeletePrediction(p.id)}
+                            disabled={loading}
+                            className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <button
-                onClick={handleCreatePrediction}
-                disabled={loading}
-                className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-              >
-                {loading ? 'Creating...' : '➕ Create Prediction'}
-              </button>
+              {/* SECTION 4: Bets Summary */}
+              {allBets.length > 0 && (
+                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {(() => {
+                      const byPrediction = {};
+                      allBets.forEach(bet => {
+                        if (!byPrediction[bet.predictionId]) {
+                          byPrediction[bet.predictionId] = {
+                            question: bet.question,
+                            totalAmount: 0,
+                            betCount: 0,
+                            byOption: {}
+                          };
+                        }
+                        byPrediction[bet.predictionId].totalAmount += bet.amount;
+                        byPrediction[bet.predictionId].betCount += 1;
+                        if (!byPrediction[bet.predictionId].byOption[bet.option]) {
+                          byPrediction[bet.predictionId].byOption[bet.option] = 0;
+                        }
+                        byPrediction[bet.predictionId].byOption[bet.option] += bet.amount;
+                      });
+
+                      return Object.entries(byPrediction).map(([predId, data]) => (
+                        <div key={predId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                          <div className={`font-semibold ${textClass} text-sm`}>{data.question}</div>
+                          <div className={`text-xs ${mutedClass} mt-1`}>
+                            {data.betCount} bets • Total: ${data.totalAmount.toFixed(0)}
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {Object.entries(data.byOption).map(([opt, amt]) => (
+                              <span key={opt} className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                                {opt}: ${amt.toFixed(0)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2412,220 +2540,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     </>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* RESOLVE TAB */}
-          {activeTab === 'resolve' && (
-            <div className="space-y-4">
-              {unresolvedPredictions.length === 0 ? (
-                <p className={`text-center py-8 ${mutedClass}`}>No predictions to resolve</p>
-              ) : (
-                <>
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
-                    <div className="space-y-2">
-                      {unresolvedPredictions.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => { setSelectedPrediction(p); setSelectedOutcome(''); }}
-                          className={`w-full p-3 text-left rounded-sm border transition-all ${
-                            selectedPrediction?.id === p.id
-                              ? 'border-teal-500 bg-teal-500/10'
-                              : darkMode ? 'border-slate-600 hover:border-slate-500' : 'border-slate-300 hover:border-slate-400'
-                          }`}
-                        >
-                          <div className={`font-semibold ${textClass}`}>{p.question}</div>
-                          <div className={`text-xs ${mutedClass} mt-1`}>
-                            {p.options.join(' • ')} | Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {selectedPrediction && (
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {selectedPrediction.options.map(opt => (
-                          <button
-                            key={opt}
-                            onClick={() => setSelectedOutcome(opt)}
-                            className={`p-3 rounded-sm border-2 font-semibold transition-all ${
-                              selectedOutcome === opt
-                                ? 'border-green-500 bg-green-500 text-white'
-                                : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedPrediction && selectedOutcome && (
-                    <button
-                      onClick={handleResolvePrediction}
-                      disabled={loading}
-                      className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      {loading ? 'Resolving...' : `✅ Confirm Winner: "${selectedOutcome}"`}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* MANAGE TAB */}
-          {activeTab === 'manage' && (
-            <div className="space-y-3">
-              {predictions.length === 0 ? (
-                <p className={`text-center py-8 ${mutedClass}`}>No predictions yet</p>
-              ) : (
-                predictions.map(p => (
-                  <div key={p.id} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-semibold ${p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
-                            {p.resolved ? '✅ Resolved' : '⏳ Active'}
-                          </span>
-                          <span className={`text-xs ${mutedClass}`}>{p.id}</span>
-                        </div>
-                        <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
-                        <div className={`text-xs ${mutedClass} mt-1`}>
-                          Options: {p.options.join(', ')}
-                        </div>
-                        {p.resolved && (
-                          <div className="text-xs text-green-500 mt-1">Winner: {p.outcome}</div>
-                        )}
-                        <div className={`text-xs ${mutedClass} mt-1`}>
-                          Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeletePrediction(p.id)}
-                        disabled={loading}
-                        className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* RECOVER TAB */}
-          {activeTab === 'recover' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20 border border-amber-700' : 'bg-amber-50 border border-amber-200'}`}>
-                <p className={`text-sm text-amber-500`}>
-                  ⚠️ Use this to recover bets from a lost/deleted prediction. 
-                  Enter the prediction ID to find all users who placed bets.
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Prediction ID</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={recoveryPredictionId}
-                    onChange={e => setRecoveryPredictionId(e.target.value)}
-                    placeholder="pred_1"
-                    className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
-                  />
-                  <button
-                    onClick={handleScanForBets}
-                    disabled={loading}
-                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? '...' : '🔍 Scan'}
-                  </button>
-                </div>
-              </div>
-
-              {recoveryBets.length > 0 && (
-                <>
-                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                    <h4 className={`font-semibold ${textClass} mb-2`}>Found {recoveryBets.length} Bets</h4>
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {recoveryBets.map((bet, i) => (
-                        <div key={i} className={`text-sm flex justify-between ${bet.paid ? 'text-slate-500' : textClass}`}>
-                          <span className={bet.paid ? 'line-through' : ''}>{bet.displayName}</span>
-                          <span>
-                            <span className="text-teal-500">${bet.amount}</span>
-                            {' on '}
-                            <span className="font-semibold">{bet.option}</span>
-                            {bet.paid && (
-                              <span className={`ml-2 text-xs ${bet.payout > 0 ? 'text-green-500' : 'text-red-400'}`}>
-                                {bet.payout > 0 ? `(won $${bet.payout.toFixed(2)})` : '(lost)'}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
-                      <div className="flex justify-between text-sm">
-                        <span className={mutedClass}>Total Pool:</span>
-                        <span className={`font-bold ${textClass}`}>
-                          ${recoveryBets.reduce((sum, b) => sum + b.amount, 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className={`text-xs ${mutedClass} mt-1`}>
-                        Options: {recoveryOptions.join(', ')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner (for payout)</label>
-                    <div className="flex flex-wrap gap-2">
-                      {recoveryOptions.map(opt => (
-                        <button
-                          key={opt}
-                          onClick={() => setRecoveryWinner(opt)}
-                          className={`px-4 py-2 rounded-sm border-2 font-semibold transition-all ${
-                            recoveryWinner === opt
-                              ? 'border-green-500 bg-green-500 text-white'
-                              : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleProcessRecovery('refund')}
-                      disabled={loading}
-                      className="py-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      {loading ? '...' : '💰 Refund All'}
-                    </button>
-                    <button
-                      onClick={() => handleProcessRecovery('payout')}
-                      disabled={loading || !recoveryWinner}
-                      className="py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      {loading ? '...' : `✅ Payout Winners`}
-                    </button>
-                  </div>
-                  
-                  <p className={`text-xs ${mutedClass}`}>
-                    <strong>Refund All:</strong> Returns original bet amount to everyone.<br/>
-                    <strong>Payout Winners:</strong> Winners split the total pool (select winner first).
-                  </p>
-                </>
               )}
             </div>
           )}
@@ -3315,594 +3229,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* BETS TAB */}
-          {activeTab === 'bets' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className={`font-semibold ${textClass}`}>🎲 All Bets</h3>
-                <button
-                  onClick={loadAllBets}
-                  disabled={betsLoading}
-                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-sm disabled:opacity-50"
-                >
-                  {betsLoading ? 'Loading...' : '🔄 Refresh'}
-                </button>
-              </div>
-
-              {/* ILLEGITIMATE BET SCANNER */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-semibold text-red-500">🚫 Find Illegitimate Bets</h4>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => scanForIllegitimateBets(0)}
-                      disabled={betScanLoading}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-sm disabled:opacity-50"
-                    >
-                      {betScanLoading ? 'Scanning...' : '🔍 Scan ALL'}
-                    </button>
-                    {illegitimateBets.length > 0 && (
-                      <button
-                        onClick={refundAllIllegitimateBets}
-                        disabled={loading}
-                        className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-sm disabled:opacity-50"
-                      >
-                        {loading ? 'Refunding...' : `💸 Refund All (${illegitimateBets.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Finds ALL bets where bet amount &gt; user's market investment (stocks + shorts). Refunds cash and removes from pool.
-                </p>
-                
-                {illegitimateBets.length > 0 && (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {illegitimateBets.map((bet, i) => (
-                      <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border-l-4 border-red-500`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className={`font-semibold ${textClass}`}>{bet.userName}</span>
-                            <span className="text-red-500 font-bold ml-2">bet ${bet.betAmount.toFixed(0)}</span>
-                            <span className={mutedClass}> on "{bet.option}"</span>
-                          </div>
-                          <button
-                            onClick={() => refundBet(bet.userId, bet.predictionId, bet.betAmount, bet.option)}
-                            disabled={loading}
-                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-sm disabled:opacity-50"
-                          >
-                            Refund
-                          </button>
-                        </div>
-                        <div className={`text-xs ${mutedClass} mt-1`}>
-                          Invested: ${bet.totalInvested.toFixed(0)} • Excess: <span className="text-red-500">${bet.excess.toFixed(0)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {betsLoading ? (
-                <p className={`text-center py-8 ${mutedClass}`}>Loading bets...</p>
-              ) : allBets.length === 0 ? (
-                <p className={`text-center py-8 ${mutedClass}`}>No bets found. Click Refresh to load.</p>
-              ) : (
-                <>
-                  {/* Summary by prediction */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h4 className={`font-semibold ${textClass} mb-3`}>Summary by Prediction</h4>
-                    {(() => {
-                      // Group bets by prediction
-                      const byPrediction = {};
-                      allBets.forEach(bet => {
-                        if (!byPrediction[bet.predictionId]) {
-                          byPrediction[bet.predictionId] = {
-                            question: bet.question,
-                            totalAmount: 0,
-                            betCount: 0,
-                            byOption: {}
-                          };
-                        }
-                        byPrediction[bet.predictionId].totalAmount += bet.amount;
-                        byPrediction[bet.predictionId].betCount++;
-                        if (!byPrediction[bet.predictionId].byOption[bet.option]) {
-                          byPrediction[bet.predictionId].byOption[bet.option] = { amount: 0, count: 0 };
-                        }
-                        byPrediction[bet.predictionId].byOption[bet.option].amount += bet.amount;
-                        byPrediction[bet.predictionId].byOption[bet.option].count++;
-                      });
-
-                      return Object.entries(byPrediction).map(([predId, data]) => (
-                        <div key={predId} className={`mb-4 pb-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'} last:border-0 last:mb-0 last:pb-0`}>
-                          <div className={`font-semibold ${textClass}`}>{data.question}</div>
-                          <div className={`text-xs ${mutedClass} mb-2`}>
-                            ID: {predId} • {data.betCount} bets • ${data.totalAmount.toFixed(2)} total
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(data.byOption).map(([option, optData]) => (
-                              <div key={option} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                                <div className={`text-sm font-semibold ${textClass}`}>{option}</div>
-                                <div className={`text-xs ${mutedClass}`}>
-                                  {optData.count} bets • ${optData.amount.toFixed(2)}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-
-                  {/* Individual bets list */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h4 className={`font-semibold ${textClass} mb-3`}>All Individual Bets ({allBets.length})</h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {allBets.map((bet, i) => {
-                        // Try to get question from predictions if not stored in bet
-                        const predictionQuestion = bet.question && bet.question !== 'Unknown' 
-                          ? bet.question 
-                          : predictions?.find(p => p.id === bet.predictionId)?.question || 'Unknown';
-                        
-                        return (
-                          <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'} text-sm`}>
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <span className={`font-semibold ${textClass}`}>{bet.userName}</span>
-                                <span className={mutedClass}> bet </span>
-                                <span className="text-green-500 font-semibold">${bet.amount.toFixed(2)}</span>
-                                <span className={mutedClass}> on </span>
-                                <span className="text-purple-500 font-semibold">"{bet.option}"</span>
-                              </div>
-                              <div className="text-right">
-                                {bet.paid && (
-                                  <span className={bet.payout > 0 ? 'text-green-500' : 'text-red-400'}>
-                                    {bet.payout > 0 ? `Won $${bet.payout.toFixed(2)}` : 'Lost'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className={`text-xs ${mutedClass} mt-1`}>
-                              {predictionQuestion} • {bet.placedAt > 0 ? new Date(bet.placedAt).toLocaleString() : 'Unknown time'}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* TRADES INVESTIGATION TAB */}
-          {activeTab === 'trades' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className={`font-semibold ${textClass}`}>🔍 Trade Investigation</h3>
-                <button
-                  onClick={loadRecentTrades}
-                  disabled={tradesLoading}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-sm disabled:opacity-50"
-                >
-                  {tradesLoading ? 'Loading...' : '🔄 Refresh'}
-                </button>
-              </div>
-
-              {/* Filter by ticker */}
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Filter by Ticker</label>
-                <input
-                  type="text"
-                  value={tradeFilterTicker}
-                  onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
-                  placeholder="e.g. GDOG"
-                  className={`w-full p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                />
-              </div>
-
-              {/* SEARCH TRADES - Find the attacker */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300'}`}>
-                <h4 className="font-semibold text-blue-500 mb-2">🔎 Search Trades by Ticker & Time</h4>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Find who traded a specific ticker during a time window. Use timestamps from the price history above.
-                </p>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div>
-                    <label className={`block text-xs ${mutedClass} mb-1`}>Ticker</label>
-                    <input
-                      type="text"
-                      value={tradeFilterTicker}
-                      onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
-                      placeholder="e.g. TOM"
-                      className={`w-full p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-xs ${mutedClass} mb-1`}>Start Time (timestamp)</label>
-                    <input
-                      type="text"
-                      value={searchStartTime}
-                      onChange={(e) => setSearchStartTime(e.target.value)}
-                      placeholder="e.g. 1768964630946"
-                      className={`w-full p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div>
-                    <label className={`block text-xs ${mutedClass} mb-1`}>End Time (timestamp)</label>
-                    <input
-                      type="text"
-                      value={searchEndTime}
-                      onChange={(e) => setSearchEndTime(e.target.value)}
-                      placeholder="e.g. 1768965448475"
-                      className={`w-full p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => {
-                        if (tradeFilterTicker && searchStartTime && searchEndTime) {
-                          searchTradesByTickerAndTime(
-                            tradeFilterTicker,
-                            parseInt(searchStartTime),
-                            parseInt(searchEndTime)
-                          );
-                        }
-                      }}
-                      disabled={tradesLoading || !tradeFilterTicker || !searchStartTime || !searchEndTime}
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      {tradesLoading ? 'Searching...' : '🔍 Find Trades'}
-                    </button>
-                  </div>
-                </div>
-                {searchStartTime && (
-                  <p className={`text-xs ${mutedClass}`}>
-                    Start: {new Date(parseInt(searchStartTime)).toLocaleString()}
-                    {searchEndTime && ` → End: ${new Date(parseInt(searchEndTime)).toLocaleString()}`}
-                  </p>
-                )}
-              </div>
-
-              {/* Price Rollback Tool */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
-                <h4 className="font-semibold text-red-500 mb-2">⚠️ Quick Price Fix</h4>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Manually set a price to fix crashes. Use the trade history below to find the price before the crash.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={selectedTicker}
-                    onChange={(e) => setSelectedTicker(e.target.value.toUpperCase())}
-                    placeholder="Ticker"
-                    className={`w-24 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  <input
-                    type="number"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="New Price"
-                    className={`flex-1 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  <button
-                    onClick={() => {
-                      if (selectedTicker && newPrice) {
-                        rollbackPrice(selectedTicker, parseFloat(newPrice));
-                      }
-                    }}
-                    disabled={loading || !selectedTicker || !newPrice}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    Set Price
-                  </button>
-                </div>
-                {selectedTicker && prices[selectedTicker] && (
-                  <p className={`text-xs ${mutedClass} mt-2`}>
-                    Current price of ${selectedTicker}: <span className="text-red-500 font-semibold">${prices[selectedTicker]?.toFixed(2)}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* FULL MARKET ROLLBACK TOOL */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-orange-900/30 border border-orange-700' : 'bg-orange-50 border border-orange-300'}`}>
-                <h4 className="font-semibold text-orange-500 mb-2">🔄 Full Market Rollback (NUCLEAR OPTION)</h4>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  This will: 1) Find all trades after the timestamp, 2) Reverse them (remove shares, refund cash), 3) Reset all prices to what they were at that time.
-                  <br /><strong className="text-orange-500">This is irreversible. Use with extreme caution.</strong>
-                </p>
-                
-                {/* View price history for a ticker */}
-                <div className="mb-3">
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>View Price History (to find rollback point)</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tradeFilterTicker}
-                      onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
-                      placeholder="Enter ticker (e.g. GDOG)"
-                      className={`flex-1 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                    />
-                    <button
-                      onClick={async () => {
-                        if (tradeFilterTicker) {
-                          const history = await getPriceHistoryForTicker(tradeFilterTicker);
-                          setSelectedTickerHistory(history);
-                        }
-                      }}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
-                    >
-                      Load History
-                    </button>
-                  </div>
-                </div>
-
-                {/* Show price history */}
-                {selectedTickerHistory.length > 0 && (
-                  <div className={`mb-3 p-2 rounded-sm max-h-40 overflow-y-auto ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                    <div className={`text-xs font-semibold ${mutedClass} mb-1`}>Price History for ${tradeFilterTicker} (click to set rollback time)</div>
-                    {selectedTickerHistory.map((h, i) => (
-                      <div 
-                        key={i} 
-                        className={`text-xs py-1 px-2 cursor-pointer hover:bg-orange-500/20 rounded flex justify-between ${textClass}`}
-                        onClick={() => setRollbackTimestamp(h.timestamp.toString())}
-                      >
-                        <span>{h.date}</span>
-                        <span className="font-semibold">${h.price.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Rollback timestamp input */}
-                <div className="mb-3">
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Rollback Timestamp (milliseconds)</label>
-                  <input
-                    type="text"
-                    value={rollbackTimestamp}
-                    onChange={(e) => setRollbackTimestamp(e.target.value)}
-                    placeholder="e.g. 1705789200000"
-                    className={`w-full p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  {rollbackTimestamp && (
-                    <p className={`text-xs ${mutedClass} mt-1`}>
-                      Rollback to: <span className="text-orange-500 font-semibold">{new Date(parseInt(rollbackTimestamp)).toLocaleString()}</span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Confirmation checkbox */}
-                <div className="mb-3">
-                  <label className={`flex items-center gap-2 text-sm ${textClass}`}>
-                    <input
-                      type="checkbox"
-                      checked={rollbackConfirm}
-                      onChange={(e) => setRollbackConfirm(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    I understand this will reverse ALL trades after this timestamp and cannot be undone
-                  </label>
-                </div>
-
-                <button
-                  onClick={() => {
-                    if (rollbackTimestamp && rollbackConfirm) {
-                      executeFullRollback(parseInt(rollbackTimestamp));
-                    }
-                  }}
-                  disabled={loading || !rollbackTimestamp || !rollbackConfirm}
-                  className="w-full py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
-                </button>
-              </div>
-
-              {/* PRICE HISTORY CLEANUP TOOL */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-300'}`}>
-                <h4 className="font-semibold text-purple-500 mb-2">🧹 Clean Price History (Fix Charts)</h4>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Removes bad data points from price history (extreme spikes/crashes). This will fix the charts and percentage calculations.
-                </p>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={tradeFilterTicker}
-                    onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
-                    placeholder="Ticker"
-                    className={`w-24 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  <input
-                    type="number"
-                    value={cleanupMinPrice}
-                    onChange={(e) => setCleanupMinPrice(e.target.value)}
-                    placeholder="Min price"
-                    className={`flex-1 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  <input
-                    type="number"
-                    value={cleanupMaxPrice}
-                    onChange={(e) => setCleanupMaxPrice(e.target.value)}
-                    placeholder="Max price"
-                    className={`flex-1 p-2 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-600 text-white' : 'border-slate-300'}`}
-                  />
-                  <button
-                    onClick={() => {
-                      if (tradeFilterTicker && cleanupMinPrice && cleanupMaxPrice) {
-                        cleanPriceHistory(tradeFilterTicker, parseFloat(cleanupMinPrice), parseFloat(cleanupMaxPrice));
-                      }
-                    }}
-                    disabled={loading || !tradeFilterTicker || !cleanupMinPrice || !cleanupMaxPrice}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    Clean
-                  </button>
-                </div>
-                <p className={`text-xs ${mutedClass}`}>
-                  Example: If JAMES normally trades $50-$200, set min=1, max=500 to remove 1¢ and $12k spikes
-                </p>
-              </div>
-
-              {/* RESTORE PRICES FROM USER DATA */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-300'}`}>
-                <h4 className="font-semibold text-green-500 mb-2">🔄 Restore Prices from User Data</h4>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  If prices were reset, this scans all users' costBasis data to estimate what prices should be. Uses median to avoid manipulation outliers.
-                </p>
-                <button
-                  onClick={restorePricesFromCostBasis}
-                  disabled={loading}
-                  className="w-full py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Restoring...' : '🔄 Restore Prices from costBasis'}
-                </button>
-              </div>
-
-              {/* SUSPICIOUS ACCOUNT SCANNER */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-yellow-900/30 border border-yellow-700' : 'bg-yellow-50 border border-yellow-300'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-semibold text-yellow-500">🚨 Suspicious Account Scanner</h4>
-                  <button
-                    onClick={scanForSuspiciousAccounts}
-                    disabled={suspiciousScanLoading}
-                    className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-sm disabled:opacity-50"
-                  >
-                    {suspiciousScanLoading ? 'Scanning...' : '🔍 Scan All Users'}
-                  </button>
-                </div>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Finds accounts with: low cost basis (&lt;$1), huge portfolios with few trades, massive holdings, missing transaction logs
-                </p>
-                
-                {suspiciousAccounts.length > 0 && (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {suspiciousAccounts.map((account, i) => (
-                      <div key={i} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border-l-4 border-yellow-500`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`font-semibold ${textClass}`}>{account.userName}</span>
-                          <span className={`text-xs ${mutedClass}`}>{account.id.slice(0, 8)}...</span>
-                        </div>
-                        <div className={`text-xs ${mutedClass} mb-2`}>
-                          💰 ${account.cash.toFixed(0)} cash • 📊 ${account.portfolioValue.toFixed(0)} portfolio • 📈 {account.totalTrades} trades
-                        </div>
-                        <div className="space-y-1">
-                          {account.flags.map((flag, j) => (
-                            <div key={j} className="text-xs text-yellow-600 dark:text-yellow-400">
-                              ⚠️ {flag}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {tradesLoading ? (
-                <p className={`text-center py-8 ${mutedClass}`}>Loading trades...</p>
-              ) : recentTrades.length === 0 ? (
-                <p className={`text-center py-8 ${mutedClass}`}>No trades found. Click Refresh to load.</p>
-              ) : (
-                <>
-                  {/* Summary stats */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h4 className={`font-semibold ${textClass} mb-2`}>Summary</h4>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className={mutedClass}>Total Trades:</span>
-                        <span className={`ml-2 font-bold ${textClass}`}>{recentTrades.length}</span>
-                      </div>
-                      <div>
-                        <span className={mutedClass}>Filtered:</span>
-                        <span className={`ml-2 font-bold ${textClass}`}>
-                          {tradeFilterTicker 
-                            ? recentTrades.filter(t => t.ticker === tradeFilterTicker).length
-                            : recentTrades.length}
-                        </span>
-                      </div>
-                      <div>
-                        <span className={mutedClass}>Big Trades (50+):</span>
-                        <span className={`ml-2 font-bold text-red-500`}>
-                          {recentTrades.filter(t => t.shares >= 50).length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Large trades highlight */}
-                  {recentTrades.filter(t => t.shares >= 50 && (!tradeFilterTicker || t.ticker === tradeFilterTicker)).length > 0 && (
-                    <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                      <h4 className="font-semibold text-red-500 mb-3">🚨 Large Trades (50+ shares)</h4>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {recentTrades
-                          .filter(t => t.shares >= 50 && (!tradeFilterTicker || t.ticker === tradeFilterTicker))
-                          .slice(0, 50)
-                          .map((trade, i) => (
-                            <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} text-sm`}>
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <span className={`font-semibold ${textClass}`}>{trade.userName}</span>
-                                  <span className={trade.type === 'BUY' || trade.type === 'SHORT_CLOSE' ? 'text-green-500' : 'text-red-500'}>
-                                    {' '}{trade.type}{' '}
-                                  </span>
-                                  <span className="font-bold text-red-500">{trade.shares} shares</span>
-                                  <span className={mutedClass}> of </span>
-                                  <span className="text-purple-500 font-semibold">${trade.ticker}</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className={mutedClass}>@ ${trade.price?.toFixed(2)}</span>
-                                </div>
-                              </div>
-                              <div className={`text-xs ${mutedClass} mt-1`}>
-                                {trade.timestamp > 0 ? new Date(trade.timestamp).toLocaleString() : 'Unknown time'}
-                                {trade.newPrice > 0 && (
-                                  <span className="ml-2 text-amber-500">→ New price: ${trade.newPrice.toFixed(2)}</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* All trades list */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h4 className={`font-semibold ${textClass} mb-3`}>
-                      Recent Trades {tradeFilterTicker && `(${tradeFilterTicker})`}
-                    </h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {recentTrades
-                        .filter(t => !tradeFilterTicker || t.ticker === tradeFilterTicker)
-                        .slice(0, 100)
-                        .map((trade, i) => (
-                          <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'} text-sm ${trade.shares >= 50 ? 'border-l-4 border-red-500' : ''}`}>
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <span className={`font-semibold ${textClass}`}>{trade.userName}</span>
-                                <span className={trade.type === 'BUY' || trade.type === 'SHORT_CLOSE' ? 'text-green-500' : 'text-red-500'}>
-                                  {' '}{trade.type}{' '}
-                                </span>
-                                <span className={`font-semibold ${trade.shares >= 50 ? 'text-red-500' : textClass}`}>{trade.shares}</span>
-                                <span className={mutedClass}> × </span>
-                                <span className="text-purple-500 font-semibold">${trade.ticker}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className={mutedClass}>@ ${trade.price?.toFixed(2)}</span>
-                              </div>
-                            </div>
-                            <div className={`text-xs ${mutedClass} mt-1`}>
-                              {trade.timestamp > 0 ? new Date(trade.timestamp).toLocaleString() : 'Unknown time'}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           )}
         </div>
