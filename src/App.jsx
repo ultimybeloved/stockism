@@ -3873,13 +3873,71 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0 }) => {
   const [showTrade, setShowTrade] = useState(false);
   const [tradeAmount, setTradeAmount] = useState(1);
   const [tradeMode, setTradeMode] = useState('normal'); // 'normal' or 'short'
 
   const owned = holdings > 0;
   const shorted = shortPosition && shortPosition.shares > 0;
+
+  // Calculate dynamic prices based on trade amount and action
+  const getDynamicPrices = (amount, action) => {
+    const liquidity = character.liquidity || BASE_LIQUIDITY;
+    const impact = calculatePriceImpact(price, amount, liquidity);
+
+    if (action === 'buy' || action === 'cover') {
+      // Buying pushes price up
+      const newMid = price + impact;
+      return getBidAskPrices(newMid);
+    } else {
+      // Selling/shorting pushes price down
+      const newMid = Math.max(MIN_PRICE, price - impact);
+      return getBidAskPrices(newMid);
+    }
+  };
+
+  // Calculate max affordable shares
+  const getMaxShares = (action) => {
+    if (userCash <= 0) return 0;
+
+    if (action === 'buy') {
+      // Binary search for max affordable shares (because price increases with amount)
+      let low = 1, high = Math.floor(userCash / (price * 0.5)), maxAffordable = 0;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const { ask } = getDynamicPrices(mid, 'buy');
+        const cost = ask * mid;
+        if (cost <= userCash) {
+          maxAffordable = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      return Math.max(1, maxAffordable);
+    } else if (action === 'short') {
+      // For shorts: margin = bid * shares * 0.5
+      let low = 1, high = Math.floor(userCash / (price * 0.25)), maxAffordable = 0;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const { bid } = getDynamicPrices(mid, 'short');
+        const margin = bid * mid * SHORT_MARGIN_REQUIREMENT;
+        if (margin <= userCash) {
+          maxAffordable = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      return Math.max(1, maxAffordable);
+    } else if (action === 'sell') {
+      return holdings;
+    } else if (action === 'cover') {
+      return shortPosition?.shares || 0;
+    }
+    return 1;
+  };
   const isUp = priceChange >= 0;
   const isETF = character.isETF;
 
@@ -3987,35 +4045,68 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             </button>
           </div>
 
-          {/* Bid/Ask Spread Display */}
+          {/* Dynamic Bid/Ask Display based on trade amount */}
           {(() => {
-            const { bid, ask, spread } = getBidAskPrices(price);
+            const action = tradeMode === 'normal' ? 'buy' : 'short';
+            const { bid, ask, spread } = getDynamicPrices(tradeAmount, action);
+            const buyCost = ask * tradeAmount;
+            const sellRevenue = bid * tradeAmount;
+            const shortMargin = bid * tradeAmount * SHORT_MARGIN_REQUIREMENT;
+
             return (
-              <div className={`flex justify-between items-center text-xs px-2 py-1.5 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
-                <div className="text-center">
-                  <div className={mutedClass}>Bid</div>
-                  <div className="text-red-400 font-semibold">{formatCurrency(bid)}</div>
+              <div className={`text-xs px-2 py-1.5 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+                <div className="flex justify-between items-center mb-1">
+                  <div className="text-center">
+                    <div className={mutedClass}>Bid</div>
+                    <div className="text-red-400 font-semibold">{formatCurrency(bid)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={mutedClass}>Spread</div>
+                    <div className={`${mutedClass} font-mono`}>{(spread / price * 100).toFixed(2)}%</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={mutedClass}>Ask</div>
+                    <div className="text-green-400 font-semibold">{formatCurrency(ask)}</div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className={mutedClass}>Spread</div>
-                  <div className={`${mutedClass} font-mono`}>{(spread / price * 100).toFixed(2)}%</div>
-                </div>
-                <div className="text-center">
-                  <div className={mutedClass}>Ask</div>
-                  <div className="text-green-400 font-semibold">{formatCurrency(ask)}</div>
+                {/* Cost preview */}
+                <div className={`pt-1 border-t ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
+                  {tradeMode === 'normal' ? (
+                    <div className="flex justify-between">
+                      <span className={mutedClass}>Buy {tradeAmount}: <span className="text-green-400 font-semibold">{formatCurrency(buyCost)}</span></span>
+                      <span className={mutedClass}>Sell {tradeAmount}: <span className="text-red-400 font-semibold">{formatCurrency(sellRevenue)}</span></span>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between">
+                        <span className={mutedClass}>Short {tradeAmount} shares:</span>
+                        <span className="text-orange-400 font-semibold">{formatCurrency(shortMargin)} margin</span>
+                      </div>
+                      <div className={`text-center ${mutedClass}`}>
+                        You deposit 50% of position value • Profit if price drops
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })()}
 
-          <div className="flex items-center gap-2">
+          {/* Amount controls with Max button */}
+          <div className="flex items-center gap-1">
             <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
             <input type="number" min="1" value={tradeAmount}
               onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-              className={`w-full text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
+              className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
             <button onClick={() => setTradeAmount(tradeAmount + 1)}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
+            <button
+              onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
+              className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+            >
+              Max
+            </button>
           </div>
 
           {tradeMode === 'normal' ? (
@@ -4042,12 +4133,6 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                 Cover
               </button>
             </div>
-          )}
-          
-          {tradeMode === 'short' && (
-            <p className={`text-xs ${mutedClass} text-center`}>
-              50% margin required • 0.1% daily interest
-            </p>
           )}
           
           <button onClick={() => { setShowTrade(false); setTradeAmount(1); }}
@@ -6457,6 +6542,7 @@ export default function App() {
               onViewChart={setSelectedCharacter}
               priceHistory={priceHistory}
               darkMode={darkMode}
+              userCash={activeUserData.cash || 0}
             />
           ))}
         </div>
