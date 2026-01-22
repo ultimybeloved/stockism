@@ -1960,6 +1960,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           >
             📈 Stats
           </button>
+          <button
+            onClick={() => setActiveTab('recovery')}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🔧 Recovery
+          </button>
         </div>
 
         {/* Message */}
@@ -3459,6 +3465,125 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* RECOVERY TAB */}
+          {activeTab === 'recovery' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                <p className={`text-sm ${mutedClass} mb-2`}>
+                  🔧 Manually process payouts for predictions that failed to auto-pay. Enter a prediction ID to scan for bets.
+                </p>
+              </div>
+
+              {/* Prediction ID Input */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-3 ${textClass}`}>1. Enter Prediction ID</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={recoveryPredictionId}
+                    onChange={(e) => setRecoveryPredictionId(e.target.value)}
+                    placeholder="e.g., pred_1737500000000"
+                    className={`flex-1 px-3 py-2 rounded-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+                  />
+                  <button
+                    onClick={handleScanForBets}
+                    disabled={loading || !recoveryPredictionId.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Scanning...' : '🔍 Scan for Bets'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Bets Found */}
+              {recoveryBets.length > 0 && (
+                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <h3 className={`font-semibold mb-3 ${textClass}`}>2. Bets Found ({recoveryBets.length})</h3>
+
+                  {/* Summary */}
+                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className={mutedClass}>Total Pool: </span>
+                        <span className="font-bold text-green-500">${recoveryBets.reduce((sum, b) => sum + b.amount, 0).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className={mutedClass}>Options: </span>
+                        <span className={textClass}>{recoveryOptions.join(', ')}</span>
+                      </div>
+                      <div>
+                        <span className={mutedClass}>Already Paid: </span>
+                        <span className="font-bold text-cyan-500">{recoveryBets.filter(b => b.paid).length}</span>
+                      </div>
+                      <div>
+                        <span className={mutedClass}>Unpaid: </span>
+                        <span className="font-bold text-orange-500">{recoveryBets.filter(b => !b.paid).length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bet List */}
+                  <div className="max-h-48 overflow-y-auto mb-3 space-y-1">
+                    {recoveryBets.map((bet, i) => (
+                      <div key={bet.userId} className={`flex justify-between items-center text-sm p-2 rounded ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+                        <span className={textClass}>
+                          {bet.displayName}
+                          {bet.paid && <span className="ml-2 text-xs text-green-500">(paid: ${bet.payout})</span>}
+                        </span>
+                        <span>
+                          <span className={`font-semibold ${bet.option === recoveryWinner ? 'text-green-500' : mutedClass}`}>
+                            {bet.option}
+                          </span>
+                          <span className="ml-2 font-bold text-cyan-500">${bet.amount}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Select Winner */}
+                  <h3 className={`font-semibold mb-2 ${textClass}`}>3. Select Winning Option</h3>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {recoveryOptions.map(option => (
+                      <button
+                        key={option}
+                        onClick={() => setRecoveryWinner(option)}
+                        className={`px-4 py-2 rounded-sm font-semibold transition-colors ${
+                          recoveryWinner === option
+                            ? 'bg-green-600 text-white'
+                            : darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                        }`}
+                      >
+                        {option}
+                        <span className="ml-2 text-xs opacity-75">
+                          (${recoveryBets.filter(b => b.option === option).reduce((sum, b) => sum + b.amount, 0)})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <h3 className={`font-semibold mb-2 ${textClass}`}>4. Process</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleProcessRecovery('payout')}
+                      disabled={loading || !recoveryWinner}
+                      className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : `💰 Pay Winners (${recoveryWinner || 'select option'})`}
+                    </button>
+                    <button
+                      onClick={() => handleProcessRecovery('refund')}
+                      disabled={loading}
+                      className="px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : '↩️ Refund All'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
