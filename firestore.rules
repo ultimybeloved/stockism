@@ -38,9 +38,9 @@ service cloud.firestore {
     match /users/{userId} {
       // Anyone authenticated can read any user (for leaderboard)
       allow read: if isAuthenticated();
-      
+
       // New user creation - only for yourself
-      allow create: if isOwner(userId) && 
+      allow create: if isOwner(userId) &&
         // Must have required fields
         request.resource.data.keys().hasAll(['displayName', 'cash', 'holdings', 'portfolioValue']) &&
         // Starting cash must be exactly 1000
@@ -52,9 +52,12 @@ service cloud.firestore {
         // Display name must be reasonable length
         request.resource.data.displayName.size() >= 1 &&
         request.resource.data.displayName.size() <= 20;
-      
-      // Updates - only owner can update their own document
-      allow update: if isOwner(userId) && validateUserUpdate();
+
+      // Updates - owner can update their own document, admin can update any
+      allow update: if isAdmin() || (isOwner(userId) && validateUserUpdate());
+
+      // Admin can delete user documents (for cleanup)
+      allow delete: if isAdmin();
     }
     
     // Validate user document updates to prevent cheating
@@ -118,10 +121,8 @@ service cloud.firestore {
       // Everyone can read market data
       allow read: if true;
 
-      // Market writes - this is where we need to be careful
-      // Ideally NO client writes, only Cloud Functions
-      // But since we don't have Cloud Functions yet, we allow with validation
-      allow update: if isAuthenticated() && validateMarketUpdate();
+      // Market writes - admin can do anything, regular users have restrictions
+      allow update: if isAdmin() || (isAuthenticated() && validateMarketUpdate());
 
       // Only admin can create market documents
       // Use merge-safe create (setDoc with merge:true still needs create permission)
