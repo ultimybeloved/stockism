@@ -4842,39 +4842,43 @@ export default function App() {
   useEffect(() => {
     const processPayouts = async () => {
       if (!user || !userData || !userData.bets) return;
-      
+
       for (const prediction of predictions) {
         if (!prediction.resolved || prediction.payoutsProcessed) continue;
-        
+
         const userBet = userData.bets[prediction.id];
         if (!userBet || userBet.paid) continue;
-        
-        // Check if user won
-        if (userBet.option === prediction.outcome) {
-          // Calculate payout
-          const options = prediction.options || ['Yes', 'No'];
-          const pools = prediction.pools || {};
-          const winningPool = pools[prediction.outcome] || 0;
-          const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
-          
-          if (winningPool > 0 && totalPool > 0) {
-            const userShare = userBet.amount / winningPool;
-            const payout = userShare * totalPool;
-            
+
+        try {
+          // Check if user won
+          if (userBet.option === prediction.outcome) {
+            // Calculate payout
+            const options = prediction.options || ['Yes', 'No'];
+            const pools = prediction.pools || {};
+            const winningPool = pools[prediction.outcome] || 0;
+            const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
+
+            // Calculate payout - if pools are somehow 0, at minimum return the bet amount
+            let payout = userBet.amount; // Default: return original bet
+            if (winningPool > 0 && totalPool > 0) {
+              const userShare = userBet.amount / winningPool;
+              payout = userShare * totalPool;
+            }
+
             // Calculate new prediction wins count
             const newPredictionWins = (userData.predictionWins || 0) + 1;
-            
+
             // Check for Oracle/Prophet achievements
             const currentAchievements = userData.achievements || [];
             const newAchievements = [];
-            
+
             if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) {
               newAchievements.push('ORACLE');
             }
             if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) {
               newAchievements.push('PROPHET');
             }
-            
+
             // Update user's cash, mark bet as paid, increment wins
             const userRef = doc(db, 'users', user.uid);
             const updateData = {
@@ -4883,13 +4887,14 @@ export default function App() {
               [`bets.${prediction.id}.payout`]: payout,
               predictionWins: newPredictionWins
             };
-            
+
             if (newAchievements.length > 0) {
               updateData.achievements = arrayUnion(...newAchievements);
             }
-            
+
             await updateDoc(userRef, updateData);
-            
+            console.log(`[Payout] Processed winning bet for prediction ${prediction.id}: +${payout}`);
+
             // Show achievement notification if earned, otherwise payout notification
             if (newAchievements.length > 0) {
               const achievement = ACHIEVEMENTS[newAchievements[0]];
@@ -4897,18 +4902,22 @@ export default function App() {
             } else {
               showNotification('success', `🎉 Prediction payout: +${formatCurrency(payout)}!`);
             }
+          } else {
+            // Mark losing bet as processed
+            const userRef = doc(db, 'users', user.uid);
+            await updateDoc(userRef, {
+              [`bets.${prediction.id}.paid`]: true,
+              [`bets.${prediction.id}.payout`]: 0
+            });
+            console.log(`[Payout] Processed losing bet for prediction ${prediction.id}`);
           }
-        } else {
-          // Mark losing bet as processed
-          const userRef = doc(db, 'users', user.uid);
-          await updateDoc(userRef, {
-            [`bets.${prediction.id}.paid`]: true,
-            [`bets.${prediction.id}.payout`]: 0
-          });
+        } catch (error) {
+          console.error(`[Payout] Failed to process payout for prediction ${prediction.id}:`, error);
+          // Don't show error to user - the payout will be retried on next render
         }
       }
     };
-    
+
     processPayouts();
   }, [user, userData, predictions]);
 

@@ -1764,7 +1764,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             amount: userBet.amount,
             paid: userBet.paid || false,
             payout: userBet.payout || 0,
-            cash: userData.cash || 0
+            cash: userData.cash || 0,
+            predictionWins: userData.predictionWins || 0,
+            achievements: userData.achievements || []
           });
           optionsFound.add(userBet.option);
         }
@@ -1835,12 +1837,32 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             if (bet.option === recoveryWinner && winningPool > 0) {
               const userShare = bet.amount / winningPool;
               const payout = Math.round(userShare * totalPool * 100) / 100;
-              await updateDoc(userRef, {
+
+              // Calculate new prediction wins and check for achievements
+              const newPredictionWins = (bet.predictionWins || 0) + 1;
+              const currentAchievements = bet.achievements || [];
+              const newAchievements = [];
+
+              if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) {
+                newAchievements.push('ORACLE');
+              }
+              if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) {
+                newAchievements.push('PROPHET');
+              }
+
+              const updateData = {
                 cash: bet.cash + payout,
                 [`bets.${predId}.paid`]: true,
-                [`bets.${predId}.payout`]: payout
-              });
-              console.log('Paid winner:', bet.displayName, payout);
+                [`bets.${predId}.payout`]: payout,
+                predictionWins: newPredictionWins
+              };
+
+              if (newAchievements.length > 0) {
+                updateData.achievements = arrayUnion(...newAchievements);
+              }
+
+              await updateDoc(userRef, updateData);
+              console.log('Paid winner:', bet.displayName, payout, 'wins:', newPredictionWins, newAchievements.length > 0 ? 'NEW ACHIEVEMENTS:' + newAchievements.join(',') : '');
             } else {
               // Losers get nothing but mark as paid
               await updateDoc(userRef, {
