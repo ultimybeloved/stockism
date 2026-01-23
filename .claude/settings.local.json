@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFresh start from working Vercel build\n\nReset to last known working state before manual edits broke the build.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git config:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(dir /s \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\\\\src\")",
+      "Bash(npm run build:*)",
+      "Bash(npx vite build)",
+      "Bash(npm install)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase use:*)",
+      "Bash(git commit:*)",
+      "Bash(npx firebase-tools:*)"
+    ]
+  }
+}

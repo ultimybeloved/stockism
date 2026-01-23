@@ -4942,6 +4942,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLending, setShowLending] = useState(false);
+  const [showBailout, setShowBailout] = useState(false);
   const [showCrewSelection, setShowCrewSelection] = useState(false);
   const [showPinShop, setShowPinShop] = useState(false);
   const [showDailyMissions, setShowDailyMissions] = useState(false);
@@ -5424,6 +5425,20 @@ export default function App() {
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
 
+    // Block if user is in debt
+    if ((userData.cash || 0) < 0) {
+      showNotification('error', 'You cannot join a crew while in debt. Pay off your balance first.');
+      return;
+    }
+
+    // Check if user was exiled from this crew (in crew history)
+    const crewHistory = userData.crewHistory || [];
+    if (crewHistory.includes(crewId)) {
+      const crewName = CREW_MAP[crewId]?.name || 'this crew';
+      showNotification('error', `You have been permanently exiled from ${crewName}.`);
+      return;
+    }
+
     // Check 24-hour cooldown for joining/switching crews
     const lastChange = userData.lastCrewChange || 0;
     const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
@@ -5439,9 +5454,11 @@ export default function App() {
 
     try {
       const userRef = doc(db, 'users', user.uid);
+      const now = Date.now();
       const updateData = {
         crew: crewId,
-        crewJoinedAt: Date.now()
+        crewJoinedAt: now,
+        crewHistory: arrayUnion(crewId) // Track crew history
       };
 
       // Only charge penalty if LEAVING a crew to join another (switching)
@@ -5492,6 +5509,12 @@ export default function App() {
   // Handle leaving crew
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
+
+    // Block if user is in debt
+    if ((userData.cash || 0) < 0) {
+      showNotification('error', 'You cannot leave your crew while in debt.');
+      return;
+    }
 
     try {
       const userRef = doc(db, 'users', user.uid);
@@ -5733,6 +5756,12 @@ export default function App() {
   const handleTrade = useCallback(async (ticker, action, amount) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to start trading!');
+      return;
+    }
+
+    // Block buying/shorting if user is in debt (selling/covering allowed)
+    if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {
+      showNotification('error', 'You cannot open new positions while in debt. Request a bailout to start fresh.');
       return;
     }
 
@@ -6391,29 +6420,38 @@ export default function App() {
         
         let totalRecovered = 0;
         const updateData = {};
-        
-        // Sell positions until margin is covered
+
+        // Sell ALL positions to cover margin debt
         for (const position of sortedHoldings) {
-          if (totalRecovered >= marginUsed) break;
-          
           const sellValue = position.value * 0.95; // 5% slippage on forced liquidation
           totalRecovered += sellValue;
           updateData[`holdings.${position.ticker}`] = 0;
           updateData[`costBasis.${position.ticker}`] = 0;
         }
-        
-        // Update user - add recovered cash, reduce margin
-        const marginCovered = Math.min(totalRecovered, marginUsed);
-        const remainingCash = totalRecovered - marginCovered;
-        
-        updateData.cash = (userData.cash || 0) + remainingCash;
-        updateData.marginUsed = Math.max(0, marginUsed - totalRecovered);
+
+        // Calculate final cash position (can go negative if debt > recovered)
+        const currentCash = userData.cash || 0;
+        const totalAvailable = currentCash + totalRecovered;
+        const finalCash = totalAvailable - marginUsed;
+
+        updateData.cash = Math.round(finalCash * 100) / 100;
+        updateData.marginUsed = 0; // Debt is now reflected in negative cash
         updateData.marginCallAt = null;
         updateData.lastLiquidation = now;
-        
+        updateData.marginEnabled = false; // Disable margin after liquidation
+
+        // If going into debt, mark bankruptcy timestamp
+        if (finalCash < 0) {
+          updateData.bankruptAt = now;
+        }
+
         await updateDoc(userRef, updateData);
-        
-        showNotification('error', `💀 MARGIN LIQUIDATION: Positions sold to cover ${formatCurrency(marginCovered)} debt`);
+
+        if (finalCash < 0) {
+          showNotification('error', `💀 BANKRUPT: All positions liquidated. You owe ${formatCurrency(Math.abs(finalCash))}`);
+        } else {
+          showNotification('error', `💀 MARGIN LIQUIDATION: All positions sold. ${formatCurrency(finalCash)} remaining.`);
+        }
         
       } else if (status.status === 'margin_call' && !userData.marginCallAt) {
         // First margin call - set grace period
@@ -6471,6 +6509,27 @@ export default function App() {
       chargeInterest();
     }
   }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.lastMarginInterestCharge]);
+
+  // Bankruptcy notification system - remind every 5 minutes
+  useEffect(() => {
+    if (!user || !userData) return;
+
+    const cash = userData.cash || 0;
+    if (cash >= 0) return; // Not in debt
+
+    const showBankruptcyReminder = () => {
+      const debtAmount = Math.abs(cash);
+      showNotification('warning', `💸 You are ${formatCurrency(debtAmount)} in debt. Accept a bailout to reset to $500, but you'll be exiled from your crew forever.`);
+    };
+
+    // Show immediately on login/becoming bankrupt
+    showBankruptcyReminder();
+
+    // Then every 5 minutes
+    const interval = setInterval(showBankruptcyReminder, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user, userData?.cash]);
 
   // Check leaderboard position for achievements (runs every 30 seconds)
   useEffect(() => {
@@ -6913,6 +6972,55 @@ export default function App() {
     }
   }, [user, userData]);
 
+  // Bankruptcy bailout - reset to $500 but exile from all past crews
+  const handleBailout = useCallback(async () => {
+    if (!user || !userData) return;
+
+    const cash = userData.cash || 0;
+    if (cash >= 0) {
+      showNotification('error', 'You are not in debt.');
+      return;
+    }
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const currentCrew = userData.crew;
+      const crewHistory = userData.crewHistory || [];
+
+      // Add current crew to history if not already there (will be exiled)
+      const updatedHistory = currentCrew && !crewHistory.includes(currentCrew)
+        ? [...crewHistory, currentCrew]
+        : crewHistory;
+
+      await updateDoc(userRef, {
+        cash: 500,
+        holdings: {},
+        shorts: {},
+        costBasis: {},
+        portfolioValue: 500,
+        marginEnabled: false,
+        marginUsed: 0,
+        bankruptAt: null,
+        crew: null,
+        crewJoinedAt: null,
+        isCrewHead: false,
+        crewHeadColor: null,
+        crewHistory: updatedHistory,
+        lastBailout: Date.now()
+      });
+
+      if (currentCrew) {
+        const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
+        showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with $500.`);
+      } else {
+        showNotification('success', 'Bailout accepted. Starting fresh with $500.');
+      }
+    } catch (err) {
+      console.error('Bailout failed:', err);
+      showNotification('error', 'Bailout failed. Please try again.');
+    }
+  }, [user, userData]);
+
   // Guest data
   const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, bets: {}, portfolioValue: STARTING_CASH };
   const activeUserData = userData || guestData;
@@ -7243,10 +7351,20 @@ export default function App() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className={`${cardClass} border rounded-sm p-4`}>
+          <div className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? 'border-red-500' : ''}`}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Cash</p>
-            <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(activeUserData.cash)}</p>
-            {activeUserData.marginEnabled && (() => {
+            <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? 'text-red-500' : textClass}`}>
+              {(activeUserData.cash || 0) < 0 ? '-' : ''}{formatCurrency(Math.abs(activeUserData.cash || 0))}
+            </p>
+            {(activeUserData.cash || 0) < 0 && (
+              <button
+                onClick={() => setShowBailout(true)}
+                className="mt-2 w-full py-1.5 text-xs font-semibold rounded-sm bg-red-600 hover:bg-red-700 text-white"
+              >
+                💸 In Debt - Request Bailout
+              </button>
+            )}
+            {(activeUserData.cash || 0) >= 0 && activeUserData.marginEnabled && (() => {
               const marginStatus = calculateMarginStatus(activeUserData, prices);
               return (
                 <p className={`text-xs ${mutedClass}`}>
@@ -7257,7 +7375,7 @@ export default function App() {
                 </p>
               );
             })()}
-            <CheckInButton 
+            <CheckInButton
               isGuest={isGuest}
               lastCheckin={userData?.lastCheckin}
               onCheckin={handleDailyCheckin}
@@ -7438,6 +7556,53 @@ export default function App() {
           portfolioValue={portfolioValue}
           isGuest={isGuest}
         />
+      )}
+      {showBailout && !isGuest && (userData?.cash || 0) < 0 && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowBailout(false)}>
+          <div
+            className={`w-full max-w-md ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'} border rounded-sm shadow-xl p-6`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-2">💸</div>
+              <h2 className={`text-xl font-bold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Bankruptcy Bailout</h2>
+            </div>
+
+            <div className={`p-4 rounded-sm mb-4 ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
+              <p className={`text-center font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                You are {formatCurrency(Math.abs(userData?.cash || 0))} in debt
+              </p>
+            </div>
+
+            <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-slate-600'} mb-4 space-y-2`}>
+              <p>Accept a bailout to clear your debt and restart with <strong className="text-green-500">$500</strong>.</p>
+              <p className="text-amber-500 font-semibold">⚠️ Consequences:</p>
+              <ul className="list-disc ml-5 space-y-1">
+                <li>You will be <strong>permanently exiled</strong> from your current crew</li>
+                <li>You can <strong>never rejoin</strong> any crew you've been part of</li>
+                <li>All holdings and shorts will be cleared</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBailout(false)}
+                className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleBailout();
+                  setShowBailout(false);
+                }}
+                className="flex-1 py-2 rounded-sm bg-green-600 hover:bg-green-700 text-white font-semibold"
+              >
+                Accept Bailout
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showAdmin && (
         <AdminPanel
