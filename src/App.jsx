@@ -5427,15 +5427,17 @@ export default function App() {
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
 
-    // Check 24-hour cooldown for switching crews
-    if (isSwitch && userData.crew) {
-      const lastChange = userData.lastCrewChange || 0;
-      const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
-      if (hoursSinceChange < 24) {
-        const hoursRemaining = Math.ceil(24 - hoursSinceChange);
+    // Check 24-hour cooldown for joining/switching crews
+    const lastChange = userData.lastCrewChange || 0;
+    const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
+    if (hoursSinceChange < 24) {
+      const hoursRemaining = Math.ceil(24 - hoursSinceChange);
+      if (isSwitch && userData.crew) {
         showNotification('error', `You can only switch crews once every 24 hours. Try again in ${hoursRemaining}h.`);
-        return;
+      } else if (!userData.crew) {
+        showNotification('error', `You cannot join a crew yet. Try again in ${hoursRemaining}h.`);
       }
+      return;
     }
 
     try {
@@ -5494,15 +5496,6 @@ export default function App() {
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
 
-    // Check 24-hour cooldown
-    const lastChange = userData.lastCrewChange || 0;
-    const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
-    if (hoursSinceChange < 24) {
-      const hoursRemaining = Math.ceil(24 - hoursSinceChange);
-      showNotification('error', `You can only leave a crew once every 24 hours. Try again in ${hoursRemaining}h.`);
-      return;
-    }
-
     try {
       const userRef = doc(db, 'users', user.uid);
       const oldCrew = CREW_MAP[userData.crew];
@@ -5545,7 +5538,7 @@ export default function App() {
 
       await updateDoc(userRef, updateData);
 
-      showNotification('success', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty)`);
+      showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty). You cannot join a new crew for 24 hours.`);
     } catch (err) {
       console.error('Failed to leave crew:', err);
       showNotification('error', 'Failed to leave crew');
