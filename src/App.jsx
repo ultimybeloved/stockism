@@ -2278,9 +2278,9 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
         {!isGuest && !confirming && !leavingCrew && (
           <div className={`p-3 ${darkMode ? 'bg-amber-900/30' : 'bg-amber-100'} border-b border-amber-500/30`}>
             <p className="text-amber-400 text-sm text-center">
-              ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>30% of your entire portfolio</strong>
+              ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>15% of your entire portfolio</strong>
               <br />
-              <span className={`text-xs ${mutedClass}`}>Roughly 1/3 of your cash and shares will be taken if you ever leave.</span>
+              <span className={`text-xs ${mutedClass}`}>15% of your cash and shares will be taken if you ever leave.</span>
             </p>
           </div>
         )}
@@ -2343,7 +2343,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
                 </p>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}>
                   <p className="text-amber-400 text-sm">
-                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose <strong>30% of your portfolio</strong>.
+                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose <strong>15% of your portfolio</strong>.
                   </p>
                   <p className={`text-xs ${mutedClass} mt-1`}>
                     You don't have to join a crew — this is optional!
@@ -3447,7 +3447,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                     onClick={() => { onClose(); onOpenCrewSelection(); }}
                     className={`w-full py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
                   >
-                    Switch Crew (50% penalty)
+                    Switch Crew (15% penalty)
                   </button>
                 </div>
               )}
@@ -5436,8 +5436,8 @@ export default function App() {
       
       // Only charge penalty if LEAVING a crew to join another (switching)
       if (isSwitch && userData.crew) {
-        // Take 30% of cash and 30% of each holding
-        const penaltyRate = 0.3;
+        // Take 15% of cash and 15% of each holding
+        const penaltyRate = 0.15;
         const newCash = Math.floor(userData.cash * (1 - penaltyRate));
         const cashTaken = userData.cash - newCash;
         
@@ -5446,24 +5446,24 @@ export default function App() {
         
         Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
           if (shares > 0) {
-            // Take 30% of shares, rounding to nearest (round up if .5 or more)
+            // Take 15% of shares, rounding to nearest (round up if .5 or more)
             const sharesToTake = Math.round(shares * penaltyRate);
             const sharesToKeep = shares - sharesToTake;
             newHoldings[ticker] = sharesToKeep;
             holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
           }
         });
-        
+
         const totalTaken = cashTaken + holdingsValueTaken;
-        
+
         updateData.cash = newCash;
         updateData.holdings = newHoldings;
         updateData.portfolioValue = Math.max(0, userData.portfolioValue - totalTaken);
-        
+
         const crew = CREW_MAP[crewId];
         await updateDoc(userRef, updateData);
-        
-        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (30% penalty)`);
+
+        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (15% penalty)`);
       } else {
         // Joining a crew (no existing crew) - no cost
         await updateDoc(userRef, updateData);
@@ -5486,9 +5486,9 @@ export default function App() {
       const userRef = doc(db, 'users', user.uid);
       const oldCrew = CREW_MAP[userData.crew];
       
-      // Calculate 30% penalty from portfolio
-      // Take 30% of cash and 30% of each holding
-      const penaltyRate = 0.3;
+      // Calculate 15% penalty from portfolio
+      // Take 15% of cash and 15% of each holding
+      const penaltyRate = 0.15;
       const newCash = Math.floor(userData.cash * (1 - penaltyRate));
       const cashTaken = userData.cash - newCash;
       
@@ -5498,7 +5498,7 @@ export default function App() {
       
       Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
         if (shares > 0) {
-          // Take 30% of shares, rounding to nearest (round up if .5 or more)
+          // Take 15% of shares, rounding to nearest (round up if .5 or more)
           const sharesToTake = Math.round(shares * penaltyRate);
           const sharesToKeep = shares - sharesToTake;
           newHoldings[ticker] = sharesToKeep;
@@ -5506,10 +5506,10 @@ export default function App() {
           holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
         }
       });
-      
+
       const totalTaken = cashTaken + holdingsValueTaken;
       const newPortfolioValue = userData.portfolioValue - totalTaken;
-      
+
       // Also update cost basis for remaining shares
       const updateData = {
         crew: null,
@@ -5520,10 +5520,10 @@ export default function App() {
         holdings: newHoldings,
         portfolioValue: Math.max(0, newPortfolioValue)
       };
-      
+
       await updateDoc(userRef, updateData);
-      
-      showNotification('success', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (30% penalty)`);
+
+      showNotification('success', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty)`);
     } catch (err) {
       console.error('Failed to leave crew:', err);
       showNotification('error', 'Failed to leave crew');
