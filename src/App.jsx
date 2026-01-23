@@ -377,7 +377,7 @@ const SimpleLineChart = ({ data, darkMode }) => {
 // ============================================
 
 const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }) => {
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('1d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [archivedHistory, setArchivedHistory] = useState([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
@@ -1165,7 +1165,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('1d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [expandedTicker, setExpandedTicker] = useState(null);
   const [expandedShortTicker, setExpandedShortTicker] = useState(null);
@@ -4599,7 +4599,6 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     }
     return 1;
   };
-  const isUp = priceChange >= 0;
   const isETF = character.isETF;
 
   const cardClass = darkMode 
@@ -4649,6 +4648,12 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     ];
   }, [priceHistory, character.ticker, character.basePrice, price]);
 
+  // Calculate change percentage from miniChartData for consistency with the chart
+  const chartFirstPrice = miniChartData[0]?.price || price;
+  const chartLastPrice = miniChartData[miniChartData.length - 1]?.price || price;
+  const chartChange = chartFirstPrice > 0 ? ((chartLastPrice - chartFirstPrice) / chartFirstPrice) * 100 : 0;
+  const isUp = chartChange >= 0;
+
   // Calculate short P/L if shorted
   const shortPL = shorted ? (shortPosition.entryPrice - price) * shortPosition.shares : 0;
 
@@ -4667,7 +4672,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           <div className="text-right">
             <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
             <p className={`text-xs font-mono ${isUp ? 'text-green-500' : 'text-red-500'}`}>
-              {isUp ? '▲' : '▼'} {formatChange(priceChange)}
+              {isUp ? '▲' : '▼'} {formatChange(chartChange)}
             </p>
           </div>
         </div>
