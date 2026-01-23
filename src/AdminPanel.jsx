@@ -14,14 +14,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [options, setOptions] = useState(['', '', '', '', '', '']);
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
   
-  // Calculate end time at 8:55 AM CST on target day
+  // Calculate end time at 15:00 UTC on target day
   const getEndTime = (days) => {
     const now = new Date();
     const target = new Date(now);
     target.setDate(target.getDate() + days);
-    // Set to 8:55 AM CST (CST is UTC-6)
-    // 8:55 AM CST = 14:55 UTC
-    target.setUTCHours(14, 55, 0, 0);
+    target.setUTCHours(15, 0, 0, 0);
     return target.getTime();
   };
   
@@ -2586,7 +2584,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
                     </div>
                     <p className={`text-xs ${mutedClass} mt-1`}>
-                      Ends: {endDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} at 8:55 AM CST
+                      Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
                     </p>
                   </div>
 
