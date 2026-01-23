@@ -780,7 +780,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode }) => {
 // PREDICTION CARD COMPONENT (Multi-Option with Auto-Payout)
 // ============================================
 
-const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onRequestBet, betLimit = 0 }) => {
+const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
   const [betAmount, setBetAmount] = useState(50);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
@@ -975,6 +975,15 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
             Winner: {prediction.outcome}
           </span>
         </div>
+      )}
+
+      {isAdmin && prediction.resolved && onHide && (
+        <button
+          onClick={() => onHide(prediction.id)}
+          className={`w-full mt-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+        >
+          Hide from feed
+        </button>
       )}
     </div>
   );
@@ -7089,6 +7098,20 @@ export default function App() {
     showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
   }, [user, userData, predictions, addActivity]);
 
+  // Hide prediction from feed (admin only)
+  const handleHidePrediction = useCallback(async (predictionId) => {
+    if (!user || !ADMIN_UIDS.includes(user.uid)) return;
+
+    try {
+      const predictionRef = doc(db, 'predictions', predictionId);
+      await updateDoc(predictionRef, { hidden: true });
+      showNotification('success', 'Prediction hidden from feed');
+    } catch (err) {
+      console.error('Failed to hide prediction:', err);
+      showNotification('error', 'Failed to hide prediction');
+    }
+  }, [user]);
+
   // Logout
   const handleLogout = () => signOut(auth);
 
@@ -7521,7 +7544,7 @@ export default function App() {
             <div className="lg:col-span-2">
               <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>🔮 Weekly Predictions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {predictions.filter(p => !p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000).map(prediction => {
+                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
                   // Calculate bet limit = total $ spent on stocks, capped by cash
                   const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
                     const costBasis = userData?.costBasis?.[ticker] || 0;
@@ -7541,6 +7564,8 @@ export default function App() {
                       darkMode={darkMode}
                       isGuest={isGuest}
                       betLimit={betLimit}
+                      isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+                      onHide={handleHidePrediction}
                     />
                   );
                 })}
