@@ -4621,21 +4621,30 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
   const miniChartData = useMemo(() => {
     const data = priceHistory[character.ticker] || [];
-    const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const filtered = data.filter(p => p.timestamp >= cutoff);
-    
+    const now = Date.now();
+    const dayAgo = now - (24 * 60 * 60 * 1000);
+    const filtered = data.filter(p => p.timestamp >= dayAgo);
+
     // If we have enough data, use it
     if (filtered.length >= 2) {
       return filtered;
     }
-    
-    // Otherwise, create a synthetic chart from base price to current price
-    const basePrice = character.basePrice;
-    const now = Date.now();
-    const dayAgo = now - (24 * 60 * 60 * 1000);
-    
+
+    // Find price from ~24h ago for synthetic chart
+    let price24hAgo = character.basePrice;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].timestamp <= dayAgo) {
+        price24hAgo = data[i].price;
+        break;
+      }
+    }
+    // If no history before 24h ago, use oldest available or basePrice
+    if (price24hAgo === character.basePrice && data.length > 0) {
+      price24hAgo = data[0].price;
+    }
+
     return [
-      { timestamp: dayAgo, price: basePrice },
+      { timestamp: dayAgo, price: price24hAgo },
       { timestamp: now, price: price }
     ];
   }, [priceHistory, character.ticker, character.basePrice, price]);
@@ -7103,9 +7112,16 @@ export default function App() {
     if (!user || !ADMIN_UIDS.includes(user.uid)) return;
 
     try {
-      const predictionRef = doc(db, 'predictions', predictionId);
-      await updateDoc(predictionRef, { hidden: true });
-      showNotification('success', 'Prediction hidden from feed');
+      const predictionsRef = doc(db, 'predictions', 'current');
+      const snap = await getDoc(predictionsRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        const updatedList = (data.list || []).map(p =>
+          p.id === predictionId ? { ...p, hidden: true } : p
+        );
+        await updateDoc(predictionsRef, { list: updatedList });
+        showNotification('success', 'Prediction hidden from feed');
+      }
     } catch (err) {
       console.error('Failed to hide prediction:', err);
       showNotification('error', 'Failed to hide prediction');
@@ -7372,13 +7388,13 @@ export default function App() {
           const activityA = getTradeActivity(a.ticker);
           const activityB = getTradeActivity(b.ticker);
 
-          // Primary: most trades in last week
-          if (activityB.weekTrades !== activityA.weekTrades) {
-            return activityB.weekTrades - activityA.weekTrades;
-          }
-          // Secondary: most trades in last day
+          // Primary: most trades today (last 24h)
           if (activityB.dayTrades !== activityA.dayTrades) {
             return activityB.dayTrades - activityA.dayTrades;
+          }
+          // Secondary: most trades in last week
+          if (activityB.weekTrades !== activityA.weekTrades) {
+            return activityB.weekTrades - activityA.weekTrades;
           }
           // Tertiary: alphabetical by ticker
           return a.ticker.localeCompare(b.ticker);
