@@ -98,6 +98,17 @@ Admins can:
 - Execute market rollbacks
 - Manage IPOs
 
-## Credits
+## Credits & Legal Disclaimer
 
-Built for the Lookism community. Character data from the webtoon series.
+This is an unofficial, fan-made project created for entertainment purposes and is not affiliated with, endorsed by, or sponsored by the original creators or publishers of Lookism.
+
+**Lookism** is created by **Taejun Park (PTJ)** and published by **Naver Corporation** through **Naver Webtoon**. All character names, likenesses, and intellectual property related to Lookism belong to their respective copyright holders, including but not limited to:
+- **Taejun Park (PTJ)** - Original creator and author
+- **Naver Corporation** - Publisher
+- **PTJ Comics** - Production company
+
+All rights to the Lookism intellectual property remain with the original copyright holders. This project uses character names and references solely for the purpose of creating a fan-made stock market simulation game. **No copyright infringement is intended.** This is a non-commercial project created by fans, for fans of the Lookism series.
+
+If you have any concerns regarding copyright or intellectual property, please contact us at **support@stockism.app** and we will address them promptly.
+
+Built with appreciation for the Lookism community.
