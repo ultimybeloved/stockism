@@ -5318,13 +5318,23 @@ export default function App() {
           });
         }
         
-        // Deduct any losses beyond margin from cash (can go negative as a penalty)
-        updateData.cash = Math.max(0, userData.cash - totalLoss);
-        
+        // Deduct any losses beyond margin from cash (can go negative - triggers bankruptcy)
+        const newCash = Math.round((userData.cash - totalLoss) * 100) / 100;
+        updateData.cash = newCash;
+
+        // Mark bankruptcy if going negative
+        if (newCash < 0) {
+          updateData.bankruptAt = Date.now();
+        }
+
         await updateDoc(userRef, updateData);
-        
+
         const tickerList = liquidations.map(l => l.ticker).join(', ');
-        showNotification('error', `⚠️ MARGIN CALL: ${tickerList} position(s) liquidated!`);
+        if (newCash < 0) {
+          showNotification('error', `💀 BANKRUPT: ${tickerList} liquidated. You owe ${formatCurrency(Math.abs(newCash))}`);
+        } else {
+          showNotification('error', `⚠️ MARGIN CALL: ${tickerList} position(s) liquidated!`);
+        }
       }
     };
     
