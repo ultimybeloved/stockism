@@ -11,7 +11,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  deleteDoc,
   onSnapshot,
   collection,
   query,
@@ -23,7 +22,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -3166,8 +3165,9 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 
 const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection, user, onDeleteAccount }) => {
   const [showCrewSection, setShowCrewSection] = useState(false);
-  const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=info, 2=confirm1, 3=confirm2, 4=final
+  const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=info, 2=confirm1, 3=confirm2, 4=confirm3, 5=final
   const [deleting, setDeleting] = useState(false);
+  const [confirmUsername, setConfirmUsername] = useState('');
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -3442,9 +3442,9 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
 
             {deleteStep === 3 && (
               <div className={`p-3 rounded-sm border-2 border-red-600 ${darkMode ? 'bg-red-900/30' : 'bg-red-100'}`}>
-                <h4 className={`font-semibold text-red-600 mb-2`}>🚨 Final Confirmation</h4>
+                <h4 className={`font-semibold text-red-600 mb-2`}>🚨 Are you absolutely certain?</h4>
                 <p className={`text-sm text-red-500 mb-3`}>
-                  This is your LAST chance. Click below to permanently delete everything.
+                  Your account and all data will be permanently erased. There is no recovery.
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -3454,20 +3454,80 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                     Cancel
                   </button>
                   <button
+                    onClick={() => setDeleteStep(4)}
+                    className="flex-1 py-2 text-sm font-bold rounded-sm bg-red-700 hover:bg-red-800 text-white"
+                  >
+                    Continue Deletion
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === 4 && (
+              <div className={`p-3 rounded-sm border-2 border-rose-700 ${darkMode ? 'bg-rose-900/40' : 'bg-rose-100'}`}>
+                <h4 className={`font-semibold text-rose-700 mb-2`}>⚠️ Point of No Return</h4>
+                <p className={`text-sm text-rose-600 mb-3`}>
+                  After the next step, your account "{userData?.displayName}" will be gone forever.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDeleteStep(0)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { setDeleteStep(5); setConfirmUsername(''); }}
+                    className="flex-1 py-2 text-sm font-bold rounded-sm bg-rose-700 hover:bg-rose-800 text-white"
+                  >
+                    Proceed to Final Step
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === 5 && (
+              <div className={`p-3 rounded-sm border-2 ${darkMode ? 'border-white bg-zinc-950' : 'border-zinc-800 bg-white'}`}>
+                <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Final Confirmation</h4>
+                <p className={`text-sm mb-3 ${darkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                  Type your username <span className="font-bold">{userData?.displayName}</span> to confirm deletion:
+                </p>
+                <input
+                  type="text"
+                  value={confirmUsername}
+                  onChange={(e) => setConfirmUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  className={`w-full px-3 py-2 mb-3 rounded-sm border ${
+                    darkMode
+                      ? 'bg-zinc-900 border-zinc-600 text-white placeholder-zinc-500'
+                      : 'bg-zinc-50 border-zinc-300 text-zinc-900 placeholder-zinc-400'
+                  }`}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setDeleteStep(0); setConfirmUsername(''); }}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
                     onClick={async () => {
                       setDeleting(true);
                       try {
-                        await onDeleteAccount();
+                        await onDeleteAccount(confirmUsername);
                       } catch (err) {
                         console.error('Failed to delete account:', err);
                         setDeleting(false);
-                        setDeleteStep(0);
                       }
                     }}
-                    disabled={deleting}
-                    className="flex-1 py-2 text-sm font-bold rounded-sm bg-red-700 hover:bg-red-800 text-white disabled:opacity-50"
+                    disabled={deleting || confirmUsername.toLowerCase() !== userData?.displayName?.toLowerCase()}
+                    className={`flex-1 py-2 text-sm font-bold rounded-sm disabled:opacity-50 ${
+                      darkMode
+                        ? 'bg-white hover:bg-zinc-200 text-zinc-900'
+                        : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                    }`}
                   >
-                    {deleting ? 'Deleting...' : '🗑️ YES, DELETE PERMANENTLY'}
+                    {deleting ? 'Deleting...' : 'Delete My Account'}
                   </button>
                 </div>
               </div>
@@ -6560,30 +6620,20 @@ export default function App() {
   const handleLogout = () => signOut(auth);
 
   // Delete account
-  const handleDeleteAccount = useCallback(async () => {
+  const handleDeleteAccount = useCallback(async (confirmUsername) => {
     if (!user) return;
 
     try {
-      // Delete user document from Firestore
-      const userRef = doc(db, 'users', user.uid);
-      await deleteDoc(userRef);
-
-      // Delete username reservation
-      if (userData?.displayNameLower) {
-        const usernameRef = doc(db, 'usernames', userData.displayNameLower);
-        await deleteDoc(usernameRef);
-      }
-
-      // Sign out (this will trigger auth state change)
-      await signOut(auth);
-
+      // Call Cloud Function to delete account
+      await deleteAccountFunction({ confirmUsername });
       showNotification('success', 'Account deleted successfully');
     } catch (err) {
       console.error('Failed to delete account:', err);
-      showNotification('error', 'Failed to delete account. Please try again.');
+      const errorMessage = err?.message || 'Failed to delete account. Please try again.';
+      showNotification('error', errorMessage);
       throw err;
     }
-  }, [user, userData, showNotification]);
+  }, [user, showNotification]);
 
   // Enable margin trading
   const handleEnableMargin = useCallback(async () => {

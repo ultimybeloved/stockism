@@ -281,3 +281,91 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
     reason: usernameDoc.exists ? 'Username taken' : null
   };
 });
+
+/**
+ * Deletes a user account and all associated data.
+ *
+ * Atomically:
+ * 1. Deletes the user document from users collection
+ * 2. Deletes the username reservation from usernames collection
+ * 3. Deletes the Firebase Auth account
+ *
+ * @param {string} confirmUsername - Must match the user's display name to confirm deletion
+ * @returns {Object} - { success: true } or throws error
+ */
+exports.deleteAccount = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be logged in to delete your account.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const confirmUsername = data.confirmUsername;
+
+  // Validate confirmation username is provided
+  if (!confirmUsername || typeof confirmUsername !== 'string') {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Username confirmation is required.'
+    );
+  }
+
+  try {
+    // Get user document to verify username match
+    const userRef = db.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'User profile not found.'
+      );
+    }
+
+    const userData = userDoc.data();
+    const displayName = userData.displayName;
+    const displayNameLower = userData.displayNameLower;
+
+    // Verify the confirmation username matches (case-insensitive)
+    if (confirmUsername.toLowerCase() !== displayName.toLowerCase()) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Username confirmation does not match.'
+      );
+    }
+
+    // Use a batch to atomically delete both documents
+    const batch = db.batch();
+
+    // Delete user document
+    batch.delete(userRef);
+
+    // Delete username reservation if it exists
+    if (displayNameLower) {
+      const usernameRef = db.collection('usernames').doc(displayNameLower);
+      batch.delete(usernameRef);
+    }
+
+    // Commit the batch
+    await batch.commit();
+
+    // Delete the Firebase Auth account
+    await admin.auth().deleteUser(uid);
+
+    return { success: true };
+  } catch (error) {
+    // Re-throw HttpsErrors as-is
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    // Wrap other errors
+    console.error('Error deleting account:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to delete account. Please try again.'
+    );
+  }
+});

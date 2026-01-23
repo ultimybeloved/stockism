@@ -32,5 +32,6 @@ export const functions = getFunctions(app);
 // Cloud Functions
 export const createUserFunction = httpsCallable(functions, 'createUser');
 export const checkUsernameFunction = httpsCallable(functions, 'checkUsername');
+export const deleteAccountFunction = httpsCallable(functions, 'deleteAccount');
 
 export default app;
