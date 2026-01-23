@@ -2345,9 +2345,6 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
                   <p className="text-amber-400 text-sm">
                     ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose <strong>15% of your portfolio</strong>.
                   </p>
-                  <p className={`text-xs ${mutedClass} mt-1`}>
-                    You don't have to join a crew — this is optional!
-                  </p>
                 </div>
               </div>
             )}
