@@ -2221,7 +2221,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
   
   const currentCrew = userData?.crew;
   const portfolioValue = userData?.portfolioValue || 0;
-  const penaltyAmount = Math.floor(portfolioValue * 0.5);
+  const penaltyAmount = Math.floor(portfolioValue * 0.15);
   
   const handleSelect = (crewId) => {
     if (isGuest) return; // Guests can't select
@@ -2294,7 +2294,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
                 You will lose approximately {formatCurrency(penaltyAmount)}
               </p>
               <p className={`text-xs ${mutedClass}`}>
-                Roughly 1/3 of your cash and shares will be taken.
+                15% of your cash and shares will be taken.
               </p>
             </div>
             <p className={`text-sm ${mutedClass} mb-6`}>You can rejoin any crew later.</p>
@@ -2333,7 +2333,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
                   You will lose approximately {formatCurrency(penaltyAmount)}
                 </p>
                 <p className={`text-xs ${mutedClass}`}>
-                  Roughly 1/3 of your cash and shares will be taken.
+                  15% of your cash and shares will be taken.
                 </p>
               </div>
             ) : (
