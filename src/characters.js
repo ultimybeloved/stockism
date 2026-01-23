@@ -92,7 +92,7 @@ export const CHARACTERS = [
   { name: "Kenta Magami", ticker: "DRMA", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-16T00:30:00" },
   { name: "Sato Kazuma", ticker: "HYOT", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-16T00:31:00" },
   { name: "Vivi", ticker: "CLUB", basePrice: 15, volatility: 0.03, dateAdded: "2026-01-16T00:32:00" },
-  { name: "Alexander Hwang", ticker: "ALEX", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:33:00" },
+  { name: "Alexander Hwang", ticker: "ALEX", basePrice: 10, volatility: 0.035, dateAdded: "2026-01-16T00:33:00" },
   { name: "Taejin Cheon", ticker: "SHMN", basePrice: 65, volatility: 0.035, dateAdded: "2026-01-16T00:34:00" },
   { name: "Hangyeol Baek", ticker: "NO1", basePrice: 35, volatility: 0.035, dateAdded: "2026-01-16T00:35:00" },
   { name: "Luah Lim", ticker: "LUAH", basePrice: 20, volatility: 0.03, dateAdded: "2026-01-16T00:36:00" },
