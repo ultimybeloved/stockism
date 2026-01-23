@@ -70,7 +70,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
       const userRef = db.collection('users').doc(uid);
 
-      // Check if username is already taken
+      // Check if username is already taken (including deleted usernames)
       const usernameDoc = await transaction.get(usernameRef);
       if (usernameDoc.exists) {
         throw new functions.https.HttpsError(
@@ -276,6 +276,7 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
   const lower = trimmed.toLowerCase();
   const usernameDoc = await db.collection('usernames').doc(lower).get();
 
+  // Username is taken if the document exists (even if marked as deleted)
   return {
     available: !usernameDoc.exists,
     reason: usernameDoc.exists ? 'Username taken' : null
@@ -287,7 +288,7 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
  *
  * Atomically:
  * 1. Deletes the user document from users collection
- * 2. Deletes the username reservation from usernames collection
+ * 2. Marks the username as deleted (keeps it reserved to prevent reuse)
  * 3. Deletes the Firebase Auth account
  *
  * @param {string} confirmUsername - Must match the user's display name to confirm deletion
@@ -343,10 +344,14 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
     // Delete user document
     batch.delete(userRef);
 
-    // Delete username reservation if it exists
+    // Mark username as deleted (but keep reserved) if it exists
     if (displayNameLower) {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
-      batch.delete(usernameRef);
+      batch.update(usernameRef, {
+        deleted: true,
+        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletedUid: uid
+      });
     }
 
     // Commit the batch
