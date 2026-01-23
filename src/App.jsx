@@ -1110,12 +1110,14 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
 // PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory }) => {
   const [sellAmounts, setSellAmounts] = useState({});
+  const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [expandedTicker, setExpandedTicker] = useState(null);
+  const [expandedShortTicker, setExpandedShortTicker] = useState(null);
   
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -1172,6 +1174,48 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
       .sort((a, b) => b.value - a.value);
   }, [holdings, prices, costBasis, priceHistory]);
 
+  const shortItems = useMemo(() => {
+    return Object.entries(shorts || {})
+      .filter(([_, position]) => position && position.shares > 0)
+      .map(([ticker, position]) => {
+        const character = CHARACTER_MAP[ticker];
+        const currentPrice = prices[ticker] || character?.basePrice || position.entryPrice;
+        const entryPrice = position.entryPrice;
+        const shares = position.shares;
+        const margin = position.margin || 0;
+
+        // P/L calculation: profit when price goes down
+        const profitPerShare = entryPrice - currentPrice;
+        const totalPL = profitPerShare * shares;
+        const totalPLPercent = entryPrice > 0 ? (profitPerShare / entryPrice) * 100 : 0;
+
+        // Current equity in the position
+        const equity = margin + totalPL;
+        const equityRatio = currentPrice > 0 ? equity / (currentPrice * shares) : 1;
+
+        // Position value (margin + unrealized P/L)
+        const positionValue = equity;
+
+        return {
+          ticker,
+          character,
+          shares,
+          entryPrice,
+          currentPrice,
+          margin,
+          totalPL,
+          totalPLPercent,
+          equity,
+          equityRatio,
+          positionValue,
+          openedAt: position.openedAt
+        };
+      })
+      .sort((a, b) => b.positionValue - a.positionValue);
+  }, [shorts, prices]);
+
+  const totalShortsValue = shortItems.reduce((sum, item) => sum + item.positionValue, 0);
+
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.value, 0);
   const totalCostBasis = portfolioItems.reduce((sum, item) => sum + item.totalCost, 0);
   const overallTotalReturn = totalValue - totalCostBasis;
@@ -1182,8 +1226,16 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
     onTrade(ticker, 'sell', amount);
   };
 
+  const handleCover = (ticker, amount) => {
+    onTrade(ticker, 'cover', amount);
+  };
+
   const toggleExpand = (ticker) => {
     setExpandedTicker(expandedTicker === ticker ? null : ticker);
+  };
+
+  const toggleShortExpand = (ticker) => {
+    setExpandedShortTicker(expandedShortTicker === ticker ? null : ticker);
   };
 
   // Chart data processing
@@ -1437,16 +1489,22 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {portfolioItems.length === 0 ? (
+          {portfolioItems.length === 0 && shortItems.length === 0 ? (
             <div className={`text-center py-8 ${mutedClass}`}>
-              <p className="text-lg mb-2">📭 No holdings yet</p>
+              <p className="text-lg mb-2">📭 No positions yet</p>
               <p className="text-sm">Start trading to build your portfolio!</p>
             </div>
           ) : (
             <>
               {/* Holdings List */}
-              <div className="space-y-2">
-                {portfolioItems.map(item => {
+              {portfolioItems.length > 0 && (
+                <>
+                  <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
+                    <span className="text-green-500">📈</span> Long Positions
+                    <span className={`text-xs font-normal ${mutedClass}`}>({portfolioItems.length})</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {portfolioItems.map(item => {
                   const isExpanded = expandedTicker === item.ticker;
                   const diversityPercent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
                   
@@ -1554,8 +1612,143 @@ const PortfolioModal = ({ holdings, prices, portfolioHistory, currentValue, onCl
                       )}
                     </div>
                   );
-                })}
-              </div>
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Short Positions Section */}
+              {shortItems.length > 0 && (
+                <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-300'}`}>
+                  <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
+                    <span className="text-orange-500">📉</span> Short Positions
+                    <span className={`text-xs font-normal ${mutedClass}`}>({shortItems.length})</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {shortItems.map(item => {
+                      const isExpanded = expandedShortTicker === item.ticker;
+                      const isAtRisk = item.equityRatio < 0.35; // Warning when below 35%
+
+                      return (
+                        <div key={`short-${item.ticker}`} className={`rounded-sm border ${
+                          isAtRisk
+                            ? 'border-orange-500 bg-orange-500/10'
+                            : darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'
+                        }`}>
+                          {/* Main Row - Clickable */}
+                          <div
+                            className="p-3 cursor-pointer hover:bg-opacity-80"
+                            onClick={() => toggleShortExpand(item.ticker)}
+                          >
+                            <div className="flex justify-between items-center">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>SHORT</span>
+                                  <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
+                                  <span className={`text-xs ${mutedClass}`}>
+                                    {isExpanded ? '▼' : '▶'}
+                                  </span>
+                                </div>
+                                <div className={`text-sm ${mutedClass} mt-0.5`}>
+                                  {item.shares} shares shorted
+                                  {isAtRisk && <span className="text-orange-500 ml-2">⚠️ Margin Warning</span>}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className={`font-semibold ${item.totalPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {item.totalPL >= 0 ? '+' : ''}{formatCurrency(item.totalPL)}
+                                </div>
+                                <div className={`text-xs ${item.totalPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {item.totalPL >= 0 ? '▲' : '▼'} {Math.abs(item.totalPLPercent).toFixed(2)}%
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className={`px-3 pb-3 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+                              {/* Stats Grid */}
+                              <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
+                                <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                                  <div className={`text-xs ${mutedClass}`}>Entry Price</div>
+                                  <div className={`font-semibold ${textClass}`}>{formatCurrency(item.entryPrice)}</div>
+                                </div>
+                                <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                                  <div className={`text-xs ${mutedClass}`}>Current Price</div>
+                                  <div className={`font-semibold ${textClass}`}>{formatCurrency(item.currentPrice)}</div>
+                                </div>
+                                <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                                  <div className={`text-xs ${mutedClass}`}>Margin Posted</div>
+                                  <div className={`font-semibold ${textClass}`}>{formatCurrency(item.margin)}</div>
+                                </div>
+                                <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+                                  <div className={`text-xs ${mutedClass}`}>Current Equity</div>
+                                  <div className={`font-semibold ${item.equity >= item.margin ? 'text-green-500' : 'text-red-500'}`}>
+                                    {formatCurrency(item.equity)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Equity Ratio Bar */}
+                              <div className="mb-3">
+                                <div className={`text-xs ${mutedClass} mb-1 flex justify-between`}>
+                                  <span>Equity Ratio: {(item.equityRatio * 100).toFixed(1)}%</span>
+                                  <span className={isAtRisk ? 'text-orange-500' : 'text-green-500'}>
+                                    {isAtRisk ? 'Liquidation at 25%' : 'Healthy'}
+                                  </span>
+                                </div>
+                                <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      item.equityRatio < 0.25 ? 'bg-red-500' :
+                                      item.equityRatio < 0.35 ? 'bg-orange-500' : 'bg-green-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, Math.max(0, item.equityRatio * 100))}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Cover Controls */}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={item.shares}
+                                  value={coverAmounts[item.ticker] || 1}
+                                  onChange={(e) => setCoverAmounts(prev => ({
+                                    ...prev,
+                                    [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1))
+                                  }))}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
+                                    darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
+                                  }`}
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCover(item.ticker, coverAmounts[item.ticker] || 1); }}
+                                  className="px-4 py-1.5 text-xs font-semibold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm"
+                                >
+                                  Cover
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCover(item.ticker, item.shares); }}
+                                  className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
+                                    darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                                  }`}
+                                >
+                                  Cover All
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -7264,6 +7457,7 @@ export default function App() {
       {showPortfolio && !isGuest && (
         <PortfolioModal
           holdings={activeUserData.holdings || {}}
+          shorts={activeUserData.shorts || {}}
           prices={prices}
           portfolioHistory={userData?.portfolioHistory || []}
           currentValue={portfolioValue}
