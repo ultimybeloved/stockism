@@ -347,11 +347,11 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
     // Mark username as deleted (but keep reserved) if it exists
     if (displayNameLower) {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
-      batch.update(usernameRef, {
+      batch.set(usernameRef, {
         deleted: true,
         deletedAt: admin.firestore.FieldValue.serverTimestamp(),
         deletedUid: uid
-      });
+      }, { merge: true });
     }
 
     // Commit the batch
