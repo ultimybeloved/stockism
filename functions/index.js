@@ -8,6 +8,44 @@ const db = admin.firestore();
 const STARTING_CASH = 1000;
 const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
+// Banned usernames (impersonation prevention)
+const BANNED_NAMES = [
+  'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
+  'official', 'system', 'root', 'owner', 'founder', 'manager',
+  'stockism', 'darthyg', 'darth_yg', 'darth', 'null', 'undefined'
+];
+
+/**
+ * Checks if a username is banned (handles leetspeak variations).
+ * @param {string} username - Lowercase username to check
+ * @returns {boolean} - True if banned
+ */
+function isBannedUsername(username) {
+  // Normalize leetspeak and variations
+  const normalized = username
+    .replace(/[0]/g, 'o')
+    .replace(/[1]/g, 'i')
+    .replace(/[3]/g, 'e')
+    .replace(/[4]/g, 'a')
+    .replace(/[5]/g, 's')
+    .replace(/[7]/g, 't')
+    .replace(/_/g, '');
+
+  // Check exact matches
+  if (BANNED_NAMES.includes(username) || BANNED_NAMES.includes(normalized)) {
+    return true;
+  }
+
+  // Check if it contains banned terms
+  for (const banned of BANNED_NAMES) {
+    if (username.includes(banned) || normalized.includes(banned)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Creates a new user with case-insensitive unique username.
  *
@@ -63,6 +101,14 @@ exports.createUser = functions.https.onCall(async (data, context) => {
   }
 
   const displayNameLower = trimmed.toLowerCase();
+
+  // Check if username is banned
+  if (isBannedUsername(displayNameLower)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'This username is not allowed.'
+    );
+  }
 
   // Use a transaction to atomically check and create
   try {
@@ -274,6 +320,12 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
   }
 
   const lower = trimmed.toLowerCase();
+
+  // Check if username is banned
+  if (isBannedUsername(lower)) {
+    return { available: false, reason: 'Username not allowed' };
+  }
+
   const usernameDoc = await db.collection('usernames').doc(lower).get();
 
   // Username is taken if the document exists (even if marked as deleted)

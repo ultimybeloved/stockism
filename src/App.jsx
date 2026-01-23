@@ -376,8 +376,8 @@ const SimpleLineChart = ({ data, darkMode }) => {
 // DETAILED CHART MODAL
 // ============================================
 
-const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode }) => {
-  const [timeRange, setTimeRange] = useState('1d');
+const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, defaultTimeRange = '1d' }) => {
+  const [timeRange, setTimeRange] = useState(defaultTimeRange);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [archivedHistory, setArchivedHistory] = useState([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
@@ -4618,7 +4618,8 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     }
   };
 
-  const miniChartData = useMemo(() => {
+  // Calculate 24h chart data
+  const chart24hData = useMemo(() => {
     const data = priceHistory[character.ticker] || [];
     const now = Date.now();
     const dayAgo = now - (24 * 60 * 60 * 1000);
@@ -4648,18 +4649,60 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     ];
   }, [priceHistory, character.ticker, character.basePrice, price]);
 
-  // Calculate change percentage from miniChartData for consistency with the chart
-  const chartFirstPrice = miniChartData[0]?.price || price;
-  const chartLastPrice = miniChartData[miniChartData.length - 1]?.price || price;
-  const chartChange = chartFirstPrice > 0 ? ((chartLastPrice - chartFirstPrice) / chartFirstPrice) * 100 : 0;
+  // Calculate 7d chart data
+  const chart7dData = useMemo(() => {
+    const data = priceHistory[character.ticker] || [];
+    const now = Date.now();
+    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const filtered = data.filter(p => p.timestamp >= weekAgo);
+
+    if (filtered.length >= 2) {
+      return filtered;
+    }
+
+    // Find price from ~7d ago for synthetic chart
+    let price7dAgo = character.basePrice;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].timestamp <= weekAgo) {
+        price7dAgo = data[i].price;
+        break;
+      }
+    }
+    if (price7dAgo === character.basePrice && data.length > 0) {
+      price7dAgo = data[0].price;
+    }
+
+    return [
+      { timestamp: weekAgo, price: price7dAgo },
+      { timestamp: now, price: price }
+    ];
+  }, [priceHistory, character.ticker, character.basePrice, price]);
+
+  // Calculate 24h percentage change
+  const chart24hFirstPrice = chart24hData[0]?.price || price;
+  const chart24hLastPrice = chart24hData[chart24hData.length - 1]?.price || price;
+  const chart24hChange = chart24hFirstPrice > 0 ? ((chart24hLastPrice - chart24hFirstPrice) / chart24hFirstPrice) * 100 : 0;
+
+  // Calculate 7d percentage change
+  const chart7dFirstPrice = chart7dData[0]?.price || price;
+  const chart7dLastPrice = chart7dData[chart7dData.length - 1]?.price || price;
+  const chart7dChange = chart7dFirstPrice > 0 ? ((chart7dLastPrice - chart7dFirstPrice) / chart7dFirstPrice) * 100 : 0;
+
+  // Determine if we should use 7d data instead of 24h
+  const use7dChart = chart24hData.length <= 2 || Math.abs(chart24hChange) < 0.01;
+
+  // Use the appropriate data for display
+  const miniChartData = use7dChart ? chart7dData : chart24hData;
+  const chartChange = use7dChart ? chart7dChange : chart24hChange;
   const isUp = chartChange >= 0;
+  const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
   // Calculate short P/L if shorted
   const shortPL = shorted ? (shortPosition.entryPrice - price) * shortPosition.shares : 0;
 
   return (
     <div className={`${cardClass} border rounded-sm p-4 transition-all`}>
-      <div className="cursor-pointer" onClick={() => !showTrade && onViewChart(character)}>
+      <div className="cursor-pointer" onClick={() => !showTrade && onViewChart(character, defaultChartTimeRange)}>
         <div className="flex justify-between items-start mb-2">
           <div>
             <div className="flex items-center gap-1">
@@ -5014,6 +5057,11 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notifications, setNotifications] = useState([]); // Toast notification queue
+
+  // Handler for viewing charts with default time range
+  const handleViewChart = (character, defaultTimeRange = '1d') => {
+    setSelectedCharacter({ character, defaultTimeRange });
+  };
   const [needsUsername, setNeedsUsername] = useState(false);
   const [sortBy, setSortBy] = useState('price-high');
   const [searchQuery, setSearchQuery] = useState('');
@@ -7703,7 +7751,7 @@ export default function App() {
               holdings={activeUserData.holdings?.[character.ticker] || 0}
               shortPosition={activeUserData.shorts?.[character.ticker]}
               onTrade={requestTrade}
-              onViewChart={setSelectedCharacter}
+              onViewChart={handleViewChart}
               priceHistory={priceHistory}
               darkMode={darkMode}
               userCash={activeUserData.cash || 0}
@@ -7902,11 +7950,12 @@ export default function App() {
       )}
       {selectedCharacter && (
         <ChartModal
-          character={selectedCharacter}
-          currentPrice={prices[selectedCharacter.ticker] || selectedCharacter.basePrice}
+          character={selectedCharacter.character || selectedCharacter}
+          currentPrice={prices[(selectedCharacter.character || selectedCharacter).ticker] || (selectedCharacter.character || selectedCharacter).basePrice}
           priceHistory={priceHistory}
           onClose={() => setSelectedCharacter(null)}
           darkMode={darkMode}
+          defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
         />
       )}
 
