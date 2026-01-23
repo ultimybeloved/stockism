@@ -49,8 +49,8 @@ service cloud.firestore {
     // ============================================
 
     match /users/{userId} {
-      // Anyone authenticated can read any user (for leaderboard)
-      allow read: if isAuthenticated();
+      // Anyone can read user data (for public leaderboard)
+      allow read: if true;
 
       // User creation is now handled by Cloud Functions
       // This ensures atomic username uniqueness checking
@@ -131,6 +131,12 @@ service cloud.firestore {
       // Only admin can create market documents
       // Use merge-safe create (setDoc with merge:true still needs create permission)
       allow create: if isAdmin() || (isAuthenticated() && validateMarketCreate());
+
+      // Price history archive sub-collection
+      match /price_history/{ticker} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
     }
 
     // Validate market creation (for merge:true setDoc calls)

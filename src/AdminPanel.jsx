@@ -92,10 +92,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
 
-  // Price history migration state
-  const [migrationStatus, setMigrationStatus] = useState(null);
-  const [migrationProgress, setMigrationProgress] = useState({ current: 0, total: 0 });
-
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
   // Characters eligible for IPO: those with ipoRequired flag OR not yet in the market
@@ -1907,134 +1903,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       console.error(err);
       showMessage('error', `Failed to process: ${err.message}`);
     }
-    setLoading(false);
-  };
-
-  // Migrate price history to tiered archive structure
-  const handleMigratePriceHistory = async () => {
-    setLoading(true);
-    setMigrationStatus('Starting migration...');
-    setMigrationProgress({ current: 0, total: CHARACTERS.length });
-
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * ONE_DAY;
-    const ONE_YEAR = 365 * ONE_DAY;
-    const now = Date.now();
-
-    try {
-      const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
-
-      if (!snap.exists()) {
-        setMigrationStatus('Error: Market document not found');
-        setLoading(false);
-        return;
-      }
-
-      const data = snap.data();
-      const currentHistory = data.priceHistory || {};
-
-      let processed = 0;
-      let archived = 0;
-
-      for (const character of CHARACTERS) {
-        const ticker = character.ticker;
-        const history = currentHistory[ticker] || [];
-
-        if (history.length === 0) {
-          processed++;
-          setMigrationProgress({ current: processed, total: CHARACTERS.length });
-          continue;
-        }
-
-        setMigrationStatus(`Processing ${character.name} (${history.length} points)...`);
-
-        // Apply tiered pruning
-        const tier1Cutoff = now - ONE_DAY;
-        const tier2Cutoff = now - SEVEN_DAYS;
-        const tier3Cutoff = now - ONE_YEAR;
-
-        const tier1 = [];
-        const tier2 = [];
-        const tier3 = [];
-        const tier4 = [];
-
-        for (const point of history) {
-          if (point.timestamp >= tier1Cutoff) {
-            tier1.push(point);
-          } else if (point.timestamp >= tier2Cutoff) {
-            tier2.push(point);
-          } else if (point.timestamp >= tier3Cutoff) {
-            tier3.push(point);
-          } else {
-            tier4.push(point);
-          }
-        }
-
-        // Prune tier 2 to 1 point per hour
-        const prunedTier2 = [];
-        const seenHours = new Set();
-        for (const point of tier2.sort((a, b) => b.timestamp - a.timestamp)) {
-          const hourKey = Math.floor(point.timestamp / (60 * 60 * 1000));
-          if (!seenHours.has(hourKey)) {
-            seenHours.add(hourKey);
-            prunedTier2.push(point);
-          }
-        }
-
-        // Prune tier 3 to 1 point per day (daily close - last price of each day)
-        const prunedTier3 = [];
-        const seenDays = new Set();
-        for (const point of tier3.sort((a, b) => b.timestamp - a.timestamp)) {
-          const dayKey = Math.floor(point.timestamp / ONE_DAY);
-          if (!seenDays.has(dayKey)) {
-            seenDays.add(dayKey);
-            prunedTier3.push(point);
-          }
-        }
-
-        // Prune tier 4 to 1 point per week
-        const prunedTier4 = [];
-        const seenWeeks = new Set();
-        const ONE_WEEK = 7 * ONE_DAY;
-        for (const point of tier4.sort((a, b) => b.timestamp - a.timestamp)) {
-          const weekKey = Math.floor(point.timestamp / ONE_WEEK);
-          if (!seenWeeks.has(weekKey)) {
-            seenWeeks.add(weekKey);
-            prunedTier4.push(point);
-          }
-        }
-
-        // Main doc: tier 1 + pruned tier 2 (last 7 days)
-        const mainDoc = [...prunedTier2, ...tier1].sort((a, b) => a.timestamp - b.timestamp);
-
-        // Archive: pruned tier 3 + pruned tier 4 (older than 7 days)
-        const archive = [...prunedTier4, ...prunedTier3].sort((a, b) => a.timestamp - b.timestamp);
-
-        // Update main doc
-        await updateDoc(marketRef, {
-          [`priceHistory.${ticker}`]: mainDoc
-        });
-
-        // Update archive sub-collection if there's archive data
-        if (archive.length > 0) {
-          const archiveRef = doc(db, 'market', 'current', 'price_history', ticker);
-          await setDoc(archiveRef, { history: archive, lastUpdated: now }, { merge: true });
-          archived++;
-        }
-
-        processed++;
-        setMigrationProgress({ current: processed, total: CHARACTERS.length });
-      }
-
-      setMigrationStatus(`✅ Migration complete! Processed ${processed} characters, archived ${archived} with historical data.`);
-      showMessage('success', `Migrated ${processed} characters, ${archived} archived`);
-    } catch (err) {
-      console.error('Migration error:', err);
-      setMigrationStatus(`❌ Error: ${err.message}`);
-      showMessage('error', `Migration failed: ${err.message}`);
-    }
-
     setLoading(false);
   };
 
@@ -3895,49 +3763,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </div>
                 </div>
               )}
-
-              {/* Price History Migration Tool */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'} mt-4`}>
-                <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Price History Migration</h3>
-                <p className={`text-sm ${mutedClass} mb-3`}>
-                  Migrate existing price history to tiered archive structure. This will:
-                </p>
-                <ul className={`text-sm ${mutedClass} mb-4 list-disc list-inside space-y-1`}>
-                  <li>Keep full detail for last 24 hours</li>
-                  <li>Prune to 1 point/hour for 24h-7d</li>
-                  <li>Archive 1 point/day (daily close) for 7d-1y</li>
-                  <li>Archive 1 point/week for 1y+</li>
-                </ul>
-
-                {migrationProgress.total > 0 && (
-                  <div className="mb-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className={mutedClass}>Progress:</span>
-                      <span className={textClass}>{migrationProgress.current} / {migrationProgress.total}</span>
-                    </div>
-                    <div className={`w-full h-2 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                      <div
-                        className="h-full rounded-full bg-teal-500 transition-all"
-                        style={{ width: `${(migrationProgress.current / migrationProgress.total) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {migrationStatus && (
-                  <p className={`text-sm mb-3 ${migrationStatus.startsWith('✅') ? 'text-green-500' : migrationStatus.startsWith('❌') ? 'text-red-500' : mutedClass}`}>
-                    {migrationStatus}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleMigratePriceHistory}
-                  disabled={loading}
-                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Migrating...' : '🚀 Run Migration'}
-                </button>
-              </div>
             </div>
           )}
 
