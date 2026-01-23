@@ -68,28 +68,10 @@ service cloud.firestore {
     function validateUserUpdate() {
       let oldData = resource.data;
       let newData = request.resource.data;
-      
-      // CRITICAL: Prevent direct cash injection
-      // Cash changes must be "reasonable" - this is a soft check
-      // Real protection requires Cloud Functions, but this stops obvious cheats
-      let cashDiff = newData.cash - oldData.cash;
-      
-      // Allow cash increases only up to daily bonus (300) + reasonable trade profits
-      // This is permissive but stops "give me 1 million" attacks
-      let maxCashIncrease = 50000; // Generous limit for big winning trades
-      let maxCashDecrease = -1000000; // Can lose a lot on bad shorts
-      
+
       return (
-        // Cash change must be within bounds
-        (cashDiff <= maxCashIncrease && cashDiff >= maxCashDecrease) &&
-        
-        // Cannot directly set portfolioValue to unrealistic amounts
-        (newData.portfolioValue <= 10000000) && // 10 million cap
-        
-        // Cannot set negative cash (this should never happen legitimately)
-        (newData.cash >= 0 || 
-         // EXCEPTION: Future lending system may allow negative
-         (oldData.lendingUnlocked == true && newData.cash >= -5000)) &&
+        // Cannot set positive cash if bankrupt (must use bailout)
+        (newData.cash >= 0 || oldData.cash < 0) &&
         
         // Cannot fake total checkins (can only increment by 1)
         (!('totalCheckins' in newData) || 

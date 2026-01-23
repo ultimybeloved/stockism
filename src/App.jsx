@@ -3380,7 +3380,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                   ) : (
                     <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
                   )}
-                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> • 2 weekly missions assigned per crew
+                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>
