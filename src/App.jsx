@@ -5426,14 +5426,25 @@ export default function App() {
   // Handle crew selection
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
-    
+
+    // Check 24-hour cooldown for switching crews
+    if (isSwitch && userData.crew) {
+      const lastChange = userData.lastCrewChange || 0;
+      const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
+      if (hoursSinceChange < 24) {
+        const hoursRemaining = Math.ceil(24 - hoursSinceChange);
+        showNotification('error', `You can only switch crews once every 24 hours. Try again in ${hoursRemaining}h.`);
+        return;
+      }
+    }
+
     try {
       const userRef = doc(db, 'users', user.uid);
       const updateData = {
         crew: crewId,
         crewJoinedAt: Date.now()
       };
-      
+
       // Only charge penalty if LEAVING a crew to join another (switching)
       if (isSwitch && userData.crew) {
         // Take 15% of cash and 15% of each holding
@@ -5459,6 +5470,7 @@ export default function App() {
         updateData.cash = newCash;
         updateData.holdings = newHoldings;
         updateData.portfolioValue = Math.max(0, userData.portfolioValue - totalTaken);
+        updateData.lastCrewChange = Date.now();
 
         const crew = CREW_MAP[crewId];
         await updateDoc(userRef, updateData);
@@ -5481,7 +5493,16 @@ export default function App() {
   // Handle leaving crew
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
-    
+
+    // Check 24-hour cooldown
+    const lastChange = userData.lastCrewChange || 0;
+    const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
+    if (hoursSinceChange < 24) {
+      const hoursRemaining = Math.ceil(24 - hoursSinceChange);
+      showNotification('error', `You can only leave a crew once every 24 hours. Try again in ${hoursRemaining}h.`);
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', user.uid);
       const oldCrew = CREW_MAP[userData.crew];
@@ -5518,7 +5539,8 @@ export default function App() {
         crewHeadColor: null,
         cash: newCash,
         holdings: newHoldings,
-        portfolioValue: Math.max(0, newPortfolioValue)
+        portfolioValue: Math.max(0, newPortfolioValue),
+        lastCrewChange: Date.now()
       };
 
       await updateDoc(userRef, updateData);
