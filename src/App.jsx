@@ -5108,25 +5108,20 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           })()}
 
           {/* Amount controls with Max button */}
-          <div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
-                className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
-              <input type="number" min="1" value={tradeAmount}
-                onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
-              <button onClick={() => setTradeAmount(tradeAmount + 1)}
-                className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
-              <button
-                onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
-                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-              >
-                Max
-              </button>
-            </div>
-            <div className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'} mt-1`}>
-              DEBUG: Cash=${userCash.toFixed(2)} | BP=${getBuyingPower().toFixed(2)} | hasUD={userData ? 'Y' : 'N'} | hasP={prices ? 'Y' : 'N'}
-            </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
+              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
+            <input type="number" min="1" value={tradeAmount}
+              onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
+              className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
+            <button onClick={() => setTradeAmount(tradeAmount + 1)}
+              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
+            <button
+              onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
+              className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+            >
+              Max
+            </button>
           </div>
 
           {tradeMode === 'normal' ? (
