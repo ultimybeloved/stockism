@@ -53,6 +53,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [rollbackTarget, setRollbackTarget] = useState(null);
   const [newDisplayName, setNewDisplayName] = useState('');
 
+  // Bot management state
+  const [bots, setBots] = useState([]);
+  const [botsLoading, setBotsLoading] = useState(false);
+
   // User search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState([]);
@@ -89,6 +93,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [tradeFilterTicker, setTradeFilterTicker] = useState('');
   const [tradeTimePeriod, setTradeTimePeriod] = useState('24h'); // '24h', 'week', 'all'
   const [tradeTypeFilter, setTradeTypeFilter] = useState('all'); // 'all', 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'
+  const [tradeBotFilter, setTradeBotFilter] = useState('real'); // 'real', 'bots', 'all'
   const [priceSnapshots, setPriceSnapshots] = useState([]); // For rollback
   const [rollbackTimestamp, setRollbackTimestamp] = useState('');
   const [rollbackConfirm, setRollbackConfirm] = useState(false);
@@ -640,7 +645,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   };
 
   // Load all recent trades from transaction logs
-  const loadRecentTrades = async (timePeriod = '24h', typeFilter = 'all', tickerFilter = '') => {
+  const loadRecentTrades = async (timePeriod = '24h', typeFilter = 'all', tickerFilter = '', botFilter = 'real') => {
     setTradesLoading(true);
     try {
       const usersRef = collection(db, 'users');
@@ -664,7 +669,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         const data = docSnap.data();
         const userId = docSnap.id;
         const userName = data.displayName || 'Unknown';
+        const isBot = data.isBot || false;
         const transactionLog = data.transactionLog || [];
+
+        // Filter by bot status
+        if (botFilter === 'real' && isBot) return;
+        if (botFilter === 'bots' && !isBot) return;
+        // 'all' shows both
 
         // Get trades from transaction log
         transactionLog.forEach(tx => {
@@ -676,6 +687,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           trades.push({
             userId,
             userName,
+            isBot,
             type: tx.type,
             ticker: tx.ticker,
             shares: tx.shares || tx.amount || 0,
@@ -2220,6 +2232,126 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Create initial bot traders
+  const BOT_PROFILES = [
+    { name: 'Momentum Mike', personality: 'momentum', cash: 2500 },
+    { name: 'Contrarian Carl', personality: 'contrarian', cash: 3000 },
+    { name: 'Diamond Dave', personality: 'hodler', cash: 2000 },
+    { name: 'Day Trader Dan', personality: 'daytrader', cash: 4000 },
+    { name: 'Gambler Greg', personality: 'random', cash: 1500 },
+    { name: 'Big Deal Billy', personality: 'crew_loyal', cash: 2500, crew: 'BIG_DEAL' },
+    { name: 'Swing Trader Sam', personality: 'swing', cash: 3500 },
+    { name: 'FOMO Frank', personality: 'momentum', cash: 2000 },
+    { name: 'Bargain Betty', personality: 'contrarian', cash: 3000 },
+    { name: 'Long Term Larry', personality: 'hodler', cash: 5000 },
+    { name: 'Scalper Steve', personality: 'daytrader', cash: 3500 },
+    { name: 'Lucky Lucy', personality: 'random', cash: 2500 },
+    { name: 'Hostel Harry', personality: 'crew_loyal', cash: 3000, crew: 'HOSTEL' },
+    { name: 'Pattern Pete', personality: 'swing', cash: 2500 },
+    { name: 'Panic Paul', personality: 'panic', cash: 2000 },
+    { name: 'Value Vince', personality: 'contrarian', cash: 4000 },
+    { name: 'Buy High Brian', personality: 'random', cash: 1500 },
+    { name: 'Workers Wendy', personality: 'crew_loyal', cash: 3500, crew: 'WORKERS' },
+    { name: 'Trend Tom', personality: 'momentum', cash: 3000 },
+    { name: 'Diversified Donna', personality: 'balanced', cash: 4500 }
+  ];
+
+  const handleCreateBots = async () => {
+    if (!confirm(`Create 20 bot traders?\n\nEach bot will get their starting cash and begin trading automatically once the Cloud Function is deployed.`)) {
+      return;
+    }
+
+    setBotsLoading(true);
+    let created = 0;
+    let skipped = 0;
+
+    try {
+      for (const profile of BOT_PROFILES) {
+        const botId = `bot_${profile.name.toLowerCase().replace(/\s+/g, '_')}`;
+        const userRef = doc(db, 'users', botId);
+
+        // Check if bot already exists
+        const botSnap = await getDoc(userRef);
+        if (botSnap.exists()) {
+          skipped++;
+          continue;
+        }
+
+        // Create bot user
+        await setDoc(userRef, {
+          displayName: profile.name,
+          displayNameLower: profile.name.toLowerCase(),
+          isBot: true,
+          botPersonality: profile.personality,
+          botCrew: profile.crew || null,
+          cash: profile.cash,
+          portfolioValue: profile.cash,
+          holdings: {},
+          shorts: {},
+          costBasis: {},
+          bets: {},
+          marginUsed: 0,
+          totalTrades: 0,
+          totalCheckins: 0,
+          peakPortfolioValue: profile.cash,
+          crew: null,
+          dailyMissions: {},
+          transactionLog: [],
+          createdAt: Date.now(),
+          lastActive: Date.now()
+        });
+
+        created++;
+      }
+
+      showMessage('success', `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`);
+      await handleLoadBots();
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to create bots: ${err.message}`);
+    }
+    setBotsLoading(false);
+  };
+
+  const handleLoadBots = async () => {
+    setBotsLoading(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnap = await getDocs(usersRef);
+      const botList = [];
+
+      usersSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.isBot) {
+          botList.push({ id: doc.id, ...data });
+        }
+      });
+
+      setBots(botList.sort((a, b) => a.displayName.localeCompare(b.displayName)));
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to load bots: ${err.message}`);
+    }
+    setBotsLoading(false);
+  };
+
+  const handleDeleteBot = async (botId) => {
+    if (!confirm(`Delete bot ${botId}?\n\nThis will remove their account and all holdings.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'users', botId));
+      showMessage('success', 'Bot deleted!');
+      await handleLoadBots();
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to delete bot: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Check admin access
   if (!isAdmin) {
     return (
@@ -2285,7 +2417,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             👥 Users
           </button>
           <button
-            onClick={() => { setActiveTab('trades'); loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker); }}
+            onClick={() => { setActiveTab('bots'); handleLoadBots(); }}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'bots' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🤖 Bots
+          </button>
+          <button
+            onClick={() => { setActiveTab('trades'); loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter); }}
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'trades' ? 'text-yellow-500 border-b-2 border-yellow-500 bg-yellow-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
           >
             💹 Trades
@@ -3750,6 +3888,108 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             </div>
           )}
 
+          {/* BOTS TAB */}
+          {activeTab === 'bots' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-purple-900/20' : 'bg-purple-50'}`}>
+                <p className={`text-sm ${mutedClass}`}>
+                  🤖 Manage NPC traders. Bots trade automatically via Cloud Functions every 5-10 minutes.
+                </p>
+              </div>
+
+              {/* Create Bots Button */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={`text-sm font-semibold ${textClass}`}>Bot Setup</h3>
+                  <button
+                    onClick={handleCreateBots}
+                    disabled={botsLoading}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-sm text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {botsLoading ? 'Creating...' : 'Create 20 Bots'}
+                  </button>
+                </div>
+                <p className={`text-xs ${mutedClass}`}>
+                  This will create 20 bot traders with different personalities and starting cash ($1,500-$5,000 each).
+                  Bots that already exist will be skipped.
+                </p>
+              </div>
+
+              {/* Bot List */}
+              {bots.length > 0 && (
+                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Active Bots ({bots.length})</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {bots.map(bot => {
+                      const holdingsValue = Object.entries(bot.holdings || {}).reduce((sum, [ticker, shares]) => {
+                        const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                        return sum + (prices[ticker] || 0) * shareCount;
+                      }, 0);
+
+                      return (
+                        <div key={bot.id} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold ${textClass}`}>{bot.displayName}</span>
+                                <span className="text-xs px-2 py-0.5 rounded bg-purple-600 text-white">
+                                  {bot.botPersonality}
+                                </span>
+                                {bot.botCrew && (
+                                  <span className="text-xs px-2 py-0.5 rounded bg-blue-600 text-white">
+                                    {bot.botCrew}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
+                                <div>
+                                  <span className={mutedClass}>Cash:</span>
+                                  <span className={`ml-1 font-semibold text-green-500`}>
+                                    ${bot.cash?.toFixed(2) || '0.00'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className={mutedClass}>Holdings:</span>
+                                  <span className={`ml-1 font-semibold ${textClass}`}>
+                                    ${holdingsValue.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className={mutedClass}>Portfolio:</span>
+                                  <span className={`ml-1 font-semibold ${textClass}`}>
+                                    ${bot.portfolioValue?.toFixed(2) || '0.00'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className={mutedClass}>Trades:</span>
+                                  <span className={`ml-1 font-semibold ${textClass}`}>
+                                    {bot.totalTrades || 0}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteBot(bot.id)}
+                              className="ml-3 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {bots.length === 0 && !botsLoading && (
+                <p className={`text-center ${mutedClass} py-8`}>
+                  No bots found. Click "Create 20 Bots" to get started.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* TRADES TAB */}
           {activeTab === 'trades' && (
             <div className="space-y-4">
@@ -3805,9 +4045,23 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     />
                   </div>
 
+                  {/* Bot Filter */}
+                  <div>
+                    <label className={`text-xs ${mutedClass} block mb-1`}>User Type</label>
+                    <select
+                      value={tradeBotFilter}
+                      onChange={(e) => setTradeBotFilter(e.target.value)}
+                      className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+                    >
+                      <option value="real">Real Users Only</option>
+                      <option value="bots">Bots Only</option>
+                      <option value="all">All Trades</option>
+                    </select>
+                  </div>
+
                   {/* Load Button */}
                   <button
-                    onClick={() => loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker)}
+                    onClick={() => loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter)}
                     disabled={tradesLoading}
                     className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-sm disabled:opacity-50"
                   >
@@ -3874,6 +4128,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                           <div>
                             <p className={textClass}>
                               <span className="font-semibold">{trade.userName}</span>
+                              {trade.isBot && (
+                                <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-purple-600 text-white">🤖</span>
+                              )}
                               <span className={mutedClass}> {trade.type === 'BUY' ? 'bought' : trade.type === 'SELL' ? 'sold' : trade.type === 'SHORT_OPEN' ? 'shorted' : 'covered'} </span>
                               <span className="font-bold text-cyan-500">{trade.shares}</span>
                               <span className={mutedClass}> shares of </span>
