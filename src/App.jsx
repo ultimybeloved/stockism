@@ -4603,7 +4603,7 @@ const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
 // EMAIL VERIFICATION MODAL
 // ============================================
 
-const EmailVerificationModal = ({ user, darkMode }) => {
+const EmailVerificationModal = ({ user, darkMode, userData }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -4691,7 +4691,7 @@ const EmailVerificationModal = ({ user, darkMode }) => {
 
           <button
             onClick={handleSignOut}
-            className={`w-full py-2 px-4 text-sm ${mutedClass} hover:text-red-500`}
+            className={`w-full py-2 px-4 text-sm ${mutedClass} ${userData?.colorBlindMode ? 'hover:text-purple-500' : 'hover:text-red-500'}`}
           >
             Sign Out
           </button>
@@ -8377,7 +8377,7 @@ export default function App() {
                   <PinDisplay userData={userData} size="sm" />
                 </button>
                 <button onClick={handleLogout}
-                  className="px-3 py-1 text-xs rounded-sm bg-red-600 hover:bg-red-700 text-white font-semibold uppercase">
+                  className={`px-3 py-1 text-xs rounded-sm text-white font-semibold uppercase ${userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'}`}>
                   Logout
                 </button>
               </>
@@ -8735,7 +8735,7 @@ export default function App() {
 
       {/* Modals */}
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} darkMode={darkMode} />}
-      {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} />}
+      {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} userData={userData} />}
       {needsUsername && user && (
         <UsernameModal 
           user={user} 
