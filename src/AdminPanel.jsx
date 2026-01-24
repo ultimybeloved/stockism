@@ -1656,7 +1656,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           marginEnabled: data.marginEnabled || false,
           marginUsed: data.marginUsed || 0,
           activeLoan: data.activeLoan || null,
-          transactionLog: data.transactionLog || []
+          transactionLog: data.transactionLog || [],
+          costBasis: data.costBasis || {},
+          peakPortfolioValue: data.peakPortfolioValue || 0,
+          totalCheckins: data.totalCheckins || 0,
+          crew: data.crew || null,
+          lowestWhileHolding: data.lowestWhileHolding || {}
         });
       });
       
@@ -3194,18 +3199,29 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   {Object.keys(selectedUser.shorts).length > 0 && (
                     <div className="mb-4">
                       <h4 className={`text-xs font-semibold uppercase text-red-400 mb-2`}>Short Positions</h4>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
                         {Object.entries(selectedUser.shorts).map(([ticker, shortData]) => {
                           if (!shortData || shortData.shares <= 0) return null;
+                          const currentPrice = prices[ticker] || shortData.entryPrice;
+                          const pnl = (shortData.entryPrice - currentPrice) * shortData.shares;
+                          const pnlPct = shortData.entryPrice > 0 ? ((pnl / (shortData.entryPrice * shortData.shares)) * 100) : 0;
                           return (
-                            <div key={ticker} className={`text-sm flex justify-between ${textClass}`}>
-                              <span className="text-red-400">{ticker}</span>
-                              <span>
-                                {shortData.shares} shares @ ${shortData.entryPrice?.toFixed(2) || '?'}
-                                <span className={`ml-2 text-xs ${mutedClass}`}>
-                                  (collateral: ${shortData.collateral?.toFixed(2) || '?'})
+                            <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="text-red-400 font-semibold">{ticker}</span>
+                                  <span className={`ml-2 text-xs ${mutedClass}`}>{shortData.shares} shares short</span>
+                                </div>
+                                <span className={`font-bold ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
                                 </span>
-                              </span>
+                              </div>
+                              <div className={`text-xs ${mutedClass} mt-1`}>
+                                Entry: ${shortData.entryPrice?.toFixed(2)} → Current: ${currentPrice.toFixed(2)} ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+                              </div>
+                              <div className={`text-xs ${mutedClass}`}>
+                                Margin held: ${shortData.margin?.toFixed(2) || '0.00'}
+                              </div>
                             </div>
                           );
                         })}
