@@ -4842,17 +4842,12 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
   // Calculate buying power for display and max calculation
   const getBuyingPower = () => {
-    // With 50% cash requirement: max purchase = min(2 × cash, cash + availableMargin)
+    // Buying power = cash + available margin
     let buyingPower = userCash;
     if (userData && prices) {
       const marginStatus = calculateMarginStatus(userData, prices);
       if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-        // Can use margin, but need 50% cash minimum
-        // So max purchase is limited by: you need cash >= 50% of purchase
-        // Therefore: purchase <= 2 × cash
-        const maxWithCashRequirement = userCash * 2;
-        const maxWithMargin = userCash + marginStatus.availableMargin;
-        buyingPower = Math.min(maxWithCashRequirement, maxWithMargin);
+        buyingPower += marginStatus.availableMargin;
       }
     }
     return buyingPower;
@@ -4880,14 +4875,8 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
       return Math.max(1, maxAffordable);
     } else if (action === 'short') {
       // For shorts: margin = bid * shares * 0.5
-      // Can use full cash + available margin (no 50% cash requirement for shorts)
-      let shortBuyingPower = userCash;
-      if (userData && prices) {
-        const marginStatus = calculateMarginStatus(userData, prices);
-        if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-          shortBuyingPower += marginStatus.availableMargin;
-        }
-      }
+      // Use same buying power calculation as buys
+      const shortBuyingPower = getBuyingPower();
 
       if (shortBuyingPower <= 0) return 0;
       let low = 1, high = Math.floor(shortBuyingPower / (price * 0.25)), maxAffordable = 0;
@@ -6413,24 +6402,15 @@ export default function App() {
       const marginStatus = calculateMarginStatus(userData, prices);
       const availableMargin = marginStatus.availableMargin || 0;
 
-      // MARGIN REQUIREMENT: Must have at least 50% of purchase in cash
-      const requiredCash = totalCost * 0.5;
-
-      if (cashAvailable < requiredCash) {
-        // Not enough cash to meet 50% requirement
-        showNotification('error', `Margin requirement: You need at least ${formatCurrency(requiredCash)} cash (50% of ${formatCurrency(totalCost)}). You have ${formatCurrency(cashAvailable)}.`);
-        return;
-      }
-
       let cashToUse = 0;
       let marginToUse = 0;
 
       if (cashAvailable >= totalCost) {
-        // Can pay with cash
+        // Can pay with cash only
         cashToUse = totalCost;
         marginToUse = 0;
       } else if (marginEnabled && cashAvailable + availableMargin >= totalCost) {
-        // Use all cash + some margin
+        // Use all cash + margin to cover the difference
         cashToUse = cashAvailable;
         marginToUse = totalCost - cashAvailable;
       } else {
