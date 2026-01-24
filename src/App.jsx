@@ -6398,10 +6398,19 @@ export default function App() {
       const marginUsed = userData.marginUsed || 0;
       const marginStatus = calculateMarginStatus(userData, prices);
       const availableMargin = marginStatus.availableMargin || 0;
-      
+
+      // MARGIN REQUIREMENT: Must have at least 50% of purchase in cash
+      const requiredCash = totalCost * 0.5;
+
+      if (cashAvailable < requiredCash) {
+        // Not enough cash to meet 50% requirement
+        showNotification('error', `Margin requirement: You need at least ${formatCurrency(requiredCash)} cash (50% of ${formatCurrency(totalCost)}). You have ${formatCurrency(cashAvailable)}.`);
+        return;
+      }
+
       let cashToUse = 0;
       let marginToUse = 0;
-      
+
       if (cashAvailable >= totalCost) {
         // Can pay with cash
         cashToUse = totalCost;
@@ -6620,9 +6629,21 @@ export default function App() {
       const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
       const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
+      // MARGIN DEBT REPAYMENT: Sale proceeds pay down margin debt first
+      const currentMarginUsed = userData.marginUsed || 0;
+      let marginPayment = 0;
+      let cashGain = totalRevenue;
+
+      if (currentMarginUsed > 0) {
+        // Pay down margin debt first
+        marginPayment = Math.min(totalRevenue, currentMarginUsed);
+        cashGain = totalRevenue - marginPayment;
+      }
+
       // Build update data
       const sellUpdateData = {
-        cash: userData.cash + totalRevenue,
+        cash: userData.cash + cashGain,
+        marginUsed: currentMarginUsed - marginPayment,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: costBasisUpdate,
         [`lastTickerTradeTime.${ticker}`]: now,
@@ -6648,12 +6669,14 @@ export default function App() {
       await updateDoc(userRef, sellUpdateData);
 
       await updateDoc(marketRef, { totalTrades: increment(1) });
-      
-      // Record portfolio history
-      const newPortfolioValue = (userData.cash + totalRevenue) + Object.entries(userData.holdings || {})
+
+      // Record portfolio history (using new cash after margin payment)
+      const newCash = userData.cash + cashGain;
+      const newMarginUsed = currentMarginUsed - marginPayment;
+      const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares - amount : shares), 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
-      
+
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'SELL', {
         ticker,
@@ -6663,14 +6686,16 @@ export default function App() {
         costBasis,
         profitPercent: Math.round(profitPercent * 100) / 100,
         cashBefore: userData.cash,
-        cashAfter: userData.cash + totalRevenue,
+        cashAfter: newCash,
+        marginPaid: marginPayment,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-      
+
       // Check achievements (pass profit percent for Bull Run, isDiamondHands for Diamond Hands)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
-        cash: userData.cash + totalRevenue,
+        cash: newCash,
+        marginUsed: newMarginUsed,
         holdings: { ...userData.holdings, [ticker]: newHoldings },
         totalTrades: (userData.totalTrades || 0) + 1
       }, prices, { tradeValue: totalRevenue, sellProfitPercent: profitPercent, isDiamondHands });
@@ -6687,7 +6712,11 @@ export default function App() {
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Sold ${amount} ${ticker}`);
       } else {
-        showNotification('success', `Sold ${amount} ${ticker} @ ${formatCurrency(sellPrice)} (${impactPercent}% impact)`);
+        let message = `Sold ${amount} ${ticker} @ ${formatCurrency(sellPrice)} (${impactPercent}% impact)`;
+        if (marginPayment > 0) {
+          message += ` • Paid ${formatCurrency(marginPayment)} margin debt`;
+        }
+        showNotification('success', message);
       }
     
     } else if (action === 'short') {
@@ -6857,9 +6886,21 @@ export default function App() {
       const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
       const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
-      // Update user: simply add cashBack (margin + profit or margin - loss)
+      // MARGIN DEBT REPAYMENT: Cover proceeds pay down margin debt first
+      const currentMarginUsed = userData.marginUsed || 0;
+      let coverMarginPayment = 0;
+      let coverCashGain = cashBack;
+
+      if (currentMarginUsed > 0 && cashBack > 0) {
+        // Pay down margin debt first (only if cashBack is positive)
+        coverMarginPayment = Math.min(cashBack, currentMarginUsed);
+        coverCashGain = cashBack - coverMarginPayment;
+      }
+
+      // Update user: add cash gain after margin payment
       const updateData = {
-        cash: userData.cash + cashBack,
+        cash: userData.cash + coverCashGain,
+        marginUsed: currentMarginUsed - coverMarginPayment,
         [`lastTickerTradeTime.${ticker}`]: now,
         lastTradeTime: now,
         // Weekly missions
@@ -6893,11 +6934,13 @@ export default function App() {
         [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       });
 
-      // Record portfolio history
-      const newPortfolioValue = (userData.cash + cashBack) + Object.entries(userData.holdings || {})
+      // Record portfolio history (using new cash after margin payment)
+      const newCoverCash = userData.cash + coverCashGain;
+      const newCoverMarginUsed = currentMarginUsed - coverMarginPayment;
+      const newPortfolioValue = newCoverCash + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
-      
+
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'SHORT_CLOSE', {
         ticker,
@@ -6908,25 +6951,27 @@ export default function App() {
         totalProfit: Math.round(profit * 100) / 100,
         marginReturned: Math.round(marginReturned * 100) / 100,
         cashBack: Math.round(cashBack * 100) / 100,
+        marginPaid: coverMarginPayment,
         cashBefore: userData.cash,
-        cashAfter: userData.cash + cashBack,
+        cashAfter: newCoverCash,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
       
       // Check achievements (pass short profit for Cold Blooded achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
-        cash: userData.cash + cashBack,
+        cash: newCoverCash,
+        marginUsed: newCoverMarginUsed,
         totalTrades: (userData.totalTrades || 0) + 1
       }, prices, { shortProfit: profit });
 
       const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
       const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : formatCurrency(profit);
-      
+
       // Add to activity feed
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
       addActivity('trade', `🩳 Covered ${amount} $${ticker} (${charName}) @ ${formatCurrency(coverPrice)} (${profitMsg})`);
-      
+
       if (earnedAchievements.length > 0 && earnedAchievements.includes('COLD_BLOODED')) {
         const achievement = ACHIEVEMENTS['COLD_BLOODED'];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
@@ -6936,7 +6981,11 @@ export default function App() {
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
       } else {
-        showNotification(profit >= 0 ? 'success' : 'error', `Covered ${amount} ${ticker} @ ${formatCurrency(coverPrice)} (${profitMsg}, +${impactPercent}% impact)`);
+        let coverMessage = `Covered ${amount} ${ticker} @ ${formatCurrency(coverPrice)} (${profitMsg}, +${impactPercent}% impact)`;
+        if (coverMarginPayment > 0) {
+          coverMessage += ` • Paid ${formatCurrency(coverMarginPayment)} margin debt`;
+        }
+        showNotification(profit >= 0 ? 'success' : 'error', coverMessage);
       }
     }
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
