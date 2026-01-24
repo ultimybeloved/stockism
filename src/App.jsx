@@ -3431,7 +3431,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                 : `${mutedClass} hover:bg-slate-500/10`
             }`}
           >
-            Daily {claimableRewards > 0 && <span className="text-green-500 ml-1">●</span>}
+            Daily {claimableRewards > 0 && <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>}
           </button>
           <button
             onClick={() => setActiveTab('weekly')}
@@ -3441,7 +3441,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                 : `${mutedClass} hover:bg-slate-500/10`
             }`}
           >
-            Weekly {weeklyClaimableRewards > 0 && <span className="text-green-500 ml-1">●</span>}
+            Weekly {weeklyClaimableRewards > 0 && <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>}
           </button>
         </div>
 
@@ -8512,15 +8512,15 @@ export default function App() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? 'border-red-500' : ''}`}>
+          <div className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'border-purple-500' : 'border-red-500') : ''}`}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Cash</p>
-            <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? 'text-red-500' : textClass}`}>
+            <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : textClass}`}>
               {(activeUserData.cash || 0) < 0 ? '-' : ''}{formatCurrency(Math.abs(activeUserData.cash || 0))}
             </p>
             {(activeUserData.cash || 0) < 0 && (
               <button
                 onClick={() => setShowBailout(true)}
-                className="mt-2 w-full py-1.5 text-xs font-semibold rounded-sm bg-red-600 hover:bg-red-700 text-white"
+                className={`mt-2 w-full py-1.5 text-xs font-semibold rounded-sm text-white ${userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'}`}
               >
                 💸 In Debt - Request Bailout
               </button>
@@ -8832,14 +8832,14 @@ export default function App() {
               <h2 className={`text-xl font-bold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Bankruptcy Bailout</h2>
             </div>
 
-            <div className={`p-4 rounded-sm mb-4 ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
-              <p className={`text-center font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+            <div className={`p-4 rounded-sm mb-4 ${userData?.colorBlindMode ? (darkMode ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-200') : (darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200')}`}>
+              <p className={`text-center font-semibold ${userData?.colorBlindMode ? (darkMode ? 'text-purple-400' : 'text-purple-600') : (darkMode ? 'text-red-400' : 'text-red-600')}`}>
                 You are {formatCurrency(Math.abs(userData?.cash || 0))} in debt
               </p>
             </div>
 
             <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-slate-600'} mb-4 space-y-2`}>
-              <p>Accept a bailout to clear your debt and restart with <strong className="text-green-500">$500</strong>.</p>
+              <p>Accept a bailout to clear your debt and restart with <strong className={userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}>$500</strong>.</p>
               <p className="text-amber-500 font-semibold">⚠️ Consequences:</p>
               <ul className="list-disc ml-5 space-y-1">
                 <li>You will be <strong>permanently exiled</strong> from your current crew</li>
@@ -8860,7 +8860,7 @@ export default function App() {
                   await handleBailout();
                   setShowBailout(false);
                 }}
-                className="flex-1 py-2 rounded-sm bg-green-600 hover:bg-green-700 text-white font-semibold"
+                className={`flex-1 py-2 rounded-sm text-white font-semibold ${userData?.colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 Accept Bailout
               </button>
