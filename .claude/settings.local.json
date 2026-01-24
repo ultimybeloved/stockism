@@ -14,7 +14,8 @@
       "Bash(firebase deploy:*)",
       "Bash(firebase use:*)",
       "Bash(git commit:*)",
-      "Bash(npx firebase-tools:*)"
+      "Bash(npx firebase-tools:*)",
+      "Bash(del fix-user-achievements.js browser-console-fix.js)"
     ]
   }
 }

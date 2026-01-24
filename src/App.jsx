@@ -1639,10 +1639,15 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 1)}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setSellAmounts(prev => ({
-                                  ...prev,
-                                  [item.ticker]: val === '' ? '' : Math.min(item.shares, Math.max(0, parseInt(val) || 0))
-                                }));
+                                if (val === '') {
+                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: '' }));
+                                } else {
+                                  const num = parseInt(val) || 0;
+                                  setSellAmounts(prev => ({
+                                    ...prev,
+                                    [item.ticker]: Math.min(item.shares, Math.max(0, num))
+                                  }));
+                                }
                               }}
                               onBlur={() => {
                                 const current = sellAmounts[item.ticker];
@@ -1781,10 +1786,15 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                   value={coverAmounts[item.ticker] === '' ? '' : (coverAmounts[item.ticker] || 1)}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setCoverAmounts(prev => ({
-                                      ...prev,
-                                      [item.ticker]: val === '' ? '' : Math.min(item.shares, Math.max(0, parseInt(val) || 0))
-                                    }));
+                                    if (val === '') {
+                                      setCoverAmounts(prev => ({ ...prev, [item.ticker]: '' }));
+                                    } else {
+                                      const num = parseInt(val) || 0;
+                                      setCoverAmounts(prev => ({
+                                        ...prev,
+                                        [item.ticker]: Math.min(item.shares, Math.max(0, num))
+                                      }));
+                                    }
                                   }}
                                   onBlur={() => {
                                     const current = coverAmounts[item.ticker];
@@ -5157,7 +5167,18 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                   setTradeAmount('');
                 } else {
                   const num = parseInt(val);
-                  setTradeAmount(isNaN(num) ? '' : Math.max(0, num));
+                  if (isNaN(num)) {
+                    setTradeAmount('');
+                  } else {
+                    // Cap at the max for the current action
+                    let max;
+                    if (tradeMode === 'normal') {
+                      max = getMaxShares('buy'); // For buying
+                    } else {
+                      max = getMaxShares('short'); // For shorting
+                    }
+                    setTradeAmount(Math.min(max, Math.max(0, num)));
+                  }
                 }
               }}
               onBlur={() => {
@@ -5167,7 +5188,15 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
               }}
               className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
             />
-            <button onClick={() => setTradeAmount((tradeAmount || 0) + 1)}
+            <button onClick={() => {
+              let max;
+              if (tradeMode === 'normal') {
+                max = getMaxShares('buy');
+              } else {
+                max = getMaxShares('short');
+              }
+              setTradeAmount(Math.min(max, (tradeAmount || 0) + 1));
+            }}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
             <button
               onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
@@ -5425,6 +5454,8 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
+  const [showPredictions, setShowPredictions] = useState(true); // Weekly predictions collapse state
+  const [showNewCharacters, setShowNewCharacters] = useState(true); // New characters collapse state
 
   // Helper to show toast notification
   const showNotification = useCallback((type, message) => {
@@ -8041,44 +8072,89 @@ export default function App() {
           {/* Predictions - takes 2 columns */}
           {predictions.length > 0 && (
             <div className="lg:col-span-2">
-              <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>🔮 Weekly Predictions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
-                  // Calculate bet limit = total $ spent on stocks, capped by cash
-                  const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
-                    const costBasis = userData?.costBasis?.[ticker] || 0;
-                    return sum + (costBasis * shares);
-                  }, 0);
-                  const totalShortMargin = Object.values(userData?.shorts || {}).reduce((sum, short) => sum + (short.margin || 0), 0);
-                  const totalInvested = totalSpentOnStocks + totalShortMargin;
-                  const betLimit = Math.min(totalInvested, userData?.cash || 0);
-                  
-                  return (
-                    <PredictionCard
-                      key={prediction.id}
-                      prediction={prediction}
-                      userBet={getUserBet(prediction.id)}
-                      onBet={handleBet}
-                      onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
-                      darkMode={darkMode}
-                      isGuest={isGuest}
-                      betLimit={betLimit}
-                      isAdmin={user && ADMIN_UIDS.includes(user.uid)}
-                      onHide={handleHidePrediction}
-                    />
-                  );
-                })}
-              </div>
+              <button
+                onClick={() => setShowPredictions(!showPredictions)}
+                className={`w-full flex items-center justify-between px-4 py-3 mb-3 rounded-sm transition-all ${
+                  darkMode
+                    ? 'bg-zinc-900/50 hover:bg-zinc-800/70 border border-zinc-800'
+                    : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <span className={`text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
+                  🔮 Weekly Predictions
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${showPredictions ? 'rotate-180' : ''} ${mutedClass}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showPredictions && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+                  {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
+                    // Calculate bet limit = total $ spent on stocks, capped by cash
+                    const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
+                      const costBasis = userData?.costBasis?.[ticker] || 0;
+                      return sum + (costBasis * shares);
+                    }, 0);
+                    const totalShortMargin = Object.values(userData?.shorts || {}).reduce((sum, short) => sum + (short.margin || 0), 0);
+                    const totalInvested = totalSpentOnStocks + totalShortMargin;
+                    const betLimit = Math.min(totalInvested, userData?.cash || 0);
+
+                    return (
+                      <PredictionCard
+                        key={prediction.id}
+                        prediction={prediction}
+                        userBet={getUserBet(prediction.id)}
+                        onBet={handleBet}
+                        onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
+                        darkMode={darkMode}
+                        isGuest={isGuest}
+                        betLimit={betLimit}
+                        isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+                        onHide={handleHidePrediction}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-          
+
           {/* New Characters Board - takes 1 column */}
           <div className={predictions.length === 0 ? 'lg:col-span-3' : ''}>
-            <NewCharactersBoard 
-              prices={prices} 
-              priceHistory={priceHistory}
-              darkMode={darkMode} 
-            />
+            <button
+              onClick={() => setShowNewCharacters(!showNewCharacters)}
+              className={`w-full flex items-center justify-between px-4 py-3 mb-3 rounded-sm transition-all ${
+                darkMode
+                  ? 'bg-zinc-900/50 hover:bg-zinc-800/70 border border-zinc-800'
+                  : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+              }`}
+            >
+              <span className={`text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
+                ✨ New This Week
+              </span>
+              <svg
+                className={`w-5 h-5 transition-transform ${showNewCharacters ? 'rotate-180' : ''} ${mutedClass}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showNewCharacters && (
+              <div className="animate-fadeIn">
+                <NewCharactersBoard
+                  prices={prices}
+                  priceHistory={priceHistory}
+                  darkMode={darkMode}
+                />
+              </div>
+            )}
           </div>
         </div>
 
