@@ -4141,6 +4141,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                 </p>
                 <ul className={`text-xs ${mutedClass} space-y-1`}>
                   <li>• Get up to <span className="text-orange-500">50%</span> of your portfolio value as borrowing power</li>
+                  <li>• Per trade: can only use margin <span className="text-orange-500">up to your cash amount</span> (2x leverage max)</li>
                   <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
                   <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
                   <li>• Sale proceeds <span className="text-orange-500">pay debt first</span>, then become cash</li>
@@ -4249,7 +4250,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                 <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
-                  Think of it like a credit card: you have the limit, but you only tap it when needed.
+                  Per trade, you can only use margin <span className="text-orange-500 font-semibold">up to your cash amount</span> (2x leverage max).
                   When you sell stocks, proceeds <span className="text-orange-500 font-semibold">pay down debt first</span>, then become cash.
                 </p>
               </div>
@@ -4884,12 +4885,15 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
   // Calculate buying power for display and max calculation
   const getBuyingPower = () => {
-    // Buying power = cash + available margin
+    // MATCHING RULE: Buying power = cash + min(cash, availableMargin)
+    // You can only use margin up to your cash amount per trade
     let buyingPower = userCash;
     if (userData && prices) {
       const marginStatus = calculateMarginStatus(userData, prices);
       if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-        buyingPower += marginStatus.availableMargin;
+        // Can only use margin up to your cash amount
+        const maxMarginUsable = Math.min(userCash, marginStatus.availableMargin);
+        buyingPower += maxMarginUsable;
       }
     }
     return buyingPower;
@@ -6490,47 +6494,25 @@ export default function App() {
         // Can pay with cash only
         cashToUse = totalCost;
         marginToUse = 0;
-      } else if (marginEnabled && cashAvailable + availableMargin >= totalCost) {
-        // Calculate how much margin we can actually use while maintaining safe equity ratio
-        cashToUse = cashAvailable;
-        const requestedMarginUse = totalCost - cashAvailable;
+      } else if (marginEnabled && availableMargin > 0) {
+        // MATCHING RULE: Can only use margin up to your cash amount
+        // This prevents infinite leverage - if you have $500 cash, you can use max $500 margin
+        // Total buying power = cash + min(cash, availableMargin)
+        const maxMarginForThisTrade = Math.min(cashAvailable, availableMargin);
+        const maxBuyingPower = cashAvailable + maxMarginForThisTrade;
 
-        // Simulate post-purchase equity ratio
-        const currentHoldingsValue = Object.entries(userData.holdings || {}).reduce((sum, [t, shares]) => {
-          return sum + (prices[t] || 0) * shares;
-        }, 0);
-
-        // After purchase: holdings increase by totalCost, cash decreases by cashToUse, margin debt increases by marginToUse
-        const newHoldingsValue = currentHoldingsValue + (prices[ticker] || 0) * amount;
-        const newCash = cashAvailable - cashToUse;
-        const newMarginDebt = marginUsed + requestedMarginUse;
-        const newGrossValue = newCash + newHoldingsValue;
-        const newEquity = newGrossValue - newMarginDebt;
-        const postPurchaseEquityRatio = newGrossValue > 0 ? newEquity / newGrossValue : 1;
-
-        // Require maintaining at least 40% equity after purchase (buffer above 30% maintenance)
-        const MIN_EQUITY_AFTER_PURCHASE = 0.40;
-
-        if (postPurchaseEquityRatio < MIN_EQUITY_AFTER_PURCHASE) {
-          // Calculate maximum margin we can safely use
-          // newGrossValue = newCash + newHoldingsValue
-          // newEquity = newGrossValue - newMarginDebt
-          // We want: newEquity / newGrossValue >= 0.40
-          // Therefore: newMarginDebt <= newGrossValue * (1 - 0.40)
-          const maxSafeMarginDebt = newGrossValue * (1 - MIN_EQUITY_AFTER_PURCHASE);
-          const maxSafeMarginUse = Math.max(0, maxSafeMarginDebt - marginUsed);
-
-          if (maxSafeMarginUse < requestedMarginUse) {
-            showNotification('error', `Cannot use ${formatCurrency(requestedMarginUse)} margin - would reduce equity below 40%. Max safe margin: ${formatCurrency(maxSafeMarginUse)}`);
-            return;
-          }
+        if (totalCost > maxBuyingPower) {
+          showNotification('error', `Insufficient funds! Need ${formatCurrency(totalCost)}. Max buying power: ${formatCurrency(maxBuyingPower)} (${formatCurrency(cashAvailable)} cash + ${formatCurrency(maxMarginForThisTrade)} margin)`);
+          return;
         }
 
-        marginToUse = requestedMarginUse;
+        // Use cash first, then margin up to the matching limit
+        cashToUse = cashAvailable;
+        marginToUse = totalCost - cashAvailable;
       } else {
         // Not enough funds even with margin
         if (marginEnabled) {
-          showNotification('error', `Insufficient funds! Need ${formatCurrency(totalCost)}, have ${formatCurrency(cashAvailable)} cash + ${formatCurrency(availableMargin)} margin`);
+          showNotification('error', `Insufficient funds! Need ${formatCurrency(totalCost)}, have ${formatCurrency(cashAvailable)} cash`);
         } else {
           showNotification('error', 'Insufficient funds!');
         }
@@ -6847,44 +6829,18 @@ export default function App() {
       const marginStatus = calculateMarginStatus(userData, prices);
       const availableMargin = marginStatus.availableMargin || 0;
 
-      // For shorts: need 50% collateral (can use cash + available margin)
-      const totalAvailable = cashAvailable + (marginEnabled ? availableMargin : 0);
+      // MATCHING RULE: Can only use margin up to your cash amount
+      const maxMarginForThisTrade = Math.min(cashAvailable, availableMargin);
+      const maxAvailableForShort = cashAvailable + (marginEnabled ? maxMarginForThisTrade : 0);
 
-      if (totalAvailable < marginRequired) {
-        showNotification('error', `Need ${formatCurrency(marginRequired)} margin (50% of position). You have ${formatCurrency(totalAvailable)}.`);
+      if (maxAvailableForShort < marginRequired) {
+        showNotification('error', `Need ${formatCurrency(marginRequired)} margin (50% of position). Max available: ${formatCurrency(maxAvailableForShort)}`);
         return;
       }
 
       // Determine how much to use from cash vs margin
       let cashToUse = Math.min(cashAvailable, marginRequired);
       let marginToUse = marginRequired - cashToUse;
-
-      // Check if using this much margin maintains safe equity ratio
-      if (marginEnabled && marginToUse > 0) {
-        const currentHoldingsValue = Object.entries(userData.holdings || {}).reduce((sum, [t, shares]) => {
-          return sum + (prices[t] || 0) * shares;
-        }, 0);
-        const currentMarginUsed = userData.marginUsed || 0;
-
-        // After short: cash decreases by cashToUse, margin debt increases by marginToUse
-        // Short positions are held separately and don't add to holdings value
-        const newCash = cashAvailable - cashToUse;
-        const newMarginDebt = currentMarginUsed + marginToUse;
-        const newGrossValue = newCash + currentHoldingsValue;
-        const newEquity = newGrossValue - newMarginDebt;
-        const postShortEquityRatio = newGrossValue > 0 ? newEquity / newGrossValue : 1;
-
-        // Require maintaining at least 40% equity after opening short
-        const MIN_EQUITY_AFTER_PURCHASE = 0.40;
-
-        if (postShortEquityRatio < MIN_EQUITY_AFTER_PURCHASE) {
-          const maxSafeMarginDebt = newGrossValue * (1 - MIN_EQUITY_AFTER_PURCHASE);
-          const maxSafeMarginUse = Math.max(0, maxSafeMarginDebt - currentMarginUsed);
-
-          showNotification('error', `Cannot use ${formatCurrency(marginToUse)} margin - would reduce equity below 40%. Max safe margin: ${formatCurrency(maxSafeMarginUse)}`);
-          return;
-        }
-      }
       
       const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
 
@@ -8235,10 +8191,15 @@ export default function App() {
             )}
             {(activeUserData.cash || 0) >= 0 && activeUserData.marginEnabled && (() => {
               const marginStatus = calculateMarginStatus(activeUserData, prices);
+              // MATCHING RULE: Can only use margin up to cash amount per trade
+              const usableMargin = Math.min(activeUserData.cash || 0, marginStatus.availableMargin);
               return (
                 <p className={`text-xs ${mutedClass} mt-1`}>
-                  <span className="text-amber-500 font-semibold">+ {formatCurrency(marginStatus.availableMargin)}</span>
-                  <span className={mutedClass}> margin available</span>
+                  <span className="text-amber-500 font-semibold">+ {formatCurrency(usableMargin)}</span>
+                  <span className={mutedClass}> margin usable</span>
+                  {marginStatus.availableMargin > usableMargin && (
+                    <span className={mutedClass}> ({formatCurrency(marginStatus.availableMargin)} total)</span>
+                  )}
                   {activeUserData.marginUsed > 0 && (
                     <span className="block text-orange-500 text-xs mt-0.5">{formatCurrency(activeUserData.marginUsed)} debt • 0.5% daily</span>
                   )}
