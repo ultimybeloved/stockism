@@ -4878,9 +4878,20 @@ const LoginModal = ({ onClose, darkMode }) => {
             required
           />
           {isRegistering && (
-            <p className={`text-xs ${mutedClass}`}>
-              📧 A verification email will be sent to your email address. You must verify your email before you can sign in.
-            </p>
+            <>
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-sm text-sm ${inputClass}`}
+                disabled={loading}
+                required
+              />
+              <p className={`text-xs ${mutedClass}`}>
+                📧 A verification email will be sent to your email address. You must verify your email before you can sign in.
+              </p>
+            </>
           )}
           {error && (
             <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
@@ -4898,7 +4909,7 @@ const LoginModal = ({ onClose, darkMode }) => {
 
         <div className="mt-4 text-center">
           <button
-            onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+            onClick={() => { setIsRegistering(!isRegistering); setError(''); setConfirmPassword(''); }}
             className={`text-sm ${mutedClass} hover:text-orange-600`}
           >
             {isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register"}
