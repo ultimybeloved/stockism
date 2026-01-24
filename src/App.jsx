@@ -5116,6 +5116,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 // ============================================
 
 const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices }) => {
+  const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
 
   const owned = holdings > 0;
@@ -5258,35 +5259,54 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           </div>
         </div>
 
-        {/* Robinhood-style action buttons */}
-        <div className="grid grid-cols-2 gap-2">
+        {!showTradeMenu ? (
           <button
-            onClick={(e) => { e.stopPropagation(); setTradeAction('buy'); }}
-            className="py-2 text-xs font-semibold uppercase rounded-sm bg-green-600 hover:bg-green-700 text-white"
+            onClick={(e) => { e.stopPropagation(); setShowTradeMenu(true); }}
+            className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
+              darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
+            }`}
           >
-            Buy
+            Trade
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setTradeAction('sell'); }}
-            disabled={holdings === 0}
-            className="py-2 text-xs font-semibold uppercase rounded-sm bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
-          >
-            Sell
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setTradeAction('short'); }}
-            className="py-2 text-xs font-semibold uppercase rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            Short
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setTradeAction('cover'); }}
-            disabled={!shorted}
-            className="py-2 text-xs font-semibold uppercase rounded-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-          >
-            Cover
-          </button>
-        </div>
+        ) : (
+          <div className="space-y-2" onClick={e => e.stopPropagation()}>
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => { setTradeAction('buy'); setShowTradeMenu(false); }}
+                className="py-2 text-xs font-semibold uppercase rounded-sm bg-green-600 hover:bg-green-700 text-white"
+              >
+                Buy
+              </button>
+              <button
+                onClick={() => { setTradeAction('sell'); setShowTradeMenu(false); }}
+                disabled={holdings === 0}
+                className="py-2 text-xs font-semibold uppercase rounded-sm bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+              >
+                Sell
+              </button>
+              <button
+                onClick={() => { setTradeAction('short'); setShowTradeMenu(false); }}
+                className="py-2 text-xs font-semibold uppercase rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Short
+              </button>
+              <button
+                onClick={() => { setTradeAction('cover'); setShowTradeMenu(false); }}
+                disabled={!shorted}
+                className="py-2 text-xs font-semibold uppercase rounded-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                Cover
+              </button>
+            </div>
+            <button
+              onClick={() => setShowTradeMenu(false)}
+              className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-600`}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Trade Action Modal */}
