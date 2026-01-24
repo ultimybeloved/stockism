@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const axios = require('axios');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -500,4 +501,460 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
       'Failed to delete account. Please try again.'
     );
   }
+});
+
+// ============================================
+// DISCORD INTEGRATIONS
+// ============================================
+
+/**
+ * Helper function to send messages to Discord
+ */
+async function sendDiscordMessage(content, embeds = null) {
+  const config = functions.config();
+  const botToken = config.discord?.bot_token;
+  const channelId = config.discord?.channel_id;
+
+  if (!botToken || !channelId) {
+    console.error('Discord config missing');
+    return;
+  }
+
+  try {
+    const payload = { content };
+    if (embeds) {
+      payload.embeds = embeds;
+    }
+
+    await axios.post(
+      `https://discord.com/api/v10/channels/${channelId}/messages`,
+      payload,
+      {
+        headers: {
+          'Authorization': `Bot ${botToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log('Discord message sent successfully');
+  } catch (error) {
+    console.error('Error sending Discord message:', error.response?.data || error.message);
+  }
+}
+
+/**
+ * Daily Market Summary - Runs at 4 PM EST (9 PM UTC) - NYSE close
+ */
+exports.dailyMarketSummary = functions.pubsub
+  .schedule('0 21 * * *')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) {
+        console.log('No market data found');
+        return null;
+      }
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
+
+      // Get all users for stats
+      const usersSnap = await db.collection('users').get();
+      const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Calculate 24h changes
+      const now = Date.now();
+      const dayAgo = now - (24 * 60 * 60 * 1000);
+      const gainers = [];
+      const losers = [];
+      const athStocks = [];
+
+      Object.entries(prices).forEach(([ticker, currentPrice]) => {
+        const history = priceHistory[ticker] || [];
+        if (history.length === 0) return;
+
+        // Find price 24h ago
+        let price24hAgo = history[0].price;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= dayAgo) {
+            price24hAgo = history[i].price;
+            break;
+          }
+        }
+
+        const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+        const stock = { ticker, price: currentPrice, change };
+
+        if (change > 0) gainers.push(stock);
+        if (change < 0) losers.push(stock);
+
+        // Check for ATH
+        const highestHistorical = Math.max(...history.map(h => h.price));
+        if (currentPrice >= highestHistorical) {
+          athStocks.push(ticker);
+        }
+      });
+
+      gainers.sort((a, b) => b.change - a.change);
+      losers.sort((a, b) => a.change - b.change);
+
+      // Calculate trading volume (from transaction logs)
+      let totalVolume = 0;
+      let tradeCount = 0;
+      const traderActivity = {};
+
+      users.forEach(user => {
+        const txLog = user.transactionLog || [];
+        txLog.forEach(tx => {
+          if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > dayAgo) {
+            totalVolume += tx.totalCost || tx.totalRevenue || 0;
+            tradeCount++;
+            traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
+          }
+        });
+      });
+
+      const topTraders = Object.entries(traderActivity)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+      // Build Discord embed
+      const embed = {
+        title: '📊 Daily Market Summary',
+        description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
+        color: 0xFF6B35,
+        fields: [
+          {
+            name: '📈 Market Activity',
+            value: `${tradeCount} trades • $${totalVolume.toFixed(2)} volume`,
+            inline: false
+          },
+          {
+            name: '🔥 Top Gainers (24h)',
+            value: gainers.slice(0, 3).map(s =>
+              `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`
+            ).join('\n') || 'None',
+            inline: true
+          },
+          {
+            name: '📉 Top Losers (24h)',
+            value: losers.slice(0, 3).map(s =>
+              `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`
+            ).join('\n') || 'None',
+            inline: true
+          }
+        ],
+        timestamp: new Date().toISOString()
+      };
+
+      if (athStocks.length > 0) {
+        embed.fields.push({
+          name: '🎯 New All-Time Highs',
+          value: athStocks.slice(0, 5).join(', '),
+          inline: false
+        });
+      }
+
+      if (topTraders.length > 0) {
+        embed.fields.push({
+          name: '⚡ Most Active Traders',
+          value: topTraders.map((_, i) => `#${i + 1}: ${topTraders[i][1]} trades`).join('\n'),
+          inline: false
+        });
+      }
+
+      embed.fields.push({
+        name: '💰 Market Stats',
+        value: `Total Cash: $${(marketData.totalCashInSystem || 0).toLocaleString()}\nActive Traders: ${users.length}`,
+        inline: false
+      });
+
+      await sendDiscordMessage(null, [embed]);
+      return null;
+    } catch (error) {
+      console.error('Error in dailyMarketSummary:', error);
+      return null;
+    }
+  });
+
+/**
+ * Weekly Market Summary - Runs Sundays at 7 PM EST (Monday midnight UTC)
+ */
+exports.weeklyMarketSummary = functions.pubsub
+  .schedule('0 0 * * 1')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) return null;
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
+
+      // Get all users
+      const usersSnap = await db.collection('users').get();
+      const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Calculate weekly stats
+      const now = Date.now();
+      const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+      // Weekly price changes
+      const weeklyChanges = [];
+      Object.entries(prices).forEach(([ticker, currentPrice]) => {
+        const history = priceHistory[ticker] || [];
+        if (history.length === 0) return;
+
+        let priceWeekAgo = history[0].price;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= weekAgo) {
+            priceWeekAgo = history[i].price;
+            break;
+          }
+        }
+
+        const change = ((currentPrice - priceWeekAgo) / priceWeekAgo) * 100;
+        weeklyChanges.push({ ticker, price: currentPrice, change, priceWeekAgo });
+      });
+
+      weeklyChanges.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+      const topGainer = weeklyChanges.find(s => s.change > 0);
+      const topLoser = weeklyChanges.find(s => s.change < 0);
+
+      // Weekly volume
+      let weeklyVolume = 0;
+      let weeklyTrades = 0;
+      users.forEach(user => {
+        const txLog = user.transactionLog || [];
+        txLog.forEach(tx => {
+          if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > weekAgo) {
+            weeklyVolume += tx.totalCost || tx.totalRevenue || 0;
+            weeklyTrades++;
+          }
+        });
+      });
+
+      // Top portfolios
+      const topPortfolios = users
+        .filter(u => u.portfolioValue > 0)
+        .sort((a, b) => b.portfolioValue - a.portfolioValue)
+        .slice(0, 5);
+
+      // Build comprehensive embed
+      const embed = {
+        title: '📈 Weekly Market Report',
+        description: `Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+        color: 0x4ECDC4,
+        fields: [
+          {
+            name: '📊 Weekly Activity',
+            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${users.length} active traders`,
+            inline: false
+          },
+          {
+            name: '🚀 Biggest Mover (Up)',
+            value: topGainer ? `**${topGainer.ticker}**\n$${topGainer.priceWeekAgo.toFixed(2)} → $${topGainer.price.toFixed(2)}\n+${topGainer.change.toFixed(1)}%` : 'None',
+            inline: true
+          },
+          {
+            name: '📉 Biggest Mover (Down)',
+            value: topLoser ? `**${topLoser.ticker}**\n$${topLoser.priceWeekAgo.toFixed(2)} → $${topLoser.price.toFixed(2)}\n${topLoser.change.toFixed(1)}%` : 'None',
+            inline: true
+          },
+          {
+            name: '🏆 Top 5 Portfolios',
+            value: topPortfolios.map((u, i) =>
+              `${i + 1}. ${u.displayName || 'Anonymous'} - $${u.portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`
+            ).join('\n') || 'None',
+            inline: false
+          }
+        ],
+        footer: {
+          text: 'Next report: Next Sunday 7 PM EST'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendDiscordMessage(null, [embed]);
+      return null;
+    } catch (error) {
+      console.error('Error in weeklyMarketSummary:', error);
+      return null;
+    }
+  });
+
+/**
+ * Big Trade Alert - Triggered when large trades occur
+ * Called from client after trade execution
+ */
+exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
+  const { ticker, shares, price, totalValue, type } = data;
+
+  // Only alert for:
+  // - 50+ shares of $35+ stocks
+  // - 100+ shares of any price
+  if ((shares >= 50 && price >= 35) || shares >= 100) {
+    const embed = {
+      title: '🚨 Large Trade Detected',
+      description: `A significant ${type.toLowerCase()} order was executed`,
+      color: type === 'BUY' ? 0x44FF44 : 0xFF4444,
+      fields: [
+        {
+          name: 'Stock',
+          value: `**${ticker}**`,
+          inline: true
+        },
+        {
+          name: 'Shares',
+          value: shares.toLocaleString(),
+          inline: true
+        },
+        {
+          name: 'Price',
+          value: `$${price.toFixed(2)}`,
+          inline: true
+        },
+        {
+          name: 'Total Value',
+          value: `$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
+          inline: false
+        }
+      ],
+      timestamp: new Date().toISOString()
+    };
+
+    await sendDiscordMessage(null, [embed]);
+  }
+
+  return { success: true };
+});
+
+/**
+ * Crew Milestone Alert - Called when crew reaches member milestone
+ */
+exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
+  const { crewName, memberCount } = data;
+
+  // Alert for milestones: 5, 10, 25, 50, 100
+  const milestones = [5, 10, 25, 50, 100];
+  if (milestones.includes(memberCount)) {
+    const embed = {
+      title: '🎉 Crew Milestone!',
+      description: `**${crewName}** has reached **${memberCount} members**!`,
+      color: 0xFFD700,
+      timestamp: new Date().toISOString()
+    };
+
+    await sendDiscordMessage(null, [embed]);
+  }
+
+  return { success: true };
+});
+
+/**
+ * Prediction Result Alert - Called when prediction is resolved
+ */
+exports.predictionResultAlert = functions.https.onCall(async (data, context) => {
+  const { question, winningOption, totalBets, totalPayout, winners } = data;
+
+  const embed = {
+    title: '🔮 Prediction Resolved',
+    description: `**${question}**`,
+    color: 0x9B59B6,
+    fields: [
+      {
+        name: 'Winning Outcome',
+        value: `✅ ${winningOption}`,
+        inline: false
+      },
+      {
+        name: 'Total Bets',
+        value: totalBets.toString(),
+        inline: true
+      },
+      {
+        name: 'Winners',
+        value: winners.toString(),
+        inline: true
+      },
+      {
+        name: 'Total Payout',
+        value: `$${totalPayout.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
+        inline: true
+      }
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * All-Time High Alert - Called when stock hits new ATH
+ */
+exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
+  const { ticker, price, previousHigh } = data;
+
+  const embed = {
+    title: '🎯 New All-Time High!',
+    description: `**${ticker}** just hit a new record`,
+    color: 0xFF6B35,
+    fields: [
+      {
+        name: 'New High',
+        value: `$${price.toFixed(2)}`,
+        inline: true
+      },
+      {
+        name: 'Previous High',
+        value: `$${previousHigh.toFixed(2)}`,
+        inline: true
+      },
+      {
+        name: 'Gain',
+        value: `+${(((price - previousHigh) / previousHigh) * 100).toFixed(1)}%`,
+        inline: true
+      }
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * Portfolio Milestone Alert - Called when user hits major portfolio milestone
+ */
+exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) => {
+  const { milestone } = data;
+
+  const milestones = {
+    10000: { emoji: '💎', label: '$10K Club' },
+    25000: { emoji: '🌟', label: '$25K Elite' },
+    50000: { emoji: '🚀', label: '$50K Legend' },
+    100000: { emoji: '👑', label: '$100K Royalty' }
+  };
+
+  const milestoneInfo = milestones[milestone];
+  if (milestoneInfo) {
+    const embed = {
+      title: `${milestoneInfo.emoji} Portfolio Milestone Achieved!`,
+      description: `A trader just joined the **${milestoneInfo.label}**`,
+      color: 0xFFD700,
+      timestamp: new Date().toISOString()
+    };
+
+    await sendDiscordMessage(null, [embed]);
+  }
+
+  return { success: true };
 });
