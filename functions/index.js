@@ -5,6 +5,9 @@ const axios = require('axios');
 admin.initializeApp();
 const db = admin.firestore();
 
+// Import bot trader
+const { botTrader } = require('./botTrader');
+
 // Constants
 const STARTING_CASH = 1000;
 const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
@@ -958,3 +961,6 @@ exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) =
 
   return { success: true };
 });
+
+// Export bot trader
+exports.botTrader = botTrader;
