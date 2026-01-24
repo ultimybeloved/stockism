@@ -49,6 +49,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [fraudUsers, setFraudUsers] = useState([]);
   const [scanningFraud, setScanningFraud] = useState(false);
 
+  // Manual rollback state
+  const [rollbackTarget, setRollbackTarget] = useState(null);
+  const [newDisplayName, setNewDisplayName] = useState('');
+
   // User search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState([]);
@@ -2153,6 +2157,69 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Rollback user to a specific transaction timestamp
+  const handleRollbackUser = async (userId, transaction) => {
+    if (!confirm(`⚠️ ROLLBACK USER ⚠️\n\nRoll back to transaction from ${new Date(transaction.timestamp).toLocaleString()}?\n\nThis will:\n- Set cash to $${transaction.cashAfter?.toLocaleString() || '0'}\n- Set portfolio to $${transaction.portfolioAfter?.toLocaleString() || '0'}\n- You'll need to manually fix holdings/shorts\n\nContinue?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        cash: transaction.cashAfter || 0,
+        portfolioValue: transaction.portfolioAfter || 0
+      });
+
+      showMessage('success', `Rolled back user to ${new Date(transaction.timestamp).toLocaleString()}!`);
+      setRollbackTarget(null);
+
+      // Refresh selected user data
+      const updatedSnap = await getDoc(userRef);
+      if (updatedSnap.exists()) {
+        setSelectedUser({ id: updatedSnap.id, ...updatedSnap.data() });
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Rollback failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  // Change user's display name
+  const handleChangeDisplayName = async (userId, newName) => {
+    if (!newName || newName.trim().length === 0) {
+      showMessage('error', 'Display name cannot be empty');
+      return;
+    }
+
+    if (!confirm(`Change display name to "${newName}"?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        displayName: newName.trim(),
+        displayNameLower: newName.trim().toLowerCase()
+      });
+
+      showMessage('success', `Changed display name to "${newName}"!`);
+      setNewDisplayName('');
+
+      // Refresh selected user data
+      const updatedSnap = await getDoc(userRef);
+      if (updatedSnap.exists()) {
+        setSelectedUser({ id: updatedSnap.id, ...updatedSnap.data() });
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to change name: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Check admin access
   if (!isAdmin) {
     return (
@@ -3498,6 +3565,40 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     </div>
                   )}
 
+                  {/* Display Name Editor */}
+                  <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+                    <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>⚙️ Manual Tools</h4>
+                    <div className="space-y-2">
+                      <div>
+                        <label className={`text-xs ${mutedClass} block mb-1`}>Change Display Name:</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newDisplayName}
+                            onChange={(e) => setNewDisplayName(e.target.value)}
+                            placeholder={selectedUser.displayName}
+                            className={`flex-1 px-2 py-1 text-sm rounded border ${
+                              darkMode
+                                ? 'bg-slate-700 border-slate-600 text-white'
+                                : 'bg-white border-slate-300 text-slate-900'
+                            }`}
+                          />
+                          <button
+                            onClick={() => handleChangeDisplayName(selectedUser.id, newDisplayName)}
+                            disabled={!newDisplayName || newDisplayName.trim().length === 0}
+                            className={`px-3 py-1 text-xs font-semibold rounded ${
+                              newDisplayName && newDisplayName.trim().length > 0
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-slate-400 text-slate-200 cursor-not-allowed'
+                            }`}
+                          >
+                            Update
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Transaction Log */}
                   {selectedUser.transactionLog && selectedUser.transactionLog.length > 0 && (
                     <div className="mb-4">
@@ -3529,8 +3630,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                               {tx.type === 'CHECKIN' && `+$${tx.bonus} daily bonus`}
                               {tx.type === 'BET' && `$${tx.amount} on "${tx.option}"`}
                             </div>
-                            <div className={`${mutedClass} mt-1`}>
-                              Cash: ${tx.cashBefore?.toFixed(2)} → ${tx.cashAfter?.toFixed(2)}
+                            <div className={`${mutedClass} mt-1 flex justify-between items-center`}>
+                              <span>Cash: ${tx.cashBefore?.toFixed(2)} → ${tx.cashAfter?.toFixed(2)}</span>
+                              <button
+                                onClick={() => handleRollbackUser(selectedUser.id, tx)}
+                                className="ml-2 px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
+                              >
+                                ⏮ Rollback
+                              </button>
                             </div>
                           </div>
                         ))}
