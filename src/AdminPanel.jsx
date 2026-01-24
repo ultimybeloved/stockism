@@ -53,6 +53,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [tradeFraudUsers, setTradeFraudUsers] = useState([]);
   const [scanningTradeFraud, setScanningTradeFraud] = useState(false);
 
+  // User data transfer state
+  const [oldUserId, setOldUserId] = useState('');
+  const [newUserId, setNewUserId] = useState('');
+  const [transferring, setTransferring] = useState(false);
+
   // Manual rollback state
   const [rollbackTarget, setRollbackTarget] = useState(null);
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -2360,6 +2365,71 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', `Rollback failed: ${err.message}`);
     }
     setLoading(false);
+  };
+
+  // Transfer all data from old user to new user
+  const handleTransferUserData = async () => {
+    if (!oldUserId.trim() || !newUserId.trim()) {
+      showMessage('error', 'Please enter both old and new user IDs');
+      return;
+    }
+
+    if (oldUserId.trim() === newUserId.trim()) {
+      showMessage('error', 'Old and new user IDs cannot be the same');
+      return;
+    }
+
+    setTransferring(true);
+    try {
+      const oldUserRef = doc(db, 'users', oldUserId.trim());
+      const newUserRef = doc(db, 'users', newUserId.trim());
+
+      // Get old user data
+      const oldUserSnap = await getDoc(oldUserRef);
+      if (!oldUserSnap.exists()) {
+        showMessage('error', `Old user ID not found: ${oldUserId}`);
+        setTransferring(false);
+        return;
+      }
+
+      // Get new user data (to show what will be overwritten)
+      const newUserSnap = await getDoc(newUserRef);
+      if (!newUserSnap.exists()) {
+        showMessage('error', `New user ID not found: ${newUserId}`);
+        setTransferring(false);
+        return;
+      }
+
+      const oldData = oldUserSnap.data();
+      const newData = newUserSnap.data();
+
+      // Confirm the transfer
+      if (!confirm(`⚠️ TRANSFER USER DATA ⚠️\n\nCopy ALL data from old user to new user?\n\nOLD USER: ${oldData.displayName || 'Unknown'}\nPortfolio: $${(oldData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${oldData.totalCheckins || 0}\n\nNEW USER: ${newData.displayName || 'Unknown'}\nPortfolio: $${(newData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${newData.totalCheckins || 0}\n\nThe NEW user's data will be COMPLETELY OVERWRITTEN with the OLD user's data.\n\nContinue?`)) {
+        setTransferring(false);
+        return;
+      }
+
+      // Copy ALL data from old to new (except the user ID itself)
+      const dataToTransfer = { ...oldData };
+
+      // Update the new user with all old user's data
+      await updateDoc(newUserRef, dataToTransfer);
+
+      showMessage('success', `Successfully transferred data from ${oldData.displayName} to new account!`);
+
+      // Ask if they want to delete the old account
+      if (confirm(`Transfer complete!\n\nDo you want to DELETE the old user account?\n\nOld User: ${oldData.displayName}\nID: ${oldUserId}\n\nThis cannot be undone!`)) {
+        await deleteDoc(oldUserRef);
+        showMessage('success', `Old user account deleted.`);
+      }
+
+      setOldUserId('');
+      setNewUserId('');
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Transfer failed: ${err.message}`);
+    }
+    setTransferring(false);
   };
 
   // Change user's display name
@@ -4888,6 +4958,61 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* User Data Transfer */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 ${textClass}`}>👤 Transfer User Data</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Copy all data from one user account to another. Useful when a user lost access to their email.
+                  The new user's data will be COMPLETELY OVERWRITTEN.
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old User ID</label>
+                    <input
+                      type="text"
+                      placeholder="User ID with old email/data"
+                      value={oldUserId}
+                      onChange={(e) => setOldUserId(e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+                      disabled={transferring}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New User ID</label>
+                    <input
+                      type="text"
+                      placeholder="User ID of new account"
+                      value={newUserId}
+                      onChange={(e) => setNewUserId(e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+                      disabled={transferring}
+                    />
+                  </div>
+
+                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                    <p className={`text-xs ${mutedClass}`}>
+                      <strong>How to find User IDs:</strong>
+                      <br/>1. Ask user for their display name (username)
+                      <br/>2. Search for them in the Users tab
+                      <br/>3. Click on them to view details
+                      <br/>4. Copy the User ID from the top of their profile
+                      <br/><br/>
+                      <strong className="text-orange-500">⚠️ Warning:</strong> This will copy ALL data (cash, holdings, achievements, transactions, etc.) from the old account to the new account. Any data on the new account will be lost.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleTransferUserData}
+                    disabled={transferring || !oldUserId.trim() || !newUserId.trim()}
+                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
