@@ -4816,7 +4816,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0 }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices }) => {
   const [showTrade, setShowTrade] = useState(false);
   const [tradeAmount, setTradeAmount] = useState(1);
   const [tradeMode, setTradeMode] = useState('normal'); // 'normal' or 'short'
@@ -4840,18 +4840,31 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     }
   };
 
+  // Calculate buying power for display and max calculation
+  const getBuyingPower = () => {
+    let buyingPower = userCash;
+    if (userData && prices) {
+      const marginStatus = calculateMarginStatus(userData, prices);
+      if (marginStatus.enabled && marginStatus.availableMargin > 0) {
+        buyingPower += marginStatus.availableMargin;
+      }
+    }
+    return buyingPower;
+  };
+
   // Calculate max affordable shares
   const getMaxShares = (action) => {
-    if (userCash <= 0) return 0;
+    const buyingPower = getBuyingPower();
 
     if (action === 'buy') {
+      if (buyingPower <= 0) return 0;
       // Binary search for max affordable shares (because price increases with amount)
-      let low = 1, high = Math.floor(userCash / (price * 0.5)), maxAffordable = 0;
+      let low = 1, high = Math.floor(buyingPower / (price * 0.5)), maxAffordable = 0;
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         const { ask } = getDynamicPrices(mid, 'buy');
         const cost = ask * mid;
-        if (cost <= userCash) {
+        if (cost <= buyingPower) {
           maxAffordable = mid;
           low = mid + 1;
         } else {
@@ -4861,12 +4874,14 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
       return Math.max(1, maxAffordable);
     } else if (action === 'short') {
       // For shorts: margin = bid * shares * 0.5
-      let low = 1, high = Math.floor(userCash / (price * 0.25)), maxAffordable = 0;
+      // Can use buying power (cash + available margin)
+      if (buyingPower <= 0) return 0;
+      let low = 1, high = Math.floor(buyingPower / (price * 0.25)), maxAffordable = 0;
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         const { bid } = getDynamicPrices(mid, 'short');
         const margin = bid * mid * SHORT_MARGIN_REQUIREMENT;
-        if (margin <= userCash) {
+        if (margin <= buyingPower) {
           maxAffordable = mid;
           low = mid + 1;
         } else {
@@ -5093,20 +5108,25 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           })()}
 
           {/* Amount controls with Max button */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
-              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
-            <input type="number" min="1" value={tradeAmount}
-              onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-              className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
-            <button onClick={() => setTradeAmount(tradeAmount + 1)}
-              className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
-            <button
-              onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
-              className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-            >
-              Max
-            </button>
+          <div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
+                className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
+              <input type="number" min="1" value={tradeAmount}
+                onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
+              <button onClick={() => setTradeAmount(tradeAmount + 1)}
+                className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
+              <button
+                onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
+                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+              >
+                Max
+              </button>
+            </div>
+            <div className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'} mt-1`}>
+              DEBUG: Cash=${userCash.toFixed(2)} | BP=${getBuyingPower().toFixed(2)} | hasUD={userData ? 'Y' : 'N'} | hasP={prices ? 'Y' : 'N'}
+            </div>
           </div>
 
           {tradeMode === 'normal' ? (
@@ -8052,6 +8072,8 @@ export default function App() {
               priceHistory={priceHistory}
               darkMode={darkMode}
               userCash={activeUserData.cash || 0}
+              userData={activeUserData}
+              prices={prices}
             />
           ))}
         </div>
