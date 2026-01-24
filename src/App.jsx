@@ -8633,10 +8633,11 @@ export default function App() {
               const marginStatus = calculateMarginStatus(activeUserData, prices);
               // MATCHING RULE: Can only use margin up to cash amount per trade
               const usableMargin = Math.min(activeUserData.cash || 0, marginStatus.availableMargin);
+              const marginColor = activeUserData.colorBlindMode ? 'text-teal-500' : 'text-green-500';
               return (
                 <p className={`text-xs ${mutedClass} mt-1`}>
-                  <span className="text-amber-500 font-semibold">+ {formatCurrency(usableMargin)}</span>
-                  <span className={mutedClass}> margin usable</span>
+                  <span className={`${marginColor} font-semibold`}>+ {formatCurrency(usableMargin)}</span>
+                  <span className={marginColor}> margin usable</span>
                   {marginStatus.availableMargin > usableMargin && (
                     <span className={mutedClass}> ({formatCurrency(marginStatus.availableMargin)} total)</span>
                   )}
@@ -8683,11 +8684,11 @@ export default function App() {
                 <>
                   {value24hAgo && (
                     <p className={`text-xs ${colors24h.text}`}>
-                      {change24h >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(change24h))} ({change24h >= 0 ? '+' : ''}{formatChange(changePercent24h)}) 24h
+                      {change24h >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(change24h))} ({formatChange(changePercent24h)}) 24h
                     </p>
                   )}
                   <p className={`text-xs ${mutedClass}`}>
-                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {formatCurrency(Math.abs(portfolioValue - STARTING_CASH))} from start
+                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {((portfolioValue - STARTING_CASH) / STARTING_CASH * 100).toFixed(2)}% from start
                     {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
                   </p>
                 </>
