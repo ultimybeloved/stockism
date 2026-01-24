@@ -8633,11 +8633,10 @@ export default function App() {
               const marginStatus = calculateMarginStatus(activeUserData, prices);
               // MATCHING RULE: Can only use margin up to cash amount per trade
               const usableMargin = Math.min(activeUserData.cash || 0, marginStatus.availableMargin);
-              const marginColor = activeUserData.colorBlindMode ? 'text-teal-500' : 'text-green-500';
               return (
                 <p className={`text-xs ${mutedClass} mt-1`}>
-                  <span className={`${marginColor} font-semibold`}>+ {formatCurrency(usableMargin)}</span>
-                  <span className={marginColor}> margin usable</span>
+                  <span className="text-amber-500 font-semibold">+ {formatCurrency(usableMargin)}</span>
+                  <span className="text-amber-500"> margin usable</span>
                   {marginStatus.availableMargin > usableMargin && (
                     <span className={mutedClass}> ({formatCurrency(marginStatus.availableMargin)} total)</span>
                   )}
