@@ -1818,9 +1818,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
   const [userRank, setUserRank] = useState(null); // User's actual rank in current view
-  const [userRowPosition, setUserRowPosition] = useState('below'); // 'above', 'visible', or 'below'
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
+  const stickyHeaderRef = useRef(null);
+  const stickyFooterRef = useRef(null);
 
   // Fetch main top 50 leaderboard
   useEffect(() => {
@@ -1931,37 +1932,41 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     fetchUserRank();
   }, [currentUser, currentUserData, crewFilter, leaders, crewLeaders]);
 
-  // Track user row position relative to viewport
+  // Track user row position via direct DOM manipulation (no state updates = no re-renders)
   useEffect(() => {
     const container = scrollContainerRef.current;
     const userRow = userRowRef.current;
-    if (!container || !userRow) return;
+    const header = stickyHeaderRef.current;
+    const footer = stickyFooterRef.current;
 
-    let cachedPosition = 'below';
+    if (!container || !userRow || !header || !footer) return;
 
-    // Use Intersection Observer with multiple thresholds for smoother detection
+    // Use Intersection Observer to directly update DOM visibility
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          cachedPosition = 'visible';
-          setUserRowPosition('visible');
+          // User row is visible - hide both sticky elements
+          header.style.display = 'none';
+          footer.style.display = 'none';
         } else {
-          // Use entry data instead of querying DOM
+          // User row is not visible - determine position
           const rowRect = entry.boundingClientRect;
           const containerRect = entry.rootBounds;
 
           if (rowRect.bottom < containerRect.top) {
-            cachedPosition = 'above';
-            setUserRowPosition('above');
+            // Row is above viewport - show header, hide footer
+            header.style.display = 'flex';
+            footer.style.display = 'none';
           } else {
-            cachedPosition = 'below';
-            setUserRowPosition('below');
+            // Row is below viewport - show footer, hide header
+            header.style.display = 'none';
+            footer.style.display = 'flex';
           }
         }
       },
       {
         root: container,
-        threshold: [0, 0.25, 0.5, 0.75, 1]
+        threshold: [0, 0.1]
       }
     );
 
@@ -2021,11 +2026,13 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         </div>
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
-          {/* Sticky Header - shows when user row is above viewport */}
-          {currentUser && userRank && userRowPosition === 'above' && (
+          {/* Sticky Header - visibility controlled by IO via ref */}
+          {currentUser && userRank && (
             <div
+              ref={stickyHeaderRef}
               className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
               style={{
+                display: 'none',
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
                 boxShadow: `0 2px 8px ${userCrewColor}40`,
@@ -2096,11 +2103,13 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
             </div>
           )}
 
-          {/* Sticky Footer - shows when user row is below viewport */}
-          {currentUser && userRank && userRowPosition === 'below' && !loading && (
+          {/* Sticky Footer - visibility controlled by IO via ref */}
+          {currentUser && userRank && !loading && (
             <div
+              ref={stickyFooterRef}
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
+                display: 'flex',
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
                 boxShadow: `0 -2px 12px ${userCrewColor}40`,
