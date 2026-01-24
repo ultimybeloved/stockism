@@ -45,6 +45,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [futureEntries, setFutureEntries] = useState([]);
   const [scanningHistory, setScanningHistory] = useState(false);
 
+  // Check-in fraud detection state
+  const [fraudUsers, setFraudUsers] = useState([]);
+  const [scanningFraud, setScanningFraud] = useState(false);
+
   // User search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState([]);
@@ -2001,6 +2005,134 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       console.error(err);
       showMessage('error', `Cleanup failed: ${err.message}`);
     }
+    setLoading(false);
+  };
+
+  // Scan for check-in fraud (future dates)
+  const handleScanCheckinFraud = async () => {
+    setScanningFraud(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnap = await getDocs(usersRef);
+
+      const now = new Date();
+      const todayString = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const fraudFound = [];
+
+      usersSnap.forEach(doc => {
+        const user = doc.data();
+        const dailyMissions = user.dailyMissions || {};
+        const futureCheckins = [];
+
+        // Check each date in dailyMissions
+        for (const [dateStr, missions] of Object.entries(dailyMissions)) {
+          if (missions.checkedIn) {
+            const checkinDate = new Date(dateStr);
+            if (checkinDate > now) {
+              futureCheckins.push({
+                date: dateStr,
+                daysInFuture: Math.ceil((checkinDate - now) / (1000 * 60 * 60 * 24))
+              });
+            }
+          }
+        }
+
+        if (futureCheckins.length > 0) {
+          const fraudulentBonus = futureCheckins.length * 300; // $300 per check-in
+          fraudFound.push({
+            userId: doc.id,
+            displayName: user.displayName || 'Unknown',
+            cash: user.cash || 0,
+            totalCheckins: user.totalCheckins || 0,
+            futureCheckins,
+            fraudulentBonus,
+            correctedCheckins: (user.totalCheckins || 0) - futureCheckins.length,
+            correctedCash: (user.cash || 0) - fraudulentBonus
+          });
+        }
+      });
+
+      // Sort by amount of fraud
+      fraudFound.sort((a, b) => b.fraudulentBonus - a.fraudulentBonus);
+
+      setFraudUsers(fraudFound);
+      showMessage('success', `Scan complete. Found ${fraudFound.length} users with future check-ins totaling $${fraudFound.reduce((sum, u) => sum + u.fraudulentBonus, 0).toLocaleString()}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Scan failed: ${err.message}`);
+    }
+    setScanningFraud(false);
+  };
+
+  // Fix a single user's fraudulent check-ins
+  const handleFixUserCheckins = async (userId, fraudData) => {
+    if (!confirm(`Remove ${fraudData.futureCheckins.length} fraudulent check-ins from ${fraudData.displayName}?\n\nThis will:\n- Remove $${fraudData.fraudulentBonus.toLocaleString()} cash\n- Reduce total check-ins from ${fraudData.totalCheckins} to ${fraudData.correctedCheckins}`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      const updates = {
+        cash: fraudData.correctedCash,
+        totalCheckins: fraudData.correctedCheckins
+      };
+
+      // Remove future check-in entries from dailyMissions
+      for (const checkin of fraudData.futureCheckins) {
+        updates[`dailyMissions.${checkin.date}`] = {}; // Clear the entire day's missions
+      }
+
+      await updateDoc(userRef, updates);
+      showMessage('success', `Fixed ${fraudData.displayName}'s account!`);
+
+      // Remove from list
+      setFraudUsers(prev => prev.filter(u => u.userId !== userId));
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to fix user: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  // Fix all fraudulent check-ins
+  const handleFixAllCheckins = async () => {
+    if (fraudUsers.length === 0) return;
+
+    const totalFraud = fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0);
+    const totalUsers = fraudUsers.length;
+
+    if (!confirm(`Fix ALL ${totalUsers} users with fraudulent check-ins?\n\nThis will remove $${totalFraud.toLocaleString()} total from the economy.\n\nThis action cannot be undone!`)) {
+      return;
+    }
+
+    setLoading(true);
+    let fixed = 0;
+    let failed = 0;
+
+    for (const fraudData of fraudUsers) {
+      try {
+        const userRef = doc(db, 'users', fraudData.userId);
+        const updates = {
+          cash: fraudData.correctedCash,
+          totalCheckins: fraudData.correctedCheckins
+        };
+
+        // Remove future check-in entries
+        for (const checkin of fraudData.futureCheckins) {
+          updates[`dailyMissions.${checkin.date}`] = {};
+        }
+
+        await updateDoc(userRef, updates);
+        fixed++;
+      } catch (err) {
+        console.error('Failed to fix', fraudData.displayName, err);
+        failed++;
+      }
+    }
+
+    showMessage('success', `Fixed ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
+    setFraudUsers([]);
     setLoading(false);
   };
 
@@ -4100,6 +4232,90 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       className="w-full mt-3 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
                     >
                       {loading ? 'Cleaning...' : `🗑️ Remove All Future Entries (${futureEntries.reduce((sum, t) => sum + t.count, 0)})`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Check-In Fraud Detection */}
+              <div className={`p-4 rounded-sm mt-4 ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+                <h3 className={`font-semibold mb-3 text-red-500`}>🚨 Check-In Fraud Detection</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Scan for users who have claimed daily check-ins for future dates (by manipulating their device clock).
+                  Game launched Jan 13, 2026 - max legitimate check-ins is ~11 days.
+                </p>
+
+                <button
+                  onClick={handleScanCheckinFraud}
+                  disabled={scanningFraud}
+                  className="w-full mb-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {scanningFraud ? 'Scanning...' : '🔍 Scan for Fraudulent Check-Ins'}
+                </button>
+
+                {fraudUsers.length > 0 && (
+                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h4 className={`font-semibold mb-2 ${textClass}`}>
+                      Found {fraudUsers.length} User{fraudUsers.length === 1 ? '' : 's'} with Fraud
+                    </h4>
+                    <p className={`text-sm ${mutedClass} mb-3`}>
+                      Total stolen: ${fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0).toLocaleString()}
+                    </p>
+
+                    <div className="max-h-96 overflow-y-auto space-y-2 mb-3">
+                      {fraudUsers.map(user => (
+                        <div key={user.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-semibold text-orange-500">{user.displayName}</div>
+                              <div className="text-xs text-cyan-500 font-mono">{user.userId}</div>
+                            </div>
+                            <button
+                              onClick={() => handleFixUserCheckins(user.userId, user)}
+                              disabled={loading}
+                              className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
+                            >
+                              Fix User
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                            <div>
+                              <span className={mutedClass}>Total Check-ins: </span>
+                              <span className="font-bold text-orange-500">{user.totalCheckins}</span>
+                              <span className={mutedClass}> → </span>
+                              <span className="font-bold text-green-500">{user.correctedCheckins}</span>
+                            </div>
+                            <div>
+                              <span className={mutedClass}>Cash: </span>
+                              <span className="font-bold text-orange-500">${user.cash.toLocaleString()}</span>
+                              <span className={mutedClass}> → </span>
+                              <span className="font-bold text-green-500">${user.correctedCash.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          <div className={`text-xs ${mutedClass}`}>
+                            <div className="font-semibold mb-1">Fraudulent Check-ins ({user.futureCheckins.length}):</div>
+                            {user.futureCheckins.slice(0, 5).map((c, i) => (
+                              <div key={i}>• {c.date} ({c.daysInFuture} days in future)</div>
+                            ))}
+                            {user.futureCheckins.length > 5 && (
+                              <div>• ... and {user.futureCheckins.length - 5} more</div>
+                            )}
+                            <div className="mt-1 font-semibold text-red-400">
+                              Stolen: ${user.fraudulentBonus.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={handleFixAllCheckins}
+                      disabled={loading}
+                      className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? 'Fixing...' : `🔨 Fix All Users (Remove $${fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0).toLocaleString()})`}
                     </button>
                   </div>
                 )}
