@@ -339,18 +339,18 @@ const getBidAskPrices = (midPrice) => {
 // (utilities are imported from ./utils)
 // ============================================
 
-const SimpleLineChart = ({ data, darkMode }) => {
+const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   if (!data || data.length < 2) return null;
 
   const prices = data.map(d => d.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const priceRange = maxPrice - minPrice || 1;
-  
+
   const width = 100;
   const height = 32;
   const padding = 2;
-  
+
   const points = data.map((d, i) => {
     const x = padding + (i / (data.length - 1)) * (width - padding * 2);
     const y = height - padding - ((d.price - minPrice) / priceRange) * (height - padding * 2);
@@ -360,7 +360,11 @@ const SimpleLineChart = ({ data, darkMode }) => {
   const firstPrice = data[0]?.price || 0;
   const lastPrice = data[data.length - 1]?.price || 0;
   const isUp = lastPrice >= firstPrice;
-  const strokeColor = isUp ? '#22c55e' : '#ef4444';
+
+  // Color blind friendly colors: blue (up) / orange (down)
+  const strokeColor = colorBlindMode
+    ? (isUp ? '#3b82f6' : '#f97316')  // blue-500 / orange-500
+    : (isUp ? '#22c55e' : '#ef4444'); // green-500 / red-500
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-10">
@@ -378,11 +382,24 @@ const SimpleLineChart = ({ data, darkMode }) => {
 // DETAILED CHART MODAL
 // ============================================
 
-const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, defaultTimeRange = '1d' }) => {
+const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, defaultTimeRange = '1d', colorBlindMode = false }) => {
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [archivedHistory, setArchivedHistory] = useState([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
+
+  // Color blind mode helper
+  const getColors = (isPositive) => {
+    if (colorBlindMode) {
+      return {
+        text: isPositive ? 'text-blue-500' : 'text-orange-500'
+      };
+    } else {
+      return {
+        text: isPositive ? 'text-green-500' : 'text-red-500'
+      };
+    }
+  };
 
   const timeRanges = [
     { key: '1d', label: 'Today', hours: 24 },
@@ -550,7 +567,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</span>
-                <span className={`text-sm font-semibold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm font-semibold ${getColors(isUp).text}`}>
                   {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({timeRanges.find(t => t.key === timeRange)?.label})
                 </span>
               </div>
@@ -3712,7 +3729,39 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
               </div>
             </div>
           </div>
-          
+
+          {/* Accessibility Settings */}
+          <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+            <h3 className={`font-semibold ${textClass} mb-3`}>⚙️ Settings</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${textClass}`}>Color Blind Mode</p>
+                <p className={`text-xs ${mutedClass}`}>Use blue/orange instead of green/red</p>
+              </div>
+              <button
+                onClick={async () => {
+                  const newMode = !userData?.colorBlindMode;
+                  try {
+                    await updateDoc(doc(db, 'users', user.uid), {
+                      colorBlindMode: newMode
+                    });
+                  } catch (err) {
+                    console.error('Failed to update color blind mode:', err);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  userData?.colorBlindMode ? 'bg-orange-600' : (darkMode ? 'bg-zinc-700' : 'bg-slate-300')
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    userData?.colorBlindMode ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Active Bets */}
           {userBetHistory.filter(b => b.prediction && !b.prediction.resolved).length > 0 && (
             <div>
@@ -5243,7 +5292,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             </div>
           </div>
           <div className="mb-2">
-            <SimpleLineChart data={miniChartData} darkMode={darkMode} />
+            <SimpleLineChart data={miniChartData} darkMode={darkMode} colorBlindMode={userData?.colorBlindMode || false} />
           </div>
         </div>
 
@@ -5546,6 +5595,29 @@ export default function App() {
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
   const [showPredictions, setShowPredictions] = useState(true); // Weekly predictions collapse state
   const [showNewCharacters, setShowNewCharacters] = useState(true); // New characters collapse state
+
+  // Color blind mode helpers - returns accessible colors
+  const getColorBlindColors = useCallback((isPositive) => {
+    const colorBlindMode = userData?.colorBlindMode || false;
+
+    if (colorBlindMode) {
+      // Color blind friendly: blue (positive) / orange (negative)
+      return {
+        text: isPositive ? 'text-blue-500' : 'text-orange-500',
+        bg: isPositive ? 'bg-blue-600' : 'bg-orange-600',
+        bgHover: isPositive ? 'hover:bg-blue-700' : 'hover:bg-orange-700',
+        border: isPositive ? 'border-blue-500' : 'border-orange-500'
+      };
+    } else {
+      // Standard: green (positive) / red (negative)
+      return {
+        text: isPositive ? 'text-green-500' : 'text-red-500',
+        bg: isPositive ? 'bg-green-600' : 'bg-red-600',
+        bgHover: isPositive ? 'hover:bg-green-700' : 'hover:bg-red-700',
+        border: isPositive ? 'border-green-500' : 'border-red-500'
+      };
+    }
+  }, [userData]);
 
   // Helper to show toast notification
   const showNotification = useCallback((type, message) => {
@@ -8323,10 +8395,12 @@ export default function App() {
               const change24h = value24hAgo ? portfolioValue - value24hAgo : 0;
               const changePercent24h = value24hAgo && value24hAgo > 0 ? ((change24h / value24hAgo) * 100) : 0;
 
+              const colors24h = getColorBlindColors(change24h >= 0);
+
               return (
                 <>
                   {value24hAgo && (
-                    <p className={`text-xs ${change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <p className={`text-xs ${colors24h.text}`}>
                       {change24h >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(change24h))} ({change24h >= 0 ? '+' : ''}{formatChange(changePercent24h)}) 24h
                     </p>
                   )}
@@ -8377,18 +8451,21 @@ export default function App() {
 
               return (
                 <div className="space-y-2">
-                  {topHoldings.map(h => (
-                    <div key={h.ticker} className="flex justify-between items-center text-xs">
-                      <span className={textClass}>${h.ticker} × {h.shares}</span>
-                      <span className={h.unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}>
-                        {h.unrealizedPL >= 0 ? '+' : ''}{formatCurrency(h.unrealizedPL)}
-                      </span>
-                    </div>
-                  ))}
+                  {topHoldings.map(h => {
+                    const plColors = getColorBlindColors(h.unrealizedPL >= 0);
+                    return (
+                      <div key={h.ticker} className="flex justify-between items-center text-xs">
+                        <span className={textClass}>${h.ticker} × {h.shares}</span>
+                        <span className={plColors.text}>
+                          {h.unrealizedPL >= 0 ? '+' : ''}{formatCurrency(h.unrealizedPL)}
+                        </span>
+                      </div>
+                    );
+                  })}
                   <div className={`pt-2 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
                     <div className="flex justify-between items-center text-xs">
                       <span className={mutedClass}>Total Unrealized P/L:</span>
-                      <span className={`font-bold ${totalUnrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <span className={`font-bold ${getColorBlindColors(totalUnrealizedPL >= 0).text}`}>
                         {totalUnrealizedPL >= 0 ? '+' : ''}{formatCurrency(totalUnrealizedPL)}
                       </span>
                     </div>
@@ -8658,6 +8735,7 @@ export default function App() {
           onClose={() => setSelectedCharacter(null)}
           darkMode={darkMode}
           defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
+          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
 
