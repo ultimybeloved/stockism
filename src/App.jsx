@@ -539,12 +539,17 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
-  const areaPath = currentData.length > 0 
+  const areaPath = currentData.length > 0
     ? `${pathData} L ${getX(currentData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
-  const strokeColor = isUp ? '#22c55e' : '#ef4444';
-  const fillColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+  // Color blind friendly chart colors
+  const strokeColor = colorBlindMode
+    ? (isUp ? '#14b8a6' : '#a855f7')  // teal-500 / purple-500
+    : (isUp ? '#22c55e' : '#ef4444'); // green-500 / red-500
+  const fillColor = colorBlindMode
+    ? (isUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')  // teal / purple
+    : (isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');   // green / red
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -704,11 +709,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>High</div>
-              <div className="font-semibold text-green-500">{formatCurrency(maxPrice)}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(maxPrice)}</div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Low</div>
-              <div className="font-semibold text-red-500">{formatCurrency(minPrice)}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>{formatCurrency(minPrice)}</div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Current</div>
@@ -737,7 +742,7 @@ const getWeekStart = () => {
   return weekStart;
 };
 
-const NewCharactersBoard = ({ prices, priceHistory, darkMode }) => {
+const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -783,7 +788,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode }) => {
               </div>
               <div className="text-right ml-2">
                 <span className={`text-sm font-bold ${textClass}`}>${price.toFixed(2)}</span>
-                <span className={`text-xs ml-1 ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-xs ml-1 ${colorBlindMode ? (change >= 0 ? 'text-teal-500' : 'text-purple-500') : (change >= 0 ? 'text-green-500' : 'text-red-500')}`}>
                   {change >= 0 ? '▲' : '▼'}{Math.abs(change).toFixed(1)}%
                 </span>
               </div>
@@ -1180,7 +1185,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
 // PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory, colorBlindMode = false }) => {
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
@@ -1402,12 +1407,17 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
-  const areaPath = chartData.length > 0 
+  const areaPath = chartData.length > 0
     ? `${pathData} L ${getX(chartData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
-  const strokeColor = isUp ? '#22c55e' : '#ef4444';
-  const fillColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+  // Color blind friendly chart colors
+  const strokeColor = colorBlindMode
+    ? (isUp ? '#14b8a6' : '#a855f7')  // teal-500 / purple-500
+    : (isUp ? '#22c55e' : '#ef4444'); // green-500 / red-500
+  const fillColor = colorBlindMode
+    ? (isUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')  // teal / purple
+    : (isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');   // green / red
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -1421,7 +1431,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
               <div className="flex items-baseline gap-2 mt-1">
                 <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(currentValue)}</span>
                 {hasChartData && (
-                  <span className={`text-sm font-semibold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                  <span className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : (isUp ? 'text-green-500' : 'text-red-500')}`}>
                     {isUp ? '▲' : '▼'} {formatCurrency(Math.abs(lastValue - firstValue))} ({formatChange(periodChange)})
                   </span>
                 )}
@@ -8378,6 +8388,7 @@ export default function App() {
                   prices={prices}
                   priceHistory={priceHistory}
                   darkMode={darkMode}
+                  colorBlindMode={userData?.colorBlindMode || false}
                 />
               </div>
             )}
@@ -8777,6 +8788,7 @@ export default function App() {
           darkMode={darkMode}
           costBasis={userData?.costBasis || {}}
           priceHistory={priceHistory}
+          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
       {selectedCharacter && (
