@@ -1580,7 +1580,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
               {portfolioItems.length > 0 && (
                 <>
                   <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
-                    <span className="text-green-500">📈</span> Long Positions
+                    <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>📈</span> Long Positions
                     <span className={`text-xs font-normal ${mutedClass}`}>({portfolioItems.length})</span>
                   </h3>
                   <div className="space-y-2">
@@ -1610,7 +1610,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                           </div>
                           <div className="text-right">
                             <div className={`font-semibold ${textClass}`}>{formatCurrency(item.value)}</div>
-                            <div className={`text-xs ${item.totalReturnPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            <div className={`text-xs ${item.totalReturnPercent >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                               {item.totalReturnPercent >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(item.totalReturnDollar))} ({item.totalReturnPercent >= 0 ? '+' : ''}{item.totalReturnPercent.toFixed(2)}%)
                             </div>
                           </div>
@@ -1632,14 +1632,14 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                             </div>
                             <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
                               <div className={`text-xs ${mutedClass}`}>Today's Return</div>
-                              <div className={`font-semibold ${item.todayReturnDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              <div className={`font-semibold ${item.todayReturnDollar >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                                 {item.todayReturnDollar >= 0 ? '+' : ''}{formatCurrency(item.todayReturnDollar)}
                                 <span className="text-xs ml-1">({item.todayReturnPercent >= 0 ? '+' : ''}{item.todayReturnPercent.toFixed(2)}%)</span>
                               </div>
                             </div>
                             <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
                               <div className={`text-xs ${mutedClass}`}>Total Return</div>
-                              <div className={`font-semibold ${item.totalReturnDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              <div className={`font-semibold ${item.totalReturnDollar >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                                 {item.totalReturnDollar >= 0 ? '+' : ''}{formatCurrency(item.totalReturnDollar)}
                                 <span className="text-xs ml-1">({item.totalReturnPercent >= 0 ? '+' : ''}{item.totalReturnPercent.toFixed(2)}%)</span>
                               </div>
@@ -1750,10 +1750,10 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className={`font-semibold ${item.totalPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                <div className={`font-semibold ${item.totalPL >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                                   {item.totalPL >= 0 ? '+' : ''}{formatCurrency(item.totalPL)}
                                 </div>
-                                <div className={`text-xs ${item.totalPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                <div className={`text-xs ${item.totalPL >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                                   {item.totalPL >= 0 ? '▲' : '▼'} {Math.abs(item.totalPLPercent).toFixed(2)}%
                                 </div>
                               </div>
@@ -1779,7 +1779,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                 </div>
                                 <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
                                   <div className={`text-xs ${mutedClass}`}>Current Equity</div>
-                                  <div className={`font-semibold ${item.equity >= item.margin ? 'text-green-500' : 'text-red-500'}`}>
+                                  <div className={`font-semibold ${item.equity >= item.margin ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                                     {formatCurrency(item.equity)}
                                   </div>
                                 </div>
@@ -1789,15 +1789,15 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               <div className="mb-3">
                                 <div className={`text-xs ${mutedClass} mb-1 flex justify-between`}>
                                   <span>Equity Ratio: {(item.equityRatio * 100).toFixed(1)}%</span>
-                                  <span className={isAtRisk ? 'text-orange-500' : 'text-green-500'}>
+                                  <span className={isAtRisk ? 'text-orange-500' : (colorBlindMode ? 'text-teal-500' : 'text-green-500')}>
                                     {isAtRisk ? 'Liquidation at 25%' : 'Healthy'}
                                   </span>
                                 </div>
                                 <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
                                   <div
                                     className={`h-full rounded-full ${
-                                      item.equityRatio < 0.25 ? 'bg-red-500' :
-                                      item.equityRatio < 0.35 ? 'bg-orange-500' : 'bg-green-500'
+                                      item.equityRatio < 0.25 ? (colorBlindMode ? 'bg-purple-500' : 'bg-red-500') :
+                                      item.equityRatio < 0.35 ? 'bg-orange-500' : (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
                                     }`}
                                     style={{ width: `${Math.min(100, Math.max(0, item.equityRatio * 100))}%` }}
                                   />
@@ -2193,7 +2193,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
 // ABOUT / FAQ / PRIVACY MODAL
 // ============================================
 
-const AboutModal = ({ onClose, darkMode }) => {
+const AboutModal = ({ onClose, darkMode, userData }) => {
   const [activeTab, setActiveTab] = useState('about');
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
@@ -2259,7 +2259,7 @@ const AboutModal = ({ onClose, darkMode }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">Is real money involved?</h3>
                 <p className={mutedClass}>
-                  <span className="text-green-500 font-semibold">Absolutely not.</span> Stockism uses entirely fictional currency. 
+                  <span className={`font-semibold ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>Absolutely not.</span> Stockism uses entirely fictional currency. 
                   You start with $1,000 of fake money and can earn more through daily check-ins. 
                   There is no way to deposit, withdraw, or exchange real money. This is purely for fun!
                 </p>
@@ -2333,8 +2333,8 @@ const AboutModal = ({ onClose, darkMode }) => {
           {/* PRIVACY TAB */}
           {activeTab === 'privacy' && (
             <div className={`space-y-4 ${textClass}`}>
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
-                <p className="text-green-500 font-semibold text-sm">
+              <div className={`p-3 rounded-sm ${userData?.colorBlindMode ? (darkMode ? 'bg-teal-900/30 border border-teal-700' : 'bg-teal-50 border border-teal-200') : (darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200')}`}>
+                <p className={`font-semibold text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
                   🛡️ TL;DR: We store almost nothing about you. No real names, no profile pictures, no tracking.
                 </p>
               </div>
@@ -2362,11 +2362,11 @@ const AboutModal = ({ onClose, darkMode }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">What we DON'T store anywhere:</h3>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
-                  <li>• <span className="text-red-400">❌ Your real name</span> — We never save your Google display name</li>
-                  <li>• <span className="text-red-400">❌ Your profile picture</span> — We never save your Google photo</li>
-                  <li>• <span className="text-red-400">❌ Your password</span> — Google handles authentication securely</li>
-                  <li>• <span className="text-red-400">❌ Your contacts or Google data</span> — We have no access</li>
-                  <li>• <span className="text-red-400">❌ Tracking cookies or analytics</span> — We don't use any</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your real name</span> — We never save your Google display name</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your profile picture</span> — We never save your Google photo</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your password</span> — Google handles authentication securely</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your contacts or Google data</span> — We have no access</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Tracking cookies or analytics</span> — We don't use any</li>
                 </ul>
               </div>
 
@@ -3895,7 +3895,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                         {potentialPayout !== null && (
                           <div className="text-right">
                             <p className={`text-xs ${mutedClass}`}>Potential payout</p>
-                            <p className="text-green-500 font-semibold">{formatCurrency(potentialPayout)}</p>
+                            <p className={`font-semibold ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(potentialPayout)}</p>
                           </div>
                         )}
                       </div>
@@ -3919,19 +3919,25 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                 {userBetHistory.filter(b => b.prediction?.resolved || b.paid !== undefined).map(bet => {
                   const won = bet.prediction?.outcome === bet.option;
                   const paidOut = bet.paid === true;
+                  const colorBlindMode = userData?.colorBlindMode || false;
+                  const winBorderBg = colorBlindMode
+                    ? (darkMode ? 'border-teal-700 bg-teal-900/20' : 'border-teal-300 bg-teal-50')
+                    : (darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-300 bg-green-50');
+                  const loseBorderBg = colorBlindMode
+                    ? (darkMode ? 'border-purple-700/50 bg-purple-900/10' : 'border-purple-200 bg-purple-50')
+                    : (darkMode ? 'border-red-700/50 bg-red-900/10' : 'border-red-200 bg-red-50');
+                  const winText = colorBlindMode ? 'text-teal-500' : 'text-green-500';
+                  const loseText = colorBlindMode ? 'text-purple-400' : 'text-red-400';
+
                   return (
-                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${
-                      won
-                        ? (darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-300 bg-green-50')
-                        : (darkMode ? 'border-red-700/50 bg-red-900/10' : 'border-red-200 bg-red-50')
-                    }`}>
+                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${won ? winBorderBg : loseBorderBg}`}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className={`text-sm font-semibold ${textClass}`}>
                             {bet.prediction?.question || bet.question || 'Past prediction (details unavailable)'}
                           </p>
                           <p className={`text-xs ${mutedClass} mt-1`}>
-                            Your answer: <span className={`font-semibold ${won ? 'text-green-500' : 'text-red-400'}`}>"{bet.option}"</span>
+                            Your answer: <span className={`font-semibold ${won ? winText : loseText}`}>"{bet.option}"</span>
                             {(bet.prediction?.outcome || bet.outcome) && (
                               <span> • Correct answer: <span className="text-orange-500">"{bet.prediction?.outcome || bet.outcome}"</span></span>
                             )}
@@ -3940,18 +3946,18 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                         <div className="text-right ml-2">
                           {won ? (
                             <>
-                              <p className="text-green-500 font-bold">✓ Won</p>
-                              {bet.payout && <p className="text-green-500 text-sm">+{formatCurrency(bet.payout)}</p>}
+                              <p className={`${winText} font-bold`}>✓ Won</p>
+                              {bet.payout && <p className={`${winText} text-sm`}>+{formatCurrency(bet.payout)}</p>}
                             </>
                           ) : (
-                            <p className="text-red-400 font-semibold">✗ Lost</p>
+                            <p className={`${loseText} font-semibold`}>✗ Lost</p>
                           )}
                         </div>
                       </div>
                       <div className={`text-xs mt-2 ${mutedClass}`}>
                         Bet: {formatCurrency(bet.amount)}
                         {paidOut ? (
-                          <span className="text-green-500 ml-2">✓ Paid out to winners</span>
+                          <span className={`${winText} ml-2`}>✓ Paid out to winners</span>
                         ) : bet.prediction?.resolved ? (
                           <span className="text-amber-500 ml-2">⏳ Payout pending</span>
                         ) : null}
@@ -4197,7 +4203,7 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
                             {earned ? achievement.description : achievement.hint}
                           </div>
                         </div>
-                        {earned && <span className="text-green-500 text-sm">✓</span>}
+                        {earned && <span className={`text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>✓</span>}
                       </div>
                     </div>
                   );
@@ -4226,12 +4232,14 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
   const eligibility = checkMarginEligibility(userData, isAdmin);
   const marginStatus = calculateMarginStatus(userData, prices);
   
+  const colorBlindMode = userData?.colorBlindMode || false;
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'safe': return 'text-green-500';
+      case 'safe': return colorBlindMode ? 'text-teal-500' : 'text-green-500';
       case 'warning': return 'text-amber-500';
       case 'margin_call': return 'text-orange-500';
-      case 'liquidation': return 'text-red-500';
+      case 'liquidation': return colorBlindMode ? 'text-purple-500' : 'text-red-500';
       default: return mutedClass;
     }
   };
@@ -4248,10 +4256,14 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
 
   const getStatusBg = (status) => {
     switch (status) {
-      case 'safe': return darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200';
+      case 'safe': return colorBlindMode
+        ? (darkMode ? 'bg-teal-900/20 border-teal-800' : 'bg-teal-50 border-teal-200')
+        : (darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200');
       case 'warning': return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
       case 'margin_call': return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
-      case 'liquidation': return darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200';
+      case 'liquidation': return colorBlindMode
+        ? (darkMode ? 'bg-purple-900/30 border-purple-700' : 'bg-purple-50 border-purple-200')
+        : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200');
       default: return darkMode ? 'bg-zinc-800/50' : 'bg-slate-100';
     }
   };
@@ -4278,7 +4290,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
                 {eligibility.requirements.map((req, i) => (
-                  <div key={i} className={`text-sm flex items-center gap-2 ${req.met ? 'text-green-500' : mutedClass}`}>
+                  <div key={i} className={`text-sm flex items-center gap-2 ${req.met ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : mutedClass}`}>
                     <span>{req.met ? '✓' : '○'}</span>
                     <span>{req.label}</span>
                     {!req.met && <span className="text-xs">({req.current}/{req.required})</span>}
@@ -4289,8 +4301,8 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
           ) : !marginStatus.enabled ? (
             // Eligible but not enabled
             <div className="space-y-4">
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-                <h3 className={`font-semibold mb-2 text-green-500`}>✓ Eligible for Margin</h3>
+              <div className={`p-4 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-teal-900/20 border border-teal-800' : 'bg-teal-50 border border-teal-200') : (darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200')}`}>
+                <h3 className={`font-semibold mb-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>✓ Eligible for Margin</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   You qualify for margin trading! Enable it to access additional buying power.
                 </p>
@@ -4308,12 +4320,12 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                   <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
                   <li>• Sale proceeds <span className="text-orange-500">pay debt first</span>, then become cash</li>
                   <li>• Keep <span className="text-orange-500">30%</span> equity minimum or face margin call</li>
-                  <li>• <span className="text-red-500">Auto-liquidation</span> if equity drops to 25%</li>
+                  <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to 25%</li>
                 </ul>
               </div>
               
-              <div className={`p-3 rounded-sm border ${darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200'}`}>
-                <h4 className="font-semibold mb-1 text-red-500">⚠️ Risk Warning</h4>
+              <div className={`p-3 rounded-sm border ${colorBlindMode ? (darkMode ? 'bg-purple-900/10 border-purple-800' : 'bg-purple-50 border-purple-200') : (darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200')}`}>
+                <h4 className={`font-semibold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>⚠️ Risk Warning</h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin trading amplifies both gains AND losses. You can lose more than your initial investment. 
                   If your portfolio drops significantly, your positions may be automatically liquidated.
@@ -4368,20 +4380,20 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                     </span>
                   </div>
                   <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
-                    <div 
+                    <div
                       className={`h-full rounded-full transition-all ${
-                        marginStatus.equityRatio > 0.35 ? 'bg-green-500' :
+                        marginStatus.equityRatio > 0.35 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
                         marginStatus.equityRatio > 0.30 ? 'bg-amber-500' :
-                        marginStatus.equityRatio > 0.25 ? 'bg-orange-500' : 'bg-red-500'
+                        marginStatus.equityRatio > 0.25 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
                       }`}
                       style={{ width: `${Math.min(100, marginStatus.equityRatio * 100)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-1">
-                    <span className="text-red-500">25%</span>
+                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>25%</span>
                     <span className="text-orange-500">30%</span>
                     <span className="text-amber-500">35%</span>
-                    <span className="text-green-500">100%</span>
+                    <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>100%</span>
                   </div>
                 </div>
                 
@@ -4398,7 +4410,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                   </div>
                   <div>
                     <span className={mutedClass}>Available Margin:</span>
-                    <p className="font-bold text-green-500">{formatCurrency(marginStatus.availableMargin)}</p>
+                    <p className={`font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(marginStatus.availableMargin)}</p>
                   </div>
                   <div>
                     <span className={mutedClass}>Maintenance Req:</span>
@@ -4434,8 +4446,8 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
               )}
               
               {marginStatus.status === 'liquidation' && (
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30' : 'bg-red-50'} border border-red-500`}>
-                  <h4 className="font-bold text-red-500 mb-1">💀 Liquidation Imminent!</h4>
+                <div className={`p-3 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-purple-900/30' : 'bg-purple-50') : (darkMode ? 'bg-red-900/30' : 'bg-red-50')} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}>
+                  <h4 className={`font-bold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>💀 Liquidation Imminent!</h4>
                   <p className={`text-xs ${mutedClass}`}>
                     Your positions will be automatically sold to cover margin debt. Act immediately!
                   </p>
@@ -4473,7 +4485,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                   <button
                     onClick={() => { onRepayMargin(repayAmount); setRepayAmount(0); }}
                     disabled={repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
-                    className="w-full py-2 font-semibold rounded-sm bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`w-full py-2 font-semibold rounded-sm text-white disabled:opacity-50 disabled:cursor-not-allowed ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'}`}
                   >
                     Repay {formatCurrency(repayAmount)}
                   </button>
@@ -8744,7 +8756,7 @@ export default function App() {
         />
       )}
       {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} darkMode={darkMode} currentUserCrew={userData?.crew} currentUser={user} currentUserData={userData} />}
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} darkMode={darkMode} />}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} darkMode={darkMode} userData={userData} />}
       {showAchievements && !isGuest && (
         <AchievementsModal 
           onClose={() => setShowAchievements(false)} 
