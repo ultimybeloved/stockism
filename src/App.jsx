@@ -361,9 +361,9 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   const lastPrice = data[data.length - 1]?.price || 0;
   const isUp = lastPrice >= firstPrice;
 
-  // Color blind friendly colors: blue (up) / orange (down)
+  // Color blind friendly colors: teal (up) / purple (down)
   const strokeColor = colorBlindMode
-    ? (isUp ? '#3b82f6' : '#f97316')  // blue-500 / orange-500
+    ? (isUp ? '#14b8a6' : '#a855f7')  // teal-500 / purple-500
     : (isUp ? '#22c55e' : '#ef4444'); // green-500 / red-500
 
   return (
@@ -392,7 +392,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const getColors = (isPositive) => {
     if (colorBlindMode) {
       return {
-        text: isPositive ? 'text-blue-500' : 'text-orange-500'
+        text: isPositive ? 'text-teal-500' : 'text-purple-500'
       };
     } else {
       return {
@@ -4915,12 +4915,12 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
-  // Color blind friendly colors
+  // Color blind friendly colors for price indicators (bid/ask displays)
   const getColors = (isPositive) => {
     if (colorBlindMode) {
       return isPositive
-        ? { text: 'text-blue-400', bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' }
-        : { text: 'text-orange-400', bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' };
+        ? { text: 'text-teal-400', bg: 'bg-teal-600', bgHover: 'hover:bg-teal-700' }
+        : { text: 'text-purple-400', bg: 'bg-purple-600', bgHover: 'hover:bg-purple-700' };
     } else {
       return isPositive
         ? { text: 'text-green-400', bg: 'bg-green-600', bgHover: 'hover:bg-green-700' }
@@ -5001,14 +5001,15 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const { bid, ask, spread } = getDynamicPrices(amount || 1, action);
 
   const getActionConfig = () => {
-    const buyColors = getColors(true);   // Positive action (buy)
-    const sellColors = getColors(false); // Negative action (sell)
+    const buyColors = getColors(true);   // Buy colors (green/teal)
+    const sellColors = getColors(false); // Sell colors (red/purple)
 
     switch (action) {
       case 'buy':
         return {
           title: 'Buy',
           colors: buyColors,
+          buttonStyle: 'solid',
           price: ask,
           total: ask * (amount || 1),
           label: 'Cost',
@@ -5018,6 +5019,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         return {
           title: 'Sell',
           colors: sellColors,
+          buttonStyle: 'solid',
           price: bid,
           total: bid * (amount || 1),
           label: 'Revenue',
@@ -5026,7 +5028,12 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       case 'short':
         return {
           title: 'Short',
-          colors: { text: 'text-orange-400', bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' },
+          colors: {
+            text: 'text-orange-400',
+            border: 'border-orange-500',
+            bg: darkMode ? 'hover:bg-orange-900/30' : 'hover:bg-orange-50'
+          },
+          buttonStyle: 'outline',
           price: bid,
           total: bid * (amount || 1) * SHORT_MARGIN_REQUIREMENT,
           label: 'Margin Required',
@@ -5035,14 +5042,19 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       case 'cover':
         return {
           title: 'Cover Short',
-          colors: { text: 'text-blue-400', bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' },
+          colors: {
+            text: 'text-blue-400',
+            border: 'border-blue-500',
+            bg: darkMode ? 'hover:bg-blue-900/30' : 'hover:bg-blue-50'
+          },
+          buttonStyle: 'outline',
           price: ask,
           total: ask * (amount || 1),
           label: 'Cost to Cover',
           disabled: !shortPosition || shortPosition.shares < (amount || 1)
         };
       default:
-        return { title: '', colors: { text: 'text-gray-400', bg: 'bg-gray-600', bgHover: 'hover:bg-gray-700' }, price: 0, total: 0, label: '', disabled: true };
+        return { title: '', colors: { text: 'text-gray-400', bg: 'bg-gray-600', bgHover: 'hover:bg-gray-700' }, buttonStyle: 'solid', price: 0, total: 0, label: '', disabled: true };
     }
   };
 
@@ -5160,7 +5172,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <button
             onClick={handleSubmit}
             disabled={config.disabled || amount < 1 || amount > maxShares}
-            className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${config.colors.bg} ${config.colors.bgHover} text-white disabled:opacity-50`}
+            className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
+              config.buttonStyle === 'outline'
+                ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
+                : `${config.colors.bg} ${config.colors.bgHover} text-white`
+            } disabled:opacity-50`}
           >
             {config.title}
           </button>
@@ -5189,14 +5205,14 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;
 
-  // Color blind friendly helper
-  const getActionColors = (isPositive) => {
+  // Color blind friendly helper for Buy/Sell (solid buttons)
+  const getBuySellColors = (isBuy) => {
     if (colorBlindMode) {
-      return isPositive
-        ? { bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' }
-        : { bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' };
+      return isBuy
+        ? { bg: 'bg-teal-600', bgHover: 'hover:bg-teal-700' }
+        : { bg: 'bg-purple-600', bgHover: 'hover:bg-purple-700' };
     } else {
-      return isPositive
+      return isBuy
         ? { bg: 'bg-green-600', bgHover: 'hover:bg-green-700' }
         : { bg: 'bg-red-600', bgHover: 'hover:bg-red-700' };
     }
@@ -5209,10 +5225,10 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const getSentimentColor = () => {
-    const positiveColor = colorBlindMode ? 'text-blue-500' : 'text-green-500';
-    const positiveColorLight = colorBlindMode ? 'text-blue-400' : 'text-green-400';
-    const negativeColor = colorBlindMode ? 'text-orange-500' : 'text-red-500';
-    const negativeColorLight = colorBlindMode ? 'text-orange-400' : 'text-red-400';
+    const positiveColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
+    const positiveColorLight = colorBlindMode ? 'text-teal-400' : 'text-green-400';
+    const negativeColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
+    const negativeColorLight = colorBlindMode ? 'text-purple-400' : 'text-red-400';
 
     switch (sentiment) {
       case 'Strong Buy': return positiveColor;
@@ -5321,7 +5337,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
-              <p className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-blue-500' : 'text-green-500') : (colorBlindMode ? 'text-orange-500' : 'text-red-500')}`}>
+              <p className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                 {isUp ? '▲' : '▼'} {formatChange(chartChange)}
               </p>
             </div>
@@ -5336,7 +5352,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           <div className="flex gap-2">
             {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
             {shorted && (
-              <span className={`text-xs font-semibold ${shortPL >= 0 ? (colorBlindMode ? 'text-blue-500' : 'text-green-500') : (colorBlindMode ? 'text-orange-500' : 'text-red-500')}`}>
+              <span className={`text-xs font-semibold ${shortPL >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                 {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}{formatCurrency(shortPL)})
               </span>
             )}
@@ -5358,27 +5374,27 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { setTradeAction('buy'); setShowTradeMenu(false); }}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getActionColors(true).bg} ${getActionColors(true).bgHover} text-white`}
+                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(true).bg} ${getBuySellColors(true).bgHover} text-white`}
               >
                 Buy
               </button>
               <button
                 onClick={() => { setTradeAction('sell'); setShowTradeMenu(false); }}
                 disabled={holdings === 0}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getActionColors(false).bg} ${getActionColors(false).bgHover} text-white disabled:opacity-50`}
+                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(false).bg} ${getBuySellColors(false).bgHover} text-white disabled:opacity-50`}
               >
                 Sell
               </button>
               <button
                 onClick={() => { setTradeAction('short'); setShowTradeMenu(false); }}
-                className="py-2 text-xs font-semibold uppercase rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 ${darkMode ? 'text-orange-400 hover:bg-orange-900/30' : 'text-orange-600 hover:bg-orange-50'}`}
               >
                 Short
               </button>
               <button
                 onClick={() => { setTradeAction('cover'); setShowTradeMenu(false); }}
                 disabled={!shorted}
-                className="py-2 text-xs font-semibold uppercase rounded-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-blue-500 ${darkMode ? 'text-blue-400 hover:bg-blue-900/30' : 'text-blue-600 hover:bg-blue-50'} disabled:opacity-50`}
               >
                 Cover
               </button>
@@ -5637,12 +5653,12 @@ export default function App() {
     const colorBlindMode = userData?.colorBlindMode || false;
 
     if (colorBlindMode) {
-      // Color blind friendly: blue (positive) / orange (negative)
+      // Color blind friendly: teal (positive) / purple (negative)
       return {
-        text: isPositive ? 'text-blue-500' : 'text-orange-500',
-        bg: isPositive ? 'bg-blue-600' : 'bg-orange-600',
-        bgHover: isPositive ? 'hover:bg-blue-700' : 'hover:bg-orange-700',
-        border: isPositive ? 'border-blue-500' : 'border-orange-500'
+        text: isPositive ? 'text-teal-500' : 'text-purple-500',
+        bg: isPositive ? 'bg-teal-600' : 'bg-purple-600',
+        bgHover: isPositive ? 'hover:bg-teal-700' : 'hover:bg-purple-700',
+        border: isPositive ? 'border-teal-500' : 'border-purple-500'
       };
     } else {
       // Standard: green (positive) / red (negative)
