@@ -4842,11 +4842,17 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
   // Calculate buying power for display and max calculation
   const getBuyingPower = () => {
+    // With 50% cash requirement: max purchase = min(2 × cash, cash + availableMargin)
     let buyingPower = userCash;
     if (userData && prices) {
       const marginStatus = calculateMarginStatus(userData, prices);
       if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-        buyingPower += marginStatus.availableMargin;
+        // Can use margin, but need 50% cash minimum
+        // So max purchase is limited by: you need cash >= 50% of purchase
+        // Therefore: purchase <= 2 × cash
+        const maxWithCashRequirement = userCash * 2;
+        const maxWithMargin = userCash + marginStatus.availableMargin;
+        buyingPower = Math.min(maxWithCashRequirement, maxWithMargin);
       }
     }
     return buyingPower;
@@ -4874,14 +4880,22 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
       return Math.max(1, maxAffordable);
     } else if (action === 'short') {
       // For shorts: margin = bid * shares * 0.5
-      // Can use buying power (cash + available margin)
-      if (buyingPower <= 0) return 0;
-      let low = 1, high = Math.floor(buyingPower / (price * 0.25)), maxAffordable = 0;
+      // Can use full cash + available margin (no 50% cash requirement for shorts)
+      let shortBuyingPower = userCash;
+      if (userData && prices) {
+        const marginStatus = calculateMarginStatus(userData, prices);
+        if (marginStatus.enabled && marginStatus.availableMargin > 0) {
+          shortBuyingPower += marginStatus.availableMargin;
+        }
+      }
+
+      if (shortBuyingPower <= 0) return 0;
+      let low = 1, high = Math.floor(shortBuyingPower / (price * 0.25)), maxAffordable = 0;
       while (low <= high) {
         const mid = Math.floor((low + high) / 2);
         const { bid } = getDynamicPrices(mid, 'short');
         const margin = bid * mid * SHORT_MARGIN_REQUIREMENT;
-        if (margin <= buyingPower) {
+        if (margin <= shortBuyingPower) {
           maxAffordable = mid;
           low = mid + 1;
         } else {
@@ -6732,22 +6746,38 @@ export default function App() {
       const { bid } = getBidAskPrices(newMidPrice);
       const shortPrice = Math.max(MIN_PRICE, bid);
       const marginRequired = shortPrice * amount * SHORT_MARGIN_REQUIREMENT;
-      
-      if (userData.cash < marginRequired) {
-        showNotification('error', `Need ${formatCurrency(marginRequired)} margin (50% of position)`);
+
+      // Check if user has enough cash OR can use margin
+      const cashAvailable = userData.cash || 0;
+      const marginEnabled = userData.marginEnabled || false;
+      const marginStatus = calculateMarginStatus(userData, prices);
+      const availableMargin = marginStatus.availableMargin || 0;
+
+      // For shorts: need 50% collateral (can use cash + available margin, no 50% cash requirement)
+      const totalAvailable = cashAvailable + (marginEnabled ? availableMargin : 0);
+
+      if (totalAvailable < marginRequired) {
+        showNotification('error', `Need ${formatCurrency(marginRequired)} margin (50% of position). You have ${formatCurrency(totalAvailable)}.`);
         return;
       }
+
+      // Determine how much to use from cash vs margin
+      let cashToUse = Math.min(cashAvailable, marginRequired);
+      let marginToUse = marginRequired - cashToUse;
       
       const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
-      
+
       const totalShares = existingShort.shares + amount;
-      const avgEntryPrice = existingShort.shares > 0 
+      const avgEntryPrice = existingShort.shares > 0
         ? ((existingShort.entryPrice * existingShort.shares) + (shortPrice * amount)) / totalShares
         : shortPrice;
 
-      // You ONLY lose the margin as collateral - no proceeds yet
-      const newCash = userData.cash - marginRequired;
-      if (isNaN(newCash)) {
+      // Deduct cash and/or margin used
+      const newCash = userData.cash - cashToUse;
+      const currentMarginUsed = userData.marginUsed || 0;
+      const newMarginUsed = currentMarginUsed + marginToUse;
+
+      if (isNaN(newCash) || isNaN(newMarginUsed)) {
         showNotification('error', 'Calculation error, try again');
         return;
       }
@@ -6764,6 +6794,7 @@ export default function App() {
 
       await updateDoc(userRef, {
         cash: newCash,
+        marginUsed: newMarginUsed,
         [`shorts.${ticker}`]: {
           shares: totalShares,
           entryPrice: Math.round(avgEntryPrice * 100) / 100,
@@ -6799,17 +6830,21 @@ export default function App() {
         shares: amount,
         entryPrice: shortPrice,
         marginRequired,
+        cashUsed: cashToUse,
+        marginUsed: marginToUse,
         totalShares,
         avgEntryPrice: Math.round(avgEntryPrice * 100) / 100,
         cashBefore: userData.cash,
         cashAfter: newCash,
+        marginUsedAfter: newMarginUsed,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-      
+
       // Check achievements
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
         cash: newCash,
+        marginUsed: newMarginUsed,
         totalTrades: (userData.totalTrades || 0) + 1
       }, prices, { tradeValue: marginRequired });
 
@@ -6824,7 +6859,11 @@ export default function App() {
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Shorted ${amount} ${ticker}`);
       } else {
-        showNotification('success', `Shorted ${amount} ${ticker} @ ${formatCurrency(shortPrice)} (${impactPercent}% impact)`);
+        let shortMessage = `Shorted ${amount} ${ticker} @ ${formatCurrency(shortPrice)} (${impactPercent}% impact)`;
+        if (marginToUse > 0) {
+          shortMessage += ` • Used ${formatCurrency(marginToUse)} margin`;
+        }
+        showNotification('success', shortMessage);
       }
     
     } else if (action === 'cover') {
