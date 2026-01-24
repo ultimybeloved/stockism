@@ -27,6 +27,7 @@ import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAc
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
+import { containsProfanity, getProfanityMessage } from './utils/profanity';
 
 // Import from new modular structure
 import {
@@ -4720,6 +4721,10 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
     }
     if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
       setError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+    if (containsProfanity(trimmed)) {
+      setError(getProfanityMessage());
       return;
     }
 

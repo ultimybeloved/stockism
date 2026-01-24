@@ -15,6 +15,73 @@ const BANNED_NAMES = [
   'stockism', 'darthyg', 'darth_yg', 'darth', 'null', 'undefined'
 ];
 
+// Profanity filter
+const PROFANITY_LIST = [
+  // Profanity
+  'fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', 'cock', 'pussy', 'bastard',
+  'whore', 'slut', 'piss', 'crap', 'fag', 'retard', 'nigger', 'nigga', 'chink',
+  // Variations/leetspeak
+  'f4ck', 'fuk', 'fck', 'sh1t', 'b1tch', 'azz', 'a55', 'd1ck', 'c0ck', 'cnt',
+  'fag0t', 'r3tard', 'n1gger', 'n1gga',
+  // Slurs
+  'kike', 'spic', 'beaner', 'wetback', 'gook', 'towelhead', 'sandnigger',
+  // Sexual/inappropriate
+  'sex', 'porn', 'xxx', 'rape', 'molest', 'pedo', 'anal', 'vagina', 'penis',
+  'testicle', 'semen', 'cumshot', 'jizz', 'blowjob', 'handjob',
+  // Hate/offensive
+  'nazi', 'hitler', 'kill', 'murder', 'terrorist', 'jihad', 'isis',
+  // Common substitutions
+  'fvck', 'phuck', 'biatch', 'bytch', 'azhole', 'assh0le'
+];
+
+/**
+ * Normalize text for profanity detection (remove special chars, numbers that look like letters)
+ * @param {string} text - Text to normalize
+ * @returns {string} - Normalized text
+ */
+function normalizeProfanity(text) {
+  return text.toLowerCase()
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/8/g, 'b')
+    .replace(/\$/g, 's')
+    .replace(/@/g, 'a')
+    .replace(/!/g, 'i')
+    .replace(/\+/g, 't')
+    .replace(/[^a-z]/g, '');
+}
+
+/**
+ * Checks if text contains profanity
+ * @param {string} text - Text to check
+ * @returns {boolean} - True if profanity detected
+ */
+function containsProfanity(text) {
+  if (!text) return false;
+
+  const normalized = normalizeProfanity(text);
+  const lower = text.toLowerCase();
+
+  for (const word of PROFANITY_LIST) {
+    // Exact match (whole word)
+    const wordBoundaryRegex = new RegExp(`\\b${word}\\b`, 'i');
+    if (wordBoundaryRegex.test(lower) || wordBoundaryRegex.test(normalized)) {
+      return true;
+    }
+
+    // Substring match for shorter words (3+ chars)
+    if (word.length >= 3 && (lower.includes(word) || normalized.includes(word))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Checks if a username is banned (handles leetspeak variations).
  * @param {string} username - Lowercase username to check
@@ -107,6 +174,14 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError(
       'invalid-argument',
       'This username is not allowed.'
+    );
+  }
+
+  // Check for profanity
+  if (containsProfanity(trimmed)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Username contains inappropriate language. Please choose a different name.'
     );
   }
 
