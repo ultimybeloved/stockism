@@ -6491,9 +6491,42 @@ export default function App() {
         cashToUse = totalCost;
         marginToUse = 0;
       } else if (marginEnabled && cashAvailable + availableMargin >= totalCost) {
-        // Use all cash + margin to cover the difference
+        // Calculate how much margin we can actually use while maintaining safe equity ratio
         cashToUse = cashAvailable;
-        marginToUse = totalCost - cashAvailable;
+        const requestedMarginUse = totalCost - cashAvailable;
+
+        // Simulate post-purchase equity ratio
+        const currentHoldingsValue = Object.entries(userData.holdings || {}).reduce((sum, [t, shares]) => {
+          return sum + (prices[t] || 0) * shares;
+        }, 0);
+
+        // After purchase: holdings increase by totalCost, cash decreases by cashToUse, margin debt increases by marginToUse
+        const newHoldingsValue = currentHoldingsValue + (prices[ticker] || 0) * amount;
+        const newCash = cashAvailable - cashToUse;
+        const newMarginDebt = marginUsed + requestedMarginUse;
+        const newGrossValue = newCash + newHoldingsValue;
+        const newEquity = newGrossValue - newMarginDebt;
+        const postPurchaseEquityRatio = newGrossValue > 0 ? newEquity / newGrossValue : 1;
+
+        // Require maintaining at least 40% equity after purchase (buffer above 30% maintenance)
+        const MIN_EQUITY_AFTER_PURCHASE = 0.40;
+
+        if (postPurchaseEquityRatio < MIN_EQUITY_AFTER_PURCHASE) {
+          // Calculate maximum margin we can safely use
+          // newGrossValue = newCash + newHoldingsValue
+          // newEquity = newGrossValue - newMarginDebt
+          // We want: newEquity / newGrossValue >= 0.40
+          // Therefore: newMarginDebt <= newGrossValue * (1 - 0.40)
+          const maxSafeMarginDebt = newGrossValue * (1 - MIN_EQUITY_AFTER_PURCHASE);
+          const maxSafeMarginUse = Math.max(0, maxSafeMarginDebt - marginUsed);
+
+          if (maxSafeMarginUse < requestedMarginUse) {
+            showNotification('error', `Cannot use ${formatCurrency(requestedMarginUse)} margin - would reduce equity below 40%. Max safe margin: ${formatCurrency(maxSafeMarginUse)}`);
+            return;
+          }
+        }
+
+        marginToUse = requestedMarginUse;
       } else {
         // Not enough funds even with margin
         if (marginEnabled) {
@@ -6814,7 +6847,7 @@ export default function App() {
       const marginStatus = calculateMarginStatus(userData, prices);
       const availableMargin = marginStatus.availableMargin || 0;
 
-      // For shorts: need 50% collateral (can use cash + available margin, no 50% cash requirement)
+      // For shorts: need 50% collateral (can use cash + available margin)
       const totalAvailable = cashAvailable + (marginEnabled ? availableMargin : 0);
 
       if (totalAvailable < marginRequired) {
@@ -6825,6 +6858,33 @@ export default function App() {
       // Determine how much to use from cash vs margin
       let cashToUse = Math.min(cashAvailable, marginRequired);
       let marginToUse = marginRequired - cashToUse;
+
+      // Check if using this much margin maintains safe equity ratio
+      if (marginEnabled && marginToUse > 0) {
+        const currentHoldingsValue = Object.entries(userData.holdings || {}).reduce((sum, [t, shares]) => {
+          return sum + (prices[t] || 0) * shares;
+        }, 0);
+        const currentMarginUsed = userData.marginUsed || 0;
+
+        // After short: cash decreases by cashToUse, margin debt increases by marginToUse
+        // Short positions are held separately and don't add to holdings value
+        const newCash = cashAvailable - cashToUse;
+        const newMarginDebt = currentMarginUsed + marginToUse;
+        const newGrossValue = newCash + currentHoldingsValue;
+        const newEquity = newGrossValue - newMarginDebt;
+        const postShortEquityRatio = newGrossValue > 0 ? newEquity / newGrossValue : 1;
+
+        // Require maintaining at least 40% equity after opening short
+        const MIN_EQUITY_AFTER_PURCHASE = 0.40;
+
+        if (postShortEquityRatio < MIN_EQUITY_AFTER_PURCHASE) {
+          const maxSafeMarginDebt = newGrossValue * (1 - MIN_EQUITY_AFTER_PURCHASE);
+          const maxSafeMarginUse = Math.max(0, maxSafeMarginDebt - currentMarginUsed);
+
+          showNotification('error', `Cannot use ${formatCurrency(marginToUse)} margin - would reduce equity below 40%. Max safe margin: ${formatCurrency(maxSafeMarginUse)}`);
+          return;
+        }
+      }
       
       const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
 
@@ -8195,10 +8255,41 @@ export default function App() {
           <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Portfolio Value</p>
             <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</p>
-            <p className={`text-xs ${portfolioValue >= STARTING_CASH ? 'text-green-500' : 'text-red-500'}`}>
-              {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {formatCurrency(Math.abs(portfolioValue - STARTING_CASH))} ({formatChange(((portfolioValue - STARTING_CASH) / STARTING_CASH) * 100)}) from start
-              {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
-            </p>
+            {(() => {
+              const now = Date.now();
+              const oneDayAgo = now - (24 * 60 * 60 * 1000);
+              const portfolioHistory = activeUserData.portfolioHistory || [];
+
+              // Find portfolio value closest to 24h ago
+              let value24hAgo = null;
+              if (portfolioHistory.length > 0) {
+                // Find the closest record to 24h ago
+                const closest = portfolioHistory.reduce((prev, curr) => {
+                  return Math.abs(curr.timestamp - oneDayAgo) < Math.abs(prev.timestamp - oneDayAgo) ? curr : prev;
+                });
+                // Only use if it's within 26 hours (to account for gaps in data)
+                if (Math.abs(closest.timestamp - oneDayAgo) < 26 * 60 * 60 * 1000) {
+                  value24hAgo = closest.value;
+                }
+              }
+
+              const change24h = value24hAgo ? portfolioValue - value24hAgo : 0;
+              const changePercent24h = value24hAgo && value24hAgo > 0 ? ((change24h / value24hAgo) * 100) : 0;
+
+              return (
+                <>
+                  {value24hAgo && (
+                    <p className={`text-xs ${change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {change24h >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(change24h))} ({change24h >= 0 ? '+' : ''}{formatChange(changePercent24h)}) 24h
+                    </p>
+                  )}
+                  <p className={`text-xs ${mutedClass}`}>
+                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {formatCurrency(Math.abs(portfolioValue - STARTING_CASH))} from start
+                    {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
+                  </p>
+                </>
+              );
+            })()}
           </div>
           <div className={`${cardClass} border rounded-sm p-4`}>
             <div className="flex justify-between items-start mb-2">
