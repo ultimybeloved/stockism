@@ -1818,8 +1818,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
   const [userRank, setUserRank] = useState(null); // User's actual rank in current view
-  const [isUserRowVisible, setIsUserRowVisible] = useState(false); // Is user's row in viewport?
-  const [showStickyHeader, setShowStickyHeader] = useState(false); // Show sticky header when scrolled past
+  const [userRowPosition, setUserRowPosition] = useState('below'); // 'above', 'visible', or 'below'
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
 
@@ -1932,46 +1931,67 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     fetchUserRank();
   }, [currentUser, currentUserData, crewFilter, leaders, crewLeaders]);
 
-  // Set up Intersection Observer for user's row
+  // Track user row position relative to viewport
   useEffect(() => {
-    if (!userRowRef.current) return;
+    const container = scrollContainerRef.current;
+    const userRow = userRowRef.current;
+    if (!container || !userRow) return;
 
+    // Use Intersection Observer to detect visibility
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsUserRowVisible(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setUserRowPosition('visible');
+        } else {
+          // Not visible - determine if above or below viewport
+          const containerRect = container.getBoundingClientRect();
+          const rowRect = userRow.getBoundingClientRect();
+
+          if (rowRect.bottom < containerRect.top) {
+            setUserRowPosition('above');
+          } else {
+            setUserRowPosition('below');
+          }
+        }
       },
       {
-        root: scrollContainerRef.current,
+        root: container,
         threshold: 0.1
       }
     );
 
-    observer.observe(userRowRef.current);
-    return () => observer.disconnect();
-  }, [filteredLeaders, currentUser]);
+    observer.observe(userRow);
 
-  // Handle scroll to show/hide sticky header
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !userRowRef.current) return;
-
-    let ticking = false;
+    // Also handle scroll events for position updates (throttled for mobile performance)
+    let scrollTimeout;
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const userRowTop = userRowRef.current?.offsetTop || 0;
-          const scrollTop = container.scrollTop;
-          // Show header if we've scrolled past user's row
-          setShowStickyHeader(scrollTop > userRowTop && !isUserRowVisible);
-          ticking = false;
-        });
-        ticking = true;
-      }
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (userRow) {
+          const containerRect = container.getBoundingClientRect();
+          const rowRect = userRow.getBoundingClientRect();
+
+          const isVisible = rowRect.top >= containerRect.top && rowRect.bottom <= containerRect.bottom;
+
+          if (isVisible) {
+            setUserRowPosition('visible');
+          } else if (rowRect.bottom < containerRect.top) {
+            setUserRowPosition('above');
+          } else {
+            setUserRowPosition('below');
+          }
+        }
+      }, 50); // 50ms debounce for smoother mobile performance
     };
 
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [isUserRowVisible, filteredLeaders]);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      container.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [filteredLeaders, currentUser]);
 
   // Get user's crew color
   const userCrewColor = currentUserData?.crew ? CREW_MAP[currentUserData.crew]?.color : '#6b7280';
@@ -2022,8 +2042,8 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         </div>
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
-          {/* Sticky Header - shows when scrolled past user's row */}
-          {currentUser && userRank && showStickyHeader && (
+          {/* Sticky Header - shows when user row is above viewport */}
+          {currentUser && userRank && userRowPosition === 'above' && (
             <div
               className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b transition-all duration-300"
               style={{
@@ -2093,8 +2113,8 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
             </div>
           )}
 
-          {/* Sticky Footer - shows user's position when not visible in scroll area */}
-          {currentUser && userRank && !isUserRowVisible && !loading && (
+          {/* Sticky Footer - shows when user row is below viewport */}
+          {currentUser && userRank && userRowPosition === 'below' && !loading && (
             <div
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t transition-all duration-500 ease-out"
               style={{
