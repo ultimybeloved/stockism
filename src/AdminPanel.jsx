@@ -49,6 +49,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [fraudUsers, setFraudUsers] = useState([]);
   const [scanningFraud, setScanningFraud] = useState(false);
 
+  // Trade fraud detection state
+  const [tradeFraudUsers, setTradeFraudUsers] = useState([]);
+  const [scanningTradeFraud, setScanningTradeFraud] = useState(false);
+
   // Manual rollback state
   const [rollbackTarget, setRollbackTarget] = useState(null);
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -2166,6 +2170,166 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
     showMessage('success', `Liquidated ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
     setFraudUsers([]);
+    setLoading(false);
+  };
+
+  // Scan for trade fraud (future-dated trades)
+  const handleScanTradeFraud = async () => {
+    setScanningTradeFraud(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnap = await getDocs(usersRef);
+
+      const now = Date.now();
+      const fraudFound = [];
+
+      usersSnap.forEach(doc => {
+        const user = doc.data();
+        const transactionLog = user.transactionLog || [];
+        const futureTrades = [];
+
+        // Check each transaction for future timestamps
+        transactionLog.forEach((tx, index) => {
+          if (tx.timestamp > now) {
+            futureTrades.push({
+              index,
+              type: tx.type,
+              ticker: tx.ticker,
+              shares: tx.shares || tx.amount || 0,
+              price: tx.pricePerShare || tx.price || 0,
+              timestamp: tx.timestamp,
+              date: new Date(tx.timestamp).toLocaleString(),
+              daysInFuture: ((tx.timestamp - now) / (1000 * 60 * 60 * 24)).toFixed(1)
+            });
+          }
+        });
+
+        if (futureTrades.length > 0) {
+          fraudFound.push({
+            userId: doc.id,
+            displayName: user.displayName || 'Unknown',
+            cash: user.cash || 0,
+            portfolioValue: user.portfolioValue || 0,
+            holdings: user.holdings || {},
+            shorts: user.shorts || {},
+            futureTrades,
+            totalFutureTrades: futureTrades.length
+          });
+        }
+      });
+
+      // Sort by number of future trades
+      fraudFound.sort((a, b) => b.totalFutureTrades - a.totalFutureTrades);
+
+      setTradeFraudUsers(fraudFound);
+      showMessage('success', `Scan complete. Found ${fraudFound.length} users with ${fraudFound.reduce((sum, u) => sum + u.totalFutureTrades, 0)} future-dated trades`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Scan failed: ${err.message}`);
+    }
+    setScanningTradeFraud(false);
+  };
+
+  // Fix a single user's fraudulent trades
+  const handleFixUserTrades = async (userId, fraudData) => {
+    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ${fraudData.displayName}'s future-dated trades?\n\nThis will:\n- LIQUIDATE all positions (they used time travel to make trades)\n- DELETE all future-dated transactions from their log\n- Reset cash to $1000 (starting balance)\n- Reset portfolio value to $1000\n\nCurrent portfolio: $${fraudData.portfolioValue.toLocaleString()}\nFuture trades: ${fraudData.totalFutureTrades}\n\nThis cannot be undone!`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        showMessage('error', 'User not found');
+        setLoading(false);
+        return;
+      }
+
+      const userData = userSnap.data();
+      const transactionLog = userData.transactionLog || [];
+      const now = Date.now();
+
+      // Filter out all future-dated transactions
+      const cleanedLog = transactionLog.filter(tx => tx.timestamp <= now);
+
+      const updates = {
+        cash: 1000, // Reset to starting balance
+        totalCheckins: 0, // Reset check-ins as well
+        holdings: {}, // Liquidate all positions
+        shorts: {}, // Close all shorts
+        costBasis: {}, // Reset cost basis
+        portfolioValue: 1000,
+        marginUsed: 0,
+        transactionLog: cleanedLog
+      };
+
+      await updateDoc(userRef, updates);
+      showMessage('success', `Liquidated ${fraudData.displayName}'s account! Removed ${fraudData.totalFutureTrades} future trades. Reset to $1,000`);
+
+      // Remove from list
+      setTradeFraudUsers(prev => prev.filter(u => u.userId !== userId));
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to fix user: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  // Fix all users with fraudulent trades
+  const handleFixAllTradeFraud = async () => {
+    if (tradeFraudUsers.length === 0) return;
+
+    const totalTrades = tradeFraudUsers.reduce((sum, u) => sum + u.totalFutureTrades, 0);
+    const totalUsers = tradeFraudUsers.length;
+
+    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ALL ${totalUsers} users with future-dated trades?\n\nThis will:\n- LIQUIDATE all their positions\n- Remove ${totalTrades} future-dated trades\n- Reset each to $1,000 starting balance\n\nThis action cannot be undone!`)) {
+      return;
+    }
+
+    setLoading(true);
+    let fixed = 0;
+    let failed = 0;
+
+    for (const fraudData of tradeFraudUsers) {
+      try {
+        const userRef = doc(db, 'users', fraudData.userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          failed++;
+          continue;
+        }
+
+        const userData = userSnap.data();
+        const transactionLog = userData.transactionLog || [];
+        const now = Date.now();
+
+        // Filter out all future-dated transactions
+        const cleanedLog = transactionLog.filter(tx => tx.timestamp <= now);
+
+        const updates = {
+          cash: 1000,
+          totalCheckins: 0,
+          holdings: {},
+          shorts: {},
+          costBasis: {},
+          portfolioValue: 1000,
+          marginUsed: 0,
+          transactionLog: cleanedLog
+        };
+
+        await updateDoc(userRef, updates);
+        fixed++;
+      } catch (err) {
+        console.error('Failed to fix', fraudData.displayName, err);
+        failed++;
+      }
+    }
+
+    showMessage('success', `Liquidated ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
+    setTradeFraudUsers([]);
     setLoading(false);
   };
 
@@ -4637,6 +4801,90 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
                     >
                       {loading ? 'Fixing...' : `🔨 Fix All Users (Remove $${fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0).toLocaleString()})`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Trade Fraud Detection */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 ${textClass}`}>💹 Trade Fraud Detection</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Scan for users who have made trades with future timestamps (by setting their device clock ahead).
+                  This will detect trades dated after the current time.
+                </p>
+
+                <button
+                  onClick={handleScanTradeFraud}
+                  disabled={scanningTradeFraud}
+                  className="w-full mb-3 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {scanningTradeFraud ? 'Scanning...' : '🔍 Scan for Future-Dated Trades'}
+                </button>
+
+                {tradeFraudUsers.length > 0 && (
+                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h4 className={`font-semibold mb-2 ${textClass}`}>
+                      Found {tradeFraudUsers.length} User{tradeFraudUsers.length === 1 ? '' : 's'} with Future Trades
+                    </h4>
+                    <p className={`text-sm ${mutedClass} mb-3`}>
+                      Total future trades: {tradeFraudUsers.reduce((sum, u) => sum + u.totalFutureTrades, 0)}
+                    </p>
+
+                    <div className="max-h-96 overflow-y-auto space-y-2 mb-3">
+                      {tradeFraudUsers.map(user => (
+                        <div key={user.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700\50' : 'bg-slate-100'}`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-semibold text-purple-500">{user.displayName}</div>
+                              <div className="text-xs text-cyan-500 font-mono">{user.userId}</div>
+                            </div>
+                            <button
+                              onClick={() => handleFixUserTrades(user.userId, user)}
+                              disabled={loading}
+                              className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
+                            >
+                              Fix User
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                            <div>
+                              <span className={mutedClass}>Current Portfolio: </span>
+                              <span className="font-bold text-orange-500">${user.portfolioValue.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className={mutedClass}>Future Trades: </span>
+                              <span className="font-bold text-red-500">{user.totalFutureTrades}</span>
+                            </div>
+                          </div>
+                          <div className="text-sm mb-2">
+                            <span className={mutedClass}>Will reset to: </span>
+                            <span className="font-bold text-green-500">$1,000</span>
+                            <span className={mutedClass}> (liquidate all positions)</span>
+                          </div>
+
+                          <div className={`text-xs ${mutedClass}`}>
+                            <div className="font-semibold mb-1">Future Trades ({user.futureTrades.length}):</div>
+                            {user.futureTrades.slice(0, 5).map((trade, i) => (
+                              <div key={i}>
+                                • {trade.type} {trade.shares} ${trade.ticker} @ ${trade.price.toFixed(2)} on {trade.date} ({trade.daysInFuture} days ahead)
+                              </div>
+                            ))}
+                            {user.futureTrades.length > 5 && (
+                              <div>• ... and {user.futureTrades.length - 5} more</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={handleFixAllTradeFraud}
+                      disabled={loading}
+                      className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? 'Fixing...' : `🔨 Fix All Users (${tradeFraudUsers.length} users, ${tradeFraudUsers.reduce((sum, u) => sum + u.totalFutureTrades, 0)} trades)`}
                     </button>
                   </div>
                 )}
