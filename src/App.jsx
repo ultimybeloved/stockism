@@ -4108,12 +4108,16 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
               
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <h4 className={`font-semibold mb-2 ${textClass}`}>How Margin Works</h4>
+                <p className={`text-xs ${mutedClass} mb-2`}>
+                  Margin is <span className="text-orange-500 font-semibold">borrowing power</span> - like a credit card for stocks.
+                </p>
                 <ul className={`text-xs ${mutedClass} space-y-1`}>
-                  <li>• Borrow up to <span className="text-orange-500">50%</span> of your portfolio value</li>
-                  <li>• Interest rate: <span className="text-amber-500">0.5% daily</span> on borrowed amount</li>
-                  <li>• Maintenance: Keep <span className="text-orange-500">30%</span> equity minimum</li>
-                  <li>• <span className="text-red-400">Margin call</span> if equity drops below 30%</li>
-                  <li>• <span className="text-red-500">Auto-liquidation</span> at 25% equity</li>
+                  <li>• Get up to <span className="text-orange-500">50%</span> of your portfolio value as borrowing power</li>
+                  <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
+                  <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
+                  <li>• Sale proceeds <span className="text-orange-500">pay debt first</span>, then become cash</li>
+                  <li>• Keep <span className="text-orange-500">30%</span> equity minimum or face margin call</li>
+                  <li>• <span className="text-red-500">Auto-liquidation</span> if equity drops to 25%</li>
                 </ul>
               </div>
               
@@ -4211,7 +4215,17 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                   </div>
                 </div>
               </div>
-              
+
+              {/* How It Works Info */}
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
+                <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
+                <p className={`text-xs ${mutedClass}`}>
+                  Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
+                  Think of it like a credit card: you have the limit, but you only tap it when needed.
+                  When you sell stocks, proceeds <span className="text-orange-500 font-semibold">pay down debt first</span>, then become cash.
+                </p>
+              </div>
+
               {/* Margin Call Warning */}
               {marginStatus.status === 'margin_call' && (
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border border-orange-500`}>
@@ -8050,10 +8064,11 @@ export default function App() {
             {(activeUserData.cash || 0) >= 0 && activeUserData.marginEnabled && (() => {
               const marginStatus = calculateMarginStatus(activeUserData, prices);
               return (
-                <p className={`text-xs ${mutedClass}`}>
-                  <span className="text-amber-500">+ {formatCurrency(marginStatus.availableMargin)} margin</span>
+                <p className={`text-xs ${mutedClass} mt-1`}>
+                  <span className="text-amber-500 font-semibold">+ {formatCurrency(marginStatus.availableMargin)}</span>
+                  <span className={mutedClass}> margin available</span>
                   {activeUserData.marginUsed > 0 && (
-                    <span className="text-orange-500 ml-2">({formatCurrency(activeUserData.marginUsed)} used)</span>
+                    <span className="block text-orange-500 text-xs mt-0.5">{formatCurrency(activeUserData.marginUsed)} debt • 0.5% daily</span>
                   )}
                 </p>
               );
