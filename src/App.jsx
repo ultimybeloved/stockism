@@ -1636,18 +1636,27 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               type="number"
                               min="1"
                               max={item.shares}
-                              value={sellAmounts[item.ticker] || 1}
-                              onChange={(e) => setSellAmounts(prev => ({ 
-                                ...prev, 
-                                [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1)) 
-                              }))}
+                              value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 1)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSellAmounts(prev => ({
+                                  ...prev,
+                                  [item.ticker]: val === '' ? '' : Math.min(item.shares, Math.max(0, parseInt(val) || 0))
+                                }));
+                              }}
+                              onBlur={() => {
+                                const current = sellAmounts[item.ticker];
+                                if (current === '' || current < 1) {
+                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: 1 }));
+                                }
+                              }}
                               onClick={(e) => e.stopPropagation()}
                               className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
                                 darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
                               }`}
                             />
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, sellAmounts[item.ticker] || 1); }}
+                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, Math.max(1, sellAmounts[item.ticker] || 1)); }}
                               className="px-4 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm"
                             >
                               Sell
@@ -1769,18 +1778,27 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                   type="number"
                                   min="1"
                                   max={item.shares}
-                                  value={coverAmounts[item.ticker] || 1}
-                                  onChange={(e) => setCoverAmounts(prev => ({
-                                    ...prev,
-                                    [item.ticker]: Math.min(item.shares, Math.max(1, parseInt(e.target.value) || 1))
-                                  }))}
+                                  value={coverAmounts[item.ticker] === '' ? '' : (coverAmounts[item.ticker] || 1)}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setCoverAmounts(prev => ({
+                                      ...prev,
+                                      [item.ticker]: val === '' ? '' : Math.min(item.shares, Math.max(0, parseInt(val) || 0))
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    const current = coverAmounts[item.ticker];
+                                    if (current === '' || current < 1) {
+                                      setCoverAmounts(prev => ({ ...prev, [item.ticker]: 1 }));
+                                    }
+                                  }}
                                   onClick={(e) => e.stopPropagation()}
                                   className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
                                     darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
                                   }`}
                                 />
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleCover(item.ticker, coverAmounts[item.ticker] || 1); }}
+                                  onClick={(e) => { e.stopPropagation(); handleCover(item.ticker, Math.max(1, coverAmounts[item.ticker] || 1)); }}
                                   className="px-4 py-1.5 text-xs font-semibold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm"
                                 >
                                   Cover
@@ -5080,10 +5098,11 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           {/* Dynamic Bid/Ask Display based on trade amount */}
           {(() => {
             const action = tradeMode === 'normal' ? 'buy' : 'short';
-            const { bid, ask, spread } = getDynamicPrices(tradeAmount, action);
-            const buyCost = ask * tradeAmount;
-            const sellRevenue = bid * tradeAmount;
-            const shortMargin = bid * tradeAmount * SHORT_MARGIN_REQUIREMENT;
+            const amount = tradeAmount || 1;
+            const { bid, ask, spread } = getDynamicPrices(amount, action);
+            const buyCost = ask * amount;
+            const sellRevenue = bid * amount;
+            const shortMargin = bid * amount * SHORT_MARGIN_REQUIREMENT;
 
             return (
               <div className={`text-xs px-2 py-1.5 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
@@ -5105,13 +5124,13 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                 <div className={`pt-1 border-t ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
                   {tradeMode === 'normal' ? (
                     <div className="flex justify-between">
-                      <span className={mutedClass}>Buy {tradeAmount}: <span className="text-green-400 font-semibold">{formatCurrency(buyCost)}</span></span>
-                      <span className={mutedClass}>Sell {tradeAmount}: <span className="text-red-400 font-semibold">{formatCurrency(sellRevenue)}</span></span>
+                      <span className={mutedClass}>Buy {amount}: <span className="text-green-400 font-semibold">{formatCurrency(buyCost)}</span></span>
+                      <span className={mutedClass}>Sell {amount}: <span className="text-red-400 font-semibold">{formatCurrency(sellRevenue)}</span></span>
                     </div>
                   ) : (
                     <div className="space-y-0.5">
                       <div className="flex justify-between">
-                        <span className={mutedClass}>Short {tradeAmount} shares:</span>
+                        <span className={mutedClass}>Short {amount} shares:</span>
                         <span className="text-orange-400 font-semibold">{formatCurrency(shortMargin)} margin</span>
                       </div>
                       <div className={`text-center ${mutedClass}`}>
@@ -5126,12 +5145,29 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
           {/* Amount controls with Max button */}
           <div className="flex items-center gap-1">
-            <button onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
+            <button onClick={() => setTradeAmount(Math.max(1, (tradeAmount || 1) - 1))}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>-</button>
-            <input type="number" min="1" value={tradeAmount}
-              onChange={(e) => setTradeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-              className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`} />
-            <button onClick={() => setTradeAmount(tradeAmount + 1)}
+            <input
+              type="number"
+              min="1"
+              value={tradeAmount === '' ? '' : tradeAmount}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') {
+                  setTradeAmount('');
+                } else {
+                  const num = parseInt(val);
+                  setTradeAmount(isNaN(num) ? '' : Math.max(0, num));
+                }
+              }}
+              onBlur={() => {
+                if (tradeAmount === '' || tradeAmount < 1) {
+                  setTradeAmount(1);
+                }
+              }}
+              className={`flex-1 text-center py-1 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+            />
+            <button onClick={() => setTradeAmount((tradeAmount || 0) + 1)}
               className={`px-2 py-1 text-sm rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
             <button
               onClick={() => setTradeAmount(getMaxShares(tradeMode === 'normal' ? 'buy' : 'short'))}
@@ -5143,24 +5179,24 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
           {tradeMode === 'normal' ? (
             <div className="flex gap-2">
-              <button onClick={() => { onTrade(character.ticker, 'buy', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+              <button onClick={() => { const amt = Math.max(1, tradeAmount || 1); onTrade(character.ticker, 'buy', amt); setShowTrade(false); setTradeAmount(1); }}
                 className="flex-1 py-1.5 text-xs font-semibold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm">
                 Buy
               </button>
-              <button onClick={() => { onTrade(character.ticker, 'sell', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
-                disabled={holdings < tradeAmount}
+              <button onClick={() => { const amt = Math.max(1, tradeAmount || 1); onTrade(character.ticker, 'sell', amt); setShowTrade(false); setTradeAmount(1); }}
+                disabled={holdings < (tradeAmount || 1)}
                 className="flex-1 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50">
                 Sell
               </button>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button onClick={() => { onTrade(character.ticker, 'short', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
+              <button onClick={() => { const amt = Math.max(1, tradeAmount || 1); onTrade(character.ticker, 'short', amt); setShowTrade(false); setTradeAmount(1); }}
                 className="flex-1 py-1.5 text-xs font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm">
                 Open Short
               </button>
-              <button onClick={() => { onTrade(character.ticker, 'cover', tradeAmount); setShowTrade(false); setTradeAmount(1); }}
-                disabled={!shorted || shortPosition.shares < tradeAmount}
+              <button onClick={() => { const amt = Math.max(1, tradeAmount || 1); onTrade(character.ticker, 'cover', amt); setShowTrade(false); setTradeAmount(1); }}
+                disabled={!shorted || shortPosition.shares < (tradeAmount || 1)}
                 className="flex-1 py-1.5 text-xs font-semibold uppercase bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50">
                 Cover
               </button>
