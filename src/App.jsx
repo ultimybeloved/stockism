@@ -1937,59 +1937,38 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     const userRow = userRowRef.current;
     if (!container || !userRow) return;
 
-    // Use Intersection Observer to detect visibility
+    let cachedPosition = 'below';
+
+    // Use Intersection Observer with multiple thresholds for smoother detection
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
+          cachedPosition = 'visible';
           setUserRowPosition('visible');
         } else {
-          // Not visible - determine if above or below viewport
-          const containerRect = container.getBoundingClientRect();
-          const rowRect = userRow.getBoundingClientRect();
+          // Use entry data instead of querying DOM
+          const rowRect = entry.boundingClientRect;
+          const containerRect = entry.rootBounds;
 
           if (rowRect.bottom < containerRect.top) {
+            cachedPosition = 'above';
             setUserRowPosition('above');
           } else {
+            cachedPosition = 'below';
             setUserRowPosition('below');
           }
         }
       },
       {
         root: container,
-        threshold: 0.1
+        threshold: [0, 0.25, 0.5, 0.75, 1]
       }
     );
 
     observer.observe(userRow);
 
-    // Also handle scroll events for position updates (throttled for mobile performance)
-    let scrollTimeout;
-    const handleScroll = () => {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        if (userRow) {
-          const containerRect = container.getBoundingClientRect();
-          const rowRect = userRow.getBoundingClientRect();
-
-          const isVisible = rowRect.top >= containerRect.top && rowRect.bottom <= containerRect.bottom;
-
-          if (isVisible) {
-            setUserRowPosition('visible');
-          } else if (rowRect.bottom < containerRect.top) {
-            setUserRowPosition('above');
-          } else {
-            setUserRowPosition('below');
-          }
-        }
-      }, 50); // 50ms debounce for smoother mobile performance
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-
     return () => {
       observer.disconnect();
-      container.removeEventListener('scroll', handleScroll);
-      clearTimeout(scrollTimeout);
     };
   }, [filteredLeaders, currentUser]);
 
@@ -2045,11 +2024,13 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           {/* Sticky Header - shows when user row is above viewport */}
           {currentUser && userRank && userRowPosition === 'above' && (
             <div
-              className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b transition-all duration-300"
+              className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
               style={{
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
-                boxShadow: `0 2px 8px ${userCrewColor}40`
+                boxShadow: `0 2px 8px ${userCrewColor}40`,
+                willChange: 'transform',
+                transform: 'translateZ(0)'
               }}
             >
               <div className={`text-sm font-semibold ${textClass}`}>
@@ -2079,7 +2060,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                   <div
                     key={leader.id}
                     ref={isCurrentUser ? userRowRef : null}
-                    className={`p-3 flex items-center gap-3 transition-all duration-300 ${
+                    className={`p-3 flex items-center gap-3 ${
                       displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''
                     } ${
                       isCurrentUser ? 'border-l-4' : ''
@@ -2087,7 +2068,9 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                     style={isCurrentUser ? {
                       borderLeftColor: userCrewColor,
                       backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15`,
-                      boxShadow: `inset 0 0 12px ${userCrewColor}30`
+                      boxShadow: `inset 0 0 12px ${userCrewColor}30`,
+                      willChange: 'auto',
+                      contain: 'layout style paint'
                     } : {}}
                   >
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
@@ -2116,12 +2099,13 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           {/* Sticky Footer - shows when user row is below viewport */}
           {currentUser && userRank && userRowPosition === 'below' && !loading && (
             <div
-              className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t transition-all duration-500 ease-out"
+              className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
                 boxShadow: `0 -2px 12px ${userCrewColor}40`,
-                animation: 'slideUp 0.4s ease-out'
+                willChange: 'transform',
+                transform: 'translateZ(0)'
               }}
             >
               <div className={`text-sm font-semibold ${textClass}`}>
