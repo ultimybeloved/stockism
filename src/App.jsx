@@ -8080,6 +8080,17 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <div className={`mt-8 pt-4 border-t text-center text-xs ${darkMode ? 'border-zinc-800 text-zinc-500' : 'border-amber-200 text-zinc-500'}`}>
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+          Privacy Policy
+        </a>
+        {' • '}
+        <a href="mailto:support@stockism.app" className="hover:text-orange-500 underline">
+          Contact
+        </a>
+      </div>
     </div>
   );
 }
