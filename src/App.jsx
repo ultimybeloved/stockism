@@ -2186,8 +2186,13 @@ const AboutModal = ({ onClose, darkMode }) => {
 
               <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <p className={`text-xs ${mutedClass}`}>
-                  Last updated: January 2026. This is a fan project with no legal entity behind it. 
+                  Last updated: January 2026. This is a fan project with no legal entity behind it.
                   If you have privacy concerns, please reach out to us directly.
+                </p>
+                <p className={`text-xs ${mutedClass} mt-2`}>
+                  <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className={linkClass}>
+                    View full Privacy Policy →
+                  </a>
                 </p>
               </div>
             </div>
@@ -4417,6 +4422,12 @@ const LoginModal = ({ onClose, darkMode }) => {
             {isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register"}
           </button>
         </div>
+
+        <div className={`mt-4 text-center text-xs ${mutedClass}`}>
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+            Privacy Policy
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -4524,6 +4535,13 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 
         <p className={`text-xs ${mutedClass} mt-4 text-center`}>
           🔒 Your Google account info is never stored or shared
+        </p>
+
+        <p className={`text-xs ${mutedClass} mt-2 text-center`}>
+          By creating an account, you agree to our{' '}
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">
+            Privacy Policy
+          </a>
         </p>
       </div>
     </div>
