@@ -2969,7 +2969,163 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       <div className={`text-xs ${mutedClass}`}>Portfolio</div>
                       <div className={`font-bold ${textClass}`}>${selectedUser.portfolioValue.toFixed(2)}</div>
                     </div>
+                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+                      <div className={`text-xs ${mutedClass}`}>Peak Value</div>
+                      <div className={`font-bold text-cyan-500`}>${(selectedUser.peakPortfolioValue || 0).toFixed(2)}</div>
+                    </div>
+                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+                      <div className={`text-xs ${mutedClass}`}>Total P&L</div>
+                      <div className={`font-bold ${selectedUser.portfolioValue >= 1000 ? 'text-green-500' : 'text-red-500'}`}>
+                        {selectedUser.portfolioValue >= 1000 ? '+' : ''}${(selectedUser.portfolioValue - 1000).toFixed(2)}
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Financial Breakdown */}
+                  {(() => {
+                    const txLog = selectedUser.transactionLog || [];
+
+                    // Calculate profit sources
+                    let tradingProfit = 0;
+                    let betProfit = 0;
+                    let checkinBonus = 0;
+                    let totalTrades = 0;
+                    let profitableTrades = 0;
+                    let totalBets = 0;
+                    let wonBets = 0;
+
+                    txLog.forEach(tx => {
+                      if (tx.type === 'SELL') {
+                        totalTrades++;
+                        const profit = (tx.totalRevenue || 0) - (tx.totalCost || 0);
+                        tradingProfit += profit;
+                        if (profit > 0) profitableTrades++;
+                      }
+                      if (tx.type === 'SHORT_CLOSE') {
+                        totalTrades++;
+                        const profit = tx.totalProfit || 0;
+                        tradingProfit += profit;
+                        if (profit > 0) profitableTrades++;
+                      }
+                      if (tx.type === 'CHECKIN') {
+                        checkinBonus += tx.bonus || 0;
+                      }
+                      if (tx.type === 'BET') {
+                        totalBets++;
+                      }
+                    });
+
+                    // Count bet wins from bets object
+                    Object.values(selectedUser.bets || {}).forEach(bet => {
+                      if (bet.paid && bet.payout > 0) {
+                        betProfit += (bet.payout - bet.amount);
+                        wonBets++;
+                      } else if (bet.paid) {
+                        betProfit -= bet.amount;
+                      }
+                    });
+
+                    const holdingsValue = Object.entries(selectedUser.holdings || {}).reduce((sum, [ticker, shares]) => {
+                      const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                      return sum + (prices[ticker] || 0) * shareCount;
+                    }, 0);
+
+                    const totalCostBasis = Object.entries(selectedUser.costBasis || {}).reduce((sum, [ticker, cost]) => {
+                      const shareCount = typeof selectedUser.holdings[ticker] === 'number' ? selectedUser.holdings[ticker] : (selectedUser.holdings[ticker]?.shares || 0);
+                      if (shareCount > 0) return sum + cost;
+                      return sum;
+                    }, 0);
+
+                    const unrealizedGains = holdingsValue - totalCostBasis;
+
+                    return (
+                      <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+                        <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-3`}>💰 Money Breakdown</h4>
+
+                        <div className="space-y-2 text-sm">
+                          {/* Trading Stats */}
+                          <div className="flex justify-between">
+                            <span className={mutedClass}>Trading Realized P&L:</span>
+                            <span className={`font-bold ${tradingProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {tradingProfit >= 0 ? '+' : ''}${tradingProfit.toFixed(2)}
+                            </span>
+                          </div>
+                          {totalTrades > 0 && (
+                            <div className="flex justify-between pl-4">
+                              <span className={`text-xs ${mutedClass}`}>
+                                {totalTrades} trades • {profitableTrades} wins ({((profitableTrades / totalTrades) * 100).toFixed(0)}%)
+                              </span>
+                              <span className={`text-xs ${mutedClass}`}>
+                                avg: ${(tradingProfit / totalTrades).toFixed(2)}/trade
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Unrealized Gains */}
+                          <div className="flex justify-between">
+                            <span className={mutedClass}>Holdings Unrealized:</span>
+                            <span className={`font-bold ${unrealizedGains >= 0 ? 'text-cyan-500' : 'text-orange-500'}`}>
+                              {unrealizedGains >= 0 ? '+' : ''}${unrealizedGains.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pl-4">
+                            <span className={`text-xs ${mutedClass}`}>
+                              Cost basis: ${totalCostBasis.toFixed(2)} → Value: ${holdingsValue.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Betting */}
+                          {totalBets > 0 && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className={mutedClass}>Betting Net:</span>
+                                <span className={`font-bold ${betProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {betProfit >= 0 ? '+' : ''}${betProfit.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between pl-4">
+                                <span className={`text-xs ${mutedClass}`}>
+                                  {wonBets}/{totalBets} bets won ({totalBets > 0 ? ((wonBets / totalBets) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                            </>
+                          )}
+
+                          {/* Check-ins */}
+                          {checkinBonus > 0 && (
+                            <div className="flex justify-between">
+                              <span className={mutedClass}>Check-in Bonuses:</span>
+                              <span className="font-bold text-blue-500">+${checkinBonus.toFixed(2)}</span>
+                            </div>
+                          )}
+
+                          {/* Total */}
+                          <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
+                            <span className={`font-semibold ${textClass}`}>Total Income:</span>
+                            <span className={`font-bold ${(tradingProfit + betProfit + checkinBonus) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {(tradingProfit + betProfit + checkinBonus) >= 0 ? '+' : ''}${(tradingProfit + betProfit + checkinBonus).toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Activity Stats */}
+                          <div className={`pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
+                            <div className="flex justify-between text-xs">
+                              <span className={mutedClass}>Total Trades:</span>
+                              <span className={textClass}>{selectedUser.totalTrades || 0}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className={mutedClass}>Check-ins:</span>
+                              <span className={textClass}>{selectedUser.totalCheckins || 0}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className={mutedClass}>Crew:</span>
+                              <span className={textClass}>{selectedUser.crew || 'None'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Margin/Loan Info */}
                   {(selectedUser.marginEnabled || selectedUser.activeLoan) && (
@@ -2993,18 +3149,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   {/* Holdings */}
                   {Object.keys(selectedUser.holdings).length > 0 && (
                     <div className="mb-4">
-                      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Holdings</h4>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {Object.entries(selectedUser.holdings).map(([ticker, shares]) => {
-                          const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                          if (shareCount <= 0) return null;
-                          return (
-                            <div key={ticker} className={`text-sm flex justify-between ${textClass}`}>
-                              <span>{ticker}</span>
-                              <span>{shareCount} shares</span>
+                      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Holdings (with P&L)</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {Object.entries(selectedUser.holdings)
+                          .map(([ticker, shares]) => {
+                            const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                            if (shareCount <= 0) return null;
+
+                            const currentPrice = prices[ticker] || 0;
+                            const currentValue = currentPrice * shareCount;
+                            const costBasis = selectedUser.costBasis?.[ticker] || 0;
+                            const unrealizedPL = currentValue - costBasis;
+                            const unrealizedPct = costBasis > 0 ? ((unrealizedPL / costBasis) * 100) : 0;
+
+                            return { ticker, shareCount, currentPrice, currentValue, costBasis, unrealizedPL, unrealizedPct };
+                          })
+                          .filter(h => h !== null)
+                          .sort((a, b) => b.unrealizedPL - a.unrealizedPL)
+                          .map(({ ticker, shareCount, currentPrice, currentValue, costBasis, unrealizedPL, unrealizedPct }) => (
+                            <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className={`font-semibold ${textClass}`}>{ticker}</span>
+                                  <span className={`ml-2 text-xs ${mutedClass}`}>{shareCount} shares</span>
+                                </div>
+                                <span className={`font-bold ${unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {unrealizedPL >= 0 ? '+' : ''}${unrealizedPL.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className={`text-xs ${mutedClass} mt-1`}>
+                                Cost: ${costBasis.toFixed(2)} → Value: ${currentValue.toFixed(2)} ({unrealizedPct >= 0 ? '+' : ''}{unrealizedPct.toFixed(1)}%)
+                              </div>
+                              <div className={`text-xs ${mutedClass}`}>
+                                Current price: ${currentPrice.toFixed(2)}
+                              </div>
                             </div>
-                          );
-                        })}
+                          ))
+                        }
                       </div>
                     </div>
                   )}
