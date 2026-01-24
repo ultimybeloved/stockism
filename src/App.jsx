@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -1812,11 +1812,16 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
 // LEADERBOARD MODAL
 // ============================================
 
-const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
+const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
   const [leaders, setLeaders] = useState([]);
   const [crewLeaders, setCrewLeaders] = useState([]); // Separate state for crew-specific leaderboard
   const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
+  const [userRank, setUserRank] = useState(null); // User's actual rank in current view
+  const [isUserRowVisible, setIsUserRowVisible] = useState(false); // Is user's row in viewport?
+  const [showStickyHeader, setShowStickyHeader] = useState(false); // Show sticky header when scrolled past
+  const scrollContainerRef = useRef(null);
+  const userRowRef = useRef(null);
 
   // Fetch main top 50 leaderboard
   useEffect(() => {
@@ -1895,6 +1900,82 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
     return crewLeaders;
   }, [leaders, crewLeaders, crewFilter]);
 
+  // Calculate user's rank when leaderboard data changes
+  useEffect(() => {
+    if (!currentUser || !currentUserData) {
+      setUserRank(null);
+      return;
+    }
+
+    const fetchUserRank = async () => {
+      try {
+        if (crewFilter === 'ALL') {
+          // Count users with higher portfolio value
+          const q = query(
+            collection(db, 'users'),
+            orderBy('portfolioValue', 'desc')
+          );
+          const snapshot = await getDocs(q);
+          const allUsers = snapshot.docs.map(doc => ({ id: doc.id, portfolioValue: doc.data().portfolioValue }));
+          const rank = allUsers.findIndex(u => u.id === currentUser.uid) + 1;
+          setUserRank(rank || null);
+        } else {
+          // Crew leaderboard rank
+          const userInCrew = crewLeaders.findIndex(u => u.id === currentUser.uid);
+          setUserRank(userInCrew >= 0 ? userInCrew + 1 : null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user rank:', err);
+      }
+    };
+
+    fetchUserRank();
+  }, [currentUser, currentUserData, crewFilter, leaders, crewLeaders]);
+
+  // Set up Intersection Observer for user's row
+  useEffect(() => {
+    if (!userRowRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsUserRowVisible(entry.isIntersecting);
+      },
+      {
+        root: scrollContainerRef.current,
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(userRowRef.current);
+    return () => observer.disconnect();
+  }, [filteredLeaders, currentUser]);
+
+  // Handle scroll to show/hide sticky header
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !userRowRef.current) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const userRowTop = userRowRef.current?.offsetTop || 0;
+          const scrollTop = container.scrollTop;
+          // Show header if we've scrolled past user's row
+          setShowStickyHeader(scrollTop > userRowTop && !isUserRowVisible);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isUserRowVisible, filteredLeaders]);
+
+  // Get user's crew color
+  const userCrewColor = currentUserData?.crew ? CREW_MAP[currentUserData.crew]?.color : '#6b7280';
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className={`w-full max-w-lg ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[80vh] flex flex-col`}
@@ -1940,7 +2021,26 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
+          {/* Sticky Header - shows when scrolled past user's row */}
+          {currentUser && userRank && showStickyHeader && (
+            <div
+              className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b transition-all duration-300"
+              style={{
+                backgroundColor: darkMode ? '#18181b' : '#ffffff',
+                borderColor: userCrewColor,
+                boxShadow: `0 2px 8px ${userCrewColor}40`
+              }}
+            >
+              <div className={`text-sm font-semibold ${textClass}`}>
+                <span style={{ color: userCrewColor }}>#{userRank}</span> {currentUserData?.displayName}
+              </div>
+              <div className={`text-sm font-bold ${textClass}`}>
+                {formatCurrency(currentUserData?.portfolioValue || 0)}
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className={`text-center py-8 ${mutedClass}`}>Loading...</div>
           ) : filteredLeaders.length === 0 ? (
@@ -1953,8 +2053,23 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
               {filteredLeaders.map(leader => {
                 const displayRank = crewFilter === 'ALL' ? leader.rank : leader.crewRank;
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
+                const isCurrentUser = currentUser && leader.id === currentUser.uid;
+
                 return (
-                  <div key={leader.id} className={`p-3 flex items-center gap-3 ${displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''}`}>
+                  <div
+                    key={leader.id}
+                    ref={isCurrentUser ? userRowRef : null}
+                    className={`p-3 flex items-center gap-3 transition-all duration-300 ${
+                      displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''
+                    } ${
+                      isCurrentUser ? 'border-l-4' : ''
+                    }`}
+                    style={isCurrentUser ? {
+                      borderLeftColor: userCrewColor,
+                      backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15`,
+                      boxShadow: `inset 0 0 12px ${userCrewColor}30`
+                    } : {}}
+                  >
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
                       {getRankEmoji(displayRank)}
                     </div>
@@ -1975,6 +2090,27 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew }) => {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Sticky Footer - shows user's position when not visible in scroll area */}
+          {currentUser && userRank && !isUserRowVisible && !loading && (
+            <div
+              className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t transition-all duration-500 ease-out"
+              style={{
+                backgroundColor: darkMode ? '#18181b' : '#ffffff',
+                borderColor: userCrewColor,
+                boxShadow: `0 -2px 12px ${userCrewColor}40`,
+                animation: 'slideUp 0.4s ease-out'
+              }}
+            >
+              <div className={`text-sm font-semibold ${textClass}`}>
+                <span style={{ color: userCrewColor }}>Your Rank: #{userRank}</span>
+                <span className={`ml-2 ${mutedClass}`}>• {currentUserData?.displayName}</span>
+              </div>
+              <div className={`text-sm font-bold ${textClass}`}>
+                {formatCurrency(currentUserData?.portfolioValue || 0)}
+              </div>
             </div>
           )}
         </div>
@@ -7816,7 +7952,7 @@ export default function App() {
           darkMode={darkMode} 
         />
       )}
-      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} darkMode={darkMode} currentUserCrew={userData?.crew} />}
+      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} darkMode={darkMode} currentUserCrew={userData?.crew} currentUser={user} currentUserData={userData} />}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} darkMode={darkMode} />}
       {showAchievements && !isGuest && (
         <AchievementsModal 
