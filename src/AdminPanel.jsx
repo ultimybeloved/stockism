@@ -40,7 +40,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [recoveryBets, setRecoveryBets] = useState([]);
   const [recoveryWinner, setRecoveryWinner] = useState('');
   const [recoveryOptions, setRecoveryOptions] = useState([]);
-  
+
+  // Price history cleanup state
+  const [futureEntries, setFutureEntries] = useState([]);
+  const [scanningHistory, setScanningHistory] = useState(false);
+
   // User search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState([]);
@@ -1905,6 +1909,97 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed to process: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  // Scan for future price history entries
+  const handleScanFutureEntries = async () => {
+    setScanningHistory(true);
+    try {
+      const marketRef = doc(db, 'market', 'global');
+      const marketSnap = await getDoc(marketRef);
+
+      if (!marketSnap.exists()) {
+        showMessage('error', 'Market data not found');
+        setScanningHistory(false);
+        return;
+      }
+
+      const priceHistory = marketSnap.data().priceHistory || {};
+      const now = Date.now();
+      const futureFound = [];
+
+      // Check each ticker's price history
+      for (const [ticker, history] of Object.entries(priceHistory)) {
+        if (!Array.isArray(history)) continue;
+
+        const badEntries = history.filter(entry => entry.timestamp > now);
+        if (badEntries.length > 0) {
+          futureFound.push({
+            ticker,
+            count: badEntries.length,
+            entries: badEntries.map(e => ({
+              timestamp: e.timestamp,
+              price: e.price,
+              date: new Date(e.timestamp).toLocaleString()
+            }))
+          });
+        }
+      }
+
+      setFutureEntries(futureFound);
+      showMessage('success', `Scan complete. Found ${futureFound.reduce((sum, t) => sum + t.count, 0)} future entries across ${futureFound.length} tickers.`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Scan failed: ${err.message}`);
+    }
+    setScanningHistory(false);
+  };
+
+  // Remove future price history entries
+  const handleCleanupFutureEntries = async () => {
+    if (futureEntries.length === 0) return;
+
+    if (!confirm(`This will remove ${futureEntries.reduce((sum, t) => sum + t.count, 0)} future price history entries. Continue?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const marketRef = doc(db, 'market', 'global');
+      const marketSnap = await getDoc(marketRef);
+
+      if (!marketSnap.exists()) {
+        showMessage('error', 'Market data not found');
+        setLoading(false);
+        return;
+      }
+
+      const priceHistory = marketSnap.data().priceHistory || {};
+      const now = Date.now();
+      const updates = {};
+
+      // Clean each ticker's history
+      for (const [ticker, history] of Object.entries(priceHistory)) {
+        if (!Array.isArray(history)) continue;
+
+        const cleanedHistory = history.filter(entry => entry.timestamp <= now);
+        if (cleanedHistory.length !== history.length) {
+          updates[`priceHistory.${ticker}`] = cleanedHistory;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(marketRef, updates);
+        showMessage('success', `Cleaned up ${futureEntries.reduce((sum, t) => sum + t.count, 0)} future entries!`);
+        setFutureEntries([]);
+      } else {
+        showMessage('info', 'No changes needed');
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Cleanup failed: ${err.message}`);
     }
     setLoading(false);
   };
@@ -3958,6 +4053,57 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </div>
                 </div>
               )}
+
+              {/* Price History Cleanup */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+                <h3 className={`font-semibold mb-3 text-red-500`}>🧹 Price History Cleanup</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Scan for and remove price history entries with future timestamps (which can happen due to server time drift or bugs).
+                </p>
+
+                <button
+                  onClick={handleScanFutureEntries}
+                  disabled={scanningHistory}
+                  className="w-full mb-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {scanningHistory ? 'Scanning...' : '🔍 Scan for Future Entries'}
+                </button>
+
+                {futureEntries.length > 0 && (
+                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <h4 className={`font-semibold mb-2 ${textClass}`}>
+                      Found {futureEntries.reduce((sum, t) => sum + t.count, 0)} Future Entries
+                    </h4>
+                    <div className="max-h-64 overflow-y-auto space-y-2">
+                      {futureEntries.map(item => (
+                        <div key={item.ticker} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                          <div className="font-semibold text-orange-500 mb-1">
+                            ${item.ticker} ({item.count} bad {item.count === 1 ? 'entry' : 'entries'})
+                          </div>
+                          <div className="text-xs space-y-1">
+                            {item.entries.slice(0, 3).map((entry, i) => (
+                              <div key={i} className={mutedClass}>
+                                • {entry.date} - ${entry.price.toFixed(2)}
+                              </div>
+                            ))}
+                            {item.entries.length > 3 && (
+                              <div className={mutedClass}>• ... and {item.entries.length - 3} more</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={handleCleanupFutureEntries}
+                      disabled={loading}
+                      className="w-full mt-3 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      {loading ? 'Cleaning...' : `🗑️ Remove All Future Entries (${futureEntries.reduce((sum, t) => sum + t.count, 0)})`}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
