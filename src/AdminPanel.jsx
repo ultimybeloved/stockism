@@ -4833,7 +4833,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
                     <div className="max-h-96 overflow-y-auto space-y-2 mb-3">
                       {tradeFraudUsers.map(user => (
-                        <div key={user.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700\50' : 'bg-slate-100'}`}>
+                        <div key={user.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
                           <div className="flex justify-between items-start mb-2">
                             <div>
                               <div className="font-semibold text-purple-500">{user.displayName}</div>
