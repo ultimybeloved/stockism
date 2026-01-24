@@ -4908,12 +4908,25 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // TRADE ACTION MODAL (Robinhood-style)
 // ============================================
 
-const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory }) => {
+const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false }) => {
   const [amount, setAmount] = useState(1);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+
+  // Color blind friendly colors
+  const getColors = (isPositive) => {
+    if (colorBlindMode) {
+      return isPositive
+        ? { text: 'text-blue-400', bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' }
+        : { text: 'text-orange-400', bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' };
+    } else {
+      return isPositive
+        ? { text: 'text-green-400', bg: 'bg-green-600', bgHover: 'hover:bg-green-700' }
+        : { text: 'text-red-400', bg: 'bg-red-600', bgHover: 'hover:bg-red-700' };
+    }
+  };
 
   // Calculate dynamic prices
   const getDynamicPrices = (amt, act) => {
@@ -4988,11 +5001,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const { bid, ask, spread } = getDynamicPrices(amount || 1, action);
 
   const getActionConfig = () => {
+    const buyColors = getColors(true);   // Positive action (buy)
+    const sellColors = getColors(false); // Negative action (sell)
+
     switch (action) {
       case 'buy':
         return {
           title: 'Buy',
-          color: 'green',
+          colors: buyColors,
           price: ask,
           total: ask * (amount || 1),
           label: 'Cost',
@@ -5001,7 +5017,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       case 'sell':
         return {
           title: 'Sell',
-          color: 'red',
+          colors: sellColors,
           price: bid,
           total: bid * (amount || 1),
           label: 'Revenue',
@@ -5010,7 +5026,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       case 'short':
         return {
           title: 'Short',
-          color: 'orange',
+          colors: { text: 'text-orange-400', bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' },
           price: bid,
           total: bid * (amount || 1) * SHORT_MARGIN_REQUIREMENT,
           label: 'Margin Required',
@@ -5019,14 +5035,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       case 'cover':
         return {
           title: 'Cover Short',
-          color: 'blue',
+          colors: { text: 'text-blue-400', bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' },
           price: ask,
           total: ask * (amount || 1),
           label: 'Cost to Cover',
           disabled: !shortPosition || shortPosition.shares < (amount || 1)
         };
       default:
-        return { title: '', color: 'gray', price: 0, total: 0, label: '', disabled: true };
+        return { title: '', colors: { text: 'text-gray-400', bg: 'bg-gray-600', bgHover: 'hover:bg-gray-700' }, price: 0, total: 0, label: '', disabled: true };
     }
   };
 
@@ -5059,7 +5075,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <div className="flex justify-between text-xs">
             <div>
               <div className={mutedClass}>Bid</div>
-              <div className="text-red-400 font-semibold">{formatCurrency(bid)}</div>
+              <div className={`${getColors(false).text} font-semibold`}>{formatCurrency(bid)}</div>
             </div>
             <div className="text-center">
               <div className={mutedClass}>Spread</div>
@@ -5067,7 +5083,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
             </div>
             <div className="text-right">
               <div className={mutedClass}>Ask</div>
-              <div className="text-green-400 font-semibold">{formatCurrency(ask)}</div>
+              <div className={`${getColors(true).text} font-semibold`}>{formatCurrency(ask)}</div>
             </div>
           </div>
         </div>
@@ -5133,7 +5149,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
           <div className="flex justify-between items-center">
             <span className={`text-sm ${mutedClass}`}>{config.label}</span>
-            <span className={`text-lg font-bold text-${config.color}-500`}>
+            <span className={`text-lg font-bold ${config.colors.text}`}>
               {formatCurrency(config.total)}
             </span>
           </div>
@@ -5144,7 +5160,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <button
             onClick={handleSubmit}
             disabled={config.disabled || amount < 1 || amount > maxShares}
-            className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm bg-${config.color}-600 hover:bg-${config.color}-700 text-white disabled:opacity-50`}
+            className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${config.colors.bg} ${config.colors.bgHover} text-white disabled:opacity-50`}
           >
             {config.title}
           </button>
@@ -5171,6 +5187,20 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const owned = holdings > 0;
   const shorted = shortPosition && shortPosition.shares > 0;
   const isETF = character.isETF;
+  const colorBlindMode = userData?.colorBlindMode || false;
+
+  // Color blind friendly helper
+  const getActionColors = (isPositive) => {
+    if (colorBlindMode) {
+      return isPositive
+        ? { bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700' }
+        : { bg: 'bg-orange-600', bgHover: 'hover:bg-orange-700' };
+    } else {
+      return isPositive
+        ? { bg: 'bg-green-600', bgHover: 'hover:bg-green-700' }
+        : { bg: 'bg-red-600', bgHover: 'hover:bg-red-700' };
+    }
+  };
 
   const cardClass = darkMode 
     ? `bg-zinc-900 border-zinc-800 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}` 
@@ -5179,12 +5209,17 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
 
   const getSentimentColor = () => {
+    const positiveColor = colorBlindMode ? 'text-blue-500' : 'text-green-500';
+    const positiveColorLight = colorBlindMode ? 'text-blue-400' : 'text-green-400';
+    const negativeColor = colorBlindMode ? 'text-orange-500' : 'text-red-500';
+    const negativeColorLight = colorBlindMode ? 'text-orange-400' : 'text-red-400';
+
     switch (sentiment) {
-      case 'Strong Buy': return 'text-green-500';
-      case 'Bullish': return 'text-green-400';
+      case 'Strong Buy': return positiveColor;
+      case 'Bullish': return positiveColorLight;
       case 'Neutral': return 'text-amber-500';
-      case 'Bearish': return 'text-red-400';
-      case 'Strong Sell': return 'text-red-500';
+      case 'Bearish': return negativeColorLight;
+      case 'Strong Sell': return negativeColor;
       default: return mutedClass;
     }
   };
@@ -5286,7 +5321,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
-              <p className={`text-xs font-mono ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+              <p className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-blue-500' : 'text-green-500') : (colorBlindMode ? 'text-orange-500' : 'text-red-500')}`}>
                 {isUp ? '▲' : '▼'} {formatChange(chartChange)}
               </p>
             </div>
@@ -5301,7 +5336,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           <div className="flex gap-2">
             {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
             {shorted && (
-              <span className={`text-xs font-semibold ${shortPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <span className={`text-xs font-semibold ${shortPL >= 0 ? (colorBlindMode ? 'text-blue-500' : 'text-green-500') : (colorBlindMode ? 'text-orange-500' : 'text-red-500')}`}>
                 {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}{formatCurrency(shortPL)})
               </span>
             )}
@@ -5323,14 +5358,14 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { setTradeAction('buy'); setShowTradeMenu(false); }}
-                className="py-2 text-xs font-semibold uppercase rounded-sm bg-green-600 hover:bg-green-700 text-white"
+                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getActionColors(true).bg} ${getActionColors(true).bgHover} text-white`}
               >
                 Buy
               </button>
               <button
                 onClick={() => { setTradeAction('sell'); setShowTradeMenu(false); }}
                 disabled={holdings === 0}
-                className="py-2 text-xs font-semibold uppercase rounded-sm bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getActionColors(false).bg} ${getActionColors(false).bgHover} text-white disabled:opacity-50`}
               >
                 Sell
               </button>
@@ -5373,6 +5408,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           onClose={() => setTradeAction(null)}
           darkMode={darkMode}
           priceHistory={priceHistory}
+          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
     </>
