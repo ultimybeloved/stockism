@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, createBotsFunction } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -2232,79 +2232,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
-  // Create initial bot traders
-  const BOT_PROFILES = [
-    { name: 'Momentum Mike', personality: 'momentum', cash: 2500 },
-    { name: 'Contrarian Carl', personality: 'contrarian', cash: 3000 },
-    { name: 'Diamond Dave', personality: 'hodler', cash: 2000 },
-    { name: 'Day Trader Dan', personality: 'daytrader', cash: 4000 },
-    { name: 'Gambler Greg', personality: 'random', cash: 1500 },
-    { name: 'Big Deal Billy', personality: 'crew_loyal', cash: 2500, crew: 'BIG_DEAL' },
-    { name: 'Swing Trader Sam', personality: 'swing', cash: 3500 },
-    { name: 'FOMO Frank', personality: 'momentum', cash: 2000 },
-    { name: 'Bargain Betty', personality: 'contrarian', cash: 3000 },
-    { name: 'Long Term Larry', personality: 'hodler', cash: 5000 },
-    { name: 'Scalper Steve', personality: 'daytrader', cash: 3500 },
-    { name: 'Lucky Lucy', personality: 'random', cash: 2500 },
-    { name: 'Hostel Harry', personality: 'crew_loyal', cash: 3000, crew: 'HOSTEL' },
-    { name: 'Pattern Pete', personality: 'swing', cash: 2500 },
-    { name: 'Panic Paul', personality: 'panic', cash: 2000 },
-    { name: 'Value Vince', personality: 'contrarian', cash: 4000 },
-    { name: 'Buy High Brian', personality: 'random', cash: 1500 },
-    { name: 'Workers Wendy', personality: 'crew_loyal', cash: 3500, crew: 'WORKERS' },
-    { name: 'Trend Tom', personality: 'momentum', cash: 3000 },
-    { name: 'Diversified Donna', personality: 'balanced', cash: 4500 }
-  ];
-
   const handleCreateBots = async () => {
-    if (!confirm(`Create 20 bot traders?\n\nEach bot will get their starting cash and begin trading automatically once the Cloud Function is deployed.`)) {
+    if (!confirm(`Create 20 bot traders?\n\nEach bot will get their starting cash and begin trading automatically.`)) {
       return;
     }
 
     setBotsLoading(true);
-    let created = 0;
-    let skipped = 0;
-
     try {
-      for (const profile of BOT_PROFILES) {
-        const botId = `bot_${profile.name.toLowerCase().replace(/\s+/g, '_')}`;
-        const userRef = doc(db, 'users', botId);
-
-        // Check if bot already exists
-        const botSnap = await getDoc(userRef);
-        if (botSnap.exists()) {
-          skipped++;
-          continue;
-        }
-
-        // Create bot user
-        await setDoc(userRef, {
-          displayName: profile.name,
-          displayNameLower: profile.name.toLowerCase(),
-          isBot: true,
-          botPersonality: profile.personality,
-          botCrew: profile.crew || null,
-          cash: profile.cash,
-          portfolioValue: profile.cash,
-          holdings: {},
-          shorts: {},
-          costBasis: {},
-          bets: {},
-          marginUsed: 0,
-          totalTrades: 0,
-          totalCheckins: 0,
-          peakPortfolioValue: profile.cash,
-          crew: null,
-          dailyMissions: {},
-          transactionLog: [],
-          createdAt: Date.now(),
-          lastActive: Date.now()
-        });
-
-        created++;
-      }
-
-      showMessage('success', `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`);
+      const result = await createBotsFunction();
+      showMessage('success', result.data.message);
       await handleLoadBots();
     } catch (err) {
       console.error(err);
