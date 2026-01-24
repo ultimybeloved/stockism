@@ -1887,14 +1887,17 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         const q = query(
           collection(db, 'users'),
           orderBy('portfolioValue', 'desc'),
-          limit(50)
+          limit(100) // Fetch extra to account for bots
         );
         const snapshot = await getDocs(q);
-        const leaderData = snapshot.docs.map((doc, index) => ({
-          rank: index + 1,
-          ...doc.data(),
-          id: doc.id
-        }));
+        const leaderData = snapshot.docs
+          .map(doc => ({ ...doc.data(), id: doc.id }))
+          .filter(user => !user.isBot) // Filter out bots
+          .slice(0, 50) // Limit to top 50 real users
+          .map((user, index) => ({
+            rank: index + 1,
+            ...user
+          }));
         setLeaders(leaderData);
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
@@ -1921,10 +1924,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         const snapshot = await getDocs(q);
         const crewMembers = snapshot.docs
           .map(doc => ({ ...doc.data(), id: doc.id }))
-          .filter(user => user.crew === crewFilter)
+          .filter(user => user.crew === crewFilter && !user.isBot) // Filter out bots
           .slice(0, 50) // Limit to top 50 crew members
           .map((user, idx) => ({ ...user, crewRank: idx + 1 }));
-        
+
         setCrewLeaders(crewMembers);
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
@@ -1967,13 +1970,15 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     const fetchUserRank = async () => {
       try {
         if (crewFilter === 'ALL') {
-          // Count users with higher portfolio value
+          // Count users with higher portfolio value (excluding bots)
           const q = query(
             collection(db, 'users'),
             orderBy('portfolioValue', 'desc')
           );
           const snapshot = await getDocs(q);
-          const allUsers = snapshot.docs.map(doc => ({ id: doc.id, portfolioValue: doc.data().portfolioValue }));
+          const allUsers = snapshot.docs
+            .map(doc => ({ id: doc.id, portfolioValue: doc.data().portfolioValue, isBot: doc.data().isBot }))
+            .filter(u => !u.isBot); // Filter out bots
           const rank = allUsers.findIndex(u => u.id === currentUser.uid) + 1;
           setUserRank(rank || null);
         } else {
@@ -7642,18 +7647,21 @@ export default function App() {
         
         // Skip if already has all leaderboard achievements
         if (currentAchievements.includes('TOP_1')) return;
-        
-        // Fetch top 10 to check position
+
+        // Fetch top users to check position (excluding bots)
         const q = query(
           collection(db, 'users'),
           orderBy('portfolioValue', 'desc'),
-          limit(10)
+          limit(20) // Fetch extra to account for bots
         );
         const snapshot = await getDocs(q);
-        const topUsers = snapshot.docs.map(doc => doc.id);
-        
+        const topUsers = snapshot.docs
+          .filter(doc => !doc.data().isBot) // Filter out bots
+          .slice(0, 10) // Get top 10 real users
+          .map(doc => doc.id);
+
         const userPosition = topUsers.indexOf(user.uid);
-        
+
         if (userPosition === -1) return; // Not in top 10
         
         const newAchievements = [];
