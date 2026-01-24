@@ -1917,7 +1917,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const handleScanFutureEntries = async () => {
     setScanningHistory(true);
     try {
-      const marketRef = doc(db, 'market', 'global');
+      const marketRef = doc(db, 'market', 'current');
       const marketSnap = await getDoc(marketRef);
 
       if (!marketSnap.exists()) {
@@ -1967,7 +1967,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
     setLoading(true);
     try {
-      const marketRef = doc(db, 'market', 'global');
+      const marketRef = doc(db, 'market', 'current');
       const marketSnap = await getDoc(marketRef);
 
       if (!marketSnap.exists()) {
