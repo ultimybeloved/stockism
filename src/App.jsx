@@ -7997,22 +7997,76 @@ export default function App() {
               darkMode={darkMode}
             />
           </div>
-          <div className={`${cardClass} border rounded-sm p-4`}>
+          <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Portfolio Value</p>
             <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</p>
             <p className={`text-xs ${portfolioValue >= STARTING_CASH ? 'text-green-500' : 'text-red-500'}`}>
               {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {formatCurrency(Math.abs(portfolioValue - STARTING_CASH))} ({formatChange(((portfolioValue - STARTING_CASH) / STARTING_CASH) * 100)}) from start
+              {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
             </p>
           </div>
-          <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
-            <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Holdings</p>
-            <p className={`text-2xl font-bold ${textClass}`}>
-              {Object.values(activeUserData.holdings || {}).reduce((a, b) => a + b, 0)} shares
-            </p>
-            <p className={`text-xs ${mutedClass}`}>
-              {Object.keys(activeUserData.holdings || {}).filter(k => activeUserData.holdings[k] > 0).length} characters
-              {!isGuest && <span className="text-orange-600 ml-2">→ View details</span>}
-            </p>
+          <div className={`${cardClass} border rounded-sm p-4`}>
+            <div className="flex justify-between items-start mb-2">
+              <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Holdings</p>
+              {!isGuest && (
+                <button
+                  onClick={() => setShowPortfolio(true)}
+                  className="text-xs text-orange-600 hover:text-orange-500"
+                >
+                  View All →
+                </button>
+              )}
+            </div>
+            {(() => {
+              const holdings = activeUserData.holdings || {};
+              const costBasis = activeUserData.costBasis || {};
+              const holdingsArray = Object.entries(holdings)
+                .filter(([_, shares]) => shares > 0)
+                .map(([ticker, shares]) => {
+                  const character = CHARACTER_MAP[ticker];
+                  const currentPrice = prices[ticker] || character?.basePrice || 0;
+                  const avgCost = costBasis[ticker] || character?.basePrice || currentPrice;
+                  const value = currentPrice * shares;
+                  const totalCost = avgCost * shares;
+                  const unrealizedPL = value - totalCost;
+                  return { ticker, shares, value, unrealizedPL, character };
+                })
+                .sort((a, b) => b.value - a.value);
+
+              const totalUnrealizedPL = holdingsArray.reduce((sum, h) => sum + h.unrealizedPL, 0);
+              const topHoldings = holdingsArray.slice(0, 3);
+
+              if (holdingsArray.length === 0) {
+                return (
+                  <p className={`text-sm ${mutedClass}`}>No holdings yet</p>
+                );
+              }
+
+              return (
+                <div className="space-y-2">
+                  {topHoldings.map(h => (
+                    <div key={h.ticker} className="flex justify-between items-center text-xs">
+                      <span className={textClass}>${h.ticker} × {h.shares}</span>
+                      <span className={h.unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                        {h.unrealizedPL >= 0 ? '+' : ''}{formatCurrency(h.unrealizedPL)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className={`pt-2 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={mutedClass}>Total Unrealized P/L:</span>
+                      <span className={`font-bold ${totalUnrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {totalUnrealizedPL >= 0 ? '+' : ''}{formatCurrency(totalUnrealizedPL)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs mt-1">
+                      <span className={mutedClass}>{holdingsArray.length} position{holdingsArray.length !== 1 ? 's' : ''}</span>
+                      <span className={mutedClass}>{Object.values(holdings).reduce((a, b) => a + b, 0)} total shares</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
