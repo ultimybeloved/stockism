@@ -104,6 +104,17 @@ export const CHARACTERS = [
   { name: "Sanghui Han", ticker: "SGUI", basePrice: 10, volatility: 0.035, dateAdded: "2026-01-16T00:42:00" },
   { name: "Yeongcheol Kim", ticker: "YCHL", basePrice: 10, volatility: 0.035, dateAdded: "2026-01-16T00:43:00" },
   { name: "Sera Shin", ticker: "SERA", basePrice: 20, volatility: 0.03, dateAdded: "2026-01-16T00:44:00" },
+
+  // New characters added 2026-01-24
+  { name: "Somi Park", ticker: "SOMI", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-24T00:00:00" },
+  { name: "Gwang Yu", ticker: "MMA", basePrice: 17.50, volatility: 0.035, dateAdded: "2026-01-24T00:01:00" },
+  { name: "Beolgu Lee", ticker: "LIAR", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-24T00:02:00" },
+  { name: "Jaesu Noh", ticker: "NOH", basePrice: 13, volatility: 0.035, dateAdded: "2026-01-24T00:03:00" },
+  { name: "Gyeol Baek", ticker: "DOC", basePrice: 12.50, volatility: 0.035, dateAdded: "2026-01-24T00:04:00" },
+  { name: "Sujin Kim", ticker: "SUJN", basePrice: 15, volatility: 0.03, dateAdded: "2026-01-24T00:05:00" },
+  { name: "Byeon Kim", ticker: "LAW", basePrice: 30, volatility: 0.035, dateAdded: "2026-01-24T00:06:00" },
+  { name: "Jihan Kwak", ticker: "CHCH", basePrice: 30, volatility: 0.035, dateAdded: "2026-01-24T00:07:00" },
+  { name: "Jibeom Kwak", ticker: "BEOM", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-24T00:08:00" },
 ];
 
 // Create a map for quick lookup

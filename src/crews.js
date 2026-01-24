@@ -25,7 +25,7 @@ export const CREWS = {
     color: '#a91a2c',
     emblem: '👊',
     icon: '/crews/fist gang.png',
-    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL']
+    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH']
   },
   GOD_DOG: {
     id: 'GOD_DOG',
@@ -57,7 +57,7 @@ export const CREWS = {
     color: '#FFFFFF',
     emblem: '🐯',
     icon: '/crews/wtjc.png',
-    members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA']
+    members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH']
   },
   WORKERS: {
     id: 'WORKERS',
@@ -65,7 +65,7 @@ export const CREWS = {
     color: '#000000',
     emblem: '⚒️',
     icon: '/crews/workers.png',
-    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO']
+    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
@@ -73,7 +73,7 @@ export const CREWS = {
     color: '#f3c803',
     emblem: '⛩️',
     icon: '/crews/yamazaki.png',
-    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO']
+    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI']
   }
 };
 
