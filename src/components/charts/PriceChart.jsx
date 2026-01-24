@@ -29,7 +29,8 @@ const PriceChart = ({
   currentPrice,
   priceHistory,
   onClose,
-  darkMode = false
+  darkMode = false,
+  colorBlindMode = false
 }) => {
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -128,8 +129,12 @@ const PriceChart = ({
     ? `${pathData} L ${getX(currentData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
-  const strokeColor = isUp ? '#22c55e' : '#ef4444';
-  const fillColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+  const strokeColor = colorBlindMode
+    ? (isUp ? '#14b8a6' : '#a855f7')  // teal-500 / purple-500
+    : (isUp ? '#22c55e' : '#ef4444'); // green-500 / red-500
+  const fillColor = colorBlindMode
+    ? (isUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')  // teal / purple
+    : (isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');   // green / red
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -152,7 +157,7 @@ const PriceChart = ({
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</span>
-                <span className={`text-sm font-semibold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : (isUp ? 'text-green-500' : 'text-red-500')}`}>
                   {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({TIME_RANGES.find(t => t.key === timeRange)?.label})
                 </span>
               </div>
@@ -280,11 +285,11 @@ const PriceChart = ({
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>High</div>
-              <div className="font-semibold text-green-500">{formatCurrency(maxPrice)}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(maxPrice)}</div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Low</div>
-              <div className="font-semibold text-red-500">{formatCurrency(minPrice)}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>{formatCurrency(minPrice)}</div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Current</div>
