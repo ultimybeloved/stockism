@@ -65,7 +65,7 @@ export const CREWS = {
     color: '#000000',
     emblem: '⚒️',
     icon: '/crews/workers.png',
-    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC']
+    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
