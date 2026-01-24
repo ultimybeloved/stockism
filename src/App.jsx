@@ -5,7 +5,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendEmailVerification
+  sendEmailVerification,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import {
   doc,
@@ -4712,10 +4713,12 @@ const EmailVerificationModal = ({ user, darkMode, userData }) => {
 
 const LoginModal = ({ onClose, darkMode }) => {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -4804,6 +4807,30 @@ const LoginModal = ({ onClose, darkMode }) => {
     setLoading(false);
   };
 
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    if (!email) {
+      setError('Please enter your email address');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage('Password reset email sent! Check your inbox.');
+      setEmail('');
+    } catch (err) {
+      if (err.code === 'auth/user-not-found') setError('No account found with this email');
+      else if (err.code === 'auth/invalid-email') setError('Invalid email address');
+      else setError(err.message);
+    }
+    setLoading(false);
+  };
+
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
@@ -4817,9 +4844,11 @@ const LoginModal = ({ onClose, darkMode }) => {
         <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
 
         <h2 className={`text-lg font-semibold mb-6 ${textClass}`}>
-          {isRegistering ? 'Create Account' : 'Sign In'}
+          {isForgotPassword ? 'Reset Password' : (isRegistering ? 'Create Account' : 'Sign In')}
         </h2>
 
+        {!isForgotPassword && (
+          <>
         {/* Google Sign In */}
         <button
           onClick={handleGoogleSignIn}
@@ -4856,8 +4885,11 @@ const LoginModal = ({ onClose, darkMode }) => {
           <span className="text-xs uppercase">or</span>
           <div className="flex-1 h-px bg-current opacity-30"></div>
         </div>
+        </>
+        )}
 
         {/* Email Form - Sign in or Register */}
+        {!isForgotPassword ? (
         <form onSubmit={handleEmailSubmit} className="space-y-3">
           <input
             type="email"
@@ -4905,14 +4937,67 @@ const LoginModal = ({ onClose, darkMode }) => {
           >
             {loading ? 'Please wait...' : (isRegistering ? 'Register' : 'Sign In')}
           </button>
+          {!isRegistering && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setIsForgotPassword(true); setError(''); }}
+                className={`text-xs ${mutedClass} hover:text-orange-600`}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
         </form>
+        ) : (
+        <form onSubmit={handlePasswordReset} className="space-y-3">
+          <p className={`text-sm ${mutedClass} mb-3`}>
+            Enter your email address and we'll send you a link to reset your password.
+          </p>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={`w-full px-3 py-2 border rounded-sm text-sm ${inputClass}`}
+            disabled={loading}
+            required
+          />
+          {error && (
+            <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-sm text-sm">
+              {successMessage}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-sm text-sm uppercase disabled:opacity-50"
+          >
+            {loading ? 'Please wait...' : 'Send Reset Link'}
+          </button>
+        </form>
+        )}
 
         <div className="mt-4 text-center">
           <button
-            onClick={() => { setIsRegistering(!isRegistering); setError(''); setConfirmPassword(''); }}
+            onClick={() => {
+              if (isForgotPassword) {
+                setIsForgotPassword(false);
+              } else {
+                setIsRegistering(!isRegistering);
+                setConfirmPassword('');
+              }
+              setError('');
+              setSuccessMessage('');
+            }}
             className={`text-sm ${mutedClass} hover:text-orange-600`}
           >
-            {isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register"}
+            {isForgotPassword ? 'Back to sign in' : (isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register")}
           </button>
         </div>
 
