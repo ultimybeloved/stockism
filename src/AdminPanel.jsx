@@ -2039,15 +2039,18 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
         if (futureCheckins.length > 0) {
           const fraudulentBonus = futureCheckins.length * 300; // $300 per check-in
+          const correctedCheckins = (user.totalCheckins || 0) - futureCheckins.length;
+          const legitimateCash = 1000 + (correctedCheckins * 300); // $1000 starting + legitimate bonuses
           fraudFound.push({
             userId: doc.id,
             displayName: user.displayName || 'Unknown',
             cash: user.cash || 0,
+            portfolioValue: user.portfolioValue || 0,
             totalCheckins: user.totalCheckins || 0,
             futureCheckins,
             fraudulentBonus,
-            correctedCheckins: (user.totalCheckins || 0) - futureCheckins.length,
-            correctedCash: (user.cash || 0) - fraudulentBonus
+            correctedCheckins,
+            legitimateCash
           });
         }
       });
@@ -2066,7 +2069,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
   // Fix a single user's fraudulent check-ins
   const handleFixUserCheckins = async (userId, fraudData) => {
-    if (!confirm(`Remove ${fraudData.futureCheckins.length} fraudulent check-ins from ${fraudData.displayName}?\n\nThis will:\n- Remove $${fraudData.fraudulentBonus.toLocaleString()} cash\n- Reduce total check-ins from ${fraudData.totalCheckins} to ${fraudData.correctedCheckins}`)) {
+    // Calculate legitimate cash: $1000 starting + (legitimate check-ins × $300)
+    const legitimateCash = 1000 + (fraudData.correctedCheckins * 300);
+
+    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ${fraudData.displayName}'s fraud?\n\nThis will:\n- LIQUIDATE all positions (they used fraudulent money to buy stocks)\n- Reset cash to $${legitimateCash.toLocaleString()} (${fraudData.correctedCheckins} legitimate check-ins × $300)\n- Remove ${fraudData.futureCheckins.length} future check-ins\n\nCurrent portfolio: $${fraudData.cash.toLocaleString()}\nAfter fix: $${legitimateCash.toLocaleString()}\n\nThis cannot be undone!`)) {
       return;
     }
 
@@ -2074,8 +2080,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     try {
       const userRef = doc(db, 'users', userId);
       const updates = {
-        cash: fraudData.correctedCash,
-        totalCheckins: fraudData.correctedCheckins
+        cash: legitimateCash,
+        totalCheckins: fraudData.correctedCheckins,
+        holdings: {}, // Liquidate all positions
+        shorts: {}, // Close all shorts
+        costBasis: {}, // Reset cost basis
+        portfolioValue: legitimateCash,
+        marginUsed: 0
       };
 
       // Remove future check-in entries from dailyMissions
@@ -2084,7 +2095,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       }
 
       await updateDoc(userRef, updates);
-      showMessage('success', `Fixed ${fraudData.displayName}'s account!`);
+      showMessage('success', `Liquidated ${fraudData.displayName}'s account! Reset to $${legitimateCash.toLocaleString()}`);
 
       // Remove from list
       setFraudUsers(prev => prev.filter(u => u.userId !== userId));
@@ -2102,7 +2113,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     const totalFraud = fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0);
     const totalUsers = fraudUsers.length;
 
-    if (!confirm(`Fix ALL ${totalUsers} users with fraudulent check-ins?\n\nThis will remove $${totalFraud.toLocaleString()} total from the economy.\n\nThis action cannot be undone!`)) {
+    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ALL ${totalUsers} users with fraudulent check-ins?\n\nThis will:\n- LIQUIDATE all their positions\n- Reset each to legitimate cash only\n- Remove $${totalFraud.toLocaleString()} from the economy\n\nThis action cannot be undone!`)) {
       return;
     }
 
@@ -2112,10 +2123,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
     for (const fraudData of fraudUsers) {
       try {
+        const legitimateCash = 1000 + (fraudData.correctedCheckins * 300);
         const userRef = doc(db, 'users', fraudData.userId);
         const updates = {
-          cash: fraudData.correctedCash,
-          totalCheckins: fraudData.correctedCheckins
+          cash: legitimateCash,
+          totalCheckins: fraudData.correctedCheckins,
+          holdings: {},
+          shorts: {},
+          costBasis: {},
+          portfolioValue: legitimateCash,
+          marginUsed: 0
         };
 
         // Remove future check-in entries
@@ -2131,7 +2148,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       }
     }
 
-    showMessage('success', `Fixed ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
+    showMessage('success', `Liquidated ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
     setFraudUsers([]);
     setLoading(false);
   };
@@ -4281,17 +4298,21 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
                           <div className="grid grid-cols-2 gap-2 text-sm mb-2">
                             <div>
-                              <span className={mutedClass}>Total Check-ins: </span>
+                              <span className={mutedClass}>Portfolio: </span>
+                              <span className="font-bold text-orange-500">${user.portfolioValue.toLocaleString()}</span>
+                              <span className={mutedClass}> → </span>
+                              <span className="font-bold text-green-500">${user.legitimateCash.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className={mutedClass}>Check-ins: </span>
                               <span className="font-bold text-orange-500">{user.totalCheckins}</span>
                               <span className={mutedClass}> → </span>
                               <span className="font-bold text-green-500">{user.correctedCheckins}</span>
                             </div>
-                            <div>
-                              <span className={mutedClass}>Cash: </span>
-                              <span className="font-bold text-orange-500">${user.cash.toLocaleString()}</span>
-                              <span className={mutedClass}> → </span>
-                              <span className="font-bold text-green-500">${user.correctedCash.toLocaleString()}</span>
-                            </div>
+                          </div>
+                          <div className="text-sm mb-2">
+                            <span className={mutedClass}>Will liquidate: </span>
+                            <span className="font-bold text-red-500">All positions + shorts</span>
                           </div>
 
                           <div className={`text-xs ${mutedClass}`}>
