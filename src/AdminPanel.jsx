@@ -4076,12 +4076,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     disabled={botsLoading}
                     className="px-4 py-2 bg-purple-600 text-white rounded-sm text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
                   >
-                    {botsLoading ? 'Creating...' : 'Create 20 Bots'}
+                    {botsLoading ? 'Creating...' : 'Create 28 Bots'}
                   </button>
                 </div>
                 <p className={`text-xs ${mutedClass}`}>
-                  This will create 20 bot traders with different personalities and starting cash ($1,500-$5,000 each).
-                  Bots that already exist will be skipped.
+                  This will create 28 bot traders with different personalities and starting cash ($1,500-$5,000 each).
+                  Includes 8 market followers that amplify trends. Bots that already exist will be skipped.
                 </p>
               </div>
 
@@ -4154,7 +4154,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
               {bots.length === 0 && !botsLoading && (
                 <p className={`text-center ${mutedClass} py-8`}>
-                  No bots found. Click "Create 20 Bots" to get started.
+                  No bots found. Click "Create 28 Bots" to get started.
                 </p>
               )}
             </div>
