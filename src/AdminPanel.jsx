@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -4631,6 +4631,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           {/* RECOVERY TAB */}
           {activeTab === 'recovery' && (
             <div className="space-y-4">
+              {/* Manual Backup */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Create an instant backup of all market data (prices, price history, liquidity). Backups are stored in Firebase Storage.
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Create a manual backup of market data?')) {
+                      return;
+                    }
+
+                    setLoading(true);
+                    setMessage(null);
+
+                    try {
+                      const result = await triggerManualBackupFunction();
+                      setMessage({
+                        type: 'success',
+                        text: `Backup created: ${result.data.filename}`
+                      });
+                    } catch (error) {
+                      setMessage({
+                        type: 'error',
+                        text: `Backup failed: ${error.message}`
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
+                </button>
+              </div>
+
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
                 <p className={`text-sm ${mutedClass} mb-2`}>
                   🔧 Manually process payouts for predictions that failed to auto-pay. Enter a prediction ID to scan for bets.
