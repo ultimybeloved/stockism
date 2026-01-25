@@ -6958,12 +6958,37 @@ export default function App() {
       // Market settles at new mid price (not ask)
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
-      // Atomic price + history update (prevents data loss if one write fails)
-      await updateDoc(marketRef, {
+      // Build market updates
+      const marketUpdates = {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount), // Track trading volume
         [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
-      });
+      };
+
+      // Apply trailing stock factor effects
+      const character = CHARACTER_MAP[ticker];
+      if (character?.trailingFactors) {
+        const priceChangePercent = (settledPrice - price) / price;
+        const timestamp = Date.now();
+
+        character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
+          const relatedPrice = prices[relatedTicker];
+          if (relatedPrice) {
+            const trailingChange = priceChangePercent * coefficient;
+            const newRelatedPrice = relatedPrice * (1 + trailingChange);
+            const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+            marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
+            marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
+              timestamp,
+              price: settledRelatedPrice
+            });
+          }
+        });
+      }
+
+      // Atomic price + history update (prevents data loss if one write fails)
+      await updateDoc(marketRef, marketUpdates);
 
       // Calculate new cost basis (weighted average)
       const currentHoldings = userData.holdings[ticker] || 0;
@@ -7122,12 +7147,37 @@ export default function App() {
       // Market settles at new mid price
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
-      // Atomic price + history update
-      await updateDoc(marketRef, {
+      // Build market updates
+      const marketUpdates = {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
         [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
-      });
+      };
+
+      // Apply trailing stock factor effects
+      const character = CHARACTER_MAP[ticker];
+      if (character?.trailingFactors) {
+        const priceChangePercent = (settledPrice - price) / price;
+        const timestamp = Date.now();
+
+        character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
+          const relatedPrice = prices[relatedTicker];
+          if (relatedPrice) {
+            const trailingChange = priceChangePercent * coefficient;
+            const newRelatedPrice = relatedPrice * (1 + trailingChange);
+            const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+            marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
+            marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
+              timestamp,
+              price: settledRelatedPrice
+            });
+          }
+        });
+      }
+
+      // Atomic price + history update
+      await updateDoc(marketRef, marketUpdates);
 
       // Calculate profit percentage for Bull Run achievement
       const costBasis = userData.costBasis?.[ticker] || 0;
