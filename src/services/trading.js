@@ -25,8 +25,14 @@ import { CHARACTER_MAP } from '../characters';
  * Uses sqrt to make large trades proportionally less impactful
  */
 export const calculatePriceImpact = (amount, currentPrice, volatility = 1) => {
-  const liquidityFactor = Math.max(1, currentPrice / 50);
-  const rawImpact = (Math.sqrt(amount) * BASE_IMPACT * volatility) / liquidityFactor;
+  // Softer liquidity scaling - less punishment for high-priced stocks
+  const liquidityFactor = Math.max(1, Math.sqrt(currentPrice / 50));
+
+  // Don't use volatility as direct multiplier - it's for natural drift, not trade impact
+  // Instead, use it as a small modifier (1 + volatility boost)
+  const volatilityBoost = 1 + (volatility * 2); // 0.03 vol = 1.06x, 0.06 vol = 1.12x
+
+  const rawImpact = (Math.sqrt(amount) * BASE_IMPACT * volatilityBoost) / liquidityFactor;
   return Math.min(rawImpact, MAX_PRICE_CHANGE_PERCENT);
 };
 

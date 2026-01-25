@@ -17,11 +17,11 @@ export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
 export const IPO_PRICE_JUMP = 0.30; // 30% price jump after IPO ends
 
 // Economy balancing constants - Realistic Market Model
-export const BASE_IMPACT = 0.003; // 0.3% base impact per sqrt(share) - very gradual
+export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement
 export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
 export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
 export const MIN_PRICE = 0.01; // Minimum price floor
-export const MAX_PRICE_CHANGE_PERCENT = 0.02; // Max 2% price change per single trade
+export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
