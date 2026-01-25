@@ -74,15 +74,16 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
   // Personality-based decision making
   switch (personality) {
     case 'market_follower': {
-      // Amplify market movements - use shorter lookback for faster reaction
+      // Amplify market movements - use 12-hour lookback to catch daily trends
       const shortTermTrends = {};
+      const lookbackMinutes = isThursday ? 360 : 720; // 6 hours on Thursday, 12 hours normally
       tickerPool.forEach(ticker => {
-        shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, isThursday ? 15 : 20);
+        shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, lookbackMinutes);
       });
 
-      // Find stocks with any upward momentum
-      const risingStocks = tickerPool.filter(t => shortTermTrends[t] > 0.5).sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
-      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.5);
+      // Find stocks with any upward momentum (0.1% threshold catches small movements)
+      const risingStocks = tickerPool.filter(t => shortTermTrends[t] > 0.1).sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
+      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.1);
 
       // More aggressive on Thursdays
       const aggressionMultiplier = isThursday ? 1.5 : 1.0;
