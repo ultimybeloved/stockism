@@ -3,12 +3,53 @@
 // Strongest characters = oldest (added first), Weakest = newest (added last)
 export const CHARACTERS = [
   { name: "James Lee", ticker: "DG", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:00:00" },
-  { name: "Mujin Jin", ticker: "JIN", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:00:30" },
-  { name: "Shingen Yamazaki", ticker: "SHNG", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:01:00" },
-  { name: "Gapryong Kim", ticker: "GAP", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:02:00" },
+  {
+    name: "Mujin Jin",
+    ticker: "JIN",
+    basePrice: 85,
+    volatility: 0.03,
+    dateAdded: "2026-01-13T00:00:30",
+    trailingFactors: [
+      { ticker: "GAP", coefficient: 0.4 },
+      { ticker: "SHNG", coefficient: 0.4 }
+    ]
+  },
+  {
+    name: "Shingen Yamazaki",
+    ticker: "SHNG",
+    basePrice: 85,
+    volatility: 0.03,
+    dateAdded: "2026-01-13T00:01:00",
+    trailingFactors: [
+      { ticker: "GAP", coefficient: 0.4 },
+      { ticker: "JIN", coefficient: 0.4 }
+    ]
+  },
+  {
+    name: "Gapryong Kim",
+    ticker: "GAP",
+    basePrice: 85,
+    volatility: 0.03,
+    dateAdded: "2026-01-13T00:02:00",
+    trailingFactors: [
+      { ticker: "SHNG", coefficient: 0.4 },
+      { ticker: "JIN", coefficient: 0.4 },
+      { ticker: "KTAE", coefficient: 0.2 },
+      { ticker: "JAKE", coefficient: 0.2 }
+    ]
+  },
   { name: "Gun Park", ticker: "GUN", basePrice: 85, volatility: 0.035, dateAdded: "2026-01-13T00:03:00" },
   { name: "Goo Kim", ticker: "GOO", basePrice: 85, volatility: 0.035, dateAdded: "2026-01-13T00:04:00" },
-  { name: "Daniel Park (Big)", ticker: "BDNL", basePrice: 85, volatility: 0.04, dateAdded: "2026-01-13T00:05:00" },
+  {
+    name: "Daniel Park (Big)",
+    ticker: "BDNL",
+    basePrice: 85,
+    volatility: 0.04,
+    dateAdded: "2026-01-13T00:05:00",
+    trailingFactors: [
+      { ticker: "LDNL", coefficient: 0.3 }
+    ]
+  },
   { name: "Sophia Alexander", ticker: "SOPH", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:06:00" },
   { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:07:00" },
   { name: "Johan Seong", ticker: "GDOG", basePrice: 80, volatility: 0.045, dateAdded: "2026-01-13T00:08:00" },
@@ -18,7 +59,16 @@ export const CHARACTERS = [
   { name: "Manager Kim", ticker: "SRMK", basePrice: 74, volatility: 0.03, dateAdded: "2026-01-13T00:12:00" },
   { name: "Charles Choi", ticker: "ELIT", basePrice: 72, volatility: 0.025, dateAdded: "2026-01-13T00:13:00" },
   { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, volatility: 0.03, dateAdded: "2026-01-13T00:14:00" },
-  { name: "Daniel Park (Small)", ticker: "LDNL", basePrice: 70, volatility: 0.05, dateAdded: "2026-01-13T00:15:00" },
+  {
+    name: "Daniel Park (Small)",
+    ticker: "LDNL",
+    basePrice: 70,
+    volatility: 0.05,
+    dateAdded: "2026-01-13T00:15:00",
+    trailingFactors: [
+      { ticker: "BDNL", coefficient: 0.3 }
+    ]
+  },
   { name: "Paecheon Jo", ticker: "CROC", basePrice: 66, volatility: 0.03, dateAdded: "2026-01-13T00:16:00" },
   { name: "Jake Kim", ticker: "JAKE", basePrice: 65, volatility: 0.04, dateAdded: "2026-01-13T00:17:00" },
   { name: "Jaegyeon Na", ticker: "JAEG", basePrice: 62, volatility: 0.035, dateAdded: "2026-01-13T00:18:00" },

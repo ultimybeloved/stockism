@@ -18,6 +18,7 @@ import {
   SHORT_MARGIN_REQUIREMENT
 } from '../constants/economy';
 import { calculateMarginStatus } from '../utils/calculations';
+import { CHARACTER_MAP } from '../characters';
 
 /**
  * Calculate price impact based on trade size and character volatility
@@ -48,6 +49,49 @@ export const calculateNewPrice = (currentPrice, amount, isBuy, volatility = 1) =
   const direction = isBuy ? 1 : -1;
   const newPrice = currentPrice * (1 + (impact * direction));
   return Math.max(MIN_PRICE, Math.round(newPrice * 100) / 100);
+};
+
+/**
+ * Apply trailing stock factor effects
+ * When a stock moves, related stocks move proportionally
+ * @param {string} ticker - The ticker that just moved
+ * @param {number} oldPrice - Price before the trade
+ * @param {number} newPrice - Price after the trade
+ * @param {Object} prices - Current market prices
+ * @returns {Object} Update object for related tickers
+ */
+export const applyTrailingEffects = (ticker, oldPrice, newPrice, prices) => {
+  const updates = {};
+  const now = Date.now();
+
+  // Look up the character
+  const character = CHARACTER_MAP[ticker];
+  if (!character || !character.trailingFactors) {
+    return updates;
+  }
+
+  // Calculate the price change percentage
+  const priceChangePercent = ((newPrice - oldPrice) / oldPrice);
+
+  // Apply trailing effects to related stocks
+  character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
+    const relatedPrice = prices[relatedTicker];
+    if (!relatedPrice) return;
+
+    // Calculate trailing price change (proportional to main stock's change)
+    const trailingChange = priceChangePercent * coefficient;
+    const newRelatedPrice = relatedPrice * (1 + trailingChange);
+    const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+    // Add to update object
+    updates[`prices.${relatedTicker}`] = settledRelatedPrice;
+    updates[`priceHistory.${relatedTicker}`] = arrayUnion({
+      timestamp: now,
+      price: settledRelatedPrice
+    });
+  });
+
+  return updates;
 };
 
 /**
@@ -121,11 +165,17 @@ export const executeBuy = async ({
     : Math.min(currentLowest || buyPrice, buyPrice);
 
   // Update market with atomic price + history
-  await updateDoc(marketRef, {
+  const marketUpdates = {
     [`prices.${ticker}`]: settledPrice,
     [`volume.${ticker}`]: increment(amount),
     [`priceHistory.${ticker}`]: arrayUnion({ timestamp: now, price: settledPrice })
-  });
+  };
+
+  // Apply trailing stock factor effects
+  const trailingUpdates = applyTrailingEffects(ticker, currentPrice, settledPrice, prices);
+  Object.assign(marketUpdates, trailingUpdates);
+
+  await updateDoc(marketRef, marketUpdates);
 
   // Update user
   const userUpdates = {
@@ -207,11 +257,17 @@ export const executeSell = async ({
   const newHoldings = currentHoldings - amount;
 
   // Update market with atomic price + history
-  await updateDoc(marketRef, {
+  const marketUpdates = {
     [`prices.${ticker}`]: settledPrice,
     [`volume.${ticker}`]: increment(amount),
     [`priceHistory.${ticker}`]: arrayUnion({ timestamp: now, price: settledPrice })
-  });
+  };
+
+  // Apply trailing stock factor effects
+  const trailingUpdates = applyTrailingEffects(ticker, currentPrice, settledPrice, prices);
+  Object.assign(marketUpdates, trailingUpdates);
+
+  await updateDoc(marketRef, marketUpdates);
 
   // Update user
   const userUpdates = {
