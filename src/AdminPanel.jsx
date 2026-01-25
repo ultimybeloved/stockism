@@ -514,7 +514,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         if (data.crew) {
           crewCounts[data.crew] = (crewCounts[data.crew] || 0) + 1;
         }
-        
+
+        // Count check-ins from lastCheckin field (more reliable than transactionLog)
+        if (data.lastCheckin) {
+          const checkinDate = new Date(data.lastCheckin).getTime();
+          if (checkinDate > oneDayAgo) {
+            checkins24h++;
+          }
+        }
+
         // 24h transaction log analysis
         const transactionLog = data.transactionLog || [];
         transactionLog.forEach(tx => {
