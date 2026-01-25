@@ -11,7 +11,8 @@ export const CHARACTERS = [
     dateAdded: "2026-01-13T00:00:30",
     trailingFactors: [
       { ticker: "GAP", coefficient: 0.4 },
-      { ticker: "SHNG", coefficient: 0.4 }
+      { ticker: "SHNG", coefficient: 0.4 },
+      { ticker: "VIN", coefficient: 0.3 }
     ]
   },
   {
