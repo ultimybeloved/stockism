@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction } from './firebase';
+import { db, createBotsFunction, fixBasePriceCliffsFunction } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -48,6 +48,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   // Check-in fraud detection state
   const [fraudUsers, setFraudUsers] = useState([]);
   const [scanningFraud, setScanningFraud] = useState(false);
+
+  // Database maintenance state
+  const [cliffsResult, setCliffsResult] = useState(null);
+  const [fixingCliffs, setFixingCliffs] = useState(false);
 
   // Trade fraud detection state
   const [tradeFraudUsers, setTradeFraudUsers] = useState([]);
@@ -2618,6 +2622,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           >
             🔧 Recovery
           </button>
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'database' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🗄️ Database
+          </button>
         </div>
 
         {/* Message */}
@@ -5021,6 +5031,98 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'database' && (
+            <div className="space-y-4">
+              <h3 className={`text-lg font-bold ${textClass} mb-4`}>🗄️ Database Maintenance</h3>
+
+              {/* Fix Base Price Cliffs */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h4 className={`font-semibold mb-2 ${textClass}`}>Fix Base Price Cliffs</h4>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Removes the first data point for any ticker where there is a &gt;2% jump to the second data point.
+                  This fixes chart artifacts caused by data loss.
+                </p>
+
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('This will remove base price points that create >2% cliffs. Continue?')) {
+                      return;
+                    }
+
+                    setFixingCliffs(true);
+                    setCliffsResult(null);
+                    setMessage(null);
+
+                    try {
+                      const result = await fixBasePriceCliffsFunction();
+                      setCliffsResult(result.data);
+                      setMessage({
+                        type: 'success',
+                        text: result.data.message
+                      });
+                    } catch (error) {
+                      setMessage({
+                        type: 'error',
+                        text: `Error: ${error.message}`
+                      });
+                    } finally {
+                      setFixingCliffs(false);
+                    }
+                  }}
+                  disabled={fixingCliffs}
+                  className="w-full mb-3 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {fixingCliffs ? 'Fixing...' : '🔧 Fix Price Cliffs'}
+                </button>
+
+                {cliffsResult && (
+                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                      <div>
+                        <span className={mutedClass}>Tickers Fixed: </span>
+                        <span className="font-bold text-green-500">{cliffsResult.tickersFixed}</span>
+                      </div>
+                      <div>
+                        <span className={mutedClass}>Tickers Skipped: </span>
+                        <span className="font-bold text-gray-500">{cliffsResult.tickersSkipped}</span>
+                      </div>
+                    </div>
+
+                    {cliffsResult.fixed && cliffsResult.fixed.length > 0 && (
+                      <div>
+                        <h5 className={`font-semibold mb-2 ${textClass}`}>Fixed Tickers:</h5>
+                        <div className="max-h-96 overflow-y-auto space-y-2">
+                          {cliffsResult.fixed.map(fix => (
+                            <div key={fix.ticker} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-600/50' : 'bg-white'}`}>
+                              <div className="font-semibold text-pink-500">{fix.ticker}</div>
+                              <div className="text-xs grid grid-cols-2 gap-1 mt-1">
+                                <div>
+                                  <span className={mutedClass}>First: </span>
+                                  <span className="text-red-400">${fix.firstPrice.toFixed(2)}</span>
+                                </div>
+                                <div>
+                                  <span className={mutedClass}>Second: </span>
+                                  <span className="text-green-400">${fix.secondPrice.toFixed(2)}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className={mutedClass}>Jump: </span>
+                                  <span className="text-orange-400">{fix.percentChange}%</span>
+                                </div>
+                                <div className="col-span-2 text-xs text-gray-500">
+                                  {new Date(fix.firstTimestamp).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

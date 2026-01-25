@@ -1289,3 +1289,87 @@ exports.listBackups = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * Fix Base Price Cliffs - Removes first data point if >2% jump to second
+ * Admin only - fixes chart artifacts from data loss
+ */
+exports.fixBasePriceCliffs = functions.https.onCall(async (data, context) => {
+  // Check admin permission
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can fix price cliffs.'
+    );
+  }
+
+  try {
+    const marketRef = db.collection('market').doc('current');
+    const marketDoc = await marketRef.get();
+
+    if (!marketDoc.exists) {
+      throw new Error('Market document not found');
+    }
+
+    const data = marketDoc.data();
+    const priceHistory = data.priceHistory || {};
+
+    let tickersFixed = 0;
+    let tickersSkipped = 0;
+    const updates = {};
+    const fixedTickers = [];
+
+    for (const [ticker, history] of Object.entries(priceHistory)) {
+      if (!history || history.length < 2) {
+        tickersSkipped++;
+        continue;
+      }
+
+      const firstPrice = history[0].price;
+      const secondPrice = history[1].price;
+      const percentChange = ((secondPrice - firstPrice) / firstPrice) * 100;
+
+      if (Math.abs(percentChange) > 2) {
+        fixedTickers.push({
+          ticker,
+          firstPrice,
+          secondPrice,
+          percentChange: percentChange.toFixed(2),
+          firstTimestamp: new Date(history[0].timestamp).toISOString()
+        });
+
+        // Remove the first element
+        updates[`priceHistory.${ticker}`] = history.slice(1);
+        tickersFixed++;
+      } else {
+        tickersSkipped++;
+      }
+    }
+
+    if (tickersFixed === 0) {
+      return {
+        success: true,
+        tickersFixed: 0,
+        tickersSkipped,
+        message: 'No cliffs found - all data looks good!'
+      };
+    }
+
+    // Apply updates
+    await marketRef.update(updates);
+
+    return {
+      success: true,
+      tickersFixed,
+      tickersSkipped,
+      fixed: fixedTickers,
+      message: `Fixed ${tickersFixed} tickers with base price cliffs`
+    };
+  } catch (error) {
+    console.error('Error fixing base price cliffs:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to fix price cliffs: ' + error.message
+    );
+  }
+});
