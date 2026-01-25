@@ -1151,7 +1151,7 @@ exports.backupMarketData = functions.pubsub
       });
       console.log('Leaderboard backed up successfully');
 
-      // 3. Cleanup old backups (keep last 7 days)
+      // 3. Cleanup old backups (keep last 7 days, but skip monthly backups)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -1373,3 +1373,109 @@ exports.fixBasePriceCliffs = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * Monthly Permanent Backup
+ * Runs at midnight UTC on the 1st of every month
+ * Keeps one permanent snapshot per month for historical records
+ */
+exports.monthlyPermanentBackup = functions.pubsub
+  .schedule('0 0 1 * *')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const bucket = admin.storage().bucket();
+      const now = new Date();
+      const timestamp = now.toISOString();
+
+      // Format: YYYY-MM (e.g., 2026-01)
+      const yearMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+      console.log(`Starting monthly permanent backup for ${yearMonth}`);
+
+      // Backup market data
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (marketSnap.exists) {
+        const marketData = marketSnap.data();
+        const marketBackup = {
+          timestamp,
+          yearMonth,
+          permanent: true,
+          prices: marketData.prices || {},
+          priceHistory: marketData.priceHistory || {},
+          liquidity: marketData.liquidity || {},
+          metadata: {
+            backupDate: timestamp,
+            backupType: 'monthly_permanent',
+            totalTickers: Object.keys(marketData.prices || {}).length,
+            totalTrades: marketData.totalTrades || 0
+          }
+        };
+
+        const marketFile = bucket.file(`backups/monthly/${yearMonth}_market.json`);
+        await marketFile.save(JSON.stringify(marketBackup, null, 2), {
+          contentType: 'application/json',
+          metadata: {
+            backupType: 'monthly_permanent',
+            yearMonth,
+            timestamp
+          }
+        });
+        console.log(`Monthly market backup saved: ${yearMonth}_market.json`);
+      }
+
+      // Backup leaderboard (top 100 users)
+      const usersSnap = await db.collection('users')
+        .where('isBot', '==', false)
+        .orderBy('portfolioValue', 'desc')
+        .limit(100)
+        .get();
+
+      const userBackups = [];
+      usersSnap.forEach(doc => {
+        const data = doc.data();
+        userBackups.push({
+          uid: doc.id,
+          displayName: data.displayName,
+          portfolioValue: data.portfolioValue || 0,
+          cash: data.cash || 0,
+          holdings: data.holdings || {},
+          shorts: data.shorts || {},
+          costBasis: data.costBasis || {},
+          totalTrades: data.totalTrades || 0,
+          crew: data.crew || null
+        });
+      });
+
+      const leaderboardBackup = {
+        timestamp,
+        yearMonth,
+        permanent: true,
+        topUsers: userBackups,
+        metadata: {
+          backupDate: timestamp,
+          backupType: 'monthly_permanent',
+          userCount: userBackups.length
+        }
+      };
+
+      const leaderboardFile = bucket.file(`backups/monthly/${yearMonth}_leaderboard.json`);
+      await leaderboardFile.save(JSON.stringify(leaderboardBackup, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          backupType: 'monthly_permanent',
+          yearMonth,
+          timestamp
+        }
+      });
+      console.log(`Monthly leaderboard backup saved: ${yearMonth}_leaderboard.json`);
+
+      console.log(`Monthly permanent backup complete for ${yearMonth}`);
+      return null;
+    } catch (error) {
+      console.error('Error in monthly permanent backup:', error);
+      return null;
+    }
+  });
