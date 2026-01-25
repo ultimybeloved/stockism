@@ -1065,3 +1065,227 @@ exports.createBots = functions.https.onCall(async (data, context) => {
 
 // Export bot trader
 exports.botTrader = botTrader;
+
+/**
+ * Automated Backup System
+ * Runs every 12 hours to backup critical market data
+ */
+exports.backupMarketData = functions.pubsub
+  .schedule('every 12 hours')
+  .onRun(async (context) => {
+    try {
+      const bucket = admin.storage().bucket();
+      const timestamp = new Date().toISOString();
+      const dateStr = timestamp.split('T')[0]; // YYYY-MM-DD
+      const timeStr = timestamp.split('T')[1].split('.')[0].replace(/:/g, '-'); // HH-MM-SS
+
+      console.log(`Starting backup at ${timestamp}`);
+
+      // 1. Backup market data
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (marketSnap.exists) {
+        const marketData = marketSnap.data();
+        const marketBackup = {
+          timestamp,
+          prices: marketData.prices || {},
+          priceHistory: marketData.priceHistory || {},
+          liquidity: marketData.liquidity || {},
+          metadata: {
+            backupDate: timestamp,
+            totalTickers: Object.keys(marketData.prices || {}).length
+          }
+        };
+
+        const marketFile = bucket.file(`backups/market/${dateStr}_${timeStr}_market.json`);
+        await marketFile.save(JSON.stringify(marketBackup, null, 2), {
+          contentType: 'application/json',
+          metadata: {
+            backupType: 'market',
+            timestamp
+          }
+        });
+        console.log('Market data backed up successfully');
+      }
+
+      // 2. Backup top 100 user portfolios (leaderboard)
+      const usersSnap = await db.collection('users')
+        .where('isBot', '==', false)
+        .orderBy('portfolioValue', 'desc')
+        .limit(100)
+        .get();
+
+      const userBackups = [];
+      usersSnap.forEach(doc => {
+        const data = doc.data();
+        userBackups.push({
+          uid: doc.id,
+          displayName: data.displayName,
+          portfolioValue: data.portfolioValue || 0,
+          cash: data.cash || 0,
+          holdings: data.holdings || {},
+          shorts: data.shorts || {},
+          costBasis: data.costBasis || {},
+          totalTrades: data.totalTrades || 0,
+          crew: data.crew || null
+        });
+      });
+
+      const leaderboardBackup = {
+        timestamp,
+        topUsers: userBackups,
+        metadata: {
+          backupDate: timestamp,
+          userCount: userBackups.length
+        }
+      };
+
+      const leaderboardFile = bucket.file(`backups/users/${dateStr}_${timeStr}_leaderboard.json`);
+      await leaderboardFile.save(JSON.stringify(leaderboardBackup, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          backupType: 'leaderboard',
+          timestamp
+        }
+      });
+      console.log('Leaderboard backed up successfully');
+
+      // 3. Cleanup old backups (keep last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const [marketFiles] = await bucket.getFiles({ prefix: 'backups/market/' });
+      const [userFiles] = await bucket.getFiles({ prefix: 'backups/users/' });
+
+      let deletedCount = 0;
+      for (const file of [...marketFiles, ...userFiles]) {
+        const [metadata] = await file.getMetadata();
+        const fileDate = new Date(metadata.timeCreated);
+
+        if (fileDate < sevenDaysAgo) {
+          await file.delete();
+          deletedCount++;
+          console.log(`Deleted old backup: ${file.name}`);
+        }
+      }
+
+      console.log(`Backup complete. Deleted ${deletedCount} old backups.`);
+      return null;
+    } catch (error) {
+      console.error('Error in backup:', error);
+      return null;
+    }
+  });
+
+/**
+ * Manual Backup - Admin can trigger this from Admin Panel
+ */
+exports.triggerManualBackup = functions.https.onCall(async (data, context) => {
+  // Check admin permission
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can trigger manual backups.'
+    );
+  }
+
+  try {
+    const bucket = admin.storage().bucket();
+    const timestamp = new Date().toISOString();
+    const dateStr = timestamp.split('T')[0];
+    const timeStr = timestamp.split('T')[1].split('.')[0].replace(/:/g, '-');
+
+    // Backup market data
+    const marketRef = db.collection('market').doc('current');
+    const marketSnap = await marketRef.get();
+
+    if (!marketSnap.exists) {
+      throw new Error('Market data not found');
+    }
+
+    const marketData = marketSnap.data();
+    const marketBackup = {
+      timestamp,
+      manual: true,
+      prices: marketData.prices || {},
+      priceHistory: marketData.priceHistory || {},
+      liquidity: marketData.liquidity || {},
+      metadata: {
+        backupDate: timestamp,
+        totalTickers: Object.keys(marketData.prices || {}).length,
+        triggeredBy: context.auth.uid
+      }
+    };
+
+    const marketFile = bucket.file(`backups/manual/${dateStr}_${timeStr}_manual_market.json`);
+    await marketFile.save(JSON.stringify(marketBackup, null, 2), {
+      contentType: 'application/json',
+      metadata: {
+        backupType: 'manual_market',
+        timestamp,
+        triggeredBy: context.auth.uid
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Manual backup created successfully',
+      timestamp,
+      filename: `${dateStr}_${timeStr}_manual_market.json`
+    };
+  } catch (error) {
+    console.error('Error in manual backup:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to create manual backup: ' + error.message
+    );
+  }
+});
+
+/**
+ * List Available Backups - Admin can see all available backups
+ */
+exports.listBackups = functions.https.onCall(async (data, context) => {
+  // Check admin permission
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can list backups.'
+    );
+  }
+
+  try {
+    const bucket = admin.storage().bucket();
+    const [marketFiles] = await bucket.getFiles({ prefix: 'backups/market/' });
+    const [userFiles] = await bucket.getFiles({ prefix: 'backups/users/' });
+    const [manualFiles] = await bucket.getFiles({ prefix: 'backups/manual/' });
+
+    const backups = [];
+
+    for (const file of [...marketFiles, ...userFiles, ...manualFiles]) {
+      const [metadata] = await file.getMetadata();
+      backups.push({
+        name: file.name,
+        size: metadata.size,
+        created: metadata.timeCreated,
+        type: metadata.metadata?.backupType || 'unknown'
+      });
+    }
+
+    // Sort by date (newest first)
+    backups.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+    return {
+      success: true,
+      backups,
+      total: backups.length
+    };
+  } catch (error) {
+    console.error('Error listing backups:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to list backups: ' + error.message
+    );
+  }
+});
