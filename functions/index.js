@@ -994,7 +994,16 @@ exports.createBots = functions.https.onCall(async (data, context) => {
     { name: 'Buy High Brian', personality: 'random', cash: 1500 },
     { name: 'Workers Wendy', personality: 'crew_loyal', cash: 3500, crew: 'WORKERS' },
     { name: 'Trend Tom', personality: 'momentum', cash: 3000 },
-    { name: 'Diversified Donna', personality: 'balanced', cash: 4500 }
+    { name: 'Diversified Donna', personality: 'balanced', cash: 4500 },
+    // Market Follower Bots - amplify market trends
+    { name: 'Amplifier Amy', personality: 'market_follower', cash: 3000 },
+    { name: 'Wave Rider Will', personality: 'market_follower', cash: 2500 },
+    { name: 'Trend Booster Bo', personality: 'market_follower', cash: 3500 },
+    { name: 'Market Mover Max', personality: 'market_follower', cash: 4000 },
+    { name: 'Momentum Amplifier Mia', personality: 'market_follower', cash: 2000 },
+    { name: 'Surge Sarah', personality: 'market_follower', cash: 3500 },
+    { name: 'Flow Follower Fred', personality: 'market_follower', cash: 2500 },
+    { name: 'Velocity Vicky', personality: 'market_follower', cash: 3000 }
   ];
 
   let created = 0;

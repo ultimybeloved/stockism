@@ -44,7 +44,7 @@ function getPriceTrend(priceHistory, ticker, lookbackMinutes = 60) {
  * Bot decision logic based on personality
  * Returns: { action: 'BUY'|'SELL'|'HOLD', ticker: string, shares: number }
  */
-function makeBotDecision(bot, marketData, allTickers) {
+function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
   const personality = bot.botPersonality;
   const cash = bot.cash || 0;
   const holdings = bot.holdings || {};
@@ -73,6 +73,36 @@ function makeBotDecision(bot, marketData, allTickers) {
 
   // Personality-based decision making
   switch (personality) {
+    case 'market_follower': {
+      // Amplify market movements - use shorter lookback for faster reaction
+      const shortTermTrends = {};
+      tickerPool.forEach(ticker => {
+        shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, isThursday ? 15 : 20);
+      });
+
+      // Find stocks with any upward momentum
+      const risingStocks = tickerPool.filter(t => shortTermTrends[t] > 0.5).sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
+      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.5);
+
+      // More aggressive on Thursdays
+      const aggressionMultiplier = isThursday ? 1.5 : 1.0;
+
+      if (fallingHoldings.length > 0 && Math.random() > 0.2) {
+        // Aggressively sell falling positions to amplify downward movement
+        const ticker = fallingHoldings[0]; // Sell the most falling stock
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const sellPct = Math.min(0.9, (0.4 + Math.random() * 0.3) * aggressionMultiplier);
+        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * sellPct) };
+      } else if (risingStocks.length > 0 && cash > 30) {
+        // Aggressively buy rising stocks to amplify upward movement
+        const ticker = risingStocks[0]; // Buy the most rising stock
+        const cashPct = Math.min(0.6, (0.25 + Math.random() * 0.25) * aggressionMultiplier);
+        const maxShares = Math.floor((cash * cashPct) / prices[ticker]);
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15, maxShares)) };
+      }
+      break;
+    }
+
     case 'momentum': {
       // Buy rising stocks, sell falling ones
       const risingStocks = tickerPool.filter(t => trends[t] > 2).sort((a, b) => trends[b] - trends[a]);
@@ -192,11 +222,11 @@ function makeBotDecision(bot, marketData, allTickers) {
 
 module.exports = {
   /**
-   * Bot Trader - Runs every 7 minutes
-   * Picks 1-3 random bots to make trades
+   * Bot Trader - Runs every 3 minutes
+   * Picks 3-6 random bots to make trades (5-10 on Thursdays)
    */
   botTrader: functions.pubsub
-    .schedule('every 7 minutes')
+    .schedule('every 3 minutes')
     .onRun(async (context) => {
       try {
         const db = admin.firestore();
@@ -223,16 +253,23 @@ module.exports = {
         const prices = marketData.prices || {};
         const allTickers = Object.keys(prices);
 
-        // Pick 1-3 random bots
-        const numBotsToTrade = Math.floor(Math.random() * 3) + 1;
+        // Check if it's Thursday (chapter release day)
+        const now = new Date();
+        const isThursday = now.getDay() === 4;
+
+        // More bots trade on Thursdays to boost activity
+        const numBotsToTrade = isThursday
+          ? Math.floor(Math.random() * 6) + 5  // 5-10 bots on Thursday
+          : Math.floor(Math.random() * 4) + 3; // 3-6 bots normally
+
         const shuffled = bots.sort(() => 0.5 - Math.random());
         const tradingBots = shuffled.slice(0, numBotsToTrade);
 
-        console.log(`${numBotsToTrade} bots will trade this round`);
+        console.log(`${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''}`);
 
         // Execute trades for each bot
         for (const bot of tradingBots) {
-          const decision = makeBotDecision(bot, marketData, allTickers);
+          const decision = makeBotDecision(bot, marketData, allTickers, isThursday);
 
           if (decision.action === 'HOLD') {
             console.log(`${bot.displayName} decided to HOLD`);
