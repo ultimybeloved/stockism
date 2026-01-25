@@ -74,29 +74,44 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
   // Personality-based decision making
   switch (personality) {
     case 'market_follower': {
-      // Amplify market movements - use 12-hour lookback to catch daily trends
+      // Mix of amplifying trends and random market activity
       const shortTermTrends = {};
-      const lookbackMinutes = isThursday ? 360 : 720; // 6 hours on Thursday, 12 hours normally
+      const lookbackMinutes = isThursday ? 360 : 720;
       tickerPool.forEach(ticker => {
         shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, lookbackMinutes);
       });
 
-      // Find stocks with any upward momentum (0.1% threshold catches small movements)
       const risingStocks = tickerPool.filter(t => shortTermTrends[t] > 0.1).sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
+      const movingStocks = tickerPool.filter(t => Math.abs(shortTermTrends[t]) > 0.05); // Any movement
       const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.1);
 
-      // More aggressive on Thursdays
       const aggressionMultiplier = isThursday ? 1.5 : 1.0;
+      const behaviorRoll = Math.random();
 
-      if (fallingHoldings.length > 0 && Math.random() > 0.2) {
-        // Aggressively sell falling positions to amplify downward movement
-        const ticker = fallingHoldings[0]; // Sell the most falling stock
+      // SELL logic - sell falling positions
+      if (fallingHoldings.length > 0 && Math.random() > 0.3) {
+        const ticker = fallingHoldings[Math.floor(Math.random() * fallingHoldings.length)];
         const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
         const sellPct = Math.min(0.9, (0.4 + Math.random() * 0.3) * aggressionMultiplier);
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * sellPct) };
-      } else if (risingStocks.length > 0 && cash > 30) {
-        // Aggressively buy rising stocks to amplify upward movement
-        const ticker = risingStocks[0]; // Buy the most rising stock
+      }
+
+      // BUY logic - mix of behaviors
+      if (cash > 30) {
+        let ticker;
+
+        if (behaviorRoll < 0.4 && risingStocks.length > 0) {
+          // 40% - Amplify trends: pick from top 10 rising stocks
+          const topRising = risingStocks.slice(0, Math.min(10, risingStocks.length));
+          ticker = topRising[Math.floor(Math.random() * topRising.length)];
+        } else if (behaviorRoll < 0.7 && movingStocks.length > 0) {
+          // 30% - Trade any stock with slight movement
+          ticker = movingStocks[Math.floor(Math.random() * movingStocks.length)];
+        } else {
+          // 30% - Completely random across entire market
+          ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
+        }
+
         const cashPct = Math.min(0.6, (0.25 + Math.random() * 0.25) * aggressionMultiplier);
         const maxShares = Math.floor((cash * cashPct) / prices[ticker]);
         return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15, maxShares)) };
@@ -115,8 +130,9 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
         const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.3 + Math.random() * 0.4)) };
       } else if (risingStocks.length > 0 && cash > 50) {
-        // Buy rising
-        const ticker = risingStocks[0];
+        // Buy rising - pick from top 10 to spread across multiple gainers
+        const topRising = risingStocks.slice(0, Math.min(10, risingStocks.length));
+        const ticker = topRising[Math.floor(Math.random() * topRising.length)];
         const maxShares = Math.floor((cash * (0.2 + Math.random() * 0.3)) / prices[ticker]);
         return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10, maxShares)) };
       }
@@ -133,7 +149,9 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
         const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.4 + Math.random() * 0.4)) };
       } else if (dips.length > 0 && cash > 50) {
-        const ticker = dips[0];
+        // Buy dips - pick from top 10 dipping stocks
+        const topDips = dips.slice(0, Math.min(10, dips.length));
+        const ticker = topDips[Math.floor(Math.random() * topDips.length)];
         const maxShares = Math.floor((cash * (0.3 + Math.random() * 0.3)) / prices[ticker]);
         return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15, maxShares)) };
       }
@@ -230,6 +248,10 @@ module.exports = {
     .schedule('every 3 minutes')
     .onRun(async (context) => {
       try {
+        // Random delay before starting (0-90 seconds) to avoid predictable timing
+        const startDelay = Math.floor(Math.random() * 90000);
+        await new Promise(resolve => setTimeout(resolve, startDelay));
+
         const db = admin.firestore();
         const marketRef = db.collection('market').doc('current');
         const usersRef = db.collection('users');
@@ -258,17 +280,17 @@ module.exports = {
         const now = new Date();
         const isThursday = now.getDay() === 4;
 
-        // More bots trade on Thursdays to boost activity
+        // Fewer bots per round, more spread out
         const numBotsToTrade = isThursday
-          ? Math.floor(Math.random() * 6) + 5  // 5-10 bots on Thursday
-          : Math.floor(Math.random() * 4) + 3; // 3-6 bots normally
+          ? Math.floor(Math.random() * 3) + 3  // 3-5 bots on Thursday
+          : Math.floor(Math.random() * 3) + 1; // 1-3 bots normally
 
         const shuffled = bots.sort(() => 0.5 - Math.random());
         const tradingBots = shuffled.slice(0, numBotsToTrade);
 
-        console.log(`${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''}`);
+        console.log(`${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''} (delayed ${Math.floor(startDelay/1000)}s)`);
 
-        // Execute trades for each bot
+        // Execute trades for each bot with random delays between them
         for (const bot of tradingBots) {
           const decision = makeBotDecision(bot, marketData, allTickers, isThursday);
 
@@ -405,6 +427,10 @@ module.exports = {
               });
             }
           });
+
+          // Random delay between bot trades (5-45 seconds) to avoid simultaneous trades
+          const tradeDelay = Math.floor(Math.random() * 40000) + 5000;
+          await new Promise(resolve => setTimeout(resolve, tradeDelay));
         }
 
         console.log('Bot trading round complete');
