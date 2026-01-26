@@ -32,7 +32,13 @@ export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops b
 // MARGIN TRADING SYSTEM
 // ============================================
 
-export const MARGIN_BORROWING_POWER_RATIO = 0.5; // Can borrow up to 50% of portfolio value
+export const MARGIN_CASH_MINIMUM = 2000; // $2,000 minimum cash to initially enable margin
+export const MARGIN_TIERS = [
+  { minPeak: 0, maxPeak: 7500, multiplier: 0.25 },
+  { minPeak: 7500, maxPeak: 15000, multiplier: 0.35 },
+  { minPeak: 15000, maxPeak: 30000, multiplier: 0.50 },
+  { minPeak: 30000, maxPeak: Infinity, multiplier: 0.75 },
+];
 export const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
 export const MARGIN_WARNING_THRESHOLD = 0.35; // Warning at 35% equity ratio
 export const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio

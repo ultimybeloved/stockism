@@ -8,7 +8,8 @@ import {
   BID_ASK_SPREAD,
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
-  MARGIN_BORROWING_POWER_RATIO,
+  MARGIN_CASH_MINIMUM,
+  MARGIN_TIERS,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_CALL_THRESHOLD,
@@ -97,12 +98,41 @@ export const calculatePortfolioValue = (userData, prices) => {
  * @param {Object} prices - Current prices by ticker
  * @returns {Object} Margin status including available margin, equity ratio, etc.
  */
+/**
+ * Helper to get margin tier multiplier based on peak portfolio achievement
+ * @param {number} peakPortfolioValue - User's peak portfolio value
+ * @returns {number} Tier multiplier (0.25, 0.35, 0.50, or 0.75)
+ */
+const getMarginTierMultiplier = (peakPortfolioValue) => {
+  const peak = peakPortfolioValue || 0;
+  if (peak >= 30000) return 0.75;
+  if (peak >= 15000) return 0.50;
+  if (peak >= 7500) return 0.35;
+  return 0.25;
+};
+
+/**
+ * Helper to get margin tier name for display
+ * @param {number} peakPortfolioValue - User's peak portfolio value
+ * @returns {string} Tier name
+ */
+const getMarginTierName = (peakPortfolioValue) => {
+  const peak = peakPortfolioValue || 0;
+  if (peak >= 30000) return 'Platinum (0.75x)';
+  if (peak >= 15000) return 'Gold (0.50x)';
+  if (peak >= 7500) return 'Silver (0.35x)';
+  return 'Bronze (0.25x)';
+};
+
 export const calculateMarginStatus = (userData, prices) => {
   if (!userData || !userData.marginEnabled) {
     return {
       enabled: false,
       marginUsed: 0,
       availableMargin: 0,
+      maxBorrowable: 0,
+      tierMultiplier: 0,
+      tierName: 'N/A',
       portfolioValue: 0,
       totalMaintenanceRequired: 0,
       equityRatio: 1,
@@ -113,6 +143,11 @@ export const calculateMarginStatus = (userData, prices) => {
   const cash = userData.cash || 0;
   const holdings = userData.holdings || {};
   const marginUsed = userData.marginUsed || 0;
+  const peakPortfolio = userData.peakPortfolioValue || 0;
+
+  // Get tier multiplier based on peak portfolio achievement
+  const tierMultiplier = getMarginTierMultiplier(peakPortfolio);
+  const tierName = getMarginTierName(peakPortfolio);
 
   // Calculate total holdings value and maintenance requirement
   let holdingsValue = 0;
@@ -134,8 +169,8 @@ export const calculateMarginStatus = (userData, prices) => {
   // Equity ratio = portfolio value / gross value (how much you actually own)
   const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 1;
 
-  // Available margin = (portfolio value * borrowing ratio) - margin already used
-  const maxBorrowable = Math.max(0, portfolioValue * MARGIN_BORROWING_POWER_RATIO);
+  // NEW: Cash-based borrowing with tiered multipliers
+  const maxBorrowable = Math.max(0, cash * tierMultiplier);
   const availableMargin = Math.max(0, maxBorrowable - marginUsed);
 
   // Determine status
@@ -154,6 +189,9 @@ export const calculateMarginStatus = (userData, prices) => {
     enabled: true,
     marginUsed,
     availableMargin: Math.round(availableMargin * 100) / 100,
+    maxBorrowable: Math.round(maxBorrowable * 100) / 100,
+    tierMultiplier,
+    tierName,
     portfolioValue: Math.round(portfolioValue * 100) / 100,
     grossValue: Math.round(grossValue * 100) / 100,
     holdingsValue: Math.round(holdingsValue * 100) / 100,
@@ -180,19 +218,19 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
       requirements: [
         { met: true, label: '10+ daily check-ins', current: '∞', required: 10 },
         { met: true, label: '35+ total trades', current: '∞', required: 35 },
-        { met: true, label: '$7,500+ peak portfolio', current: '∞', required: 7500 }
+        { met: true, label: '$2,000+ cash balance', current: '∞', required: 2000 }
       ]
     };
   }
 
   const totalCheckins = userData.totalCheckins || 0;
   const totalTrades = userData.totalTrades || 0;
-  const peakPortfolioValue = userData.peakPortfolioValue || 0;
+  const cash = userData.cash || 0;
 
   const requirements = [
     { met: totalCheckins >= 10, label: '10+ daily check-ins', current: totalCheckins, required: 10 },
     { met: totalTrades >= 35, label: '35+ total trades', current: totalTrades, required: 35 },
-    { met: peakPortfolioValue >= 7500, label: '$7,500+ peak portfolio', current: peakPortfolioValue, required: 7500 }
+    { met: cash >= MARGIN_CASH_MINIMUM, label: '$2,000+ cash balance', current: cash, required: MARGIN_CASH_MINIMUM }
   ];
 
   const allMet = requirements.every(r => r.met);
