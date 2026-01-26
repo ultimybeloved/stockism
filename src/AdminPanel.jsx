@@ -1217,7 +1217,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           const basis = data.costBasis?.[ticker] || 0;
           return sum + (basis * shares);
         }, 0);
-        const totalShortMargin = Object.values(data.shorts || {}).reduce((sum, short) => sum + (short.margin || 0), 0);
+        const totalShortMargin = Object.values(data.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
         const totalInvested = totalSpentOnStocks + totalShortMargin;
         
         // Check their bets - ONLY unpaid (active) bets

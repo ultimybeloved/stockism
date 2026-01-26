@@ -8159,12 +8159,12 @@ export default function App() {
       const costBasis = userData.costBasis?.[ticker] || 0;
       return sum + (costBasis * shares);
     }, 0);
-    
+
     // Also count margin used for shorts
-    const totalShortMargin = Object.values(userData.shorts || {}).reduce((sum, short) => {
+    const totalShortMargin = Object.values(userData.shorts || {}).filter(short => short).reduce((sum, short) => {
       return sum + (short.margin || 0);
     }, 0);
-    
+
     // Bet limit = total spent on market (buys + short margin)
     const totalInvested = totalSpentOnStocks + totalShortMargin;
     
@@ -8723,7 +8723,7 @@ export default function App() {
                       const costBasis = userData?.costBasis?.[ticker] || 0;
                       return sum + (costBasis * shares);
                     }, 0);
-                    const totalShortMargin = Object.values(userData?.shorts || {}).reduce((sum, short) => sum + (short.margin || 0), 0);
+                    const totalShortMargin = Object.values(userData?.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
                     const totalInvested = totalSpentOnStocks + totalShortMargin;
                     const betLimit = Math.min(totalInvested, userData?.cash || 0);
 
