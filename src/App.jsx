@@ -7141,13 +7141,12 @@ export default function App() {
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const relatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-          if (relatedPrice) {
+          const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
+          if (oldRelatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
-            const newRelatedPrice = relatedPrice * (1 + trailingChange);
+            const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
 
-            const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
               timestamp,
@@ -7342,13 +7341,12 @@ export default function App() {
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const relatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-          if (relatedPrice) {
+          const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
+          if (oldRelatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
-            const newRelatedPrice = relatedPrice * (1 + trailingChange);
+            const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
 
-            const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
               timestamp,
