@@ -7155,7 +7155,8 @@ export default function App() {
             });
 
             // Recursively apply trailing effects from this related stock
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
+            // Clone visited set so siblings don't block each other
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, new Set(visited));
           }
         });
       };
@@ -7355,7 +7356,8 @@ export default function App() {
             });
 
             // Recursively apply trailing effects from this related stock
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
+            // Clone visited set so siblings don't block each other
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, new Set(visited));
           }
         });
       };
