@@ -2641,75 +2641,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 </p>
               </div>
 
-              {/* DOTS Data Recovery */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                <h3 className="font-semibold text-red-500 mb-2">🚨 DOTS Data Recovery</h3>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Attempt to recover DOTS price history from archive and apply to CROW.
-                </p>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm('Attempt to recover DOTS data from archive and copy to CROW?')) return;
-
-                    setLoading(true);
-                    try {
-                      // Check archive
-                      const archiveRef = doc(db, 'priceHistoryArchive', 'DOTS');
-                      const archiveSnap = await getDoc(archiveRef);
-
-                      let dotsArchiveData = null;
-                      if (archiveSnap.exists()) {
-                        dotsArchiveData = archiveSnap.data().history || [];
-                        console.log('Found DOTS archive:', dotsArchiveData.length, 'entries');
-                      }
-
-                      // Check main market data
-                      const marketRef = doc(db, 'market', 'current');
-                      const marketSnap = await getDoc(marketRef);
-
-                      if (!marketSnap.exists()) {
-                        throw new Error('Market data not found');
-                      }
-
-                      const marketData = marketSnap.data();
-                      const currentCrowHistory = marketData.priceHistory?.CROW || [];
-
-                      console.log('Current CROW history:', currentCrowHistory.length, 'entries');
-
-                      if (dotsArchiveData && dotsArchiveData.length > 0) {
-                        // Merge archive data with current CROW data
-                        const allHistory = [...dotsArchiveData, ...currentCrowHistory];
-                        // Sort by timestamp and dedupe
-                        const sorted = allHistory.sort((a, b) => a.timestamp - b.timestamp);
-                        const deduped = sorted.filter((item, index, arr) =>
-                          index === 0 || item.timestamp !== arr[index - 1].timestamp
-                        );
-
-                        await updateDoc(marketRef, {
-                          [`priceHistory.CROW`]: deduped
-                        });
-
-                        // Also copy archive to CROW archive
-                        const crowArchiveRef = doc(db, 'priceHistoryArchive', 'CROW');
-                        await setDoc(crowArchiveRef, { history: dotsArchiveData }, { merge: true });
-
-                        showMessage('success', `Recovered ${deduped.length} history entries for CROW!`);
-                      } else {
-                        showMessage('error', 'No DOTS archive data found. Data may be lost.');
-                      }
-                    } catch (err) {
-                      console.error(err);
-                      showMessage('error', 'Recovery failed: ' + err.message);
-                    }
-                    setLoading(false);
-                  }}
-                  disabled={loading}
-                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Recovering...' : '🔧 Recover DOTS Archive → CROW'}
-                </button>
-              </div>
-
               <div>
                 <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Character</label>
                 <select
@@ -2969,42 +2900,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   >
                     {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
                   </button>
-                </div>
-
-                {/* Quick Price Fix */}
-                <div className={`p-3 rounded-sm mt-3 ${darkMode ? 'bg-orange-900/30 border border-orange-700' : 'bg-orange-50 border border-orange-300'}`}>
-                  <h4 className="font-semibold text-orange-500 mb-2">⚡ Quick Price Fix (No Trade Reversal)</h4>
-                  <p className={`text-xs ${mutedClass} mb-2`}>
-                    Just set a price without reversing trades.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tradeFilterTicker}
-                      onChange={e => setTradeFilterTicker(e.target.value.toUpperCase())}
-                      placeholder="Ticker"
-                      className={`w-24 px-3 py-2 border rounded-sm ${inputClass}`}
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newPrice}
-                      onChange={e => setNewPrice(e.target.value)}
-                      placeholder="New Price"
-                      className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
-                    />
-                    <button
-                      onClick={() => {
-                        if (tradeFilterTicker && newPrice) {
-                          rollbackPrice(tradeFilterTicker, parseFloat(newPrice));
-                        }
-                      }}
-                      disabled={loading || !tradeFilterTicker || !newPrice}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      Set
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
