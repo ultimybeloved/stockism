@@ -3296,42 +3296,76 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             <div className="space-y-4">
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-purple-50'}`}>
                 <p className={`text-sm ${mutedClass}`}>
-                  📊 View all users who hold shares of a specific character.
+                  📊 View all users who hold shares of a specific character. Click a character to see their holders.
                 </p>
               </div>
 
               <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Character</label>
-                <select
+                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Search Characters</label>
+                <input
+                  type="text"
+                  placeholder="Filter by name or ticker..."
                   value={holdersTicker}
-                  onChange={e => {
-                    setHoldersTicker(e.target.value);
-                    loadHolders(e.target.value);
-                  }}
-                  className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                >
-                  <option value="">Select character...</option>
-                  {CHARACTERS.map(c => (
-                    <option key={c.ticker} value={c.ticker}>
-                      ${c.ticker} - {c.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={e => setHoldersTicker(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm ${inputClass} mb-3`}
+                />
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-96 overflow-y-auto p-2">
+                  {CHARACTERS
+                    .filter(c => {
+                      const searchTerm = holdersTicker.toLowerCase();
+                      return !searchTerm ||
+                             c.name.toLowerCase().includes(searchTerm) ||
+                             c.ticker.toLowerCase().includes(searchTerm);
+                    })
+                    .map(c => {
+                      const currentPrice = prices[c.ticker] || c.basePrice;
+                      return (
+                        <button
+                          key={c.ticker}
+                          onClick={() => {
+                            setHoldersTicker(c.ticker);
+                            loadHolders(c.ticker);
+                          }}
+                          className={`p-3 rounded-sm text-left transition-all ${
+                            darkMode
+                              ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                              : 'bg-white hover:bg-blue-50 border border-slate-200'
+                          }`}
+                        >
+                          <div className={`text-xs font-semibold ${mutedClass} mb-1`}>${c.ticker}</div>
+                          <div className={`text-sm font-semibold ${textClass} truncate`}>{c.name}</div>
+                          <div className={`text-xs text-green-500 mt-1`}>${currentPrice.toFixed(2)}</div>
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
 
-              {holdersTicker && (
+              {holdersTicker && CHARACTERS.find(c => c.ticker === holdersTicker) && (
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h3 className={`font-semibold ${textClass}`}>
-                      ${holdersTicker} Holders ({holdersData.length})
+                      ${holdersTicker} - {CHARACTERS.find(c => c.ticker === holdersTicker)?.name} ({holdersData.length} holders)
                     </h3>
-                    <button
-                      onClick={() => loadHolders(holdersTicker)}
-                      disabled={holdersLoading}
-                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
-                    >
-                      {holdersLoading ? '...' : '🔄 Refresh'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setHoldersTicker('');
+                          setHoldersData([]);
+                        }}
+                        className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded-sm"
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        onClick={() => loadHolders(holdersTicker)}
+                        disabled={holdersLoading}
+                        className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
+                      >
+                        {holdersLoading ? '...' : '🔄 Refresh'}
+                      </button>
+                    </div>
                   </div>
 
                   {holdersLoading ? (
