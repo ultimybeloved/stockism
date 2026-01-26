@@ -5967,19 +5967,7 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
-  const [showPredictions, setShowPredictions] = useState(() => {
-    // Try to load saved state, but default to true if no saved state exists
-    try {
-      const stored = localStorage.getItem('showPredictions');
-      if (stored) {
-        const { collapsed } = JSON.parse(stored);
-        return collapsed;
-      }
-    } catch {
-      // Ignore errors
-    }
-    return true; // Default to expanded
-  });
+  const [showPredictions, setShowPredictions] = useState(true); // Will be set by useEffect
   const [showNewCharacters, setShowNewCharacters] = useState(() => {
     // Initialize from localStorage based on current week
     return loadCollapsedState('showNewCharacters', getWeekIdentifier());
@@ -6393,35 +6381,34 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Handle predictions collapse state - auto-expand when new predictions added
-  const lastPredictionsIdRef = useRef(null);
+  // Handle predictions collapse state - restore from localStorage and auto-expand on new predictions
+  const predictionsLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (predictions.length === 0) return; // Wait for predictions to load
+    if (predictions.length === 0 || predictionsLoadedRef.current) return;
 
+    predictionsLoadedRef.current = true;
     const predictionsId = getPredictionsIdentifier(predictions);
-
-    // Only update state if the predictions identifier changed
-    if (lastPredictionsIdRef.current === predictionsId) {
-      return; // Same predictions, don't override user's manual collapse/expand
-    }
-
-    // Predictions changed - check if we should auto-expand
     const stored = localStorage.getItem('showPredictions');
+
     if (stored) {
       try {
-        const { identifier } = JSON.parse(stored);
+        const { collapsed, identifier } = JSON.parse(stored);
         // If predictions have changed (new predictions added), reset to expanded
         if (identifier !== predictionsId) {
           setShowPredictions(true);
+        } else {
+          // Same predictions, restore saved state
+          setShowPredictions(collapsed);
         }
-        // If same predictions, state is already loaded from localStorage in useState
       } catch {
-        // Ignore errors
+        // Default to expanded on error
+        setShowPredictions(true);
       }
+    } else {
+      // No saved state, default to expanded
+      setShowPredictions(true);
     }
-
-    lastPredictionsIdRef.current = predictionsId;
   }, [predictions]);
 
   // Persist predictions collapse state
