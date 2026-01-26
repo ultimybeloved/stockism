@@ -121,8 +121,8 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
     case 'momentum': {
       // Buy rising stocks, sell falling ones
-      const risingStocks = tickerPool.filter(t => trends[t] > 2).sort((a, b) => trends[b] - trends[a]);
-      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -2);
+      const risingStocks = tickerPool.filter(t => trends[t] > 1).sort((a, b) => trends[b] - trends[a]);
+      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -1);
 
       if (fallingHoldings.length > 0 && Math.random() > 0.3) {
         // Sell falling
@@ -141,8 +141,8 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
     case 'contrarian': {
       // Buy dips, sell peaks
-      const dips = tickerPool.filter(t => trends[t] < -3).sort((a, b) => trends[a] - trends[b]);
-      const peakHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] > 3);
+      const dips = tickerPool.filter(t => trends[t] < -1.5).sort((a, b) => trends[a] - trends[b]);
+      const peakHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] > 1.5);
 
       if (peakHoldings.length > 0 && Math.random() > 0.4) {
         const ticker = peakHoldings[Math.floor(Math.random() * peakHoldings.length)];
