@@ -2641,6 +2641,42 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 </p>
               </div>
 
+              {/* Migration Diagnostic */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
+                <h3 className="font-semibold text-red-500 mb-2">🔍 DOTS → CROW Migration Check</h3>
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const marketRef = doc(db, 'market', 'current');
+                      const snap = await getDoc(marketRef);
+                      if (snap.exists()) {
+                        const data = snap.data();
+                        const dotsPrice = data.prices?.DOTS;
+                        const crowPrice = data.prices?.CROW;
+                        const dotsHistory = data.priceHistory?.DOTS;
+                        const crowHistory = data.priceHistory?.CROW;
+
+                        let msg = `DOTS Price: ${dotsPrice !== undefined && dotsPrice !== null ? dotsPrice : 'NULL'}\n`;
+                        msg += `CROW Price: ${crowPrice !== undefined && crowPrice !== null ? crowPrice : 'NULL'}\n`;
+                        msg += `DOTS History: ${dotsHistory ? dotsHistory.length + ' entries' : 'NULL'}\n`;
+                        msg += `CROW History: ${crowHistory ? crowHistory.length + ' entries' : 'NULL'}`;
+
+                        alert(msg);
+                        console.log('Market data check:', { dotsPrice, crowPrice, dotsHistory: dotsHistory?.length, crowHistory: crowHistory?.length });
+                      }
+                    } catch (err) {
+                      alert('Error checking data: ' + err.message);
+                    }
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  Check Migration Status
+                </button>
+              </div>
+
               <div>
                 <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Character</label>
                 <select
