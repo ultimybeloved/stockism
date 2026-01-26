@@ -5020,7 +5020,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   <li>✅ 3-second trade cooldown enforced via Cloud Functions</li>
                   <li>✅ 45-second hold period for buy/sell and short/cover</li>
                   <li>✅ Trade logging & suspicious activity detection</li>
-                  <li>✅ Automatic alerts for >10 trades/minute</li>
+                  <li>✅ Automatic alerts for &gt;10 trades/minute</li>
                   <li>✅ Cash & holdings validation before trade execution</li>
                 </ul>
               </div>
