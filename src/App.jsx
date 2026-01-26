@@ -9001,16 +9001,20 @@ export default function App() {
               // MATCHING RULE: Can only use margin up to cash amount per trade
               const usableMargin = Math.min(activeUserData.cash || 0, marginStatus.availableMargin);
               return (
-                <p className={`text-xs ${mutedClass} mt-1`}>
-                  <span className="text-amber-500 font-semibold">+ {formatCurrency(usableMargin)}</span>
-                  <span className="text-amber-500"> margin usable</span>
-                  {marginStatus.availableMargin > usableMargin && (
-                    <span className={mutedClass}> ({formatCurrency(marginStatus.availableMargin)} total)</span>
-                  )}
+                <div className="text-xs mt-1 space-y-0.5">
+                  <div className={mutedClass}>
+                    Available: <span className="text-amber-500 font-semibold">{formatCurrency(marginStatus.availableMargin)}</span>
+                  </div>
+                  <div className={mutedClass}>
+                    Usable Now: <span className="text-amber-500 font-semibold">{formatCurrency(usableMargin)}</span>
+                    {usableMargin < marginStatus.availableMargin && <span> (limited by cash)</span>}
+                  </div>
                   {activeUserData.marginUsed > 0 && (
-                    <span className="block text-orange-500 text-xs mt-0.5">{formatCurrency(activeUserData.marginUsed)} debt • 0.5% daily</span>
+                    <div className="text-orange-500">
+                      Used: {formatCurrency(activeUserData.marginUsed)} debt • 0.5% daily
+                    </div>
                   )}
-                </p>
+                </div>
               );
             })()}
             <CheckInButton
