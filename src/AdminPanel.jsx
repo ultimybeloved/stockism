@@ -29,6 +29,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [selectedPrediction, setSelectedPrediction] = useState(null);
   const [selectedOutcome, setSelectedOutcome] = useState('');
 
+  // Extend/Reopen prediction state
+  const [extendPredictionId, setExtendPredictionId] = useState('');
+  const [extendDays, setExtendDays] = useState(7);
+  const [allowAdditionalBets, setAllowAdditionalBets] = useState(false);
+
   // Price adjustment state
   const [selectedTicker, setSelectedTicker] = useState('');
   const [adjustmentType, setAdjustmentType] = useState('set'); // 'set' or 'percent'
@@ -1753,6 +1758,45 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Extend/Reopen prediction deadline
+  const handleExtendPrediction = async () => {
+    if (!extendPredictionId) {
+      showMessage('error', 'Please select a prediction');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const predictionsRef = doc(db, 'predictions', 'current');
+      const snap = await getDoc(predictionsRef);
+      const currentList = snap.exists() ? (snap.data().list || []) : [];
+
+      const updatedList = currentList.map(p => {
+        if (p.id === extendPredictionId) {
+          return {
+            ...p,
+            endsAt: getEndTime(extendDays),
+            allowAdditionalBets: allowAdditionalBets,
+            reopened: true
+          };
+        }
+        return p;
+      });
+
+      await updateDoc(predictionsRef, { list: updatedList });
+
+      const pred = currentList.find(p => p.id === extendPredictionId);
+      showMessage('success', `Extended "${pred?.question}" by ${extendDays} days${allowAdditionalBets ? ' • Additional bets allowed' : ''}`);
+      setExtendPredictionId('');
+      setExtendDays(7);
+      setAllowAdditionalBets(false);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to extend prediction');
+    }
+    setLoading(false);
+  };
+
   // Load all users for search
   const handleLoadAllUsers = async () => {
     setLoading(true);
@@ -3002,7 +3046,83 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 </div>
               </div>
 
-              {/* SECTION 3: All Predictions List */}
+              {/* SECTION 3: Extend/Reopen Prediction */}
+              {predictions.length > 0 && (
+                <div className={`p-4 rounded-sm border-2 border-blue-500 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+                  <h3 className={`font-semibold text-blue-500 mb-3`}>⏰ Extend/Reopen Prediction</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
+                      <select
+                        value={extendPredictionId}
+                        onChange={e => setExtendPredictionId(e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                      >
+                        <option value="">-- Choose prediction --</option>
+                        {predictions.map(p => {
+                          const isClosed = p.endsAt < Date.now();
+                          const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {status} - {p.question}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {extendPredictionId && (
+                      <>
+                        <div>
+                          <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Extend By (Days)</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min="1"
+                              max="14"
+                              value={extendDays}
+                              onChange={e => setExtendDays(parseInt(e.target.value))}
+                              className="flex-1"
+                            />
+                            <span className={`text-lg font-semibold ${textClass} w-20`}>{extendDays} days</span>
+                          </div>
+                          <p className={`text-xs ${mutedClass} mt-1`}>
+                            New deadline: {new Date(getEndTime(extendDays)).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="allowAdditionalBets"
+                            checked={allowAdditionalBets}
+                            onChange={e => setAllowAdditionalBets(e.target.checked)}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                          <label htmlFor="allowAdditionalBets" className={`text-sm cursor-pointer ${textClass}`}>
+                            Allow users to add to existing bets
+                          </label>
+                        </div>
+                        {allowAdditionalBets && (
+                          <p className={`text-xs ${mutedClass} pl-6`}>
+                            Users who already bet can add more money to their original choice (cannot change or remove)
+                          </p>
+                        )}
+
+                        <button
+                          onClick={handleExtendPrediction}
+                          disabled={loading}
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                        >
+                          {loading ? 'Extending...' : '⏰ Extend Prediction'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 4: All Predictions List */}
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
@@ -3053,7 +3173,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 )}
               </div>
 
-              {/* SECTION 4: Bets Summary */}
+              {/* SECTION 5: Bets Summary */}
               {allBets.length > 0 && (
                 <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                   <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>

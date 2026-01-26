@@ -906,6 +906,9 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
             <span className={`text-xs font-semibold uppercase ${isActive ? 'text-orange-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}>
               {isActive ? 'Active' : prediction.resolved ? 'Resolved' : 'Ended'}
             </span>
+            {prediction.reopened && isActive && (
+              <span className="text-xs font-semibold uppercase text-blue-500">⏰ Extended</span>
+            )}
           </div>
           <h3 className={`font-semibold ${textClass}`}>{prediction.question}</h3>
         </div>
@@ -955,24 +958,41 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
 
       {isActive && !isGuest && (
         <>
-          {hasExistingBet ? (
+          {hasExistingBet && !prediction.allowAdditionalBets ? (
             <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
               🔒 You've already placed a bet on this prediction
             </div>
           ) : !showBetUI ? (
-            <button onClick={() => setShowBetUI(true)}
+            <button onClick={() => {
+              setShowBetUI(true);
+              // Pre-select their existing option if they're adding to bet
+              if (hasExistingBet && prediction.allowAdditionalBets) {
+                setSelectedOption(userBet.option);
+              }
+            }}
               className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm">
-              Place Bet
+              {hasExistingBet && prediction.allowAdditionalBets ? 'Add to Bet' : 'Place Bet'}
             </button>
           ) : (
             <div className="space-y-3">
+              {hasExistingBet && prediction.allowAdditionalBets && (
+                <div className={`text-xs ${mutedClass} bg-blue-500/10 border border-blue-500 rounded-sm p-2`}>
+                  💡 You can add more to your existing bet on "<span className="text-blue-500 font-semibold">{userBet.option}</span>" (cannot change or remove)
+                </div>
+              )}
               <div className={`grid gap-2 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
                 {options.map((option, idx) => {
                   const colors = optionColors[idx % optionColors.length];
+                  const isLocked = hasExistingBet && prediction.allowAdditionalBets && option !== userBet.option;
                   return (
-                    <button key={option} onClick={() => setSelectedOption(option)}
+                    <button
+                      key={option}
+                      onClick={() => !isLocked && setSelectedOption(option)}
+                      disabled={isLocked}
                       className={`py-2 px-2 text-sm font-semibold rounded-sm border-2 transition-all truncate ${
-                        selectedOption === option
+                        isLocked
+                          ? 'opacity-30 cursor-not-allowed border-zinc-700 text-zinc-500'
+                          : selectedOption === option
                           ? `${colors.bg} border-transparent text-white`
                           : `${colors.border} ${colors.text} hover:opacity-80`
                       }`}>
@@ -1016,7 +1036,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
                 </button>
                 <button onClick={handlePlaceBet} disabled={!selectedOption || betAmount <= 0}
                   className="flex-1 py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50">
-                  Confirm
+                  {hasExistingBet && prediction.allowAdditionalBets ? 'Add to Bet' : 'Confirm'}
                 </button>
               </div>
             </div>
