@@ -68,7 +68,7 @@ import {
   formatTimeRemaining,
   round2
 } from './utils/formatters';
-import { getTodayDateString, isToday, toMillis } from './utils/date';
+import { getTodayDateString, isToday, toMillis, toDateString } from './utils/date';
 
 // Transaction logging - records all significant financial actions for auditing
 const logTransaction = async (db, userId, type, details) => {
@@ -4667,7 +4667,8 @@ const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
   const [timeUntilReset, setTimeUntilReset] = useState('');
 
   const today = new Date().toDateString();
-  const hasCheckedIn = !isGuest && lastCheckin === today;
+  const lastCheckinStr = toDateString(lastCheckin);
+  const hasCheckedIn = !isGuest && lastCheckinStr === today;
 
   useEffect(() => {
     if (!hasCheckedIn) return;
@@ -8181,7 +8182,8 @@ export default function App() {
     }
 
     const today = new Date().toDateString();
-    if (userData.lastCheckin === today) {
+    const lastCheckinStr = toDateString(userData.lastCheckin);
+    if (lastCheckinStr === today) {
       showNotification('error', 'Already checked in today!');
       return;
     }

@@ -115,3 +115,18 @@ export const toMillis = (timestamp) => {
   if (timestamp.seconds) return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
   return 0;
 };
+
+/**
+ * Convert Firestore Timestamp or string to date string format
+ * Handles Timestamp objects, Date objects, and strings
+ * @param {Object|string|Date} timestamp - Firestore Timestamp, Date, or string
+ * @returns {string|null} Date string in format like "Mon Jan 27 2025"
+ */
+export const toDateString = (timestamp) => {
+  if (!timestamp) return null;
+  if (typeof timestamp === 'string') return timestamp;
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate().toDateString();
+  if (timestamp instanceof Date) return timestamp.toDateString();
+  if (timestamp.seconds) return new Date(timestamp.seconds * 1000).toDateString();
+  return null;
+};
