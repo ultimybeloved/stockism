@@ -1013,10 +1013,26 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
                     </button>
                   ))}
                 </div>
-                <input type="number" value={betAmount}
-                  onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                <input
+                  type="number"
+                  value={betAmount || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setBetAmount(0);
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num) && num >= 0) {
+                        setBetAmount(Math.min(num, betLimit || Infinity));
+                      }
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (betAmount === 0) e.target.select();
+                  }}
                   className={`w-full mt-2 px-3 py-2 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
-                  placeholder="Custom amount..." />
+                  placeholder="Custom amount..."
+                />
                 {betLimit > 0 && (
                   <div className={`text-xs ${mutedClass} mt-1`}>
                     Your bet limit: <span className="text-orange-500 font-semibold">{formatCurrency(betLimit)}</span>
