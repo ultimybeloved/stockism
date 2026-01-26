@@ -166,6 +166,9 @@ export const CHARACTERS = [
   { name: "Byeon Kim", ticker: "LAW", basePrice: 30, volatility: 0.035, dateAdded: "2026-01-24T00:06:00" },
   { name: "Jihan Kwak", ticker: "CHCH", basePrice: 30, volatility: 0.035, dateAdded: "2026-01-24T00:07:00" },
   { name: "Jibeom Kwak", ticker: "BEOM", basePrice: 15, volatility: 0.035, dateAdded: "2026-01-24T00:08:00" },
+
+  // New characters added 2026-01-26
+  { name: "Brekdak", ticker: "MUAY", basePrice: 70, volatility: 0.035, dateAdded: "2026-01-26T00:00:00" },
 ];
 
 // Create a map for quick lookup

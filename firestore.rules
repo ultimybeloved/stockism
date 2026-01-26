@@ -30,6 +30,11 @@ service cloud.firestore {
     function fieldChanged(field) {
       return request.resource.data[field] != resource.data[field];
     }
+
+    // Check if user is banned
+    function isBanned() {
+      return getUserData().isBanned == true;
+    }
     
     // ============================================
     // USERNAMES COLLECTION (case-insensitive uniqueness)
@@ -58,7 +63,8 @@ service cloud.firestore {
       allow create: if false;
 
       // Updates - owner can update their own document, admin can update any
-      allow update: if isAdmin() || (isOwner(userId) && validateUserUpdate());
+      // Banned users cannot update their own documents
+      allow update: if isAdmin() || (isOwner(userId) && !isBanned() && validateUserUpdate());
 
       // Admin can delete user documents (for cleanup)
       allow delete: if isAdmin();
