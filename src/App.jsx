@@ -6393,7 +6393,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Handle predictions collapse state persistence
+  // Handle predictions collapse state - auto-expand when new predictions added
   const lastPredictionsIdRef = useRef(null);
 
   useEffect(() => {
@@ -6406,27 +6406,22 @@ export default function App() {
       return; // Same predictions, don't override user's manual collapse/expand
     }
 
-    lastPredictionsIdRef.current = predictionsId;
+    // Predictions changed - check if we should auto-expand
     const stored = localStorage.getItem('showPredictions');
-
     if (stored) {
       try {
-        const { collapsed, identifier } = JSON.parse(stored);
+        const { identifier } = JSON.parse(stored);
         // If predictions have changed (new predictions added), reset to expanded
         if (identifier !== predictionsId) {
           setShowPredictions(true);
-        } else {
-          // Same predictions, restore saved state
-          setShowPredictions(collapsed);
         }
+        // If same predictions, state is already loaded from localStorage in useState
       } catch {
-        // Default to expanded on error
-        setShowPredictions(true);
+        // Ignore errors
       }
-    } else {
-      // No saved state, default to expanded
-      setShowPredictions(true);
     }
+
+    lastPredictionsIdRef.current = predictionsId;
   }, [predictions]);
 
   // Persist predictions collapse state
