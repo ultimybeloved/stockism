@@ -5967,7 +5967,19 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
-  const [showPredictions, setShowPredictions] = useState(true); // Will be set by useEffect
+  const [showPredictions, setShowPredictions] = useState(() => {
+    // Initialize directly from localStorage - don't check identifier yet
+    try {
+      const stored = localStorage.getItem('showPredictions');
+      if (stored) {
+        const { collapsed } = JSON.parse(stored);
+        return collapsed;
+      }
+    } catch {
+      // Ignore errors
+    }
+    return true; // Default to expanded
+  });
   const [showNewCharacters, setShowNewCharacters] = useState(() => {
     // Initialize from localStorage based on current week
     return loadCollapsedState('showNewCharacters', getWeekIdentifier());
@@ -6381,33 +6393,26 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Handle predictions collapse state - restore from localStorage and auto-expand on new predictions
+  // Handle predictions collapse state - auto-expand when predictions change
   const predictionsLoadedRef = useRef(false);
+  const lastPredictionsIdRef = useRef(null);
 
   useEffect(() => {
-    if (predictions.length === 0 || predictionsLoadedRef.current) return;
+    if (predictions.length === 0) return;
 
-    predictionsLoadedRef.current = true;
     const predictionsId = getPredictionsIdentifier(predictions);
-    const stored = localStorage.getItem('showPredictions');
 
-    if (stored) {
-      try {
-        const { collapsed, identifier } = JSON.parse(stored);
-        // If predictions have changed (new predictions added), reset to expanded
-        if (identifier !== predictionsId) {
-          setShowPredictions(true);
-        } else {
-          // Same predictions, restore saved state
-          setShowPredictions(collapsed);
-        }
-      } catch {
-        // Default to expanded on error
-        setShowPredictions(true);
-      }
-    } else {
-      // No saved state, default to expanded
-      setShowPredictions(true);
+    // First time predictions load
+    if (!predictionsLoadedRef.current) {
+      predictionsLoadedRef.current = true;
+      lastPredictionsIdRef.current = predictionsId;
+      return; // Don't change state - useState already loaded from localStorage
+    }
+
+    // Check if predictions changed
+    if (lastPredictionsIdRef.current !== predictionsId) {
+      lastPredictionsIdRef.current = predictionsId;
+      setShowPredictions(true); // Auto-expand on new predictions
     }
   }, [predictions]);
 
