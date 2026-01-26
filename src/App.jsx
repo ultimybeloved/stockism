@@ -7129,27 +7129,38 @@ export default function App() {
         [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       };
 
-      // Apply trailing stock factor effects
-      const character = CHARACTER_MAP[ticker];
-      if (character?.trailingFactors) {
-        const priceChangePercent = (settledPrice - price) / price;
-        const timestamp = Date.now();
+      // Apply trailing stock factor effects (recursive with depth limit)
+      const timestamp = Date.now();
+      const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
+        if (depth > 3 || visited.has(sourceTicker)) return; // Max 3 levels deep, prevent cycles
+        visited.add(sourceTicker);
+
+        const character = CHARACTER_MAP[sourceTicker];
+        if (!character?.trailingFactors) return;
+
+        const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const relatedPrice = prices[relatedTicker];
+          const relatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
           if (relatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = relatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
 
+            const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
               timestamp,
               price: settledRelatedPrice
             });
+
+            // Recursively apply trailing effects from this related stock
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
           }
         });
-      }
+      };
+
+      applyTrailingEffects(ticker, price, settledPrice);
 
       // Atomic price + history update (prevents data loss if one write fails)
       await updateDoc(marketRef, marketUpdates);
@@ -7318,27 +7329,38 @@ export default function App() {
         [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
       };
 
-      // Apply trailing stock factor effects
-      const character = CHARACTER_MAP[ticker];
-      if (character?.trailingFactors) {
-        const priceChangePercent = (settledPrice - price) / price;
-        const timestamp = Date.now();
+      // Apply trailing stock factor effects (recursive with depth limit)
+      const timestamp = Date.now();
+      const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
+        if (depth > 3 || visited.has(sourceTicker)) return; // Max 3 levels deep, prevent cycles
+        visited.add(sourceTicker);
+
+        const character = CHARACTER_MAP[sourceTicker];
+        if (!character?.trailingFactors) return;
+
+        const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const relatedPrice = prices[relatedTicker];
+          const relatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
           if (relatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = relatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
 
+            const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
               timestamp,
               price: settledRelatedPrice
             });
+
+            // Recursively apply trailing effects from this related stock
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
           }
         });
-      }
+      };
+
+      applyTrailingEffects(ticker, price, settledPrice);
 
       // Atomic price + history update
       await updateDoc(marketRef, marketUpdates);
