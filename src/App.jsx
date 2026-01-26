@@ -24,7 +24,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -7046,12 +7046,36 @@ export default function App() {
       return;
     }
 
+    // SECURITY: Server-side validation BEFORE executing trade
+    // This enforces cooldown, validates cash/holdings using server timestamp
+    try {
+      const validationResult = await validateTradeFunction({ ticker, action, amount });
+      if (!validationResult.data.valid) {
+        showNotification('error', 'Trade validation failed');
+        return;
+      }
+      console.log('[TRADE VALIDATED]', validationResult.data);
+    } catch (error) {
+      console.error('[TRADE VALIDATION ERROR]', error);
+      const message = error.message || 'Trade validation failed';
+      // Extract user-friendly error message
+      if (message.includes('Trade cooldown:')) {
+        showNotification('error', message.replace(/^.*: /, ''));
+      } else if (message.includes('Hold period:')) {
+        showNotification('error', message.replace(/^.*: /, ''));
+      } else if (message.includes('Insufficient')) {
+        showNotification('error', message.replace(/^.*: /, ''));
+      } else {
+        showNotification('error', 'Cannot execute trade at this time');
+      }
+      return;
+    }
+
     // SECURITY: Use server timestamp via Firestore serverTimestamp()
     // This prevents client-side clock manipulation
     const serverTime = serverTimestamp();
 
-    // Trade cooldown - prevent spam trading
-    // NOTE: This is client-side check only. Server validation needed in security rules.
+    // Trade cooldown - client-side check as backup
     const now = Date.now();
     const lastTrade = userData.lastTradeTime || 0;
     const cooldownMs = 3000; // 3 second cooldown
@@ -7285,7 +7309,19 @@ export default function App() {
         cashAfter: cashAvailable - cashToUse,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-      
+
+      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
+      recordTradeFunction({
+        ticker,
+        action: 'BUY',
+        amount,
+        price: buyPrice,
+        totalValue: totalCost,
+        cashBefore: cashAvailable,
+        cashAfter: cashAvailable - cashToUse,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
+
       // Check achievements (pass trade value for Shark achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
@@ -7490,6 +7526,18 @@ export default function App() {
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
+      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
+      recordTradeFunction({
+        ticker,
+        action: 'SELL',
+        amount,
+        price: sellPrice,
+        totalValue: totalRevenue,
+        cashBefore: userData.cash,
+        cashAfter: newCash,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
+
       // Check achievements (pass profit percent for Bull Run, isDiamondHands for Diamond Hands)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
@@ -7627,6 +7675,18 @@ export default function App() {
         marginUsedAfter: newMarginUsed,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
+
+      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
+      recordTradeFunction({
+        ticker,
+        action: 'SHORT',
+        amount,
+        price: shortPrice,
+        totalValue: marginRequired,
+        cashBefore: userData.cash,
+        cashAfter: newCash,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
 
       // Check achievements
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
@@ -7785,7 +7845,19 @@ export default function App() {
         cashAfter: newCoverCash,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-      
+
+      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
+      recordTradeFunction({
+        ticker,
+        action: 'COVER',
+        amount,
+        price: coverPrice,
+        totalValue: amount * coverPrice,
+        cashBefore: userData.cash,
+        cashAfter: newCoverCash,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
+
       // Check achievements (pass short profit for Cold Blooded achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,

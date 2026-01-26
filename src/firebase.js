@@ -36,5 +36,9 @@ export const deleteAccountFunction = httpsCallable(functions, 'deleteAccount');
 export const createBotsFunction = httpsCallable(functions, 'createBots');
 export const fixBasePriceCliffsFunction = httpsCallable(functions, 'fixBasePriceCliffs');
 export const triggerManualBackupFunction = httpsCallable(functions, 'triggerManualBackup');
+// Trade validation & anti-exploit
+export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
+export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
+export const banUserFunction = httpsCallable(functions, 'banUser');
 
 export default app;

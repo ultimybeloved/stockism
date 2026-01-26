@@ -1,0 +1,12 @@
+{
+  "name": "stockism-scripts",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Maintenance scripts for Stockism",
+  "scripts": {
+    "fix-cliffs": "node fixBasePriceCliffs.js"
+  },
+  "dependencies": {
+    "firebase": "^11.1.0"
+  }
+}

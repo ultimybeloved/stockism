@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, banUserFunction } from './firebase';
 import { CHARACTERS } from './characters';
 import { ADMIN_UIDS } from './constants';
 
@@ -48,6 +48,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
   // Price history cleanup state
   const [futureEntries, setFutureEntries] = useState([]);
+
+  // Ban user state
+  const [banUserId, setBanUserId] = useState('');
+  const [banRollbackCash, setBanRollbackCash] = useState(1000);
+  const [banReason, setBanReason] = useState('');
   const [scanningHistory, setScanningHistory] = useState(false);
 
   // Check-in fraud detection state
@@ -2498,6 +2503,45 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Ban user and rollback fraudulent gains
+  const handleBanUser = async () => {
+    if (!banUserId.trim()) {
+      showMessage('error', 'Please enter a user ID');
+      return;
+    }
+
+    if (!banReason.trim()) {
+      showMessage('error', 'Please enter a ban reason');
+      return;
+    }
+
+    if (!confirm(`⚠️ BAN USER ⚠️\n\nBan user ${banUserId}?\n\nThis will:\n- Mark account as banned\n- Reset cash to $${banRollbackCash}\n- Liquidate all positions\n- Clear portfolio history\n\nReason: ${banReason}\n\nThis cannot be undone!`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await banUserFunction({
+        userId: banUserId,
+        rollbackCash: banRollbackCash,
+        reason: banReason
+      });
+
+      if (result.data.success) {
+        showMessage('success', result.data.message);
+        setBanUserId('');
+        setBanReason('');
+        setBanRollbackCash(1000);
+      } else {
+        showMessage('error', 'Ban failed');
+      }
+    } catch (err) {
+      console.error('Ban error:', err);
+      showMessage('error', `Ban failed: ${err.message || 'Unknown error'}`);
+    }
+    setLoading(false);
+  };
+
   // Transfer all data from old user to new user
   const handleTransferUserData = async () => {
     if (!oldUserId.trim() || !newUserId.trim()) {
@@ -2742,6 +2786,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
           >
             🔧 Recovery
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'security' ? 'text-red-600 border-b-2 border-red-600 bg-red-600/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🔒 Security
           </button>
         </div>
 
@@ -4885,6 +4935,110 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
               </div>
             </div>
           </div>
+
+          {/* SECURITY TAB */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-red-600">🔒 Security & Anti-Exploit</h3>
+
+              {/* Ban User Section */}
+              <div className={`p-4 rounded-sm border ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700'
+                  : 'bg-white border-slate-200'
+              }`}>
+                <h4 className={`font-semibold mb-3 ${textClass}`}>🔨 Ban User & Rollback</h4>
+                <p className={`text-xs ${mutedClass} mb-4`}>
+                  Ban a user for exploiting/cheating and reset their account to starting balance.
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${textClass}`}>User ID</label>
+                    <input
+                      type="text"
+                      value={banUserId}
+                      onChange={(e) => setBanUserId(e.target.value)}
+                      placeholder="Enter user UID"
+                      className={`w-full px-3 py-2 rounded-sm text-sm ${
+                        darkMode
+                          ? 'bg-slate-900 border-slate-700 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                      } border`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${textClass}`}>Rollback Cash Amount</label>
+                    <input
+                      type="number"
+                      value={banRollbackCash}
+                      onChange={(e) => setBanRollbackCash(parseInt(e.target.value))}
+                      className={`w-full px-3 py-2 rounded-sm text-sm ${
+                        darkMode
+                          ? 'bg-slate-900 border-slate-700 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                      } border`}
+                    />
+                    <p className={`text-xs ${mutedClass} mt-1`}>Default: $1,000 (starting balance)</p>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1 ${textClass}`}>Ban Reason</label>
+                    <textarea
+                      value={banReason}
+                      onChange={(e) => setBanReason(e.target.value)}
+                      placeholder="e.g., Timestamp manipulation, rapid trading exploit, etc."
+                      rows={3}
+                      className={`w-full px-3 py-2 rounded-sm text-sm ${
+                        darkMode
+                          ? 'bg-slate-900 border-slate-700 text-white'
+                          : 'bg-white border-slate-300 text-slate-900'
+                      } border`}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleBanUser}
+                    disabled={loading}
+                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm text-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Processing...' : '🔨 Ban User & Rollback'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Security Info */}
+              <div className={`p-4 rounded-sm border ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700'
+                  : 'bg-white border-slate-200'
+              }`}>
+                <h4 className={`font-semibold mb-3 ${textClass}`}>ℹ️ Security Features</h4>
+                <ul className={`text-xs ${mutedClass} space-y-2`}>
+                  <li>✅ Server-side timestamp validation (prevents clock manipulation)</li>
+                  <li>✅ 3-second trade cooldown enforced via Cloud Functions</li>
+                  <li>✅ 45-second hold period for buy/sell and short/cover</li>
+                  <li>✅ Trade logging & suspicious activity detection</li>
+                  <li>✅ Automatic alerts for >10 trades/minute</li>
+                  <li>✅ Cash & holdings validation before trade execution</li>
+                </ul>
+              </div>
+
+              {/* Recent Suspicious Activity */}
+              <div className={`p-4 rounded-sm border ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700'
+                  : 'bg-white border-slate-200'
+              }`}>
+                <h4 className={`font-semibold mb-3 ${textClass}`}>⚠️ Monitoring</h4>
+                <p className={`text-xs ${mutedClass}`}>
+                  Check the <code>admin/suspicious_activity</code> collection in Firestore for flagged users.
+                  Alerts are also sent to Discord when suspicious patterns are detected.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

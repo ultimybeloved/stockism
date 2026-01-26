@@ -1066,6 +1066,372 @@ exports.createBots = functions.https.onCall(async (data, context) => {
 // Export bot trader
 exports.botTrader = botTrader;
 
+// ============================================
+// TRADE VALIDATION & ANTI-EXPLOIT
+// ============================================
+
+/**
+ * Validates a trade request before execution
+ * Enforces server-side cooldown, validates cash/holdings
+ * Returns validation result + computed trade parameters
+ */
+exports.validateTrade = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be logged in to trade.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, action, amount } = data;
+
+  // Validate inputs
+  if (!ticker || !action || !amount || amount <= 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Invalid trade parameters.'
+    );
+  }
+
+  if (!['buy', 'sell', 'short', 'cover'].includes(action)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Invalid trade action.'
+    );
+  }
+
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const marketRef = db.collection('market').doc('current');
+
+    const [userDoc, marketDoc] = await Promise.all([
+      userRef.get(),
+      marketRef.get()
+    ]);
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+
+    if (!marketDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Market data not found.');
+    }
+
+    const userData = userDoc.data();
+    const marketData = marketDoc.data();
+    const prices = marketData.prices || {};
+    const currentPrice = prices[ticker];
+
+    if (!currentPrice) {
+      throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
+    }
+
+    // CRITICAL: Enforce 3-second cooldown using server timestamp
+    const now = admin.firestore.Timestamp.now().toMillis();
+    const lastTradeTime = userData.lastTradeTime;
+
+    if (lastTradeTime) {
+      const lastTradeMs = lastTradeTime.toMillis ? lastTradeTime.toMillis() : lastTradeTime;
+      const timeSinceLastTrade = now - lastTradeMs;
+      const COOLDOWN_MS = 3000; // 3 seconds
+
+      if (timeSinceLastTrade < COOLDOWN_MS) {
+        const remainingMs = COOLDOWN_MS - timeSinceLastTrade;
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Trade cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`
+        );
+      }
+    }
+
+    // Validate based on action
+    const cash = userData.cash || 0;
+    const holdings = userData.holdings || {};
+    const shorts = userData.shorts || {};
+
+    if (action === 'buy') {
+      // Validate sufficient cash (including margin if enabled)
+      const marginEnabled = userData.marginEnabled || false;
+      const marginUsed = userData.marginUsed || 0;
+
+      // Basic validation - client will do detailed margin calculation
+      const estimatedCost = currentPrice * amount * 1.05; // +5% buffer for price impact
+
+      if (cash < 0) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Cannot open new positions while in debt.'
+        );
+      }
+
+      if (!marginEnabled && cash < estimatedCost) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Insufficient funds.'
+        );
+      }
+
+    } else if (action === 'sell') {
+      // Validate sufficient holdings
+      const currentHoldings = holdings[ticker] || 0;
+      if (currentHoldings < amount) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Insufficient shares to sell.'
+        );
+      }
+
+      // Enforce 45-second hold period
+      const lastBuyTime = userData.lastBuyTime?.[ticker];
+      if (lastBuyTime) {
+        const lastBuyMs = lastBuyTime.toMillis ? lastBuyTime.toMillis() : lastBuyTime;
+        const timeSinceBuy = now - lastBuyMs;
+        const HOLD_PERIOD_MS = 45 * 1000; // 45 seconds
+
+        if (timeSinceBuy < HOLD_PERIOD_MS) {
+          const remainingMs = HOLD_PERIOD_MS - timeSinceBuy;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+          );
+        }
+      }
+
+    } else if (action === 'short') {
+      // Validate shorting eligibility
+      if (cash < 0) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Cannot open new positions while in debt.'
+        );
+      }
+
+      const marginRequired = currentPrice * amount * 0.5; // 50% margin
+      if (cash < marginRequired) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Insufficient margin for short position.'
+        );
+      }
+
+    } else if (action === 'cover') {
+      // Validate existing short position
+      const shortPosition = shorts[ticker];
+      if (!shortPosition || shortPosition.shares < amount) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'No short position to cover.'
+        );
+      }
+
+      // Enforce 45-second hold period for shorts
+      const openedAt = shortPosition.openedAt;
+      if (openedAt) {
+        const openedMs = openedAt.toMillis ? openedAt.toMillis() : openedAt;
+        const timeSinceOpen = now - openedMs;
+        const HOLD_PERIOD_MS = 45 * 1000; // 45 seconds
+
+        if (timeSinceOpen < HOLD_PERIOD_MS) {
+          const remainingMs = HOLD_PERIOD_MS - timeSinceOpen;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+          );
+        }
+      }
+    }
+
+    // All validations passed
+    return {
+      valid: true,
+      currentPrice,
+      serverTimestamp: now,
+      cash,
+      holdings: holdings[ticker] || 0
+    };
+
+  } catch (error) {
+    // Re-throw HttpsErrors as-is
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Trade validation error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Trade validation failed: ' + error.message
+    );
+  }
+});
+
+/**
+ * Records and validates a completed trade
+ * Called after client executes trade, logs for auditing
+ * Detects suspicious patterns
+ */
+exports.recordTrade = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be logged in.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, action, amount, price, totalValue, cashBefore, cashAfter, portfolioAfter } = data;
+
+  try {
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    // Record in transaction log
+    const tradeRecord = {
+      uid,
+      ticker,
+      action,
+      amount,
+      price,
+      totalValue,
+      cashBefore,
+      cashAfter,
+      portfolioAfter,
+      timestamp: now,
+      ip: context.rawRequest?.ip || 'unknown'
+    };
+
+    // Store in a separate trades collection for auditing
+    await db.collection('trades').add(tradeRecord);
+
+    // Check for suspicious patterns
+    const recentTradesSnap = await db.collection('trades')
+      .where('uid', '==', uid)
+      .where('timestamp', '>', new Date(Date.now() - 60000)) // Last minute
+      .get();
+
+    const tradeCount = recentTradesSnap.size;
+
+    // Flag suspicious activity (>10 trades per minute)
+    if (tradeCount > 10) {
+      console.warn(`SUSPICIOUS ACTIVITY: User ${uid} made ${tradeCount} trades in 1 minute`);
+
+      // Log to admin collection for review
+      await db.collection('admin').doc('suspicious_activity').set({
+        [uid]: {
+          timestamp: now,
+          tradeCount,
+          reason: 'Excessive trading frequency',
+          recentTrade: tradeRecord
+        }
+      }, { merge: true });
+
+      // Send Discord alert if configured
+      try {
+        await sendDiscordMessage(`⚠️ **Suspicious Activity Detected**\nUser: ${uid}\nTrades in 1 minute: ${tradeCount}\nAction: Manual review required`);
+      } catch (err) {
+        console.error('Failed to send Discord alert:', err);
+      }
+    }
+
+    return { success: true, recorded: true };
+
+  } catch (error) {
+    console.error('Trade recording error:', error);
+    // Don't throw - recording failure shouldn't block the trade
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Admin function to ban a user and rollback fraudulent gains
+ * @param {string} userId - User ID to ban
+ * @param {number} rollbackCash - Cash amount to reset to (default: 1000)
+ * @param {string} reason - Reason for ban
+ */
+exports.banUser = functions.https.onCall(async (data, context) => {
+  // Verify admin
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can ban users.'
+    );
+  }
+
+  const { userId, rollbackCash = 1000, reason } = data;
+
+  if (!userId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'User ID is required.'
+    );
+  }
+
+  try {
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+
+    const userData = userDoc.data();
+    const displayName = userData.displayName;
+
+    // Create ban record
+    await db.collection('banned_users').doc(userId).set({
+      uid: userId,
+      displayName,
+      bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      bannedBy: context.auth.uid,
+      reason,
+      originalCash: userData.cash,
+      originalPortfolio: userData.portfolioValue,
+      rollbackCash
+    });
+
+    // Reset user to starting state
+    await userRef.update({
+      cash: rollbackCash,
+      holdings: {},
+      shorts: {},
+      costBasis: {},
+      portfolioValue: rollbackCash,
+      portfolioHistory: [{ timestamp: Date.now(), value: rollbackCash }],
+      marginUsed: 0,
+      isBanned: true,
+      bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      banReason: reason
+    });
+
+    // Log to console
+    console.log(`USER BANNED: ${displayName} (${userId}) - Reason: ${reason}`);
+
+    // Send Discord alert
+    try {
+      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${userData.cash.toFixed(2)} to $${rollbackCash}`);
+    } catch (err) {
+      console.error('Failed to send Discord alert:', err);
+    }
+
+    return {
+      success: true,
+      message: `User ${displayName} has been banned and reset to $${rollbackCash}`,
+      previousCash: userData.cash,
+      previousPortfolio: userData.portfolioValue
+    };
+
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Ban user error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to ban user: ' + error.message
+    );
+  }
+});
+
 /**
  * Automated Backup System
  * Runs every 12 hours to backup critical market data

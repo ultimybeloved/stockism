@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fix Base Price Cliffs - Stockism Admin</title>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #00ff00;
+    }
+    h1 {
+      color: #ff6b35;
+    }
+    button {
+      background: #ff6b35;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-family: monospace;
+    }
+    button:hover {
+      background: #ff8555;
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #2a2a2a;
+      border-left: 3px solid #00ff00;
+      white-space: pre-wrap;
+    }
+    .error {
+      border-left-color: #ff0000 !important;
+      color: #ff6666;
+    }
+    .success {
+      border-left-color: #00ff00 !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔧 Fix Base Price Cliffs</h1>
+  <p>This tool removes the first data point for any ticker where there is a >2% jump to the second data point.</p>
+  <p>This fixes chart artifacts caused by data loss.</p>
+
+  <div>
+    <button id="loginBtn" onclick="login()">Sign in with Google</button>
+    <button id="fixBtn" onclick="fixCliffs()" disabled>Fix Price Cliffs</button>
+    <button id="logoutBtn" onclick="logout()" disabled>Logout</button>
+  </div>
+
+  <div id="status"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-functions.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA7h7BCmgIUkJHLENTRjCj6i43BV6ly5DA",
+      authDomain: "stockism-abb28.firebaseapp.com",
+      projectId: "stockism-abb28",
+      storageBucket: "stockism-abb28.firebasestorage.app",
+      messagingSenderId: "765989843498",
+      appId: "1:765989843498:web:332d3470293741bb9fc953"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const functions = getFunctions(app);
+
+    const loginBtn = document.getElementById('loginBtn');
+    const fixBtn = document.getElementById('fixBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const status = document.getElementById('status');
+
+    function showStatus(message, isError = false) {
+      status.textContent = message;
+      status.className = isError ? 'error' : 'success';
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loginBtn.disabled = true;
+        fixBtn.disabled = false;
+        logoutBtn.disabled = false;
+        showStatus(`Logged in as: ${user.email}`);
+      } else {
+        loginBtn.disabled = false;
+        fixBtn.disabled = true;
+        logoutBtn.disabled = true;
+        showStatus('Not logged in. Click "Sign in with Google" to continue.');
+      }
+    });
+
+    window.login = async function() {
+      try {
+        showStatus('Opening Google Sign-In...');
+        const provider = new GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+
+        const result = await signInWithPopup(auth, provider);
+        showStatus(`Logged in successfully as ${result.user.email}`);
+      } catch (error) {
+        if (error.code === 'auth/popup-closed-by-user') {
+          showStatus('Sign-in cancelled', true);
+        } else {
+          showStatus(`Login failed: ${error.message}`, true);
+        }
+      }
+    };
+
+    window.logout = async function() {
+      try {
+        await signOut(auth);
+        showStatus('Logged out successfully');
+      } catch (error) {
+        showStatus(`Logout failed: ${error.message}`, true);
+      }
+    };
+
+    window.fixCliffs = async function() {
+      if (!confirm('This will remove base price points that create >2% cliffs. Continue?')) {
+        return;
+      }
+
+      try {
+        fixBtn.disabled = true;
+        showStatus('Calling Cloud Function to fix price cliffs...');
+
+        const fixBasePriceCliffsFunction = httpsCallable(functions, 'fixBasePriceCliffs');
+        const result = await fixBasePriceCliffsFunction();
+
+        let message = `Result: ${result.data.message}\n\n`;
+        message += `Tickers fixed: ${result.data.tickersFixed}\n`;
+        message += `Tickers skipped: ${result.data.tickersSkipped}\n`;
+
+        if (result.data.fixed && result.data.fixed.length > 0) {
+          message += '\nFixed tickers:\n';
+          result.data.fixed.forEach(fix => {
+            message += `\n${fix.ticker}:\n`;
+            message += `  First: $${fix.firstPrice.toFixed(2)} (${new Date(fix.firstTimestamp).toLocaleString()})\n`;
+            message += `  Second: $${fix.secondPrice.toFixed(2)}\n`;
+            message += `  Jump: ${fix.percentChange}%\n`;
+          });
+        }
+
+        showStatus(message);
+      } catch (error) {
+        showStatus(`Error: ${error.message}\n\n${error.code === 'permission-denied' ? 'You must be logged in as admin to run this.' : ''}`, true);
+      } finally {
+        fixBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

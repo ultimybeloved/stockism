@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": 401,
+    "message": "Firebase App Check token is invalid."
+  }
+}
