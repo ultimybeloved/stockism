@@ -7132,13 +7132,22 @@ export default function App() {
       // Apply trailing stock factor effects (recursive with depth limit)
       const timestamp = Date.now();
       const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
-        if (depth > 3 || visited.has(sourceTicker)) return; // Max 3 levels deep, prevent cycles
+        console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
+
+        if (depth > 3 || visited.has(sourceTicker)) {
+          console.log(`[TRAILING] Skipping ${sourceTicker} - depth=${depth}, inVisited=${visited.has(sourceTicker)}`);
+          return; // Max 3 levels deep, prevent cycles
+        }
         visited.add(sourceTicker);
 
         const character = CHARACTER_MAP[sourceTicker];
-        if (!character?.trailingFactors) return;
+        if (!character?.trailingFactors) {
+          console.log(`[TRAILING] ${sourceTicker} has no trailingFactors`);
+          return;
+        }
 
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
+        console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
           const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
@@ -7146,6 +7155,8 @@ export default function App() {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+            console.log(`[TRAILING] Updating ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
 
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
@@ -7332,13 +7343,22 @@ export default function App() {
       // Apply trailing stock factor effects (recursive with depth limit)
       const timestamp = Date.now();
       const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
-        if (depth > 3 || visited.has(sourceTicker)) return; // Max 3 levels deep, prevent cycles
+        console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
+
+        if (depth > 3 || visited.has(sourceTicker)) {
+          console.log(`[TRAILING] Skipping ${sourceTicker} - depth=${depth}, inVisited=${visited.has(sourceTicker)}`);
+          return; // Max 3 levels deep, prevent cycles
+        }
         visited.add(sourceTicker);
 
         const character = CHARACTER_MAP[sourceTicker];
-        if (!character?.trailingFactors) return;
+        if (!character?.trailingFactors) {
+          console.log(`[TRAILING] ${sourceTicker} has no trailingFactors`);
+          return;
+        }
 
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
+        console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
           const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
@@ -7346,6 +7366,8 @@ export default function App() {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
             const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+            console.log(`[TRAILING] Updating ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
 
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
