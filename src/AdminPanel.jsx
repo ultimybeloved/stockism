@@ -2498,45 +2498,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
-  // Ban user and rollback fraudulent gains
-  const handleBanUser = async () => {
-    if (!banUserId.trim()) {
-      showMessage('error', 'Please enter a user ID');
-      return;
-    }
-
-    if (!banReason.trim()) {
-      showMessage('error', 'Please enter a ban reason');
-      return;
-    }
-
-    if (!confirm(`⚠️ BAN USER ⚠️\n\nBan user ${banUserId}?\n\nThis will:\n- Mark account as banned\n- Reset cash to $${banRollbackCash}\n- Liquidate all positions\n- Clear portfolio history\n\nReason: ${banReason}\n\nThis cannot be undone!`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await banUserFunction({
-        userId: banUserId,
-        rollbackCash: banRollbackCash,
-        reason: banReason
-      });
-
-      if (result.data.success) {
-        showMessage('success', result.data.message);
-        setBanUserId('');
-        setBanReason('');
-        setBanRollbackCash(1000);
-      } else {
-        showMessage('error', 'Ban failed');
-      }
-    } catch (err) {
-      console.error('Ban error:', err);
-      showMessage('error', `Ban failed: ${err.message || 'Unknown error'}`);
-    }
-    setLoading(false);
-  };
-
   // Transfer all data from old user to new user
   const handleTransferUserData = async () => {
     if (!oldUserId.trim() || !newUserId.trim()) {
