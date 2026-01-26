@@ -6382,10 +6382,19 @@ export default function App() {
   }, []);
 
   // Handle predictions collapse state persistence
+  const lastPredictionsIdRef = useRef(null);
+
   useEffect(() => {
     if (predictions.length === 0) return; // Wait for predictions to load
 
     const predictionsId = getPredictionsIdentifier(predictions);
+
+    // Only update state if the predictions identifier changed
+    if (lastPredictionsIdRef.current === predictionsId) {
+      return; // Same predictions, don't override user's manual collapse/expand
+    }
+
+    lastPredictionsIdRef.current = predictionsId;
     const stored = localStorage.getItem('showPredictions');
 
     if (stored) {
