@@ -21,11 +21,6 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
     }
 
-    // Check if a field is being modified
-    function fieldChanged(field) {
-      return request.resource.data[field] != resource.data[field];
-    }
-
     // Check if user is banned (defensive - returns false if doc doesn't exist)
     function isBanned() {
       return resource.data.isBanned == true;
@@ -59,41 +54,10 @@ service cloud.firestore {
 
       // Updates - owner can update their own document, admin can update any
       // Banned users cannot update their own documents
-      allow update: if isAdmin() || (isOwner(userId) && !isBanned() && validateUserUpdate());
+      allow update: if isAdmin() || (isOwner(userId) && !isBanned());
 
       // Admin can delete user documents (for cleanup)
       allow delete: if isAdmin();
-    }
-    
-    // Validate user document updates to prevent cheating
-    function validateUserUpdate() {
-      let oldData = resource.data;
-      let newData = request.resource.data;
-
-      return (
-        // Cannot fake total checkins (can only increment by 1 or stay same)
-        (!('totalCheckins' in newData) ||
-         !('totalCheckins' in oldData) ||
-         newData.totalCheckins <= oldData.totalCheckins + 1) &&
-
-        // Cannot fake total trades (can only increment by 1 or stay same)
-        (!('totalTrades' in newData) ||
-         !('totalTrades' in oldData) ||
-         newData.totalTrades <= oldData.totalTrades + 1) &&
-
-        // Cannot grant yourself lending access (unless earning it from false)
-        (!fieldChanged('lendingUnlocked') ||
-         !('lendingUnlocked' in oldData) ||
-         oldData.lendingUnlocked == false) &&
-
-        // Cannot un-bankrupt yourself
-        (!fieldChanged('isBankrupt') ||
-         !('isBankrupt' in oldData) ||
-         newData.isBankrupt == true) &&
-
-        // Display name cannot be changed (prevents impersonation)
-        (!('displayName' in oldData) || newData.displayName == oldData.displayName)
-      );
     }
     
     // ============================================
