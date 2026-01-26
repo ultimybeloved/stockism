@@ -2496,8 +2496,10 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     const pin = SHOP_PINS[pinId];
     if (pin) {
       pins.push(
-        <span key={`shop-${idx}`} title={pin.name} className={sizeClass}>
-          {pin.emoji}
+        <span key={`shop-${idx}`} title={pin.name} className={`inline-flex items-center ${sizeClass}`}>
+          {pin.image ? (
+            <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />
+          ) : pin.emoji}
         </span>
       );
     }
@@ -2839,7 +2841,11 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                             : darkMode ? 'border-zinc-700' : 'border-amber-200'
                         }`}
                       >
-                        <div className="text-2xl text-center mb-2">{pin.emoji}</div>
+                        <div className="text-2xl text-center mb-2 flex items-center justify-center h-8">
+                          {pin.image ? (
+                            <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
+                          ) : pin.emoji}
+                        </div>
                         <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
                         <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
                         {owned ? (
@@ -2945,7 +2951,11 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                               : darkMode ? 'border-zinc-700' : 'border-amber-200'
                           }`}
                         >
-                          <span className="mr-1">{pin.emoji}</span>
+                          <span className="mr-1 inline-flex items-center">
+                            {pin.image ? (
+                              <img src={`/pins/${pin.image}`} alt={pin.name} className="w-5 h-5 object-contain" />
+                            ) : pin.emoji}
+                          </span>
                           <span className={`text-sm ${textClass}`}>{pin.name}</span>
                         </button>
                       );

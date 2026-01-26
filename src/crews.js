@@ -88,10 +88,14 @@ Object.values(CREWS).forEach(crew => {
 // ============================================
 
 export const SHOP_PINS = {
-  // ============================================
-  // SHOP PINS - Coming Soon!
-  // Custom pins will be added here later
-  // ============================================
+  alpha_tester: {
+    id: 'alpha_tester',
+    name: 'Stockism Alpha Tester Badge',
+    emoji: '🎖️',
+    image: 'stockism_logo.png',
+    description: 'Exclusive badge for early supporters',
+    price: 300
+  }
 };
 
 // Create array sorted by price for shop display
