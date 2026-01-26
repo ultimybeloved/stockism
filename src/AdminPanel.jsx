@@ -178,7 +178,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     try {
       const marketRef = doc(db, 'market', 'current');
       const snap = await getDoc(marketRef);
-      const now = Date.now();
+      let now = Date.now();
 
       if (snap.exists()) {
         const data = snap.data();
@@ -188,7 +188,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           currentHistory = [{ timestamp: now - 1000, price: currentPrice }];
         }
 
+        // Ensure the new timestamp is always greater than the last entry
+        const lastTimestamp = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].timestamp : 0;
+        if (now <= lastTimestamp) {
+          now = lastTimestamp + 1;
+        }
+
         const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
+
+        console.log(`Adding price point for ${character.ticker}:`, { timestamp: now, price: targetPrice });
+        console.log(`History length: ${currentHistory.length} → ${updatedHistory.length}`);
 
         await updateDoc(marketRef, {
           [`prices.${character.ticker}`]: targetPrice,
