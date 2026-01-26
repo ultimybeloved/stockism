@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db, createBotsFunction, triggerManualBackupFunction, banUserFunction } from './firebase';
-import { CHARACTERS } from './characters';
-import { ADMIN_UIDS } from './constants';
+import { CHARACTERS, CHARACTER_MAP } from './characters';
+import { ADMIN_UIDS, MIN_PRICE } from './constants';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [activeTab, setActiveTab] = useState('users');
@@ -158,6 +158,41 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setTimeout(() => setMessage(null), 4000);
   };
 
+  // Helper function to apply trailing stock effects
+  const applyTrailingEffects = (marketUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set()) => {
+    if (depth > 3 || visited.has(sourceTicker)) {
+      return;
+    }
+    visited.add(sourceTicker);
+
+    const character = CHARACTER_MAP[sourceTicker];
+    if (!character?.trailingFactors) {
+      return;
+    }
+
+    const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
+
+    character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
+      const oldRelatedPrice = prices[relatedTicker];
+      if (oldRelatedPrice) {
+        const trailingChange = priceChangePercent * coefficient;
+        const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
+        const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+        console.log(`[ADMIN TRAILING] ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
+
+        marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
+        marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
+          timestamp,
+          price: settledRelatedPrice
+        });
+
+        // Recursively apply trailing effects
+        applyTrailingEffects(marketUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, new Set(visited));
+      }
+    });
+  };
+
   // Adjust character price
   const handleModalPriceAdjustment = async (character, percentChange) => {
     const currentPrice = prices[character.ticker] || character.basePrice;
@@ -204,10 +239,18 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         console.log(`Adding price point for ${character.ticker}:`, { timestamp: now, price: targetPrice });
         console.log(`History length: ${currentHistory.length} → ${updatedHistory.length}`);
 
-        await updateDoc(marketRef, {
+        // Build market updates with trailing effects
+        const marketUpdates = {
           [`prices.${character.ticker}`]: targetPrice,
           [`priceHistory.${character.ticker}`]: updatedHistory
-        });
+        };
+
+        // Apply trailing stock effects
+        console.log(`[ADMIN TRAILING START] Applying effects for ${character.ticker}: $${currentPrice} -> $${targetPrice}`);
+        applyTrailingEffects(marketUpdates, character.ticker, currentPrice, targetPrice, now);
+        console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
+
+        await updateDoc(marketRef, marketUpdates);
       } else {
         await setDoc(marketRef, {
           prices: { [character.ticker]: targetPrice },
@@ -284,17 +327,25 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         
         console.log('Current history length for', selectedTicker, ':', currentHistory.length);
         console.log('Last entry:', currentHistory[currentHistory.length - 1]);
-        
+
         // Add new price to history
         const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
 
         console.log('New history length:', updatedHistory.length);
         console.log('New last entry:', updatedHistory[updatedHistory.length - 1]);
 
-        await updateDoc(marketRef, {
+        // Build market updates with trailing effects
+        const marketUpdates = {
           [`prices.${selectedTicker}`]: targetPrice,
           [`priceHistory.${selectedTicker}`]: updatedHistory
-        });
+        };
+
+        // Apply trailing stock effects
+        console.log(`[ADMIN TRAILING START] Applying effects for ${selectedTicker}: $${currentPrice} -> $${targetPrice}`);
+        applyTrailingEffects(marketUpdates, selectedTicker, currentPrice, targetPrice, now);
+        console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
+
+        await updateDoc(marketRef, marketUpdates);
       } else {
         // Market doc doesn't exist, create it with this price
         await setDoc(marketRef, {
