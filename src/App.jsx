@@ -839,7 +839,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = f
 // PREDICTION CARD COMPONENT (Multi-Option with Auto-Payout)
 // ============================================
 
-const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
+const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide, userData }) => {
   const [betAmount, setBetAmount] = useState(50);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
@@ -850,7 +850,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
 
   const timeRemaining = prediction.endsAt - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
-  
+
   // Support both old (yesPool/noPool) and new (pools object) format
   const options = prediction.options || ['Yes', 'No'];
   const pools = prediction.pools || {
@@ -858,7 +858,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
     'No': prediction.noPool || 0
   };
   const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
-  
+
   const getOptionPercent = (option) => {
     if (totalPool === 0) return Math.floor(100 / options.length);
     return Math.floor((pools[option] || 0) / totalPool * 100);
@@ -889,12 +889,18 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
   // Check if user already has a bet on this prediction
   const hasExistingBet = !!userBet;
 
+  // Color blind mode support - teal instead of green, purple instead of red
+  const colorBlindMode = userData?.colorBlindMode || false;
   const optionColors = [
-    { bg: 'bg-green-600', border: 'border-green-600', text: 'text-green-500', fill: 'bg-green-500' },
-    { bg: 'bg-red-600', border: 'border-red-600', text: 'text-red-500', fill: 'bg-red-500' },
+    colorBlindMode
+      ? { bg: 'bg-teal-600', border: 'border-teal-600', text: 'text-teal-500', fill: 'bg-teal-500' }
+      : { bg: 'bg-green-600', border: 'border-green-600', text: 'text-green-500', fill: 'bg-green-500' },
+    colorBlindMode
+      ? { bg: 'bg-purple-600', border: 'border-purple-600', text: 'text-purple-500', fill: 'bg-purple-500' }
+      : { bg: 'bg-red-600', border: 'border-red-600', text: 'text-red-500', fill: 'bg-red-500' },
     { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-blue-500', fill: 'bg-blue-500' },
-    { bg: 'bg-purple-600', border: 'border-purple-600', text: 'text-purple-500', fill: 'bg-purple-500' },
     { bg: 'bg-amber-600', border: 'border-amber-600', text: 'text-amber-500', fill: 'bg-amber-500' },
+    { bg: 'bg-cyan-600', border: 'border-cyan-600', text: 'text-cyan-500', fill: 'bg-cyan-500' },
   ];
 
   return (
@@ -8760,6 +8766,7 @@ export default function App() {
                         betLimit={betLimit}
                         isAdmin={user && ADMIN_UIDS.includes(user.uid)}
                         onHide={handleHidePrediction}
+                        userData={userData}
                       />
                     );
                   })}
