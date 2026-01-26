@@ -2641,39 +2641,72 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 </p>
               </div>
 
-              {/* Migration Diagnostic */}
+              {/* DOTS Data Recovery */}
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                <h3 className="font-semibold text-red-500 mb-2">🔍 DOTS → CROW Migration Check</h3>
+                <h3 className="font-semibold text-red-500 mb-2">🚨 DOTS Data Recovery</h3>
+                <p className={`text-xs ${mutedClass} mb-3`}>
+                  Attempt to recover DOTS price history from archive and apply to CROW.
+                </p>
                 <button
                   onClick={async () => {
+                    if (!window.confirm('Attempt to recover DOTS data from archive and copy to CROW?')) return;
+
                     setLoading(true);
                     try {
+                      // Check archive
+                      const archiveRef = doc(db, 'priceHistoryArchive', 'DOTS');
+                      const archiveSnap = await getDoc(archiveRef);
+
+                      let dotsArchiveData = null;
+                      if (archiveSnap.exists()) {
+                        dotsArchiveData = archiveSnap.data().history || [];
+                        console.log('Found DOTS archive:', dotsArchiveData.length, 'entries');
+                      }
+
+                      // Check main market data
                       const marketRef = doc(db, 'market', 'current');
-                      const snap = await getDoc(marketRef);
-                      if (snap.exists()) {
-                        const data = snap.data();
-                        const dotsPrice = data.prices?.DOTS;
-                        const crowPrice = data.prices?.CROW;
-                        const dotsHistory = data.priceHistory?.DOTS;
-                        const crowHistory = data.priceHistory?.CROW;
+                      const marketSnap = await getDoc(marketRef);
 
-                        let msg = `DOTS Price: ${dotsPrice !== undefined && dotsPrice !== null ? dotsPrice : 'NULL'}\n`;
-                        msg += `CROW Price: ${crowPrice !== undefined && crowPrice !== null ? crowPrice : 'NULL'}\n`;
-                        msg += `DOTS History: ${dotsHistory ? dotsHistory.length + ' entries' : 'NULL'}\n`;
-                        msg += `CROW History: ${crowHistory ? crowHistory.length + ' entries' : 'NULL'}`;
+                      if (!marketSnap.exists()) {
+                        throw new Error('Market data not found');
+                      }
 
-                        alert(msg);
-                        console.log('Market data check:', { dotsPrice, crowPrice, dotsHistory: dotsHistory?.length, crowHistory: crowHistory?.length });
+                      const marketData = marketSnap.data();
+                      const currentCrowHistory = marketData.priceHistory?.CROW || [];
+
+                      console.log('Current CROW history:', currentCrowHistory.length, 'entries');
+
+                      if (dotsArchiveData && dotsArchiveData.length > 0) {
+                        // Merge archive data with current CROW data
+                        const allHistory = [...dotsArchiveData, ...currentCrowHistory];
+                        // Sort by timestamp and dedupe
+                        const sorted = allHistory.sort((a, b) => a.timestamp - b.timestamp);
+                        const deduped = sorted.filter((item, index, arr) =>
+                          index === 0 || item.timestamp !== arr[index - 1].timestamp
+                        );
+
+                        await updateDoc(marketRef, {
+                          [`priceHistory.CROW`]: deduped
+                        });
+
+                        // Also copy archive to CROW archive
+                        const crowArchiveRef = doc(db, 'priceHistoryArchive', 'CROW');
+                        await setDoc(crowArchiveRef, { history: dotsArchiveData }, { merge: true });
+
+                        showMessage('success', `Recovered ${deduped.length} history entries for CROW!`);
+                      } else {
+                        showMessage('error', 'No DOTS archive data found. Data may be lost.');
                       }
                     } catch (err) {
-                      alert('Error checking data: ' + err.message);
+                      console.error(err);
+                      showMessage('error', 'Recovery failed: ' + err.message);
                     }
                     setLoading(false);
                   }}
                   disabled={loading}
                   className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
                 >
-                  Check Migration Status
+                  {loading ? 'Recovering...' : '🔧 Recover DOTS Archive → CROW'}
                 </button>
               </div>
 
