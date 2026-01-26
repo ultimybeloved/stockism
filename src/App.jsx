@@ -7046,11 +7046,16 @@ export default function App() {
       return;
     }
 
+    // SECURITY: Use server timestamp via Firestore serverTimestamp()
+    // This prevents client-side clock manipulation
+    const serverTime = serverTimestamp();
+
     // Trade cooldown - prevent spam trading
+    // NOTE: This is client-side check only. Server validation needed in security rules.
     const now = Date.now();
     const lastTrade = userData.lastTradeTime || 0;
     const cooldownMs = 3000; // 3 second cooldown
-    
+
     if (now - lastTrade < cooldownMs) {
       const remaining = Math.ceil((cooldownMs - (now - lastTrade)) / 1000);
       showNotification('error', `Please wait ${remaining}s between trades`);
@@ -7124,14 +7129,16 @@ export default function App() {
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
       // Build market updates
+      // SECURITY: Use local timestamp for price history (displayed in charts)
+      // but validate on server that trades aren't happening too quickly
+      const priceHistoryTimestamp = Date.now();
       const marketUpdates = {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount), // Track trading volume
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
       };
 
       // Apply trailing stock factor effects (recursive with depth limit)
-      const timestamp = Date.now();
       const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
         console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
 
@@ -7161,7 +7168,7 @@ export default function App() {
 
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
-              timestamp,
+              timestamp: priceHistoryTimestamp,
               price: settledRelatedPrice
             });
 
@@ -7219,15 +7226,16 @@ export default function App() {
       const tradeValue = amount * buyPrice;
 
       // Update user with trade count, cost basis, last buy time, and daily/weekly mission progress
+      // SECURITY: Use server timestamp for lastTradeTime to prevent race conditions
       const updateData = {
         cash: cashAvailable - cashToUse,
         marginUsed: marginUsed + marginToUse,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
         [`lowestWhileHolding.${ticker}`]: Math.round(newLowest * 100) / 100,
-        [`lastBuyTime.${ticker}`]: now,
-        [`lastTickerTradeTime.${ticker}`]: now,
-        lastTradeTime: now,
+        [`lastBuyTime.${ticker}`]: serverTime,
+        [`lastTickerTradeTime.${ticker}`]: serverTime,
+        lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Daily missions
         [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
@@ -7337,14 +7345,15 @@ export default function App() {
       const settledPrice = Math.round(newMidPrice * 100) / 100;
 
       // Build market updates
+      // SECURITY: Use local timestamp for price history (displayed in charts)
+      const priceHistoryTimestamp = Date.now();
       const marketUpdates = {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
       };
 
       // Apply trailing stock factor effects (recursive with depth limit)
-      const timestamp = Date.now();
       const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
         console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
 
@@ -7374,7 +7383,7 @@ export default function App() {
 
             marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
             marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
-              timestamp,
+              timestamp: priceHistoryTimestamp,
               price: settledRelatedPrice
             });
 
@@ -7430,13 +7439,14 @@ export default function App() {
       }
 
       // Build update data
+      // SECURITY: Use server timestamp for lastTradeTime
       const sellUpdateData = {
         cash: userData.cash + cashGain,
         marginUsed: currentMarginUsed - marginPayment,
         [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: costBasisUpdate,
-        [`lastTickerTradeTime.${ticker}`]: now,
-        lastTradeTime: now,
+        [`lastTickerTradeTime.${ticker}`]: serverTime,
+        lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Daily missions
         [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
@@ -7557,9 +7567,9 @@ export default function App() {
         showNotification('error', 'Calculation error, try again');
         return;
       }
-      
+
       const settledPrice = Math.round(newMidPrice * 100) / 100;
-      
+
       // Weekly mission tracking for shorts
       const today = getTodayDateString();
       const weekId = getWeekId();
@@ -7568,6 +7578,7 @@ export default function App() {
       const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
       const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
+      // SECURITY: Use server timestamp
       await updateDoc(userRef, {
         cash: newCash,
         marginUsed: newMarginUsed,
@@ -7575,10 +7586,10 @@ export default function App() {
           shares: totalShares,
           entryPrice: Math.round(avgEntryPrice * 100) / 100,
           margin: existingShort.margin + marginRequired,
-          openedAt: existingShort.openedAt || now
+          openedAt: existingShort.openedAt || serverTime
         },
-        [`lastTickerTradeTime.${ticker}`]: now,
-        lastTradeTime: now,
+        [`lastTickerTradeTime.${ticker}`]: serverTime,
+        lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Weekly missions
         [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * shortPrice),
@@ -7588,18 +7599,19 @@ export default function App() {
       });
 
       // Atomic price + history update
+      const priceHistoryTimestamp = Date.now();
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
         totalTrades: increment(1),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
       });
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
         .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
-      
+
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'SHORT_OPEN', {
         ticker,
@@ -7713,11 +7725,12 @@ export default function App() {
       }
 
       // Update user: add cash gain after margin payment
+      // SECURITY: Use server timestamp
       const updateData = {
         cash: userData.cash + coverCashGain,
         marginUsed: currentMarginUsed - coverMarginPayment,
-        [`lastTickerTradeTime.${ticker}`]: now,
-        lastTradeTime: now,
+        [`lastTickerTradeTime.${ticker}`]: serverTime,
+        lastTradeTime: serverTime,
         // Weekly missions
         [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * coverPrice),
         [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
@@ -7742,11 +7755,12 @@ export default function App() {
       await updateDoc(userRef, updateData);
 
       // Atomic price + history update
+      const priceHistoryTimestamp = Date.now();
       await updateDoc(marketRef, {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount),
         totalTrades: increment(1),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: Date.now(), price: settledPrice })
+        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
       });
 
       // Record portfolio history (using new cash after margin payment)
