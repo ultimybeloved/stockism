@@ -6046,55 +6046,58 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // One-time DOTS → CROW migration (admin only)
+  // One-time DOTS → CROW archive recovery (admin only)
   useEffect(() => {
-    const migrateDotsToCrow = async () => {
+    const recoverDotsArchive = async () => {
       if (!user || !ADMIN_UIDS.includes(user.uid)) return;
       if (!marketData) return;
 
       const OLD_TICKER = 'DOTS';
       const NEW_TICKER = 'CROW';
 
-      // Check if DOTS data still exists
-      const hasDots =
-        (marketData.prices && marketData.prices[OLD_TICKER] !== undefined && marketData.prices[OLD_TICKER] !== null) ||
-        (marketData.priceHistory && marketData.priceHistory[OLD_TICKER]);
-
-      if (!hasDots) {
-        console.log('No DOTS data found, migration already complete or not needed');
+      // Check if CROW has very little history (indicating migration issue)
+      const crowHistory = marketData.priceHistory?.[NEW_TICKER] || [];
+      if (crowHistory.length > 10) {
+        // CROW already has substantial history, no need to recover
         return;
       }
 
-      console.log('⚠️ DOTS data found! Migrating to CROW...');
+      console.log('⚠️ CROW has limited history, checking for DOTS archive...');
 
       try {
-        const marketRef = doc(db, 'market', 'current');
-        const updates = {};
+        // Check DOTS archive subcollection
+        const dotsArchiveRef = doc(db, 'market', 'current', 'price_history', OLD_TICKER);
+        const dotsArchiveSnap = await getDoc(dotsArchiveRef);
 
-        // Migrate price
-        if (marketData.prices && marketData.prices[OLD_TICKER] !== undefined && marketData.prices[OLD_TICKER] !== null) {
-          updates[`prices.${NEW_TICKER}`] = marketData.prices[OLD_TICKER];
-          updates[`prices.${OLD_TICKER}`] = null;
-          console.log(`Migrating price: ${marketData.prices[OLD_TICKER]}`);
-        }
+        if (dotsArchiveSnap.exists()) {
+          const dotsArchiveData = dotsArchiveSnap.data().history || [];
+          console.log(`Found DOTS archive with ${dotsArchiveData.length} entries`);
 
-        // Migrate price history
-        if (marketData.priceHistory && marketData.priceHistory[OLD_TICKER]) {
-          updates[`priceHistory.${NEW_TICKER}`] = marketData.priceHistory[OLD_TICKER];
-          updates[`priceHistory.${OLD_TICKER}`] = null;
-          console.log(`Migrating price history: ${marketData.priceHistory[OLD_TICKER].length} entries`);
-        }
+          // Copy to CROW archive
+          const crowArchiveRef = doc(db, 'market', 'current', 'price_history', NEW_TICKER);
+          await setDoc(crowArchiveRef, { history: dotsArchiveData });
 
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(marketRef, updates);
-          console.log('✅ DOTS → CROW market migration complete!');
+          // Also add to main priceHistory if empty
+          if (crowHistory.length === 0) {
+            const marketRef = doc(db, 'market', 'current');
+            // Take the most recent entries from archive for main doc
+            const recentEntries = dotsArchiveData.slice(-50);
+            await updateDoc(marketRef, {
+              [`priceHistory.${NEW_TICKER}`]: recentEntries
+            });
+            console.log(`Added ${recentEntries.length} recent entries to CROW main history`);
+          }
+
+          console.log('✅ DOTS archive recovered to CROW!');
+        } else {
+          console.log('No DOTS archive found');
         }
       } catch (err) {
-        console.error('Error migrating DOTS → CROW market data:', err);
+        console.error('Error recovering DOTS archive:', err);
       }
     };
 
-    migrateDotsToCrow();
+    recoverDotsArchive();
   }, [user, marketData]);
 
   // Auto-add price history entries and run tiered pruning
