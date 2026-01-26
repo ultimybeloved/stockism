@@ -173,7 +173,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
     character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-      const oldRelatedPrice = prices[relatedTicker];
+      // Skip if we've already updated this ticker in this batch
+      if (visited.has(relatedTicker)) {
+        return;
+      }
+
+      // Get the current price - check marketUpdates first, then fall back to prices
+      const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
       if (oldRelatedPrice) {
         const trailingChange = priceChangePercent * coefficient;
         const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
@@ -187,8 +193,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           price: settledRelatedPrice
         });
 
-        // Recursively apply trailing effects
-        applyTrailingEffects(marketUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, new Set(visited));
+        // Recursively apply trailing effects with shared visited set (no cloning)
+        applyTrailingEffects(marketUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited);
       }
     });
   };

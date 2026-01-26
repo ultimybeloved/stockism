@@ -7182,7 +7182,14 @@ export default function App() {
         console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
+          // Skip if we've already updated this ticker in this batch
+          if (visited.has(relatedTicker)) {
+            console.log(`[TRAILING] Skipping ${relatedTicker} - already visited`);
+            return;
+          }
+
+          // Get current price - check marketUpdates first, then fall back to prices
+          const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
           if (oldRelatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
@@ -7196,9 +7203,8 @@ export default function App() {
               price: settledRelatedPrice
             });
 
-            // Recursively apply trailing effects from this related stock
-            // Clone visited set so siblings don't block each other
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, new Set(visited));
+            // Recursively apply trailing effects with shared visited set (no cloning)
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
           }
         });
       };
@@ -7409,7 +7415,14 @@ export default function App() {
         console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          const oldRelatedPrice = prices[relatedTicker]; // Always use original price from market
+          // Skip if we've already updated this ticker in this batch
+          if (visited.has(relatedTicker)) {
+            console.log(`[TRAILING] Skipping ${relatedTicker} - already visited`);
+            return;
+          }
+
+          // Get current price - check marketUpdates first, then fall back to prices
+          const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
           if (oldRelatedPrice) {
             const trailingChange = priceChangePercent * coefficient;
             const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
@@ -7423,9 +7436,8 @@ export default function App() {
               price: settledRelatedPrice
             });
 
-            // Recursively apply trailing effects from this related stock
-            // Clone visited set so siblings don't block each other
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, new Set(visited));
+            // Recursively apply trailing effects with shared visited set (no cloning)
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
           }
         });
       };
