@@ -116,6 +116,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
 
+  // Ticker migration state
+  const [migrationOldTicker, setMigrationOldTicker] = useState('');
+  const [migrationNewTicker, setMigrationNewTicker] = useState('');
+  const [migrationProgress, setMigrationProgress] = useState(null);
+  const [migrationLog, setMigrationLog] = useState([]);
+  const [migrationConfirm, setMigrationConfirm] = useState(false);
+
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
   // Characters eligible for IPO: those with ipoRequired flag OR not yet in the market
@@ -233,6 +240,167 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       console.error(err);
       showMessage('error', 'Failed to adjust price');
     }
+    setLoading(false);
+  };
+
+  // Ticker Migration
+  const handleTickerMigration = async () => {
+    const oldTicker = migrationOldTicker.trim().toUpperCase();
+    const newTicker = migrationNewTicker.trim().toUpperCase();
+
+    if (!oldTicker || !newTicker) {
+      showMessage('error', 'Please enter both old and new tickers');
+      return;
+    }
+
+    if (oldTicker === newTicker) {
+      showMessage('error', 'Old and new tickers must be different');
+      return;
+    }
+
+    // Validate old ticker exists
+    const oldChar = CHARACTERS.find(c => c.ticker === oldTicker);
+    if (!oldChar) {
+      showMessage('error', `Character with ticker ${oldTicker} not found`);
+      return;
+    }
+
+    // Validate new ticker doesn't exist
+    const newChar = CHARACTERS.find(c => c.ticker === newTicker);
+    if (newChar) {
+      showMessage('error', `Ticker ${newTicker} already exists`);
+      return;
+    }
+
+    if (!migrationConfirm) {
+      showMessage('error', 'Please confirm the migration by checking the box');
+      return;
+    }
+
+    setLoading(true);
+    setMigrationLog([]);
+    setMigrationProgress({ current: 0, total: 0, phase: 'Starting...' });
+
+    const addLog = (msg, type = 'info') => {
+      setMigrationLog(prev => [...prev, { msg, type, timestamp: new Date().toISOString() }]);
+    };
+
+    try {
+      addLog(`Starting migration: ${oldTicker} → ${newTicker}`, 'info');
+
+      // Phase 1: Get all users
+      addLog('Phase 1: Loading all users...', 'info');
+      setMigrationProgress({ current: 0, total: 100, phase: 'Loading users...' });
+
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const totalUsers = usersSnapshot.size;
+      addLog(`Found ${totalUsers} users`, 'success');
+
+      // Phase 2: Migrate user data
+      addLog('Phase 2: Migrating user data...', 'info');
+      let processed = 0;
+      let usersUpdated = 0;
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const updates = {};
+        let hasChanges = false;
+
+        // Migrate holdings
+        if (userData.holdings && userData.holdings[oldTicker]) {
+          updates[`holdings.${newTicker}`] = userData.holdings[oldTicker];
+          updates[`holdings.${oldTicker}`] = null; // Delete old field
+          hasChanges = true;
+        }
+
+        // Migrate shorts
+        if (userData.shorts && userData.shorts[oldTicker]) {
+          updates[`shorts.${newTicker}`] = userData.shorts[oldTicker];
+          updates[`shorts.${oldTicker}`] = null;
+          hasChanges = true;
+        }
+
+        // Migrate cost basis
+        if (userData.costBasis && userData.costBasis[oldTicker]) {
+          updates[`costBasis.${newTicker}`] = userData.costBasis[oldTicker];
+          updates[`costBasis.${oldTicker}`] = null;
+          hasChanges = true;
+        }
+
+        // Migrate lowestWhileHolding
+        if (userData.lowestWhileHolding && userData.lowestWhileHolding[oldTicker]) {
+          updates[`lowestWhileHolding.${newTicker}`] = userData.lowestWhileHolding[oldTicker];
+          updates[`lowestWhileHolding.${oldTicker}`] = null;
+          hasChanges = true;
+        }
+
+        // Migrate watchlist
+        if (userData.watchlist && Array.isArray(userData.watchlist) && userData.watchlist.includes(oldTicker)) {
+          const newWatchlist = userData.watchlist.map(t => t === oldTicker ? newTicker : t);
+          updates.watchlist = newWatchlist;
+          hasChanges = true;
+        }
+
+        if (hasChanges) {
+          const userRef = doc(db, 'users', userDoc.id);
+          await updateDoc(userRef, updates);
+          usersUpdated++;
+        }
+
+        processed++;
+        setMigrationProgress({ current: processed, total: totalUsers, phase: `Migrating users (${usersUpdated} updated)...` });
+      }
+
+      addLog(`Updated ${usersUpdated} users`, 'success');
+
+      // Phase 3: Migrate market data
+      addLog('Phase 3: Migrating market data...', 'info');
+      setMigrationProgress({ current: 0, total: 2, phase: 'Migrating market data...' });
+
+      const marketRef = doc(db, 'market', 'current');
+      const marketSnap = await getDoc(marketRef);
+
+      if (marketSnap.exists()) {
+        const marketData = marketSnap.data();
+        const marketUpdates = {};
+
+        // Migrate price
+        if (marketData.prices && marketData.prices[oldTicker]) {
+          marketUpdates[`prices.${newTicker}`] = marketData.prices[oldTicker];
+          marketUpdates[`prices.${oldTicker}`] = null;
+        }
+
+        // Migrate price history
+        if (marketData.priceHistory && marketData.priceHistory[oldTicker]) {
+          marketUpdates[`priceHistory.${newTicker}`] = marketData.priceHistory[oldTicker];
+          marketUpdates[`priceHistory.${oldTicker}`] = null;
+        }
+
+        if (Object.keys(marketUpdates).length > 0) {
+          await updateDoc(marketRef, marketUpdates);
+          addLog('Market data migrated', 'success');
+        }
+      }
+
+      setMigrationProgress({ current: 2, total: 2, phase: 'Market data migrated' });
+
+      // Final message
+      addLog(`✅ Migration complete! ${oldTicker} → ${newTicker}`, 'success');
+      addLog(`⚠️ IMPORTANT: You must now update src/characters.js manually to change the ticker from ${oldTicker} to ${newTicker}`, 'warning');
+
+      showMessage('success', `Migration complete! Don't forget to update characters.js file manually.`);
+
+      // Reset form
+      setMigrationOldTicker('');
+      setMigrationNewTicker('');
+      setMigrationConfirm(false);
+
+    } catch (err) {
+      console.error('Migration error:', err);
+      addLog(`❌ Error: ${err.message}`, 'error');
+      showMessage('error', 'Migration failed: ' + err.message);
+    }
+
     setLoading(false);
   };
 
@@ -2563,7 +2731,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         </div>
 
         {/* Tabs - Responsive grid layout */}
-        <div className={`grid grid-cols-3 md:grid-cols-6 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`grid grid-cols-3 md:grid-cols-5 lg:grid-cols-10 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <button
             onClick={() => setActiveTab('prices')}
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'prices' ? 'text-teal-500 border-b-2 border-teal-500 bg-teal-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
@@ -2617,6 +2785,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
           >
             🔧 Recovery
+          </button>
+          <button
+            onClick={() => setActiveTab('migration')}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'migration' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🔄 Migrate
           </button>
         </div>
 
@@ -5058,6 +5232,121 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MIGRATION TAB */}
+          {activeTab === 'migration' && (
+            <div className="space-y-4">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                <p className={`text-sm ${mutedClass} mb-2`}>
+                  🔄 <strong>Ticker Migration Tool</strong> - Change a character's ticker and migrate all user data automatically.
+                </p>
+                <p className={`text-xs ${mutedClass}`}>
+                  ⚠️ <strong>WARNING:</strong> This will update all user holdings, shorts, cost basis, watchlists, and market data.
+                  After running, you MUST manually update <code>src/characters.js</code> to make the change permanent.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-3 ${textClass}`}>🔄 Migrate Ticker</h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-sm font-semibold mb-1 ${textClass}`}>Old Ticker</label>
+                    <select
+                      value={migrationOldTicker}
+                      onChange={(e) => setMigrationOldTicker(e.target.value)}
+                      className={`w-full px-3 py-2 rounded-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                    >
+                      <option value="">Select character...</option>
+                      {CHARACTERS.map(c => (
+                        <option key={c.ticker} value={c.ticker}>
+                          {c.ticker} - {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-semibold mb-1 ${textClass}`}>New Ticker</label>
+                    <input
+                      type="text"
+                      value={migrationNewTicker}
+                      onChange={(e) => setMigrationNewTicker(e.target.value.toUpperCase())}
+                      placeholder="CROW"
+                      maxLength={6}
+                      className={`w-full px-3 py-2 rounded-sm border ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                    />
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="migration-confirm"
+                      checked={migrationConfirm}
+                      onChange={(e) => setMigrationConfirm(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <label htmlFor="migration-confirm" className={`text-sm ${mutedClass}`}>
+                      I understand this will migrate all user data and I will manually update src/characters.js after this completes
+                    </label>
+                  </div>
+
+                  <button
+                    onClick={handleTickerMigration}
+                    disabled={loading || !migrationOldTicker || !migrationNewTicker || !migrationConfirm}
+                    className="w-full px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Migrating...' : '🔄 Start Migration'}
+                  </button>
+                </div>
+
+                {/* Migration Progress */}
+                {migrationProgress && (
+                  <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-50'} border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+                    <div className={`text-sm font-semibold mb-2 ${textClass}`}>
+                      {migrationProgress.phase}
+                    </div>
+                    {migrationProgress.total > 0 && (
+                      <div className="w-full bg-slate-600 rounded-full h-2">
+                        <div
+                          className="bg-pink-500 h-2 rounded-full transition-all"
+                          style={{ width: `${(migrationProgress.current / migrationProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                    <div className={`text-xs ${mutedClass} mt-1`}>
+                      {migrationProgress.current} / {migrationProgress.total}
+                    </div>
+                  </div>
+                )}
+
+                {/* Migration Log */}
+                {migrationLog.length > 0 && (
+                  <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-slate-900' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'} max-h-96 overflow-y-auto`}>
+                    <div className={`text-sm font-semibold mb-2 ${textClass}`}>Migration Log</div>
+                    <div className="space-y-1 font-mono text-xs">
+                      {migrationLog.map((log, idx) => (
+                        <div
+                          key={idx}
+                          className={
+                            log.type === 'error'
+                              ? 'text-red-500'
+                              : log.type === 'success'
+                              ? 'text-green-500'
+                              : log.type === 'warning'
+                              ? 'text-yellow-500'
+                              : mutedClass
+                          }
+                        >
+                          [{new Date(log.timestamp).toLocaleTimeString()}] {log.msg}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
