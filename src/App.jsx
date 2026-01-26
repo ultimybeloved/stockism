@@ -6046,6 +6046,57 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // One-time DOTS → CROW migration (admin only)
+  useEffect(() => {
+    const migrateDotsToCrow = async () => {
+      if (!user || !ADMIN_UIDS.includes(user.uid)) return;
+      if (!marketData) return;
+
+      const OLD_TICKER = 'DOTS';
+      const NEW_TICKER = 'CROW';
+
+      // Check if DOTS data still exists
+      const hasDots =
+        (marketData.prices && marketData.prices[OLD_TICKER] !== undefined && marketData.prices[OLD_TICKER] !== null) ||
+        (marketData.priceHistory && marketData.priceHistory[OLD_TICKER]);
+
+      if (!hasDots) {
+        console.log('No DOTS data found, migration already complete or not needed');
+        return;
+      }
+
+      console.log('⚠️ DOTS data found! Migrating to CROW...');
+
+      try {
+        const marketRef = doc(db, 'market', 'current');
+        const updates = {};
+
+        // Migrate price
+        if (marketData.prices && marketData.prices[OLD_TICKER] !== undefined && marketData.prices[OLD_TICKER] !== null) {
+          updates[`prices.${NEW_TICKER}`] = marketData.prices[OLD_TICKER];
+          updates[`prices.${OLD_TICKER}`] = null;
+          console.log(`Migrating price: ${marketData.prices[OLD_TICKER]}`);
+        }
+
+        // Migrate price history
+        if (marketData.priceHistory && marketData.priceHistory[OLD_TICKER]) {
+          updates[`priceHistory.${NEW_TICKER}`] = marketData.priceHistory[OLD_TICKER];
+          updates[`priceHistory.${OLD_TICKER}`] = null;
+          console.log(`Migrating price history: ${marketData.priceHistory[OLD_TICKER].length} entries`);
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(marketRef, updates);
+          console.log('✅ DOTS → CROW market migration complete!');
+        }
+      } catch (err) {
+        console.error('Error migrating DOTS → CROW market data:', err);
+      }
+    };
+
+    migrateDotsToCrow();
+  }, [user, marketData]);
+
   // Auto-add price history entries and run tiered pruning
   useEffect(() => {
     if (!user) return;
