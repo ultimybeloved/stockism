@@ -5967,7 +5967,19 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
-  const [showPredictions, setShowPredictions] = useState(true); // Start expanded, will update when predictions load
+  const [showPredictions, setShowPredictions] = useState(() => {
+    // Try to load saved state, but default to true if no saved state exists
+    try {
+      const stored = localStorage.getItem('showPredictions');
+      if (stored) {
+        const { collapsed } = JSON.parse(stored);
+        return collapsed;
+      }
+    } catch {
+      // Ignore errors
+    }
+    return true; // Default to expanded
+  });
   const [showNewCharacters, setShowNewCharacters] = useState(() => {
     // Initialize from localStorage based on current week
     return loadCollapsedState('showNewCharacters', getWeekIdentifier());
