@@ -198,21 +198,21 @@ service cloud.firestore {
     }
     
     function validatePredictionBet() {
-      // Users can only modify the bets field
-      // And only add to it, not remove or modify existing bets
+      // Users can update the list field to add bet amounts to pools
+      // The list structure contains prediction objects with pools
       let oldData = resource.data;
       let newData = request.resource.data;
-      
+
       return (
         isAuthenticated() &&
-        // Cannot change resolution status
-        newData.resolved == oldData.resolved &&
-        // Cannot change end time
-        newData.endsAt == oldData.endsAt &&
-        // Cannot change question or options
-        newData.question == oldData.question
-        // Note: Full bet validation would check that user has enough cash
-        // This requires Cloud Functions for proper implementation
+        // Must have a list field (array of predictions)
+        'list' in newData &&
+        // List must exist in both old and new
+        'list' in oldData &&
+        // List sizes must match (can't add/remove predictions)
+        newData.list.size() == oldData.list.size()
+        // Note: Full validation would check that only pool amounts increased
+        // and user has sufficient cash. Cloud Functions recommended for this.
       );
     }
     
