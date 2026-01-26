@@ -5967,10 +5967,7 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
-  const [showPredictions, setShowPredictions] = useState(() => {
-    // Initialize from localStorage based on current predictions week
-    return loadCollapsedState('showPredictions', 'initial');
-  });
+  const [showPredictions, setShowPredictions] = useState(true); // Start expanded, will update when predictions load
   const [showNewCharacters, setShowNewCharacters] = useState(() => {
     // Initialize from localStorage based on current week
     return loadCollapsedState('showNewCharacters', getWeekIdentifier());
@@ -6386,19 +6383,28 @@ export default function App() {
 
   // Handle predictions collapse state persistence
   useEffect(() => {
+    if (predictions.length === 0) return; // Wait for predictions to load
+
     const predictionsId = getPredictionsIdentifier(predictions);
     const stored = localStorage.getItem('showPredictions');
 
     if (stored) {
       try {
-        const { identifier } = JSON.parse(stored);
-        // If predictions have changed (new week), reset to expanded
-        if (identifier !== predictionsId && predictions.length > 0) {
+        const { collapsed, identifier } = JSON.parse(stored);
+        // If predictions have changed (new predictions added), reset to expanded
+        if (identifier !== predictionsId) {
           setShowPredictions(true);
+        } else {
+          // Same predictions, restore saved state
+          setShowPredictions(collapsed);
         }
       } catch {
-        // Ignore errors
+        // Default to expanded on error
+        setShowPredictions(true);
       }
+    } else {
+      // No saved state, default to expanded
+      setShowPredictions(true);
     }
   }, [predictions]);
 
