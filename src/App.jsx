@@ -743,6 +743,40 @@ const getWeekStart = () => {
   return weekStart;
 };
 
+// Helper to get week identifier for persistence
+const getWeekIdentifier = () => {
+  return getWeekStart().toISOString().split('T')[0]; // e.g., "2026-01-22"
+};
+
+// Helper to get predictions identifier for detecting new predictions
+const getPredictionsIdentifier = (predictions) => {
+  if (!predictions || predictions.length === 0) return 'none';
+  // Create a simple hash based on prediction IDs
+  return predictions.map(p => p.id).sort().join(',');
+};
+
+// Helper to load collapsed state from localStorage
+const loadCollapsedState = (key, weekOrPredictionsId) => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return true; // Default to expanded
+    const { collapsed, identifier } = JSON.parse(stored);
+    // If the week/predictions have changed, reset to expanded
+    return identifier === weekOrPredictionsId ? collapsed : true;
+  } catch {
+    return true; // Default to expanded on error
+  }
+};
+
+// Helper to save collapsed state to localStorage
+const saveCollapsedState = (key, collapsed, identifier) => {
+  try {
+    localStorage.setItem(key, JSON.stringify({ collapsed, identifier }));
+  } catch {
+    // Ignore localStorage errors
+  }
+};
+
 const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -5871,8 +5905,14 @@ export default function App() {
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
-  const [showPredictions, setShowPredictions] = useState(true); // Weekly predictions collapse state
-  const [showNewCharacters, setShowNewCharacters] = useState(true); // New characters collapse state
+  const [showPredictions, setShowPredictions] = useState(() => {
+    // Initialize from localStorage based on current predictions week
+    return loadCollapsedState('showPredictions', 'initial');
+  });
+  const [showNewCharacters, setShowNewCharacters] = useState(() => {
+    // Initialize from localStorage based on current week
+    return loadCollapsedState('showNewCharacters', getWeekIdentifier());
+  });
 
   // Color blind mode helpers - returns accessible colors
   const getColorBlindColors = useCallback((isPositive) => {
@@ -6281,6 +6321,54 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Handle predictions collapse state persistence
+  useEffect(() => {
+    const predictionsId = getPredictionsIdentifier(predictions);
+    const stored = localStorage.getItem('showPredictions');
+
+    if (stored) {
+      try {
+        const { identifier } = JSON.parse(stored);
+        // If predictions have changed (new week), reset to expanded
+        if (identifier !== predictionsId && predictions.length > 0) {
+          setShowPredictions(true);
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+  }, [predictions]);
+
+  // Persist predictions collapse state
+  useEffect(() => {
+    const predictionsId = getPredictionsIdentifier(predictions);
+    saveCollapsedState('showPredictions', showPredictions, predictionsId);
+  }, [showPredictions, predictions]);
+
+  // Handle new characters collapse state - reset on new week
+  useEffect(() => {
+    const currentWeek = getWeekIdentifier();
+    const stored = localStorage.getItem('showNewCharacters');
+
+    if (stored) {
+      try {
+        const { identifier } = JSON.parse(stored);
+        // If week has changed, reset to expanded
+        if (identifier !== currentWeek) {
+          setShowNewCharacters(true);
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+  }, []); // Only run on mount
+
+  // Persist new characters collapse state
+  useEffect(() => {
+    const currentWeek = getWeekIdentifier();
+    saveCollapsedState('showNewCharacters', showNewCharacters, currentWeek);
+  }, [showNewCharacters]);
 
   // Auto-process payouts when prediction is resolved
   useEffect(() => {
