@@ -68,7 +68,7 @@ import {
   formatTimeRemaining,
   round2
 } from './utils/formatters';
-import { getTodayDateString } from './utils/date';
+import { getTodayDateString, isToday, toMillis } from './utils/date';
 
 // Transaction logging - records all significant financial actions for auditing
 const logTransaction = async (db, userId, type, details) => {
@@ -7108,7 +7108,7 @@ export default function App() {
 
     // Trade cooldown - client-side check as backup
     const now = Date.now();
-    const lastTrade = userData.lastTradeTime || 0;
+    const lastTrade = toMillis(userData.lastTradeTime);
     const cooldownMs = 3000; // 3 second cooldown
 
     if (now - lastTrade < cooldownMs) {
@@ -7264,15 +7264,7 @@ export default function App() {
       const userCrew = userData.crew;
       const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
       const isBuyingCrewMember = crewMembers.includes(ticker);
-      const currentTradesCount = userData.dailyMissions?.[today]?.tradesCount || 0;
-      const currentTradeVolume = userData.dailyMissions?.[today]?.tradeVolume || 0;
       const currentCrewSharesBought = userData.dailyMissions?.[today]?.crewSharesBought || 0;
-
-      // Weekly mission progress
-      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
-      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
-      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
       // Check if buying a rival (any crew member that's not user's crew)
       const isRival = !isBuyingCrewMember && Object.values(CREWS).some(crew => crew.members.includes(ticker));
@@ -7296,13 +7288,13 @@ export default function App() {
         lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Daily missions
-        [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
-        [`dailyMissions.${today}.tradeVolume`]: currentTradeVolume + amount,
+        [`dailyMissions.${today}.tradesCount`]: increment(1),
+        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
         [`dailyMissions.${today}.boughtAny`]: true,
         // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + tradeValue,
-        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
-        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(tradeValue),
+        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
       
@@ -7387,7 +7379,7 @@ export default function App() {
 
       // Holding period check - must hold shares for 45 seconds before selling
       const HOLDING_PERIOD_MS = 45 * 1000; // 45 seconds
-      const lastBuyTime = userData.lastBuyTime?.[ticker] || 0;
+      const lastBuyTime = toMillis(userData.lastBuyTime?.[ticker]);
       const timeSinceBuy = now - lastBuyTime;
       
       if (lastBuyTime > 0 && timeSinceBuy < HOLDING_PERIOD_MS) {
@@ -7494,14 +7486,6 @@ export default function App() {
       // Track daily mission progress
       const today = getTodayDateString();
       const weekId = getWeekId();
-      const currentTradesCount = userData.dailyMissions?.[today]?.tradesCount || 0;
-      const currentTradeVolume = userData.dailyMissions?.[today]?.tradeVolume || 0;
-
-      // Weekly mission progress
-      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
-      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
-      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
       // MARGIN DEBT REPAYMENT: Sale proceeds pay down margin debt first
       const currentMarginUsed = userData.marginUsed || 0;
@@ -7525,13 +7509,13 @@ export default function App() {
         lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Daily missions
-        [`dailyMissions.${today}.tradesCount`]: currentTradesCount + 1,
-        [`dailyMissions.${today}.tradeVolume`]: currentTradeVolume + amount,
+        [`dailyMissions.${today}.tradesCount`]: increment(1),
+        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
         [`dailyMissions.${today}.soldAny`]: true,
         // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + totalRevenue,
-        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
-        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalRevenue),
+        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
       
@@ -7660,10 +7644,6 @@ export default function App() {
       // Weekly mission tracking for shorts
       const today = getTodayDateString();
       const weekId = getWeekId();
-      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
-      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
-      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
       // SECURITY: Use server timestamp
       await updateDoc(userRef, {
@@ -7679,9 +7659,9 @@ export default function App() {
         lastTradeTime: serverTime,
         totalTrades: increment(1),
         // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * shortPrice),
-        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
-        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * shortPrice),
+        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       });
 
@@ -7807,10 +7787,6 @@ export default function App() {
       // Weekly mission tracking for covers
       const today = getTodayDateString();
       const weekId = getWeekId();
-      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-      const currentWeeklyTradeValue = weeklyProgress.tradeValue || 0;
-      const currentWeeklyTradeVolume = weeklyProgress.tradeVolume || 0;
-      const currentWeeklyTradeCount = weeklyProgress.tradeCount || 0;
 
       // MARGIN DEBT REPAYMENT: Cover proceeds pay down margin debt first
       const currentMarginUsed = userData.marginUsed || 0;
@@ -7831,9 +7807,9 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: serverTime,
         lastTradeTime: serverTime,
         // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: currentWeeklyTradeValue + (amount * coverPrice),
-        [`weeklyMissions.${weekId}.tradeVolume`]: currentWeeklyTradeVolume + amount,
-        [`weeklyMissions.${weekId}.tradeCount`]: currentWeeklyTradeCount + 1,
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * coverPrice),
+        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
 
@@ -7934,42 +7910,54 @@ export default function App() {
   useEffect(() => {
     if (!user || !userData || Object.keys(prices).length === 0) return;
 
-    // Calculate holdings value
-    const holdingsValue = Object.entries(userData.holdings || {})
-      .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
-    
-    // Calculate shorts value (collateral + P&L)
-    const shortsValue = Object.entries(userData.shorts || {})
-      .reduce((sum, [ticker, position]) => {
-        if (!position || position.shares <= 0) return sum;
-        const currentPrice = prices[ticker] || position.entryPrice;
-        const collateral = position.margin || 0;
-        // P&L = (entry price - current price) * shares (profit when price goes down)
-        const pnl = (position.entryPrice - currentPrice) * position.shares;
-        return sum + collateral + pnl;
-      }, 0);
+    const updatePortfolio = async () => {
+      // Calculate holdings value
+      const holdingsValue = Object.entries(userData.holdings || {})
+        .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
 
-    const portfolioValue = userData.cash + holdingsValue + shortsValue;
-    const roundedValue = Math.round(portfolioValue * 100) / 100;
-    const userRef = doc(db, 'users', user.uid);
-    
-    // Update current portfolio value
-    updateDoc(userRef, { portfolioValue: roundedValue });
-    
-    // Also record to history periodically (every 10 minutes max)
-    const currentHistory = userData.portfolioHistory || [];
-    const lastRecord = currentHistory[currentHistory.length - 1];
-    const now = Date.now();
-    const tenMinutes = 10 * 60 * 1000;
-    
-    // Record if: no history yet, OR last record was 10+ minutes ago, OR value changed significantly (>1%)
-    const valueChanged = lastRecord && Math.abs(roundedValue - lastRecord.value) / lastRecord.value > 0.01;
-    const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
-    
-    if (!lastRecord || timeElapsed || valueChanged) {
-      const updatedHistory = [...currentHistory, { timestamp: now, value: roundedValue }].slice(-500);
-      updateDoc(userRef, { portfolioHistory: updatedHistory });
-    }
+      // Calculate shorts value (collateral + P&L)
+      const shortsValue = Object.entries(userData.shorts || {})
+        .reduce((sum, [ticker, position]) => {
+          if (!position || position.shares <= 0) return sum;
+          const currentPrice = prices[ticker] || position.entryPrice;
+          const collateral = position.margin || 0;
+          // P&L = (entry price - current price) * shares (profit when price goes down)
+          const pnl = (position.entryPrice - currentPrice) * position.shares;
+          return sum + collateral + pnl;
+        }, 0);
+
+      const portfolioValue = userData.cash + holdingsValue + shortsValue;
+      const roundedValue = Math.round(portfolioValue * 100) / 100;
+      const userRef = doc(db, 'users', user.uid);
+
+      // Update current portfolio value
+      try {
+        await updateDoc(userRef, { portfolioValue: roundedValue });
+      } catch (error) {
+        console.error('[PORTFOLIO UPDATE ERROR]', error);
+      }
+
+      // Also record to history periodically (every 10 minutes max)
+      const currentHistory = userData.portfolioHistory || [];
+      const lastRecord = currentHistory[currentHistory.length - 1];
+      const now = Date.now();
+      const tenMinutes = 10 * 60 * 1000;
+
+      // Record if: no history yet, OR last record was 10+ minutes ago, OR value changed significantly (>1%)
+      const valueChanged = lastRecord && Math.abs(roundedValue - lastRecord.value) / lastRecord.value > 0.01;
+      const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
+
+      if (!lastRecord || timeElapsed || valueChanged) {
+        const updatedHistory = [...currentHistory, { timestamp: now, value: roundedValue }].slice(-500);
+        try {
+          await updateDoc(userRef, { portfolioHistory: updatedHistory });
+        } catch (error) {
+          console.error('[PORTFOLIO HISTORY ERROR]', error);
+        }
+      }
+    };
+
+    updatePortfolio();
   }, [user, userData, prices]);
 
   // Margin monitoring - check for margin calls and auto-liquidation
@@ -8234,8 +8222,14 @@ export default function App() {
       updateData.achievements = arrayUnion(...newAchievements);
     }
 
-    await updateDoc(userRef, updateData);
-    
+    try {
+      await updateDoc(userRef, updateData);
+    } catch (error) {
+      console.error('[CHECKIN ERROR]', error);
+      showNotification('error', 'Failed to check in. Please try again.');
+      return;
+    }
+
     // Log transaction for auditing
     await logTransaction(db, user.uid, 'CHECKIN', {
       bonus: DAILY_BONUS,

@@ -101,3 +101,17 @@ export const formatFullDate = (timestamp) => {
     minute: '2-digit'
   });
 };
+
+/**
+ * Convert Firestore Timestamp or number to milliseconds
+ * Handles both Firestore Timestamp objects and plain numbers
+ * @param {Object|number} timestamp - Firestore Timestamp object or number
+ * @returns {number} Unix timestamp in milliseconds
+ */
+export const toMillis = (timestamp) => {
+  if (!timestamp) return 0;
+  if (typeof timestamp === 'number') return timestamp;
+  if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+  if (timestamp.seconds) return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
+  return 0;
+};
