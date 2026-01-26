@@ -954,6 +954,16 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
           <div className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}>
             {formatCurrency(userBet.amount)} on "{userBet.option}"
           </div>
+          {isActive && !prediction.resolved && (() => {
+            // Calculate current potential payout
+            const myPool = pools[userBet.option] || 0;
+            const potentialPayout = myPool > 0 ? (userBet.amount / myPool) * totalPool : userBet.amount;
+            return (
+              <div className={`text-xs mt-1 ${mutedClass}`}>
+                Current potential: <span className="text-orange-500 font-semibold">{formatCurrency(potentialPayout)}</span>
+              </div>
+            );
+          })()}
           {prediction.resolved && (
             <div className={`text-xs mt-1 ${userBet.option === prediction.outcome ? 'text-green-500' : 'text-red-500'}`}>
               {userBet.option === prediction.outcome ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!` : '❌ Lost'}
