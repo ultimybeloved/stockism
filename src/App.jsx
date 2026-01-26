@@ -7171,7 +7171,9 @@ export default function App() {
         });
       };
 
+      console.log(`[TRAILING START] About to call applyTrailingEffects for ${ticker}: $${price} -> $${settledPrice}`);
       applyTrailingEffects(ticker, price, settledPrice);
+      console.log(`[TRAILING END] Finished applyTrailingEffects for ${ticker}`);
 
       // Atomic price + history update (prevents data loss if one write fails)
       await updateDoc(marketRef, marketUpdates);
@@ -7382,7 +7384,9 @@ export default function App() {
         });
       };
 
+      console.log(`[TRAILING START] About to call applyTrailingEffects for ${ticker}: $${price} -> $${settledPrice}`);
       applyTrailingEffects(ticker, price, settledPrice);
+      console.log(`[TRAILING END] Finished applyTrailingEffects for ${ticker}`);
 
       // Atomic price + history update
       await updateDoc(marketRef, marketUpdates);
