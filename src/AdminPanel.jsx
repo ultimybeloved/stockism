@@ -2563,13 +2563,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         </div>
 
         {/* Tabs - Responsive grid layout */}
-        <div className={`grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <button
-            onClick={() => setActiveTab('prices')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'prices' ? 'text-teal-500 border-b-2 border-teal-500 bg-teal-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            💰 Prices
-          </button>
+        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <button
             onClick={() => { setActiveTab('ipo'); loadIPOs(); }}
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'ipo' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
@@ -2631,279 +2625,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          
-          {/* PRICES TAB */}
-          {activeTab === 'prices' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                <p className={`text-sm ${mutedClass} mb-2`}>
-                  📊 Manually adjust character prices. Use this for story events (deaths, power-ups, etc.)
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Character</label>
-                <select
-                  value={selectedTicker}
-                  onChange={e => setSelectedTicker(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                >
-                  <option value="">-- Select Character --</option>
-                  {sortedCharacters.map(c => (
-                    <option key={c.ticker} value={c.ticker}>
-                      {c.name} (${c.ticker}) - Current: ${(prices[c.ticker] || c.basePrice).toFixed(2)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedTicker && (
-                <>
-                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                    <div className="flex justify-between items-center">
-                      <span className={textClass}>Current Price:</span>
-                      <span className={`text-lg font-bold ${textClass}`}>
-                        ${(prices[selectedTicker] || 0).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Price History Viewer */}
-                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-semibold text-blue-500">📈 Price History</h4>
-                      <button
-                        onClick={async () => {
-                          const history = await getPriceHistoryForTicker(selectedTicker);
-                          setSelectedTickerHistory(history);
-                        }}
-                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-sm"
-                      >
-                        Load History
-                      </button>
-                    </div>
-                    {selectedTickerHistory.length > 0 && (
-                      <div className="max-h-48 overflow-y-auto space-y-1">
-                        {selectedTickerHistory.slice().reverse().slice(0, 50).map((h, i) => {
-                          const prevPrice = selectedTickerHistory.slice().reverse()[i + 1]?.price;
-                          const change = prevPrice ? ((h.price - prevPrice) / prevPrice * 100) : 0;
-                          return (
-                            <div key={i} className={`text-xs flex justify-between items-center py-1 px-2 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                              <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
-                              <div className="flex items-center gap-2">
-                                <span className={`font-semibold ${textClass}`}>${h.price.toFixed(2)}</span>
-                                {change !== 0 && (
-                                  <span className={`text-xs ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {change > 0 ? '+' : ''}{change.toFixed(1)}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {selectedTickerHistory.length === 0 && (
-                      <p className={`text-xs ${mutedClass}`}>Click "Load History" to view price changes</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Adjustment Type</label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setAdjustmentType('set')}
-                        className={`flex-1 py-2 text-sm font-semibold rounded-sm ${
-                          adjustmentType === 'set' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        Set Price
-                      </button>
-                      <button
-                        onClick={() => setAdjustmentType('percent')}
-                        className={`flex-1 py-2 text-sm font-semibold rounded-sm ${
-                          adjustmentType === 'percent' ? 'bg-teal-600 text-white' : darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        % Change
-                      </button>
-                    </div>
-                  </div>
-
-                  {adjustmentType === 'set' ? (
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New Price ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={newPrice}
-                        onChange={e => setNewPrice(e.target.value)}
-                        placeholder="Enter new price..."
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Percentage Change</label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={percentChange}
-                        onChange={e => setPercentChange(e.target.value)}
-                        placeholder="e.g. -20 for -20%, 50 for +50%"
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                      <div className="flex gap-2 mt-2">
-                        {[-50, -25, -10, 10, 25, 50].map(pct => (
-                          <button
-                            key={pct}
-                            onClick={() => setPercentChange(pct.toString())}
-                            className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${
-                              pct < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-                            } text-white`}
-                          >
-                            {pct > 0 ? '+' : ''}{pct}%
-                          </button>
-                        ))}
-                      </div>
-                      {percentChange && (
-                        <p className={`text-sm ${mutedClass} mt-2`}>
-                          Preview: ${(prices[selectedTicker] || 0).toFixed(2)} → $
-                          {(Math.round((prices[selectedTicker] || 0) * (1 + parseFloat(percentChange || 0) / 100) * 100) / 100).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handlePriceAdjustment}
-                    disabled={loading}
-                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? 'Updating...' : '💰 Apply Price Change'}
-                  </button>
-                </>
-              )}
-
-              {/* TRADE HISTORY & ROLLBACK SECTION */}
-              <div className={`mt-6 pt-6 border-t ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
-                <h3 className={`font-semibold ${textClass} mb-3`}>🔍 Trade History & Rollback</h3>
-
-                {/* Ticker selector for investigation */}
-                <div className="mb-3">
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Investigate Ticker</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={tradeFilterTicker}
-                      onChange={e => { setTradeFilterTicker(e.target.value); setSelectedTickerHistory([]); }}
-                      className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
-                    >
-                      <option value="">-- Select Ticker --</option>
-                      {sortedCharacters.map(c => (
-                        <option key={c.ticker} value={c.ticker}>
-                          {c.name} (${c.ticker}) - ${(prices[c.ticker] || c.basePrice).toFixed(2)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={async () => {
-                        if (tradeFilterTicker) {
-                          const history = await getPriceHistoryForTicker(tradeFilterTicker);
-                          setSelectedTickerHistory(history);
-                        }
-                      }}
-                      disabled={!tradeFilterTicker}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      Load History
-                    </button>
-                  </div>
-                </div>
-
-                {/* Price History Display */}
-                {selectedTickerHistory.length > 0 && (
-                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={`text-sm font-semibold ${textClass}`}>
-                        ${tradeFilterTicker} Price History ({selectedTickerHistory.length} entries)
-                      </span>
-                      <span className={`text-xs ${mutedClass}`}>Click timestamp to set rollback point</span>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {selectedTickerHistory.slice().reverse().slice(0, 100).map((h, i, arr) => {
-                        const prevPrice = arr[i + 1]?.price;
-                        const change = prevPrice ? ((h.price - prevPrice) / prevPrice * 100) : 0;
-                        return (
-                          <div
-                            key={i}
-                            className={`text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 ${darkMode ? 'bg-slate-700' : 'bg-white'}`}
-                            onClick={() => setRollbackTimestamp(h.timestamp.toString())}
-                          >
-                            <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
-                            <div className="flex items-center gap-3">
-                              <span className={`font-semibold ${textClass}`}>${h.price.toFixed(2)}</span>
-                              {change !== 0 && (
-                                <span className={`font-semibold ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {change > 0 ? '+' : ''}{change.toFixed(1)}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Rollback Controls */}
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                  <h4 className="font-semibold text-red-500 mb-2">⚠️ Rollback Trades</h4>
-                  <p className={`text-xs ${mutedClass} mb-3`}>
-                    This will reverse ALL trades after the selected timestamp and restore prices.
-                  </p>
-
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={rollbackTimestamp}
-                      onChange={e => setRollbackTimestamp(e.target.value)}
-                      placeholder="Timestamp (click history above)"
-                      className={`flex-1 px-3 py-2 border rounded-sm text-sm ${inputClass}`}
-                    />
-                  </div>
-
-                  {rollbackTimestamp && (
-                    <p className={`text-sm ${textClass} mb-2`}>
-                      Rollback to: <span className="text-orange-500 font-semibold">{new Date(parseInt(rollbackTimestamp)).toLocaleString()}</span>
-                    </p>
-                  )}
-
-                  <label className={`flex items-center gap-2 text-sm ${textClass} mb-3`}>
-                    <input
-                      type="checkbox"
-                      checked={rollbackConfirm}
-                      onChange={e => setRollbackConfirm(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    I understand this will reverse ALL trades and cannot be undone
-                  </label>
-
-                  <button
-                    onClick={() => {
-                      if (rollbackTimestamp && rollbackConfirm) {
-                        executeFullRollback(parseInt(rollbackTimestamp));
-                      }
-                    }}
-                    disabled={loading || !rollbackTimestamp || !rollbackConfirm}
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* IPO TAB */}
           {activeTab === 'ipo' && (
@@ -4693,6 +4414,123 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
                   >
                     {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
+                  </button>
+                </div>
+              </div>
+
+              {/* TRADE HISTORY & ROLLBACK SECTION */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Trade History & Rollback</h3>
+
+                {/* Ticker selector for investigation */}
+                <div className="mb-3">
+                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Investigate Ticker</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={tradeFilterTicker}
+                      onChange={e => { setTradeFilterTicker(e.target.value); setSelectedTickerHistory([]); }}
+                      className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
+                    >
+                      <option value="">-- Select Ticker --</option>
+                      {sortedCharacters.map(c => (
+                        <option key={c.ticker} value={c.ticker}>
+                          {c.name} (${c.ticker}) - ${(prices[c.ticker] || c.basePrice).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={async () => {
+                        if (tradeFilterTicker) {
+                          const history = await getPriceHistoryForTicker(tradeFilterTicker);
+                          setSelectedTickerHistory(history);
+                        }
+                      }}
+                      disabled={!tradeFilterTicker}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      Load History
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price History Display */}
+                {selectedTickerHistory.length > 0 && (
+                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`text-sm font-semibold ${textClass}`}>
+                        ${tradeFilterTicker} Price History ({selectedTickerHistory.length} entries)
+                      </span>
+                      <span className={`text-xs ${mutedClass}`}>Click timestamp to set rollback point</span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {selectedTickerHistory.slice().reverse().slice(0, 100).map((h, i, arr) => {
+                        const prevPrice = arr[i + 1]?.price;
+                        const change = prevPrice ? ((h.price - prevPrice) / prevPrice * 100) : 0;
+                        return (
+                          <div
+                            key={i}
+                            className={`text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 ${darkMode ? 'bg-slate-700' : 'bg-white'}`}
+                            onClick={() => setRollbackTimestamp(h.timestamp.toString())}
+                          >
+                            <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
+                            <div className="flex items-center gap-3">
+                              <span className={`font-semibold ${textClass}`}>${h.price.toFixed(2)}</span>
+                              {change !== 0 && (
+                                <span className={`font-semibold ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {change > 0 ? '+' : ''}{change.toFixed(1)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rollback Controls */}
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
+                  <h4 className="font-semibold text-red-500 mb-2">⚠️ Rollback Trades</h4>
+                  <p className={`text-xs ${mutedClass} mb-3`}>
+                    This will reverse ALL trades after the selected timestamp and restore prices.
+                  </p>
+
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={rollbackTimestamp}
+                      onChange={e => setRollbackTimestamp(e.target.value)}
+                      placeholder="Timestamp (click history above)"
+                      className={`flex-1 px-3 py-2 border rounded-sm text-sm ${inputClass}`}
+                    />
+                  </div>
+
+                  {rollbackTimestamp && (
+                    <p className={`text-sm ${textClass} mb-2`}>
+                      Rollback to: <span className="text-orange-500 font-semibold">{new Date(parseInt(rollbackTimestamp)).toLocaleString()}</span>
+                    </p>
+                  )}
+
+                  <label className={`flex items-center gap-2 text-sm ${textClass} mb-3`}>
+                    <input
+                      type="checkbox"
+                      checked={rollbackConfirm}
+                      onChange={e => setRollbackConfirm(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    I understand this will reverse ALL trades and cannot be undone
+                  </label>
+
+                  <button
+                    onClick={() => {
+                      if (rollbackTimestamp && rollbackConfirm) {
+                        executeFullRollback(parseInt(rollbackTimestamp));
+                      }
+                    }}
+                    disabled={loading || !rollbackTimestamp || !rollbackConfirm}
+                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
                   </button>
                 </div>
               </div>
