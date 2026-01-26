@@ -20,20 +20,15 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && request.auth.uid == '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
     }
-    
-    // Get the user's current data
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    
+
     // Check if a field is being modified
     function fieldChanged(field) {
       return request.resource.data[field] != resource.data[field];
     }
 
-    // Check if user is banned
+    // Check if user is banned (defensive - returns false if doc doesn't exist)
     function isBanned() {
-      return getUserData().isBanned == true;
+      return resource.data.isBanned == true;
     }
     
     // ============================================
@@ -76,39 +71,28 @@ service cloud.firestore {
       let newData = request.resource.data;
 
       return (
-        // Cannot set positive cash if bankrupt (must use bailout)
-        (newData.cash >= 0 || oldData.cash < 0) &&
-
-        // Cannot fake total checkins (can only increment by 1)
+        // Cannot fake total checkins (can only increment by 1 or stay same)
         (!('totalCheckins' in newData) ||
          !('totalCheckins' in oldData) ||
          newData.totalCheckins <= oldData.totalCheckins + 1) &&
 
-        // Cannot fake total trades (can only increment by 1)
+        // Cannot fake total trades (can only increment by 1 or stay same)
         (!('totalTrades' in newData) ||
          !('totalTrades' in oldData) ||
          newData.totalTrades <= oldData.totalTrades + 1) &&
 
-        // SECURITY: Enforce trade cooldown (3 seconds between trades)
-        // lastTradeTime must use serverTimestamp, so we check it's being updated
-        // If totalTrades is incrementing (trade happening), lastTradeTime must be set
-        (!fieldChanged('totalTrades') ||
-         !('totalTrades' in oldData) ||
-         'lastTradeTime' in newData) &&
-
-        // Cannot grant yourself lending access
-        (!('lendingUnlocked' in newData) ||
-         newData.lendingUnlocked == oldData.lendingUnlocked ||
-         // Only allow if legitimately earned (server should verify)
+        // Cannot grant yourself lending access (unless earning it from false)
+        (!fieldChanged('lendingUnlocked') ||
+         !('lendingUnlocked' in oldData) ||
          oldData.lendingUnlocked == false) &&
 
         // Cannot un-bankrupt yourself
-        (!('isBankrupt' in newData) ||
-         newData.isBankrupt == oldData.isBankrupt ||
-         newData.isBankrupt == true) && // Can only become bankrupt, not recover
+        (!fieldChanged('isBankrupt') ||
+         !('isBankrupt' in oldData) ||
+         newData.isBankrupt == true) &&
 
         // Display name cannot be changed (prevents impersonation)
-        (newData.displayName == oldData.displayName)
+        (!('displayName' in oldData) || newData.displayName == oldData.displayName)
       );
     }
     
