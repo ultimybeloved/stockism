@@ -116,6 +116,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
 
+  // Price adjustment modal state
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [priceModalSearch, setPriceModalSearch] = useState('');
+  const [selectedPriceCharacter, setSelectedPriceCharacter] = useState(null);
+  const [priceAdjustPercent, setPriceAdjustPercent] = useState('');
+
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   
   // Characters eligible for IPO: those with ipoRequired flag OR not yet in the market
@@ -148,6 +154,70 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   };
 
   // Adjust character price
+  const handleModalPriceAdjustment = async (character, percentChange) => {
+    const currentPrice = prices[character.ticker] || character.basePrice;
+    if (!currentPrice) {
+      showMessage('error', 'Could not get current price');
+      return;
+    }
+
+    const percent = parseFloat(percentChange);
+    if (isNaN(percent)) {
+      showMessage('error', 'Please enter a valid percentage');
+      return;
+    }
+
+    const targetPrice = Math.round(currentPrice * (1 + percent / 100) * 100) / 100;
+
+    if (targetPrice <= 0) {
+      showMessage('error', 'Resulting price would be negative');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const marketRef = doc(db, 'market', 'current');
+      const snap = await getDoc(marketRef);
+      const now = Date.now();
+
+      if (snap.exists()) {
+        const data = snap.data();
+        let currentHistory = data.priceHistory?.[character.ticker] || [];
+
+        if (currentHistory.length === 0 && currentPrice) {
+          currentHistory = [{ timestamp: now - 1000, price: currentPrice }];
+        }
+
+        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
+
+        await updateDoc(marketRef, {
+          [`prices.${character.ticker}`]: targetPrice,
+          [`priceHistory.${character.ticker}`]: updatedHistory
+        });
+      } else {
+        await setDoc(marketRef, {
+          prices: { [character.ticker]: targetPrice },
+          priceHistory: { [character.ticker]: [{ timestamp: now, price: targetPrice }] }
+        }, { merge: true });
+      }
+
+      const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
+      const direction = targetPrice > currentPrice ? '📈' : '📉';
+
+      showMessage('success', `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`);
+
+      // Reset modal
+      setPriceAdjustPercent('');
+      setSelectedPriceCharacter(null);
+
+    } catch (err) {
+      console.error('Price adjustment error:', err);
+      showMessage('error', 'Failed to adjust price: ' + err.message);
+    }
+
+    setLoading(false);
+  };
+
   const handlePriceAdjustment = async () => {
     if (!selectedTicker) {
       showMessage('error', 'Please select a character');
@@ -2558,7 +2628,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🔧 Admin Panel</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPriceModal(true)}
+                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-sm"
+              >
+                💰 Adjust Prices
+              </button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+            </div>
           </div>
         </div>
 
@@ -4539,6 +4617,147 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
         </div>
       </div>
+
+      {/* Price Adjustment Modal */}
+      {showPriceModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]" onClick={() => setShowPriceModal(false)}>
+          <div
+            className={`w-full max-w-xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+              <div className="flex justify-between items-center">
+                <h2 className={`text-lg font-semibold ${textClass}`}>💰 Adjust Character Prices</h2>
+                <button onClick={() => setShowPriceModal(false)} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Search */}
+              <div>
+                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Search Characters</label>
+                <input
+                  type="text"
+                  placeholder="Search by name or ticker..."
+                  value={priceModalSearch}
+                  onChange={e => setPriceModalSearch(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                />
+              </div>
+
+              {/* Character List */}
+              <div className="space-y-2">
+                {CHARACTERS
+                  .filter(c => {
+                    const search = priceModalSearch.toLowerCase();
+                    return !search ||
+                           c.name.toLowerCase().includes(search) ||
+                           c.ticker.toLowerCase().includes(search);
+                  })
+                  .map(character => {
+                    const currentPrice = prices[character.ticker] || character.basePrice;
+                    const isSelected = selectedPriceCharacter?.ticker === character.ticker;
+
+                    return (
+                      <div
+                        key={character.ticker}
+                        className={`p-3 rounded-sm border cursor-pointer transition-all ${
+                          isSelected
+                            ? darkMode
+                              ? 'bg-teal-900/30 border-teal-500'
+                              : 'bg-teal-50 border-teal-500'
+                            : darkMode
+                            ? 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedPriceCharacter(null);
+                            setPriceAdjustPercent('');
+                          } else {
+                            setSelectedPriceCharacter(character);
+                            setPriceAdjustPercent('');
+                          }
+                        }}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <div>
+                            <div className={`font-semibold ${textClass}`}>{character.name}</div>
+                            <div className={`text-xs ${mutedClass}`}>${character.ticker}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-green-500">${currentPrice.toFixed(2)}</div>
+                          </div>
+                        </div>
+
+                        {/* Adjustment Controls - Show when selected */}
+                        {isSelected && (
+                          <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} space-y-2`}>
+                            {/* Quick Buttons */}
+                            <div className="grid grid-cols-6 gap-1">
+                              {[-50, -25, -10, 10, 25, 50].map(pct => (
+                                <button
+                                  key={pct}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPriceAdjustPercent(pct.toString());
+                                  }}
+                                  className={`py-1.5 text-xs font-semibold rounded-sm ${
+                                    pct < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                                  } text-white`}
+                                >
+                                  {pct > 0 ? '+' : ''}{pct}%
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Custom Input */}
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                step="1"
+                                value={priceAdjustPercent}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setPriceAdjustPercent(e.target.value);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Custom % (e.g., -15, 20)"
+                                className={`flex-1 px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (priceAdjustPercent) {
+                                    handleModalPriceAdjustment(character, priceAdjustPercent);
+                                  }
+                                }}
+                                disabled={!priceAdjustPercent || loading}
+                                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                              >
+                                Apply
+                              </button>
+                            </div>
+
+                            {/* Preview */}
+                            {priceAdjustPercent && !isNaN(parseFloat(priceAdjustPercent)) && (
+                              <div className={`text-sm ${mutedClass}`}>
+                                Preview: ${currentPrice.toFixed(2)} → $
+                                {(Math.round(currentPrice * (1 + parseFloat(priceAdjustPercent) / 100) * 100) / 100).toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
