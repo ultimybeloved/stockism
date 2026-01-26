@@ -56,7 +56,7 @@ export const CHARACTERS = [
   { name: "Johan Seong", ticker: "GDOG", basePrice: 80, volatility: 0.045, dateAdded: "2026-01-13T00:08:00" },
   { name: "Tom Lee", ticker: "TOM", basePrice: 78, volatility: 0.035, dateAdded: "2026-01-13T00:09:00" },
   { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:10:00" },
-  { name: "Changsu Oh", ticker: "DOTS", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:11:00" },
+  { name: "Changsu Oh", ticker: "CROW", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:11:00" },
   { name: "Manager Kim", ticker: "SRMK", basePrice: 74, volatility: 0.03, dateAdded: "2026-01-13T00:12:00" },
   { name: "Charles Choi", ticker: "ELIT", basePrice: 72, volatility: 0.025, dateAdded: "2026-01-13T00:13:00" },
   { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, volatility: 0.03, dateAdded: "2026-01-13T00:14:00" },
