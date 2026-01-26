@@ -5,6 +5,7 @@
 
 import {
   doc,
+  getDoc,
   updateDoc,
   increment,
   arrayUnion
@@ -114,9 +115,22 @@ export const executeBuy = async ({
   prices,
   volatility = 1
 }) => {
-  const now = Date.now();
+  let now = Date.now();
   const userRef = doc(db, 'users', userId);
   const marketRef = doc(db, 'market', 'current');
+
+  // Fetch current market data to check last timestamp
+  const marketSnap = await getDoc(marketRef);
+  if (marketSnap.exists()) {
+    const marketData = marketSnap.data();
+    const currentHistory = marketData.priceHistory?.[ticker] || [];
+    if (currentHistory.length > 0) {
+      const lastTimestamp = currentHistory[currentHistory.length - 1].timestamp;
+      if (now <= lastTimestamp) {
+        now = lastTimestamp + 1;
+      }
+    }
+  }
 
   // Calculate new price after impact
   const impact = calculatePriceImpact(amount, currentPrice, volatility);
@@ -198,6 +212,11 @@ export const executeBuy = async ({
 
   await updateDoc(userRef, userUpdates);
 
+  // Get trailing effects summary
+  const trailingTickers = Object.keys(trailingUpdates)
+    .filter(key => key.startsWith('prices.'))
+    .map(key => key.replace('prices.', ''));
+
   return {
     success: true,
     buyPrice,
@@ -207,7 +226,8 @@ export const executeBuy = async ({
     newCostBasis: Math.round(newCostBasis * 100) / 100,
     impact: impact * 100,
     cashUsed: cashToUse,
-    marginUsed: marginToUse
+    marginUsed: marginToUse,
+    trailingEffects: trailingTickers.length > 0 ? trailingTickers : null
   };
 };
 
@@ -224,9 +244,24 @@ export const executeSell = async ({
   currentPrice,
   volatility = 1
 }) => {
-  const now = Date.now();
+  let now = Date.now();
   const userRef = doc(db, 'users', userId);
   const marketRef = doc(db, 'market', 'current');
+
+  // Fetch current market data to check last timestamp
+  const marketSnap = await getDoc(marketRef);
+  let prices = {};
+  if (marketSnap.exists()) {
+    const marketData = marketSnap.data();
+    prices = marketData.prices || {};
+    const currentHistory = marketData.priceHistory?.[ticker] || [];
+    if (currentHistory.length > 0) {
+      const lastTimestamp = currentHistory[currentHistory.length - 1].timestamp;
+      if (now <= lastTimestamp) {
+        now = lastTimestamp + 1;
+      }
+    }
+  }
 
   // Check if user has enough shares
   const currentHoldings = userData.holdings?.[ticker] || 0;

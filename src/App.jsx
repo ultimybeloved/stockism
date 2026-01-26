@@ -6046,60 +6046,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // One-time DOTS → CROW archive recovery (admin only)
-  useEffect(() => {
-    const recoverDotsArchive = async () => {
-      if (!user || !ADMIN_UIDS.includes(user.uid)) return;
-      if (!marketData) return;
-
-      const OLD_TICKER = 'DOTS';
-      const NEW_TICKER = 'CROW';
-
-      // Check if CROW has very little history (indicating migration issue)
-      const crowHistory = marketData.priceHistory?.[NEW_TICKER] || [];
-      if (crowHistory.length > 10) {
-        // CROW already has substantial history, no need to recover
-        return;
-      }
-
-      console.log('⚠️ CROW has limited history, checking for DOTS archive...');
-
-      try {
-        // Check DOTS archive subcollection
-        const dotsArchiveRef = doc(db, 'market', 'current', 'price_history', OLD_TICKER);
-        const dotsArchiveSnap = await getDoc(dotsArchiveRef);
-
-        if (dotsArchiveSnap.exists()) {
-          const dotsArchiveData = dotsArchiveSnap.data().history || [];
-          console.log(`Found DOTS archive with ${dotsArchiveData.length} entries`);
-
-          // Copy to CROW archive
-          const crowArchiveRef = doc(db, 'market', 'current', 'price_history', NEW_TICKER);
-          await setDoc(crowArchiveRef, { history: dotsArchiveData });
-
-          // Also add to main priceHistory if empty
-          if (crowHistory.length === 0) {
-            const marketRef = doc(db, 'market', 'current');
-            // Take the most recent entries from archive for main doc
-            const recentEntries = dotsArchiveData.slice(-50);
-            await updateDoc(marketRef, {
-              [`priceHistory.${NEW_TICKER}`]: recentEntries
-            });
-            console.log(`Added ${recentEntries.length} recent entries to CROW main history`);
-          }
-
-          console.log('✅ DOTS archive recovered to CROW!');
-        } else {
-          console.log('No DOTS archive found');
-        }
-      } catch (err) {
-        console.error('Error recovering DOTS archive:', err);
-      }
-    };
-
-    recoverDotsArchive();
-  }, [user, marketData]);
-
   // Auto-add price history entries and run tiered pruning
   useEffect(() => {
     if (!user) return;
