@@ -7034,6 +7034,7 @@ export default function App() {
 
   // Handle trade (executes after confirmation)
   const handleTrade = useCallback(async (ticker, action, amount) => {
+    console.log(`[TRADE START] ticker=${ticker}, action=${action}, amount=${amount}`);
     if (!user || !userData) {
       showNotification('info', 'Sign in to start trading!');
       return;
