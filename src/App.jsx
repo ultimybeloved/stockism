@@ -8216,48 +8216,53 @@ export default function App() {
       return;
     }
 
-    const predictionsRef = doc(db, 'predictions', 'current');
-    const userRef = doc(db, 'users', user.uid);
+    try {
+      const predictionsRef = doc(db, 'predictions', 'current');
+      const userRef = doc(db, 'users', user.uid);
 
-    // Update prediction pools
-    const updatedPredictions = predictions.map(p => {
-      if (p.id === predictionId) {
-        const newPools = { ...(p.pools || {}) };
-        newPools[option] = (newPools[option] || 0) + amount;
-        return { ...p, pools: newPools };
-      }
-      return p;
-    });
+      // Update prediction pools
+      const updatedPredictions = predictions.map(p => {
+        if (p.id === predictionId) {
+          const newPools = { ...(p.pools || {}) };
+          newPools[option] = (newPools[option] || 0) + amount;
+          return { ...p, pools: newPools };
+        }
+        return p;
+      });
 
-    const newBetAmount = (existingBet?.amount || 0) + amount;
+      const newBetAmount = (existingBet?.amount || 0) + amount;
 
-    await updateDoc(predictionsRef, { list: updatedPredictions });
-    await updateDoc(userRef, {
-      cash: userData.cash - amount,
-      [`bets.${predictionId}`]: {
+      await updateDoc(predictionsRef, { list: updatedPredictions });
+      await updateDoc(userRef, {
+        cash: userData.cash - amount,
+        [`bets.${predictionId}`]: {
+          option,
+          amount: newBetAmount,
+          placedAt: Date.now(),
+          question: prediction.question // Store question for history
+        },
+        [`dailyMissions.${getTodayDateString()}.placedBet`]: true
+      });
+
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'BET', {
+        predictionId,
         option,
-        amount: newBetAmount,
-        placedAt: Date.now(),
-        question: prediction.question // Store question for history
-      },
-      [`dailyMissions.${getTodayDateString()}.placedBet`]: true
-    });
-    
-    // Log transaction for auditing
-    await logTransaction(db, user.uid, 'BET', {
-      predictionId,
-      option,
-      amount,
-      totalBetAmount: newBetAmount,
-      question: prediction.question,
-      cashBefore: userData.cash,
-      cashAfter: userData.cash - amount
-    });
+        amount,
+        totalBetAmount: newBetAmount,
+        question: prediction.question,
+        cashBefore: userData.cash,
+        cashAfter: userData.cash - amount
+      });
 
-    // Add to activity feed
-    addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
+      // Add to activity feed
+      addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
 
-    showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
+      showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
+    } catch (error) {
+      console.error('Bet placement failed:', error);
+      showNotification('error', `Bet failed: ${error.message}`);
+    }
   }, [user, userData, predictions, addActivity]);
 
   // Hide prediction from feed (admin only)
