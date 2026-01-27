@@ -2525,8 +2525,12 @@ const AboutModal = ({ onClose, darkMode, userData }) => {
                   If you have privacy concerns, please reach out to us directly.
                 </p>
                 <p className={`text-xs ${mutedClass} mt-2`}>
+                  <a href="/terms.html" target="_blank" rel="noopener noreferrer" className={linkClass}>
+                    View Terms of Service →
+                  </a>
+                  {' • '}
                   <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className={linkClass}>
-                    View full Privacy Policy →
+                    View Privacy Policy →
                   </a>
                 </p>
               </div>
@@ -5137,6 +5141,10 @@ const LoginModal = ({ onClose, darkMode }) => {
         </div>
 
         <div className={`mt-4 text-center text-xs ${mutedClass}`}>
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+            Terms of Service
+          </a>
+          {' • '}
           <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
             Privacy Policy
           </a>
@@ -5256,6 +5264,10 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>
           By creating an account, you agree to our{' '}
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">
+            Terms of Service
+          </a>
+          {' and '}
           <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">
             Privacy Policy
           </a>
@@ -9537,6 +9549,10 @@ export default function App() {
 
       {/* Footer */}
       <div className={`mt-8 pt-4 border-t text-center text-xs ${darkMode ? 'border-zinc-800 text-zinc-500' : 'border-amber-200 text-zinc-500'}`}>
+        <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+          Terms of Service
+        </a>
+        {' • '}
         <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
           Privacy Policy
         </a>
