@@ -4452,8 +4452,8 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                   <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
                   <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
                   <li>• Sale proceeds <span className="text-orange-500">pay debt first</span>, then become cash</li>
-                  <li>• Keep <span className="text-orange-500">30%</span> equity minimum or face margin call</li>
-                  <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to 25%</li>
+                  <li>• Keep equity <span className="text-orange-500">above 30%</span> or face margin call</li>
+                  <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to or below 25%</li>
                 </ul>
               </div>
               
@@ -4557,7 +4557,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
                 <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
-                  Per trade, you can only use margin <span className="text-orange-500 font-semibold">up to your cash amount</span> (2x leverage max).
+                  Your tier determines max borrowable: <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> = {formatCurrency(marginStatus.maxBorrowable)}.
                   When you sell stocks, proceeds <span className="text-orange-500 font-semibold">pay down debt first</span>, then become cash.
                 </p>
               </div>
