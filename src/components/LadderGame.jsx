@@ -23,6 +23,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [leaderboard, setLeaderboard] = useState([]);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -431,15 +432,16 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     }
   }, [showLeaderboardModal]);
 
-  const bgMain = darkMode ? '#1a1a1a' : '#d4c4a8';
-  const bgCard = darkMode ? '#2a2a2a' : '#e6dbc5';
-  const bgCardInner = darkMode ? '#333' : '#e9e3d2';
-  const bgDark = darkMode ? '#0a0a0a' : '#3b3624';
-  const textDark = darkMode ? '#e5e5e5' : '#2a2a2a';
-  const textLight = darkMode ? '#999' : '#666';
-  const textHeader = darkMode ? '#bbb' : '#5c5346';
-  const btnGray = darkMode ? '#555' : '#b4ac99';
-  const cornerBrown = darkMode ? '#4a3a2a' : '#715a3b';
+  // Fixed manhwa colors (light mode only)
+  const bgMain = '#d4c4a8';
+  const bgCard = '#e6dbc5';
+  const bgCardInner = '#e9e3d2';
+  const bgDark = '#3b3624';
+  const textDark = '#2a2a2a';
+  const textLight = '#666';
+  const textHeader = '#5c5346';
+  const btnGray = '#b4ac99';
+  const cornerBrown = '#715a3b';
 
   const winRate = (userLadderData?.gamesPlayed || 0) > 0
     ? Math.round(((userLadderData?.wins || 0) / userLadderData.gamesPlayed) * 100)
@@ -866,26 +868,21 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   >
                     Leaderboard
                   </button>
-                </div>
-
-                {/* My Stats */}
-                <div style={{ background: bgDark, padding: '8px 10px' }}>
-                  <div
+                  <button
+                    onClick={() => setShowStatsModal(true)}
                     style={{
-                      fontSize: '0.55rem',
-                      color: '#888',
-                      textTransform: 'uppercase',
-                      marginBottom: '4px',
-                      textAlign: 'center'
+                      padding: '8px',
+                      background: '#d4af37',
+                      color: '#000',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase'
                     }}
                   >
                     My Stats
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#aaa', textAlign: 'center', lineHeight: 1.4 }}>
-                    Games: {userLadderData?.gamesPlayed || 0}<br />
-                    Win Rate: {winRate}%<br />
-                    Best Streak: {userLadderData?.bestStreak || 0}
-                  </div>
+                  </button>
                 </div>
 
                 {/* History */}
@@ -1086,6 +1083,82 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   width: '100%',
                   padding: '8px',
                   marginTop: '10px',
+                  background: '#666',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* My Stats Modal */}
+        {showStatsModal && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.8)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onClick={() => setShowStatsModal(false)}
+          >
+            <div
+              style={{
+                background: bgCard,
+                padding: '20px',
+                borderRadius: '4px',
+                minWidth: '300px'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ color: textDark, marginBottom: '15px' }}>My Stats</h3>
+              <div style={{ background: bgCardInner, padding: '15px', borderRadius: '4px', marginBottom: '15px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '0.7rem', color: textLight, textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Games Played
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: textDark }}>
+                    {userLadderData?.gamesPlayed || 0}
+                  </div>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '0.7rem', color: textLight, textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Win Rate
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: textDark }}>
+                    {winRate}%
+                  </div>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '0.7rem', color: textLight, textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Current Streak
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: textDark }}>
+                    {userLadderData?.currentStreak || 0}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: textLight, textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Best Streak
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: textDark }}>
+                    {userLadderData?.bestStreak || 0}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStatsModal(false)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
                   background: '#666',
                   color: '#fff',
                   border: 'none',
