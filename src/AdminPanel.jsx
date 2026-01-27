@@ -420,6 +420,61 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setRestoringBackup(false);
   };
 
+  // Clean up recent base price entries from history (fixes reset pollution)
+  const handleCleanupBasePrices = async () => {
+    if (!window.confirm('⚠️ CLEAN UP BASE PRICES?\n\nThis will remove any recent entries that match base prices.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const marketRef = doc(db, 'market', 'current');
+      const snap = await getDoc(marketRef);
+
+      if (!snap.exists()) {
+        showMessage('error', 'Market document not found');
+        return;
+      }
+
+      const data = snap.data();
+      const priceHistory = data.priceHistory || {};
+      const cleanedHistory = {};
+      let tickersCleaned = 0;
+      let entriesRemoved = 0;
+
+      // For each ticker, remove recent entries that match base price
+      CHARACTERS.forEach(char => {
+        const history = priceHistory[char.ticker];
+        if (history && history.length > 1) {
+          const filtered = history.filter((entry, i) => {
+            // Keep all entries except the last one if it matches base price exactly
+            if (i === history.length - 1 && Math.abs(entry.price - char.basePrice) < 0.01) {
+              entriesRemoved++;
+              return false;
+            }
+            return true;
+          });
+
+          if (filtered.length !== history.length) {
+            tickersCleaned++;
+            cleanedHistory[`priceHistory.${char.ticker}`] = filtered;
+          }
+        }
+      });
+
+      if (Object.keys(cleanedHistory).length > 0) {
+        await updateDoc(marketRef, cleanedHistory);
+        showMessage('success', `✅ Cleaned ${tickersCleaned} tickers, removed ${entriesRemoved} base price entries!`);
+      } else {
+        showMessage('info', 'No base price entries found to clean.');
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to cleanup: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   // Sync current prices to match the latest price history entry
   const handleSyncPricesToHistory = async () => {
     setLoading(true);
@@ -4421,7 +4476,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   <p className={`text-sm ${mutedClass}`}>
                     📈 Market overview and platform statistics
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={handleCleanupBasePrices}
+                      disabled={loading}
+                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
+                      title="Remove recent base price entries from history"
+                    >
+                      {loading ? '...' : '🧹 Cleanup Base Prices'}
+                    </button>
                     <button
                       onClick={handleSyncPricesToHistory}
                       disabled={loading}
