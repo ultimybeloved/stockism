@@ -4426,8 +4426,8 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {!eligibility.eligible ? (
-            // Locked state - show requirements
+          {!eligibility.eligible && (marginStatus.marginUsed || 0) === 0 ? (
+            // Locked state - show requirements (only if no debt)
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
               <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Margin Trading Locked</h3>
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
