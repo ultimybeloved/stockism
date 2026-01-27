@@ -1656,6 +1656,60 @@ exports.listBackups = functions.https.onCall(async (data, context) => {
   }
 });
 
+exports.restoreBackup = functions.https.onCall(async (data, context) => {
+  // Check admin permission
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can restore backups.'
+    );
+  }
+
+  const { backupName } = data;
+
+  if (!backupName) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Backup name is required'
+    );
+  }
+
+  try {
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(backupName);
+
+    console.log(`Restoring backup: ${backupName}`);
+
+    // Download backup
+    const [content] = await file.download();
+    const backupData = JSON.parse(content.toString());
+
+    console.log(`Backup loaded. Contains ${Object.keys(backupData.priceHistory || {}).length} tickers`);
+
+    // Restore price history to Firestore (keep current prices)
+    const marketRef = db.collection('market').doc('current');
+
+    await marketRef.update({
+      priceHistory: backupData.priceHistory
+    });
+
+    console.log('✅ Price history restored successfully!');
+
+    return {
+      success: true,
+      message: 'Price history restored successfully',
+      tickersRestored: Object.keys(backupData.priceHistory || {}).length,
+      backupFile: backupName
+    };
+  } catch (error) {
+    console.error('Error restoring backup:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to restore backup: ' + error.message
+    );
+  }
+});
+
 /**
  * Fix Base Price Cliffs - Removes first data point if >2% jump to second
  * Admin only - fixes chart artifacts from data loss

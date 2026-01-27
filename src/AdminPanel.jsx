@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, banUserFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { initializeMarket } from './services/market';
@@ -49,6 +49,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
   // Price history cleanup state
   const [futureEntries, setFutureEntries] = useState([]);
+
+  // Backup restore state
+  const [backups, setBackups] = useState([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState(false);
   const [scanningHistory, setScanningHistory] = useState(false);
 
   // Check-in fraud detection state
@@ -376,6 +381,39 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', 'Failed to adjust price');
     }
     setLoading(false);
+  };
+
+  // List available backups
+  const handleListBackups = async () => {
+    setLoadingBackups(true);
+    try {
+      const result = await listBackupsFunction();
+      setBackups(result.data.backups || []);
+      showMessage('success', `Found ${result.data.total} backups`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to list backups: ' + err.message);
+    }
+    setLoadingBackups(false);
+  };
+
+  // Restore from backup
+  const handleRestoreBackup = async (backupName) => {
+    if (!window.confirm(`⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be kept.`)) {
+      return;
+    }
+
+    setRestoringBackup(true);
+    try {
+      const result = await restoreBackupFunction({ backupName });
+      showMessage('success', `✅ Restored ${result.data.tickersRestored} tickers from backup!`);
+      // Refresh backups list
+      await handleListBackups();
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to restore backup: ' + err.message);
+    }
+    setRestoringBackup(false);
   };
 
   // Reset ALL prices to base prices
@@ -4668,6 +4706,45 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 >
                   {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
                 </button>
+              </div>
+
+              {/* Restore from Backup */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 text-orange-500`}>🔄 Restore Price History</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Restore price history from a backup. Current prices will be kept, only historical data is restored.
+                </p>
+
+                <button
+                  onClick={handleListBackups}
+                  disabled={loadingBackups}
+                  className="w-full px-4 py-2 mb-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {loadingBackups ? 'Loading...' : '📋 List Available Backups'}
+                </button>
+
+                {backups.length > 0 && (
+                  <div className={`max-h-64 overflow-y-auto space-y-2 p-3 rounded-sm ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+                    {backups.map((backup, i) => (
+                      <div key={i} className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <p className={`text-xs font-mono ${textClass}`}>{backup.name.split('/').pop()}</p>
+                            <p className={`text-xs ${mutedClass}`}>{new Date(backup.created).toLocaleString()}</p>
+                            <p className={`text-xs ${mutedClass}`}>{(backup.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <button
+                            onClick={() => handleRestoreBackup(backup.name)}
+                            disabled={restoringBackup}
+                            className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
+                          >
+                            {restoringBackup ? '...' : 'Restore'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* User Data Transfer */}

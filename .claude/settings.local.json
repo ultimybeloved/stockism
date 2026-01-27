@@ -16,7 +16,8 @@
       "Bash(git commit:*)",
       "Bash(npx firebase-tools:*)",
       "Bash(del fix-user-achievements.js browser-console-fix.js)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(ls:*)"
     ]
   }
 }
