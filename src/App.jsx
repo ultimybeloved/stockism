@@ -8114,12 +8114,18 @@ export default function App() {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
         if (!userSnap.exists()) return;
-        
+
         const currentUserData = userSnap.data();
         const currentAchievements = currentUserData.achievements || [];
-        
+        const currentPortfolioValue = currentUserData.portfolioValue || 0;
+
         // Skip if already has all leaderboard achievements
         if (currentAchievements.includes('TOP_1')) return;
+
+        // CRITICAL: Require minimum portfolio value to qualify for leaderboard achievements
+        // Prevents new accounts or tied low-value accounts from getting achievements
+        const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
+        if (currentPortfolioValue < MIN_PORTFOLIO_FOR_LEADERBOARD) return;
 
         // Fetch top users to check position (excluding bots)
         const q = query(
@@ -8129,14 +8135,14 @@ export default function App() {
         );
         const snapshot = await getDocs(q);
         const topUsers = snapshot.docs
-          .filter(doc => !doc.data().isBot) // Filter out bots
+          .filter(doc => !doc.data().isBot && (doc.data().portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD) // Filter out bots and low-value accounts
           .slice(0, 10) // Get top 10 real users
           .map(doc => doc.id);
 
         const userPosition = topUsers.indexOf(user.uid);
 
         if (userPosition === -1) return; // Not in top 10
-        
+
         const newAchievements = [];
         const rank = userPosition + 1;
         
