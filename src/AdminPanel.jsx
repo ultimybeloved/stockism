@@ -399,7 +399,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
   // Restore from backup
   const handleRestoreBackup = async (backupName) => {
-    if (!window.confirm(`⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be kept.`)) {
+    if (!window.confirm(`⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be synced to match the latest history point.`)) {
       return;
     }
 
@@ -407,6 +407,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     try {
       const result = await restoreBackupFunction({ backupName });
       showMessage('success', `✅ Restored ${result.data.tickersRestored} tickers from backup!`);
+
+      // Now sync current prices to match latest history
+      await handleSyncPricesToHistory();
+
       // Refresh backups list
       await handleListBackups();
     } catch (err) {
@@ -414,6 +418,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', 'Failed to restore backup: ' + err.message);
     }
     setRestoringBackup(false);
+  };
+
+  // Sync current prices to match the latest price history entry
+  const handleSyncPricesToHistory = async () => {
+    setLoading(true);
+    try {
+      const marketRef = doc(db, 'market', 'current');
+      const snap = await getDoc(marketRef);
+
+      if (!snap.exists()) {
+        showMessage('error', 'Market document not found');
+        return;
+      }
+
+      const data = snap.data();
+      const priceHistory = data.priceHistory || {};
+      const updatedPrices = {};
+
+      // For each ticker, set current price to the last history entry
+      Object.entries(priceHistory).forEach(([ticker, history]) => {
+        if (history && history.length > 0) {
+          const latestEntry = history[history.length - 1];
+          updatedPrices[ticker] = latestEntry.price;
+        }
+      });
+
+      // Update all prices at once
+      await updateDoc(marketRef, {
+        prices: updatedPrices
+      });
+
+      showMessage('success', `✅ Synced ${Object.keys(updatedPrices).length} prices to match latest history!`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to sync prices: ' + err.message);
+    }
+    setLoading(false);
   };
 
   // Reset ALL prices to base prices
@@ -4381,6 +4422,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                     📈 Market overview and platform statistics
                   </p>
                   <div className="flex gap-2">
+                    <button
+                      onClick={handleSyncPricesToHistory}
+                      disabled={loading}
+                      className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
+                      title="Sync current prices to match latest price history"
+                    >
+                      {loading ? '...' : '🔄 Sync Prices to History'}
+                    </button>
                     <button
                       onClick={handleResetAllPrices}
                       disabled={loading}
