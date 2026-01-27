@@ -378,15 +378,34 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
-  // Sync new characters to market (adds missing tickers)
-  const handleSyncNewCharacters = async () => {
+  // Reset ALL prices to base prices
+  const handleResetAllPrices = async () => {
+    if (!window.confirm('⚠️ RESET ALL PRICES TO BASE? This will reset the entire market!')) {
+      return;
+    }
+
     setLoading(true);
     try {
-      await initializeMarket();
-      showMessage('success', '✅ Market synced! All new characters now have prices.');
+      const marketRef = doc(db, 'market', 'current');
+      const now = Date.now();
+
+      const resetPrices = {};
+      const resetHistory = {};
+
+      CHARACTERS.forEach(char => {
+        resetPrices[char.ticker] = char.basePrice;
+        resetHistory[char.ticker] = [{ timestamp: now, price: char.basePrice }];
+      });
+
+      await updateDoc(marketRef, {
+        prices: resetPrices,
+        priceHistory: resetHistory
+      });
+
+      showMessage('success', `✅ Reset ${CHARACTERS.length} characters to base prices!`);
     } catch (err) {
       console.error(err);
-      showMessage('error', 'Failed to sync market: ' + err.message);
+      showMessage('error', 'Failed to reset prices: ' + err.message);
     }
     setLoading(false);
   };
@@ -4325,12 +4344,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={handleSyncNewCharacters}
+                      onClick={handleResetAllPrices}
                       disabled={loading}
-                      className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
-                      title="Sync new characters from characters.js to market prices"
+                      className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
+                      title="Reset ALL character prices to base prices"
                     >
-                      {loading ? '...' : '🔄 Sync Characters'}
+                      {loading ? '...' : '🔄 Reset All Prices'}
                     </button>
                     <button
                       onClick={loadMarketStats}
