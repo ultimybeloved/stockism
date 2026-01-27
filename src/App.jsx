@@ -117,19 +117,19 @@ const checkMarginEligibility = (userData, isAdmin = false) => {
       requirements: [
         { met: true, label: '10+ daily check-ins', current: '∞', required: 10 },
         { met: true, label: '35+ total trades', current: '∞', required: 35 },
-        { met: true, label: '$2,000+ cash balance', current: '∞', required: 2000 }
+        { met: true, label: '$7,500+ peak portfolio', current: '∞', required: 7500 }
       ]
     };
   }
 
   const totalCheckins = userData.totalCheckins || 0;
   const totalTrades = userData.totalTrades || 0;
-  const cash = userData.cash || 0;
+  const peakPortfolio = userData.peakPortfolioValue || 0;
 
   const requirements = [
     { met: totalCheckins >= 10, label: '10+ daily check-ins', current: totalCheckins, required: 10 },
     { met: totalTrades >= 35, label: '35+ total trades', current: totalTrades, required: 35 },
-    { met: cash >= MARGIN_CASH_MINIMUM, label: '$2,000+ cash balance', current: cash, required: MARGIN_CASH_MINIMUM }
+    { met: peakPortfolio >= 7500, label: '$7,500+ peak portfolio', current: peakPortfolio, required: 7500 }
   ];
 
   const allMet = requirements.every(r => r.met);
