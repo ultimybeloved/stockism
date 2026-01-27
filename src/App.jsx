@@ -5859,13 +5859,17 @@ const ToastNotification = ({ notification, onDismiss, darkMode }) => {
   const styles = getStyles();
   
   return (
-    <div 
+    <div
       className={`flex items-center gap-3 px-4 py-3 rounded-sm border shadow-lg backdrop-blur-sm cursor-pointer transition-all duration-300 ${styles.bg} ${styles.text} ${
         isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'
       } ${notification.type === 'achievement' ? 'animate-pulse' : ''}`}
       onClick={handleDismiss}
     >
-      <span className="text-lg">{styles.icon}</span>
+      {notification.image ? (
+        <img src={notification.image} alt="" className="w-6 h-6 object-contain" />
+      ) : (
+        <span className="text-lg">{styles.icon}</span>
+      )}
       <span className="flex-1 text-sm font-semibold">{notification.message}</span>
       <button className="opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>
     </div>
@@ -6060,9 +6064,9 @@ export default function App() {
   }, [userData]);
 
   // Helper to show toast notification
-  const showNotification = useCallback((type, message) => {
+  const showNotification = useCallback((type, message, image = null) => {
     const id = Date.now() + Math.random();
-    setNotifications(prev => [...prev, { id, type, message }].slice(-5)); // Max 5 toasts
+    setNotifications(prev => [...prev, { id, type, message, image }].slice(-5)); // Max 5 toasts
   }, []);
 
   // Helper to dismiss notification
@@ -6914,7 +6918,9 @@ export default function App() {
         });
         
         const pin = SHOP_PINS[payload];
-        showNotification('success', `Purchased ${pin.emoji} ${pin.name}!`);
+        const displayIcon = pin.image ? `/pins/${pin.image}` : null;
+        const displayText = pin.image ? `Purchased ${pin.name}!` : `Purchased ${pin.emoji} ${pin.name}!`;
+        showNotification('success', displayText, displayIcon);
         
       } else if (action === 'setShopPins') {
         // Update displayed shop pins
