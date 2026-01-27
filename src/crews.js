@@ -94,7 +94,7 @@ export const SHOP_PINS = {
     emoji: '🎖️',
     image: 'stockism_logo.png',
     description: 'Exclusive badge for early supporters',
-    price: 300
+    price: 1
   }
 };
 
