@@ -181,13 +181,35 @@ service cloud.firestore {
     }
     
     // ============================================
+    // LADDER GAME COLLECTIONS
+    // ============================================
+
+    // Global ladder game data (history, stats)
+    match /ladderGame/{document} {
+      // Everyone can read global history
+      allow read: if true;
+
+      // Only Cloud Functions can write (server-side game logic)
+      allow write: if false;
+    }
+
+    // Individual ladder game user data
+    match /ladderGameUsers/{userId} {
+      // Everyone can read (for leaderboard)
+      allow read: if true;
+
+      // Only Cloud Functions can write (server-side balance updates)
+      allow write: if false;
+    }
+
+    // ============================================
     // ADMIN-ONLY COLLECTIONS
     // ============================================
-    
+
     match /admin/{document} {
       allow read, write: if isAdmin();
     }
-    
+
     match /config/{document} {
       allow read: if true;
       allow write: if isAdmin();

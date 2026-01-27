@@ -1899,3 +1899,264 @@ exports.monthlyPermanentBackup = functions.pubsub
       return null;
     }
   });
+
+// ============================================
+// LADDER GAME FUNCTIONS
+// ============================================
+
+/**
+ * Play the ladder game - server-side RNG and validation
+ */
+exports.playLadderGame = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { startSide, bet, amount } = data;
+
+  // Validate inputs
+  if (!['left', 'right'].includes(startSide)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid start side.');
+  }
+  if (!['odd', 'even'].includes(bet)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid bet.');
+  }
+  if (!amount || amount <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
+  }
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const userRef = db.collection('ladderGameUsers').doc(uid);
+      const globalRef = db.collection('ladderGame').doc('global');
+      const mainUserRef = db.collection('users').doc(uid);
+
+      const [userDoc, globalDoc, mainUserDoc] = await Promise.all([
+        transaction.get(userRef),
+        transaction.get(globalRef),
+        transaction.get(mainUserRef)
+      ]);
+
+      // Get or create ladder game user
+      let userData = userDoc.exists ? userDoc.data() : {
+        balance: 500,
+        totalDeposited: 0,
+        totalWon: 0,
+        totalLost: 0,
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        lastPlayed: null
+      };
+
+      const mainUser = mainUserDoc.data();
+      const username = mainUser?.displayName || 'Anonymous';
+
+      // Check balance
+      if (userData.balance < amount) {
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient balance.');
+      }
+
+      // Enforce 3-second cooldown
+      const now = admin.firestore.Timestamp.now();
+      if (userData.lastPlayed) {
+        const lastPlayedMs = userData.lastPlayed.toMillis ? userData.lastPlayed.toMillis() : userData.lastPlayed;
+        const timeSince = now.toMillis() - lastPlayedMs;
+        if (timeSince < 3000) {
+          throw new functions.https.HttpsError('failed-precondition', `Cooldown: ${Math.ceil((3000 - timeSince) / 1000)}s remaining`);
+        }
+      }
+
+      // Server-side RNG
+      const numRungs = Math.random() < 0.5 ? 2 : 3;
+      const rungs = numRungs === 2 ? [3, 7] : [2, 5, 8];
+      const pathsCross = numRungs % 2 === 1;
+      const result = (startSide === 'left')
+        ? (pathsCross ? 'even' : 'odd')
+        : (pathsCross ? 'odd' : 'even');
+
+      const won = bet === result;
+      const payout = won ? amount * 2 : 0;
+
+      // Calculate odds distribution (for UI)
+      const globalData = globalDoc.exists ? globalDoc.data() : { history: [], totalGamesPlayed: 0 };
+      const recentHistory = globalData.history || [];
+      const last20 = recentHistory.slice(0, 20);
+      const oddCount = last20.filter(g => g.result === 'odd').length;
+      const evenCount = last20.filter(g => g.result === 'even').length;
+      const total = oddCount + evenCount || 1;
+      const oddPct = Math.round((oddCount / total) * 100);
+      const evenPct = 100 - oddPct;
+
+      // Update user stats
+      userData.balance = userData.balance - amount + payout;
+      userData.gamesPlayed += 1;
+      if (won) {
+        userData.wins += 1;
+        userData.totalWon += payout - amount;
+        userData.currentStreak += 1;
+        userData.bestStreak = Math.max(userData.bestStreak, userData.currentStreak);
+      } else {
+        userData.losses += 1;
+        userData.totalLost += amount;
+        userData.currentStreak = 0;
+      }
+      userData.lastPlayed = now;
+
+      transaction.set(userRef, userData);
+
+      // Update global history
+      const gameRecord = {
+        id: `${uid}_${Date.now()}`,
+        timestamp: now,
+        userId: uid,
+        username,
+        result,
+        bet,
+        amount,
+        won,
+        payout,
+        oddPct,
+        evenPct
+      };
+
+      const updatedHistory = [gameRecord, ...recentHistory].slice(0, 5);
+      transaction.set(globalRef, {
+        history: updatedHistory,
+        totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1
+      }, { merge: true });
+
+      return {
+        rungs,
+        result,
+        won,
+        payout,
+        newBalance: userData.balance,
+        currentStreak: userData.currentStreak
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Ladder game error:', error);
+    throw new functions.https.HttpsError('internal', 'Game failed: ' + error.message);
+  }
+});
+
+/**
+ * Deposit from Stockism cash to ladder game balance (one-way)
+ */
+exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { amount } = data;
+
+  if (!amount || amount <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
+  }
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const mainUserRef = db.collection('users').doc(uid);
+      const ladderUserRef = db.collection('ladderGameUsers').doc(uid);
+
+      const [mainUserDoc, ladderUserDoc] = await Promise.all([
+        transaction.get(mainUserRef),
+        transaction.get(ladderUserRef)
+      ]);
+
+      if (!mainUserDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+
+      const mainUser = mainUserDoc.data();
+      const cash = mainUser.cash || 0;
+
+      if (cash < amount) {
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient Stockism cash.');
+      }
+
+      // Deduct from Stockism cash
+      transaction.update(mainUserRef, {
+        cash: cash - amount
+      });
+
+      // Add to ladder balance
+      const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
+        balance: 500,
+        totalDeposited: 0,
+        totalWon: 0,
+        totalLost: 0,
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        lastPlayed: null
+      };
+
+      transaction.set(ladderUserRef, {
+        ...ladderData,
+        balance: (ladderData.balance || 500) + amount,
+        totalDeposited: (ladderData.totalDeposited || 0) + amount
+      });
+
+      return {
+        success: true,
+        newStockismCash: cash - amount,
+        newLadderBalance: (ladderData.balance || 500) + amount
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Deposit error:', error);
+    throw new functions.https.HttpsError('internal', 'Deposit failed: ' + error.message);
+  }
+});
+
+/**
+ * Get ladder game leaderboard (top 50 by balance)
+ */
+exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
+  try {
+    const ladderUsersSnap = await db.collection('ladderGameUsers')
+      .orderBy('balance', 'desc')
+      .limit(50)
+      .get();
+
+    const userIds = ladderUsersSnap.docs.map(doc => doc.id);
+    const leaderboard = [];
+
+    // Batch get usernames
+    for (const userId of userIds) {
+      const ladderData = ladderUsersSnap.docs.find(doc => doc.id === userId).data();
+      const userDoc = await db.collection('users').doc(userId).get();
+      const userData = userDoc.data();
+
+      leaderboard.push({
+        userId,
+        username: userData?.displayName || 'Anonymous',
+        balance: ladderData.balance || 0,
+        gamesPlayed: ladderData.gamesPlayed || 0,
+        wins: ladderData.wins || 0,
+        winRate: ladderData.gamesPlayed > 0
+          ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100)
+          : 0
+      });
+    }
+
+    return { leaderboard };
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + error.message);
+  }
+});

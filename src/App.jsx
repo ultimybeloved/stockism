@@ -29,6 +29,7 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
+import LadderGame from './components/LadderGame';
 
 // Import from new modular structure
 import {
@@ -6002,6 +6003,8 @@ export default function App() {
   const [showPinShop, setShowPinShop] = useState(false);
   const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showLadderGame, setShowLadderGame] = useState(false);
+  const [showLadderSignInModal, setShowLadderSignInModal] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notifications, setNotifications] = useState([]); // Toast notification queue
 
@@ -8852,6 +8855,10 @@ export default function App() {
                 📌 Pins
               </button>
             )}
+            <button onClick={() => isGuest ? setShowLadderSignInModal(true) : setShowLadderGame(true)}
+              className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+              🪜 Ladder
+            </button>
             {!isGuest && (
               <button onClick={() => setShowAchievements(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
@@ -9307,9 +9314,9 @@ export default function App() {
         />
       )}
       {showLending && !isGuest && (
-        <MarginModal 
-          onClose={() => setShowLending(false)} 
-          darkMode={darkMode} 
+        <MarginModal
+          onClose={() => setShowLending(false)}
+          darkMode={darkMode}
           userData={userData}
           prices={prices}
           onEnableMargin={handleEnableMargin}
@@ -9317,6 +9324,55 @@ export default function App() {
           onRepayMargin={handleRepayMargin}
           isAdmin={user && ADMIN_UIDS.includes(user.uid)}
         />
+      )}
+      {showLadderGame && !isGuest && user && (
+        <LadderGame
+          user={user}
+          onClose={() => setShowLadderGame(false)}
+          darkMode={darkMode}
+        />
+      )}
+      {showLadderSignInModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowLadderSignInModal(false)}
+        >
+          <div
+            className={`${cardClass} border rounded-sm p-6 max-w-md`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className={`text-2xl font-bold mb-4 ${textClass}`}>🪜 Ladder Game</h2>
+            <p className={`mb-6 ${mutedClass}`}>
+              Sign in to play a replica of the Ladder Game from the Illegal Gambling Arc!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLadderSignInModal(false);
+                  setShowLoginModal(true);
+                }}
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setShowLadderSignInModal(false)}
+                className={`flex-1 px-4 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showCrewSelection && (
         <CrewSelectionModal

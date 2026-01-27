@@ -42,5 +42,9 @@ export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
 export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
 export const banUserFunction = httpsCallable(functions, 'banUser');
+// Ladder game
+export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
+export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');
+export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderLeaderboard');
 
 export default app;
