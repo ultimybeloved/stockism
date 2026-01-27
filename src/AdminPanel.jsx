@@ -3,6 +3,7 @@ import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTran
 import { db, createBotsFunction, triggerManualBackupFunction, banUserFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
+import { initializeMarket } from './services/market';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [activeTab, setActiveTab] = useState('users');
@@ -373,6 +374,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to adjust price');
+    }
+    setLoading(false);
+  };
+
+  // Sync new characters to market (adds missing tickers)
+  const handleSyncNewCharacters = async () => {
+    setLoading(true);
+    try {
+      await initializeMarket();
+      showMessage('success', '✅ Market synced! All new characters now have prices.');
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to sync market: ' + err.message);
     }
     setLoading(false);
   };
@@ -4309,13 +4323,23 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   <p className={`text-sm ${mutedClass}`}>
                     📈 Market overview and platform statistics
                   </p>
-                  <button
-                    onClick={loadMarketStats}
-                    disabled={statsLoading}
-                    className="px-3 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded-sm disabled:opacity-50"
-                  >
-                    {statsLoading ? '...' : '🔄 Refresh'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSyncNewCharacters}
+                      disabled={loading}
+                      className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
+                      title="Sync new characters from characters.js to market prices"
+                    >
+                      {loading ? '...' : '🔄 Sync Characters'}
+                    </button>
+                    <button
+                      onClick={loadMarketStats}
+                      disabled={statsLoading}
+                      className="px-3 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded-sm disabled:opacity-50"
+                    >
+                      {statsLoading ? '...' : '🔄 Refresh Stats'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

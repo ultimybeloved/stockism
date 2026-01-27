@@ -76,22 +76,29 @@ const logTransaction = async (db, userId, type, details) => {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
     const userData = userSnap.data() || {};
-    
+
     const transaction = {
       type, // 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE', 'CHECKIN', 'BET', 'BET_WIN', 'BET_LOSS', 'MARGIN_INTEREST', 'LIQUIDATION', etc.
       timestamp: Date.now(),
       ...details,
       // Snapshot of user state at time of transaction
-      cashBefore: details.cashBefore ?? userData.cash,
-      cashAfter: details.cashAfter,
-      portfolioBefore: details.portfolioBefore ?? userData.portfolioValue,
-      portfolioAfter: details.portfolioAfter
+      cashBefore: details.cashBefore ?? userData.cash ?? 0,
+      cashAfter: details.cashAfter ?? 0,
+      portfolioBefore: details.portfolioBefore ?? userData.portfolioValue ?? 0,
+      portfolioAfter: details.portfolioAfter ?? 0
     };
-    
+
+    // Remove any undefined values (Firestore doesn't support them)
+    Object.keys(transaction).forEach(key => {
+      if (transaction[key] === undefined) {
+        delete transaction[key];
+      }
+    });
+
     // Keep last 100 transactions per user
     const transactionLog = userData.transactionLog || [];
     const updatedLog = [...transactionLog, transaction].slice(-100);
-    
+
     await updateDoc(userRef, { transactionLog: updatedLog });
   } catch (err) {
     console.error('Failed to log transaction:', err);
