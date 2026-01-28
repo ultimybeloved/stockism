@@ -3993,7 +3993,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
             <div className="flex items-center justify-between">
               <div>
                 <p className={`text-sm font-semibold ${textClass}`}>Color Blind Mode</p>
-                <p className={`text-xs ${mutedClass}`}>Use blue/orange instead of green/red</p>
+                <p className={`text-xs ${mutedClass}`}>Use teal/purple instead of green/red</p>
               </div>
               <button
                 onClick={async () => {
