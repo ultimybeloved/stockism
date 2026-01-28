@@ -6710,37 +6710,49 @@ export default function App() {
   // Calculate sentiment based on price changes
   const getSentiment = useCallback((ticker) => {
     const currentPrice = prices[ticker];
-    const basePrice = CHARACTER_MAP[ticker]?.basePrice || currentPrice || 1;
-    
-    // If no current price, return neutral
     if (!currentPrice) return 'Neutral';
-    
-    // Calculate overall change from base price (always available)
-    const overallChange = ((currentPrice - basePrice) / basePrice) * 100;
-    
+
     const history = priceHistory[ticker] || [];
-    
-    let weightedChange;
-    
-    if (history.length >= 5) {
-      // We have enough history - factor in recent momentum
-      const recent = history.slice(-20);
-      const oldPrice = recent[0].price;
-      const newPrice = recent[recent.length - 1].price;
-      const recentChange = ((newPrice - oldPrice) / oldPrice) * 100;
-      
-      // Weighted: 60% overall position, 40% recent momentum
-      weightedChange = (overallChange * 0.6) + (recentChange * 0.4);
-    } else {
-      // Not enough history - just use overall change from base price
-      weightedChange = overallChange;
+    const now = Date.now();
+    const dayAgo = now - (24 * 60 * 60 * 1000);
+    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+    // Find 24h ago price
+    let price24hAgo = currentPrice;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp <= dayAgo) {
+        price24hAgo = history[i].price;
+        break;
+      }
     }
-    
-    // Thresholds for sentiment
-    if (weightedChange > 15) return 'Strong Buy';
-    if (weightedChange > 5) return 'Bullish';
-    if (weightedChange < -15) return 'Strong Sell';
-    if (weightedChange < -5) return 'Bearish';
+    if (price24hAgo === currentPrice && history.length > 0) {
+      price24hAgo = history[0].price; // Use oldest if no 24h data
+    }
+
+    // Find 7d ago price
+    let price7dAgo = currentPrice;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp <= weekAgo) {
+        price7dAgo = history[i].price;
+        break;
+      }
+    }
+    if (price7dAgo === currentPrice && history.length > 0) {
+      price7dAgo = history[0].price; // Use oldest if no 7d data
+    }
+
+    // Calculate changes
+    const dailyChange = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
+    const weeklyChange = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
+
+    // Weighted: 60% daily, 40% weekly
+    const weightedChange = (dailyChange * 0.6) + (weeklyChange * 0.4);
+
+    // Thresholds
+    if (weightedChange > 3) return 'Strong Buy';
+    if (weightedChange > 1) return 'Bullish';
+    if (weightedChange < -3) return 'Strong Sell';
+    if (weightedChange < -1) return 'Bearish';
     return 'Neutral';
   }, [priceHistory, prices]);
 
