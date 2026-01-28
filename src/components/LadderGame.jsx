@@ -629,10 +629,11 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 style={{
                   background: bgCardInner,
                   padding: '20px 40px',
-                  position: 'relative'
+                  position: 'relative',
+                  overflow: 'visible'
                 }}
               >
-                <div style={{ position: 'relative', width: '220px', margin: '0 auto' }}>
+                <div style={{ position: 'relative', width: '220px', margin: '0 auto', overflow: 'visible' }}>
                   {/* Top X buttons */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px' }}>
                     <button
