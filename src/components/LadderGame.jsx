@@ -359,9 +359,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             z-index: 1;
           `;
         } else {
-          // Horizontal - inset 1px on each side for gap within track, centered on 8px rung
-          const startXPos = Math.min(from.x, to.x) + 1;
-          const endXPos = Math.max(from.x, to.x) - 1;
+          // Horizontal - extend to meet verticals for pixel-perfect corners, centered on 8px rung
+          const startXPos = Math.min(from.x, to.x);
+          const endXPos = Math.max(from.x, to.x);
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
