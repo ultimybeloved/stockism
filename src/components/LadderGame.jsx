@@ -275,7 +275,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
       const drawNext = () => {
         if (idx >= points.length - 1) {
-          // Extension animations - start seamlessly with matching pace
+          // Extension animations - start instantly with fast initial speed
           const topSeg = document.createElement('div');
           topSeg.className = 'ladder-path-segment';
           topSeg.style.cssText = `
@@ -286,7 +286,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: top 0.25s ease-out, height 0.25s ease-out;
+            transition: top 0.2s linear, height 0.2s linear;
           `;
           tracksRef.current.appendChild(topSeg);
 
@@ -300,16 +300,14 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: height 0.25s ease-out;
+            transition: height 0.2s linear;
           `;
           tracksRef.current.appendChild(bottomSeg);
 
-          // Start immediately for seamless flow
-          requestAnimationFrame(() => {
-            topSeg.style.top = '-7px';
-            topSeg.style.height = '7px';
-            bottomSeg.style.height = '7px';
-          });
+          // Trigger immediately - no frame delay
+          topSeg.style.top = '-7px';
+          topSeg.style.height = '7px';
+          bottomSeg.style.height = '7px';
 
           setTimeout(() => {
             // Color buttons via React state instead of DOM manipulation
@@ -325,7 +323,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               winBtn.classList.add('ladder-result-winner');
             }
             setTimeout(resolve, 100);
-          }, 250);
+          }, 200);
 
           return;
         }
