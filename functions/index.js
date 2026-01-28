@@ -1981,14 +1981,14 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const won = bet === result;
       const payout = won ? amount * 2 : 0;
 
-      // Calculate odds distribution (for UI)
+      // Calculate odds distribution (for UI) - add randomness for visual variety
       const globalData = globalDoc.exists ? globalDoc.data() : { history: [], totalGamesPlayed: 0 };
       const recentHistory = globalData.history || [];
-      const last20 = recentHistory.slice(0, 20);
-      const oddCount = last20.filter(g => g.result === 'odd').length;
-      const evenCount = last20.filter(g => g.result === 'even').length;
-      const total = oddCount + evenCount || 1;
-      const oddPct = Math.round((oddCount / total) * 100);
+
+      // Generate random percentages with some constraints (between 30-70%)
+      const randomBase = 30 + Math.floor(Math.random() * 41); // 30-70
+      const variance = Math.floor(Math.random() * 11) - 5; // -5 to +5
+      const oddPct = Math.max(25, Math.min(75, randomBase + variance));
       const evenPct = 100 - oddPct;
 
       // Update user stats

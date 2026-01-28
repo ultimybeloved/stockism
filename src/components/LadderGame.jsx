@@ -909,12 +909,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   <button
                     onClick={() => setShowDepositModal(true)}
                     style={{
-                      padding: '8px',
+                      padding: '6px',
                       background: '#af905b',
                       color: '#fff',
                       border: 'none',
                       fontWeight: 700,
-                      fontSize: '0.75rem',
+                      fontSize: '0.7rem',
                       cursor: 'pointer',
                       textTransform: 'uppercase'
                     }}
@@ -924,12 +924,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   <button
                     onClick={() => setShowLeaderboardModal(true)}
                     style={{
-                      padding: '8px',
+                      padding: '6px',
                       background: '#af905b',
                       color: '#fff',
                       border: 'none',
                       fontWeight: 700,
-                      fontSize: '0.75rem',
+                      fontSize: '0.7rem',
                       cursor: 'pointer',
                       textTransform: 'uppercase'
                     }}
@@ -939,12 +939,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   <button
                     onClick={() => setShowStatsModal(true)}
                     style={{
-                      padding: '8px',
+                      padding: '6px',
                       background: '#af905b',
                       color: '#fff',
                       border: 'none',
                       fontWeight: 700,
-                      fontSize: '0.75rem',
+                      fontSize: '0.7rem',
                       cursor: 'pointer',
                       textTransform: 'uppercase'
                     }}
@@ -972,7 +972,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         <div
                           style={{
                             flex: 1,
-                            height: '16px',
+                            height: '10px',
                             display: 'flex',
                             borderRadius: '1px',
                             overflow: 'hidden'
@@ -995,14 +995,14 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         </div>
                         <div
                           style={{
-                            width: '18px',
-                            height: '18px',
+                            width: '24px',
+                            height: '24px',
                             borderRadius: '50%',
                             background: game.result === 'odd' ? '#2286f6' : '#f22431',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '10px',
+                            fontSize: '12px',
                             fontWeight: 700,
                             color: '#fff'
                           }}
