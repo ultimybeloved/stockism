@@ -9401,10 +9401,13 @@ export default function App() {
                 The same game Jiho lost everything on in the Illegal Gambling Arc!
               </p>
               <p>
-                Unlike the original, this version is completely random - no admin rigging here. 😉
+                Unlike the original, this version is completely random - no admin rigging here.
               </p>
               <p>
-                <strong className={textClass}>How to play:</strong> Pick left or right ladder, bet odd or even on the outcome, and watch the animation as the ball drops!
+                <strong className={textClass}>How to play:</strong> Pick left or right ladder, bet odd or even on the outcome, and watch the track.
+              </p>
+              <p className="text-sm">
+                <strong>Note:</strong> Your first bet may take a few seconds longer as the game loads everything.
               </p>
               <p className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20 border border-amber-700' : 'bg-amber-50 border border-amber-200'}`}>
                 <strong className="text-amber-500">⚠️ Important:</strong> You can deposit Stockism cash to play, but <strong>winnings cannot be withdrawn</strong> back to your main balance. This is for entertainment only!
