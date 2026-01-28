@@ -21,6 +21,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   const [resultWin, setResultWin] = useState(false);
   const [instruction, setInstruction] = useState('Choose a ladder');
   const [showInitBanner, setShowInitBanner] = useState(true);
+  const [initBannerFading, setInitBannerFading] = useState(false);
+  const [resultBannerFading, setResultBannerFading] = useState(false);
   const [activeButton, setActiveButton] = useState(null); // 'left' or 'right' - stays colored after game
   const [activeResult, setActiveResult] = useState(null); // 'odd' or 'even' - result color for active button
 
@@ -81,7 +83,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
   // Auto-dismiss init banner
   useEffect(() => {
-    const timer = setTimeout(() => setShowInitBanner(false), 12000);
+    const timer = setTimeout(() => {
+      setInitBannerFading(true);
+      setTimeout(() => setShowInitBanner(false), 300); // Wait for fade animation
+    }, 12000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -107,7 +112,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
   const selectStart = (side) => {
     if (playing) return;
-    setShowInitBanner(false); // Dismiss init banner when selecting
+
+    // Fade out init banner when selecting
+    if (showInitBanner) {
+      setInitBannerFading(true);
+      setTimeout(() => setShowInitBanner(false), 300);
+    }
 
     if (selectedStart === side) {
       setSelectedStart(null);
@@ -381,11 +391,15 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   };
 
   const dismissBanner = () => {
-    setShowResultBanner(false);
+    setResultBannerFading(true);
     if (bannerTimeoutRef.current) {
       clearTimeout(bannerTimeoutRef.current);
       bannerTimeoutRef.current = null;
     }
+    setTimeout(() => {
+      setShowResultBanner(false);
+      setResultBannerFading(false);
+    }, 300); // Wait for fade animation
   };
 
   const clearLadder = () => {
@@ -747,7 +761,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       padding: '16px 40px',
                       textAlign: 'center',
                       zIndex: 100,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      opacity: resultBannerFading ? 0 : 1,
+                      transition: 'opacity 0.3s ease'
                     }}
                   >
                     <div
@@ -776,7 +792,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 {/* Init Banner */}
                 {showInitBanner && (
                   <div
-                    onClick={() => setShowInitBanner(false)}
+                    onClick={() => {
+                      setInitBannerFading(true);
+                      setTimeout(() => setShowInitBanner(false), 300);
+                    }}
                     style={{
                       position: 'absolute',
                       top: '50%',
@@ -786,7 +805,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       padding: '15px 120px',
                       textAlign: 'center',
                       zIndex: 99,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      opacity: initBannerFading ? 0 : 1,
+                      transition: 'opacity 0.3s ease'
                     }}
                   >
                     <div
