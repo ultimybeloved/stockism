@@ -358,14 +358,14 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             z-index: 1;
           `;
         } else {
-          // Horizontal - inset 1px on each side for gap within track
+          // Horizontal - inset 1px on each side for gap within track, centered on 8px rung
           const startXPos = Math.min(from.x, to.x) + 1;
           const endXPos = Math.max(from.x, to.x) - 1;
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
             left: ${startXPos}px;
-            top: ${from.y - 2}px;
+            top: ${from.y + 1}px;
             width: ${endXPos - startXPos}px;
             height: 6px;
             z-index: 1;
