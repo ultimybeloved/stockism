@@ -275,7 +275,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
       const drawNext = () => {
         if (idx >= points.length - 1) {
-          // Extension animations - start immediately with smooth transition
+          // Extension animations - start seamlessly with matching pace
           const topSeg = document.createElement('div');
           topSeg.className = 'ladder-path-segment';
           topSeg.style.cssText = `
@@ -286,7 +286,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: top 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transition: top 0.25s ease-out, height 0.25s ease-out;
           `;
           tracksRef.current.appendChild(topSeg);
 
@@ -300,15 +300,16 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: height 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transition: height 0.25s ease-out;
           `;
           tracksRef.current.appendChild(bottomSeg);
 
-          setTimeout(() => {
+          // Start immediately for seamless flow
+          requestAnimationFrame(() => {
             topSeg.style.top = '-7px';
             topSeg.style.height = '7px';
             bottomSeg.style.height = '7px';
-          }, 20);
+          });
 
           setTimeout(() => {
             // Color buttons via React state instead of DOM manipulation
@@ -324,7 +325,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               winBtn.classList.add('ladder-result-winner');
             }
             setTimeout(resolve, 100);
-          }, 320);
+          }, 250);
 
           return;
         }
@@ -366,24 +367,15 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         tracksRef.current.appendChild(seg);
         idx++;
 
-        // Progressive slow-down: faster at start, slower toward end, especially final segments
+        // Smooth progressive slow-down using easing curve
         const totalSegments = points.length - 1;
         const progress = idx / totalSegments;
-        let delay;
 
-        if (progress < 0.5) {
-          // First half: fast
-          delay = 100;
-        } else if (progress < 0.8) {
-          // Middle: moderate
-          delay = 120;
-        } else if (idx < totalSegments - 1) {
-          // Near end but not final: slower
-          delay = 160;
-        } else {
-          // Final segment: slowest for smooth transition to connecting animation
-          delay = 200;
-        }
+        // Quadratic ease-in: fast at start, smoothly slows toward end
+        // Base speed 90ms, max speed 200ms at end
+        const baseDelay = 90;
+        const maxDelay = 200;
+        const delay = baseDelay + (maxDelay - baseDelay) * (progress * progress);
 
         setTimeout(drawNext, delay);
       };
