@@ -821,6 +821,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 {/* Init Banner */}
                 {showInitBanner && (
                   <div
+                    className="ladder-init-banner"
                     onClick={() => {
                       setInitBannerFading(true);
                       setTimeout(() => setShowInitBanner(false), 300);
@@ -840,6 +841,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     }}
                   >
                     <div
+                      className="ladder-init-banner-text"
                       style={{
                         fontSize: '28px',
                         fontWeight: 385,
@@ -930,13 +932,13 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 </div>
 
                 {/* Balance & Bet */}
-                <div style={{ display: 'flex', padding: '10px 8px', gap: '6px' }}>
-                  <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ display: 'flex', padding: '10px 8px', gap: '6px', justifyContent: 'center' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: textDark }}>
                       ${(displayBalance !== null ? displayBalance : (userLadderData?.balance || 500)).toLocaleString()}
                     </div>
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="number"
                       value={betAmount}
@@ -1317,6 +1319,13 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               }
               .ladder-footer-text {
                 font-size: 10px !important;
+              }
+              .ladder-init-banner {
+                padding: 12px 30px !important;
+              }
+              .ladder-init-banner-text {
+                font-size: 20px !important;
+                white-space: normal !important;
               }
             }
           `}
