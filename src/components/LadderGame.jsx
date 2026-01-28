@@ -1021,7 +1021,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div
                           style={{
-                            flex: 1,
+                            flex: 0.7,
                             height: '5px',
                             display: 'flex',
                             borderRadius: '1px',
@@ -1045,14 +1045,14 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         </div>
                         <div
                           style={{
-                            width: '48px',
-                            height: '48px',
+                            width: '24px',
+                            height: '24px',
                             borderRadius: '50%',
                             background: game.result === 'odd' ? '#2286f6' : '#f22431',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '22px',
+                            fontSize: '12px',
                             fontWeight: 700,
                             color: '#fff',
                             flexShrink: 0
