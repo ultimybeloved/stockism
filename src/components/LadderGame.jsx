@@ -537,7 +537,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           ×
         </button>
 
-        <div style={{ display: 'flex', gap: '12px', padding: '15px' }}>
+        <div className="ladder-layout" style={{ display: 'flex', gap: '12px', padding: '15px' }}>
           {/* Main Panel */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div
@@ -848,7 +848,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           </div>
 
           {/* Side Panel */}
-          <div style={{ width: '182px', display: 'flex', flexDirection: 'column' }}>
+          <div className="ladder-side-panel" style={{ width: '182px', display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 background: bgCard,
@@ -1282,6 +1282,15 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             }
             #evenBtn.ladder-result-winner {
               background: #f22431 !important;
+            }
+
+            @media (max-width: 600px) {
+              .ladder-layout {
+                flex-direction: column !important;
+              }
+              .ladder-side-panel {
+                width: 100% !important;
+              }
             }
           `}
         </style>
