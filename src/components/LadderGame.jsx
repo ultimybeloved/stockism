@@ -360,8 +360,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           `;
         } else {
           // Horizontal - extend into verticals for seamless intersection, centered on 8px rung
-          const startXPos = Math.min(from.x, to.x) - 2;
-          const endXPos = Math.max(from.x, to.x) + 2;
+          const startXPos = Math.min(from.x, to.x) - 3;
+          const endXPos = Math.max(from.x, to.x) + 3;
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
