@@ -21,6 +21,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   const [instruction, setInstruction] = useState('Choose a ladder');
   const [showInitBanner, setShowInitBanner] = useState(true);
   const [activeButton, setActiveButton] = useState(null); // 'left' or 'right' - stays colored after game
+  const [activeResult, setActiveResult] = useState(null); // 'odd' or 'even' - result color for active button
 
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -287,17 +288,15 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           }, 50);
 
           setTimeout(() => {
-            // Color buttons
-            const startBtn = document.getElementById(side === 'left' ? 'leftXBtn' : 'rightXBtn');
+            // Color buttons via React state instead of DOM manipulation
+            setActiveButton(side);
+            setActiveResult(result); // 'odd' or 'even'
+
+            // Still need DOM for the bottom winner button (not affected by re-render issue)
             const winBtn = document.getElementById(result === 'odd' ? 'oddBtn' : 'evenBtn');
-            if (startBtn) {
-              startBtn.classList.remove('ladder-x-selected');
-              startBtn.classList.add(result === 'odd' ? 'ladder-x-active-odd' : 'ladder-x-active-even');
-            }
             if (winBtn) {
               winBtn.classList.add('ladder-result-winner');
             }
-            setActiveButton(side); // Track which button is active
             setTimeout(resolve, 100);
           }, 400);
 
@@ -399,6 +398,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     }
 
     setActiveButton(null);
+    setActiveResult(null);
   };
 
   const handleDeposit = async () => {
@@ -577,7 +577,11 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       id="leftXBtn"
                       onClick={() => selectStart('left')}
                       disabled={playing}
-                      className={selectedStart === 'left' ? 'ladder-x-selected' : ''}
+                      className={
+                        activeButton === 'left'
+                          ? (activeResult === 'odd' ? 'ladder-x-active-odd' : 'ladder-x-active-even')
+                          : (selectedStart === 'left' ? 'ladder-x-selected' : '')
+                      }
                       style={{
                         width: '44px',
                         height: '44px',
@@ -587,9 +591,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         justifyContent: 'center',
                         fontWeight: 700,
                         fontSize: '1.3rem',
-                        background: activeButton === 'left'
-                          ? undefined  // Let CSS class control it
-                          : (selectedStart === 'left' ? '#a9a18e' : btnGray),
+                        background: selectedStart === 'left' ? '#a9a18e' : btnGray,
                         border: 'none',
                         color: '#333',
                         cursor: playing ? 'not-allowed' : 'pointer',
@@ -603,7 +605,11 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       id="rightXBtn"
                       onClick={() => selectStart('right')}
                       disabled={playing}
-                      className={selectedStart === 'right' ? 'ladder-x-selected' : ''}
+                      className={
+                        activeButton === 'right'
+                          ? (activeResult === 'odd' ? 'ladder-x-active-odd' : 'ladder-x-active-even')
+                          : (selectedStart === 'right' ? 'ladder-x-selected' : '')
+                      }
                       style={{
                         width: '44px',
                         height: '44px',
@@ -613,9 +619,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         justifyContent: 'center',
                         fontWeight: 700,
                         fontSize: '1.3rem',
-                        background: activeButton === 'right'
-                          ? undefined  // Let CSS class control it
-                          : (selectedStart === 'right' ? '#a9a18e' : btnGray),
+                        background: selectedStart === 'right' ? '#a9a18e' : btnGray,
                         border: 'none',
                         color: '#333',
                         cursor: playing ? 'not-allowed' : 'pointer',
