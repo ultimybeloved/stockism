@@ -25,6 +25,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   const [resultBannerFading, setResultBannerFading] = useState(false);
   const [activeButton, setActiveButton] = useState(null); // 'left' or 'right' - stays colored after game
   const [activeResult, setActiveResult] = useState(null); // 'odd' or 'even' - result color for active button
+  const [hideLatestHistory, setHideLatestHistory] = useState(false); // Hide latest until result shown
 
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -148,6 +149,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     dismissBanner();
     setPlaying(true);
     setComplete(false);
+    setHideLatestHistory(true); // Hide new history entry until result shown
 
     // Immediately deduct bet from display balance
     const currentBalance = userLadderData?.balance || 0;
@@ -407,6 +409,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     }
 
     setShowResultBanner(true);
+    setHideLatestHistory(false); // Now safe to show latest history
     bannerTimeoutRef.current = setTimeout(dismissBanner, 3000);
 
     setPlaying(false);
@@ -1009,7 +1012,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 {/* History */}
                 <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                    {globalHistory.slice(0, 5).map((game, idx) => (
+                    {(hideLatestHistory ? globalHistory.slice(1, 6) : globalHistory.slice(0, 5)).map((game, idx) => (
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div
                           style={{
