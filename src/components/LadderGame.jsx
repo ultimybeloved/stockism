@@ -748,7 +748,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         color: '#333',
                         cursor: (!selectedStart || playing || complete) ? 'not-allowed' : 'pointer',
                         opacity: (!selectedStart || playing || complete) ? 0.5 : 1,
-                        transition: 'all 0.15s ease'
+                        transition: 'all 0.15s ease',
+                        position: 'relative',
+                        zIndex: 10
                       }}
                     >
                       ODD
@@ -772,6 +774,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         color: '#333',
                         cursor: (!selectedStart || playing || complete) ? 'not-allowed' : 'pointer',
                         opacity: (!selectedStart || playing || complete) ? 0.5 : 1,
+                        position: 'relative',
+                        zIndex: 10,
                         transition: 'all 0.15s ease'
                       }}
                     >
