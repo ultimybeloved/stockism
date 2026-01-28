@@ -278,7 +278,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         if (extensionsStarted) return;
         extensionsStarted = true;
 
-        // Extension animations - start in parallel with final track segment
+        // Extension animations - smooth continuation from track endpoints
         const topSeg = document.createElement('div');
         topSeg.className = 'ladder-path-segment';
         topSeg.style.cssText = `
@@ -289,7 +289,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           width: 6px;
           height: 0px;
           z-index: -1;
-          transition: top 0.2s linear, height 0.2s linear;
+          transition: top 0.25s cubic-bezier(0.33, 1, 0.68, 1), height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
         tracksRef.current.appendChild(topSeg);
 
@@ -303,14 +303,16 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           width: 6px;
           height: 0px;
           z-index: -1;
-          transition: height 0.2s linear;
+          transition: height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
         tracksRef.current.appendChild(bottomSeg);
 
-        // Trigger immediately
-        topSeg.style.top = '-7px';
-        topSeg.style.height = '7px';
-        bottomSeg.style.height = '7px';
+        // Trigger with slight delay for smoother visual
+        requestAnimationFrame(() => {
+          topSeg.style.top = '-7px';
+          topSeg.style.height = '7px';
+          bottomSeg.style.height = '7px';
+        });
 
         setTimeout(() => {
           // Color buttons via React state instead of DOM manipulation
@@ -381,9 +383,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         const maxDelay = 200;
         const delay = baseDelay + (maxDelay - baseDelay) * (progress * progress);
 
-        // Start extension animations early (when final segment begins) for seamless transition
+        // Start extension animations near end of final segment for seamless transition
         if (idx === totalSegments - 1) {
-          setTimeout(startExtensions, delay * 0.5);
+          // Trigger after 80% of the final segment delay - gives time for segment to be visible
+          setTimeout(startExtensions, delay * 0.8);
         }
 
         setTimeout(drawNext, delay);
