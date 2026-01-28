@@ -534,7 +534,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
       <div
         style={{
           background: bgMain,
-          maxWidth: '648px',
+          maxWidth: '670px',
           width: '100%',
           borderRadius: '4px',
           position: 'relative',
