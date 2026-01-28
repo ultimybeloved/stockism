@@ -1005,20 +1005,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
                 {/* History */}
                 <div style={{ padding: '8px 10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div
-                    style={{
-                      fontSize: '0.55rem',
-                      color: textLight,
-                      textTransform: 'uppercase',
-                      marginBottom: '8px',
-                      textAlign: 'center'
-                    }}
-                  >
-                    History
-                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
                     {globalHistory.slice(0, 5).map((game, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div
                           style={{
                             flex: 0.7,
