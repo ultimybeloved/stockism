@@ -776,7 +776,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     <div
                       style={{
                         fontSize: '28px',
-                        fontWeight: 365,
+                        fontWeight: 385,
                         color: '#fff',
                         textTransform: 'uppercase',
                         lineHeight: 1.13,
