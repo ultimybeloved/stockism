@@ -2090,7 +2090,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
 
       // Add to ladder balance
       const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
-        balance: 500,
+        balance: 0,
         totalDeposited: 0,
         totalWon: 0,
         totalLost: 0,
@@ -2104,14 +2104,14 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
 
       transaction.set(ladderUserRef, {
         ...ladderData,
-        balance: (ladderData.balance || 500) + amount,
+        balance: (ladderData.balance ?? 0) + amount,
         totalDeposited: (ladderData.totalDeposited || 0) + amount
       });
 
       return {
         success: true,
         newStockismCash: cash - amount,
-        newLadderBalance: (ladderData.balance || 500) + amount
+        newLadderBalance: (ladderData.balance ?? 0) + amount
       };
     });
   } catch (error) {
