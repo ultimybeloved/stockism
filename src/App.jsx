@@ -6006,6 +6006,14 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showLadderGame, setShowLadderGame] = useState(false);
   const [showLadderSignInModal, setShowLadderSignInModal] = useState(false);
+  const [showLadderIntroModal, setShowLadderIntroModal] = useState(false);
+  const [skipLadderIntro, setSkipLadderIntro] = useState(() => {
+    try {
+      return localStorage.getItem('skipLadderIntro') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notifications, setNotifications] = useState([]); // Toast notification queue
 
@@ -8884,7 +8892,15 @@ export default function App() {
                 📌 Pins
               </button>
             )}
-            <button onClick={() => isGuest ? setShowLadderSignInModal(true) : setShowLadderGame(true)}
+            <button onClick={() => {
+              if (isGuest) {
+                setShowLadderSignInModal(true);
+              } else if (skipLadderIntro) {
+                setShowLadderGame(true);
+              } else {
+                setShowLadderIntroModal(true);
+              }
+            }}
               className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
               🪜 Ladder
             </button>
@@ -9360,6 +9376,74 @@ export default function App() {
           onClose={() => setShowLadderGame(false)}
           darkMode={darkMode}
         />
+      )}
+      {showLadderIntroModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowLadderIntroModal(false)}
+        >
+          <div
+            className={`${cardClass} border rounded-sm p-6 max-w-lg`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className={`text-2xl font-bold mb-4 ${textClass}`}>🪜 Ladder Game</h2>
+            <div className={`mb-6 space-y-3 ${mutedClass}`}>
+              <p className="font-semibold text-amber-500">
+                The same game Jiho lost everything on in the Illegal Gambling Arc!
+              </p>
+              <p>
+                Unlike the original, this version is completely random - no admin rigging here. 😉
+              </p>
+              <p>
+                <strong className={textClass}>How to play:</strong> Pick left or right ladder, bet odd or even on the outcome, and watch the animation as the ball drops!
+              </p>
+              <p className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20 border border-amber-700' : 'bg-amber-50 border border-amber-200'}`}>
+                <strong className="text-amber-500">⚠️ Important:</strong> You can deposit Stockism cash to play, but <strong>winnings cannot be withdrawn</strong> back to your main balance. This is for entertainment only!
+              </p>
+            </div>
+            <label className={`flex items-center gap-2 mb-4 cursor-pointer ${mutedClass}`}>
+              <input
+                type="checkbox"
+                checked={skipLadderIntro}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setSkipLadderIntro(newValue);
+                  try {
+                    localStorage.setItem('skipLadderIntro', newValue.toString());
+                  } catch {}
+                }}
+                className="cursor-pointer"
+              />
+              <span>Don't show this again</span>
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLadderIntroModal(false);
+                  setShowLadderGame(true);
+                }}
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
+              >
+                Play
+              </button>
+              <button
+                onClick={() => setShowLadderIntroModal(false)}
+                className={`flex-1 px-4 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showLadderSignInModal && (
         <div
