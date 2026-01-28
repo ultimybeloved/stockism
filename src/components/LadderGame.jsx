@@ -635,7 +635,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               >
                 <div style={{ position: 'relative', width: '220px', margin: '0 auto', overflow: 'visible' }}>
                   {/* Top X buttons */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '7px', position: 'relative', zIndex: 15 }}>
                     <button
                       id="leftXBtn"
                       onClick={() => selectStart('left')}
