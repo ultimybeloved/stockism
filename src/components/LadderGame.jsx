@@ -272,59 +272,65 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
       const endX = x;
       let idx = 0;
+      let extensionsStarted = false;
+
+      const startExtensions = () => {
+        if (extensionsStarted) return;
+        extensionsStarted = true;
+
+        // Extension animations - start in parallel with final track segment
+        const topSeg = document.createElement('div');
+        topSeg.className = 'ladder-path-segment';
+        topSeg.style.cssText = `
+          position: absolute;
+          background: ${pathColor};
+          left: ${startX - 3}px;
+          top: 0px;
+          width: 6px;
+          height: 0px;
+          z-index: -1;
+          transition: top 0.2s linear, height 0.2s linear;
+        `;
+        tracksRef.current.appendChild(topSeg);
+
+        const bottomSeg = document.createElement('div');
+        bottomSeg.className = 'ladder-path-segment';
+        bottomSeg.style.cssText = `
+          position: absolute;
+          background: ${pathColor};
+          left: ${endX - 3}px;
+          top: ${height}px;
+          width: 6px;
+          height: 0px;
+          z-index: -1;
+          transition: height 0.2s linear;
+        `;
+        tracksRef.current.appendChild(bottomSeg);
+
+        // Trigger immediately
+        topSeg.style.top = '-7px';
+        topSeg.style.height = '7px';
+        bottomSeg.style.height = '7px';
+
+        setTimeout(() => {
+          // Color buttons via React state instead of DOM manipulation
+          setActiveButton(side);
+          setActiveResult(result); // 'odd' or 'even'
+
+          // Update balance to final amount after animation
+          setDisplayBalance(newBalance);
+
+          // Still need DOM for the bottom winner button (not affected by re-render issue)
+          const winBtn = document.getElementById(result === 'odd' ? 'oddBtn' : 'evenBtn');
+          if (winBtn) {
+            winBtn.classList.add('ladder-result-winner');
+          }
+          setTimeout(resolve, 100);
+        }, 200);
+      };
 
       const drawNext = () => {
         if (idx >= points.length - 1) {
-          // Extension animations - start instantly with fast initial speed
-          const topSeg = document.createElement('div');
-          topSeg.className = 'ladder-path-segment';
-          topSeg.style.cssText = `
-            position: absolute;
-            background: ${pathColor};
-            left: ${startX - 3}px;
-            top: 0px;
-            width: 6px;
-            height: 0px;
-            z-index: -1;
-            transition: top 0.2s linear, height 0.2s linear;
-          `;
-          tracksRef.current.appendChild(topSeg);
-
-          const bottomSeg = document.createElement('div');
-          bottomSeg.className = 'ladder-path-segment';
-          bottomSeg.style.cssText = `
-            position: absolute;
-            background: ${pathColor};
-            left: ${endX - 3}px;
-            top: ${height}px;
-            width: 6px;
-            height: 0px;
-            z-index: -1;
-            transition: height 0.2s linear;
-          `;
-          tracksRef.current.appendChild(bottomSeg);
-
-          // Trigger immediately - no frame delay
-          topSeg.style.top = '-7px';
-          topSeg.style.height = '7px';
-          bottomSeg.style.height = '7px';
-
-          setTimeout(() => {
-            // Color buttons via React state instead of DOM manipulation
-            setActiveButton(side);
-            setActiveResult(result); // 'odd' or 'even'
-
-            // Update balance to final amount after animation
-            setDisplayBalance(newBalance);
-
-            // Still need DOM for the bottom winner button (not affected by re-render issue)
-            const winBtn = document.getElementById(result === 'odd' ? 'oddBtn' : 'evenBtn');
-            if (winBtn) {
-              winBtn.classList.add('ladder-result-winner');
-            }
-            setTimeout(resolve, 100);
-          }, 200);
-
           return;
         }
 
@@ -374,6 +380,11 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         const baseDelay = 90;
         const maxDelay = 200;
         const delay = baseDelay + (maxDelay - baseDelay) * (progress * progress);
+
+        // Start extension animations early (when final segment begins) for seamless transition
+        if (idx === totalSegments - 1) {
+          setTimeout(startExtensions, delay * 0.5);
+        }
 
         setTimeout(drawNext, delay);
       };
