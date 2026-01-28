@@ -346,8 +346,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         if (from.x === to.x) {
           // Vertical
           // Keep aligned with track: don't extend beyond 0 at top or height at bottom
-          const startY = from.y === 0 ? 0 : from.y - 3;
-          const endY = to.y === height ? height : to.y + 3;
+          // Connect to center of horizontal segments (which are at y+1 to y+7, center y+4)
+          const startY = from.y === 0 ? 0 : from.y + 4;
+          const endY = to.y === height ? height : to.y + 4;
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
