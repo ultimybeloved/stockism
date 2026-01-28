@@ -19,6 +19,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   const [resultOutcome, setResultOutcome] = useState('');
   const [resultWin, setResultWin] = useState(false);
   const [instruction, setInstruction] = useState('Choose a ladder');
+  const [showInitBanner, setShowInitBanner] = useState(true);
+  const [activeButton, setActiveButton] = useState(null); // 'left' or 'right' - stays colored after game
 
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -75,6 +77,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     };
   }, [user]);
 
+  // Auto-dismiss init banner
+  useEffect(() => {
+    const timer = setTimeout(() => setShowInitBanner(false), 12000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Update instruction text
   useEffect(() => {
     if (playing) {
@@ -90,6 +98,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
   const selectStart = (side) => {
     if (playing) return;
+    setShowInitBanner(false); // Dismiss init banner when selecting
 
     if (selectedStart === side) {
       setSelectedStart(null);
@@ -288,6 +297,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             if (winBtn) {
               winBtn.classList.add('ladder-result-winner');
             }
+            setActiveButton(side); // Track which button is active
             setTimeout(resolve, 100);
           }, 400);
 
@@ -387,6 +397,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     if (evenBtn) {
       evenBtn.classList.remove('ladder-result-winner');
     }
+
+    setActiveButton(null);
   };
 
   const handleDeposit = async () => {
@@ -575,7 +587,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         justifyContent: 'center',
                         fontWeight: 700,
                         fontSize: '1.3rem',
-                        background: selectedStart === 'left' ? '#a9a18e' : btnGray,
+                        background: activeButton === 'left'
+                          ? undefined  // Let CSS class control it
+                          : (selectedStart === 'left' ? '#a9a18e' : btnGray),
                         border: 'none',
                         color: '#333',
                         cursor: playing ? 'not-allowed' : 'pointer',
@@ -599,7 +613,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         justifyContent: 'center',
                         fontWeight: 700,
                         fontSize: '1.3rem',
-                        background: selectedStart === 'right' ? '#a9a18e' : btnGray,
+                        background: activeButton === 'right'
+                          ? undefined  // Let CSS class control it
+                          : (selectedStart === 'right' ? '#a9a18e' : btnGray),
                         border: 'none',
                         color: '#333',
                         cursor: playing ? 'not-allowed' : 'pointer',
@@ -733,6 +749,38 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       }}
                     >
                       {resultOutcome}
+                    </div>
+                  </div>
+                )}
+
+                {/* Init Banner */}
+                {showInitBanner && (
+                  <div
+                    onClick={() => setShowInitBanner(false)}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: bgDark,
+                      padding: '15px 120px',
+                      textAlign: 'center',
+                      zIndex: 99,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '28px',
+                        fontWeight: 365,
+                        color: '#fff',
+                        textTransform: 'uppercase',
+                        lineHeight: 1.13,
+                        letterSpacing: '-0.02em',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      CHOOSE ODDS<br />OR EVENS
                     </div>
                   </div>
                 )}
