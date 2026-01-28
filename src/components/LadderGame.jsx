@@ -12,8 +12,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
   const [selectedBet, setSelectedBet] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [complete, setComplete] = useState(false);
-  const [betAmount, setBetAmount] = useState(100);
+  const [betAmount, setBetAmount] = useState(1);
   const [currentLadder, setCurrentLadder] = useState(null);
+  const [displayBalance, setDisplayBalance] = useState(null); // For immediate balance updates
   const [showResultBanner, setShowResultBanner] = useState(false);
   const [resultText, setResultText] = useState('');
   const [resultOutcome, setResultOutcome] = useState('');
@@ -84,6 +85,13 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Sync displayBalance with Firebase balance when not playing
+  useEffect(() => {
+    if (!playing && userLadderData?.balance !== undefined) {
+      setDisplayBalance(userLadderData.balance);
+    }
+  }, [userLadderData?.balance, playing]);
+
   // Update instruction text
   useEffect(() => {
     if (playing) {
@@ -131,6 +139,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     setPlaying(true);
     setComplete(false);
 
+    // Immediately deduct bet from display balance
+    const currentBalance = userLadderData?.balance || 0;
+    setDisplayBalance(currentBalance - amount);
+
     try {
       // Call server function
       const result = await playLadderGameFunction({
@@ -148,7 +160,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         side: selectedStart,
         bet: amount,
         won,
-        payout
+        payout,
+        newBalance
       });
 
       // Clear old ladder
@@ -160,7 +173,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
       // Animate
       setTimeout(() => {
         revealRungs().then(() => {
-          return animatePath(rungs, selectedStart, gameResult);
+          return animatePath(rungs, selectedStart, gameResult, newBalance);
         }).then(() => {
           showResult(gameResult, won, amount, payout, currentStreak);
         });
@@ -222,7 +235,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     });
   };
 
-  const animatePath = (rungs, side, result) => {
+  const animatePath = (rungs, side, result, newBalance) => {
     return new Promise((resolve) => {
       if (!tracksRef.current) {
         resolve();
@@ -291,6 +304,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             // Color buttons via React state instead of DOM manipulation
             setActiveButton(side);
             setActiveResult(result); // 'odd' or 'even'
+
+            // Update balance to final amount after animation
+            setDisplayBalance(newBalance);
 
             // Still need DOM for the bottom winner button (not affected by re-render issue)
             const winBtn = document.getElementById(result === 'odd' ? 'oddBtn' : 'evenBtn');
@@ -866,7 +882,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 <div style={{ display: 'flex', padding: '10px 8px', gap: '6px' }}>
                   <div style={{ flex: 1, textAlign: 'center' }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: textDark }}>
-                      ${(userLadderData?.balance || 500).toLocaleString()}
+                      ${(displayBalance !== null ? displayBalance : (userLadderData?.balance || 500)).toLocaleString()}
                     </div>
                   </div>
                   <div style={{ flex: 1 }}>
