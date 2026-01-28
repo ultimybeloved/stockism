@@ -885,7 +885,8 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 border: '5px solid #fff',
                 position: 'relative',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                flex: 1
               }}
             >
               {/* Corner accents */}
