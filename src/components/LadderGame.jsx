@@ -895,7 +895,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     style={{
                       padding: '8px',
                       background: '#af905b',
-                      color: '#000',
+                      color: '#fff',
                       border: 'none',
                       fontWeight: 700,
                       fontSize: '0.75rem',
@@ -910,7 +910,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     style={{
                       padding: '8px',
                       background: '#af905b',
-                      color: '#000',
+                      color: '#fff',
                       border: 'none',
                       fontWeight: 700,
                       fontSize: '0.75rem',
@@ -925,7 +925,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     style={{
                       padding: '8px',
                       background: '#af905b',
-                      color: '#000',
+                      color: '#fff',
                       border: 'none',
                       fontWeight: 700,
                       fontSize: '0.75rem',
