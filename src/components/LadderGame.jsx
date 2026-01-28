@@ -359,9 +359,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             z-index: 1;
           `;
         } else {
-          // Horizontal - extend to meet verticals for pixel-perfect corners, centered on 8px rung
-          const startXPos = Math.min(from.x, to.x);
-          const endXPos = Math.max(from.x, to.x);
+          // Horizontal - extend into verticals for seamless intersection, centered on 8px rung
+          const startXPos = Math.min(from.x, to.x) - 2;
+          const endXPos = Math.max(from.x, to.x) + 2;
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
