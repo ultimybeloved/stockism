@@ -894,7 +894,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     onClick={() => setShowDepositModal(true)}
                     style={{
                       padding: '8px',
-                      background: '#d4af37',
+                      background: '#af905b',
                       color: '#000',
                       border: 'none',
                       fontWeight: 700,
@@ -909,7 +909,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     onClick={() => setShowLeaderboardModal(true)}
                     style={{
                       padding: '8px',
-                      background: '#d4af37',
+                      background: '#af905b',
                       color: '#000',
                       border: 'none',
                       fontWeight: 700,
@@ -924,7 +924,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     onClick={() => setShowStatsModal(true)}
                     style={{
                       padding: '8px',
-                      background: '#d4af37',
+                      background: '#af905b',
                       color: '#000',
                       border: 'none',
                       fontWeight: 700,
