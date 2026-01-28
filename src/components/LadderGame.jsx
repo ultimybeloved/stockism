@@ -885,8 +885,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 border: '5px solid #fff',
                 position: 'relative',
                 display: 'flex',
-                flexDirection: 'column',
-                flex: 1
+                flexDirection: 'column'
               }}
             >
               {/* Corner accents */}
@@ -1023,7 +1022,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         <div
                           style={{
                             flex: 1,
-                            height: '10px',
+                            height: '5px',
                             display: 'flex',
                             borderRadius: '1px',
                             overflow: 'hidden'
@@ -1046,16 +1045,17 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                         </div>
                         <div
                           style={{
-                            width: '24px',
-                            height: '24px',
+                            width: '48px',
+                            height: '48px',
                             borderRadius: '50%',
                             background: game.result === 'odd' ? '#2286f6' : '#f22431',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '12px',
+                            fontSize: '22px',
                             fontWeight: 700,
-                            color: '#fff'
+                            color: '#fff',
+                            flexShrink: 0
                           }}
                         >
                           {game.result === 'odd' ? 'O' : 'E'}
