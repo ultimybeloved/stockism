@@ -275,7 +275,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
       const drawNext = () => {
         if (idx >= points.length - 1) {
-          // Extension animations
+          // Extension animations - start immediately with smooth transition
           const topSeg = document.createElement('div');
           topSeg.className = 'ladder-path-segment';
           topSeg.style.cssText = `
@@ -286,7 +286,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: top 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transition: top 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
           `;
           tracksRef.current.appendChild(topSeg);
 
@@ -300,7 +300,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             width: 6px;
             height: 0px;
             z-index: -1;
-            transition: height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transition: height 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
           `;
           tracksRef.current.appendChild(bottomSeg);
 
@@ -308,7 +308,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
             topSeg.style.top = '-7px';
             topSeg.style.height = '7px';
             bottomSeg.style.height = '7px';
-          }, 50);
+          }, 20);
 
           setTimeout(() => {
             // Color buttons via React state instead of DOM manipulation
@@ -324,7 +324,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               winBtn.classList.add('ladder-result-winner');
             }
             setTimeout(resolve, 100);
-          }, 400);
+          }, 320);
 
           return;
         }
@@ -336,8 +336,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
         if (from.x === to.x) {
           // Vertical
-          const startY = from.y - 3;
-          const endY = to.y + 3;
+          // Keep aligned with track: don't extend beyond 0 at top or height at bottom
+          const startY = from.y === 0 ? 0 : from.y - 3;
+          const endY = to.y === height ? height : to.y + 3;
           seg.style.cssText = `
             position: absolute;
             background: ${pathColor};
@@ -364,7 +365,27 @@ const LadderGame = ({ user, onClose, darkMode }) => {
 
         tracksRef.current.appendChild(seg);
         idx++;
-        setTimeout(drawNext, 120);
+
+        // Progressive slow-down: faster at start, slower toward end, especially final segments
+        const totalSegments = points.length - 1;
+        const progress = idx / totalSegments;
+        let delay;
+
+        if (progress < 0.5) {
+          // First half: fast
+          delay = 100;
+        } else if (progress < 0.8) {
+          // Middle: moderate
+          delay = 120;
+        } else if (idx < totalSegments - 1) {
+          // Near end but not final: slower
+          delay = 160;
+        } else {
+          // Final segment: slowest for smooth transition to connecting animation
+          delay = 200;
+        }
+
+        setTimeout(drawNext, delay);
       };
 
       setTimeout(drawNext, 150);
