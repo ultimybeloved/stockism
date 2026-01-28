@@ -701,8 +701,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       height: '140px',
                       margin: '0 auto',
                       width: '100%',
-                      overflow: 'visible',
-                      zIndex: 1
+                      overflow: 'visible'
                     }}
                   >
                     <div
