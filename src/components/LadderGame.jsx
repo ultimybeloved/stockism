@@ -579,6 +579,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 }}
               >
                 <div
+                  className="ladder-instruction"
                   style={{
                     fontSize: '27px',
                     color: btnGray,
@@ -830,6 +831,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               {/* Footer */}
               <div style={{ height: '18px', background: '#cec6af' }} />
               <div
+                className="ladder-footer-text"
                 style={{
                   background: '#e6dbc6',
                   height: '30px',
@@ -1290,6 +1292,12 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               }
               .ladder-side-panel {
                 width: 100% !important;
+              }
+              .ladder-instruction {
+                font-size: 16px !important;
+              }
+              .ladder-footer-text {
+                font-size: 10px !important;
               }
             }
           `}
