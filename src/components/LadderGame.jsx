@@ -839,7 +839,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
                       background: bgDark,
-                      padding: '15px 104px',
+                      padding: '17px 94px',
                       textAlign: 'center',
                       zIndex: 99,
                       cursor: 'pointer',
