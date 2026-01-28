@@ -6,7 +6,8 @@ import {
   signOut,
   onAuthStateChanged,
   sendEmailVerification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  applyActionCode
 } from 'firebase/auth';
 import {
   doc,
@@ -6133,6 +6134,34 @@ export default function App() {
       setLoading(false);
     });
     return () => unsubscribe();
+  }, []);
+
+  // Handle Firebase email action codes (verification links)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const oobCode = urlParams.get('oobCode');
+
+    if (mode === 'verifyEmail' && oobCode) {
+      applyActionCode(auth, oobCode)
+        .then(() => {
+          // Verification successful - reload user and redirect
+          if (auth.currentUser) {
+            auth.currentUser.reload().then(() => {
+              // Clear URL params and reload to update state
+              window.history.replaceState({}, '', window.location.pathname);
+              window.location.reload();
+            });
+          } else {
+            window.history.replaceState({}, '', window.location.pathname);
+            window.location.reload();
+          }
+        })
+        .catch((error) => {
+          console.error('Email verification failed:', error);
+          // Could show error to user - link expired or already used
+        });
+    }
   }, []);
 
   // Listen to global market data
