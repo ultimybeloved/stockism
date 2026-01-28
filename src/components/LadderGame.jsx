@@ -728,7 +728,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                   </div>
 
                   {/* Bottom ODD/EVEN buttons */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px', position: 'relative', zIndex: 15 }}>
                     <button
                       id="oddBtn"
                       onClick={() => selectBetAndPlay('odd')}
