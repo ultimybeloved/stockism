@@ -586,7 +586,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                     textTransform: 'uppercase',
                     fontWeight: 500,
                     letterSpacing: '-0.01em',
-                    minHeight: '1.3em'
+                    height: '35px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
                   {instruction}
@@ -1295,6 +1298,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
               }
               .ladder-instruction {
                 font-size: 16px !important;
+                height: 21px !important;
               }
               .ladder-footer-text {
                 font-size: 10px !important;
