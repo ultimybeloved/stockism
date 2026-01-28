@@ -1321,11 +1321,10 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 font-size: 10px !important;
               }
               .ladder-init-banner {
-                padding: 12px 30px !important;
+                padding: 10px 40px !important;
               }
               .ladder-init-banner-text {
-                font-size: 20px !important;
-                white-space: normal !important;
+                font-size: 18px !important;
               }
             }
           `}
