@@ -290,7 +290,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           top: 0px;
           width: 6px;
           height: 0px;
-          z-index: -1;
+          z-index: 5;
           transition: top 0.25s cubic-bezier(0.33, 1, 0.68, 1), height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
         tracksRef.current.appendChild(topSeg);
@@ -304,7 +304,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
           top: ${height}px;
           width: 6px;
           height: 0px;
-          z-index: -1;
+          z-index: 5;
           transition: height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
         tracksRef.current.appendChild(bottomSeg);
