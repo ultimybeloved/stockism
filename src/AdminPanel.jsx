@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { initializeMarket } from './services/market';
@@ -274,6 +274,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       const direction = targetPrice > currentPrice ? '📈' : '📉';
 
       showMessage('success', `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`);
+
+      // Send spike alert to Discord if 1%+ change
+      if (Math.abs(parseFloat(changePercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker: character.ticker,
+            priceBefore: currentPrice,
+            priceAfter: targetPrice,
+            tradeType: 'ADJUSTMENT',
+            shares: 0
+          }).catch(() => {});
+        } catch {}
+      }
 
       // Reset modal
       setPriceAdjustPercent('');
