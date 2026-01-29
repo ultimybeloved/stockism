@@ -2399,9 +2399,31 @@ const AboutModal = ({ onClose, darkMode, userData }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">Who made this?</h3>
                 <p className={mutedClass}>
-                  Stockism was created by <a href="https://github.com/UltiMyBeloved" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">Darth YG</a> for the Lookism community. 
+                  Stockism was created by <a href="https://github.com/UltiMyBeloved" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">Darth YG</a> for the Lookism community.
                   It's a free, open-source project with no ads or monetization.
                 </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-2">Join the Community</h3>
+                <div className="flex gap-3">
+                  <a
+                    href="https://discord.gg/yxw94uNrYv"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-indigo-500 hover:bg-indigo-600'} text-white text-sm font-medium`}
+                  >
+                    Discord
+                  </a>
+                  <a
+                    href="https://reddit.com/r/stockismapp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode ? 'bg-orange-600 hover:bg-orange-500' : 'bg-orange-500 hover:bg-orange-600'} text-white text-sm font-medium`}
+                  >
+                    Reddit
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -5149,6 +5171,14 @@ const LoginModal = ({ onClose, darkMode }) => {
           {' • '}
           <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
             Privacy Policy
+          </a>
+          {' • '}
+          <a href="https://discord.gg/yxw94uNrYv" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+            Discord
+          </a>
+          {' • '}
+          <a href="https://reddit.com/r/stockismapp" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+            Reddit
           </a>
         </div>
       </div>
@@ -9766,6 +9796,14 @@ export default function App() {
         {' • '}
         <a href="mailto:support@stockism.app" className="hover:text-orange-500 underline">
           Contact
+        </a>
+        {' • '}
+        <a href="https://discord.gg/yxw94uNrYv" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+          Discord
+        </a>
+        {' • '}
+        <a href="https://reddit.com/r/stockismapp" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+          Reddit
         </a>
       </div>
     </div>
