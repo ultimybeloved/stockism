@@ -6098,9 +6098,18 @@ export default function App() {
     setActivityFeed(prev => [activity, ...prev].slice(0, 50)); // Keep last 50
   }, []);
 
+  // Ref to store user data listener unsubscribe function
+  const userDataUnsubscribeRef = useRef(null);
+
   // Listen to auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous user data listener
+      if (userDataUnsubscribeRef.current) {
+        userDataUnsubscribeRef.current();
+        userDataUnsubscribeRef.current = null;
+      }
+
       setUser(firebaseUser);
       if (firebaseUser) {
         // Check if email is verified (only for email/password providers)
@@ -6129,8 +6138,8 @@ export default function App() {
           const data = userSnap.data();
           setUserData(data);
 
-          // Subscribe to user data changes
-          onSnapshot(userDocRef, (snap) => {
+          // Subscribe to user data changes - store unsubscribe for cleanup
+          userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
             if (snap.exists()) setUserData(snap.data());
           });
         }
@@ -6141,7 +6150,13 @@ export default function App() {
       }
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Clean up user data listener on unmount
+      if (userDataUnsubscribeRef.current) {
+        userDataUnsubscribeRef.current();
+      }
+    };
   }, []);
 
   // Handle Firebase email action codes (verification links)
@@ -6202,7 +6217,9 @@ export default function App() {
           priceHistory: initialHistory,
           lastUpdate: serverTimestamp(),
           totalTrades: 0
-        }, { merge: true });
+        }, { merge: true }).catch(err => {
+          console.error('Failed to initialize market data:', err);
+        });
         
         setPrices(initialPrices);
         setPriceHistory(initialHistory);

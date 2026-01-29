@@ -176,7 +176,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       return;
     }
 
-    const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
+    const priceChangePercent = (sourceNewPrice - sourceOldPrice) / (sourceOldPrice || 1);
 
     character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
       // Skip if we've already updated this ticker in this batch
