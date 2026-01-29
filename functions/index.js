@@ -1156,8 +1156,19 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const marginEnabled = userData.marginEnabled || false;
       const marginUsed = userData.marginUsed || 0;
 
-      // Basic validation - client will do detailed margin calculation
-      const estimatedCost = currentPrice * amount * 1.05; // +5% buffer for price impact
+      // Calculate estimated cost using actual price impact formula (matches client)
+      const BASE_IMPACT = 0.012;
+      const BASE_LIQUIDITY = 100;
+      const BID_ASK_SPREAD = 0.002;
+      const MAX_PRICE_CHANGE_PERCENT = 0.05;
+
+      let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+      const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+      priceImpact = Math.min(priceImpact, maxImpact);
+
+      const newMidPrice = currentPrice + priceImpact;
+      const askPrice = newMidPrice * (1 + BID_ASK_SPREAD / 2);
+      const estimatedCost = askPrice * amount;
 
       if (cash < 0) {
         throw new functions.https.HttpsError(
