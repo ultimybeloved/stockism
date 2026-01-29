@@ -15,12 +15,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [options, setOptions] = useState(['', '', '', '', '', '']);
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
   
-  // Calculate end time at 14:55 UTC on target day (5 min before chapter release)
+  // Calculate end time at 13:55 UTC (7:55 AM CST) on target day (5 min before chapter release)
   const getEndTime = (days) => {
     const now = new Date();
     const target = new Date(now);
     target.setDate(target.getDate() + days);
-    target.setUTCHours(14, 55, 0, 0);
+    target.setUTCHours(13, 55, 0, 0);
     return target.getTime();
   };
   
