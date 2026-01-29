@@ -1,5 +1,13 @@
 # Claude Code Instructions
 
+## Code Philosophy
+
+* Understand the codebase before changing it
+* Consider 2+ approaches before implementing
+* Simplify ruthlessly - remove complexity wherever possible
+* Plan non-trivial changes before coding
+* Leave code better than you found it
+
 ## Git Commits
 
 * Do NOT add "Co-Authored-By: Claude" or any co-author attribution to commit messages
