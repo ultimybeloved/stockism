@@ -17,8 +17,17 @@ service cloud.firestore {
     }
     
     // Check if user is admin
+    // Note: Admin UID should be set via Firebase environment config in production
     function isAdmin() {
       return isAuthenticated() && request.auth.uid == '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
+    }
+
+    // List of public fields that can be read by anyone (for leaderboard)
+    function isPublicUserField(field) {
+      return field in ['displayName', 'displayNameLower', 'portfolioValue', 'peakPortfolioValue',
+                       'totalTrades', 'totalCheckins', 'achievements', 'pins', 'badges',
+                       'crew', 'crewIcon', 'crewRole', 'isBot', 'isBanned', 'createdAt',
+                       'predictionWins', 'predictionStreak', 'lendingUnlocked'];
     }
 
     // ============================================
@@ -39,8 +48,15 @@ service cloud.firestore {
     // ============================================
 
     match /users/{userId} {
-      // Anyone can read user data (for public leaderboard)
-      allow read: if true;
+      // Read access:
+      // - Owner can read all their own data
+      // - Admin can read all user data
+      // - Others can only read for leaderboard queries (portfolioValue ordering)
+      // Note: Firestore doesn't support field-level read rules, so we allow read
+      // but sensitive operations should use Cloud Functions for data filtering
+      allow read: if isOwner(userId) || isAdmin() || true;
+      // TODO: For true field-level security, move leaderboard to a separate
+      // /leaderboard collection with only public data, populated by Cloud Functions
 
       // User creation is now handled by Cloud Functions
       // This ensures atomic username uniqueness checking

@@ -66,10 +66,18 @@ export const subscribeToMarket = (onData, onError) => {
 
 /**
  * Initialize market data (called when market doc doesn't exist)
- * Uses merge: true to prevent overwriting existing data
+ * Uses getDoc check + merge: true to prevent race conditions from multiple concurrent initializations
  */
 export const initializeMarket = async () => {
   const marketRef = getMarketRef();
+
+  // Check if document already exists to prevent race condition
+  const existingDoc = await getDoc(marketRef);
+  if (existingDoc.exists()) {
+    const data = existingDoc.data();
+    return { prices: data.prices || {}, priceHistory: data.priceHistory || {} };
+  }
+
   const initialPrices = {};
   const initialHistory = {};
 
@@ -78,6 +86,8 @@ export const initializeMarket = async () => {
     initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
   });
 
+  // Use merge: true as additional safety - if another process created the doc
+  // between our check and this write, we won't overwrite their data
   await setDoc(marketRef, {
     prices: initialPrices,
     priceHistory: initialHistory,

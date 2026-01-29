@@ -195,9 +195,7 @@ export const executeBuy = async ({
   const trailingUpdates = applyTrailingEffects(ticker, currentPrice, settledPrice, prices);
   Object.assign(marketUpdates, trailingUpdates);
 
-  await updateDoc(marketRef, marketUpdates);
-
-  // Update user
+  // Update user data
   const userUpdates = {
     cash: cashAvailable - cashToUse,
     marginUsed: marginUsed + marginToUse,
@@ -210,7 +208,18 @@ export const executeBuy = async ({
     totalTrades: increment(1)
   };
 
-  await updateDoc(userRef, userUpdates);
+  // Execute both updates with error handling
+  try {
+    await updateDoc(marketRef, marketUpdates);
+    await updateDoc(userRef, userUpdates);
+  } catch (error) {
+    console.error('Buy trade execution error:', error);
+    return {
+      success: false,
+      error: 'EXECUTION_FAILED',
+      message: 'Trade failed to execute. Please try again.'
+    };
+  }
 
   // Get trailing effects summary
   const trailingTickers = Object.keys(trailingUpdates)
@@ -308,8 +317,6 @@ export const executeSell = async ({
   const trailingUpdates = applyTrailingEffects(ticker, currentPrice, settledPrice, prices);
   Object.assign(marketUpdates, trailingUpdates);
 
-  await updateDoc(marketRef, marketUpdates);
-
   // Update user
   const userUpdates = {
     cash: (userData.cash || 0) + totalRevenue,
@@ -325,7 +332,18 @@ export const executeSell = async ({
     userUpdates[`lowestWhileHolding.${ticker}`] = null;
   }
 
-  await updateDoc(userRef, userUpdates);
+  // Execute both updates with error handling
+  try {
+    await updateDoc(marketRef, marketUpdates);
+    await updateDoc(userRef, userUpdates);
+  } catch (error) {
+    console.error('Sell trade execution error:', error);
+    return {
+      success: false,
+      error: 'EXECUTION_FAILED',
+      message: 'Trade failed to execute. Please try again.'
+    };
+  }
 
   return {
     success: true,

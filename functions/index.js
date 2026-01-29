@@ -10,7 +10,9 @@ const { botTrader } = require('./botTrader');
 
 // Constants
 const STARTING_CASH = 1000;
-const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
+// Admin UID from environment variable (set in functions/.env)
+// Falls back to hardcoded value for backwards compatibility
+const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
@@ -798,6 +800,11 @@ exports.weeklyMarketSummary = functions.pubsub
  * Called from client after trade execution
  */
 exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
+  // Require authentication to prevent spam
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
   const { ticker, shares, price, totalValue, type } = data;
 
   // Only alert for:
@@ -843,6 +850,11 @@ exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
  * Crew Milestone Alert - Called when crew reaches member milestone
  */
 exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
+  // Require authentication to prevent spam
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
   const { crewName, memberCount } = data;
 
   // Alert for milestones: 5, 10, 25, 50, 100
@@ -865,6 +877,11 @@ exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
  * Prediction Result Alert - Called when prediction is resolved
  */
 exports.predictionResultAlert = functions.https.onCall(async (data, context) => {
+  // Require authentication to prevent spam
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
   const { question, winningOption, totalBets, totalPayout, winners } = data;
 
   const embed = {
@@ -904,6 +921,11 @@ exports.predictionResultAlert = functions.https.onCall(async (data, context) => 
  * All-Time High Alert - Called when stock hits new ATH
  */
 exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
+  // Require authentication to prevent spam
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
   const { ticker, price, previousHigh } = data;
 
   const embed = {
@@ -938,6 +960,11 @@ exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
  * Portfolio Milestone Alert - Called when user hits major portfolio milestone
  */
 exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) => {
+  // Require authentication to prevent spam
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
   const { milestone } = data;
 
   const milestones = {

@@ -98,6 +98,15 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     }
   }, [userLadderData?.balance, playing]);
 
+  // Cleanup timeout refs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (bannerTimeoutRef.current) {
+        clearTimeout(bannerTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Update instruction text
   useEffect(() => {
     if (playing) {
@@ -943,7 +952,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
                 <div style={{ display: 'flex', padding: '10px 8px', gap: '6px', justifyContent: 'center' }}>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: textDark }}>
-                      ${(displayBalance !== null ? displayBalance : (userLadderData?.balance || 500)).toLocaleString()}
+                      ${(displayBalance ?? userLadderData?.balance ?? 500).toLocaleString()}
                     </div>
                   </div>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

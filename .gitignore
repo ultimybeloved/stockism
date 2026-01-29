@@ -8,6 +8,8 @@ dist/
 .env
 .env.local
 .env.*.local
+functions/.env
+functions/.env.*
 
 # IDE
 .vscode/
