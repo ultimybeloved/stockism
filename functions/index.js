@@ -687,6 +687,140 @@ exports.dailyMarketSummary = functions.pubsub
   });
 
 /**
+ * Manual trigger for daily market summary (admin only)
+ */
+exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context) => {
+  // Admin check
+  if (!context.auth || !ADMIN_UIDS.includes(context.auth.uid)) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  try {
+    const marketRef = db.collection('market').doc('current');
+    const marketSnap = await marketRef.get();
+
+    if (!marketSnap.exists) {
+      return { success: false, error: 'No market data found' };
+    }
+
+    const marketData = marketSnap.data();
+    const prices = marketData.prices || {};
+    const priceHistory = marketData.priceHistory || {};
+
+    const usersSnap = await db.collection('users').get();
+    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const now = Date.now();
+    const dayAgo = now - (24 * 60 * 60 * 1000);
+    const gainers = [];
+    const losers = [];
+    const athStocks = [];
+
+    Object.entries(prices).forEach(([ticker, currentPrice]) => {
+      const history = priceHistory[ticker] || [];
+      if (history.length === 0) return;
+
+      let price24hAgo = history[0].price;
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].timestamp <= dayAgo) {
+          price24hAgo = history[i].price;
+          break;
+        }
+      }
+
+      const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+      const stock = { ticker, price: currentPrice, change };
+
+      if (change > 0) gainers.push(stock);
+      if (change < 0) losers.push(stock);
+
+      const highestHistorical = Math.max(...history.map(h => h.price));
+      if (currentPrice >= highestHistorical) {
+        athStocks.push(ticker);
+      }
+    });
+
+    gainers.sort((a, b) => b.change - a.change);
+    losers.sort((a, b) => a.change - b.change);
+
+    let totalVolume = 0;
+    let tradeCount = 0;
+    const traderActivity = {};
+
+    users.forEach(user => {
+      const txLog = user.transactionLog || [];
+      txLog.forEach(tx => {
+        if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > dayAgo) {
+          totalVolume += tx.totalCost || tx.totalRevenue || 0;
+          tradeCount++;
+          traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
+        }
+      });
+    });
+
+    const topTraders = Object.entries(traderActivity)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    const embed = {
+      title: '📊 Daily Market Summary',
+      description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
+      color: 0xFF6B35,
+      fields: [
+        {
+          name: '📈 Market Activity',
+          value: `${tradeCount} trades • $${totalVolume.toFixed(2)} volume`,
+          inline: false
+        },
+        {
+          name: '🔥 Top Gainers (24h)',
+          value: gainers.slice(0, 3).map(s =>
+            `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`
+          ).join('\n') || 'None',
+          inline: true
+        },
+        {
+          name: '📉 Top Losers (24h)',
+          value: losers.slice(0, 3).map(s =>
+            `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`
+          ).join('\n') || 'None',
+          inline: true
+        }
+      ],
+      timestamp: new Date().toISOString()
+    };
+
+    if (athStocks.length > 0) {
+      embed.fields.push({
+        name: '🎯 New All-Time Highs',
+        value: athStocks.slice(0, 5).join(', '),
+        inline: false
+      });
+    }
+
+    if (topTraders.length > 0) {
+      embed.fields.push({
+        name: '⚡ Most Active Traders',
+        value: topTraders.map((_, i) => `#${i + 1}: ${topTraders[i][1]} trades`).join('\n'),
+        inline: false
+      });
+    }
+
+    embed.fields.push({
+      name: '💰 Market Stats',
+      value: `Total Cash: $${(marketData.totalCashInSystem || 0).toLocaleString()}\nActive Traders: ${users.length}`,
+      inline: false
+    });
+
+    await sendDiscordMessage(null, [embed]);
+    return { success: true };
+  } catch (error) {
+    console.error('Error in triggerDailyMarketSummary:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
  * Weekly Market Summary - Runs Sundays at 7 PM EST (Monday midnight UTC)
  */
 exports.weeklyMarketSummary = functions.pubsub
@@ -987,6 +1121,366 @@ exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) =
   }
 
   return { success: true };
+});
+
+/**
+ * Hourly Market Movers - Runs every 2 hours
+ * Shows top gainers and losers over the past few hours
+ */
+exports.hourlyMovers = functions.pubsub
+  .schedule('0 */2 * * *')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) return null;
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
+
+      const now = Date.now();
+      const hoursAgo = now - (2 * 60 * 60 * 1000); // 2 hours
+
+      const movers = [];
+
+      Object.entries(prices).forEach(([ticker, currentPrice]) => {
+        const history = priceHistory[ticker] || [];
+        if (history.length === 0) return;
+
+        // Find price 2 hours ago
+        let priceAtStart = currentPrice;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= hoursAgo) {
+            priceAtStart = history[i].price;
+            break;
+          }
+        }
+
+        const change = ((currentPrice - priceAtStart) / priceAtStart) * 100;
+        if (Math.abs(change) >= 0.5) { // Only include if moved 0.5%+
+          movers.push({ ticker, price: currentPrice, change, priceAtStart });
+        }
+      });
+
+      if (movers.length === 0) return null; // No significant movement
+
+      movers.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+      const gainers = movers.filter(m => m.change > 0).slice(0, 3);
+      const losers = movers.filter(m => m.change < 0).slice(0, 3);
+
+      if (gainers.length === 0 && losers.length === 0) return null;
+
+      const embed = {
+        title: '📊 Market Update',
+        description: `Movement over the last 2 hours`,
+        color: 0x3498DB,
+        fields: [],
+        timestamp: new Date().toISOString()
+      };
+
+      if (gainers.length > 0) {
+        embed.fields.push({
+          name: '📈 Rising',
+          value: gainers.map(s => `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`).join('\n'),
+          inline: true
+        });
+      }
+
+      if (losers.length > 0) {
+        embed.fields.push({
+          name: '📉 Falling',
+          value: losers.map(s => `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`).join('\n'),
+          inline: true
+        });
+      }
+
+      await sendDiscordMessage(null, [embed]);
+      return null;
+    } catch (error) {
+      console.error('Error in hourlyMovers:', error);
+      return null;
+    }
+  });
+
+/**
+ * Price Threshold Alert - Runs every 30 minutes
+ * Alerts when stocks cross significant 24h thresholds (3%, 5%, 10%)
+ */
+exports.priceThresholdAlert = functions.pubsub
+  .schedule('*/30 * * * *')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) return null;
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
+      const alertedThresholds = marketData.alertedThresholds || {}; // Track what we've already alerted
+
+      const now = Date.now();
+      const dayAgo = now - (24 * 60 * 60 * 1000);
+      const thresholds = [3, 5, 10]; // Alert at these % changes
+
+      const newAlerts = [];
+      const updatedAlertedThresholds = { ...alertedThresholds };
+
+      Object.entries(prices).forEach(([ticker, currentPrice]) => {
+        const history = priceHistory[ticker] || [];
+        if (history.length === 0) return;
+
+        // Find price 24h ago
+        let price24hAgo = history[0].price;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= dayAgo) {
+            price24hAgo = history[i].price;
+            break;
+          }
+        }
+
+        const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+        const absChange = Math.abs(change);
+
+        // Check each threshold
+        thresholds.forEach(threshold => {
+          const alertKey = `${ticker}_${threshold}_${change > 0 ? 'up' : 'down'}`;
+          const lastAlerted = alertedThresholds[alertKey] || 0;
+          const hoursSinceAlert = (now - lastAlerted) / (60 * 60 * 1000);
+
+          // Alert if crossed threshold and hasn't been alerted in 12 hours
+          if (absChange >= threshold && hoursSinceAlert > 12) {
+            newAlerts.push({
+              ticker,
+              price: currentPrice,
+              price24hAgo,
+              change,
+              threshold,
+              alertKey
+            });
+            updatedAlertedThresholds[alertKey] = now;
+          }
+        });
+      });
+
+      if (newAlerts.length === 0) return null;
+
+      // Save updated alert tracking
+      await marketRef.update({ alertedThresholds: updatedAlertedThresholds });
+
+      // Group alerts by threshold for cleaner messaging
+      const majorAlerts = newAlerts.filter(a => a.threshold >= 5);
+      const minorAlerts = newAlerts.filter(a => a.threshold < 5);
+
+      // Send major alerts individually (5%+ moves are significant)
+      for (const alert of majorAlerts) {
+        const emoji = alert.change > 0 ? '🚀' : '💥';
+        const direction = alert.change > 0 ? 'surged' : 'crashed';
+        const embed = {
+          title: `${emoji} Major Price Movement`,
+          description: `**${alert.ticker}** has ${direction} ${Math.abs(alert.change).toFixed(1)}% in 24 hours`,
+          color: alert.change > 0 ? 0x00FF00 : 0xFF0000,
+          fields: [
+            { name: 'Current Price', value: `$${alert.price.toFixed(2)}`, inline: true },
+            { name: '24h Ago', value: `$${alert.price24hAgo.toFixed(2)}`, inline: true },
+            { name: 'Change', value: `${alert.change > 0 ? '+' : ''}${alert.change.toFixed(1)}%`, inline: true }
+          ],
+          timestamp: new Date().toISOString()
+        };
+        await sendDiscordMessage(null, [embed]);
+      }
+
+      // Batch minor alerts (3% moves)
+      if (minorAlerts.length > 0) {
+        const gainers = minorAlerts.filter(a => a.change > 0);
+        const losers = minorAlerts.filter(a => a.change < 0);
+
+        const embed = {
+          title: '📊 24h Price Alerts',
+          color: 0xFFA500,
+          fields: [],
+          timestamp: new Date().toISOString()
+        };
+
+        if (gainers.length > 0) {
+          embed.fields.push({
+            name: '📈 Up 3%+',
+            value: gainers.map(a => `**${a.ticker}** +${a.change.toFixed(1)}%`).join('\n'),
+            inline: true
+          });
+        }
+
+        if (losers.length > 0) {
+          embed.fields.push({
+            name: '📉 Down 3%+',
+            value: losers.map(a => `**${a.ticker}** ${a.change.toFixed(1)}%`).join('\n'),
+            inline: true
+          });
+        }
+
+        await sendDiscordMessage(null, [embed]);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in priceThresholdAlert:', error);
+      return null;
+    }
+  });
+
+/**
+ * Trade Spike Alert - Called when a single trade moves price significantly (1%+)
+ */
+exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { ticker, priceBefore, priceAfter, tradeType, shares } = data;
+
+  const change = ((priceAfter - priceBefore) / priceBefore) * 100;
+  const absChange = Math.abs(change);
+
+  // Only alert for 1%+ single-trade moves
+  if (absChange < 1) return { success: true, alerted: false };
+
+  const emoji = change > 0 ? '⚡' : '💨';
+  const direction = change > 0 ? 'spiked' : 'dropped';
+  const tradeAction = tradeType === 'BUY' ? 'buy' : 'sell';
+
+  const embed = {
+    title: `${emoji} Price Spike`,
+    description: `**${ticker}** just ${direction} ${absChange.toFixed(1)}% from a single ${tradeAction}`,
+    color: change > 0 ? 0x00FF00 : 0xFF4444,
+    fields: [
+      { name: 'Before', value: `$${priceBefore.toFixed(2)}`, inline: true },
+      { name: 'After', value: `$${priceAfter.toFixed(2)}`, inline: true },
+      { name: 'Impact', value: `${change > 0 ? '+' : ''}${change.toFixed(2)}%`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true, alerted: true };
+});
+
+/**
+ * Achievement Alert - Called when someone unlocks an achievement
+ */
+exports.achievementAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { achievementId, achievementName, achievementDescription } = data;
+
+  // List of "exciting" achievements worth announcing (skip basic ones)
+  const noteworthyAchievements = [
+    'SHARK', 'BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED',
+    'PORTFOLIO_10K', 'PORTFOLIO_25K', 'PORTFOLIO_50K', 'PORTFOLIO_100K',
+    'ORACLE', 'PROPHET', 'TOP_10', 'TOP_3', 'CHAMPION',
+    'STREAK_30', 'STREAK_100', 'MISSION_50', 'MISSION_100'
+  ];
+
+  if (!noteworthyAchievements.includes(achievementId)) {
+    return { success: true, alerted: false };
+  }
+
+  const embed = {
+    title: '🏆 Achievement Unlocked',
+    description: `A trader just earned **${achievementName}**`,
+    color: 0xFFD700,
+    fields: [
+      { name: 'Description', value: achievementDescription, inline: false }
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true, alerted: true };
+});
+
+/**
+ * Leaderboard Change Alert - Called when someone enters/exits top 10
+ */
+exports.leaderboardChangeAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { changeType, newRank, portfolioValue } = data;
+
+  let embed;
+
+  if (changeType === 'entered_top10') {
+    embed = {
+      title: '🔥 Leaderboard Shakeup',
+      description: `A trader just broke into the **Top 10**!`,
+      color: 0xFF6B35,
+      fields: [
+        { name: 'New Position', value: `#${newRank}`, inline: true },
+        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    };
+  } else if (changeType === 'new_leader') {
+    embed = {
+      title: '👑 New #1 Leader',
+      description: `The throne has a new ruler!`,
+      color: 0xFFD700,
+      fields: [
+        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    };
+  } else if (changeType === 'entered_top3') {
+    embed = {
+      title: '🥇 Top 3 Entry',
+      description: `A trader just climbed into the **Top 3**!`,
+      color: 0xC0C0C0,
+      fields: [
+        { name: 'New Position', value: `#${newRank}`, inline: true },
+        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    };
+  } else {
+    return { success: true, alerted: false };
+  }
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true, alerted: true };
+});
+
+/**
+ * Margin Liquidation Alert - Called when someone gets liquidated
+ */
+exports.marginLiquidationAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { lossAmount, portfolioBefore, portfolioAfter } = data;
+
+  const embed = {
+    title: '💥 Margin Liquidation',
+    description: `A trader was just **LIQUIDATED**`,
+    color: 0xFF0000,
+    fields: [
+      { name: 'Portfolio Before', value: `$${portfolioBefore.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true },
+      { name: 'Portfolio After', value: `$${portfolioAfter.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true },
+      { name: 'Value Lost', value: `$${lossAmount.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
+    ],
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true, alerted: true };
 });
 
 /**

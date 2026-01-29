@@ -25,7 +25,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -7491,10 +7491,31 @@ export default function App() {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`);
+        // Send achievement alert to Discord
+        try {
+          achievementAlertFunction({
+            achievementId: earnedAchievements[0],
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {}); // Fire and forget
+        } catch {}
       } else {
         showNotification('success', `Bought ${amount} ${ticker} @ ${formatCurrency(buyPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`);
       }
-    
+
+      // Send trade spike alert if price moved 1%+
+      if (Math.abs(parseFloat(impactPercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker,
+            priceBefore: price,
+            priceAfter: settledPrice,
+            tradeType: 'BUY',
+            shares: amount
+          }).catch(() => {}); // Fire and forget
+        } catch {}
+      }
+
     } else if (action === 'sell') {
       const currentHoldings = userData.holdings[ticker] || 0;
       if (currentHoldings < amount) {
@@ -7707,6 +7728,14 @@ export default function App() {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Sold ${amount} ${ticker}`);
+        // Send achievement alert to Discord
+        try {
+          achievementAlertFunction({
+            achievementId: earnedAchievements[0],
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {}); // Fire and forget
+        } catch {}
       } else {
         let message = `Sold ${amount} ${ticker} @ ${formatCurrency(sellPrice)} (${impactPercent}% impact)`;
         if (marginPayment > 0) {
@@ -7714,7 +7743,20 @@ export default function App() {
         }
         showNotification('success', message);
       }
-    
+
+      // Send trade spike alert if price moved 1%+
+      if (Math.abs(parseFloat(impactPercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker,
+            priceBefore: price,
+            priceAfter: settledPrice,
+            tradeType: 'SELL',
+            shares: amount
+          }).catch(() => {}); // Fire and forget
+        } catch {}
+      }
+
     } else if (action === 'short') {
       // SHORTING: Borrow shares and sell them, hoping to buy back cheaper
       // Get liquidity for this character
@@ -7850,6 +7892,13 @@ export default function App() {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Shorted ${amount} ${ticker}`);
+        try {
+          achievementAlertFunction({
+            achievementId: earnedAchievements[0],
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {});
+        } catch {}
       } else {
         let shortMessage = `Shorted ${amount} ${ticker} @ ${formatCurrency(shortPrice)} (${impactPercent}% impact)`;
         if (marginToUse > 0) {
@@ -7857,7 +7906,20 @@ export default function App() {
         }
         showNotification('success', shortMessage);
       }
-    
+
+      // Send trade spike alert if price moved 1%+
+      if (Math.abs(parseFloat(impactPercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker,
+            priceBefore: price,
+            priceAfter: settledPrice,
+            tradeType: 'SHORT',
+            shares: amount
+          }).catch(() => {});
+        } catch {}
+      }
+
     } else if (action === 'cover') {
       // COVER: Buy back shares to close short position
       const existingShort = userData.shorts?.[ticker];
@@ -8017,16 +8079,43 @@ export default function App() {
         const achievement = ACHIEVEMENTS['COLD_BLOODED'];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! ${profitMsg} profit from short!`);
+        try {
+          achievementAlertFunction({
+            achievementId: 'COLD_BLOODED',
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {});
+        } catch {}
       } else if (earnedAchievements.length > 0) {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+        try {
+          achievementAlertFunction({
+            achievementId: earnedAchievements[0],
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {});
+        } catch {}
       } else {
         let coverMessage = `Covered ${amount} ${ticker} @ ${formatCurrency(coverPrice)} (${profitMsg}, +${impactPercent}% impact)`;
         if (coverMarginPayment > 0) {
           coverMessage += ` • Paid ${formatCurrency(coverMarginPayment)} margin debt`;
         }
         showNotification(profit >= 0 ? 'success' : 'error', coverMessage);
+      }
+
+      // Send trade spike alert if price moved 1%+
+      if (Math.abs(parseFloat(impactPercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker,
+            priceBefore: price,
+            priceAfter: settledPrice,
+            tradeType: 'COVER',
+            shares: amount
+          }).catch(() => {});
+        } catch {}
       }
     }
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
@@ -8146,7 +8235,16 @@ export default function App() {
         } else {
           showNotification('error', `💀 MARGIN LIQUIDATION: All positions sold. ${formatCurrency(finalCash)} remaining.`);
         }
-        
+
+        // Send liquidation alert to Discord
+        try {
+          marginLiquidationAlertFunction({
+            lossAmount: totalRecovered,
+            portfolioBefore: status.portfolioValue,
+            portfolioAfter: Math.max(0, finalCash)
+          }).catch(() => {});
+        } catch {}
+
       } else if (status.status === 'margin_call' && !userData.marginCallAt) {
         // First margin call - set grace period
         await updateDoc(userRef, { marginCallAt: now });

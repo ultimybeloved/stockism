@@ -46,5 +46,11 @@ export const banUserFunction = httpsCallable(functions, 'banUser');
 export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
 export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');
 export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderLeaderboard');
+export const triggerDailyMarketSummaryFunction = httpsCallable(functions, 'triggerDailyMarketSummary');
+// Discord alert functions
+export const tradeSpikeAlertFunction = httpsCallable(functions, 'tradeSpikeAlert');
+export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
+export const leaderboardChangeAlertFunction = httpsCallable(functions, 'leaderboardChangeAlert');
+export const marginLiquidationAlertFunction = httpsCallable(functions, 'marginLiquidationAlert');
 
 export default app;
