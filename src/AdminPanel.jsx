@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { initializeMarket } from './services/market';
@@ -681,6 +681,20 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         await setDoc(ipoRef, {
           list: [newIPO]
         });
+      }
+
+      // Send Discord announcement
+      try {
+        await ipoAnnouncementAlertFunction({
+          ticker: ipoTicker,
+          characterName: character.name,
+          basePrice: character.basePrice,
+          ipoPrice: character.basePrice / 1.3,
+          endsAt: ipoEndsAt
+        });
+      } catch (discordErr) {
+        console.error('Failed to send IPO announcement to Discord:', discordErr);
+        // Don't block IPO creation if Discord fails
       }
 
       showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying in ${ipoHoursUntilStart}h`);

@@ -247,6 +247,44 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       });
     });
 
+    // Send Discord notification for new user signup
+    try {
+      const authProvider = context.auth.token.firebase?.sign_in_provider || 'unknown';
+      const providerEmoji = {
+        'google.com': '🔵',
+        'twitter.com': '🐦',
+        'password': '📧',
+        'unknown': '🔑'
+      };
+
+      const embed = {
+        color: 0x00ff00, // Green
+        title: '🎉 New User Joined!',
+        description: `**${trimmed}** just joined Stockism`,
+        fields: [
+          {
+            name: 'Sign-up Method',
+            value: `${providerEmoji[authProvider] || '🔑'} ${authProvider === 'google.com' ? 'Google' : authProvider === 'twitter.com' ? 'Twitter' : authProvider === 'password' ? 'Email' : 'Other'}`,
+            inline: true
+          },
+          {
+            name: 'Starting Cash',
+            value: `$${STARTING_CASH.toLocaleString()}`,
+            inline: true
+          }
+        ],
+        timestamp: new Date().toISOString(),
+        footer: {
+          text: 'Stockism - Where Lookism characters become investments'
+        }
+      };
+
+      await sendDiscordMessage(null, [embed], 'signups');
+    } catch (discordError) {
+      console.error('Failed to send Discord signup notification:', discordError);
+      // Don't fail user creation if Discord notification fails
+    }
+
     return { success: true };
   } catch (error) {
     // Re-throw HttpsErrors as-is
@@ -517,11 +555,23 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
 
 /**
  * Helper function to send messages to Discord
+ * @param {string} content - Message content (can be null if using embeds)
+ * @param {Array} embeds - Array of Discord embed objects
+ * @param {string} channelType - Channel type: 'default', 'signups', or custom channel ID
  */
-async function sendDiscordMessage(content, embeds = null) {
+async function sendDiscordMessage(content, embeds = null, channelType = 'default') {
   const config = functions.config();
   const botToken = config.discord?.bot_token;
-  const channelId = config.discord?.channel_id;
+
+  // Determine which channel to use
+  let channelId;
+  if (channelType === 'default') {
+    channelId = config.discord?.channel_id;
+  } else if (channelType === 'signups') {
+    channelId = config.discord?.signup_channel_id || config.discord?.channel_id; // Fallback to default
+  } else {
+    channelId = channelType; // Assume it's a custom channel ID
+  }
 
   if (!botToken || !channelId) {
     console.error('Discord config missing');
@@ -544,7 +594,7 @@ async function sendDiscordMessage(content, embeds = null) {
         }
       }
     );
-    console.log('Discord message sent successfully');
+    console.log(`Discord message sent successfully to ${channelType} channel`);
   } catch (error) {
     console.error('Error sending Discord message:', error.response?.data || error.message);
   }
@@ -1125,6 +1175,351 @@ exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) =
 
   return { success: true };
 });
+
+/**
+ * Helper function to censor usernames for privacy
+ * Example: "JohnDoe" -> "J*****e"
+ */
+function censorUsername(username) {
+  if (!username || username.length <= 2) return '***';
+  const first = username.charAt(0);
+  const last = username.charAt(username.length - 1);
+  const middle = '*'.repeat(Math.max(1, username.length - 2));
+  return `${first}${middle}${last}`;
+}
+
+/**
+ * IPO Announcement - Called when a new IPO is created
+ */
+exports.ipoAnnouncementAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { ticker, characterName, basePrice, ipoPrice, endsAt } = data;
+
+  const embed = {
+    color: 0x00D4FF, // Bright blue
+    title: '🚀 NEW IPO ANNOUNCED!',
+    description: `**${characterName}** ($${ticker}) is going public!`,
+    fields: [
+      {
+        name: 'IPO Price',
+        value: `$${ipoPrice.toFixed(2)}`,
+        inline: true
+      },
+      {
+        name: 'Post-IPO Price',
+        value: `$${basePrice.toFixed(2)} (+30%)`,
+        inline: true
+      },
+      {
+        name: 'Trading Opens',
+        value: `<t:${Math.floor(endsAt / 1000)}:R>`,
+        inline: false
+      }
+    ],
+    footer: {
+      text: '24-hour IPO window - Get in early!'
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * IPO Closing Results - Called when an IPO closes
+ */
+exports.ipoClosingAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { ticker, characterName, participants, totalInvested, totalShares } = data;
+
+  const embed = {
+    color: 0x00FF00, // Green
+    title: '📊 IPO CLOSED',
+    description: `**${characterName}** ($${ticker}) IPO has ended!`,
+    fields: [
+      {
+        name: 'Participants',
+        value: participants.toString(),
+        inline: true
+      },
+      {
+        name: 'Total Invested',
+        value: `$${totalInvested.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
+        inline: true
+      },
+      {
+        name: 'Shares Sold',
+        value: totalShares.toLocaleString(),
+        inline: true
+      }
+    ],
+    footer: {
+      text: 'Trading is now live at +30% from IPO price!'
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * Bankruptcy Alert - Called when a user goes bankrupt (censored name)
+ */
+exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { username, finalValue } = data;
+  const censoredName = censorUsername(username);
+
+  const embed = {
+    color: 0xFF0000, // Red
+    title: '💔 Trader Bankrupt',
+    description: `**${censoredName}** has gone bust`,
+    fields: [
+      {
+        name: 'Final Portfolio Value',
+        value: `$${finalValue.toFixed(2)}`,
+        inline: true
+      }
+    ],
+    footer: {
+      text: 'Risk management is key!'
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * Comeback Story Alert - Called when someone recovers from near-bankruptcy (censored name)
+ */
+exports.comebackAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const { username, lowPoint, currentValue } = data;
+  const censoredName = censorUsername(username);
+  const gainPercent = ((currentValue - lowPoint) / lowPoint * 100).toFixed(0);
+
+  const embed = {
+    color: 0x00FF00, // Green
+    title: '🔥 Epic Comeback!',
+    description: `**${censoredName}** recovered from the brink!`,
+    fields: [
+      {
+        name: 'Lowest Point',
+        value: `$${lowPoint.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
+        inline: true
+      },
+      {
+        name: 'Current Value',
+        value: `$${currentValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
+        inline: true
+      },
+      {
+        name: 'Recovery',
+        value: `+${gainPercent}%`,
+        inline: true
+      }
+    ],
+    footer: {
+      text: 'Never give up!'
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
+});
+
+/**
+ * Weekly Leaderboard - Runs every Sunday at 8 PM EST (Monday 1 AM UTC)
+ */
+exports.weeklyLeaderboard = functions.pubsub
+  .schedule('0 1 * * 1')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const usersSnapshot = await db.collection('users').get();
+
+      if (usersSnapshot.empty) {
+        console.log('No users found');
+        return null;
+      }
+
+      // Calculate portfolio values and sort
+      const traders = [];
+      usersSnapshot.forEach(doc => {
+        const user = doc.data();
+        if (!user.isBankrupt) {
+          traders.push({
+            username: user.displayName,
+            portfolioValue: user.portfolioValue || user.cash || 0
+          });
+        }
+      });
+
+      traders.sort((a, b) => b.portfolioValue - a.portfolioValue);
+      const top5 = traders.slice(0, 5);
+
+      const leaderboardText = top5.map((trader, idx) => {
+        const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][idx];
+        return `${medal} **${trader.username}** - $${trader.portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+      }).join('\n');
+
+      const embed = {
+        color: 0xFFD700, // Gold
+        title: '🏆 Weekly Leaderboard',
+        description: leaderboardText,
+        footer: {
+          text: `Total Active Traders: ${traders.length}`
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendDiscordMessage(null, [embed]);
+      console.log('Weekly leaderboard sent');
+      return null;
+    } catch (error) {
+      console.error('Error in weekly leaderboard:', error);
+      return null;
+    }
+  });
+
+/**
+ * Weekly Crew Rankings - Runs every Sunday at 8:30 PM EST (Monday 1:30 AM UTC)
+ */
+exports.weeklyCrewRankings = functions.pubsub
+  .schedule('30 1 * * 1')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const usersSnapshot = await db.collection('users').get();
+
+      if (usersSnapshot.empty) {
+        console.log('No users found');
+        return null;
+      }
+
+      // Crew data structure
+      const crews = {
+        'ALLIED': { name: 'Allied', emblem: '🏛️', members: [], totalCash: 0, weeklyGain: 0 },
+        'BIG_DEAL': { name: 'Big Deal', emblem: '🤝', members: [], totalCash: 0, weeklyGain: 0 },
+        'FIST_GANG': { name: 'Fist Gang', emblem: '👊', members: [], totalCash: 0, weeklyGain: 0 },
+        'GOD_DOG': { name: 'God Dog', emblem: '🐕', members: [], totalCash: 0, weeklyGain: 0 },
+        'SECRET_FRIENDS': { name: 'Secret Friends', emblem: '🤫', members: [], totalCash: 0, weeklyGain: 0 },
+        'HOSTEL': { name: 'Hostel', emblem: '🏠', members: [], totalCash: 0, weeklyGain: 0 },
+        'WTJC': { name: 'White Tiger Job Center', emblem: '🐯', members: [], totalCash: 0, weeklyGain: 0 },
+        'WORKERS': { name: 'Workers', emblem: '⚒️', members: [], totalCash: 0, weeklyGain: 0 },
+        'YAMAZAKI': { name: 'Yamazaki Syndicate', emblem: '⛩️', members: [], totalCash: 0, weeklyGain: 0 }
+      };
+
+      // Get week-old data for comparison
+      const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+      usersSnapshot.forEach(doc => {
+        const user = doc.data();
+        const crew = user.crew;
+
+        if (crew && crews[crew]) {
+          const portfolioValue = user.portfolioValue || user.cash || 0;
+
+          crews[crew].members.push({
+            username: user.displayName,
+            portfolioValue: portfolioValue
+          });
+          crews[crew].totalCash += portfolioValue;
+
+          // Calculate weekly gain from portfolio history
+          if (user.portfolioHistory && Array.isArray(user.portfolioHistory)) {
+            const weekOldEntry = user.portfolioHistory.find(h => h.timestamp >= oneWeekAgo);
+            if (weekOldEntry) {
+              const weeklyGain = portfolioValue - weekOldEntry.value;
+              crews[crew].weeklyGain += weeklyGain;
+            }
+          }
+        }
+      });
+
+      // Sort crews by total cash
+      const sortedCrews = Object.values(crews)
+        .filter(crew => crew.members.length > 0)
+        .sort((a, b) => b.totalCash - a.totalCash);
+
+      // Build embed fields
+      const fields = sortedCrews.map((crew, idx) => {
+        // Sort members by portfolio value
+        crew.members.sort((a, b) => b.portfolioValue - a.portfolioValue);
+        const top5Members = crew.members.slice(0, 5);
+
+        // Calculate average
+        const avgCash = crew.members.length > 0 ? crew.totalCash / crew.members.length : 0;
+
+        // Top 50 total (or all if less than 50)
+        const top50 = crew.members.slice(0, 50);
+        const top50Total = top50.reduce((sum, m) => sum + m.portfolioValue, 0);
+        const consolidatedNote = crew.members.length <= 50 ? ' (same as total)' : '';
+
+        // Build top 5 list
+        let top5Text = top5Members.map((m, i) =>
+          `${i + 1}. ${m.username} - $${m.portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`
+        ).join('\n');
+
+        // Add blank spaces if less than 5 members
+        if (top5Members.length < 5) {
+          for (let i = top5Members.length; i < 5; i++) {
+            top5Text += `\n${i + 1}. `;
+          }
+        }
+
+        const weeklyGainText = crew.weeklyGain >= 0
+          ? `+$${crew.weeklyGain.toLocaleString(undefined, {maximumFractionDigits: 2})}`
+          : `-$${Math.abs(crew.weeklyGain).toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+
+        return {
+          name: `${idx + 1}. ${crew.emblem} ${crew.name}`,
+          value: `**Members:** ${crew.members.length}\n` +
+                 `**Total Cash:** $${crew.totalCash.toLocaleString(undefined, {maximumFractionDigits: 2})}\n` +
+                 `**Top 50 Total:** $${top50Total.toLocaleString(undefined, {maximumFractionDigits: 2})}${consolidatedNote}\n` +
+                 `**Average:** $${avgCash.toLocaleString(undefined, {maximumFractionDigits: 2})}\n` +
+                 `**Weekly Gain:** ${weeklyGainText}\n\n` +
+                 `**Top 5:**\n${top5Text}`,
+          inline: false
+        };
+      });
+
+      const embed = {
+        color: 0x5865F2, // Discord blurple
+        title: '⚔️ Weekly Crew Rankings',
+        description: '*Crews ranked by total cash among all members*',
+        fields: fields,
+        footer: {
+          text: 'Note: Some crews have fewer than 5 members as the game is still early. Rankings will balance out as more players join.'
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      await sendDiscordMessage(null, [embed]);
+      console.log('Weekly crew rankings sent');
+      return null;
+    } catch (error) {
+      console.error('Error in weekly crew rankings:', error);
+      return null;
+    }
+  });
 
 /**
  * Hourly Market Movers - Runs every 2 hours
@@ -2563,6 +2958,47 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
         history: updatedHistory,
         totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1
       }, { merge: true });
+
+      // Send Discord notification for big wins
+      if (won && (amount >= 5000 || userData.currentStreak >= 5)) {
+        try {
+          const embed = {
+            color: 0xFFD700, // Gold
+            title: '🎰 Ladder Game Big Win!',
+            description: `**${username}** just ${userData.currentStreak >= 5 ? 'hit a hot streak' : 'made a huge bet'}!`,
+            fields: [
+              {
+                name: 'Bet Amount',
+                value: `$${amount.toLocaleString()}`,
+                inline: true
+              },
+              {
+                name: 'Payout',
+                value: `$${payout.toLocaleString()}`,
+                inline: true
+              },
+              {
+                name: 'Current Streak',
+                value: `${userData.currentStreak} win${userData.currentStreak === 1 ? '' : 's'}`,
+                inline: true
+              },
+              {
+                name: 'New Balance',
+                value: `$${userData.balance.toLocaleString()}`,
+                inline: true
+              }
+            ],
+            timestamp: new Date().toISOString()
+          };
+
+          // Send asynchronously without blocking the transaction
+          sendDiscordMessage(null, [embed]).catch(err => {
+            console.error('Failed to send ladder game Discord notification:', err);
+          });
+        } catch (discordError) {
+          console.error('Error preparing ladder Discord notification:', discordError);
+        }
+      }
 
       return {
         rungs,

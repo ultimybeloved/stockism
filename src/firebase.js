@@ -52,6 +52,10 @@ export const tradeSpikeAlertFunction = httpsCallable(functions, 'tradeSpikeAlert
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
 export const leaderboardChangeAlertFunction = httpsCallable(functions, 'leaderboardChangeAlert');
 export const marginLiquidationAlertFunction = httpsCallable(functions, 'marginLiquidationAlert');
+export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnouncementAlert');
+export const ipoClosingAlertFunction = httpsCallable(functions, 'ipoClosingAlert');
+export const bankruptcyAlertFunction = httpsCallable(functions, 'bankruptcyAlert');
+export const comebackAlertFunction = httpsCallable(functions, 'comebackAlert');
 // Content generation functions
 export const listPendingContentFunction = httpsCallable(functions, 'listPendingContent');
 export const approveContentFunction = httpsCallable(functions, 'approveContent');

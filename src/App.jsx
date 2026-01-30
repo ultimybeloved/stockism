@@ -25,7 +25,7 @@ import {
   arrayUnion,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -6442,17 +6442,46 @@ export default function App() {
             // IPO ended - apply 30% price jump and mark as complete
             const marketRef = doc(db, 'market', 'current');
             const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
-            
+
             await updateDoc(marketRef, {
               [`prices.${ipo.ticker}`]: newPrice,
               [`priceHistory.${ipo.ticker}`]: arrayUnion({ timestamp: now, price: newPrice })
             });
-            
+
             // Mark IPO as price jumped
-            const updatedList = ipos.map(i => 
+            const updatedList = ipos.map(i =>
               i.ticker === ipo.ticker ? { ...i, priceJumped: true } : i
             );
             await updateDoc(ipoRef, { list: updatedList });
+
+            // Calculate IPO stats and send Discord notification
+            try {
+              const sharesSold = IPO_TOTAL_SHARES - (ipo.sharesRemaining || 0);
+              const ipoPrice = ipo.basePrice / 1.3;
+              const totalInvested = sharesSold * ipoPrice;
+
+              // Query users to count participants
+              const usersSnapshot = await getDocs(collection(db, 'users'));
+              let participants = 0;
+              usersSnapshot.forEach((userDoc) => {
+                const userData = userDoc.data();
+                if (userData.holdings && userData.holdings[ipo.ticker] > 0) {
+                  participants++;
+                }
+              });
+
+              const character = CHARACTER_MAP[ipo.ticker];
+              await ipoClosingAlertFunction({
+                ticker: ipo.ticker,
+                characterName: character?.name || ipo.ticker,
+                participants,
+                totalInvested: Math.round(totalInvested * 100) / 100,
+                totalShares: sharesSold
+              });
+            } catch (discordErr) {
+              console.error('Failed to send IPO closing notification:', discordErr);
+              // Don't block IPO closing if Discord fails
+            }
           }
         });
       }
@@ -8167,6 +8196,49 @@ export default function App() {
           await updateDoc(userRef, { portfolioHistory: updatedHistory });
         } catch (error) {
           console.error('[PORTFOLIO HISTORY ERROR]', error);
+        }
+      }
+
+      // Check for bankruptcy (portfolio value <= $100)
+      if (roundedValue <= 100 && !userData.isBankrupt && userData.displayName) {
+        try {
+          await bankruptcyAlertFunction({
+            username: userData.displayName,
+            finalValue: roundedValue
+          });
+          // Mark user as notified to avoid duplicate alerts
+          await updateDoc(userRef, { bankruptcyAlertSent: true });
+        } catch (discordErr) {
+          console.error('Failed to send bankruptcy alert:', discordErr);
+        }
+      }
+
+      // Check for comeback (recovered 100%+ from a low point in last 30 days)
+      if (currentHistory.length > 0 && roundedValue >= 1000) {
+        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+        const recentHistory = currentHistory.filter(h => h.timestamp >= thirtyDaysAgo);
+
+        if (recentHistory.length > 0) {
+          const lowestPoint = Math.min(...recentHistory.map(h => h.value));
+          const recoveryPercent = ((roundedValue - lowestPoint) / lowestPoint) * 100;
+
+          // If recovered 100%+ and low point was under $500, and haven't sent alert recently
+          if (recoveryPercent >= 100 && lowestPoint <= 500 && !userData.comebackAlertSent) {
+            try {
+              await comebackAlertFunction({
+                username: userData.displayName,
+                lowPoint: Math.round(lowestPoint * 100) / 100,
+                currentValue: roundedValue
+              });
+              // Mark as sent with timestamp to avoid spam
+              await updateDoc(userRef, {
+                comebackAlertSent: true,
+                lastComebackAlert: now
+              });
+            } catch (discordErr) {
+              console.error('Failed to send comeback alert:', discordErr);
+            }
+          }
         }
       }
     };
