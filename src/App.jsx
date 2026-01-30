@@ -816,7 +816,7 @@ const saveCollapsedState = (key, collapsed, identifier) => {
   }
 };
 
-const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false }) => {
+const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false, launchedTickers = [] }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -826,7 +826,10 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = f
   // Find characters added this week
   const newCharacters = CHARACTERS.filter(char => {
     const addedDate = new Date(char.dateAdded);
-    return addedDate >= weekStart;
+    // Only show if added this week AND either not IPO-required or already launched
+    const isNewThisWeek = addedDate >= weekStart;
+    const isAvailable = !char.ipoRequired || launchedTickers.includes(char.ticker);
+    return isNewThisWeek && isAvailable;
   }).sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
   
   if (newCharacters.length === 0) return null;
@@ -6021,6 +6024,7 @@ export default function App() {
   const [prices, setPrices] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
   const [marketData, setMarketData] = useState(null);
+  const [launchedTickers, setLaunchedTickers] = useState([]);
   const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -6226,33 +6230,43 @@ export default function App() {
         const data = snap.data();
         // Merge stored prices with basePrices for any new characters
         const storedPrices = data.prices || {};
+        const launched = data.launchedTickers || [];
         const mergedPrices = {};
         CHARACTERS.forEach(c => {
-          mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
+          // Only include character if it doesn't require IPO, or if it's been launched
+          if (!c.ipoRequired || launched.includes(c.ticker)) {
+            mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
+          }
         });
         setPrices(mergedPrices);
         setPriceHistory(data.priceHistory || {});
         setMarketData(data);
+        setLaunchedTickers(launched);
       } else {
         // Initialize market data if it doesn't exist
         const initialPrices = {};
         const initialHistory = {};
         CHARACTERS.forEach(c => {
-          initialPrices[c.ticker] = c.basePrice;
-          initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
+          // Skip characters that require IPO - they'll be added when IPO launches
+          if (!c.ipoRequired) {
+            initialPrices[c.ticker] = c.basePrice;
+            initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
+          }
         });
-        
+
         setDoc(marketRef, {
           prices: initialPrices,
           priceHistory: initialHistory,
+          launchedTickers: [], // Initialize empty launched tickers array
           lastUpdate: serverTimestamp(),
           totalTrades: 0
         }, { merge: true }).catch(err => {
           console.error('Failed to initialize market data:', err);
         });
-        
+
         setPrices(initialPrices);
         setPriceHistory(initialHistory);
+        setLaunchedTickers([]);
       }
     });
 
@@ -6445,7 +6459,8 @@ export default function App() {
 
             await updateDoc(marketRef, {
               [`prices.${ipo.ticker}`]: newPrice,
-              [`priceHistory.${ipo.ticker}`]: arrayUnion({ timestamp: now, price: newPrice })
+              [`priceHistory.${ipo.ticker}`]: arrayUnion({ timestamp: now, price: newPrice }),
+              launchedTickers: arrayUnion(ipo.ticker) // Mark character as launched
             });
 
             // Mark IPO as price jumped
@@ -7189,14 +7204,11 @@ export default function App() {
       return;
     }
     
-    // Check if character requires IPO but hasn't had one
+    // Check if character requires IPO but hasn't launched yet
     const character = CHARACTER_MAP[ticker];
-    if (character?.ipoRequired) {
-      const completedIPO = activeIPOs.find(ipo => ipo.ticker === ticker && ipo.priceJumped);
-      if (!completedIPO) {
-        showNotification('error', `$${ticker} requires an IPO before trading`);
-        return;
-      }
+    if (character?.ipoRequired && !launchedTickers.includes(ticker)) {
+      showNotification('error', `$${ticker} requires an IPO before trading`);
+      return;
     }
     
     const asset = CHARACTER_MAP[ticker];
@@ -8987,17 +8999,18 @@ export default function App() {
       const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.ticker.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
-      
-      // Hide characters that require IPO and haven't completed one yet
+
+      // Hide characters that require IPO and haven't launched yet
       if (c.ipoRequired) {
-        // Check if this character has a completed IPO (priceJumped = true)
-        const completedIPO = activeIPOs.find(ipo => ipo.ticker === c.ticker && ipo.priceJumped);
-        if (!completedIPO) return false; // IPO required but not completed - hide from trading
+        // Check if this character has been launched (added to launchedTickers)
+        if (!launchedTickers.includes(c.ticker)) {
+          return false; // IPO required but not launched - hide from trading
+        }
       }
-      
+
       // Also hide characters currently in IPO phase (shouldn't happen with above, but safety check)
       if (ipoRestrictedTickers.includes(c.ticker)) return false;
-      
+
       return true;
     });
 
@@ -9310,6 +9323,7 @@ export default function App() {
                   priceHistory={priceHistory}
                   darkMode={darkMode}
                   colorBlindMode={userData?.colorBlindMode || false}
+                  launchedTickers={launchedTickers}
                 />
               </div>
             )}
