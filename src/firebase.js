@@ -52,5 +52,10 @@ export const tradeSpikeAlertFunction = httpsCallable(functions, 'tradeSpikeAlert
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
 export const leaderboardChangeAlertFunction = httpsCallable(functions, 'leaderboardChangeAlert');
 export const marginLiquidationAlertFunction = httpsCallable(functions, 'marginLiquidationAlert');
+// Content generation functions
+export const listPendingContentFunction = httpsCallable(functions, 'listPendingContent');
+export const approveContentFunction = httpsCallable(functions, 'approveContent');
+export const rejectContentFunction = httpsCallable(functions, 'rejectContent');
+export const generateDramaVideoFunction = httpsCallable(functions, 'generateDramaVideo');
 
 export default app;

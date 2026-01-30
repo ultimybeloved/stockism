@@ -8,6 +8,9 @@ const db = admin.firestore();
 // Import bot trader
 const { botTrader } = require('./botTrader');
 
+// Import content generation
+const contentGen = require('./contentGeneration');
+
 // Constants
 const STARTING_CASH = 1000;
 // Admin UID from environment variable (set in functions/.env)
@@ -2692,3 +2695,11 @@ exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + error.message);
   }
 });
+
+// Export content generation functions
+exports.generateMarketContent = contentGen.generateMarketContent;
+exports.generateDramaVideo = contentGen.generateDramaVideo;
+exports.listPendingContent = contentGen.listPendingContent;
+exports.approveContent = contentGen.approveContent;
+exports.rejectContent = contentGen.rejectContent;
+exports.generateDailyMovers = contentGen.generateDailyMovers;

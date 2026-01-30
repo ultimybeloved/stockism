@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LADDER GAME</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-main: #d4c4a8;
+            --bg-card: #e6dbc5;
+            --bg-card-inner: #e9e3d2;
+            --bg-dark: #3b3624;
+            --border-brown: #a89880;
+            --corner-brown: #715a3b;
+            --text-dark: #2a2a2a;
+            --text-light: #666666;
+            --text-header: #5c5346;
+            --color-odd: #2286f6;
+            --color-even: #f22431;
+            --track-color: #b4ac99;
+            --btn-gray: #b4ac99;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 20px 15px;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        /* Two Panel Layout */
+        .game-layout {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-panel .ladder-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-panel .ladder-inner {
+            flex: 1;
+        }
+
+        /* Initial Instruction Banner - positioned in ladder area */
+        .init-banner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 99;
+            pointer-events: none;
+        }
+
+        .init-banner-overlay.hidden {
+            display: none;
+        }
+
+        .init-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-dark);
+            padding: 15px 120px;
+            text-align: center;
+            z-index: 100;
+            pointer-events: auto;
+            cursor: pointer;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .init-banner.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .init-banner-text {
+            font-size: 28px;
+            font-weight: 365;
+            color: #fff;
+            text-transform: uppercase;
+            line-height: 1.13;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+        }
+
+        /* Side Panel - Single unified module */
+        .side-panel {
+            width: 182px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-module {
+            background: var(--bg-card);
+            border: 5px solid #fff;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        /* Corner accents for side module */
+        .side-module::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: calc(100% + 10px);
+            height: calc(100% + 10px);
+            pointer-events: none;
+            background: 
+                /* Top left */
+                linear-gradient(135deg, var(--corner-brown) 20px, transparent 20px) top left,
+                /* Top right */
+                linear-gradient(225deg, var(--corner-brown) 20px, transparent 20px) top right,
+                /* Bottom left */
+                linear-gradient(45deg, var(--corner-brown) 20px, transparent 20px) bottom left,
+                /* Bottom right */
+                linear-gradient(315deg, var(--corner-brown) 20px, transparent 20px) bottom right;
+            background-size: 50% 50%;
+            background-repeat: no-repeat;
+            clip-path: polygon(
+                0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+                5px 5px, 5px calc(100% - 5px), calc(100% - 5px) calc(100% - 5px), calc(100% - 5px) 5px, 5px 5px
+            );
+        }
+
+        .side-module-inner {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .side-section {
+            text-align: center;
+            padding: 8px 10px;
+        }
+
+        .side-section-header {
+            background: #af905b;
+            padding: 8px 10px;
+            display: flex;
+            justify-content: space-around;
+            margin: 8px 8px 0 8px;
+        }
+
+        .side-section-header-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .side-betting-row {
+            display: flex;
+            padding: 10px 8px;
+            gap: 6px;
+        }
+
+        .side-betting-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .side-section-dark {
+            background: var(--bg-dark);
+            padding: 8px 10px;
+        }
+
+        .side-label {
+            font-size: 0.55rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        .side-label-dark {
+            font-size: 0.55rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        .side-value {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+        }
+
+        .bet-input-side {
+            width: 100%;
+            padding: 4px 2px;
+            border: 1px solid #a99f8f;
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: var(--bg-card-inner);
+            color: var(--text-dark);
+            font-family: 'Roboto', sans-serif;
+            text-align: center;
+        }
+
+        .bet-input-side:focus {
+            outline: none;
+            border-color: var(--corner-brown);
+        }
+
+        /* Current Round Distribution */
+        .current-dist {
+            margin-top: 4px;
+        }
+
+        .dist-bar {
+            height: 18px;
+            display: flex;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .dist-bar-odd {
+            background: var(--color-odd);
+            transition: width 0.3s ease;
+        }
+
+        .dist-bar-even {
+            background: var(--color-even);
+            transition: width 0.3s ease;
+        }
+
+        .dist-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 3px;
+            font-size: 0.55rem;
+            font-weight: 700;
+        }
+
+        .dist-label-odd {
+            color: var(--color-odd);
+        }
+
+        .dist-label-even {
+            color: var(--color-even);
+        }
+
+        /* History Bars */
+        .history-section {
+            padding: 8px 10px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-label {
+            font-size: 0.55rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .history-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            justify-content: space-around;
+        }
+
+        .history-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .history-bar {
+            flex: 1;
+            height: 16px;
+            display: flex;
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .history-bar-odd {
+            background: var(--color-odd);
+        }
+
+        .history-bar-even {
+            background: var(--color-even);
+        }
+
+        .history-result-circle {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .history-result-circle.odd {
+            background: var(--color-odd);
+        }
+
+        .history-result-circle.even {
+            background: var(--color-even);
+        }
+
+        /* Ladder Section - Main Game Area */
+        .ladder-section {
+            background: var(--bg-card);
+            border: 5px solid #fff;
+            position: relative;
+        }
+
+        /* Corner accents - brown picture frame effect */
+        .ladder-section::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: calc(100% + 10px);
+            height: calc(100% + 10px);
+            pointer-events: none;
+            background: 
+                /* Top left */
+                linear-gradient(135deg, var(--corner-brown) 20px, transparent 20px) top left,
+                /* Top right */
+                linear-gradient(225deg, var(--corner-brown) 20px, transparent 20px) top right,
+                /* Bottom left */
+                linear-gradient(45deg, var(--corner-brown) 20px, transparent 20px) bottom left,
+                /* Bottom right */
+                linear-gradient(315deg, var(--corner-brown) 20px, transparent 20px) bottom right;
+            background-size: 50% 50%;
+            background-repeat: no-repeat;
+            clip-path: polygon(
+                0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+                5px 5px, 5px calc(100% - 5px), calc(100% - 5px) calc(100% - 5px), calc(100% - 5px) 5px, 5px 5px
+            );
+        }
+
+        /* Header area with instruction */
+        .ladder-header {
+            background: var(--bg-card);
+            padding: 7px 20px;
+            text-align: center;
+        }
+
+        .ladder-instruction {
+            font-size: 27px;
+            color: var(--btn-gray);
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            min-height: 1.3em;
+        }
+
+        /* Inner game area */
+        .ladder-inner {
+            background: var(--bg-card-inner);
+            padding: 20px 40px;
+            position: relative;
+        }
+
+        /* Unified Ladder Container */
+        .ladder-wrapper {
+            position: relative;
+            width: 220px;
+            margin: 0 auto;
+        }
+
+        /* Top X buttons */
+        .ladder-top {
+            display: flex;
+            justify-content: space-between;
+            padding: 0;
+            margin-bottom: 7px;
+        }
+
+        .ladder-x-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: var(--btn-gray);
+            border: none;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: 'Roboto', sans-serif;
+            position: relative;
+            z-index: 10;
+        }
+
+        .ladder-x-btn:hover:not(:disabled) {
+            transform: scale(1.08);
+            background: #a9a18e;
+        }
+
+        .ladder-x-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .ladder-x-btn.selected {
+            background: #a9a18e;
+            box-shadow: 0 0 0 3px rgba(138, 126, 110, 0.3);
+        }
+
+        .ladder-x-btn.active-odd {
+            background: var(--color-odd);
+            color: #333;
+            box-shadow: none;
+        }
+
+        .ladder-x-btn.active-even {
+            background: var(--color-even);
+            color: #333;
+            box-shadow: none;
+        }
+
+        /* Ladder tracks */
+        .ladder-tracks {
+            position: relative;
+            height: 140px;
+            margin: 0 auto;
+            width: 100%;
+            overflow: visible;
+            z-index: 1;
+        }
+
+        .track {
+            position: absolute;
+            width: 12px;
+            height: 100%;
+            background: var(--track-color);
+            top: 0;
+        }
+
+        .track.left { 
+            left: 16px;
+        }
+        
+        .track.right { 
+            right: 16px;
+        }
+
+        .rung {
+            position: absolute;
+            height: 8px;
+            background: var(--track-color);
+            left: 22px;
+            width: calc(100% - 44px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .rung.visible {
+            opacity: 1;
+        }
+
+        .path-segment {
+            position: absolute;
+            opacity: 0;
+            transition: opacity 0.1s ease;
+            z-index: 1;
+        }
+
+        .path-segment.visible {
+            opacity: 1;
+        }
+
+        .path-segment.path-odd {
+            background: var(--color-odd);
+        }
+
+        .path-segment.path-even {
+            background: var(--color-even);
+        }
+
+        /* Bottom ODD/EVEN buttons */
+        .ladder-bottom {
+            display: flex;
+            justify-content: space-between;
+            padding: 0;
+            margin-top: 7px;
+            position: relative;
+            z-index: 15;
+        }
+
+        .ladder-result-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+            background: var(--btn-gray);
+            border: none;
+            color: #333;
+            cursor: pointer;
+            font-family: 'Roboto', sans-serif;
+            position: relative;
+            z-index: 10;
+        }
+
+        .ladder-result-btn:hover:not(:disabled) {
+            transform: scale(1.08);
+        }
+
+        .ladder-result-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            transform: none;
+        }
+
+        .ladder-result-btn.odd:hover:not(:disabled) {
+            background: var(--color-odd);
+            color: #333;
+        }
+
+        .ladder-result-btn.even:hover:not(:disabled) {
+            background: var(--color-even);
+            color: #333;
+        }
+
+        .ladder-result-btn.winner {
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        .ladder-result-btn.odd.winner {
+            background: var(--color-odd);
+            color: #333;
+        }
+
+        .ladder-result-btn.even.winner {
+            background: var(--color-even);
+            color: #333;
+        }
+
+        /* Result Banner */
+        .result-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-dark);
+            padding: 16px 40px;
+            text-align: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            cursor: pointer;
+        }
+
+        .result-banner.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .result-banner-text {
+            font-size: 1.2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: #fff;
+        }
+
+        .result-banner-outcome {
+            font-size: 0.85rem;
+            color: #fff;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .result-banner-outcome.win {
+            color: #8fbc8f;
+        }
+
+        .result-banner-outcome.lose {
+            color: #cd9b9b;
+        }
+
+        /* Footer text - outside container */
+        .footer-text-outer {
+            text-align: center;
+            font-size: 0.6rem;
+            color: var(--text-light);
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        /* Bottom sections inside ladder game */
+        .ladder-footer-border {
+            height: 18px;
+            background: #cec6af;
+        }
+
+        .ladder-footer-text {
+            background: #e6dbc6;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            color: #a69e8c;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-layout">
+            <!-- Main Game Panel -->
+            <div class="main-panel">
+                <div class="ladder-section">
+                    <!-- Header -->
+                    <div class="ladder-header">
+                        <div class="ladder-instruction" id="ladderInstruction">Choose a ladder</div>
+                    </div>
+                    
+                    <!-- Inner game area -->
+                    <div class="ladder-inner">
+                        <div class="ladder-wrapper">
+                            <!-- Top X buttons -->
+                            <div class="ladder-top">
+                                <button class="ladder-x-btn" id="leftX">X</button>
+                                <button class="ladder-x-btn" id="rightX">X</button>
+                            </div>
+
+                            <!-- Tracks -->
+                            <div class="ladder-tracks" id="ladderTracks">
+                                <div class="track left"></div>
+                                <div class="track right"></div>
+                            </div>
+
+                            <!-- Bottom ODD/EVEN buttons -->
+                            <div class="ladder-bottom">
+                                <button class="ladder-result-btn odd" id="oddBtn" disabled>ODD</button>
+                                <button class="ladder-result-btn even" id="evenBtn" disabled>EVEN</button>
+                            </div>
+                        </div>
+
+                        <!-- Result Banner -->
+                        <div class="result-banner" id="resultBanner">
+                            <div class="result-banner-text" id="resultBannerText">EVEN</div>
+                            <div class="result-banner-outcome" id="resultBannerOutcome">+$200</div>
+                        </div>
+
+                        <!-- Initial Instruction Banner -->
+                        <div class="init-banner-overlay" id="initBannerOverlay"></div>
+                        <div class="init-banner" id="initBanner">
+                            <div class="init-banner-text">CHOOSE ODDS<br>OR EVENS</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer border and text inside ladder section -->
+                    <div class="ladder-footer-border"></div>
+                    <div class="ladder-footer-text">Purchase ratio is changeable based on the draw #</div>
+                </div>
+            </div>
+
+            <!-- Side Panel -->
+            <div class="side-panel">
+                <div class="side-module">
+                    <div class="side-module-inner">
+                        <!-- Golden Header for Total & Bet -->
+                        <div class="side-section-header">
+                            <span class="side-section-header-label">Total</span>
+                            <span class="side-section-header-label">Bet</span>
+                        </div>
+                        
+                        <!-- Balance & Bet Values Row -->
+                        <div class="side-betting-row">
+                            <div class="side-betting-item">
+                                <div class="side-value" id="balance">$10,000</div>
+                            </div>
+                            <div class="side-betting-item">
+                                <input type="number" class="bet-input-side" id="betAmount" value="100" min="1" step="1">
+                            </div>
+                        </div>
+
+                        <!-- Streak -->
+                        <div class="side-section">
+                            <div class="side-label">Win Streak</div>
+                            <div class="side-value" id="streak">0</div>
+                        </div>
+
+                        <!-- History -->
+                        <div class="history-section">
+                            <div class="history-label">History</div>
+                            <div class="history-bars" id="historyBars">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var state = {
+            balance: 10000,
+            streak: 0,
+            selectedStart: null,
+            selectedBet: null,
+            playing: false,
+            complete: false,
+            currentLadder: null,
+            history: [],
+            historyDistributions: [],
+            oddCount: 50,
+            evenCount: 50,
+            bannerTimeout: null,
+            roundNumber: 0
+        };
+
+        var els = {};
+
+        function initElements() {
+            els.balance = document.getElementById('balance');
+            els.streak = document.getElementById('streak');
+            els.betAmount = document.getElementById('betAmount');
+            els.ladderInstruction = document.getElementById('ladderInstruction');
+            els.leftX = document.getElementById('leftX');
+            els.rightX = document.getElementById('rightX');
+            els.ladderTracks = document.getElementById('ladderTracks');
+            els.oddBtn = document.getElementById('oddBtn');
+            els.evenBtn = document.getElementById('evenBtn');
+            els.resultBanner = document.getElementById('resultBanner');
+            els.resultBannerText = document.getElementById('resultBannerText');
+            els.resultBannerOutcome = document.getElementById('resultBannerOutcome');
+            els.historyBars = document.getElementById('historyBars');
+            
+            els.initBanner = document.getElementById('initBanner');
+        }
+
+        function dismissInitBanner() {
+            var initOverlay = document.getElementById('initBannerOverlay');
+            els.initBanner.classList.add('hidden');
+            initOverlay.classList.add('hidden');
+        }
+
+        function init() {
+            initElements();
+
+            // Dismiss init banner on click
+            els.initBanner.addEventListener('click', dismissInitBanner);
+            
+            // Auto-dismiss init banner after 12 seconds
+            setTimeout(dismissInitBanner, 12000);
+
+            els.leftX.addEventListener('click', function() { 
+                dismissInitBanner();
+                selectStart('left'); 
+            });
+            els.rightX.addEventListener('click', function() { 
+                dismissInitBanner();
+                selectStart('right'); 
+            });
+
+            els.oddBtn.addEventListener('click', function() { selectBetAndPlay('odd'); });
+            els.evenBtn.addEventListener('click', function() { selectBetAndPlay('even'); });
+
+            els.resultBanner.addEventListener('click', dismissBanner);
+
+            // Generate some fake history with results (5 items)
+            for (var i = 0; i < 5; i++) {
+                var oddPct = Math.floor(Math.random() * 60) + 20;
+                var result = Math.random() < 0.5 ? 'odd' : 'even';
+                state.historyDistributions.push({
+                    round: i + 1,
+                    oddPct: oddPct,
+                    evenPct: 100 - oddPct,
+                    result: result
+                });
+            }
+
+            updateDisplay();
+            updateLadderState();
+        }
+
+        function selectStart(side) {
+            if (state.playing) return;
+
+            if (state.selectedStart === side) {
+                state.selectedStart = null;
+            } else {
+                if (state.complete) {
+                    dismissBanner();
+                    clearLadder();
+                    state.complete = false;
+                }
+                state.selectedStart = side;
+            }
+
+            updateLadderState();
+        }
+
+        function selectBetAndPlay(bet) {
+            if (state.playing || !state.selectedStart) return;
+
+            var betAmount = parseInt(els.betAmount.value);
+            if (isNaN(betAmount) || betAmount <= 0 || betAmount > state.balance) {
+                alert('Please enter a valid bet amount.');
+                return;
+            }
+
+            state.selectedBet = bet;
+            startGame(betAmount);
+        }
+
+        function updateLadderState() {
+            els.leftX.classList.toggle('selected', state.selectedStart === 'left');
+            els.rightX.classList.toggle('selected', state.selectedStart === 'right');
+
+            els.leftX.disabled = state.playing;
+            els.rightX.disabled = state.playing;
+
+            var canSelectBet = state.selectedStart && !state.playing && !state.complete;
+            els.oddBtn.disabled = !canSelectBet;
+            els.evenBtn.disabled = !canSelectBet;
+
+            if (state.playing) {
+                els.ladderInstruction.textContent = '';
+            } else if (state.complete) {
+                els.ladderInstruction.textContent = 'Choose a ladder';
+            } else if (!state.selectedStart) {
+                els.ladderInstruction.textContent = 'Choose a ladder';
+            } else {
+                els.ladderInstruction.textContent = 'Choose odds or evens';
+            }
+        }
+
+        function generateLadder(side) {
+            var numRungs = Math.random() < 0.5 ? 2 : 3;
+            var rungs = numRungs === 2 ? [3, 7] : [2, 5, 8];
+            var pathsCross = numRungs % 2 === 1;
+
+            var result;
+            if (side === 'left') {
+                result = pathsCross ? 'even' : 'odd';
+            } else {
+                result = pathsCross ? 'odd' : 'even';
+            }
+
+            return { rungs: rungs, result: result, side: side };
+        }
+
+        function clearLadder() {
+            var old = els.ladderTracks.querySelectorAll('.rung, .path-segment');
+            for (var i = 0; i < old.length; i++) {
+                old[i].parentNode.removeChild(old[i]);
+            }
+
+            els.leftX.classList.remove('active-odd', 'active-even', 'selected');
+            els.rightX.classList.remove('active-odd', 'active-even', 'selected');
+            els.oddBtn.classList.remove('winner');
+            els.evenBtn.classList.remove('winner');
+        }
+
+        function createRungs(ladder) {
+            var height = 140;
+            for (var i = 0; i < ladder.rungs.length; i++) {
+                var y = (ladder.rungs[i] / 10) * height;
+                var rung = document.createElement('div');
+                rung.className = 'rung';
+                rung.style.top = y + 'px';
+                rung.setAttribute('data-index', i);
+                els.ladderTracks.appendChild(rung);
+            }
+        }
+
+        function revealRungs() {
+            return new Promise(function(resolve) {
+                var rungs = els.ladderTracks.querySelectorAll('.rung');
+                if (rungs.length === 0) { resolve(); return; }
+
+                for (var i = 0; i < rungs.length; i++) {
+                    (function(idx) {
+                        setTimeout(function() {
+                            rungs[idx].classList.add('visible');
+                            if (idx === rungs.length - 1) setTimeout(resolve, 150);
+                        }, idx * 120);
+                    })(i);
+                }
+            });
+        }
+
+        function animatePath(ladder) {
+            return new Promise(function(resolve) {
+                var height = 140;
+                var leftX = 22;  // Center of 12px track at position 16 (16 + 6 = 22)
+                var rightX = 220 - 22;  // Center of right track
+                var startX = ladder.side === 'left' ? leftX : rightX;
+                var x = startX;
+                var y = 0;  // Start at top of track
+
+                var pathColor = ladder.result === 'odd' ? 'path-odd' : 'path-even';
+
+                var points = [{ x: x, y: y }];
+                for (var i = 0; i < ladder.rungs.length; i++) {
+                    var rY = (ladder.rungs[i] / 10) * height;
+                    points.push({ x: x, y: rY });
+                    x = x === leftX ? rightX : leftX;
+                    points.push({ x: x, y: rY });
+                }
+                points.push({ x: x, y: height });  // End at bottom of track
+
+                var endX = x;
+                var idx = 0;
+
+                function drawNext() {
+                    if (idx >= points.length - 1) {
+                        // Animation complete - now extend to buttons with smooth animation
+                        
+                        // Extend up to X button - use negative z-index to go under button
+                        var topSeg = document.createElement('div');
+                        topSeg.className = 'path-segment visible ' + pathColor;
+                        topSeg.style.left = (startX - 3) + 'px';
+                        topSeg.style.top = '0px';
+                        topSeg.style.width = '6px';
+                        topSeg.style.height = '0px';
+                        topSeg.style.zIndex = '-1';
+                        topSeg.style.transition = 'top 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                        els.ladderTracks.appendChild(topSeg);
+                        
+                        // Extend down to ODD/EVEN button - use negative z-index to go under button
+                        var bottomSeg = document.createElement('div');
+                        bottomSeg.className = 'path-segment visible ' + pathColor;
+                        bottomSeg.style.left = (endX - 3) + 'px';
+                        bottomSeg.style.top = height + 'px';
+                        bottomSeg.style.width = '6px';
+                        bottomSeg.style.height = '0px';
+                        bottomSeg.style.zIndex = '-1';
+                        bottomSeg.style.transition = 'height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)';
+                        els.ladderTracks.appendChild(bottomSeg);
+                        
+                        // Trigger the extension animation after a brief delay
+                        setTimeout(function() {
+                            topSeg.style.top = '-7px';
+                            topSeg.style.height = '7px';
+                            bottomSeg.style.height = '7px';
+                        }, 50);
+                        
+                        // Color the buttons AFTER the extension animation completes
+                        setTimeout(function() {
+                            var labelColor = ladder.result === 'odd' ? 'active-odd' : 'active-even';
+                            var startBtn = ladder.side === 'left' ? els.leftX : els.rightX;
+                            startBtn.classList.remove('selected');
+                            startBtn.classList.add(labelColor);
+
+                            var winBtn = ladder.result === 'odd' ? els.oddBtn : els.evenBtn;
+                            winBtn.classList.add('winner');
+                            
+                            setTimeout(resolve, 100);
+                        }, 400);
+                        
+                        return;
+                    }
+
+                    var from = points[idx], to = points[idx + 1];
+                    var seg = document.createElement('div');
+                    seg.className = 'path-segment visible ' + pathColor;
+
+                    if (from.x === to.x) {
+                        // Vertical segment - extend to fully overlap corners
+                        var startY = from.y - 3;
+                        var endY = to.y + 3;
+                        
+                        seg.style.left = (from.x - 3) + 'px';
+                        seg.style.top = startY + 'px';
+                        seg.style.width = '6px';
+                        seg.style.height = (endY - startY) + 'px';
+                    } else {
+                        // Horizontal segment - centered on 8px rung (8px rung, 6px line = 1px offset)
+                        var startXPos = Math.min(from.x, to.x) - 3;
+                        var endXPos = Math.max(from.x, to.x) + 3;
+                        
+                        seg.style.left = startXPos + 'px';
+                        seg.style.top = (from.y - 2) + 'px';
+                        seg.style.width = (endXPos - startXPos) + 'px';
+                        seg.style.height = '6px';
+                    }
+
+                    els.ladderTracks.appendChild(seg);
+                    idx++;
+                    setTimeout(drawNext, 120);
+                }
+
+                setTimeout(drawNext, 150);
+            });
+        }
+
+        function startGame(betAmount) {
+            dismissBanner();
+
+            state.playing = true;
+            state.complete = false;
+            state.balance -= betAmount;
+            state.roundNumber++;
+            updateDisplay();
+            updateLadderState();
+
+            state.currentLadder = generateLadder(state.selectedStart);
+            state.currentLadder.bet = betAmount;
+
+            els.betAmount.disabled = true;
+
+            var old = els.ladderTracks.querySelectorAll('.rung, .path-segment');
+            for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+            els.oddBtn.classList.remove('winner');
+            els.evenBtn.classList.remove('winner');
+            els.leftX.classList.remove('active-odd', 'active-even');
+            els.rightX.classList.remove('active-odd', 'active-even');
+
+            createRungs(state.currentLadder);
+
+            setTimeout(function() {
+                revealRungs().then(function() {
+                    return animatePath(state.currentLadder);
+                }).then(showResult);
+            }, 250);
+        }
+
+        function showResult() {
+            var ladder = state.currentLadder;
+            var won = state.selectedBet === ladder.result;
+            var bet = ladder.bet;
+
+            if (won) {
+                var winnings = bet * 2;
+                state.balance += winnings;
+                state.streak++;
+                els.resultBannerText.textContent = ladder.result.toUpperCase();
+                els.resultBannerOutcome.textContent = '+$' + winnings.toLocaleString();
+                els.resultBannerOutcome.className = 'result-banner-outcome win';
+            } else {
+                state.streak = 0;
+                els.resultBannerText.textContent = ladder.result.toUpperCase();
+                els.resultBannerOutcome.textContent = '-$' + bet.toLocaleString();
+                els.resultBannerOutcome.className = 'result-banner-outcome lose';
+            }
+
+            if (ladder.result === 'odd') state.oddCount++;
+            else state.evenCount++;
+
+            // Add to history with random distribution
+            var oddPct = Math.floor(Math.random() * 60) + 20;
+            state.historyDistributions.unshift({
+                round: state.roundNumber,
+                oddPct: oddPct,
+                evenPct: 100 - oddPct,
+                result: ladder.result
+            });
+            if (state.historyDistributions.length > 5) state.historyDistributions.pop();
+
+            els.resultBanner.classList.add('show');
+            state.bannerTimeout = setTimeout(dismissBanner, 3000);
+
+            state.playing = false;
+            state.complete = true;
+            state.selectedStart = null;
+            state.selectedBet = null;
+
+            els.betAmount.disabled = false;
+
+            updateDisplay();
+            updateLadderState();
+        }
+
+        function dismissBanner() {
+            els.resultBanner.classList.remove('show');
+            if (state.bannerTimeout) {
+                clearTimeout(state.bannerTimeout);
+                state.bannerTimeout = null;
+            }
+        }
+
+        function updateDisplay() {
+            els.balance.textContent = '$' + state.balance.toLocaleString();
+            els.streak.textContent = state.streak;
+
+            // Update history bars (show only 5)
+            var html = '';
+            var maxHistory = Math.min(state.historyDistributions.length, 5);
+            for (var i = 0; i < maxHistory; i++) {
+                var h = state.historyDistributions[i];
+                var letter = h.result === 'odd' ? 'O' : 'E';
+                html += '<div class="history-bar-row">';
+                html += '<div class="history-bar">';
+                html += '<div class="history-bar-odd" style="width: ' + h.oddPct + '%;"></div>';
+                html += '<div class="history-bar-even" style="width: ' + h.evenPct + '%;"></div>';
+                html += '</div>';
+                html += '<div class="history-result-circle ' + h.result + '">' + letter + '</div>';
+                html += '</div>';
+            }
+            els.historyBars.innerHTML = html;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
