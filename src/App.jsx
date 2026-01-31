@@ -23,7 +23,8 @@ import {
   increment,
   serverTimestamp,
   arrayUnion,
-  deleteField
+  deleteField,
+  runTransaction
 } from 'firebase/firestore';
 import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -6372,64 +6373,74 @@ export default function App() {
 
     const checkAndUpdatePriceHistory = async () => {
       const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
-
-      if (!snap.exists()) return;
-
-      const data = snap.data();
-      const currentPrices = data.prices || {};
-      const currentHistory = data.priceHistory || {};
       const now = Date.now();
 
-      const mainDocUpdates = {};
-      const archiveUpdates = []; // { ticker, history }
-
+      // First, fetch all archive data outside the transaction
+      const archiveData = {};
       for (const character of CHARACTERS) {
         const ticker = character.ticker;
-        const currentPrice = currentPrices[ticker] || character.basePrice;
-        let history = [...(currentHistory[ticker] || [])];
-
-        // Check if we need to add a new 12-hour entry
-        const lastEntry = history[history.length - 1];
-        const lastTimestamp = lastEntry?.timestamp || 0;
-        const needsNewEntry = now - lastTimestamp >= TWELVE_HOURS;
-
-        if (needsNewEntry) {
-          history.push({ timestamp: now, price: currentPrice });
-        }
-
-        // Fetch existing archive data
         const archiveRef = doc(db, 'market', 'current', 'price_history', ticker);
         const archiveSnap = await getDoc(archiveRef);
-        const existingArchive = archiveSnap.exists() ? (archiveSnap.data().history || []) : [];
+        archiveData[ticker] = archiveSnap.exists() ? (archiveSnap.data().history || []) : [];
+      }
 
-        // Combine main doc history with archive for full pruning
-        const fullHistory = [...existingArchive, ...history];
+      let archiveUpdates = [];
 
-        // Run tiered pruning
-        const { mainDoc, archive } = pruneHistoryTiers(fullHistory, now);
+      // Use transaction to prevent race conditions with trade updates
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(marketRef);
 
-        // Only update if something changed
-        const historyChanged = needsNewEntry ||
-          mainDoc.length !== (currentHistory[ticker] || []).length ||
-          archive.length !== existingArchive.length;
+        if (!snap.exists()) return;
 
-        if (historyChanged) {
-          mainDocUpdates[`priceHistory.${ticker}`] = mainDoc;
+        const data = snap.data();
+        const currentPrices = data.prices || {};
+        const currentHistory = data.priceHistory || {};
 
-          if (archive.length > 0 || existingArchive.length > 0) {
-            archiveUpdates.push({ ticker, history: archive });
+        const mainDocUpdates = {};
+
+        for (const character of CHARACTERS) {
+          const ticker = character.ticker;
+          const currentPrice = currentPrices[ticker] || character.basePrice;
+          let history = [...(currentHistory[ticker] || [])];
+
+          // Check if we need to add a new 12-hour entry
+          const lastEntry = history[history.length - 1];
+          const lastTimestamp = lastEntry?.timestamp || 0;
+          const needsNewEntry = now - lastTimestamp >= TWELVE_HOURS;
+
+          if (needsNewEntry) {
+            history.push({ timestamp: now, price: currentPrice });
+          }
+
+          // Combine main doc history with archive for full pruning
+          const existingArchive = archiveData[ticker] || [];
+          const fullHistory = [...existingArchive, ...history];
+
+          // Run tiered pruning
+          const { mainDoc, archive } = pruneHistoryTiers(fullHistory, now);
+
+          // Only update if something changed
+          const historyChanged = needsNewEntry ||
+            mainDoc.length !== (currentHistory[ticker] || []).length ||
+            archive.length !== existingArchive.length;
+
+          if (historyChanged) {
+            mainDocUpdates[`priceHistory.${ticker}`] = mainDoc;
+
+            if (archive.length > 0 || existingArchive.length > 0) {
+              archiveUpdates.push({ ticker, history: archive });
+            }
           }
         }
-      }
 
-      // Update main document
-      if (Object.keys(mainDocUpdates).length > 0) {
-        await updateDoc(marketRef, mainDocUpdates);
-        console.log(`Updated price history for ${Object.keys(mainDocUpdates).length} characters`);
-      }
+        // Update main document within transaction
+        if (Object.keys(mainDocUpdates).length > 0) {
+          transaction.update(marketRef, mainDocUpdates);
+          console.log(`Updating price history for ${Object.keys(mainDocUpdates).length} characters`);
+        }
+      });
 
-      // Update archive sub-collection documents
+      // Update archive sub-collection documents (after transaction completes)
       for (const { ticker, history } of archiveUpdates) {
         const archiveRef = doc(db, 'market', 'current', 'price_history', ticker);
         await setDoc(archiveRef, { history, lastUpdated: now }, { merge: true });
