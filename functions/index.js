@@ -21,7 +21,8 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
   'official', 'system', 'root', 'owner', 'founder', 'manager',
-  'stockism', 'darthyg', 'darth_yg', 'darth', 'null', 'undefined'
+  'stockism', 'darthyg', 'darth_yg', 'darth', 'null', 'undefined',
+  'ricky'
 ];
 
 // Profanity filter
