@@ -2156,8 +2156,15 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         const oldestRecent = Math.min(...recentShorts);
         const unlocksAt = oldestRecent + TWELVE_HOURS_MS;
         const remainingMs = unlocksAt - now;
-        const hours = Math.floor(remainingMs / 3600000);
-        const minutes = Math.ceil((remainingMs % 3600000) / 60000);
+        let hours = Math.floor(remainingMs / 3600000);
+        let minutes = Math.ceil((remainingMs % 3600000) / 60000);
+
+        // Handle rollover if minutes = 60
+        if (minutes === 60) {
+          hours += 1;
+          minutes = 0;
+        }
+
         throw new functions.https.HttpsError(
           'failed-precondition',
           `Short limit reached. You can short $${ticker} again in ${hours}h ${minutes}m.`

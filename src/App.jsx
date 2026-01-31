@@ -7278,6 +7278,9 @@ export default function App() {
         showNotification('error', message.replace(/^.*: /, ''));
       } else if (message.includes('Hold period:')) {
         showNotification('error', message.replace(/^.*: /, ''));
+      } else if (message.includes('Short limit')) {
+        // Show the full short limit message with time remaining
+        showNotification('error', message.replace(/^.*: /, ''));
       } else if (message.includes('Insufficient')) {
         showNotification('error', message.replace(/^.*: /, ''));
       } else {
@@ -8025,6 +8028,13 @@ export default function App() {
         } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
           const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
           shortMessage += ` • ${remaining}% impact remaining today`;
+        }
+
+        // Warn if this is the 2nd short (cooldown now active)
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+        const recentShorts = updatedShortHistory.filter(ts => Date.now() - ts < TWELVE_HOURS_MS);
+        if (recentShorts.length === 2) {
+          shortMessage += ' • ⚠️ Next short on this ticker will be blocked for 12 hours';
         }
 
         showNotification('success', shortMessage);
