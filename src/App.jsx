@@ -53,6 +53,8 @@ import {
   SHORT_MARGIN_REQUIREMENT,
   SHORT_INTEREST_RATE,
   SHORT_MARGIN_CALL_THRESHOLD,
+  SHORT_RATE_LIMIT_HOURS,
+  MAX_SHORTS_BEFORE_COOLDOWN,
   MARGIN_CASH_MINIMUM,
   MARGIN_TIERS,
   MARGIN_INTEREST_RATE,
@@ -60,7 +62,8 @@ import {
   MARGIN_CALL_THRESHOLD,
   MARGIN_LIQUIDATION_THRESHOLD,
   MARGIN_CALL_GRACE_PERIOD,
-  MARGIN_MAINTENANCE_RATIO
+  MARGIN_MAINTENANCE_RATIO,
+  MAX_DAILY_IMPACT_PER_USER
 } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
 import {
@@ -344,15 +347,30 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
 
 // Calculate price impact using square root model (used by real quant funds)
 // This models real market microstructure where impact scales with sqrt of order size
-const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
+const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, userDailyImpact = 0) => {
   // Square root model: impact = price * base_impact * sqrt(shares / liquidity)
   // This means: 4x the shares = 2x the impact (not 4x)
   let impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
-  
+
   // Cap the impact at MAX_PRICE_CHANGE_PERCENT per trade to prevent manipulation
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   impact = Math.min(impact, maxImpact);
-  
+
+  // Anti-manipulation: Check daily impact limit per user per ticker
+  const impactPercent = impact / currentPrice;
+  const remainingAllowance = MAX_DAILY_IMPACT_PER_USER - userDailyImpact;
+
+  if (remainingAllowance <= 0) {
+    console.log(`[IMPACT LIMIT] User maxed out daily impact on this ticker (${(userDailyImpact * 100).toFixed(2)}%)`);
+    return 0; // User maxed out, no impact allowed
+  }
+
+  if (impactPercent > remainingAllowance) {
+    // Cap at remaining allowance
+    console.log(`[IMPACT LIMIT] Capping impact from ${(impactPercent * 100).toFixed(2)}% to ${(remainingAllowance * 100).toFixed(2)}%`);
+    return currentPrice * remainingAllowance;
+  }
+
   return impact;
 };
 
@@ -7297,9 +7315,13 @@ export default function App() {
     if (action === 'buy') {
       // Get liquidity for this character
       const liquidity = getCharacterLiquidity(ticker);
-      
-      // Calculate price impact using square root model
-      const priceImpact = calculatePriceImpact(price, amount, liquidity);
+
+      // Get today's date for daily impact tracking
+      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
+      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
+
+      // Calculate price impact using square root model (with daily impact limit)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
       const newMidPrice = price + priceImpact;
       
       // You pay the ASK price (mid + half spread) - this is realistic market friction
@@ -7441,6 +7463,10 @@ export default function App() {
       // Calculate trade value for weekly missions
       const tradeValue = amount * buyPrice;
 
+      // Track actual impact applied for anti-manipulation limits
+      const impactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + impactPercent;
+
       // Update user with trade count, cost basis, last buy time, and daily/weekly mission progress
       // SECURITY: Use server timestamp for lastTradeTime to prevent race conditions
       const updateData = {
@@ -7453,6 +7479,8 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: serverTime,
         lastTradeTime: serverTime,
         totalTrades: increment(1),
+        // Daily impact tracking (anti-manipulation)
+        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
         // Daily missions
         [`dailyMissions.${today}.tradesCount`]: increment(1),
         [`dailyMissions.${today}.tradeVolume`]: increment(amount),
@@ -7541,7 +7569,17 @@ export default function App() {
           }).catch(() => {}); // Fire and forget
         } catch {}
       } else {
-        showNotification('success', `Bought ${amount} ${ticker} @ ${formatCurrency(buyPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`);
+        let message = `Bought ${amount} ${ticker} @ ${formatCurrency(buyPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
+
+        // Warn if approaching daily impact limit
+        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
+          message += ' • Daily impact limit reached for this ticker';
+        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
+          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
+          message += ` • ${remaining}% impact remaining today`;
+        }
+
+        showNotification('success', message);
       }
 
       // Send trade spike alert if price moved 1%+
@@ -7580,9 +7618,13 @@ export default function App() {
 
       // Get liquidity for this character
       const liquidity = getCharacterLiquidity(ticker);
-      
-      // Calculate price impact using square root model (selling pushes price down)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity);
+
+      // Get today's date for daily impact tracking
+      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
+      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
+
+      // Calculate price impact using square root model (selling pushes price down, with daily impact limit)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
       const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
       
       // You get the BID price (mid - half spread) - market friction
@@ -7685,6 +7727,10 @@ export default function App() {
         cashGain = totalRevenue - marginPayment;
       }
 
+      // Track actual impact applied for anti-manipulation limits
+      const impactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + impactPercent;
+
       // Build update data
       // SECURITY: Use server timestamp for lastTradeTime
       const sellUpdateData = {
@@ -7695,6 +7741,8 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: serverTime,
         lastTradeTime: serverTime,
         totalTrades: increment(1),
+        // Daily impact tracking (anti-manipulation)
+        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
         // Daily missions
         [`dailyMissions.${today}.tradesCount`]: increment(1),
         [`dailyMissions.${today}.tradeVolume`]: increment(amount),
@@ -7782,6 +7830,15 @@ export default function App() {
         if (marginPayment > 0) {
           message += ` • Paid ${formatCurrency(marginPayment)} margin debt`;
         }
+
+        // Warn if approaching daily impact limit
+        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
+          message += ' • Daily impact limit reached for this ticker';
+        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
+          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
+          message += ` • ${remaining}% impact remaining today`;
+        }
+
         showNotification('success', message);
       }
 
@@ -7802,9 +7859,13 @@ export default function App() {
       // SHORTING: Borrow shares and sell them, hoping to buy back cheaper
       // Get liquidity for this character
       const liquidity = getCharacterLiquidity(ticker);
-      
-      // Calculate price impact (shorting = selling pressure)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity);
+
+      // Get today's date for daily impact tracking
+      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
+      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
+
+      // Calculate price impact (shorting = selling pressure, with daily impact limit)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
       const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
       
       // Entry price is the bid (you're selling borrowed shares)
@@ -7853,6 +7914,14 @@ export default function App() {
       const today = getTodayDateString();
       const weekId = getWeekId();
 
+      // Track actual impact applied for anti-manipulation limits
+      const impactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + impactPercent;
+
+      // Update shortHistory for rate limiting
+      const currentShortHistory = userData.shortHistory?.[ticker] || [];
+      const updatedShortHistory = [...currentShortHistory, Date.now()].slice(-2); // Keep last 2 timestamps
+
       // SECURITY: Use server timestamp
       await updateDoc(userRef, {
         cash: newCash,
@@ -7866,6 +7935,10 @@ export default function App() {
         [`lastTickerTradeTime.${ticker}`]: serverTime,
         lastTradeTime: serverTime,
         totalTrades: increment(1),
+        // Daily impact tracking (anti-manipulation)
+        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
+        // Short history tracking (anti-manipulation rate limiting)
+        [`shortHistory.${ticker}`]: updatedShortHistory,
         // Weekly missions
         [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * shortPrice),
         [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
@@ -7945,6 +8018,15 @@ export default function App() {
         if (marginToUse > 0) {
           shortMessage += ` • Used ${formatCurrency(marginToUse)} margin`;
         }
+
+        // Warn if approaching daily impact limit
+        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
+          shortMessage += ' • Daily impact limit reached for this ticker';
+        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
+          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
+          shortMessage += ` • ${remaining}% impact remaining today`;
+        }
+
         showNotification('success', shortMessage);
       }
 
@@ -7986,9 +8068,13 @@ export default function App() {
 
       // Get liquidity for this character
       const liquidity = getCharacterLiquidity(ticker);
-      
-      // Calculate price INCREASE (covering = buying pressure)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity);
+
+      // Get today's date for daily impact tracking
+      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
+      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
+
+      // Calculate price INCREASE (covering = buying pressure, with daily impact limit)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
       const newMidPrice = price + priceImpact;
       
       // You pay the ASK price to cover (buying back shares)
@@ -8027,6 +8113,10 @@ export default function App() {
         coverCashGain = cashBack - coverMarginPayment;
       }
 
+      // Track actual impact applied for anti-manipulation limits
+      const impactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + impactPercent;
+
       // Update user: add cash gain after margin payment
       // SECURITY: Use server timestamp
       const updateData = {
@@ -8034,6 +8124,8 @@ export default function App() {
         marginUsed: currentMarginUsed - coverMarginPayment,
         [`lastTickerTradeTime.${ticker}`]: serverTime,
         lastTradeTime: serverTime,
+        // Daily impact tracking (anti-manipulation)
+        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
         // Weekly missions
         [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * coverPrice),
         [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
@@ -8143,6 +8235,15 @@ export default function App() {
         if (coverMarginPayment > 0) {
           coverMessage += ` • Paid ${formatCurrency(coverMarginPayment)} margin debt`;
         }
+
+        // Warn if approaching daily impact limit
+        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
+          coverMessage += ' • Daily impact limit reached for this ticker';
+        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
+          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
+          coverMessage += ` • ${remaining}% impact remaining today`;
+        }
+
         showNotification(profit >= 0 ? 'success' : 'error', coverMessage);
       }
 

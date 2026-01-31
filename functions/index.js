@@ -2146,6 +2146,24 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         );
       }
 
+      // Anti-manipulation: Short rate limiting (12-hour cooldown after 2nd short)
+      const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+      const MAX_SHORTS_BEFORE_COOLDOWN = 2;
+      const shortHistory = userData.shortHistory?.[ticker] || [];
+      const recentShorts = shortHistory.filter(ts => now - ts < TWELVE_HOURS_MS);
+
+      if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
+        const oldestRecent = Math.min(...recentShorts);
+        const unlocksAt = oldestRecent + TWELVE_HOURS_MS;
+        const remainingMs = unlocksAt - now;
+        const hours = Math.floor(remainingMs / 3600000);
+        const minutes = Math.ceil((remainingMs % 3600000) / 60000);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Short limit reached. You can short $${ticker} again in ${hours}h ${minutes}m.`
+        );
+      }
+
     } else if (action === 'cover') {
       // Validate existing short position
       const shortPosition = shorts[ticker];

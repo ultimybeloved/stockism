@@ -27,6 +27,8 @@ export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single 
 export const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
 export const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
 export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
+export const SHORT_RATE_LIMIT_HOURS = 12; // 12-hour cooldown after 2nd short on same ticker
+export const MAX_SHORTS_BEFORE_COOLDOWN = 2; // Number of shorts allowed before cooldown kicks in
 
 // ============================================
 // MARGIN TRADING SYSTEM
@@ -45,6 +47,9 @@ export const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio
 export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Auto-liquidate at 25% equity ratio
 export const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
 export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
+
+// Anti-manipulation protections
+export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per user per ticker per day
 
 // Admin user IDs - only these users can see the Admin button
 export const ADMIN_UIDS = [
