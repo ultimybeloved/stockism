@@ -7464,8 +7464,8 @@ export default function App() {
       const tradeValue = amount * buyPrice;
 
       // Track actual impact applied for anti-manipulation limits
-      const impactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + impactPercent;
+      const rawImpactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + rawImpactPercent;
 
       // Update user with trade count, cost basis, last buy time, and daily/weekly mission progress
       // SECURITY: Use server timestamp for lastTradeTime to prevent race conditions
@@ -7728,8 +7728,8 @@ export default function App() {
       }
 
       // Track actual impact applied for anti-manipulation limits
-      const impactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + impactPercent;
+      const rawImpactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + rawImpactPercent;
 
       // Build update data
       // SECURITY: Use server timestamp for lastTradeTime
@@ -7915,8 +7915,8 @@ export default function App() {
       const weekId = getWeekId();
 
       // Track actual impact applied for anti-manipulation limits
-      const impactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + impactPercent;
+      const rawImpactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + rawImpactPercent;
 
       // Update shortHistory for rate limiting
       const currentShortHistory = userData.shortHistory?.[ticker] || [];
@@ -8114,8 +8114,8 @@ export default function App() {
       }
 
       // Track actual impact applied for anti-manipulation limits
-      const impactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + impactPercent;
+      const rawImpactPercent = Math.abs(priceImpact / price);
+      const newDailyImpact = userDailyImpact + rawImpactPercent;
 
       // Update user: add cash gain after margin payment
       // SECURITY: Use server timestamp
