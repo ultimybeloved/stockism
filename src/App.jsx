@@ -164,8 +164,17 @@ const getMarginTierName = (peakPortfolioValue) => {
   return 'Bronze (0.25x)';
 };
 
+// Helper: Get current price from priceHistory (source of truth) or fall back to prices object
+const getCurrentPrice = (ticker, priceHistory, prices) => {
+  const history = priceHistory?.[ticker];
+  if (history && history.length > 0) {
+    return history[history.length - 1].price;
+  }
+  return prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+};
+
 // Calculate margin status for a user
-const calculateMarginStatus = (userData, prices) => {
+const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   if (!userData || !userData.marginEnabled) {
     return {
       enabled: false,
@@ -196,7 +205,7 @@ const calculateMarginStatus = (userData, prices) => {
 
   Object.entries(holdings).forEach(([ticker, shares]) => {
     if (shares > 0) {
-      const price = prices[ticker] || 0;
+      const price = getCurrentPrice(ticker, priceHistory, prices);
       const positionValue = price * shares;
       holdingsValue += positionValue;
 
@@ -4495,7 +4504,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDi
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
   const eligibility = checkMarginEligibility(userData, isAdmin);
-  const marginStatus = calculateMarginStatus(userData, prices);
+  const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   
   const colorBlindMode = userData?.colorBlindMode || false;
 
@@ -5449,7 +5458,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const getBuyingPower = () => {
     let buyingPower = userCash;
     if (userData && prices) {
-      const marginStatus = calculateMarginStatus(userData, prices);
+      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
       if (marginStatus.enabled && marginStatus.availableMargin > 0) {
         const maxMarginUsable = Math.min(userCash, marginStatus.availableMargin);
         buyingPower += maxMarginUsable;
@@ -7392,7 +7401,14 @@ export default function App() {
     }
 
     const asset = CHARACTER_MAP[ticker];
-    const price = prices[ticker] || asset?.basePrice;
+    // Use priceHistory as source of truth (prices object can be stale/corrupted)
+    const history = priceHistory[ticker];
+    let price;
+    if (history && history.length > 0) {
+      price = history[history.length - 1].price;
+    } else {
+      price = prices[ticker] || asset?.basePrice;
+    }
     if (!price || isNaN(price)) {
       showNotification('error', 'Price unavailable, try again');
       return;
@@ -7423,7 +7439,7 @@ export default function App() {
       const cashAvailable = userData.cash || 0;
       const marginEnabled = userData.marginEnabled || false;
       const marginUsed = userData.marginUsed || 0;
-      const marginStatus = calculateMarginStatus(userData, prices);
+      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
       const availableMargin = marginStatus.availableMargin || 0;
 
       let cashToUse = 0;
@@ -7970,7 +7986,7 @@ export default function App() {
       // Check if user has enough cash OR can use margin
       const cashAvailable = userData.cash || 0;
       const marginEnabled = userData.marginEnabled || false;
-      const marginStatus = calculateMarginStatus(userData, prices);
+      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
       const availableMargin = marginStatus.availableMargin || 0;
 
       // Cash-based margin: use all available margin (already capped by cash * tierMultiplier)
@@ -8468,7 +8484,7 @@ export default function App() {
     if (marginUsed <= 0) return; // No margin debt, nothing to check
     
     const checkMarginStatus = async () => {
-      const status = calculateMarginStatus(userData, prices);
+      const status = calculateMarginStatus(userData, prices, priceHistory);
       const userRef = doc(db, 'users', user.uid);
       const now = Date.now();
       
@@ -9548,7 +9564,7 @@ export default function App() {
               </button>
             )}
             {(activeUserData.cash || 0) >= 0 && activeUserData.marginEnabled && (() => {
-              const marginStatus = calculateMarginStatus(activeUserData, prices);
+              const marginStatus = calculateMarginStatus(activeUserData, prices, priceHistory);
               return (
                 <div className="text-xs mt-1 space-y-0.5">
                   <div className={mutedClass}>
@@ -9723,7 +9739,14 @@ export default function App() {
             <CharacterCard
               key={character.ticker}
               character={character}
-              price={prices[character.ticker] || character.basePrice}
+              price={(() => {
+                // Use priceHistory as source of truth, fall back to prices object
+                const history = priceHistory[character.ticker];
+                if (history && history.length > 0) {
+                  return history[history.length - 1].price;
+                }
+                return prices[character.ticker] || character.basePrice;
+              })()}
               priceChange={get24hChange(character.ticker)}
               sentiment={getSentiment(character.ticker)}
               holdings={activeUserData.holdings?.[character.ticker] || 0}
