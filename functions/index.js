@@ -3240,6 +3240,169 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// Archive price history when it gets too large (prevents 1MB document limit)
+exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
+  const MAX_HISTORY_SIZE = 1000; // Keep last 1000 entries in main doc
+
+  try {
+    const marketRef = db.collection('market').doc('current');
+    const marketSnap = await marketRef.get();
+
+    if (!marketSnap.exists) {
+      return { success: false, error: 'Market document not found' };
+    }
+
+    const marketData = marketSnap.data();
+    const priceHistory = marketData.priceHistory || {};
+
+    const ticker = data.ticker; // Optional: archive specific ticker
+    const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
+
+    let archivedCount = 0;
+
+    for (const t of tickersToArchive) {
+      const history = priceHistory[t] || [];
+
+      if (history.length > MAX_HISTORY_SIZE) {
+        // Archive old entries (keep last MAX_HISTORY_SIZE in main doc)
+        const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
+        const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
+
+        // Save archived entries to subcollection
+        const archiveRef = marketRef.collection('price_history').doc(t);
+        const archiveSnap = await archiveRef.get();
+        const existingArchive = archiveSnap.exists ? archiveSnap.data().history || [] : [];
+
+        await archiveRef.set({
+          history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update main doc to keep only recent entries
+        await marketRef.update({
+          [`priceHistory.${t}`]: toKeep
+        });
+
+        archivedCount++;
+        console.log(`Archived ${toArchive.length} entries for ${t}, kept ${toKeep.length} recent entries`);
+      }
+    }
+
+    return {
+      success: true,
+      archivedTickers: archivedCount,
+      message: `Archived ${archivedCount} tickers`
+    };
+
+  } catch (error) {
+    console.error('Archive error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Clean up old alertedThresholds (Discord alert cooldowns don't need long-term storage)
+exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) => {
+  const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  try {
+    const marketRef = db.collection('market').doc('current');
+    const marketSnap = await marketRef.get();
+
+    if (!marketSnap.exists) {
+      return { success: false, error: 'Market document not found' };
+    }
+
+    const marketData = marketSnap.data();
+    const alertedThresholds = marketData.alertedThresholds || {};
+    const now = Date.now();
+
+    const updates = {};
+    let cleanedCount = 0;
+
+    for (const [key, timestamp] of Object.entries(alertedThresholds)) {
+      if (now - timestamp > MAX_AGE_MS) {
+        updates[`alertedThresholds.${key}`] = admin.firestore.FieldValue.delete();
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      await marketRef.update(updates);
+      console.log(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
+    }
+
+    return {
+      success: true,
+      cleanedCount,
+      message: `Cleaned up ${cleanedCount} old threshold alerts`
+    };
+
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Scheduled function: Auto-archive every 6 hours
+exports.scheduledArchiving = functions.pubsub
+  .schedule('every 6 hours')
+  .timeZone('America/New_York')
+  .onRun(async (context) => {
+    console.log('Running scheduled archiving...');
+
+    // Archive price history
+    const archiveResult = await exports.archivePriceHistory.run({});
+    console.log('Archive result:', archiveResult);
+
+    // Cleanup old thresholds
+    const cleanupResult = await exports.cleanupAlertedThresholds.run({});
+    console.log('Cleanup result:', cleanupResult);
+
+    return null;
+  });
+
+// One-time cleanup function (admin only) - Run manually to fix existing bloat
+exports.emergencyCleanup = functions.https.onCall(async (data, context) => {
+  // Verify admin
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  try {
+    const results = {
+      archived: 0,
+      cleaned: 0,
+      errors: []
+    };
+
+    // 1. Archive all oversized price histories
+    try {
+      const archiveResult = await exports.archivePriceHistory.run({});
+      results.archived = archiveResult.archivedTickers || 0;
+    } catch (err) {
+      results.errors.push(`Archive failed: ${err.message}`);
+    }
+
+    // 2. Clean up all old alertedThresholds
+    try {
+      const cleanupResult = await exports.cleanupAlertedThresholds.run({});
+      results.cleaned = cleanupResult.cleanedCount || 0;
+    } catch (err) {
+      results.errors.push(`Cleanup failed: ${err.message}`);
+    }
+
+    return {
+      success: true,
+      results,
+      message: `Emergency cleanup complete: archived ${results.archived} tickers, cleaned ${results.cleaned} thresholds`
+    };
+
+  } catch (error) {
+    console.error('Emergency cleanup error:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
 // Export content generation functions
 exports.generateMarketContent = contentGen.generateMarketContent;
 exports.generateDramaVideo = contentGen.generateDramaVideo;

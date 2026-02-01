@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, emergencyCleanupFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { initializeMarket } from './services/market';
@@ -4851,6 +4851,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
                 >
                   {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
+                </button>
+              </div>
+
+              {/* Emergency Cleanup */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 text-red-500`}>🧹 Emergency Cleanup</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Archive oversized price histories and clean up old alert thresholds. Run this if the market document is hitting the 1MB Firestore limit.
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Run emergency cleanup? This will archive old price history and delete old alert thresholds.')) {
+                      return;
+                    }
+
+                    setLoading(true);
+                    setMessage(null);
+
+                    try {
+                      const result = await emergencyCleanupFunction();
+                      setMessage({
+                        type: 'success',
+                        text: result.data.message
+                      });
+                    } catch (error) {
+                      setMessage({
+                        type: 'error',
+                        text: `Cleanup failed: ${error.message}`
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {loading ? 'Running Cleanup...' : '🧹 Run Emergency Cleanup'}
                 </button>
               </div>
 

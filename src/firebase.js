@@ -61,5 +61,9 @@ export const listPendingContentFunction = httpsCallable(functions, 'listPendingC
 export const approveContentFunction = httpsCallable(functions, 'approveContent');
 export const rejectContentFunction = httpsCallable(functions, 'rejectContent');
 export const generateDramaVideoFunction = httpsCallable(functions, 'generateDramaVideo');
+// Data archiving functions
+export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
+export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');
+export const emergencyCleanupFunction = httpsCallable(functions, 'emergencyCleanup');
 
 export default app;
