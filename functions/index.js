@@ -3361,48 +3361,6 @@ exports.scheduledArchiving = functions.pubsub
     return null;
   });
 
-// One-time cleanup function (admin only) - Run manually to fix existing bloat
-exports.emergencyCleanup = functions.https.onCall(async (data, context) => {
-  // Verify admin
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
-
-  try {
-    const results = {
-      archived: 0,
-      cleaned: 0,
-      errors: []
-    };
-
-    // 1. Archive all oversized price histories
-    try {
-      const archiveResult = await exports.archivePriceHistory.run({});
-      results.archived = archiveResult.archivedTickers || 0;
-    } catch (err) {
-      results.errors.push(`Archive failed: ${err.message}`);
-    }
-
-    // 2. Clean up all old alertedThresholds
-    try {
-      const cleanupResult = await exports.cleanupAlertedThresholds.run({});
-      results.cleaned = cleanupResult.cleanedCount || 0;
-    } catch (err) {
-      results.errors.push(`Cleanup failed: ${err.message}`);
-    }
-
-    return {
-      success: true,
-      results,
-      message: `Emergency cleanup complete: archived ${results.archived} tickers, cleaned ${results.cleaned} thresholds`
-    };
-
-  } catch (error) {
-    console.error('Emergency cleanup error:', error);
-    throw new functions.https.HttpsError('internal', error.message);
-  }
-});
-
 // Export content generation functions
 exports.generateMarketContent = contentGen.generateMarketContent;
 exports.generateDramaVideo = contentGen.generateDramaVideo;
