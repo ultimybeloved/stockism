@@ -55,17 +55,36 @@ const PriceChart = ({
         }),
       }));
 
-    // Sample down to ~25 points for cleaner interaction
-    const maxPoints = 25;
+    // Smart downsampling that preserves peaks and valleys
+    const maxPoints = 100;
     if (data.length > maxPoints) {
-      const step = Math.floor(data.length / maxPoints);
-      const sampled = [];
-      for (let i = 0; i < data.length; i += step) {
-        sampled.push(data[i]);
+      const sampled = [data[0]]; // Always keep first point
+      const bucketSize = (data.length - 2) / (maxPoints - 2);
+
+      for (let i = 0; i < maxPoints - 2; i++) {
+        const bucketStart = Math.floor(i * bucketSize) + 1;
+        const bucketEnd = Math.floor((i + 1) * bucketSize) + 1;
+        const bucket = data.slice(bucketStart, bucketEnd);
+
+        if (bucket.length === 0) continue;
+
+        // Find the point with max distance from average (preserves extremes)
+        const avgPrice = bucket.reduce((sum, p) => sum + p.price, 0) / bucket.length;
+        let maxDist = 0;
+        let selectedPoint = bucket[0];
+
+        for (const point of bucket) {
+          const dist = Math.abs(point.price - avgPrice);
+          if (dist > maxDist) {
+            maxDist = dist;
+            selectedPoint = point;
+          }
+        }
+
+        sampled.push(selectedPoint);
       }
-      if (sampled[sampled.length - 1] !== data[data.length - 1]) {
-        sampled.push(data[data.length - 1]);
-      }
+
+      sampled.push(data[data.length - 1]); // Always keep last point
       data = sampled;
     }
 
