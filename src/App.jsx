@@ -606,9 +606,9 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   // Position points by timestamp, not index (so sampling doesn't affect placement)
   const minTimestamp = currentData[0]?.timestamp || Date.now();
   const maxTimestamp = currentData[currentData.length - 1]?.timestamp || Date.now();
-  const timeRange = maxTimestamp - minTimestamp || 1;
+  const timeSpan = maxTimestamp - minTimestamp || 1;
 
-  const getX = (timestamp) => paddingX + ((timestamp - minTimestamp) / timeRange) * chartWidth;
+  const getX = (timestamp) => paddingX + ((timestamp - minTimestamp) / timeSpan) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
   const pathData = visualData.map((d, i) => {
