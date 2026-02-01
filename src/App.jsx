@@ -572,6 +572,30 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
+  // Smart visual sampling: preserve shape while reducing rendered points
+  const visualData = useMemo(() => {
+    if (currentData.length <= 50) return currentData; // No need to sample
+
+    const maxVisualPoints = 50;
+    const sampled = [];
+
+    // Always include first point
+    sampled.push(currentData[0]);
+
+    // Sample evenly distributed points
+    const step = Math.max(1, Math.floor(currentData.length / maxVisualPoints));
+    for (let i = step; i < currentData.length - step; i += step) {
+      sampled.push(currentData[i]);
+    }
+
+    // Always include last point
+    if (sampled[sampled.length - 1].timestamp !== currentData[currentData.length - 1].timestamp) {
+      sampled.push(currentData[currentData.length - 1]);
+    }
+
+    return sampled;
+  }, [currentData]);
+
   const svgWidth = 600;
   const svgHeight = 300;
   const paddingX = 50;
@@ -579,17 +603,22 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
 
-  const getX = (index) => paddingX + (index / (currentData.length - 1 || 1)) * chartWidth;
+  // Position points by timestamp, not index (so sampling doesn't affect placement)
+  const minTimestamp = currentData[0]?.timestamp || Date.now();
+  const maxTimestamp = currentData[currentData.length - 1]?.timestamp || Date.now();
+  const timeRange = maxTimestamp - minTimestamp || 1;
+
+  const getX = (timestamp) => paddingX + ((timestamp - minTimestamp) / timeRange) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
-  const pathData = currentData.map((d, i) => {
-    const x = getX(i);
+  const pathData = visualData.map((d, i) => {
+    const x = getX(d.timestamp);
     const y = getY(d.price);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
-  const areaPath = currentData.length > 0
-    ? `${pathData} L ${getX(currentData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
+  const areaPath = visualData.length > 0
+    ? `${pathData} L ${getX(visualData[visualData.length - 1].timestamp)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
   // Color blind friendly chart colors
@@ -682,11 +711,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
               <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
               
               {/* Dots for each data point */}
-              {currentData.map((point, i) => {
-                const x = getX(i);
+              {visualData.map((point, i) => {
+                const x = getX(point.timestamp);
                 const y = getY(point.price);
                 const isHovered = hoveredPoint?.timestamp === point.timestamp;
-                
+
                 return (
                   <circle
                     key={i}
@@ -714,18 +743,20 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
             </svg>
             
             {/* Invisible hit areas as absolute positioned divs */}
-            {currentData.map((point, i) => {
-              const xPercent = (getX(i) / svgWidth) * 100;
-              const yPercent = (getY(point.price) / svgHeight) * 100;
-              
+            {visualData.map((point, i) => {
+              const x = getX(point.timestamp);
+              const y = getY(point.price);
+              const xPercent = (x / svgWidth) * 100;
+              const yPercent = (y / svgHeight) * 100;
+
               return (
                 <div
                   key={i}
                   className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                   style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
-                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.price) })}
+                  onMouseEnter={() => setHoveredPoint({ ...point, x, y })}
                   onMouseLeave={() => setHoveredPoint(null)}
-                  onClick={() => setHoveredPoint(hoveredPoint?.timestamp === point.timestamp ? null : { ...point, x: getX(i), y: getY(point.price) })}
+                  onClick={() => setHoveredPoint(hoveredPoint?.timestamp === point.timestamp ? null : { ...point, x, y })}
                 />
               );
             })}
