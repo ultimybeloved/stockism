@@ -4526,14 +4526,14 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
 // MARGIN MODAL
 // ============================================
 
-const MarginModal = ({ onClose, darkMode, userData, prices, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin }) => {
+const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin }) => {
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
-  
+
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
-  
+
   const eligibility = checkMarginEligibility(userData, isAdmin);
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   
@@ -9863,6 +9863,7 @@ export default function App() {
           darkMode={darkMode}
           userData={userData}
           prices={prices}
+          priceHistory={priceHistory}
           onEnableMargin={handleEnableMargin}
           onDisableMargin={handleDisableMargin}
           onRepayMargin={handleRepayMargin}
