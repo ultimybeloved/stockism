@@ -583,50 +583,38 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
-  // Smart visual sampling: preserve shape by prioritizing peaks, valleys, and significant changes
+  // Spatial sampling: filter points by minimum pixel distance to prevent needle clusters
   const visualData = useMemo(() => {
-    const maxVisualPoints = 200;
-    if (currentData.length <= maxVisualPoints) return currentData;
+    if (currentData.length === 0) return [];
 
-    const important = new Set();
+    const minPixelDistance = 3; // Minimum pixels between rendered points
+    const result = [currentData[0]]; // Always start with first point
 
-    // Always include first and last
-    important.add(0);
-    important.add(currentData.length - 1);
-
-    // Find local peaks and valleys (points where direction changes)
-    for (let i = 1; i < currentData.length - 1; i++) {
-      const prev = currentData[i - 1].price;
-      const curr = currentData[i].price;
-      const next = currentData[i + 1].price;
-
-      // Peak (higher than both neighbors)
-      if (curr > prev && curr > next) important.add(i);
-      // Valley (lower than both neighbors)
-      if (curr < prev && curr < next) important.add(i);
-    }
-
-    // Find significant price changes (>1% move from previous point)
     for (let i = 1; i < currentData.length; i++) {
-      const changePercent = Math.abs((currentData[i].price - currentData[i - 1].price) / currentData[i - 1].price);
-      if (changePercent > 0.01) important.add(i); // 1% threshold
-    }
+      const current = currentData[i];
+      const last = result[result.length - 1];
 
-    // If still under budget, fill with evenly distributed points
-    if (important.size < maxVisualPoints) {
-      const remaining = maxVisualPoints - important.size;
-      const step = Math.floor(currentData.length / remaining);
-      for (let i = step; i < currentData.length; i += step) {
-        important.add(i);
-        if (important.size >= maxVisualPoints) break;
+      // Calculate pixel positions
+      const currentX = ((current.timestamp - currentData[0].timestamp) / (currentData[currentData.length - 1].timestamp - currentData[0].timestamp || 1)) * 500;
+      const lastX = ((last.timestamp - currentData[0].timestamp) / (currentData[currentData.length - 1].timestamp - currentData[0].timestamp || 1)) * 500;
+
+      const pixelDistance = Math.abs(currentX - lastX);
+
+      // If far enough apart, include it
+      if (pixelDistance >= minPixelDistance) {
+        result.push(current);
+      }
+      // If this is the last point, always include it (replace the previous last if needed)
+      else if (i === currentData.length - 1) {
+        result[result.length - 1] = current;
+      }
+      // If points are close but this one has a more extreme price, replace the last one
+      else if (Math.abs(current.price - last.price) > Math.abs(last.price - (result[result.length - 2]?.price || last.price))) {
+        result[result.length - 1] = current;
       }
     }
 
-    // Convert to sorted array and return actual data points
-    return Array.from(important)
-      .sort((a, b) => a - b)
-      .slice(0, maxVisualPoints)
-      .map(i => currentData[i]);
+    return result;
   }, [currentData]);
 
   const svgWidth = 600;
