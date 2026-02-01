@@ -3158,6 +3158,88 @@ exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Discord OAuth Authentication
+exports.discordAuth = functions.https.onRequest(async (req, res) => {
+  // Enable CORS
+  res.set('Access-Control-Allow-Origin', '*');
+
+  const code = req.query.code;
+
+  if (!code) {
+    return res.status(400).send('Missing authorization code');
+  }
+
+  try {
+    const config = functions.config();
+    const clientId = config.discord.client_id;
+    const clientSecret = config.discord.client_secret;
+    const redirectUri = 'https://stockism.app/auth/discord';
+
+    // Exchange code for access token
+    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
+      new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      }
+    );
+
+    const accessToken = tokenResponse.data.access_token;
+
+    // Get Discord user info
+    const userResponse = await axios.get('https://discord.com/api/users/@me', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    const discordUser = userResponse.data;
+    const discordId = discordUser.id;
+    const username = discordUser.username;
+    const email = discordUser.email;
+
+    // Create or get Firebase user
+    let firebaseUid;
+    try {
+      const existingUser = await admin.auth().getUserByEmail(email);
+      firebaseUid = existingUser.uid;
+    } catch (error) {
+      // User doesn't exist, create new one
+      const newUser = await admin.auth().createUser({
+        email: email,
+        displayName: username,
+        photoURL: discordUser.avatar
+          ? `https://cdn.discordapp.com/avatars/${discordId}/${discordUser.avatar}.png`
+          : null
+      });
+      firebaseUid = newUser.uid;
+
+      // Create user document in Firestore
+      await db.collection('users').doc(firebaseUid).set({
+        username: username,
+        email: email,
+        discordId: discordId,
+        cash: STARTING_CASH,
+        holdings: {},
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // Create custom Firebase token
+    const customToken = await admin.auth().createCustomToken(firebaseUid);
+
+    // Redirect to app with token
+    return res.redirect(`https://stockism.app/?discord_token=${customToken}`);
+
+  } catch (error) {
+    console.error('Discord auth error:', error);
+    return res.status(500).send('Authentication failed: ' + error.message);
+  }
+});
+
 // Export content generation functions
 exports.generateMarketContent = contentGen.generateMarketContent;
 exports.generateDramaVideo = contentGen.generateDramaVideo;
