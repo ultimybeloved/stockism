@@ -661,6 +661,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const handleChartHover = (e) => {
     if (!chartRef.current) return;
 
+    // Prevent page scrolling on mobile when interacting with chart
+    if (e.touches) {
+      e.preventDefault();
+    }
+
     const rect = chartRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const mouseX = clientX - rect.left;
@@ -686,6 +691,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
       const y = getY(nearestPoint.price);
       setHoveredPoint({ ...nearestPoint, x, y });
     }
+  };
+
+  const handleTouchStart = (e) => {
+    e.preventDefault(); // Prevent page scroll
+    handleChartHover(e);
   };
 
   const handleTouchEnd = () => {
@@ -757,7 +767,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
               className="w-full cursor-crosshair"
               onMouseMove={handleChartHover}
               onMouseLeave={() => setHoveredPoint(null)}
-              onTouchStart={handleChartHover}
+              onTouchStart={handleTouchStart}
               onTouchMove={handleChartHover}
               onTouchEnd={handleTouchEnd}
             >
