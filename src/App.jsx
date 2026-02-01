@@ -644,37 +644,6 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const getX = (timestamp) => paddingX + ((timestamp - minTimestamp) / timeSpan) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
-  // Robinhood-style: Filter points by minimum pixel spacing for smooth hovering
-  const hoverData = useMemo(() => {
-    const minPixelSpacing = 8; // Minimum 8 pixels between hoverable points
-    const filtered = [];
-
-    for (let i = 0; i < currentData.length; i++) {
-      const point = currentData[i];
-      const x = getX(point.timestamp);
-
-      // Always include first and last points
-      if (i === 0 || i === currentData.length - 1) {
-        filtered.push(point);
-        continue;
-      }
-
-      // Check if this point is far enough from the last added point
-      if (filtered.length > 0) {
-        const lastPoint = filtered[filtered.length - 1];
-        const lastX = getX(lastPoint.timestamp);
-
-        if (Math.abs(x - lastX) >= minPixelSpacing) {
-          filtered.push(point);
-        }
-      } else {
-        filtered.push(point);
-      }
-    }
-
-    return filtered;
-  }, [currentData, minTimestamp, timeSpan, chartWidth]);
-
   const pathData = visualData.map((d, i) => {
     const x = getX(d.timestamp);
     const y = getY(d.price);
@@ -715,11 +684,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
     // Convert SVG X to timestamp
     const hoveredTimestamp = minTimestamp + ((svgX - paddingX) / chartWidth) * timeSpan;
 
-    // Find nearest point in hoverData (spatially filtered for smooth interaction)
+    // Find nearest point in currentData (ALL points hoverable for smooth scrubbing)
     let nearestPoint = null;
     let minDistance = Infinity;
 
-    hoverData.forEach(point => {
+    currentData.forEach(point => {
       const distance = Math.abs(point.timestamp - hoveredTimestamp);
       if (distance < minDistance) {
         minDistance = distance;
