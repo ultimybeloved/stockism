@@ -35,11 +35,16 @@ const PriceChart = ({
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
+  // Derive actual current price from latest history entry to avoid race conditions
+  const tickerHistory = priceHistory[character.ticker] || [];
+  const actualCurrentPrice = tickerHistory.length > 0
+    ? tickerHistory[tickerHistory.length - 1].price
+    : (currentPrice || character.basePrice);
+
   const currentData = useMemo(() => {
     const range = TIME_RANGES.find(r => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
 
-    const tickerHistory = priceHistory[character.ticker] || [];
     let data = tickerHistory
       .filter(point => point.timestamp >= cutoff)
       .map(point => ({
@@ -89,7 +94,7 @@ const PriceChart = ({
         },
         {
           timestamp: now,
-          price: currentPrice,
+          price: actualCurrentPrice,
           date: 'Now',
           fullDate: new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         }
@@ -97,15 +102,15 @@ const PriceChart = ({
     }
 
     return data;
-  }, [priceHistory, character.ticker, character.basePrice, currentPrice, timeRange]);
+  }, [tickerHistory, character.ticker, character.basePrice, actualCurrentPrice, timeRange]);
 
   const prices = currentData.map(d => d.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const priceRange = maxPrice - minPrice || 1;
 
-  const firstPrice = currentData[0]?.price || currentPrice;
-  const lastPrice = currentData[currentData.length - 1]?.price || currentPrice;
+  const firstPrice = currentData[0]?.price || actualCurrentPrice;
+  const lastPrice = currentData[currentData.length - 1]?.price || actualCurrentPrice;
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
@@ -156,7 +161,7 @@ const PriceChart = ({
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</span>
+                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(actualCurrentPrice)}</span>
                 <span className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : (isUp ? 'text-green-500' : 'text-red-500')}`}>
                   {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({TIME_RANGES.find(t => t.key === timeRange)?.label})
                 </span>
@@ -293,7 +298,7 @@ const PriceChart = ({
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Current</div>
-              <div className={`font-semibold ${textClass}`}>{formatCurrency(currentPrice)}</div>
+              <div className={`font-semibold ${textClass}`}>{formatCurrency(actualCurrentPrice)}</div>
             </div>
           </div>
         </div>
