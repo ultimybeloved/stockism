@@ -443,9 +443,10 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
 
 const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, defaultTimeRange = '1d', colorBlindMode = false }) => {
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
-  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [hoveredPoint, setHoveredPoint] = useState(null); // Tracks cursor position data
   const [archivedHistory, setArchivedHistory] = useState([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
+  const chartRef = useRef(null);
 
   // Color blind mode helper
   const getColors = (isPositive) => {
@@ -656,6 +657,46 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
 
+  // Robinhood-style: find nearest point to cursor/touch position
+  const handleChartHover = (e) => {
+    if (!chartRef.current) return;
+
+    const rect = chartRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const mouseX = clientX - rect.left;
+    const svgX = (mouseX / rect.width) * svgWidth;
+
+    // Convert SVG X to timestamp
+    const hoveredTimestamp = minTimestamp + ((svgX - paddingX) / chartWidth) * timeSpan;
+
+    // Find nearest point in currentData
+    let nearestPoint = null;
+    let minDistance = Infinity;
+
+    currentData.forEach(point => {
+      const distance = Math.abs(point.timestamp - hoveredTimestamp);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPoint = point;
+      }
+    });
+
+    if (nearestPoint) {
+      const x = getX(nearestPoint.timestamp);
+      const y = getY(nearestPoint.price);
+      setHoveredPoint({ ...nearestPoint, x, y });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setHoveredPoint(null);
+  };
+
+  // Display price: hovered if hovering, otherwise latest
+  const displayPrice = hoveredPoint?.price || lastPrice;
+  const displayChange = firstPrice > 0 ? ((displayPrice - firstPrice) / firstPrice) * 100 : 0;
+  const isDisplayUp = displayPrice >= firstPrice;
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div 
@@ -671,9 +712,9 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(lastPrice)}</span>
-                <span className={`text-sm font-semibold ${getColors(isUp).text}`}>
-                  {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({timeRanges.find(t => t.key === timeRange)?.label})
+                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(displayPrice)}</span>
+                <span className={`text-sm font-semibold ${getColors(isDisplayUp).text}`}>
+                  {isDisplayUp ? '▲' : '▼'} {formatChange(displayChange)} ({timeRanges.find(t => t.key === timeRange)?.label})
                 </span>
               </div>
             </div>
@@ -711,8 +752,14 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
               </div>
             )}
             <svg
+              ref={chartRef}
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full"
+              className="w-full cursor-crosshair"
+              onMouseMove={handleChartHover}
+              onMouseLeave={() => setHoveredPoint(null)}
+              onTouchStart={handleChartHover}
+              onTouchMove={handleChartHover}
+              onTouchEnd={handleTouchEnd}
             >
               {/* Grid lines */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
@@ -732,24 +779,17 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
               <path d={areaPath} fill={fillColor} />
               <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
               
-              {/* Dots for each data point */}
-              {visualData.map((point, i) => {
-                const x = getX(point.timestamp);
-                const y = getY(point.price);
-                const isHovered = hoveredPoint?.timestamp === point.timestamp;
-
-                return (
-                  <circle
-                    key={i}
-                    cx={x}
-                    cy={y}
-                    r={isHovered ? 6 : 4}
-                    fill={isHovered ? strokeColor : (darkMode ? '#1e293b' : '#f8fafc')}
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                  />
-                );
-              })}
+              {/* Hovered point indicator */}
+              {hoveredPoint && (
+                <circle
+                  cx={hoveredPoint.x}
+                  cy={hoveredPoint.y}
+                  r={5}
+                  fill={strokeColor}
+                  stroke={darkMode ? '#1e293b' : '#ffffff'}
+                  strokeWidth={2}
+                />
+              )}
               
               {/* Hover vertical line */}
               {hoveredPoint && (
@@ -763,26 +803,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
                 />
               )}
             </svg>
-            
-            {/* Invisible hit areas as absolute positioned divs */}
-            {visualData.map((point, i) => {
-              const x = getX(point.timestamp);
-              const y = getY(point.price);
-              const xPercent = (x / svgWidth) * 100;
-              const yPercent = (y / svgHeight) * 100;
 
-              return (
-                <div
-                  key={i}
-                  className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                  style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
-                  onMouseEnter={() => setHoveredPoint({ ...point, x, y })}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                  onClick={() => setHoveredPoint(hoveredPoint?.timestamp === point.timestamp ? null : { ...point, x, y })}
-                />
-              );
-            })}
-            
             {/* Tooltip */}
             {hoveredPoint && (
               <div 
