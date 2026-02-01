@@ -518,7 +518,8 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
         })
         .sort((a, b) => a.timestamp - b.timestamp);
     } else {
-      fullHistory = mainHistory;
+      // Sort mainHistory to handle any out-of-order timestamps from rapid trades
+      fullHistory = [...mainHistory].sort((a, b) => a.timestamp - b.timestamp);
     }
 
     let data = fullHistory
@@ -585,10 +586,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const isUp = lastPrice >= firstPrice;
 
   // Spatial sampling: filter points by minimum pixel distance to prevent needle clusters
+  // while preserving significant price movements (peaks and valleys)
   const visualData = useMemo(() => {
     if (currentData.length === 0) return [];
 
-    const minPixelDistance = 3; // Minimum pixels between rendered points
+    const minPixelDistance = 2; // Reduced from 3 to preserve more detail
     const result = [currentData[0]]; // Always start with first point
 
     for (let i = 1; i < currentData.length; i++) {
@@ -601,8 +603,20 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
 
       const pixelDistance = Math.abs(currentX - lastX);
 
+      // Check if this is a local min/max (peak or valley)
+      const prev = currentData[i - 1];
+      const next = currentData[i + 1];
+      const isLocalPeak = next && (
+        (current.price > prev.price && current.price > next.price) || // Local maximum
+        (current.price < prev.price && current.price < next.price)    // Local minimum
+      );
+
       // If far enough apart, include it
       if (pixelDistance >= minPixelDistance) {
+        result.push(current);
+      }
+      // Always preserve local peaks/valleys to show rapid movements
+      else if (isLocalPeak) {
         result.push(current);
       }
       // If this is the last point, always include it (replace the previous last if needed)
