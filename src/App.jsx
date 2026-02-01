@@ -472,7 +472,6 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   };
 
   const timeRanges = [
-    { key: '1h', label: 'Live', hours: 1 },
     { key: '1d', label: 'Today', hours: 24 },
     { key: '7d', label: '7 Days', hours: 168 },
     { key: '1m', label: '1 Month', hours: 720 },
