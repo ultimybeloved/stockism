@@ -574,9 +574,9 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
 
   // Smart visual sampling: preserve shape while reducing rendered points
   const visualData = useMemo(() => {
-    if (currentData.length <= 50) return currentData; // No need to sample
+    const maxVisualPoints = 200; // Cap at 200 points for performance
+    if (currentData.length <= maxVisualPoints) return currentData; // No need to sample
 
-    const maxVisualPoints = 50;
     const sampled = [];
 
     // Always include first point
