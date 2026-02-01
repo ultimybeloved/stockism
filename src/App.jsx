@@ -519,21 +519,6 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
         }),
       }));
 
-    // Sample down to ~25 points for cleaner interaction
-    const maxPoints = 25;
-    if (data.length > maxPoints) {
-      const step = Math.floor(data.length / maxPoints);
-      const sampled = [];
-      for (let i = 0; i < data.length; i += step) {
-        sampled.push(data[i]);
-      }
-      // Always include the last point
-      if (sampled[sampled.length - 1] !== data[data.length - 1]) {
-        sampled.push(data[data.length - 1]);
-      }
-      data = sampled;
-    }
-
     // If not enough data within the time range, find the closest historical price
     if (data.length < 2) {
       const now = Date.now();
@@ -552,6 +537,11 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
         startPrice = fullHistory[0].price;
       }
 
+      // Derive current price from latest history entry (source of truth)
+      const latestPrice = fullHistory.length > 0
+        ? fullHistory[fullHistory.length - 1].price
+        : currentPrice;
+
       data = [
         {
           timestamp: startTime,
@@ -561,7 +551,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
         },
         {
           timestamp: now,
-          price: currentPrice,
+          price: latestPrice,
           date: 'Now',
           fullDate: new Date(now).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         }
@@ -630,7 +620,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</span>
+                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(lastPrice)}</span>
                 <span className={`text-sm font-semibold ${getColors(isUp).text}`}>
                   {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({timeRanges.find(t => t.key === timeRange)?.label})
                 </span>
@@ -7385,7 +7375,11 @@ export default function App() {
       // Build market updates
       // SECURITY: Use local timestamp for price history (displayed in charts)
       // but validate on server that trades aren't happening too quickly
-      const priceHistoryTimestamp = Date.now();
+      // COLLISION PROTECTION: Prevent timestamp collisions during rapid trades
+      const history = priceHistory[ticker] || [];
+      const lastTimestamp = history.length > 0 ? history[history.length - 1].timestamp : 0;
+      const now = Date.now();
+      const priceHistoryTimestamp = now > lastTimestamp ? now : lastTimestamp + 1;
       const marketUpdates = {
         [`prices.${ticker}`]: settledPrice,
         [`volume.${ticker}`]: increment(amount), // Track trading volume
