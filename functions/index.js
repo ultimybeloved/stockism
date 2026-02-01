@@ -3173,7 +3173,7 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
     const config = functions.config();
     const clientId = config.discord.client_id;
     const clientSecret = config.discord.client_secret;
-    const redirectUri = 'https://stockism.app/auth/discord';
+    const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth';
 
     // Exchange code for access token
     const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
