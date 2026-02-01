@@ -572,28 +572,50 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
-  // Smart visual sampling: preserve shape while reducing rendered points
+  // Smart visual sampling: preserve shape by prioritizing peaks, valleys, and significant changes
   const visualData = useMemo(() => {
-    const maxVisualPoints = 200; // Cap at 200 points for performance
-    if (currentData.length <= maxVisualPoints) return currentData; // No need to sample
+    const maxVisualPoints = 200;
+    if (currentData.length <= maxVisualPoints) return currentData;
 
-    const sampled = [];
+    const important = new Set();
 
-    // Always include first point
-    sampled.push(currentData[0]);
+    // Always include first and last
+    important.add(0);
+    important.add(currentData.length - 1);
 
-    // Sample evenly distributed points
-    const step = Math.max(1, Math.floor(currentData.length / maxVisualPoints));
-    for (let i = step; i < currentData.length - step; i += step) {
-      sampled.push(currentData[i]);
+    // Find local peaks and valleys (points where direction changes)
+    for (let i = 1; i < currentData.length - 1; i++) {
+      const prev = currentData[i - 1].price;
+      const curr = currentData[i].price;
+      const next = currentData[i + 1].price;
+
+      // Peak (higher than both neighbors)
+      if (curr > prev && curr > next) important.add(i);
+      // Valley (lower than both neighbors)
+      if (curr < prev && curr < next) important.add(i);
     }
 
-    // Always include last point
-    if (sampled[sampled.length - 1].timestamp !== currentData[currentData.length - 1].timestamp) {
-      sampled.push(currentData[currentData.length - 1]);
+    // Find significant price changes (>1% move from previous point)
+    for (let i = 1; i < currentData.length; i++) {
+      const changePercent = Math.abs((currentData[i].price - currentData[i - 1].price) / currentData[i - 1].price);
+      if (changePercent > 0.01) important.add(i); // 1% threshold
     }
 
-    return sampled;
+    // If still under budget, fill with evenly distributed points
+    if (important.size < maxVisualPoints) {
+      const remaining = maxVisualPoints - important.size;
+      const step = Math.floor(currentData.length / remaining);
+      for (let i = step; i < currentData.length; i += step) {
+        important.add(i);
+        if (important.size >= maxVisualPoints) break;
+      }
+    }
+
+    // Convert to sorted array and return actual data points
+    return Array.from(important)
+      .sort((a, b) => a - b)
+      .slice(0, maxVisualPoints)
+      .map(i => currentData[i]);
   }, [currentData]);
 
   const svgWidth = 600;
