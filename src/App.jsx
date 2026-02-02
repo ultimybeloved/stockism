@@ -33,6 +33,7 @@ import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISS
 import AdminPanel from './AdminPanel';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
 import LadderGame from './components/LadderGame';
+import LimitOrders from './components/LimitOrders';
 
 // Import from new modular structure
 import {
@@ -6167,6 +6168,7 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showLadderGame, setShowLadderGame] = useState(false);
   const [showLadderSignInModal, setShowLadderSignInModal] = useState(false);
+  const [showLimitOrders, setShowLimitOrders] = useState(false);
   const [showLadderIntroModal, setShowLadderIntroModal] = useState(false);
   const [skipLadderIntro, setSkipLadderIntro] = useState(() => {
     try {
@@ -9415,12 +9417,18 @@ export default function App() {
               <button onClick={() => setShowLending(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${
                   userData?.marginUsed > 0
-                    ? 'border-amber-500 text-amber-500 hover:bg-amber-900/20' 
+                    ? 'border-amber-500 text-amber-500 hover:bg-amber-900/20'
                     : userData?.marginEnabled
                     ? 'border-green-600 text-green-500 hover:bg-green-900/20'
                     : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'
                 }`}>
                 📊 {userData?.marginUsed > 0 ? `Margin: ${formatCurrency(userData.marginUsed)}` : userData?.marginEnabled ? 'Margin ✓' : 'Margin'}
+              </button>
+            )}
+            {!isGuest && (
+              <button onClick={() => setShowLimitOrders(true)}
+                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+                📋 Limit Orders
               </button>
             )}
             {user && ADMIN_UIDS.includes(user.uid) && (
@@ -9886,6 +9894,18 @@ export default function App() {
           onClose={() => setShowLadderGame(false)}
           darkMode={darkMode}
         />
+      )}
+      {showLimitOrders && !isGuest && user && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowLimitOrders(false)}>
+          <div onClick={e => e.stopPropagation()} className="max-w-2xl w-full">
+            <LimitOrders
+              user={user}
+              darkMode={darkMode}
+              prices={prices}
+              characters={CHARACTERS}
+            />
+          </div>
+        </div>
       )}
       {showLadderIntroModal && (
         <div

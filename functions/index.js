@@ -3474,6 +3474,254 @@ exports.syncAllPortfolios = functions.pubsub
     }
   });
 
+/**
+ * Check and Execute Limit Orders
+ * Runs every 2 minutes to check if any pending limit orders should execute
+ */
+exports.checkLimitOrders = functions.pubsub
+  .schedule('every 2 minutes')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      console.log('Checking limit orders...');
+      const startTime = Date.now();
+
+      // Get current market prices
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) {
+        console.error('Market data not found');
+        return { success: false, error: 'Market data missing' };
+      }
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+
+      // Get all pending limit orders
+      const ordersSnapshot = await db.collection('limitOrders')
+        .where('status', '==', 'PENDING')
+        .get();
+
+      console.log(`Found ${ordersSnapshot.size} pending limit orders`);
+
+      let executed = 0;
+      let canceled = 0;
+      let expired = 0;
+      const now = Date.now();
+
+      for (const orderDoc of ordersSnapshot.docs) {
+        try {
+          const order = orderDoc.data();
+          const orderId = orderDoc.id;
+
+          // Check expiration (30 days)
+          if (order.expiresAt && now > order.expiresAt) {
+            await db.collection('limitOrders').doc(orderId).update({
+              status: 'EXPIRED',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Expired order ${orderId}`);
+            expired++;
+            continue;
+          }
+
+          const currentPrice = prices[order.ticker];
+          if (!currentPrice) {
+            console.log(`No price data for ${order.ticker}, skipping order ${orderId}`);
+            continue;
+          }
+
+          // Check if order should execute
+          let shouldExecute = false;
+          if (order.type === 'BUY' && currentPrice <= order.limitPrice) {
+            shouldExecute = true;
+          } else if (order.type === 'SELL' && currentPrice >= order.limitPrice) {
+            shouldExecute = true;
+          }
+
+          if (!shouldExecute) {
+            continue;
+          }
+
+          console.log(`Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`);
+
+          // Get user data
+          const userRef = db.collection('users').doc(order.userId);
+          const userSnap = await userRef.get();
+
+          if (!userSnap.exists) {
+            console.error(`User ${order.userId} not found, canceling order ${orderId}`);
+            await db.collection('limitOrders').doc(orderId).update({
+              status: 'CANCELED',
+              cancelReason: 'User not found',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            canceled++;
+            continue;
+          }
+
+          const userData = userSnap.data();
+
+          // Validate user has sufficient funds/shares
+          if (order.type === 'BUY') {
+            const totalCost = currentPrice * order.shares;
+            if (userData.cash < totalCost) {
+              if (order.allowPartialFills) {
+                // Calculate how many shares we can buy
+                const affordableShares = Math.floor(userData.cash / currentPrice);
+                if (affordableShares > 0) {
+                  // Execute partial fill
+                  order.shares = affordableShares;
+                  console.log(`Partial fill: can only afford ${affordableShares} shares`);
+                } else {
+                  // Can't afford even 1 share
+                  console.log(`Insufficient cash for order ${orderId}, canceling`);
+                  await db.collection('limitOrders').doc(orderId).update({
+                    status: 'CANCELED',
+                    cancelReason: 'Insufficient cash',
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
+                  canceled++;
+                  continue;
+                }
+              } else {
+                // All-or-nothing, cancel order
+                console.log(`Insufficient cash for order ${orderId}, canceling`);
+                await db.collection('limitOrders').doc(orderId).update({
+                  status: 'CANCELED',
+                  cancelReason: 'Insufficient cash',
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                canceled++;
+                continue;
+              }
+            }
+          } else if (order.type === 'SELL') {
+            const userShares = userData.holdings?.[order.ticker] || 0;
+            if (userShares < order.shares) {
+              if (order.allowPartialFills) {
+                // Sell whatever shares they have
+                if (userShares > 0) {
+                  order.shares = userShares;
+                  console.log(`Partial fill: only have ${userShares} shares`);
+                } else {
+                  console.log(`No shares to sell for order ${orderId}, canceling`);
+                  await db.collection('limitOrders').doc(orderId).update({
+                    status: 'CANCELED',
+                    cancelReason: 'Insufficient shares',
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
+                  canceled++;
+                  continue;
+                }
+              } else {
+                // All-or-nothing, cancel order
+                console.log(`Insufficient shares for order ${orderId}, canceling`);
+                await db.collection('limitOrders').doc(orderId).update({
+                  status: 'CANCELED',
+                  cancelReason: 'Insufficient shares',
+                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                canceled++;
+                continue;
+              }
+            }
+          }
+
+          // Execute the trade
+          if (order.type === 'BUY') {
+            // Calculate buy cost with bid-ask spread
+            const bidAskSpread = 0.02; // 2% spread
+            const askPrice = currentPrice * (1 + bidAskSpread);
+            const totalCost = askPrice * order.shares;
+
+            // Update user data
+            const currentHoldings = userData.holdings?.[order.ticker] || 0;
+            const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
+            const newHoldings = currentHoldings + order.shares;
+            const newCostBasis = currentHoldings > 0
+              ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings
+              : askPrice;
+
+            await userRef.update({
+              cash: admin.firestore.FieldValue.increment(-totalCost),
+              [`holdings.${order.ticker}`]: newHoldings,
+              [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
+              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              totalTrades: admin.firestore.FieldValue.increment(1)
+            });
+
+            console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} for user ${order.userId}`);
+          } else if (order.type === 'SELL') {
+            // Calculate sell revenue with bid-ask spread
+            const bidAskSpread = 0.02; // 2% spread
+            const bidPrice = currentPrice * (1 - bidAskSpread);
+            const totalRevenue = bidPrice * order.shares;
+
+            // Update user data
+            const currentHoldings = userData.holdings?.[order.ticker] || 0;
+            const newHoldings = currentHoldings - order.shares;
+
+            const updates = {
+              cash: admin.firestore.FieldValue.increment(totalRevenue),
+              [`holdings.${order.ticker}`]: newHoldings,
+              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              totalTrades: admin.firestore.FieldValue.increment(1)
+            };
+
+            // Clear cost basis if selling all shares
+            if (newHoldings <= 0) {
+              updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
+              updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
+              updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+            }
+
+            await userRef.update(updates);
+
+            console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} for user ${order.userId}`);
+          }
+
+          // Update order status
+          const isPartialFill = order.allowPartialFills && (
+            (order.type === 'BUY' && order.shares < orderDoc.data().shares) ||
+            (order.type === 'SELL' && order.shares < orderDoc.data().shares)
+          );
+
+          await db.collection('limitOrders').doc(orderId).update({
+            status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
+            filledShares: order.shares,
+            executedPrice: currentPrice,
+            executedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          executed++;
+
+        } catch (error) {
+          console.error(`Error processing order ${orderDoc.id}:`, error);
+        }
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      const result = {
+        success: true,
+        totalOrders: ordersSnapshot.size,
+        executed,
+        canceled,
+        expired,
+        elapsedSeconds: elapsed
+      };
+
+      console.log('Limit order check complete:', result);
+      return result;
+
+    } catch (error) {
+      console.error('Limit order check failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
 // Export content generation functions
 exports.generateMarketContent = contentGen.generateMarketContent;
 exports.generateDramaVideo = contentGen.generateDramaVideo;
