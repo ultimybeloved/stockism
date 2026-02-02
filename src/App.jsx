@@ -5750,7 +5750,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           updatedAt: serverTimestamp()
         });
 
-        alert('Limit order created! View your orders from the nav bar.');
+        alert('Limit order created! View your orders in Portfolio.');
         onClose();
       } catch (error) {
         console.error('Error creating limit order:', error);
