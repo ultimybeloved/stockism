@@ -18,6 +18,7 @@ import {
   onSnapshot,
   collection,
   query,
+  where,
   orderBy,
   limit,
   getDocs,
@@ -1422,7 +1423,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
 // PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory, colorBlindMode = false }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory, colorBlindMode = false, user }) => {
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
@@ -1430,6 +1431,8 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [expandedTicker, setExpandedTicker] = useState(null);
   const [expandedShortTicker, setExpandedShortTicker] = useState(null);
+  const [pendingOrders, setPendingOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -1548,6 +1551,54 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
 
   const toggleShortExpand = (ticker) => {
     setExpandedShortTicker(expandedShortTicker === ticker ? null : ticker);
+  };
+
+  // Load pending limit orders
+  useEffect(() => {
+    if (!user) return;
+
+    const loadPendingOrders = async () => {
+      try {
+        const ordersRef = collection(db, 'limitOrders');
+        const q = query(
+          ordersRef,
+          where('userId', '==', user.uid),
+          where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']),
+          orderBy('createdAt', 'desc')
+        );
+
+        const snapshot = await getDocs(q);
+        const orders = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setPendingOrders(orders);
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      }
+    };
+
+    loadPendingOrders();
+  }, [user]);
+
+  const handleCancelOrder = async (orderId) => {
+    if (!confirm('Cancel this limit order?')) return;
+
+    setLoadingOrders(true);
+    try {
+      await updateDoc(doc(db, 'limitOrders', orderId), {
+        status: 'CANCELED',
+        updatedAt: serverTimestamp()
+      });
+
+      // Remove from list immediately
+      setPendingOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      alert(`Failed to cancel order: ${error.message}`);
+    }
+    setLoadingOrders(false);
   };
 
   // Chart data processing
@@ -2086,6 +2137,76 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                   Cover All
                                 </button>
                               </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Pending Limit Orders Section */}
+              {pendingOrders.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className={`text-lg font-bold ${textClass}`}>Pending Limit Orders</h3>
+                    <span className={`text-sm px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
+                      {pendingOrders.length}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {pendingOrders.map(order => {
+                      const character = CHARACTER_MAP[order.ticker];
+                      const currentPrice = prices[order.ticker] || 0;
+                      const isClose = Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05;
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-3 border rounded-sm ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-slate-50 border-slate-300'}`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className={`font-bold ${textClass}`}>
+                                <span className={`${
+                                  order.type === 'BUY' || order.type === 'COVER'
+                                    ? 'text-green-500'
+                                    : 'text-red-500'
+                                }`}>
+                                  {order.type}
+                                </span>
+                                {' '}
+                                {order.shares} ${order.ticker}
+                              </div>
+                              <div className={`text-xs ${mutedClass}`}>{character?.name}</div>
+                            </div>
+                            <button
+                              onClick={() => handleCancelOrder(order.id)}
+                              disabled={loadingOrders}
+                              className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <div className={mutedClass}>Limit Price</div>
+                              <div className={`font-bold ${textClass}`}>${order.limitPrice.toFixed(2)}</div>
+                            </div>
+                            <div>
+                              <div className={mutedClass}>Current Price</div>
+                              <div className={`font-bold ${isClose ? 'text-orange-500' : textClass}`}>
+                                ${currentPrice.toFixed(2)}
+                                {isClose && ' ⚠️'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {order.status === 'PARTIALLY_FILLED' && (
+                            <div className={`mt-2 text-xs ${mutedClass}`}>
+                              Filled: {order.filledShares}/{order.shares} shares
                             </div>
                           )}
                         </div>
@@ -6274,7 +6395,6 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showLadderGame, setShowLadderGame] = useState(false);
   const [showLadderSignInModal, setShowLadderSignInModal] = useState(false);
-  const [showLimitOrders, setShowLimitOrders] = useState(false);
   const [showLadderIntroModal, setShowLadderIntroModal] = useState(false);
   const [skipLadderIntro, setSkipLadderIntro] = useState(() => {
     try {
@@ -9531,12 +9651,6 @@ export default function App() {
                 📊 {userData?.marginUsed > 0 ? `Margin: ${formatCurrency(userData.marginUsed)}` : userData?.marginEnabled ? 'Margin ✓' : 'Margin'}
               </button>
             )}
-            {!isGuest && (
-              <button onClick={() => setShowLimitOrders(true)}
-                className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
-                📋 My Orders
-              </button>
-            )}
             {user && ADMIN_UIDS.includes(user.uid) && (
               <button onClick={() => setShowAdmin(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
@@ -10002,18 +10116,6 @@ export default function App() {
           darkMode={darkMode}
         />
       )}
-      {showLimitOrders && !isGuest && user && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowLimitOrders(false)}>
-          <div onClick={e => e.stopPropagation()} className="max-w-2xl w-full">
-            <LimitOrders
-              user={user}
-              darkMode={darkMode}
-              prices={prices}
-              characters={CHARACTERS}
-            />
-          </div>
-        </div>
-      )}
       {showLadderIntroModal && (
         <div
           style={{
@@ -10244,6 +10346,7 @@ export default function App() {
           costBasis={userData?.costBasis || {}}
           priceHistory={priceHistory}
           colorBlindMode={userData?.colorBlindMode || false}
+          user={user}
         />
       )}
       {selectedCharacter && (
