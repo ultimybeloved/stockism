@@ -589,51 +589,6 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
 
   // Spatial sampling: filter points by minimum pixel distance to prevent needle clusters
   // while preserving significant price movements (peaks and valleys)
-  const visualData = useMemo(() => {
-    if (currentData.length === 0) return [];
-
-    const minPixelDistance = 2; // Reduced from 3 to preserve more detail
-    const result = [currentData[0]]; // Always start with first point
-
-    for (let i = 1; i < currentData.length; i++) {
-      const current = currentData[i];
-      const last = result[result.length - 1];
-
-      // Calculate pixel positions
-      const currentX = ((current.timestamp - currentData[0].timestamp) / (currentData[currentData.length - 1].timestamp - currentData[0].timestamp || 1)) * 500;
-      const lastX = ((last.timestamp - currentData[0].timestamp) / (currentData[currentData.length - 1].timestamp - currentData[0].timestamp || 1)) * 500;
-
-      const pixelDistance = Math.abs(currentX - lastX);
-
-      // Check if this is a local min/max (peak or valley)
-      const prev = currentData[i - 1];
-      const next = currentData[i + 1];
-      const isLocalPeak = next && (
-        (current.price > prev.price && current.price > next.price) || // Local maximum
-        (current.price < prev.price && current.price < next.price)    // Local minimum
-      );
-
-      // If far enough apart, include it
-      if (pixelDistance >= minPixelDistance) {
-        result.push(current);
-      }
-      // Always preserve local peaks/valleys to show rapid movements
-      else if (isLocalPeak) {
-        result.push(current);
-      }
-      // If this is the last point, always include it (replace the previous last if needed)
-      else if (i === currentData.length - 1) {
-        result[result.length - 1] = current;
-      }
-      // If points are close but this one has a more extreme price, replace the last one
-      else if (Math.abs(current.price - last.price) > Math.abs(last.price - (result[result.length - 2]?.price || last.price))) {
-        result[result.length - 1] = current;
-      }
-    }
-
-    return result;
-  }, [currentData]);
-
   const svgWidth = 600;
   const svgHeight = 300;
   const paddingX = 50;
@@ -645,14 +600,14 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const getX = (index, total) => paddingX + (index / Math.max(total - 1, 1)) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
-  const pathData = visualData.map((d, i) => {
-    const x = getX(i, visualData.length);
+  const pathData = currentData.map((d, i) => {
+    const x = getX(i, currentData.length);
     const y = getY(d.price);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
-  const areaPath = visualData.length > 0
-    ? `${pathData} L ${getX(visualData.length - 1, visualData.length)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
+  const areaPath = currentData.length > 0
+    ? `${pathData} L ${getX(currentData.length - 1, currentData.length)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
   // Color blind friendly chart colors
