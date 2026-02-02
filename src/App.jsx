@@ -5837,7 +5837,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
 
@@ -6066,6 +6066,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           darkMode={darkMode}
           priceHistory={priceHistory}
           colorBlindMode={userData?.colorBlindMode || false}
+          user={user}
         />
       )}
     </>
@@ -9912,6 +9913,7 @@ export default function App() {
               userCash={activeUserData.cash || 0}
               userData={activeUserData}
               prices={prices}
+              user={user}
             />
           ))}
         </div>
