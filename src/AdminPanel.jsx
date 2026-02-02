@@ -86,6 +86,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [usersPage, setUsersPage] = useState(0);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState(new Set());
+  const [userSortBy, setUserSortBy] = useState('portfolio-high'); // 'portfolio-high', 'portfolio-low', 'cash-high', 'cash-low'
   const USERS_PER_PAGE = 25;
   
   // IPO state
@@ -2080,11 +2081,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           lowestWhileHolding: data.lowestWhileHolding || {}
         });
       });
-      
-      // Sort by portfolio value
-      users.sort((a, b) => b.portfolioValue - a.portfolioValue);
+
       setAllUsers(users);
-      setUserSearchResults(users);
+      setUserSearchResults(sortUsers(users));
       showMessage('success', `Loaded ${users.length} users`);
     } catch (err) {
       console.error(err);
@@ -2207,18 +2206,42 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   };
 
   // Filter users by search query
+  // Apply sorting to users
+  const sortUsers = (users) => {
+    const sorted = [...users];
+    switch (userSortBy) {
+      case 'portfolio-high':
+        return sorted.sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0));
+      case 'portfolio-low':
+        return sorted.sort((a, b) => (a.portfolioValue || 0) - (b.portfolioValue || 0));
+      case 'cash-high':
+        return sorted.sort((a, b) => (b.cash || 0) - (a.cash || 0));
+      case 'cash-low':
+        return sorted.sort((a, b) => (a.cash || 0) - (b.cash || 0));
+      default:
+        return sorted;
+    }
+  };
+
   const handleUserSearch = (query) => {
     setUserSearchQuery(query);
     if (!query.trim()) {
-      setUserSearchResults(allUsers);
+      setUserSearchResults(sortUsers(allUsers));
       return;
     }
-    
-    const filtered = allUsers.filter(u => 
+
+    const filtered = allUsers.filter(u =>
       u.displayName.toLowerCase().includes(query.toLowerCase()) ||
       u.id.toLowerCase().includes(query.toLowerCase())
     );
-    setUserSearchResults(filtered);
+    setUserSearchResults(sortUsers(filtered));
+  };
+
+  // Handle sort change
+  const handleUserSortChange = (newSort) => {
+    setUserSortBy(newSort);
+    // Re-apply current search with new sort
+    handleUserSearch(userSearchQuery);
   };
 
   // Scan all users for bets on a specific prediction ID
@@ -3681,6 +3704,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   placeholder="Search by name or ID..."
                   className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
                 />
+                <select
+                  value={userSortBy}
+                  onChange={e => handleUserSortChange(e.target.value)}
+                  className={`px-3 py-2 border rounded-sm ${inputClass}`}
+                >
+                  <option value="portfolio-high">Portfolio: High → Low</option>
+                  <option value="portfolio-low">Portfolio: Low → High</option>
+                  <option value="cash-high">Cash: High → Low</option>
+                  <option value="cash-low">Cash: Low → High</option>
+                </select>
                 <button
                   onClick={handleLoadAllUsers}
                   disabled={loading}
