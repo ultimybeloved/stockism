@@ -55,8 +55,8 @@ const PriceChart = ({
         }),
       }));
 
-    // Smart downsampling that preserves peaks and valleys
-    const maxPoints = 100;
+    // Smart downsampling that preserves visual accuracy
+    const maxPoints = 150; // Increased from 100 for better resolution
     if (data.length > maxPoints) {
       const sampled = [data[0]]; // Always keep first point
       const bucketSize = (data.length - 2) / (maxPoints - 2);
@@ -68,18 +68,10 @@ const PriceChart = ({
 
         if (bucket.length === 0) continue;
 
-        // Find the point with max distance from average (preserves extremes)
-        const avgPrice = bucket.reduce((sum, p) => sum + p.price, 0) / bucket.length;
-        let maxDist = 0;
-        let selectedPoint = bucket[0];
-
-        for (const point of bucket) {
-          const dist = Math.abs(point.price - avgPrice);
-          if (dist > maxDist) {
-            maxDist = dist;
-            selectedPoint = point;
-          }
-        }
+        // Use the median point to avoid outlier spikes that create invisible hover targets
+        const sortedByPrice = [...bucket].sort((a, b) => a.price - b.price);
+        const medianIndex = Math.floor(sortedByPrice.length / 2);
+        const selectedPoint = sortedByPrice[medianIndex];
 
         sampled.push(selectedPoint);
       }
@@ -140,17 +132,22 @@ const PriceChart = ({
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
 
-  const getX = (index) => paddingX + (index / (currentData.length - 1 || 1)) * chartWidth;
+  // Use time-based X positioning to prevent tight clustering
+  const firstTimestamp = currentData[0]?.timestamp || Date.now();
+  const lastTimestamp = currentData[currentData.length - 1]?.timestamp || Date.now();
+  const timeRange = lastTimestamp - firstTimestamp || 1;
+
+  const getX = (timestamp) => paddingX + ((timestamp - firstTimestamp) / timeRange) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
   const pathData = currentData.map((d, i) => {
-    const x = getX(i);
+    const x = getX(d.timestamp);
     const y = getY(d.price);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
   const areaPath = currentData.length > 0
-    ? `${pathData} L ${getX(currentData.length - 1)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
+    ? `${pathData} L ${getX(currentData[currentData.length - 1].timestamp)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
   const strokeColor = colorBlindMode
@@ -235,7 +232,7 @@ const PriceChart = ({
 
               {/* Dots */}
               {currentData.map((point, i) => {
-                const x = getX(i);
+                const x = getX(point.timestamp);
                 const y = getY(point.price);
                 const isHovered = hoveredPoint?.timestamp === point.timestamp;
 
@@ -267,7 +264,7 @@ const PriceChart = ({
 
             {/* Hit areas for interaction */}
             {currentData.map((point, i) => {
-              const xPercent = (getX(i) / svgWidth) * 100;
+              const xPercent = (getX(point.timestamp) / svgWidth) * 100;
               const yPercent = (getY(point.price) / svgHeight) * 100;
 
               return (
@@ -275,7 +272,7 @@ const PriceChart = ({
                   key={i}
                   className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                   style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
-                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.price) })}
+                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(point.timestamp), y: getY(point.price) })}
                   onMouseLeave={() => setHoveredPoint(null)}
                 />
               );
