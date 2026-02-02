@@ -8737,8 +8737,8 @@ export default function App() {
             username: userData.displayName,
             finalValue: roundedValue
           });
-          // Mark user as notified to avoid duplicate alerts
-          await updateDoc(userRef, { bankruptcyAlertSent: true });
+          // Mark user as bankrupt to avoid duplicate alerts
+          await updateDoc(userRef, { isBankrupt: true });
         } catch (discordErr) {
           console.error('Failed to send bankruptcy alert:', discordErr);
         }

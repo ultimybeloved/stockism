@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -87,6 +87,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState(new Set());
   const [userSortBy, setUserSortBy] = useState('portfolio-high'); // 'portfolio-high', 'portfolio-low', 'cash-high', 'cash-low'
+  const [showBankruptOnly, setShowBankruptOnly] = useState(false);
   const USERS_PER_PAGE = 25;
   
   // IPO state
@@ -2070,6 +2071,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           bets: data.bets || {},
           totalTrades: data.totalTrades || 0,
           isAdmin: data.isAdmin || false,
+          isBankrupt: data.isBankrupt || false,
           marginEnabled: data.marginEnabled || false,
           marginUsed: data.marginUsed || 0,
           activeLoan: data.activeLoan || null,
@@ -2225,15 +2227,22 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
   const handleUserSearch = (query) => {
     setUserSearchQuery(query);
-    if (!query.trim()) {
-      setUserSearchResults(sortUsers(allUsers));
-      return;
+
+    let filtered = allUsers;
+
+    // Apply bankrupt filter first
+    if (showBankruptOnly) {
+      filtered = filtered.filter(u => u.portfolioValue <= 100 || u.isBankrupt);
     }
 
-    const filtered = allUsers.filter(u =>
-      u.displayName.toLowerCase().includes(query.toLowerCase()) ||
-      u.id.toLowerCase().includes(query.toLowerCase())
-    );
+    // Apply search query
+    if (query.trim()) {
+      filtered = filtered.filter(u =>
+        u.displayName.toLowerCase().includes(query.toLowerCase()) ||
+        u.id.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+
     setUserSearchResults(sortUsers(filtered));
   };
 
@@ -2243,6 +2252,18 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     // Re-apply current search with new sort
     handleUserSearch(userSearchQuery);
   };
+
+  // Toggle bankrupt filter
+  const handleToggleBankruptFilter = () => {
+    setShowBankruptOnly(!showBankruptOnly);
+  };
+
+  // Re-apply search when bankrupt filter changes
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      handleUserSearch(userSearchQuery);
+    }
+  }, [showBankruptOnly]);
 
   // Scan all users for bets on a specific prediction ID
   const handleScanForBets = async () => {
@@ -3715,6 +3736,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   <option value="cash-low">Cash: Low → High</option>
                 </select>
                 <button
+                  onClick={handleToggleBankruptFilter}
+                  className={`px-4 py-2 font-semibold rounded-sm ${
+                    showBankruptOnly
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : darkMode ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
+                  }`}
+                  title="Show only users with portfolio ≤ $100"
+                >
+                  {showBankruptOnly ? '💔 Bankrupt Only' : '💰 All Users'}
+                </button>
+                <button
                   onClick={handleLoadAllUsers}
                   disabled={loading}
                   className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
@@ -4320,6 +4352,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                               <div>
                                 <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
                                 {isAdmin && <span className="ml-2 text-xs text-amber-500">👑 Admin</span>}
+                                {(u.isBankrupt || u.portfolioValue <= 100) && <span className="ml-2 text-xs text-red-500">💔 Bankrupt</span>}
                               </div>
                             </div>
                             <div className="text-right">
