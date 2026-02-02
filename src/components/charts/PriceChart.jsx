@@ -141,6 +141,47 @@ const PriceChart = ({
   const getX = (timestamp) => paddingX + ((timestamp - firstTimestamp) / timeSpan) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
+  // Create filtered hoverable points with minimum spacing to prevent overlapping dots
+  const hoverablePoints = useMemo(() => {
+    if (currentData.length <= 2) return currentData;
+
+    const minDistance = 12; // Dots are ~10px wide, need 12px to not overlap
+    const result = [currentData[0]]; // Always keep first point
+
+    for (let i = 1; i < currentData.length - 1; i++) {
+      const point = currentData[i];
+      const lastKept = result[result.length - 1];
+
+      const x1 = getX(lastKept.timestamp);
+      const y1 = getY(lastKept.price);
+      const x2 = getX(point.timestamp);
+      const y2 = getY(point.price);
+
+      const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+      if (distance >= minDistance) {
+        result.push(point);
+      }
+    }
+
+    // Always keep last point (but check it doesn't overlap with previous)
+    const last = currentData[currentData.length - 1];
+    const prevKept = result[result.length - 1];
+    const lastX = getX(last.timestamp);
+    const lastY = getY(last.price);
+    const prevX = getX(prevKept.timestamp);
+    const prevY = getY(prevKept.price);
+
+    if (Math.sqrt((lastX - prevX) ** 2 + (lastY - prevY) ** 2) >= minDistance) {
+      result.push(last);
+    } else {
+      // Replace previous with last (current price is more important)
+      result[result.length - 1] = last;
+    }
+
+    return result;
+  }, [currentData, firstTimestamp, timeSpan, minPrice, priceRange, chartWidth, chartHeight]);
+
   const pathData = currentData.map((d, i) => {
     const x = getX(d.timestamp);
     const y = getY(d.price);
@@ -232,7 +273,7 @@ const PriceChart = ({
               <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
 
               {/* Dots */}
-              {currentData.map((point, i) => {
+              {hoverablePoints.map((point, i) => {
                 const x = getX(point.timestamp);
                 const y = getY(point.price);
                 const isHovered = hoveredPoint?.timestamp === point.timestamp;
@@ -276,7 +317,7 @@ const PriceChart = ({
                 let minDistance = Infinity;
                 const maxDistance = 30; // Max pixel distance to show tooltip
 
-                currentData.forEach((point) => {
+                hoverablePoints.forEach((point) => {
                   const pointX = getX(point.timestamp);
                   const pointY = getY(point.price);
                   const distance = Math.sqrt(
