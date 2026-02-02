@@ -10,8 +10,8 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-import { auth, googleProvider, twitterProvider } from '../firebase';
-import { createUser, userExists, getUserData } from './user';
+import { auth, googleProvider, twitterProvider, createUserFunction } from '../firebase';
+import { userExists, getUserData } from './user';
 import { ADMIN_UIDS } from '../constants/economy';
 
 /**
@@ -35,8 +35,8 @@ export const signInWithGoogle = async () => {
   const exists = await userExists(user.uid);
 
   if (!exists) {
-    // Create new user document
-    await createUser(user.uid, user.displayName || 'Anonymous');
+    // Create new user document via Cloud Function (sends Discord notification)
+    await createUserFunction({ displayName: user.displayName || 'Anonymous' });
     return { user, isNewUser: true };
   }
 
@@ -55,8 +55,8 @@ export const signInWithTwitter = async () => {
   const exists = await userExists(user.uid);
 
   if (!exists) {
-    // Create new user document
-    await createUser(user.uid, user.displayName || 'Anonymous');
+    // Create new user document via Cloud Function (sends Discord notification)
+    await createUserFunction({ displayName: user.displayName || 'Anonymous' });
     return { user, isNewUser: true };
   }
 
@@ -85,8 +85,8 @@ export const createAccountWithEmail = async (email, password, displayName) => {
   const result = await createUserWithEmailAndPassword(auth, email, password);
   const user = result.user;
 
-  // Create user document
-  await createUser(user.uid, displayName || email.split('@')[0]);
+  // Create user document via Cloud Function (sends Discord notification)
+  await createUserFunction({ displayName: displayName || email.split('@')[0] });
 
   return { user, isNewUser: true };
 };
