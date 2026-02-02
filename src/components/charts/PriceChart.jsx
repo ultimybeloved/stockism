@@ -77,6 +77,7 @@ const PriceChart = ({
       }
 
       sampled.push(data[data.length - 1]); // Always keep last point
+      sampled.sort((a, b) => a.timestamp - b.timestamp); // Ensure chronological order
       data = sampled;
     }
 
@@ -135,9 +136,9 @@ const PriceChart = ({
   // Use time-based X positioning to prevent tight clustering
   const firstTimestamp = currentData[0]?.timestamp || Date.now();
   const lastTimestamp = currentData[currentData.length - 1]?.timestamp || Date.now();
-  const timeRange = lastTimestamp - firstTimestamp || 1;
+  const timeSpan = lastTimestamp - firstTimestamp || 1;
 
-  const getX = (timestamp) => paddingX + ((timestamp - firstTimestamp) / timeRange) * chartWidth;
+  const getX = (timestamp) => paddingX + ((timestamp - firstTimestamp) / timeSpan) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
   const pathData = currentData.map((d, i) => {
@@ -262,21 +263,36 @@ const PriceChart = ({
               )}
             </svg>
 
-            {/* Hit areas for interaction */}
-            {currentData.map((point, i) => {
-              const xPercent = (getX(point.timestamp) / svgWidth) * 100;
-              const yPercent = (getY(point.price) / svgHeight) * 100;
+            {/* Single overlay for hover detection */}
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+                const mouseY = ((e.clientY - rect.top) / rect.height) * svgHeight;
 
-              return (
-                <div
-                  key={i}
-                  className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                  style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
-                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(point.timestamp), y: getY(point.price) })}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                />
-              );
-            })}
+                // Find nearest point
+                let nearestPoint = null;
+                let minDistance = Infinity;
+                const maxDistance = 30; // Max pixel distance to show tooltip
+
+                currentData.forEach((point) => {
+                  const pointX = getX(point.timestamp);
+                  const pointY = getY(point.price);
+                  const distance = Math.sqrt(
+                    Math.pow(pointX - mouseX, 2) + Math.pow(pointY - mouseY, 2)
+                  );
+
+                  if (distance < minDistance && distance < maxDistance) {
+                    minDistance = distance;
+                    nearestPoint = { ...point, x: pointX, y: pointY };
+                  }
+                });
+
+                setHoveredPoint(nearestPoint);
+              }}
+              onMouseLeave={() => setHoveredPoint(null)}
+            />
 
             {/* Tooltip */}
             {hoveredPoint && (
