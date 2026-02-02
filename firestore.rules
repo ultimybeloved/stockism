@@ -219,6 +219,50 @@ service cloud.firestore {
     }
 
     // ============================================
+    // LIMIT ORDERS
+    // ============================================
+
+    match /limitOrders/{orderId} {
+      // Users can read their own orders, admins can read all
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Users can create orders for themselves
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       validateLimitOrder();
+
+      // Users can update/cancel their own orders, admins can update any
+      allow update: if isAuthenticated() &&
+                       (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Only admins can delete orders
+      allow delete: if isAdmin();
+    }
+
+    function validateLimitOrder() {
+      let data = request.resource.data;
+      return (
+        // Required fields exist
+        'userId' in data &&
+        'ticker' in data &&
+        'type' in data &&
+        'shares' in data &&
+        'limitPrice' in data &&
+        'status' in data &&
+        'createdAt' in data &&
+
+        // Field types are correct
+        data.shares is int &&
+        data.shares > 0 &&
+        data.limitPrice is number &&
+        data.limitPrice > 0 &&
+        data.type in ['BUY', 'SELL', 'SHORT', 'COVER'] &&
+        data.status == 'PENDING'
+      );
+    }
+
+    // ============================================
     // ADMIN-ONLY COLLECTIONS
     // ============================================
 
