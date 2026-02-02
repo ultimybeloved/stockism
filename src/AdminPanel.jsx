@@ -2093,61 +2093,109 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     setLoading(false);
   };
 
+  // Helper: Calculate live portfolio value for a user
+  const calculateLivePortfolioValue = (userData) => {
+    if (!prices || Object.keys(prices).length === 0) return null;
+
+    const holdings = userData.holdings || {};
+    const shorts = userData.shorts || {};
+    const cash = userData.cash || 0;
+
+    // Calculate holdings value
+    let holdingsValue = 0;
+    for (const [ticker, holdingData] of Object.entries(holdings)) {
+      const currentPrice = prices[ticker] || 0;
+      const shares = typeof holdingData === 'number' ? holdingData : (holdingData.shares || 0);
+      holdingsValue += currentPrice * shares;
+    }
+
+    // Calculate shorts value (collateral + P&L)
+    let shortsValue = 0;
+    for (const [ticker, position] of Object.entries(shorts)) {
+      if (!position || position.shares <= 0) continue;
+      const currentPrice = prices[ticker] || position.entryPrice;
+      const collateral = position.margin || 0;
+      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      shortsValue += collateral + pnl;
+    }
+
+    return Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
+  };
+
+  // Sync portfolio value for a single user
+  const handleSyncSingleUser = async (userId) => {
+    if (!prices || Object.keys(prices).length === 0) {
+      showMessage('error', 'No price data available');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        showMessage('error', 'User not found');
+        return;
+      }
+
+      const userData = userSnap.data();
+      const newPortfolioValue = calculateLivePortfolioValue(userData);
+
+      if (newPortfolioValue === null) {
+        showMessage('error', 'Cannot calculate portfolio value');
+        return;
+      }
+
+      await updateDoc(userRef, {
+        portfolioValue: newPortfolioValue,
+        lastSyncedAt: new Date()
+      });
+
+      showMessage('success', `Synced ${userData.displayName}'s portfolio`);
+
+      // Update selected user and reload users list
+      if (selectedUser && selectedUser.id === userId) {
+        setSelectedUser({ ...userData, id: userId, portfolioValue: newPortfolioValue, lastSyncedAt: new Date() });
+      }
+      await handleLoadAllUsers();
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to sync: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Recalculate portfolio values for all users
   const handleRecalculatePortfolios = async () => {
     if (!prices || Object.keys(prices).length === 0) {
       showMessage('error', 'No price data available');
       return;
     }
-    
+
     setLoading(true);
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       let updated = 0;
-      
+
       for (const userDoc of snapshot.docs) {
         const userData = userDoc.data();
-        const holdings = userData.holdings || {};
-        const shorts = userData.shorts || {};
-        const cash = userData.cash || 0;
-        
-        // Calculate holdings value
-        let holdingsValue = 0;
-        for (const [ticker, holdingData] of Object.entries(holdings)) {
-          const currentPrice = prices[ticker] || 0;
-          // Support both formats: { shares: 5 } or just 5
-          const shares = typeof holdingData === 'number' ? holdingData : (holdingData.shares || 0);
-          holdingsValue += currentPrice * shares;
-        }
-        
-        // Calculate shorts value (collateral + P&L)
-        let shortsValue = 0;
-        for (const [ticker, position] of Object.entries(shorts)) {
-          if (!position || position.shares <= 0) continue;
-          const currentPrice = prices[ticker] || position.entryPrice;
-          const collateral = position.margin || 0;
-          // P&L = (entry price - current price) * shares (profit when price goes down)
-          const pnl = (position.entryPrice - currentPrice) * position.shares;
-          shortsValue += collateral + pnl;
-          console.log(`${userData.displayName}: SHORT ${ticker} = ${position.shares} shares, entry $${position.entryPrice}, current $${currentPrice}, collateral $${collateral}, pnl $${pnl}`);
-        }
-        
-        const newPortfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
-        
-        console.log(`${userData.displayName}: cash=$${cash} + holdings=$${holdingsValue} + shorts=$${shortsValue} = $${newPortfolioValue} (was $${userData.portfolioValue})`);
-        
+        const newPortfolioValue = calculateLivePortfolioValue(userData);
+
+        if (newPortfolioValue === null) continue;
+
         // Only update if different
         if (Math.abs(newPortfolioValue - (userData.portfolioValue || 0)) > 0.01) {
           await updateDoc(doc(db, 'users', userDoc.id), {
-            portfolioValue: newPortfolioValue
+            portfolioValue: newPortfolioValue,
+            lastSyncedAt: new Date()
           });
-          console.log(`Updated ${userData.displayName}: ${userData.portfolioValue} -> ${newPortfolioValue}`);
           updated++;
         }
       }
-      
+
       showMessage('success', `Recalculated ${updated} portfolios`);
       // Reload users to see updated values
       await handleLoadAllUsers();
@@ -3796,6 +3844,61 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Sync Status */}
+                  {(() => {
+                    const liveValue = calculateLivePortfolioValue(selectedUser);
+                    const storedValue = selectedUser.portfolioValue || 0;
+                    const difference = liveValue !== null ? Math.abs(liveValue - storedValue) : 0;
+                    const isOutOfSync = difference > 0.01;
+                    const lastSynced = selectedUser.lastSyncedAt;
+
+                    return (
+                      <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className={`text-xs font-semibold uppercase ${mutedClass}`}>🔄 Sync Status</h4>
+                          <button
+                            onClick={() => handleSyncSingleUser(selectedUser.id)}
+                            disabled={loading}
+                            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded disabled:opacity-50"
+                          >
+                            {loading ? '...' : 'Sync Now'}
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className={`text-xs ${mutedClass}`}>Stored Value</div>
+                            <div className={`font-bold ${textClass}`}>${storedValue.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className={`text-xs ${mutedClass}`}>Calculated Value</div>
+                            <div className={`font-bold ${liveValue !== null ? (isOutOfSync ? 'text-orange-500' : 'text-green-500') : mutedClass}`}>
+                              {liveValue !== null ? `$${liveValue.toFixed(2)}` : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className={`text-xs ${mutedClass}`}>Difference</div>
+                            <div className={`font-bold ${isOutOfSync ? 'text-red-500' : 'text-green-500'}`}>
+                              {liveValue !== null ? `$${difference.toFixed(2)}` : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className={`text-xs ${mutedClass}`}>Status</div>
+                            <div className={`font-bold text-xs ${isOutOfSync ? 'text-orange-500' : 'text-green-500'}`}>
+                              {isOutOfSync ? '⚠️ Out of Sync' : '✅ Synced'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {lastSynced && (
+                          <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'} text-xs ${mutedClass}`}>
+                            Last synced: {lastSynced instanceof Date ? lastSynced.toLocaleString() : new Date(lastSynced.seconds * 1000).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Financial Breakdown */}
                   {(() => {
