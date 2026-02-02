@@ -1423,7 +1423,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
 // PORTFOLIO MODAL (with chart)
 // ============================================
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, darkMode, costBasis, priceHistory, colorBlindMode = false, user }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, darkMode, costBasis, priceHistory, colorBlindMode = false, user }) => {
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
@@ -1988,6 +1988,14 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               }`}
                             >
                               Sell All
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onLimitSell && onLimitSell(item.ticker, 'sell'); }}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
+                                darkMode ? 'border-red-600 text-red-400 hover:bg-red-950' : 'border-red-600 text-red-600 hover:bg-red-50'
+                              }`}
+                            >
+                              Limit Sell
                             </button>
                           </div>
                         </div>
@@ -5566,9 +5574,9 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // TRADE ACTION MODAL (Robinhood-style)
 // ============================================
 
-const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user }) => {
+const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false }) => {
   const [amount, setAmount] = useState(1);
-  const [isLimitOrder, setIsLimitOrder] = useState(false);
+  const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder);
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
   const [allowPartialFills, setAllowPartialFills] = useState(false);
 
@@ -5958,9 +5966,21 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 // CHARACTER CARD
 // ============================================
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
+  const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
+
+  // Check if this card should open in limit order mode
+  useEffect(() => {
+    if (limitOrderRequest && limitOrderRequest.ticker === character.ticker) {
+      setTradeAction(limitOrderRequest.action);
+      setShouldOpenAsLimit(true);
+      if (onClearLimitOrderRequest) {
+        onClearLimitOrderRequest();
+      }
+    }
+  }, [limitOrderRequest, character.ticker, onClearLimitOrderRequest]);
 
   const owned = holdings > 0;
   const shorted = shortPosition && shortPosition.shares > 0;
@@ -6183,11 +6203,12 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           userData={userData}
           prices={prices}
           onTrade={onTrade}
-          onClose={() => setTradeAction(null)}
+          onClose={() => { setTradeAction(null); setShouldOpenAsLimit(false); }}
           darkMode={darkMode}
           priceHistory={priceHistory}
           colorBlindMode={userData?.colorBlindMode || false}
           user={user}
+          defaultToLimitOrder={shouldOpenAsLimit}
         />
       )}
     </>
@@ -6420,6 +6441,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
+  const [limitOrderRequest, setLimitOrderRequest] = useState(null); // { ticker, action } - triggers opening trade modal in limit mode
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
   const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
   const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
@@ -7611,6 +7633,16 @@ export default function App() {
     
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
   }, [user, userData, prices, activeIPOs]);
+
+  // Handle limit order request from portfolio
+  const handleLimitOrderRequest = useCallback((ticker, action) => {
+    if (!user || !userData) {
+      showNotification('info', 'Sign in to start trading!');
+      return;
+    }
+    setLimitOrderRequest({ ticker, action });
+    setShowPortfolio(false); // Close portfolio modal
+  }, [user, userData]);
 
   // Handle trade (executes after confirmation)
   const handleTrade = useCallback(async (ticker, action, amount) => {
@@ -10028,6 +10060,8 @@ export default function App() {
               userData={activeUserData}
               prices={prices}
               user={user}
+              limitOrderRequest={limitOrderRequest}
+              onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
             />
           ))}
         </div>
@@ -10342,6 +10376,7 @@ export default function App() {
           currentValue={portfolioValue}
           onClose={() => setShowPortfolio(false)}
           onTrade={requestTrade}
+          onLimitSell={handleLimitOrderRequest}
           darkMode={darkMode}
           costBasis={userData?.costBasis || {}}
           priceHistory={priceHistory}
