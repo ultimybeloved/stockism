@@ -25,7 +25,8 @@ import {
   serverTimestamp,
   arrayUnion,
   deleteField,
-  runTransaction
+  runTransaction,
+  addDoc
 } from 'firebase/firestore';
 import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -5444,8 +5445,11 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
 // TRADE ACTION MODAL (Robinhood-style)
 // ============================================
 
-const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false }) => {
+const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user }) => {
   const [amount, setAmount] = useState(1);
+  const [isLimitOrder, setIsLimitOrder] = useState(false);
+  const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
+  const [allowPartialFills, setAllowPartialFills] = useState(false);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -5596,10 +5600,46 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
   const config = getActionConfig();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (config.disabled || amount < 1 || amount > maxShares) return;
-    onTrade(character.ticker, action, amount);
-    onClose();
+
+    if (isLimitOrder) {
+      // Handle limit order creation
+      const priceNum = parseFloat(limitPrice);
+      if (isNaN(priceNum) || priceNum <= 0) {
+        alert('Please enter a valid limit price');
+        return;
+      }
+
+      try {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30); // 30 day expiration
+
+        await addDoc(collection(db, 'limitOrders'), {
+          userId: user.uid,
+          ticker: character.ticker,
+          type: action.toUpperCase(), // 'BUY', 'SELL', 'SHORT', 'COVER'
+          shares: parseInt(amount),
+          limitPrice: priceNum,
+          allowPartialFills,
+          status: 'PENDING',
+          filledShares: 0,
+          createdAt: serverTimestamp(),
+          expiresAt: expiresAt.getTime(),
+          updatedAt: serverTimestamp()
+        });
+
+        alert('Limit order created! View your orders from the nav bar.');
+        onClose();
+      } catch (error) {
+        console.error('Error creating limit order:', error);
+        alert(`Failed to create order: ${error.message}`);
+      }
+    } else {
+      // Handle immediate trade
+      onTrade(character.ticker, action, amount);
+      onClose();
+    }
   };
 
   return (
@@ -5693,28 +5733,93 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           )}
         </div>
 
-        {/* Total */}
-        <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
-          <div className="flex justify-between items-center">
-            <span className={`text-sm ${mutedClass}`}>{config.label}</span>
-            <span className={`text-lg font-bold ${config.colors.text}`}>
-              {formatCurrency(config.total)}
-            </span>
-          </div>
+        {/* Limit Order Checkbox */}
+        <div className="mb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isLimitOrder}
+              onChange={(e) => {
+                setIsLimitOrder(e.target.checked);
+                if (e.target.checked) {
+                  setLimitPrice(price.toFixed(2));
+                }
+              }}
+              className="w-4 h-4"
+            />
+            <span className={`text-sm font-semibold ${textClass}`}>Place as limit order</span>
+          </label>
+          <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
+            Order will execute when price conditions are met (30-day expiration)
+          </p>
         </div>
+
+        {/* Limit Order Settings */}
+        {isLimitOrder && (
+          <div className={`p-3 rounded-sm mb-4 space-y-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+            <div>
+              <label className={`block text-sm font-semibold mb-1 ${textClass}`}>
+                Limit Price
+                <span className={`ml-2 text-xs ${mutedClass}`}>
+                  (Current: {formatCurrency(price)})
+                </span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={limitPrice}
+                onChange={(e) => setLimitPrice(e.target.value)}
+                placeholder="0.00"
+                className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+              />
+              <p className={`text-xs ${mutedClass} mt-1`}>
+                {action === 'buy' || action === 'cover'
+                  ? 'Order executes when price drops to or below this price'
+                  : 'Order executes when price rises to or above this price'}
+              </p>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowPartialFills}
+                  onChange={(e) => setAllowPartialFills(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span className={`text-sm ${textClass}`}>Allow partial fills</span>
+              </label>
+              <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
+                If unchecked, order only executes if all shares can be traded
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Total (only show for immediate trades) */}
+        {!isLimitOrder && (
+          <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+            <div className="flex justify-between items-center">
+              <span className={`text-sm ${mutedClass}`}>{config.label}</span>
+              <span className={`text-lg font-bold ${config.colors.text}`}>
+                {formatCurrency(config.total)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < 1 || amount > maxShares}
+            disabled={config.disabled || amount < 1 || amount > maxShares || (isLimitOrder && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
                 : `${config.colors.bg} ${config.colors.bgHover} text-white`
             } disabled:opacity-50`}
           >
-            {config.title}
+            {isLimitOrder ? `Create Limit ${config.title}` : config.title}
           </button>
           <button
             onClick={onClose}
@@ -9428,7 +9533,7 @@ export default function App() {
             {!isGuest && (
               <button onClick={() => setShowLimitOrders(true)}
                 className={`px-3 py-1 text-xs rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
-                📋 Limit Orders
+                📋 My Orders
               </button>
             )}
             {user && ADMIN_UIDS.includes(user.uid) && (

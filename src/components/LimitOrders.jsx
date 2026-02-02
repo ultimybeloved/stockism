@@ -3,7 +3,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc, ser
 import { db } from '../firebase';
 
 const LimitOrders = ({ user, darkMode, prices, characters }) => {
-  const [activeTab, setActiveTab] = useState('create'); // 'create' or 'orders'
+  const [activeTab, setActiveTab] = useState('orders'); // 'create' or 'orders' - default to 'orders' since creation is now in trade modal
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
