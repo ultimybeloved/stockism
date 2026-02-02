@@ -641,22 +641,18 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
 
-  // Position points by timestamp, not index (so sampling doesn't affect placement)
-  const minTimestamp = currentData[0]?.timestamp || Date.now();
-  const maxTimestamp = currentData[currentData.length - 1]?.timestamp || Date.now();
-  const timeSpan = maxTimestamp - minTimestamp || 1;
-
-  const getX = (timestamp) => paddingX + ((timestamp - minTimestamp) / timeSpan) * chartWidth;
+  // Position points by index (evenly spaced) to match sparkline
+  const getX = (index, total) => paddingX + (index / Math.max(total - 1, 1)) * chartWidth;
   const getY = (price) => paddingY + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
 
   const pathData = visualData.map((d, i) => {
-    const x = getX(d.timestamp);
+    const x = getX(i, visualData.length);
     const y = getY(d.price);
     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
   const areaPath = visualData.length > 0
-    ? `${pathData} L ${getX(visualData[visualData.length - 1].timestamp)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
+    ? `${pathData} L ${getX(visualData.length - 1, visualData.length)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`
     : '';
 
   // Color blind friendly chart colors
@@ -674,7 +670,7 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
 
   // Robinhood-style: find nearest point to cursor/touch position
   const handleChartHover = (e) => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || currentData.length === 0) return;
 
     // Prevent page scrolling on mobile when interacting with chart
     if (e.touches) {
@@ -686,23 +682,13 @@ const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, 
     const mouseX = clientX - rect.left;
     const svgX = (mouseX / rect.width) * svgWidth;
 
-    // Convert SVG X to timestamp
-    const hoveredTimestamp = minTimestamp + ((svgX - paddingX) / chartWidth) * timeSpan;
-
-    // Find nearest point in currentData (ALL points hoverable for smooth scrubbing)
-    let nearestPoint = null;
-    let minDistance = Infinity;
-
-    currentData.forEach(point => {
-      const distance = Math.abs(point.timestamp - hoveredTimestamp);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestPoint = point;
-      }
-    });
+    // Convert SVG X to index (evenly spaced points)
+    const hoveredIndex = Math.round(((svgX - paddingX) / chartWidth) * (currentData.length - 1));
+    const clampedIndex = Math.max(0, Math.min(currentData.length - 1, hoveredIndex));
+    const nearestPoint = currentData[clampedIndex];
 
     if (nearestPoint) {
-      const x = getX(nearestPoint.timestamp);
+      const x = getX(clampedIndex, currentData.length);
       const y = getY(nearestPoint.price);
       setHoveredPoint({ ...nearestPoint, x, y });
     }
