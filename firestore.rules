@@ -263,6 +263,19 @@ service cloud.firestore {
     }
 
     // ============================================
+    // TRADES COLLECTION (audit log)
+    // ============================================
+
+    match /trades/{tradeId} {
+      // Admin can read all trades
+      // Users can read their own trades (for trade history)
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+
+      // Only Cloud Functions can write (server-side trade logging)
+      allow write: if false;
+    }
+
+    // ============================================
     // ADMIN-ONLY COLLECTIONS
     // ============================================
 

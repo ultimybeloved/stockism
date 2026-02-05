@@ -2066,6 +2066,32 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       }
     }
 
+    // ANTI-MANIPULATION: Check trade velocity per ticker (last 1 hour)
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const oneHourAgo = new Date(now - ONE_HOUR_MS);
+
+    const recentTickerTradesSnap = await db.collection('trades')
+      .where('uid', '==', uid)
+      .where('ticker', '==', ticker)
+      .where('timestamp', '>', oneHourAgo)
+      .get();
+
+    const tradesInLastHour = recentTickerTradesSnap.size;
+
+    // Hard block at 15 trades per ticker per hour
+    const MAX_TRADES_PER_HOUR = 15;
+    if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour. Please wait before trading this stock again.`
+      );
+    }
+
+    // Calculate price impact multiplier (escalates with repeated trades)
+    // Formula: 1.0 + (trades * 0.3)
+    // 1st trade: 1.0x, 5th trade: 2.2x, 10th trade: 3.7x, 15th trade: 5.5x
+    const priceImpactMultiplier = 1.0 + (tradesInLastHour * 0.3);
+
     // Validate based on action
     const cash = userData.cash || 0;
     const holdings = userData.holdings || {};
@@ -2083,6 +2109,10 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
       let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+
+      // Apply velocity-based multiplier to price impact (anti-manipulation)
+      priceImpact *= priceImpactMultiplier;
+
       const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
       priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -2205,7 +2235,9 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       currentPrice,
       serverTimestamp: now,
       cash,
-      holdings: holdings[ticker] || 0
+      holdings: holdings[ticker] || 0,
+      priceImpactMultiplier, // Send multiplier to client for display and calculation
+      tradesInLastHour // Send trade count for UI warnings
     };
 
   } catch (error) {

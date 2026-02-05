@@ -361,10 +361,14 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
 
 // Calculate price impact using square root model (used by real quant funds)
 // This models real market microstructure where impact scales with sqrt of order size
-const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, userDailyImpact = 0) => {
+const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, userDailyImpact = 0, velocityMultiplier = 1.0) => {
   // Square root model: impact = price * base_impact * sqrt(shares / liquidity)
   // This means: 4x the shares = 2x the impact (not 4x)
   let impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
+
+  // Apply velocity-based multiplier (anti-manipulation)
+  // Increases price impact for users who repeatedly trade the same stock
+  impact *= velocityMultiplier;
 
   // Cap the impact at MAX_PRICE_CHANGE_PERCENT per trade to prevent manipulation
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
@@ -7601,6 +7605,8 @@ export default function App() {
 
     // SECURITY: Server-side validation BEFORE executing trade
     // This enforces cooldown, validates cash/holdings using server timestamp
+    let priceImpactMultiplier = 1.0;
+    let tradesInLastHour = 0;
     try {
       const validationResult = await validateTradeFunction({ ticker, action, amount });
       if (!validationResult.data.valid) {
@@ -7608,6 +7614,16 @@ export default function App() {
         return;
       }
       console.log('[TRADE VALIDATED]', validationResult.data);
+
+      // Extract velocity multiplier from validation result
+      priceImpactMultiplier = validationResult.data.priceImpactMultiplier || 1.0;
+      tradesInLastHour = validationResult.data.tradesInLastHour || 0;
+
+      // Show warning if user is approaching velocity limit
+      if (priceImpactMultiplier > 1.0) {
+        const multiplierPercent = ((priceImpactMultiplier - 1) * 100).toFixed(0);
+        showNotification('warning', `⚠️ Repeated trading: Price impact +${multiplierPercent}% (${tradesInLastHour} trades on ${ticker} in last hour)`);
+      }
     } catch (error) {
       console.error('[TRADE VALIDATION ERROR]', error);
       const message = error.message || 'Trade validation failed';
@@ -7618,6 +7634,9 @@ export default function App() {
         showNotification('error', message.replace(/^.*: /, ''));
       } else if (message.includes('Short limit')) {
         // Show the full short limit message with time remaining
+        showNotification('error', message.replace(/^.*: /, ''));
+      } else if (message.includes('Trade velocity limit')) {
+        // Show velocity limit error
         showNotification('error', message.replace(/^.*: /, ''));
       } else if (message.includes('Insufficient')) {
         showNotification('error', message.replace(/^.*: /, ''));
@@ -7668,8 +7687,8 @@ export default function App() {
       const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
       const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
 
-      // Calculate price impact using square root model (with daily impact limit)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
+      // Calculate price impact using square root model (with daily impact limit + velocity multiplier)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
       const newMidPrice = price + priceImpact;
       
       // You pay the ASK price (mid + half spread) - this is realistic market friction
@@ -7975,8 +7994,8 @@ export default function App() {
       const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
       const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
 
-      // Calculate price impact using square root model (selling pushes price down, with daily impact limit)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
+      // Calculate price impact using square root model (selling pushes price down, with daily impact limit + velocity multiplier)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
       const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
       
       // You get the BID price (mid - half spread) - market friction
@@ -8216,8 +8235,8 @@ export default function App() {
       const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
       const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
 
-      // Calculate price impact (shorting = selling pressure, with daily impact limit)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
+      // Calculate price impact (shorting = selling pressure, with daily impact limit + velocity multiplier)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
       const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
       
       // Entry price is the bid (you're selling borrowed shares)
@@ -8432,8 +8451,8 @@ export default function App() {
       const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
       const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
 
-      // Calculate price INCREASE (covering = buying pressure, with daily impact limit)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact);
+      // Calculate price INCREASE (covering = buying pressure, with daily impact limit + velocity multiplier)
+      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
       const newMidPrice = price + priceImpact;
       
       // You pay the ASK price to cover (buying back shares)
