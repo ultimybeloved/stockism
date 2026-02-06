@@ -5,7 +5,7 @@ import { useAppContext } from '../context/AppContext';
 
 const LadderPage = () => {
   const navigate = useNavigate();
-  const { user, userData } = useAppContext();
+  const { user, userData, darkMode } = useAppContext();
 
   const handleClose = () => {
     navigate('/');
@@ -16,6 +16,7 @@ const LadderPage = () => {
       <LadderGame
         user={user}
         userData={userData}
+        darkMode={darkMode}
         onClose={handleClose}
       />
     </div>
