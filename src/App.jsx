@@ -9015,29 +9015,21 @@ export default function App() {
       updateData.achievements = arrayUnion(...newAchievements);
     }
 
-    // Check ladder game balance and top up to $100 if needed
+    // Check ladder game balance and top up to $100 if needed (only for existing players)
     let ladderTopUp = 0;
     try {
       const ladderRef = doc(db, 'ladderGameUsers', user.uid);
       const ladderDoc = await getDoc(ladderRef);
 
+      // Only top up if they've played before and are below $100
       if (ladderDoc.exists()) {
         const currentLadderBalance = ladderDoc.data().balance || 0;
         if (currentLadderBalance < 100) {
           ladderTopUp = 100 - currentLadderBalance;
           await updateDoc(ladderRef, { balance: 100 });
         }
-      } else {
-        // First time - create with $100
-        ladderTopUp = 100;
-        await setDoc(ladderRef, {
-          balance: 100,
-          gamesPlayed: 0,
-          wins: 0,
-          currentStreak: 0,
-          bestStreak: 0
-        });
       }
+      // If they've never played, let LadderGame component create their account with $500
     } catch (error) {
       console.error('[LADDER TOP-UP ERROR]', error);
       // Don't fail the entire check-in if ladder top-up fails
