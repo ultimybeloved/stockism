@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -4290,13 +4290,12 @@ export default function App() {
 
   return (
     <AppProvider value={contextValue}>
-      <BrowserRouter>
-        <Layout
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          user={user}
-          userData={userData}
-          onShowAdminPanel={() => setShowAdmin(true)}
+      <Layout
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        user={user}
+        userData={userData}
+        onShowAdminPanel={() => setShowAdmin(true)}
           isGuest={isGuest}
           onShowLogin={() => setShowLoginModal(true)}
         >
@@ -4959,8 +4958,7 @@ export default function App() {
         </div>
       )}
 
-        </Layout>
-      </BrowserRouter>
+      </Layout>
     </AppProvider>
   );
 }
