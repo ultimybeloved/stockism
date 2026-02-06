@@ -192,9 +192,14 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                 </button>
               </div>
             ) : (
-              <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>
-                Sign in to trade
-              </div>
+              <button
+                onClick={onShowLogin}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  darkMode ? 'text-green-400 hover:bg-zinc-800' : 'text-green-600 hover:bg-gray-100'
+                }`}
+              >
+                Sign In
+              </button>
             )}
           </div>
         </div>
