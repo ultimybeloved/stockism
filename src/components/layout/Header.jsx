@@ -103,7 +103,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                         : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
-                  <span>{userData?.photoURL ? '👤' : '😎'}</span>
+                  <span>👤</span>
                   <div className="text-right">
                     <div className={`text-xs ${
                       isActivePage('/profile')
@@ -117,7 +117,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                         ? 'text-white'
                         : 'text-green-600'
                     }`}>
-                      {formatCurrency(userData?.cash || 0)}
+                      {formatCurrency(userData?.portfolioValue || 0)}
                     </div>
                   </div>
                 </Link>

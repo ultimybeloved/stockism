@@ -1022,7 +1022,38 @@ export default function App() {
   const [priceHistory, setPriceHistory] = useState({});
   const [marketData, setMarketData] = useState(null);
   const [launchedTickers, setLaunchedTickers] = useState([]);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Initialize from localStorage if available
+    try {
+      const stored = localStorage.getItem('stockism_darkMode');
+      if (stored !== null) {
+        return stored === 'true';
+      }
+    } catch (error) {
+      console.error('Failed to load dark mode preference:', error);
+    }
+    return true; // Default to dark mode
+  });
+
+  // Handler to toggle dark mode and persist to localStorage + Firestore
+  const handleToggleDarkMode = useCallback(() => {
+    setDarkMode(prev => {
+      const newValue = !prev;
+      // Save to localStorage immediately
+      localStorage.setItem('stockism_darkMode', newValue);
+
+      // Save to Firestore for signed-in users
+      if (user && !isGuest) {
+        const userDocRef = doc(db, 'users', user.uid);
+        updateDoc(userDocRef, { darkMode: newValue }).catch(err => {
+          console.error('Failed to save dark mode preference:', err);
+        });
+      }
+
+      return newValue;
+    });
+  }, [user, isGuest]);
+
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
@@ -1176,6 +1207,12 @@ export default function App() {
           setNeedsUsername(false);
           const data = userSnap.data();
           setUserData(data);
+
+          // Sync dark mode from Firestore if user has a saved preference
+          if (data.darkMode !== undefined) {
+            setDarkMode(data.darkMode);
+            localStorage.setItem('stockism_darkMode', data.darkMode);
+          }
 
           // Subscribe to user data changes - store unsubscribe for cleanup
           userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
@@ -4292,7 +4329,7 @@ export default function App() {
     <AppProvider value={contextValue}>
       <Layout
         darkMode={darkMode}
-        setDarkMode={setDarkMode}
+        setDarkMode={handleToggleDarkMode}
         user={user}
         userData={userData}
         onShowAdminPanel={() => setShowAdmin(true)}
