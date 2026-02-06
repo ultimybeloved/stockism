@@ -4270,7 +4270,7 @@ export default function App() {
   }
 
   // Create context value for AppProvider
-  const contextValue = useMemo(() => ({
+  const contextValue = {
     darkMode,
     user,
     userData,
@@ -4286,7 +4286,7 @@ export default function App() {
     activeIPOs,
     ipoRestrictedTickers,
     launchedTickers
-  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers]);
+  };
 
   return (
     <AppProvider value={contextValue}>
