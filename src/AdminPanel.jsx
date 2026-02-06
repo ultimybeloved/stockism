@@ -4106,14 +4106,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                             const currentPrice = prices[ticker] || 0;
                             const currentValue = currentPrice * shareCount;
                             const costBasis = selectedUser.costBasis?.[ticker] || 0;
+                            const avgCost = shareCount > 0 ? (costBasis / shareCount) : 0;
                             const unrealizedPL = currentValue - costBasis;
-                            const unrealizedPct = costBasis > 0 ? ((unrealizedPL / costBasis) * 100) : 0;
+                            const unrealizedPct = avgCost > 0 ? (((currentPrice - avgCost) / avgCost) * 100) : 0;
 
-                            return { ticker, shareCount, currentPrice, currentValue, costBasis, unrealizedPL, unrealizedPct };
+                            return { ticker, shareCount, currentPrice, currentValue, costBasis, avgCost, unrealizedPL, unrealizedPct };
                           })
                           .filter(h => h !== null)
                           .sort((a, b) => b.unrealizedPL - a.unrealizedPL)
-                          .map(({ ticker, shareCount, currentPrice, currentValue, costBasis, unrealizedPL, unrealizedPct }) => (
+                          .map(({ ticker, shareCount, currentPrice, currentValue, costBasis, avgCost, unrealizedPL, unrealizedPct }) => (
                             <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
                               <div className="flex justify-between items-start">
                                 <div>
@@ -4125,10 +4126,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                                 </span>
                               </div>
                               <div className={`text-xs ${mutedClass} mt-1`}>
-                                Cost: ${costBasis.toFixed(2)} → Value: ${currentValue.toFixed(2)} ({unrealizedPct >= 0 ? '+' : ''}{unrealizedPct.toFixed(1)}%)
+                                Avg cost: ${avgCost.toFixed(2)} → Price: ${currentPrice.toFixed(2)} ({unrealizedPct >= 0 ? '+' : ''}{unrealizedPct.toFixed(1)}%)
                               </div>
                               <div className={`text-xs ${mutedClass}`}>
-                                Current price: ${currentPrice.toFixed(2)}
+                                Cost: ${costBasis.toFixed(2)} → Value: ${currentValue.toFixed(2)}
                               </div>
                             </div>
                           ))
