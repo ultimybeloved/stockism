@@ -2309,6 +2309,7 @@ export default function App() {
     // This enforces cooldown, validates cash/holdings using server timestamp
     let priceImpactMultiplier = 1.0;
     let tradesInLastHour = 0;
+    let serverValidatedPrice = null;
     try {
       const validationResult = await validateTradeFunction({ ticker, action, amount });
       if (!validationResult.data.valid) {
@@ -2316,6 +2317,9 @@ export default function App() {
         return;
       }
       console.log('[TRADE VALIDATED]', validationResult.data);
+
+      // Extract server-validated current price (prevents stale client data exploits)
+      serverValidatedPrice = validationResult.data.currentPrice;
 
       // Extract velocity multiplier from validation result
       priceImpactMultiplier = validationResult.data.priceImpactMultiplier || 1.0;
@@ -2364,14 +2368,24 @@ export default function App() {
     }
 
     const asset = CHARACTER_MAP[ticker];
-    // Use priceHistory as source of truth (prices object can be stale/corrupted)
-    const history = priceHistory[ticker];
+
+    // SECURITY FIX: Use server-validated price to prevent stale data exploits
+    // Client-side priceHistory can be days/weeks old if user doesn't refresh
     let price;
-    if (history && history.length > 0) {
-      price = history[history.length - 1].price;
+    if (serverValidatedPrice && !isNaN(serverValidatedPrice)) {
+      price = serverValidatedPrice;
+      console.log(`[TRADE] Using server-validated price: ${price}`);
     } else {
-      price = prices[ticker] || asset?.basePrice;
+      // Fallback to client data (should never happen but prevents crashes)
+      const history = priceHistory[ticker];
+      if (history && history.length > 0) {
+        price = history[history.length - 1].price;
+      } else {
+        price = prices[ticker] || asset?.basePrice;
+      }
+      console.warn(`[TRADE] Fallback to client price: ${price}`);
     }
+
     if (!price || isNaN(price)) {
       showNotification('error', 'Price unavailable, try again');
       return;
