@@ -64,7 +64,7 @@ const AchievementsPage = () => {
                             {earned ? achievement.description : achievement.hint}
                           </div>
                         </div>
-                        {earned && <span className={`text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>✓</span>}
+                        {earned && <span className="text-sm text-teal-500">✓</span>}
                       </div>
                     </div>
                   );

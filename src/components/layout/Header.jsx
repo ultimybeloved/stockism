@@ -173,7 +173,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                     <div className={`text-xs sm:text-sm font-semibold ${
                       isActivePage('/profile')
                         ? 'text-white'
-                        : 'text-green-600'
+                        : 'text-teal-600'
                     }`}>
                       {formatCurrency(userData?.portfolioValue || 0)}
                     </div>
@@ -184,8 +184,8 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                   onClick={handleSignOut}
                   className={`hidden sm:block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     darkMode
-                      ? 'text-red-400 hover:bg-red-900/20'
-                      : 'text-red-600 hover:bg-red-50'
+                      ? 'text-zinc-400 hover:bg-zinc-800'
+                      : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   Sign Out

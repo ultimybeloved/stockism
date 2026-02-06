@@ -39,7 +39,7 @@ const SimpleLineChart = ({
   const firstPrice = data[0]?.price || 0;
   const lastPrice = data[data.length - 1]?.price || 0;
   const isUp = lastPrice >= firstPrice;
-  const strokeColor = isUp ? '#22c55e' : '#ef4444';
+  const strokeColor = isUp ? '#14b8a6' : '#a855f7'; // Teal/purple for colorblind accessibility
 
   return (
     <svg
