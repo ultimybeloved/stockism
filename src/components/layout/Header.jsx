@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
@@ -25,6 +25,16 @@ const LadderIcon = () => (
 
 const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin }) => {
   const location = useLocation();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
 
@@ -89,11 +99,18 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
           </nav>
 
           {/* Desktop: Centered oversized logo */}
-          <Link to="/" className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
+          <Link
+            to="/"
+            className={`hidden md:block absolute left-1/2 -translate-x-1/2 z-50 transition-[transform,top] duration-500 ease-in-out ${
+              scrolled ? 'top-1/2 -translate-y-1/2' : 'top-0 translate-y-0'
+            }`}
+          >
             <img
               src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
               alt="Stockism"
-              className="h-40 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+              className={`w-auto select-none cursor-pointer hover:opacity-90 transition-[height,opacity] duration-500 ease-in-out ${
+                scrolled ? 'h-10' : 'h-40'
+              }`}
               draggable="false"
               onContextMenu={(e) => e.preventDefault()}
               style={{ userSelect: 'none', WebkitUserSelect: 'none' }}

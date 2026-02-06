@@ -17,7 +17,7 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         onShowLogin={onShowLogin}
       />
 
-      <main className="pb-20 md:pb-6 md:pt-14">
+      <main className="pb-20 md:pb-6 md:pt-28">
         {children}
       </main>
 
