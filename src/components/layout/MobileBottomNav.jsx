@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-const MobileBottomNav = () => {
+const MobileBottomNav = ({ darkMode }) => {
   const location = useLocation();
 
   const isActivePage = (path) => {
@@ -17,7 +17,11 @@ const MobileBottomNav = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
+    <nav className={`md:hidden fixed bottom-0 left-0 right-0 z-40 border-t shadow-lg ${
+      darkMode
+        ? 'bg-zinc-900 border-zinc-800'
+        : 'bg-white border-gray-200'
+    }`}>
       <div className="flex items-center justify-around h-16">
         {navItems.map(item => (
           <Link
@@ -25,8 +29,12 @@ const MobileBottomNav = () => {
             to={item.path}
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActivePage(item.path)
-                ? 'text-indigo-600 dark:text-indigo-400'
-                : 'text-gray-600 dark:text-gray-400'
+                ? darkMode
+                  ? 'text-orange-400'
+                  : 'text-orange-600'
+                : darkMode
+                  ? 'text-zinc-400'
+                  : 'text-gray-600'
             }`}
           >
             <span className="text-2xl mb-1">{item.icon}</span>

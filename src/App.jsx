@@ -4303,16 +4303,64 @@ export default function App() {
             <Route path="/" element={
               <div className={`min-h-screen ${bgClass} p-4`}>
                 <div className="max-w-6xl mx-auto">
-                  {/* Logo */}
-                  <div className="flex justify-center mb-4">
-                    <img
-                      src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
-                      alt="Stockism"
-                      className="h-[100px] sm:h-[115px] md:h-[200px] w-auto select-none pointer-events-none"
-                      draggable="false"
-                      onContextMenu={(e) => e.preventDefault()}
-                      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-                    />
+                  {/* Sub-header buttons */}
+                  <div className="flex flex-wrap gap-2 mb-4 justify-center">
+                    <button
+                      onClick={() => setShowDailyMissions(true)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
+                        darkMode
+                          ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      📋 Missions
+                    </button>
+                    {user && !isGuest && (
+                      <button
+                        onClick={() => setShowPinShop(true)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
+                          darkMode
+                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        📌 Pins
+                      </button>
+                    )}
+                    {(!userData?.crew || isGuest) && (
+                      <button
+                        onClick={() => setShowCrewSelection(true)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
+                          darkMode
+                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        👥 Crews
+                      </button>
+                    )}
+                    {user && !isGuest && (
+                      <button
+                        onClick={() => setShowLending(true)}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
+                          darkMode
+                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        💰 Margin
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowAbout(true)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
+                        darkMode
+                          ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      ℹ️ About
+                    </button>
                   </div>
 
                   {/* Guest Banner */}

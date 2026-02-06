@@ -30,18 +30,13 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <header className={`sticky top-0 z-40 border-b shadow-sm ${
+      darkMode
+        ? 'bg-zinc-900 border-zinc-800'
+        : 'bg-white border-gray-200'
+    }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link
-            to="/"
-            className="flex items-center space-x-2 text-xl font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-          >
-            <span>📈</span>
-            <span className="hidden sm:inline">Stockism</span>
-          </Link>
-
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => (
@@ -50,8 +45,12 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                 to={link.path}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActivePage(link.path)
-                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? darkMode
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-orange-500 text-white'
+                    : darkMode
+                      ? 'text-zinc-300 hover:bg-zinc-800'
+                      : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 <span className="mr-1">{link.icon}</span>
@@ -65,7 +64,9 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             {/* Dark Mode Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className={`p-2 rounded-md transition-colors ${
+                darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+              }`}
               aria-label="Toggle dark mode"
             >
               {darkMode ? '☀️' : '🌙'}
@@ -75,7 +76,11 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             {isAdmin && (
               <button
                 onClick={onShowAdminPanel}
-                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-red-600 dark:text-red-400"
+                className={`p-2 rounded-md transition-colors ${
+                  darkMode
+                    ? 'hover:bg-zinc-800 text-red-400'
+                    : 'hover:bg-gray-100 text-red-600'
+                }`}
                 aria-label="Admin Panel"
                 title="Admin Panel"
               >
@@ -90,16 +95,28 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                   to="/profile"
                   className={`hidden sm:flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage('/profile')
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? darkMode
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-orange-500 text-white'
+                      : darkMode
+                        ? 'text-zinc-300 hover:bg-zinc-800'
+                        : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <span>{userData?.photoURL ? '👤' : '😎'}</span>
                   <div className="text-right">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className={`text-xs ${
+                      isActivePage('/profile')
+                        ? 'text-white/70'
+                        : darkMode ? 'text-zinc-400' : 'text-gray-500'
+                    }`}>
                       {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
                     </div>
-                    <div className="font-semibold text-green-600 dark:text-green-400">
+                    <div className={`font-semibold ${
+                      isActivePage('/profile')
+                        ? 'text-white'
+                        : 'text-green-600'
+                    }`}>
                       {formatCurrency(userData?.cash || 0)}
                     </div>
                   </div>
@@ -107,13 +124,17 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
 
                 <button
                   onClick={handleSignOut}
-                  className="px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    darkMode
+                      ? 'text-red-400 hover:bg-red-900/20'
+                      : 'text-red-600 hover:bg-red-50'
+                  }`}
                 >
                   Sign Out
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>
                 Sign in to trade
               </div>
             )}
@@ -121,7 +142,9 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className={`md:hidden p-2 rounded-md transition-colors ${
+                darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+              }`}
               aria-label="Toggle menu"
             >
               {showMobileMenu ? '✕' : '☰'}
@@ -131,7 +154,9 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
 
         {/* Mobile Menu */}
         {showMobileMenu && (
-          <div className="md:hidden py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className={`md:hidden py-3 border-t ${
+            darkMode ? 'border-zinc-800' : 'border-gray-200'
+          }`}>
             <nav className="flex flex-col space-y-1">
               {navLinks.map(link => (
                 <Link
@@ -140,8 +165,12 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                   onClick={() => setShowMobileMenu(false)}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage(link.path)
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? darkMode
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-orange-500 text-white'
+                      : darkMode
+                        ? 'text-zinc-300 hover:bg-zinc-800'
+                        : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <span className="mr-2">{link.icon}</span>
@@ -154,8 +183,12 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                   onClick={() => setShowMobileMenu(false)}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage('/profile')
-                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? darkMode
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-orange-500 text-white'
+                      : darkMode
+                        ? 'text-zinc-300 hover:bg-zinc-800'
+                        : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <span className="mr-2">👤</span>
