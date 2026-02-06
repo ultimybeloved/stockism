@@ -5,7 +5,7 @@ import { auth } from '../../firebase';
 import { ADMIN_UIDS } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 
-const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel }) => {
+const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin }) => {
   const location = useLocation();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
