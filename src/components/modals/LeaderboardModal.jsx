@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CREWS, CREW_MAP } from '../../crews';
 import PinDisplay from '../common/PinDisplay';
-import { db } from '../../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { getLeaderboardFunction } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
@@ -20,28 +19,23 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const q = query(
-          collection(db, 'users'),
-          orderBy('portfolioValue', 'desc'),
-          limit(100) // Fetch extra to account for bots
-        );
-        const snapshot = await getDocs(q);
-        const leaderData = snapshot.docs
-          .map(doc => ({ ...doc.data(), id: doc.id }))
-          .filter(user => !user.isBot) // Filter out bots
-          .slice(0, 50) // Limit to top 50 real users
-          .map((user, index) => ({
-            rank: index + 1,
-            ...user
-          }));
+        const result = await getLeaderboardFunction();
+        const leaderData = result.data.leaderboard.map((user, index) => ({
+          rank: index + 1,
+          ...user,
+          id: user.userId
+        }));
         setLeaders(leaderData);
+        if (crewFilter === 'ALL' && result.data.callerRank) {
+          setUserRank(result.data.callerRank);
+        }
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       }
       setLoading(false);
     };
     fetchLeaderboard();
-  }, []);
+  }, [crewFilter]);
 
   // Fetch crew-specific leaderboard when crew filter changes
   useEffect(() => {
@@ -52,19 +46,16 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
 
     const fetchCrewLeaderboard = async () => {
       try {
-        // Fetch all users in this crew, sorted by portfolio value
-        const q = query(
-          collection(db, 'users'),
-          orderBy('portfolioValue', 'desc')
-        );
-        const snapshot = await getDocs(q);
-        const crewMembers = snapshot.docs
-          .map(doc => ({ ...doc.data(), id: doc.id }))
-          .filter(user => user.crew === crewFilter && !user.isBot) // Filter out bots
-          .slice(0, 50) // Limit to top 50 crew members
-          .map((user, idx) => ({ ...user, crewRank: idx + 1 }));
-
+        const result = await getLeaderboardFunction({ crew: crewFilter });
+        const crewMembers = result.data.leaderboard.map((user, idx) => ({
+          ...user,
+          id: user.userId,
+          crewRank: idx + 1
+        }));
         setCrewLeaders(crewMembers);
+        if (result.data.callerRank) {
+          setUserRank(result.data.callerRank);
+        }
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
       }
@@ -96,39 +87,6 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     return crewLeaders;
   }, [leaders, crewLeaders, crewFilter]);
 
-  // Calculate user's rank when leaderboard data changes
-  useEffect(() => {
-    if (!currentUser || !currentUserData) {
-      setUserRank(null);
-      return;
-    }
-
-    const fetchUserRank = async () => {
-      try {
-        if (crewFilter === 'ALL') {
-          // Count users with higher portfolio value (excluding bots)
-          const q = query(
-            collection(db, 'users'),
-            orderBy('portfolioValue', 'desc')
-          );
-          const snapshot = await getDocs(q);
-          const allUsers = snapshot.docs
-            .map(doc => ({ id: doc.id, portfolioValue: doc.data().portfolioValue, isBot: doc.data().isBot }))
-            .filter(u => !u.isBot); // Filter out bots
-          const rank = allUsers.findIndex(u => u.id === currentUser.uid) + 1;
-          setUserRank(rank || null);
-        } else {
-          // Crew leaderboard rank
-          const userInCrew = crewLeaders.findIndex(u => u.id === currentUser.uid);
-          setUserRank(userInCrew >= 0 ? userInCrew + 1 : null);
-        }
-      } catch (err) {
-        console.error('Failed to fetch user rank:', err);
-      }
-    };
-
-    fetchUserRank();
-  }, [currentUser, currentUserData, crewFilter, leaders, crewLeaders]);
 
   // Track user row position via direct DOM manipulation (no state updates = no re-renders)
   useEffect(() => {

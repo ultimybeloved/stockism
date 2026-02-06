@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -3614,17 +3614,12 @@ export default function App() {
         const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
         if (currentPortfolioValue < MIN_PORTFOLIO_FOR_LEADERBOARD) return;
 
-        // Fetch top users to check position (excluding bots)
-        const q = query(
-          collection(db, 'users'),
-          orderBy('portfolioValue', 'desc'),
-          limit(20) // Fetch extra to account for bots
-        );
-        const snapshot = await getDocs(q);
-        const topUsers = snapshot.docs
-          .filter(doc => !doc.data().isBot && (doc.data().portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD) // Filter out bots and low-value accounts
-          .slice(0, 10) // Get top 10 real users
-          .map(doc => doc.id);
+        // Fetch top users to check position (using Cloud Function for security)
+        const result = await getLeaderboardFunction();
+        const topUsers = result.data.leaderboard
+          .filter(u => u.portfolioValue >= MIN_PORTFOLIO_FOR_LEADERBOARD)
+          .slice(0, 10)
+          .map(u => u.userId);
 
         const userPosition = topUsers.indexOf(user.uid);
 

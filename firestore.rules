@@ -51,12 +51,8 @@ service cloud.firestore {
       // Read access:
       // - Owner can read all their own data
       // - Admin can read all user data
-      // - Others can only read for leaderboard queries (portfolioValue ordering)
-      // Note: Firestore doesn't support field-level read rules, so we allow read
-      // but sensitive operations should use Cloud Functions for data filtering
-      allow read: if isOwner(userId) || isAdmin() || true;
-      // TODO: For true field-level security, move leaderboard to a separate
-      // /leaderboard collection with only public data, populated by Cloud Functions
+      // - Leaderboard now uses Cloud Function for public data only
+      allow read: if isOwner(userId) || isAdmin();
 
       // User creation is now handled by Cloud Functions
       // This ensures atomic username uniqueness checking
@@ -88,7 +84,7 @@ service cloud.firestore {
       // Price history archive sub-collection
       match /price_history/{ticker} {
         allow read: if true;
-        allow write: if isAuthenticated();
+        allow write: if false;
       }
     }
 
@@ -193,7 +189,7 @@ service cloud.firestore {
     
     match /priceHistory/{document} {
       allow read: if true;
-      allow write: if isAuthenticated(); // Allow for now, lock down with Cloud Functions later
+      allow write: if false; // Cloud Functions use Admin SDK, bypass rules
     }
     
     // ============================================

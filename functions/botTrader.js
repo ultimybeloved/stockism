@@ -2,10 +2,10 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 // Economy constants (match src/constants/economy.js)
-const BASE_IMPACT = 0.003;
+const BASE_IMPACT = 0.012;
 const BASE_LIQUIDITY = 100;
 const MIN_PRICE = 0.01;
-const MAX_PRICE_CHANGE_PERCENT = 0.02;
+const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
 /**
  * Calculate price impact using square root model
@@ -244,7 +244,9 @@ module.exports = {
    * Bot Trader - Runs every 3 minutes
    * Picks 3-6 random bots to make trades (5-10 on Thursdays)
    */
-  botTrader: functions.pubsub
+  botTrader: functions
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .pubsub
     .schedule('every 3 minutes')
     .onRun(async (context) => {
       try {

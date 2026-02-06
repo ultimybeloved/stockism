@@ -84,8 +84,6 @@ stockism/
 │   ├── node_modules/             # Function dependencies
 │   ├── index.js                  # Main functions file (85KB, 2700+ lines)
 │   ├── botTrader.js              # Bot trading logic
-│   ├── contentGeneration.js      # YouTube Shorts content generation
-│   ├── videoGenerator.js         # Video rendering (canvas + ffmpeg)
 │   ├── package.json              # Function dependencies
 │   └── package-lock.json         # Locked versions
 ├── public/                       # Static assets (copied to dist/ on build)
@@ -106,7 +104,6 @@ stockism/
 │   │   ├── ipo/                  # IPO system UI
 │   │   ├── predictions/          # Predictions market UI
 │   │   ├── layout/               # Layout components
-│   │   ├── ContentQueueTab.jsx   # Admin content review (YouTube Shorts)
 │   │   └── LadderGame.jsx        # Ladder game mini-game
 │   ├── config/                   # Configuration files
 │   ├── constants/                # App constants (ADMIN_UIDS, MIN_PRICE, etc.)
@@ -126,7 +123,6 @@ stockism/
 ├── .env.example                  # Environment variables template
 ├── .gitignore                    # Git ignore rules
 ├── CLAUDE.md                     # Claude Code instructions (project philosophy)
-├── CONTENT_SYSTEM_SETUP.md       # YouTube Shorts content generation docs
 ├── README.md                     # Project documentation
 ├── firebase.json                 # Firebase config (functions, Firestore)
 ├── firestore.indexes.json        # Firestore database indexes
@@ -157,18 +153,12 @@ stockism/
 - **Firebase Cloud Functions** - Serverless API endpoints
 - **Firebase Authentication** - Google, Twitter, Email/Password
 - **Firebase App Check** - ReCaptcha V3 protection
-- **Firebase Cloud Storage** - Video storage for content generation
 
 ### Build & Deploy
 - **Vercel** - Frontend hosting & deployment
 - **GitHub** - Version control & CI/CD trigger
 - **Firebase CLI** - Deploy functions & Firestore rules
 - **npm** - Package manager
-
-### Content Generation (NEW)
-- **canvas 2.11** - Server-side image rendering
-- **fluent-ffmpeg 2.1** - Video generation (MP4)
-- **@google-cloud/storage 7.7** - Cloud Storage for videos
 
 ---
 
@@ -194,7 +184,6 @@ Response back to User
 - `trades` - Trade audit log
 - `predictions` - Predictions market data
 - `ipos` - Active and completed IPOs
-- `contentQueue` - Generated videos for YouTube Shorts
 - `ladderGameUsers` - Ladder game player data
 - `ladderGame/global` - Global ladder game history
 
@@ -203,13 +192,6 @@ Response back to User
 ## Recent Major Changes
 
 ### January 2026
-- ✅ **Content Generation System** - Auto-generates YouTube Shorts videos for marketing
-  - Character spotlights when price moves >15%
-  - Daily market movers (top gainers/losers)
-  - Drama events (liquidations, achievements)
-  - Admin review queue in Admin Panel
-  - Cloud Functions: `generateMarketContent`, `generateDailyMovers`, `generateDramaVideo`
-
 - ✅ **Ladder Game** - Mini-game with separate $500 balance
   - One-way deposits from main Stockism cash
   - Server-side RNG (prevents cheating)
@@ -248,10 +230,6 @@ Response back to User
   - Predictions (not in separate file, integrated)
   - Backups (automated + manual, with restore)
   - Ladder game (playLadderGame, depositToLadderGame, getLadderLeaderboard)
-  - Content generation (generateMarketContent, generateDailyMovers, etc.)
-
-- **`functions/contentGeneration.js`** - YouTube Shorts content logic
-- **`functions/videoGenerator.js`** - Canvas + FFmpeg video rendering
 
 ### Config Files
 - **`vercel.json`** - Vercel deployment settings (SPA rewrites, security headers)
@@ -263,7 +241,6 @@ Response back to User
 
 ### Documentation
 - **`CLAUDE.md`** - Claude Code project instructions (philosophy, git workflow)
-- **`CONTENT_SYSTEM_SETUP.md`** - Content generation system docs
 - **`README.md`** - Public project documentation
 - **`STOCKISM_CONTEXT.md`** - This file (persistent context)
 
@@ -472,15 +449,9 @@ firebase functions:config:set discord.channel_id="..."
 - **Odd/Even betting** - 2-3 rungs, paths cross on odd rungs
 - **Leaderboard** - Global top 50 by balance
 
-### Content Generation (Marketing)
-- **Auto-generated videos** - YouTube Shorts format (1080x1920)
-- **Character spotlights** - When price moves >15%
-- **Daily market movers** - Top gainers/losers
-- **Admin review** - Queue in Admin Panel before posting
-
 ---
 
-## Admin Panel Features (9 Tabs)
+## Admin Panel Features (8 Tabs)
 
 1. **🚀 IPO** - Create and manage IPOs
 2. **🎲 Bets** - Create and resolve predictions
@@ -490,7 +461,6 @@ firebase functions:config:set discord.channel_id="..."
 6. **💹 Trades** - View trade history
 7. **📈 Stats** - Market statistics
 8. **🔧 Recovery** - Price adjustments, backups, fraud detection
-9. **🎬 Content** - Review generated videos for YouTube
 
 ---
 
@@ -506,7 +476,7 @@ firebase functions:config:set discord.channel_id="..."
 - **Large bundle size** - Main JS bundle is ~994KB (needs code splitting)
 - **No lazy loading** - All components loaded upfront
 - **Firestore reads** - Optimized with real-time listeners (not polling)
-- **Cloud Functions** - Scheduled jobs for market summaries, content generation
+- **Cloud Functions** - Scheduled jobs for market summaries
 
 ---
 
@@ -577,7 +547,6 @@ firebase functions:config:set discord.channel_id="..."
 ## Version History
 
 - **v2.0.0** - Current version (January 2026)
-  - Content generation system
   - Ladder game mini-game
   - Discord alerts
   - Security hardening
@@ -590,8 +559,8 @@ firebase functions:config:set discord.channel_id="..."
 
 ---
 
-**Last Updated:** January 29, 2026
-**Context File Version:** 1.0.1
+**Last Updated:** February 5, 2026
+**Context File Version:** 1.0.2
 
 ---
 

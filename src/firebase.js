@@ -47,6 +47,8 @@ export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame')
 export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');
 export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderLeaderboard');
 export const triggerDailyMarketSummaryFunction = httpsCallable(functions, 'triggerDailyMarketSummary');
+// Leaderboard
+export const getLeaderboardFunction = httpsCallable(functions, 'getLeaderboard');
 // Discord alert functions
 export const tradeSpikeAlertFunction = httpsCallable(functions, 'tradeSpikeAlert');
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
@@ -56,11 +58,6 @@ export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnounc
 export const ipoClosingAlertFunction = httpsCallable(functions, 'ipoClosingAlert');
 export const bankruptcyAlertFunction = httpsCallable(functions, 'bankruptcyAlert');
 export const comebackAlertFunction = httpsCallable(functions, 'comebackAlert');
-// Content generation functions
-export const listPendingContentFunction = httpsCallable(functions, 'listPendingContent');
-export const approveContentFunction = httpsCallable(functions, 'approveContent');
-export const rejectContentFunction = httpsCallable(functions, 'rejectContent');
-export const generateDramaVideoFunction = httpsCallable(functions, 'generateDramaVideo');
 // Data archiving functions (runs automatically every 6 hours)
 export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
 export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');

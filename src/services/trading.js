@@ -12,51 +12,10 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  BASE_IMPACT,
-  MIN_PRICE,
-  MAX_PRICE_CHANGE_PERCENT,
-  BID_ASK_SPREAD,
   SHORT_MARGIN_REQUIREMENT
 } from '../constants/economy';
-import { calculateMarginStatus } from '../utils/calculations';
+import { calculateMarginStatus, calculatePriceImpact, getBidAskPrices, calculateNewPrice } from '../utils/calculations';
 import { CHARACTER_MAP } from '../characters';
-
-/**
- * Calculate price impact based on trade size and character volatility
- * Uses sqrt to make large trades proportionally less impactful
- */
-export const calculatePriceImpact = (amount, currentPrice, volatility = 1) => {
-  // Softer liquidity scaling - less punishment for high-priced stocks
-  const liquidityFactor = Math.max(1, Math.sqrt(currentPrice / 50));
-
-  // Don't use volatility as direct multiplier - it's for natural drift, not trade impact
-  // Instead, use it as a small modifier (1 + volatility boost)
-  const volatilityBoost = 1 + (volatility * 2); // 0.03 vol = 1.06x, 0.06 vol = 1.12x
-
-  const rawImpact = (Math.sqrt(amount) * BASE_IMPACT * volatilityBoost) / liquidityFactor;
-  return Math.min(rawImpact, MAX_PRICE_CHANGE_PERCENT);
-};
-
-/**
- * Calculate bid and ask prices with spread
- */
-export const getBidAskPrices = (midPrice) => {
-  const halfSpread = midPrice * (BID_ASK_SPREAD / 2);
-  return {
-    bid: Math.max(MIN_PRICE, midPrice - halfSpread),
-    ask: midPrice + halfSpread
-  };
-};
-
-/**
- * Calculate new price after a trade
- */
-export const calculateNewPrice = (currentPrice, amount, isBuy, volatility = 1) => {
-  const impact = calculatePriceImpact(amount, currentPrice, volatility);
-  const direction = isBuy ? 1 : -1;
-  const newPrice = currentPrice * (1 + (impact * direction));
-  return Math.max(MIN_PRICE, Math.round(newPrice * 100) / 100);
-};
 
 /**
  * Apply trailing stock factor effects

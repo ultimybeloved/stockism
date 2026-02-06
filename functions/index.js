@@ -8,9 +8,6 @@ const db = admin.firestore();
 // Import bot trader
 const { botTrader } = require('./botTrader');
 
-// Import content generation
-const contentGen = require('./contentGeneration');
-
 // Constants
 const STARTING_CASH = 1000;
 // Admin UID from environment variable (set in functions/.env)
@@ -600,6 +597,70 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
     console.error('Error sending Discord message:', error.response?.data || error.message);
   }
 }
+
+/**
+ * Get leaderboard with only public data
+ * Replaces direct Firestore queries to protect user privacy
+ */
+exports.getLeaderboard = functions.https.onCall(async (data, context) => {
+  try {
+    const { crew } = data || {};
+
+    // Build query
+    let query = db.collection('users')
+      .orderBy('portfolioValue', 'desc')
+      .limit(50);
+
+    if (crew) {
+      query = query.where('crew', '==', crew);
+    }
+
+    const snapshot = await query.get();
+
+    // Filter out bots and return only safe fields
+    const leaderboard = [];
+    snapshot.forEach(doc => {
+      const userData = doc.data();
+
+      // Skip bots
+      if (userData.isBot) return;
+
+      // Count holdings
+      const holdingsCount = userData.holdings ? Object.keys(userData.holdings).length : 0;
+
+      leaderboard.push({
+        userId: doc.id,
+        displayName: userData.displayName || 'Anonymous',
+        portfolioValue: userData.portfolioValue || 0,
+        crew: userData.crew || null,
+        isCrewHead: userData.isCrewHead || false,
+        crewHeadColor: userData.crewHeadColor || null,
+        holdingsCount: holdingsCount,
+        displayCrewPin: userData.displayCrewPin || null,
+        displayedAchievementPins: userData.displayedAchievementPins || [],
+        displayedShopPins: userData.displayedShopPins || []
+      });
+    });
+
+    // Find caller's rank if authenticated
+    let callerRank = null;
+    if (context.auth) {
+      const callerIndex = leaderboard.findIndex(entry => entry.userId === context.auth.uid);
+      if (callerIndex !== -1) {
+        callerRank = callerIndex + 1;
+      }
+    }
+
+    return {
+      leaderboard,
+      callerRank,
+      timestamp: Date.now()
+    };
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to fetch leaderboard');
+  }
+});
 
 /**
  * Daily Market Summary - Runs at 4 PM EST (9 PM UTC) - NYSE close
@@ -3193,7 +3254,7 @@ exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
 // Discord OAuth Authentication
 exports.discordAuth = functions.https.onRequest(async (req, res) => {
   // Enable CORS
-  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
   const code = req.query.code;
 
@@ -3268,7 +3329,7 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
 
   } catch (error) {
     console.error('Discord auth error:', error);
-    return res.status(500).send('Authentication failed: ' + error.message);
+    return res.status(500).send('Authentication failed');
   }
 });
 
@@ -3578,140 +3639,117 @@ exports.checkLimitOrders = functions.pubsub
 
           console.log(`Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`);
 
-          // Get user data
+          // Execute trade in transaction to prevent race conditions
           const userRef = db.collection('users').doc(order.userId);
-          const userSnap = await userRef.get();
 
-          if (!userSnap.exists) {
-            console.error(`User ${order.userId} not found, canceling order ${orderId}`);
+          try {
+            await db.runTransaction(async (transaction) => {
+              const userSnap = await transaction.get(userRef);
+
+              if (!userSnap.exists) {
+                throw new Error('User not found');
+              }
+
+              const userData = userSnap.data();
+
+              // Validate user has sufficient funds/shares
+              if (order.type === 'BUY') {
+                const totalCost = currentPrice * order.shares;
+                if (userData.cash < totalCost) {
+                  if (order.allowPartialFills) {
+                    // Calculate how many shares we can buy
+                    const affordableShares = Math.floor(userData.cash / currentPrice);
+                    if (affordableShares > 0) {
+                      // Execute partial fill
+                      order.shares = affordableShares;
+                      console.log(`Partial fill: can only afford ${affordableShares} shares`);
+                    } else {
+                      throw new Error('Insufficient cash');
+                    }
+                  } else {
+                    throw new Error('Insufficient cash');
+                  }
+                }
+              } else if (order.type === 'SELL') {
+                const userShares = userData.holdings?.[order.ticker] || 0;
+                if (userShares < order.shares) {
+                  if (order.allowPartialFills) {
+                    // Sell whatever shares they have
+                    if (userShares > 0) {
+                      order.shares = userShares;
+                      console.log(`Partial fill: only have ${userShares} shares`);
+                    } else {
+                      throw new Error('Insufficient shares');
+                    }
+                  } else {
+                    throw new Error('Insufficient shares');
+                  }
+                }
+              }
+
+              // Execute the trade
+              if (order.type === 'BUY') {
+                // Calculate buy cost with bid-ask spread
+                const bidAskSpread = 0.02; // 2% spread
+                const askPrice = currentPrice * (1 + bidAskSpread);
+                const totalCost = askPrice * order.shares;
+
+                // Update user data
+                const currentHoldings = userData.holdings?.[order.ticker] || 0;
+                const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
+                const newHoldings = currentHoldings + order.shares;
+                const newCostBasis = currentHoldings > 0
+                  ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings
+                  : askPrice;
+
+                transaction.update(userRef, {
+                  cash: admin.firestore.FieldValue.increment(-totalCost),
+                  [`holdings.${order.ticker}`]: newHoldings,
+                  [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
+                  lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+                  totalTrades: admin.firestore.FieldValue.increment(1)
+                });
+
+                console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} for user ${order.userId}`);
+              } else if (order.type === 'SELL') {
+                // Calculate sell revenue with bid-ask spread
+                const bidAskSpread = 0.02; // 2% spread
+                const bidPrice = currentPrice * (1 - bidAskSpread);
+                const totalRevenue = bidPrice * order.shares;
+
+                // Update user data
+                const currentHoldings = userData.holdings?.[order.ticker] || 0;
+                const newHoldings = currentHoldings - order.shares;
+
+                const updates = {
+                  cash: admin.firestore.FieldValue.increment(totalRevenue),
+                  [`holdings.${order.ticker}`]: newHoldings,
+                  lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+                  totalTrades: admin.firestore.FieldValue.increment(1)
+                };
+
+                // Clear cost basis if selling all shares
+                if (newHoldings <= 0) {
+                  updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                  updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                  updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                }
+
+                transaction.update(userRef, updates);
+
+                console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} for user ${order.userId}`);
+              }
+            });
+          } catch (transactionError) {
+            // Transaction failed - cancel the order
+            console.log(`Transaction failed for order ${orderId}: ${transactionError.message}`);
             await db.collection('limitOrders').doc(orderId).update({
               status: 'CANCELED',
-              cancelReason: 'User not found',
+              cancelReason: transactionError.message,
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             canceled++;
             continue;
-          }
-
-          const userData = userSnap.data();
-
-          // Validate user has sufficient funds/shares
-          if (order.type === 'BUY') {
-            const totalCost = currentPrice * order.shares;
-            if (userData.cash < totalCost) {
-              if (order.allowPartialFills) {
-                // Calculate how many shares we can buy
-                const affordableShares = Math.floor(userData.cash / currentPrice);
-                if (affordableShares > 0) {
-                  // Execute partial fill
-                  order.shares = affordableShares;
-                  console.log(`Partial fill: can only afford ${affordableShares} shares`);
-                } else {
-                  // Can't afford even 1 share
-                  console.log(`Insufficient cash for order ${orderId}, canceling`);
-                  await db.collection('limitOrders').doc(orderId).update({
-                    status: 'CANCELED',
-                    cancelReason: 'Insufficient cash',
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  canceled++;
-                  continue;
-                }
-              } else {
-                // All-or-nothing, cancel order
-                console.log(`Insufficient cash for order ${orderId}, canceling`);
-                await db.collection('limitOrders').doc(orderId).update({
-                  status: 'CANCELED',
-                  cancelReason: 'Insufficient cash',
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                });
-                canceled++;
-                continue;
-              }
-            }
-          } else if (order.type === 'SELL') {
-            const userShares = userData.holdings?.[order.ticker] || 0;
-            if (userShares < order.shares) {
-              if (order.allowPartialFills) {
-                // Sell whatever shares they have
-                if (userShares > 0) {
-                  order.shares = userShares;
-                  console.log(`Partial fill: only have ${userShares} shares`);
-                } else {
-                  console.log(`No shares to sell for order ${orderId}, canceling`);
-                  await db.collection('limitOrders').doc(orderId).update({
-                    status: 'CANCELED',
-                    cancelReason: 'Insufficient shares',
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  canceled++;
-                  continue;
-                }
-              } else {
-                // All-or-nothing, cancel order
-                console.log(`Insufficient shares for order ${orderId}, canceling`);
-                await db.collection('limitOrders').doc(orderId).update({
-                  status: 'CANCELED',
-                  cancelReason: 'Insufficient shares',
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                });
-                canceled++;
-                continue;
-              }
-            }
-          }
-
-          // Execute the trade
-          if (order.type === 'BUY') {
-            // Calculate buy cost with bid-ask spread
-            const bidAskSpread = 0.02; // 2% spread
-            const askPrice = currentPrice * (1 + bidAskSpread);
-            const totalCost = askPrice * order.shares;
-
-            // Update user data
-            const currentHoldings = userData.holdings?.[order.ticker] || 0;
-            const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
-            const newHoldings = currentHoldings + order.shares;
-            const newCostBasis = currentHoldings > 0
-              ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings
-              : askPrice;
-
-            await userRef.update({
-              cash: admin.firestore.FieldValue.increment(-totalCost),
-              [`holdings.${order.ticker}`]: newHoldings,
-              [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
-              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-              totalTrades: admin.firestore.FieldValue.increment(1)
-            });
-
-            console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} for user ${order.userId}`);
-          } else if (order.type === 'SELL') {
-            // Calculate sell revenue with bid-ask spread
-            const bidAskSpread = 0.02; // 2% spread
-            const bidPrice = currentPrice * (1 - bidAskSpread);
-            const totalRevenue = bidPrice * order.shares;
-
-            // Update user data
-            const currentHoldings = userData.holdings?.[order.ticker] || 0;
-            const newHoldings = currentHoldings - order.shares;
-
-            const updates = {
-              cash: admin.firestore.FieldValue.increment(totalRevenue),
-              [`holdings.${order.ticker}`]: newHoldings,
-              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-              totalTrades: admin.firestore.FieldValue.increment(1)
-            };
-
-            // Clear cost basis if selling all shares
-            if (newHoldings <= 0) {
-              updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
-              updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
-              updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
-            }
-
-            await userRef.update(updates);
-
-            console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} for user ${order.userId}`);
           }
 
           // Update order status
@@ -3754,10 +3792,3 @@ exports.checkLimitOrders = functions.pubsub
     }
   });
 
-// Export content generation functions
-exports.generateMarketContent = contentGen.generateMarketContent;
-exports.generateDramaVideo = contentGen.generateDramaVideo;
-exports.listPendingContent = contentGen.listPendingContent;
-exports.approveContent = contentGen.approveContent;
-exports.rejectContent = contentGen.rejectContent;
-exports.generateDailyMovers = contentGen.generateDailyMovers;
