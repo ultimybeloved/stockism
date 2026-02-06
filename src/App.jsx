@@ -8981,11 +8981,11 @@ export default function App() {
 
     const userRef = doc(db, 'users', user.uid);
     const newTotalCheckins = (userData.totalCheckins || 0) + 1;
-    
+
     // Check for check-in achievements
     const newAchievements = [];
     const currentAchievements = userData.achievements || [];
-    
+
     if (newTotalCheckins >= 7 && !currentAchievements.includes('DEDICATED_7')) {
       newAchievements.push('DEDICATED_7');
     }
@@ -8998,7 +8998,7 @@ export default function App() {
     if (newTotalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) {
       newAchievements.push('DEDICATED_100');
     }
-    
+
     // Weekly check-in tracking
     const weekId = getWeekId();
 
@@ -9015,6 +9015,34 @@ export default function App() {
       updateData.achievements = arrayUnion(...newAchievements);
     }
 
+    // Check ladder game balance and top up to $100 if needed
+    let ladderTopUp = 0;
+    try {
+      const ladderRef = doc(db, 'ladderGameUsers', user.uid);
+      const ladderDoc = await getDoc(ladderRef);
+
+      if (ladderDoc.exists()) {
+        const currentLadderBalance = ladderDoc.data().balance || 0;
+        if (currentLadderBalance < 100) {
+          ladderTopUp = 100 - currentLadderBalance;
+          await updateDoc(ladderRef, { balance: 100 });
+        }
+      } else {
+        // First time - create with $100
+        ladderTopUp = 100;
+        await setDoc(ladderRef, {
+          balance: 100,
+          gamesPlayed: 0,
+          wins: 0,
+          currentStreak: 0,
+          bestStreak: 0
+        });
+      }
+    } catch (error) {
+      console.error('[LADDER TOP-UP ERROR]', error);
+      // Don't fail the entire check-in if ladder top-up fails
+    }
+
     try {
       await updateDoc(userRef, updateData);
     } catch (error) {
@@ -9028,11 +9056,16 @@ export default function App() {
       bonus: DAILY_BONUS,
       totalCheckins: newTotalCheckins,
       cashBefore: userData.cash,
-      cashAfter: userData.cash + DAILY_BONUS
+      cashAfter: userData.cash + DAILY_BONUS,
+      ladderTopUp
     });
 
     // Add to activity feed
-    addActivity('checkin', `Daily check-in: +${formatCurrency(DAILY_BONUS)}! (Day ${newTotalCheckins})`);
+    let activityMsg = `Daily check-in: +${formatCurrency(DAILY_BONUS)}!`;
+    if (ladderTopUp > 0) {
+      activityMsg += ` | Ladder Game: +${formatCurrency(ladderTopUp)} (topped to $100)`;
+    }
+    addActivity('checkin', `${activityMsg} (Day ${newTotalCheckins})`);
 
     // Show achievement notification if earned
     if (newAchievements.length > 0) {
@@ -9040,7 +9073,11 @@ export default function App() {
       addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
       showNotification('achievement', `🏆 Achievement Unlocked: ${achievement.emoji} ${achievement.name}!`);
     } else {
-      showNotification('success', `Daily check-in: +${formatCurrency(DAILY_BONUS)}!`);
+      let notificationMsg = `Daily check-in: +${formatCurrency(DAILY_BONUS)}!`;
+      if (ladderTopUp > 0) {
+        notificationMsg += ` | Ladder Game topped to $100!`;
+      }
+      showNotification('success', notificationMsg);
     }
   }, [user, userData, addActivity]);
 
