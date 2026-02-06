@@ -4,7 +4,6 @@ import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunctio
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { initializeMarket } from './services/market';
-import ContentQueueTab from './components/ContentQueueTab';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [activeTab, setActiveTab] = useState('users');
@@ -3068,12 +3067,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           >
             🔧 Recovery
           </button>
-          <button
-            onClick={() => setActiveTab('content')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'content' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🎬 Content
-          </button>
         </div>
 
         {/* Message */}
@@ -5351,11 +5344,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       )}
 
       {/* CONTENT TAB */}
-      {activeTab === 'content' && (
-        <div className="px-4 pb-4">
-          <ContentQueueTab darkMode={darkMode} />
-        </div>
-      )}
     </div>
   );
 };
