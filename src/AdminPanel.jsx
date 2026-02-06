@@ -816,8 +816,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         
         // Activity tracking
         const lastActive = data.lastTradeTime || data.lastCheckin || 0;
-        if (lastActive > oneDayAgo) activeUsers24h++;
-        if (lastActive > oneWeekAgo) activeUsers7d++;
+        const lastActiveMs = lastActive?.toMillis ? lastActive.toMillis() : (lastActive || 0);
+        if (lastActiveMs > oneDayAgo) activeUsers24h++;
+        if (lastActiveMs > oneWeekAgo) activeUsers7d++;
         
         // Cash and portfolio
         totalCashInSystem += data.cash || 0;
