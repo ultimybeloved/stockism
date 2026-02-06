@@ -1043,7 +1043,7 @@ export default function App() {
       localStorage.setItem('stockism_darkMode', newValue);
 
       // Save to Firestore for signed-in users
-      if (user && !isGuest) {
+      if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         updateDoc(userDocRef, { darkMode: newValue }).catch(err => {
           console.error('Failed to save dark mode preference:', err);
@@ -1052,7 +1052,7 @@ export default function App() {
 
       return newValue;
     });
-  }, [user, isGuest]);
+  }, [user]);
 
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
