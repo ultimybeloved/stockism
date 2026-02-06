@@ -53,7 +53,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
         : 'bg-white border-gray-200'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="relative flex items-center justify-between h-16">
           {/* Mobile: Logo on left */}
           <Link to="/" className="flex-shrink-0 md:hidden">
             <img
@@ -89,11 +89,11 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
           </nav>
 
           {/* Desktop: Centered oversized logo */}
-          <Link to="/" className="hidden md:block absolute left-1/2 -translate-x-1/2 z-50">
+          <Link to="/" className="hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
             <img
               src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
               alt="Stockism"
-              className="h-20 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+              className="h-40 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
               draggable="false"
               onContextMenu={(e) => e.preventDefault()}
               style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
