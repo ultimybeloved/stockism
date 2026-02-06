@@ -692,7 +692,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
             );
           })()}
           {prediction.resolved && (
-            <div className={`text-xs mt-1 ${userBet.option === prediction.outcome ? 'text-teal-500' : 'text-purple-500'}`}>
+            <div className={`text-xs mt-1 ${userBet.option === prediction.outcome ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
               {userBet.option === prediction.outcome ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!` : '❌ Lost'}
             </div>
           )}

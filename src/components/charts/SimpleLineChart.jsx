@@ -10,6 +10,7 @@ import React from 'react';
  * @param {Object} props
  * @param {Array} props.data - Array of { timestamp, price } objects
  * @param {boolean} props.darkMode - Dark mode flag
+ * @param {boolean} props.colorBlindMode - Color blind mode flag
  * @param {number} props.width - Chart width (default 100)
  * @param {number} props.height - Chart height (default 32)
  * @param {string} props.className - Additional class names
@@ -17,6 +18,7 @@ import React from 'react';
 const SimpleLineChart = ({
   data,
   darkMode = false,
+  colorBlindMode = false,
   width = 100,
   height = 32,
   className = ''
@@ -39,7 +41,10 @@ const SimpleLineChart = ({
   const firstPrice = data[0]?.price || 0;
   const lastPrice = data[data.length - 1]?.price || 0;
   const isUp = lastPrice >= firstPrice;
-  const strokeColor = isUp ? '#14b8a6' : '#a855f7'; // Teal/purple for colorblind accessibility
+  // Conditional colors based on colorBlindMode
+  const strokeColor = colorBlindMode
+    ? (isUp ? '#14b8a6' : '#a855f7')  // Teal/purple for colorblind accessibility
+    : (isUp ? '#22c55e' : '#ef4444'); // Green/red default
 
   return (
     <svg
