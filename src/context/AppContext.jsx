@@ -15,6 +15,4 @@ export const useAppContext = () => {
   return context;
 };
 
-export const AppProvider = ({ children, value }) => {
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
+export const AppProvider = AppContext.Provider;
