@@ -4105,16 +4105,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
                             const currentPrice = prices[ticker] || 0;
                             const currentValue = currentPrice * shareCount;
-                            const costBasis = selectedUser.costBasis?.[ticker] || 0;
-                            const avgCost = shareCount > 0 ? (costBasis / shareCount) : 0;
-                            const unrealizedPL = currentValue - costBasis;
+                            const avgCost = selectedUser.costBasis?.[ticker] || 0; // This is avg cost per share
+                            const totalCost = avgCost * shareCount;
+                            const unrealizedPL = currentValue - totalCost;
                             const unrealizedPct = avgCost > 0 ? (((currentPrice - avgCost) / avgCost) * 100) : 0;
 
-                            return { ticker, shareCount, currentPrice, currentValue, costBasis, avgCost, unrealizedPL, unrealizedPct };
+                            return { ticker, shareCount, currentPrice, currentValue, totalCost, avgCost, unrealizedPL, unrealizedPct };
                           })
                           .filter(h => h !== null)
                           .sort((a, b) => b.unrealizedPL - a.unrealizedPL)
-                          .map(({ ticker, shareCount, currentPrice, currentValue, costBasis, avgCost, unrealizedPL, unrealizedPct }) => (
+                          .map(({ ticker, shareCount, currentPrice, currentValue, totalCost, avgCost, unrealizedPL, unrealizedPct }) => (
                             <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
                               <div className="flex justify-between items-start">
                                 <div>
@@ -4129,7 +4129,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                                 Avg cost: ${avgCost.toFixed(2)} → Price: ${currentPrice.toFixed(2)} ({unrealizedPct >= 0 ? '+' : ''}{unrealizedPct.toFixed(1)}%)
                               </div>
                               <div className={`text-xs ${mutedClass}`}>
-                                Cost: ${costBasis.toFixed(2)} → Value: ${currentValue.toFixed(2)}
+                                Total cost: ${totalCost.toFixed(2)} → Value: ${currentValue.toFixed(2)}
                               </div>
                             </div>
                           ))
