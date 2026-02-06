@@ -54,19 +54,19 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex-shrink-0">
+          {/* Mobile: Logo on left */}
+          <Link to="/" className="flex-shrink-0 md:hidden">
             <img
               src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
               alt="Stockism"
-              className="h-10 sm:h-12 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+              className="h-10 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
               draggable="false"
               onContextMenu={(e) => e.preventDefault()}
               style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             />
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop: Nav links on left */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => (
               <Link
@@ -87,6 +87,18 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
               </Link>
             ))}
           </nav>
+
+          {/* Desktop: Centered oversized logo */}
+          <Link to="/" className="hidden md:block absolute left-1/2 -translate-x-1/2 z-50">
+            <img
+              src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
+              alt="Stockism"
+              className="h-20 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+              draggable="false"
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+            />
+          </Link>
 
           {/* User Info & Controls */}
           <div className="flex items-center space-x-2 sm:space-x-4">
