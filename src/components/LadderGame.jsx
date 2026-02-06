@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
 
-const LadderGame = ({ user, onClose, darkMode }) => {
+const LadderGame = ({ user, onClose, darkMode, userData }) => {
   const [userLadderData, setUserLadderData] = useState(null);
   const [globalHistory, setGlobalHistory] = useState([]);
   const [userStockismCash, setUserStockismCash] = useState(0);
@@ -527,18 +527,25 @@ const LadderGame = ({ user, onClose, darkMode }) => {
     ? Math.round(((userLadderData?.wins || 0) / userLadderData.gamesPlayed) * 100)
     : 0;
 
+  const containerStyle = onClose ? {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.7)',
+    zIndex: 9999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px'
+  } : {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px'
+  };
+
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.7)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}
+      style={containerStyle}
       onClick={onClose}
     >
       <div
@@ -554,8 +561,9 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
-        <button
-          onClick={onClose}
+        {onClose && (
+          <button
+            onClick={onClose}
           style={{
             position: 'absolute',
             top: '10px',
@@ -574,6 +582,7 @@ const LadderGame = ({ user, onClose, darkMode }) => {
         >
           ×
         </button>
+        )}
 
         <div className="ladder-layout" style={{ display: 'flex', gap: '12px', padding: '15px' }}>
           {/* Main Panel */}
