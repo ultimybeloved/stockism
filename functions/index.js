@@ -628,8 +628,10 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
       // Limit to top 50
       if (leaderboard.length >= 50) return;
 
-      // Count holdings
-      const holdingsCount = userData.holdings ? Object.keys(userData.holdings).length : 0;
+      // Count holdings (only non-zero positions)
+      const holdingsCount = userData.holdings
+        ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+        : 0;
 
       leaderboard.push({
         userId: doc.id,

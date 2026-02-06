@@ -243,7 +243,7 @@ const LeaderboardPage = () => {
                         <PinDisplay userData={leader} size="sm" />
                       </div>
                       <div className={`text-xs ${mutedClass}`}>
-                        {Object.keys(leader.holdings || {}).filter(k => leader.holdings[k] > 0).length} characters
+                        {leader.holdingsCount || 0} characters
                       </div>
                     </div>
                     <div className="text-right">
