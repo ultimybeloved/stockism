@@ -17,7 +17,7 @@ const LeaderboardPage = () => {
   const stickyHeaderRef = useRef(null);
   const stickyFooterRef = useRef(null);
 
-  // Fetch main top 50 leaderboard
+  // Fetch main top 50 leaderboard (only once on mount)
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
@@ -28,21 +28,29 @@ const LeaderboardPage = () => {
           id: user.userId
         }));
         setLeaders(leaderData);
-        if (crewFilter === 'ALL' && result.data.callerRank) {
-          setUserRank(result.data.callerRank);
-        }
+        setUserRank(result.data.callerRank);
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       }
       setLoading(false);
     };
     fetchLeaderboard();
-  }, [crewFilter]);
+  }, []);
 
   // Fetch crew-specific leaderboard when crew filter changes
   useEffect(() => {
     if (crewFilter === 'ALL') {
       setCrewLeaders([]);
+      // Reset to global rank when switching back to ALL
+      const fetchGlobalRank = async () => {
+        try {
+          const result = await getLeaderboardFunction();
+          setUserRank(result.data.callerRank);
+        } catch (err) {
+          console.error('Failed to fetch global rank:', err);
+        }
+      };
+      fetchGlobalRank();
       return;
     }
 
@@ -55,9 +63,7 @@ const LeaderboardPage = () => {
           crewRank: idx + 1
         }));
         setCrewLeaders(crewMembers);
-        if (result.data.callerRank) {
-          setUserRank(result.data.callerRank);
-        }
+        setUserRank(result.data.callerRank);
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
       }

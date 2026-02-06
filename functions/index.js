@@ -606,16 +606,18 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
   try {
     const { crew } = data || {};
 
-    // Fetch more users if filtering by crew (since we filter server-side)
-    // This avoids needing a composite index for crew + portfolioValue
-    const fetchLimit = crew ? 200 : 100;
+    // Build query - use composite index for crew filtering
+    let query = db.collection('users');
 
-    const snapshot = await db.collection('users')
-      .orderBy('portfolioValue', 'desc')
-      .limit(fetchLimit)
-      .get();
+    if (crew) {
+      query = query.where('crew', '==', crew);
+    }
 
-    // Filter out bots, apply crew filter, and return only safe fields
+    query = query.orderBy('portfolioValue', 'desc').limit(100);
+
+    const snapshot = await query.get();
+
+    // Filter out bots and return only safe fields
     const leaderboard = [];
     snapshot.forEach(doc => {
       const userData = doc.data();
@@ -623,10 +625,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
       // Skip bots
       if (userData.isBot) return;
 
-      // Skip if crew filter doesn't match
-      if (crew && userData.crew !== crew) return;
-
-      // Stop once we have 50 results
+      // Limit to top 50
       if (leaderboard.length >= 50) return;
 
       // Count holdings

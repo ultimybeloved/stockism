@@ -35,6 +35,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "crew",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "portfolioValue",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
