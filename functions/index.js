@@ -2334,9 +2334,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
  * Executes trades atomically in a Firestore transaction
  * Prevents price manipulation by enforcing 10% daily impact limit
  */
-exports.executeTrade = functions.runWith({
-  cors: ['https://stockism.app', 'http://localhost:5173']
-}).https.onCall(async (data, context) => {
+exports.executeTrade = functions.https.onCall(async (data, context) => {
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
