@@ -1327,7 +1327,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       const marketSnap = await getDoc(marketRef);
       const marketData = marketSnap.data();
       const history = marketData?.priceHistory?.[ticker] || [];
-      return history.slice(-100).map(h => ({
+      return history.slice(-1000).map(h => ({
         timestamp: h.timestamp,
         price: h.price,
         date: new Date(h.timestamp).toLocaleString()
