@@ -302,10 +302,13 @@ const checkAndAwardAchievements = async (userRef, userData, prices, context = {}
   
   const shortsValue = Object.entries(userData.shorts || {})
     .reduce((sum, [ticker, position]) => {
-      if (!position || position.shares <= 0) return sum;
-      const currentPrice = prices[ticker] || position.entryPrice;
+      if (!position || typeof position !== 'object') return sum;
+      const shares = position.shares || 0;
+      if (shares <= 0) return sum;
+      const entryPrice = position.entryPrice || 0;
+      const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
-      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      const pnl = (entryPrice - currentPrice) * shares;
       return sum + collateral + pnl;
     }, 0);
   
@@ -4175,11 +4178,14 @@ export default function App() {
   
   const shortsValue = Object.entries(activeUserData.shorts || {})
     .reduce((sum, [ticker, position]) => {
-      if (!position || position.shares <= 0) return sum;
-      const currentPrice = prices[ticker] || position.entryPrice;
+      if (!position || typeof position !== 'object') return sum;
+      const shares = position.shares || 0;
+      if (shares <= 0) return sum;
+      const entryPrice = position.entryPrice || 0;
+      const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
       // P&L = (entry price - current price) * shares (profit when price goes down)
-      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      const pnl = (entryPrice - currentPrice) * shares;
       return sum + collateral + pnl;
     }, 0);
   
