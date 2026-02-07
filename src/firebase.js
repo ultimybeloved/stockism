@@ -64,5 +64,16 @@ export const comebackAlertFunction = httpsCallable(functions, 'comebackAlert');
 // Data archiving functions (runs automatically every 6 hours)
 export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
 export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');
+// Secure operations (moved from client-side to prevent exploits)
+export const claimMissionRewardFunction = httpsCallable(functions, 'claimMissionReward');
+export const purchasePinFunction = httpsCallable(functions, 'purchasePin');
+export const placeBetFunction = httpsCallable(functions, 'placeBet');
+export const claimPredictionPayoutFunction = httpsCallable(functions, 'claimPredictionPayout');
+export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
+export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
+export const bailoutFunction = httpsCallable(functions, 'bailout');
+export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
+export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
+export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
 
 export default app;

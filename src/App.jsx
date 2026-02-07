@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, toggleMarginFunction, chargeMarginInterestFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -1699,70 +1699,17 @@ export default function App() {
         if (!userBet || userBet.paid) continue;
 
         try {
-          // Check if user won
-          if (userBet.option === prediction.outcome) {
-            // Calculate payout
-            const options = prediction.options || ['Yes', 'No'];
-            const pools = prediction.pools || {};
-            const winningPool = pools[prediction.outcome] || 0;
-            const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
+          const result = await claimPredictionPayoutFunction({ predictionId: prediction.id });
+          const { won, payout } = result.data;
 
-            // Calculate payout - if pools are somehow 0, at minimum return the bet amount
-            let payout = userBet.amount; // Default: return original bet
-            if (winningPool > 0 && totalPool > 0) {
-              const userShare = userBet.amount / winningPool;
-              payout = userShare * totalPool;
-            }
-
-            // Calculate new prediction wins count
-            const newPredictionWins = (userData.predictionWins || 0) + 1;
-
-            // Check for Oracle/Prophet achievements
-            const currentAchievements = userData.achievements || [];
-            const newAchievements = [];
-
-            if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) {
-              newAchievements.push('ORACLE');
-            }
-            if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) {
-              newAchievements.push('PROPHET');
-            }
-
-            // Update user's cash, mark bet as paid, increment wins
-            const userRef = doc(db, 'users', user.uid);
-            const updateData = {
-              cash: userData.cash + payout,
-              [`bets.${prediction.id}.paid`]: true,
-              [`bets.${prediction.id}.payout`]: payout,
-              predictionWins: newPredictionWins
-            };
-
-            if (newAchievements.length > 0) {
-              updateData.achievements = arrayUnion(...newAchievements);
-            }
-
-            await updateDoc(userRef, updateData);
+          if (won) {
             console.log(`[Payout] Processed winning bet for prediction ${prediction.id}: +${payout}`);
-
-            // Show achievement notification if earned, otherwise payout notification
-            if (newAchievements.length > 0) {
-              const achievement = ACHIEVEMENTS[newAchievements[0]];
-              showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! +${formatCurrency(payout)} payout!`);
-            } else {
-              showNotification('success', `🎉 Prediction payout: +${formatCurrency(payout)}!`);
-            }
+            showNotification('success', `🎉 Prediction payout: +${formatCurrency(payout)}!`);
           } else {
-            // Mark losing bet as processed
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-              [`bets.${prediction.id}.paid`]: true,
-              [`bets.${prediction.id}.payout`]: 0
-            });
             console.log(`[Payout] Processed losing bet for prediction ${prediction.id}`);
           }
         } catch (error) {
           console.error(`[Payout] Failed to process payout for prediction ${prediction.id}:`, error);
-          // Don't show error to user - the payout will be retried on next render
         }
       }
     };
@@ -2043,104 +1990,54 @@ export default function App() {
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
 
-    // Block if user is in debt
     if ((userData.cash || 0) < 0) {
       showNotification('error', 'You cannot leave your crew while in debt.');
       return;
     }
 
     try {
-      const userRef = doc(db, 'users', user.uid);
       const oldCrew = CREW_MAP[userData.crew];
-      
-      // Calculate 15% penalty from portfolio
-      // Take 15% of cash and 15% of each holding
-      const penaltyRate = 0.15;
-      const newCash = Math.floor(userData.cash * (1 - penaltyRate));
-      const cashTaken = userData.cash - newCash;
-      
-      const newHoldings = {};
-      const holdingsTaken = {};
-      let holdingsValueTaken = 0;
-      
-      Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
-        if (shares > 0) {
-          // Take 15% of shares, rounding to nearest (round up if .5 or more)
-          const sharesToTake = Math.round(shares * penaltyRate);
-          const sharesToKeep = shares - sharesToTake;
-          newHoldings[ticker] = sharesToKeep;
-          holdingsTaken[ticker] = sharesToTake;
-          holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
-        }
-      });
-
-      const totalTaken = cashTaken + holdingsValueTaken;
-      const newPortfolioValue = userData.portfolioValue - totalTaken;
-
-      // Also update cost basis for remaining shares
-      const updateData = {
-        crew: null,
-        crewJoinedAt: null,
-        isCrewHead: false,
-        crewHeadColor: null,
-        cash: newCash,
-        holdings: newHoldings,
-        portfolioValue: Math.max(0, newPortfolioValue),
-        lastCrewChange: Date.now()
-      };
-
-      await updateDoc(userRef, updateData);
+      const result = await leaveCrewFunction({});
+      const totalTaken = result.data.totalTaken;
 
       showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty). You cannot join a new crew for 24 hours.`);
     } catch (err) {
       console.error('Failed to leave crew:', err);
       showNotification('error', 'Failed to leave crew');
     }
-  }, [user, userData, prices]);
+  }, [user, userData]);
 
   // Handle pin shop purchases and updates
   const handlePinAction = useCallback(async (action, payload, cost) => {
     if (!user || !userData) return;
-    
+
     try {
       const userRef = doc(db, 'users', user.uid);
-      
+
       if (action === 'buyPin') {
-        // Buy a shop pin
         const currentOwned = userData.ownedShopPins || [];
         if (currentOwned.includes(payload)) return;
-        
-        await updateDoc(userRef, {
-          ownedShopPins: arrayUnion(payload),
-          cash: userData.cash - cost
-        });
-        
+
+        await purchasePinFunction({ action: 'buyPin', pinId: payload });
+
         const pin = SHOP_PINS[payload];
         const displayIcon = pin.image ? `/pins/${pin.image}` : null;
         const displayText = pin.image ? `Purchased ${pin.name}!` : `Purchased ${pin.emoji} ${pin.name}!`;
         showNotification('success', displayText, displayIcon);
-        
+
       } else if (action === 'setShopPins') {
-        // Update displayed shop pins
         await updateDoc(userRef, { displayedShopPins: payload });
-        
+
       } else if (action === 'setAchievementPins') {
-        // Update displayed achievement pins
         await updateDoc(userRef, { displayedAchievementPins: payload });
-        
+
       } else if (action === 'toggleCrewPin') {
-        // Toggle crew pin visibility (only for non-Crew Heads)
         if (!userData.isCrewHead) {
           await updateDoc(userRef, { displayCrewPin: payload });
         }
-        
+
       } else if (action === 'buySlot') {
-        // Buy extra slot
-        const field = payload === 'achievement' ? 'extraAchievementSlot' : 'extraShopSlot';
-        await updateDoc(userRef, {
-          [field]: true,
-          cash: userData.cash - cost
-        });
+        await purchasePinFunction({ action: 'buySlot', slotType: payload });
         showNotification('success', `Unlocked extra ${payload} pin slot!`);
       }
     } catch (err) {
@@ -2152,37 +2049,18 @@ export default function App() {
   // Handle claiming daily mission rewards
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
-    
+
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const today = getTodayDateString();
-      const currentTotalMissions = userData.totalMissionsCompleted || 0;
-      const newTotalMissions = currentTotalMissions + 1;
-      
-      await updateDoc(userRef, {
-        [`dailyMissions.${today}.claimed.${missionId}`]: true,
-        cash: userData.cash + reward,
-        totalMissionsCompleted: newTotalMissions
-      });
-      
-      // Add to activity feed
+      const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
       addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
-      
-      // Check for mission achievements
+
+      const newTotal = result.data.newTotal;
       const achievements = userData.achievements || [];
       let earnedAchievement = null;
-      
-      if (newTotalMissions >= 10 && !achievements.includes('MISSION_10')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_10') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_10;
-      } else if (newTotalMissions >= 50 && !achievements.includes('MISSION_50')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_50') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      } else if (newTotalMissions >= 100 && !achievements.includes('MISSION_100')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_100') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      }
-      
+      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
+      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
+      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
+
       if (earnedAchievement) {
         addActivity('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
@@ -2200,34 +2078,15 @@ export default function App() {
     if (!user || !userData) return;
 
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const weekId = getWeekId();
-      const currentTotalMissions = userData.totalMissionsCompleted || 0;
-      const newTotalMissions = currentTotalMissions + 1;
-
-      await updateDoc(userRef, {
-        [`weeklyMissions.${weekId}.claimed.${missionId}`]: true,
-        cash: userData.cash + reward,
-        totalMissionsCompleted: newTotalMissions
-      });
-
-      // Add to activity feed
+      const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
       addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
 
-      // Check for mission achievements (same as daily)
+      const newTotal = result.data.newTotal;
       const achievements = userData.achievements || [];
       let earnedAchievement = null;
-
-      if (newTotalMissions >= 10 && !achievements.includes('MISSION_10')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_10') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_10;
-      } else if (newTotalMissions >= 50 && !achievements.includes('MISSION_50')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_50') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      } else if (newTotalMissions >= 100 && !achievements.includes('MISSION_100')) {
-        await updateDoc(userRef, { achievements: arrayUnion('MISSION_100') });
-        earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      }
+      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
+      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
+      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
 
       if (earnedAchievement) {
         addActivity('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
@@ -2960,29 +2819,20 @@ export default function App() {
   // Daily margin interest (charged at midnight or on login)
   useEffect(() => {
     if (!user || !userData || !userData.marginEnabled) return;
-    
+
     const marginUsed = userData.marginUsed || 0;
     if (marginUsed <= 0) return;
-    
+
     const lastInterestCharge = userData.lastMarginInterestCharge || 0;
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
-    
-    // Charge interest if it's been more than 24 hours
+
     if (now - lastInterestCharge >= oneDayMs) {
-      const chargeInterest = async () => {
-        const interest = marginUsed * MARGIN_INTEREST_RATE;
-        const userRef = doc(db, 'users', user.uid);
-        
-        await updateDoc(userRef, {
-          marginUsed: marginUsed + interest,
-          lastMarginInterestCharge: now
-        });
-        
-        console.log(`Margin interest charged: ${formatCurrency(interest)}`);
-      };
-      
-      chargeInterest();
+      chargeMarginInterestFunction({}).then(result => {
+        if (result.data.charged > 0) {
+          console.log(`Margin interest charged: ${formatCurrency(result.data.charged)}`);
+        }
+      }).catch(err => console.error('Margin interest charge failed:', err));
     }
   }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.lastMarginInterestCharge]);
 
@@ -3232,50 +3082,15 @@ export default function App() {
     }
 
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const marketRef = doc(db, 'market', 'current');
-      
-      // Update user's holdings, cash, and IPO purchases
-      const currentHoldings = userData.holdings?.[ticker] || 0;
-      const currentCostBasis = userData.costBasis?.[ticker] || ipo.basePrice;
-      const newHoldings = currentHoldings + quantity;
-      const newCostBasis = ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings;
-      
-      await updateDoc(userRef, {
-        cash: userData.cash - totalCost,
-        [`holdings.${ticker}`]: newHoldings,
-        [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
-        [`ipoPurchases.${ticker}`]: userIPOPurchases + quantity,
-        [`lastBuyTime.${ticker}`]: now,
-        totalTrades: (userData.totalTrades || 0) + 1
-      });
-      
-      // Update IPO shares remaining
-      const updatedList = ipoData.list.map(i => 
-        i.ticker === ticker ? { ...i, sharesRemaining: sharesRemaining - quantity } : i
-      );
-      await updateDoc(ipoRef, { list: updatedList });
-      
-      // Initialize price if not set (first IPO purchase sets the price)
-      const marketSnap = await getDoc(marketRef);
-      const marketPrices = marketSnap.data()?.prices || {};
-      if (!marketPrices[ticker]) {
-        await updateDoc(marketRef, {
-          [`prices.${ticker}`]: ipo.basePrice,
-          [`priceHistory.${ticker}`]: [{ timestamp: now, price: ipo.basePrice }]
-        });
-      }
-      
+      await buyIPOSharesFunction({ ticker, quantity });
+
       const character = CHARACTER_MAP[ticker];
-      
-      // Add to activity feed
       addActivity('trade', `🚀 IPO: Bought ${quantity} $${ticker} (${character?.name || ticker}) @ ${formatCurrency(ipo.basePrice)}`);
-      
       showNotification('success', `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`);
-      
     } catch (err) {
       console.error('IPO purchase failed:', err);
-      showNotification('error', 'IPO purchase failed!');
+      const msg = err?.message || 'IPO purchase failed!';
+      showNotification('error', msg);
     }
   }, [user, userData, addActivity]);
 
@@ -3339,51 +3154,24 @@ export default function App() {
     }
 
     try {
-      const predictionsRef = doc(db, 'predictions', 'current');
-      const userRef = doc(db, 'users', user.uid);
-
-      // Update prediction pools
-      const updatedPredictions = predictions.map(p => {
-        if (p.id === predictionId) {
-          const newPools = { ...(p.pools || {}) };
-          newPools[option] = (newPools[option] || 0) + amount;
-          return { ...p, pools: newPools };
-        }
-        return p;
-      });
-
-      const newBetAmount = (existingBet?.amount || 0) + amount;
-
-      await updateDoc(predictionsRef, { list: updatedPredictions });
-      await updateDoc(userRef, {
-        cash: userData.cash - amount,
-        [`bets.${predictionId}`]: {
-          option,
-          amount: newBetAmount,
-          placedAt: Date.now(),
-          question: prediction.question // Store question for history
-        },
-        [`dailyMissions.${getTodayDateString()}.placedBet`]: true
-      });
+      await placeBetFunction({ predictionId, option, amount });
 
       // Log transaction for auditing
+      const newBetAmount = (existingBet?.amount || 0) + amount;
       await logTransaction(db, user.uid, 'BET', {
-        predictionId,
-        option,
-        amount,
+        predictionId, option, amount,
         totalBetAmount: newBetAmount,
         question: prediction.question,
         cashBefore: userData.cash,
         cashAfter: userData.cash - amount
       });
 
-      // Add to activity feed
       addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
-
       showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
     } catch (error) {
       console.error('Bet placement failed:', error);
-      showNotification('error', `Bet failed: ${error.message}`);
+      const msg = error?.message || 'Bet failed';
+      showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
     }
   }, [user, userData, predictions, addActivity]);
 
@@ -3430,73 +3218,66 @@ export default function App() {
   // Enable margin trading
   const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
-    
+
     const isAdmin = ADMIN_UIDS.includes(user.uid);
     const eligibility = checkMarginEligibility(userData, isAdmin);
     if (!eligibility.eligible) {
       showNotification('error', 'Not eligible for margin trading!');
       return;
     }
-    
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
-      marginEnabled: true,
-      marginUsed: 0,
-      marginEnabledAt: Date.now()
-    });
-    
-    showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
+
+    try {
+      await toggleMarginFunction({ enable: true });
+      showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
+    } catch (err) {
+      showNotification('error', err?.message || 'Failed to enable margin');
+    }
   }, [user, userData]);
 
   // Disable margin trading
   const handleDisableMargin = useCallback(async () => {
     if (!user || !userData) return;
-    
+
     if ((userData.marginUsed || 0) >= 0.01) {
       showNotification('error', 'Repay all margin debt before disabling!');
       return;
     }
-    
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
-      marginEnabled: false,
-      marginUsed: 0
-    });
-    
-    showNotification('success', 'Margin trading disabled.');
-    setShowLending(false);
+
+    try {
+      await toggleMarginFunction({ enable: false });
+      showNotification('success', 'Margin trading disabled.');
+      setShowLending(false);
+    } catch (err) {
+      showNotification('error', err?.message || 'Failed to disable margin');
+    }
   }, [user, userData]);
 
   // Repay margin
   const handleRepayMargin = useCallback(async (amount) => {
     if (!user || !userData) return;
-    
+
     const marginUsed = userData.marginUsed || 0;
     if (marginUsed <= 0) {
       showNotification('error', 'No margin debt to repay!');
       return;
     }
-    
+
     if (amount > userData.cash) {
       showNotification('error', 'Insufficient funds!');
       return;
     }
-    
-    const repayAmount = Math.min(amount, marginUsed);
-    const newMarginUsed = marginUsed - repayAmount;
-    const userRef = doc(db, 'users', user.uid);
-    
-    await updateDoc(userRef, {
-      cash: userData.cash - repayAmount,
-      // Ensure exactly 0 if fully repaid (avoid floating point issues)
-      marginUsed: newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100,
-      marginCallAt: null // Clear margin call if repaying
-    });
-    
-    if (repayAmount >= marginUsed) {
-      showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repayAmount)}`);
-    } else {
-      showNotification('success', `Repaid ${formatCurrency(repayAmount)}. Remaining debt: ${formatCurrency(newMarginUsed)}`);
+
+    try {
+      const result = await repayMarginFunction({ amount });
+      const { repaid, remaining } = result.data;
+
+      if (remaining === 0) {
+        showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repaid)}`);
+      } else {
+        showNotification('success', `Repaid ${formatCurrency(repaid)}. Remaining debt: ${formatCurrency(remaining)}`);
+      }
+    } catch (err) {
+      showNotification('error', err?.message || 'Failed to repay margin');
     }
   }, [user, userData]);
 
@@ -3511,33 +3292,10 @@ export default function App() {
     }
 
     try {
-      const userRef = doc(db, 'users', user.uid);
       const currentCrew = userData.crew;
-      const crewHistory = userData.crewHistory || [];
+      const result = await bailoutFunction({});
 
-      // Add current crew to history if not already there (will be exiled)
-      const updatedHistory = currentCrew && !crewHistory.includes(currentCrew)
-        ? [...crewHistory, currentCrew]
-        : crewHistory;
-
-      await updateDoc(userRef, {
-        cash: 500,
-        holdings: {},
-        shorts: {},
-        costBasis: {},
-        portfolioValue: 500,
-        marginEnabled: false,
-        marginUsed: 0,
-        bankruptAt: null,
-        crew: null,
-        crewJoinedAt: null,
-        isCrewHead: false,
-        crewHeadColor: null,
-        crewHistory: updatedHistory,
-        lastBailout: Date.now()
-      });
-
-      if (currentCrew) {
+      if (result.data.hadCrew) {
         const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
         showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with $500.`);
       } else {

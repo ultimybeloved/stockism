@@ -4410,3 +4410,645 @@ exports.checkLimitOrders = functions.pubsub
     }
   });
 
+// ============================================
+// SECURE OPERATIONS - Moved from client-side
+// These operations modify protected fields (cash, holdings, shorts, marginUsed)
+// and must go through Cloud Functions to prevent exploits
+// ============================================
+
+/**
+ * Claim mission reward (daily or weekly)
+ */
+exports.claimMissionReward = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { missionId, type } = data;
+
+  if (!missionId || !type || !['daily', 'weekly'].includes(type)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid mission data.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+
+    // Get today's date and week ID
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+    if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
+    const weekId = weekStart.toISOString().split('T')[0];
+
+    // Check if already claimed
+    if (type === 'daily') {
+      const claimed = userData.dailyMissions?.[today]?.claimed?.[missionId];
+      if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
+    } else {
+      const claimed = userData.weeklyMissions?.[weekId]?.claimed?.[missionId];
+      if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
+    }
+
+    // Max reward validation: daily max $200, weekly max $1000
+    const maxReward = type === 'daily' ? 200 : 1000;
+    const reward = Math.min(data.reward || 0, maxReward);
+    if (reward <= 0) throw new functions.https.HttpsError('invalid-argument', 'Invalid reward.');
+
+    const newTotal = (userData.totalMissionsCompleted || 0) + 1;
+    const updates = {
+      cash: (userData.cash || 0) + reward,
+      totalMissionsCompleted: newTotal
+    };
+
+    if (type === 'daily') {
+      updates[`dailyMissions.${today}.claimed.${missionId}`] = true;
+    } else {
+      updates[`weeklyMissions.${weekId}.claimed.${missionId}`] = true;
+    }
+
+    // Check mission achievements
+    const achievements = userData.achievements || [];
+    if (newTotal >= 100 && !achievements.includes('MISSION_100')) {
+      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_100');
+    } else if (newTotal >= 50 && !achievements.includes('MISSION_50')) {
+      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_50');
+    } else if (newTotal >= 10 && !achievements.includes('MISSION_10')) {
+      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_10');
+    }
+
+    transaction.update(userRef, updates);
+    return { success: true, reward, newTotal };
+  });
+});
+
+/**
+ * Purchase a pin or extra pin slot from the shop
+ */
+exports.purchasePin = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { action, pinId, slotType, cost } = data;
+
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+
+    if (action === 'buyPin') {
+      // Validate pin cost (only pin currently costs $1)
+      const validCost = 1;
+      if ((userData.cash || 0) < validCost) {
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+      }
+      const owned = userData.ownedShopPins || [];
+      if (owned.includes(pinId)) {
+        throw new functions.https.HttpsError('already-exists', 'Already owned.');
+      }
+      transaction.update(userRef, {
+        ownedShopPins: admin.firestore.FieldValue.arrayUnion(pinId),
+        cash: (userData.cash || 0) - validCost
+      });
+      return { success: true, cost: validCost };
+
+    } else if (action === 'buySlot') {
+      // Slot costs: achievement = $5000, shop = $7500
+      const slotCosts = { achievement: 5000, shop: 7500 };
+      const validCost = slotCosts[slotType];
+      if (!validCost) throw new functions.https.HttpsError('invalid-argument', 'Invalid slot type.');
+      if ((userData.cash || 0) < validCost) {
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+      }
+      const field = slotType === 'achievement' ? 'extraAchievementSlot' : 'extraShopSlot';
+      if (userData[field]) {
+        throw new functions.https.HttpsError('already-exists', 'Slot already purchased.');
+      }
+      transaction.update(userRef, {
+        [field]: true,
+        cash: (userData.cash || 0) - validCost
+      });
+      return { success: true, cost: validCost };
+
+    } else {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
+    }
+  });
+});
+
+/**
+ * Place a prediction bet
+ */
+exports.placeBet = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { predictionId, option, amount } = data;
+
+  if (!predictionId || !option || !amount || amount <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid bet data.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const predictionsRef = db.collection('predictions').doc('current');
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, predictionsDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(predictionsRef)
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+    if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
+
+    const userData = userDoc.data();
+    const predictionsData = predictionsDoc.data();
+    const predictionsList = predictionsData.list || [];
+
+    // Find the prediction
+    const predictionIndex = predictionsList.findIndex(p => p.id === predictionId);
+    if (predictionIndex === -1) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
+
+    const prediction = predictionsList[predictionIndex];
+    if (prediction.resolved || (prediction.endsAt && prediction.endsAt < Date.now())) {
+      throw new functions.https.HttpsError('failed-precondition', 'Betting has ended.');
+    }
+
+    // Check cash
+    if ((userData.cash || 0) < amount) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+    }
+
+    // Check bet limit (can't bet more than total invested)
+    const holdings = userData.holdings || {};
+    const totalInvested = Object.values(holdings).reduce((sum, s) => sum + s, 0);
+    if (totalInvested <= 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Must invest in stocks before betting.');
+    }
+
+    // Check existing bet on different option
+    const existingBet = userData.bets?.[predictionId];
+    if (existingBet && existingBet.option !== option) {
+      throw new functions.https.HttpsError('failed-precondition', 'Already bet on a different option.');
+    }
+
+    // Update prediction pools
+    const updatedList = [...predictionsList];
+    const updatedPrediction = { ...updatedList[predictionIndex] };
+    const newPools = { ...(updatedPrediction.pools || {}) };
+    newPools[option] = (newPools[option] || 0) + amount;
+    updatedPrediction.pools = newPools;
+    updatedList[predictionIndex] = updatedPrediction;
+
+    const newBetAmount = (existingBet?.amount || 0) + amount;
+    const today = new Date().toISOString().split('T')[0];
+
+    transaction.update(predictionsRef, { list: updatedList });
+    transaction.update(userRef, {
+      cash: (userData.cash || 0) - amount,
+      [`bets.${predictionId}`]: {
+        option,
+        amount: newBetAmount,
+        placedAt: Date.now(),
+        question: prediction.question
+      },
+      [`dailyMissions.${today}.placedBet`]: true
+    });
+
+    return { success: true, newBetAmount };
+  });
+});
+
+/**
+ * Claim prediction payout (winning or losing)
+ */
+exports.claimPredictionPayout = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { predictionId } = data;
+
+  if (!predictionId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing prediction ID.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const predictionsRef = db.collection('predictions').doc('current');
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, predictionsDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(predictionsRef)
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+    if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
+
+    const userData = userDoc.data();
+    const predictionsData = predictionsDoc.data();
+    const predictionsList = predictionsData.list || [];
+
+    const prediction = predictionsList.find(p => p.id === predictionId);
+    if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
+    if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
+
+    const userBet = userData.bets?.[predictionId];
+    if (!userBet) throw new functions.https.HttpsError('not-found', 'No bet found.');
+    if (userBet.paid) throw new functions.https.HttpsError('already-exists', 'Already paid out.');
+
+    const updates = {};
+
+    if (userBet.option === prediction.outcome) {
+      // Winner - calculate payout
+      const options = prediction.options || ['Yes', 'No'];
+      const pools = prediction.pools || {};
+      const winningPool = pools[prediction.outcome] || 0;
+      const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
+
+      let payout = userBet.amount;
+      if (winningPool > 0 && totalPool > 0) {
+        const userShare = userBet.amount / winningPool;
+        payout = userShare * totalPool;
+      }
+
+      const newPredictionWins = (userData.predictionWins || 0) + 1;
+      updates.cash = (userData.cash || 0) + payout;
+      updates[`bets.${predictionId}.paid`] = true;
+      updates[`bets.${predictionId}.payout`] = payout;
+      updates.predictionWins = newPredictionWins;
+
+      // Check achievements
+      const achievements = userData.achievements || [];
+      if (newPredictionWins >= 10 && !achievements.includes('PROPHET')) {
+        updates.achievements = admin.firestore.FieldValue.arrayUnion('PROPHET');
+      } else if (newPredictionWins >= 3 && !achievements.includes('ORACLE')) {
+        updates.achievements = admin.firestore.FieldValue.arrayUnion('ORACLE');
+      }
+
+      transaction.update(userRef, updates);
+      return { success: true, won: true, payout, newPredictionWins };
+    } else {
+      // Loser - mark as processed
+      transaction.update(userRef, {
+        [`bets.${predictionId}.paid`]: true,
+        [`bets.${predictionId}.payout`]: 0
+      });
+      return { success: true, won: false, payout: 0 };
+    }
+  });
+});
+
+/**
+ * Buy IPO shares
+ */
+exports.buyIPOShares = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, quantity } = data;
+
+  if (!ticker || !quantity || quantity <= 0 || quantity > 10) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid IPO purchase data.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const ipoRef = db.collection('market').doc('ipos');
+  const marketRef = db.collection('market').doc('current');
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, ipoDoc, marketDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(ipoRef),
+      transaction.get(marketRef)
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+    if (!ipoDoc.exists) throw new functions.https.HttpsError('not-found', 'IPO data not found.');
+
+    const userData = userDoc.data();
+    const ipoData = ipoDoc.data();
+    const ipoList = ipoData.list || [];
+
+    const ipo = ipoList.find(i => i.ticker === ticker);
+    if (!ipo) throw new functions.https.HttpsError('not-found', 'IPO not found.');
+
+    // Validate IPO is active
+    const now = Date.now();
+    if (ipo.status !== 'active' || !ipo.ipoStartTime || now < ipo.ipoStartTime || now > ipo.ipoEndTime) {
+      throw new functions.https.HttpsError('failed-precondition', 'IPO is not active.');
+    }
+
+    // Check shares remaining
+    const sharesRemaining = ipo.sharesRemaining || 0;
+    if (quantity > sharesRemaining) {
+      throw new functions.https.HttpsError('failed-precondition', 'Not enough shares available.');
+    }
+
+    // Check per-user limit (10 max)
+    const userIPOPurchases = userData.ipoPurchases?.[ticker] || 0;
+    if (userIPOPurchases + quantity > 10) {
+      throw new functions.https.HttpsError('failed-precondition', 'Exceeds per-user IPO limit (10).');
+    }
+
+    // Check cash
+    const totalCost = ipo.basePrice * quantity;
+    if ((userData.cash || 0) < totalCost) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+    }
+
+    // Calculate new cost basis
+    const currentHoldings = userData.holdings?.[ticker] || 0;
+    const currentCostBasis = userData.costBasis?.[ticker] || ipo.basePrice;
+    const newHoldings = currentHoldings + quantity;
+    const newCostBasis = currentHoldings > 0
+      ? ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings
+      : ipo.basePrice;
+
+    // Update user
+    transaction.update(userRef, {
+      cash: (userData.cash || 0) - totalCost,
+      [`holdings.${ticker}`]: newHoldings,
+      [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
+      [`ipoPurchases.${ticker}`]: userIPOPurchases + quantity,
+      [`lastBuyTime.${ticker}`]: now,
+      totalTrades: (userData.totalTrades || 0) + 1
+    });
+
+    // Update IPO shares remaining
+    const updatedList = ipoList.map(i =>
+      i.ticker === ticker ? { ...i, sharesRemaining: sharesRemaining - quantity } : i
+    );
+    transaction.update(ipoRef, { list: updatedList });
+
+    // Initialize price if not set
+    if (marketDoc.exists) {
+      const marketData = marketDoc.data();
+      if (!marketData.prices?.[ticker]) {
+        transaction.update(marketRef, {
+          [`prices.${ticker}`]: ipo.basePrice,
+          [`volumes.${ticker}`]: quantity
+        });
+      }
+    }
+
+    return { success: true, totalCost, newHoldings };
+  });
+});
+
+/**
+ * Repay margin debt
+ */
+exports.repayMargin = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { amount } = data;
+
+  if (!amount || amount <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid repay amount.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    const marginUsed = userData.marginUsed || 0;
+
+    if (marginUsed <= 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'No margin debt.');
+    }
+    if ((userData.cash || 0) < amount) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+    }
+
+    const repayAmount = Math.min(amount, marginUsed);
+    const newMarginUsed = marginUsed - repayAmount;
+
+    transaction.update(userRef, {
+      cash: (userData.cash || 0) - repayAmount,
+      marginUsed: newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100,
+      marginCallAt: null
+    });
+
+    return { success: true, repaid: repayAmount, remaining: newMarginUsed < 0.01 ? 0 : newMarginUsed };
+  });
+});
+
+/**
+ * Bankruptcy bailout - reset to $500
+ */
+exports.bailout = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    if ((userData.cash || 0) >= 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
+    }
+
+    const currentCrew = userData.crew;
+    const crewHistory = userData.crewHistory || [];
+    const updatedHistory = currentCrew && !crewHistory.includes(currentCrew)
+      ? [...crewHistory, currentCrew]
+      : crewHistory;
+
+    transaction.update(userRef, {
+      cash: 500,
+      holdings: {},
+      shorts: {},
+      costBasis: {},
+      portfolioValue: 500,
+      marginEnabled: false,
+      marginUsed: 0,
+      bankruptAt: null,
+      crew: null,
+      crewJoinedAt: null,
+      isCrewHead: false,
+      crewHeadColor: null,
+      crewHistory: updatedHistory,
+      lastBailout: Date.now()
+    });
+
+    return { success: true, hadCrew: !!currentCrew };
+  });
+});
+
+/**
+ * Leave crew with 15% penalty
+ */
+exports.leaveCrew = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const userRef = db.collection('users').doc(uid);
+  const marketRef = db.collection('market').doc('current');
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, marketDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(marketRef)
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    if (!userData.crew) {
+      throw new functions.https.HttpsError('failed-precondition', 'Not in a crew.');
+    }
+    if ((userData.cash || 0) < 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Cannot leave crew while in debt.');
+    }
+
+    const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
+    const penaltyRate = 0.15;
+
+    // 15% cash penalty
+    const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
+
+    // 15% holdings penalty
+    const newHoldings = {};
+    let holdingsValueTaken = 0;
+    Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
+      if (shares > 0) {
+        const sharesToTake = Math.round(shares * penaltyRate);
+        const sharesToKeep = shares - sharesToTake;
+        newHoldings[ticker] = sharesToKeep;
+        holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+      }
+    });
+
+    const totalTaken = ((userData.cash || 0) - newCash) + holdingsValueTaken;
+    const newPortfolioValue = (userData.portfolioValue || 0) - totalTaken;
+
+    transaction.update(userRef, {
+      crew: null,
+      crewJoinedAt: null,
+      isCrewHead: false,
+      crewHeadColor: null,
+      cash: newCash,
+      holdings: newHoldings,
+      portfolioValue: Math.max(0, newPortfolioValue),
+      lastCrewChange: Date.now()
+    });
+
+    return { success: true, totalTaken, crewLeft: userData.crew };
+  });
+});
+
+/**
+ * Toggle margin trading (enable/disable)
+ */
+exports.toggleMargin = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { enable } = data;
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+
+    if (enable) {
+      // Check eligibility: $2000 min cash
+      const isAdmin = uid === ADMIN_UID;
+      if (!isAdmin && (userData.cash || 0) < 2000) {
+        throw new functions.https.HttpsError('failed-precondition', 'Need $2,000 minimum cash.');
+      }
+      transaction.update(userRef, {
+        marginEnabled: true,
+        marginUsed: 0,
+        marginEnabledAt: Date.now()
+      });
+    } else {
+      // Check no outstanding margin
+      if ((userData.marginUsed || 0) >= 0.01) {
+        throw new functions.https.HttpsError('failed-precondition', 'Repay all margin debt first.');
+      }
+      transaction.update(userRef, {
+        marginEnabled: false,
+        marginUsed: 0
+      });
+    }
+
+    return { success: true, marginEnabled: enable };
+  });
+});
+
+/**
+ * Charge daily margin interest
+ */
+exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    const marginUsed = userData.marginUsed || 0;
+
+    if (marginUsed <= 0 || !userData.marginEnabled) {
+      return { success: true, charged: 0 };
+    }
+
+    const lastCharge = userData.lastMarginInterestCharge || 0;
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    if (now - lastCharge < oneDayMs) {
+      return { success: true, charged: 0, reason: 'Already charged today' };
+    }
+
+    const interest = marginUsed * MARGIN_INTEREST_RATE;
+    transaction.update(userRef, {
+      marginUsed: marginUsed + interest,
+      lastMarginInterestCharge: now
+    });
+
+    return { success: true, charged: interest };
+  });
+});
+
