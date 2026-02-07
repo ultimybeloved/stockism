@@ -43,6 +43,8 @@ export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
 export const executeTradeFunction = httpsCallable(functions, 'executeTrade'); // NEW: Server-side trade execution
 export const banUserFunction = httpsCallable(functions, 'banUser');
+// Daily checkin
+export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
 // Ladder game
 export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
 export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');

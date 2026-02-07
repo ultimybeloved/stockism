@@ -2817,6 +2817,105 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 });
 
 /**
+ * Daily Checkin - Server-side cash reward with streak tracking
+ * Prevents direct cash manipulation via security rules
+ */
+exports.dailyCheckin = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ladderTopUp } = data; // Boolean flag for first-time ladder initialization
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const userRef = db.collection('users').doc(uid);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+
+      const userData = userDoc.data();
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const lastCheckin = userData.lastCheckin?.toDate();
+      const lastCheckinDate = lastCheckin ? lastCheckin.toISOString().split('T')[0] : null;
+
+      // Check if already checked in today
+      if (lastCheckinDate === today) {
+        throw new functions.https.HttpsError('failed-precondition', 'Already checked in today.');
+      }
+
+      // Calculate streak
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+      const currentStreak = userData.checkinStreak || 0;
+      const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
+
+      // Calculate reward (base + streak bonus)
+      const BASE_REWARD = 100;
+      const STREAK_BONUS = Math.min(newStreak * 10, 100); // Max $100 bonus
+      const checkinReward = BASE_REWARD + STREAK_BONUS;
+
+      // Ladder top-up bonus if requested and first-time
+      const LADDER_BONUS = 100;
+      const ladderTopUpBonus = ladderTopUp && !userData.ladderGameInitialized ? LADDER_BONUS : 0;
+
+      // Update user document
+      const updates = {
+        cash: (userData.cash || 0) + checkinReward,
+        lastCheckin: admin.firestore.Timestamp.now(),
+        checkinStreak: newStreak,
+        totalCheckins: (userData.totalCheckins || 0) + 1
+      };
+
+      // If ladder top-up requested and user hasn't initialized ladder game
+      if (ladderTopUp && !userData.ladderGameInitialized) {
+        updates.ladderGameInitialized = true;
+
+        // Create/update ladder game user document
+        const ladderRef = db.collection('ladderGameUsers').doc(uid);
+        transaction.set(ladderRef, {
+          uid,
+          displayName: userData.displayName || 'Anonymous',
+          balance: LADDER_BONUS,
+          totalDeposited: 0,
+          totalWon: 0,
+          totalLost: 0,
+          gamesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          currentStreak: 0,
+          bestStreak: 0,
+          lastPlayed: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+
+      transaction.update(userRef, updates);
+
+      return {
+        success: true,
+        reward: checkinReward,
+        newStreak,
+        ladderTopUpBonus,
+        totalCheckins: updates.totalCheckins
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Daily checkin error:', error);
+    throw new functions.https.HttpsError('internal', 'Checkin failed: ' + error.message);
+  }
+});
+
+/**
  * Records and validates a completed trade
  * Called after client executes trade, logs for auditing
  * Detects suspicious patterns

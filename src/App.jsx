@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -3081,7 +3081,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, userData?.achievements]);
 
-  // Daily checkin
+  // Daily checkin (now uses Cloud Function to prevent security rule violations)
   const handleDailyCheckin = useCallback(async () => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to claim your daily bonus!');
@@ -3095,97 +3095,83 @@ export default function App() {
       return;
     }
 
-    const userRef = doc(db, 'users', user.uid);
-    const newTotalCheckins = (userData.totalCheckins || 0) + 1;
-
-    // Check for check-in achievements
-    const newAchievements = [];
-    const currentAchievements = userData.achievements || [];
-
-    if (newTotalCheckins >= 7 && !currentAchievements.includes('DEDICATED_7')) {
-      newAchievements.push('DEDICATED_7');
-    }
-    if (newTotalCheckins >= 14 && !currentAchievements.includes('DEDICATED_14')) {
-      newAchievements.push('DEDICATED_14');
-    }
-    if (newTotalCheckins >= 30 && !currentAchievements.includes('DEDICATED_30')) {
-      newAchievements.push('DEDICATED_30');
-    }
-    if (newTotalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) {
-      newAchievements.push('DEDICATED_100');
-    }
-
-    // Weekly check-in tracking
-    const weekId = getWeekId();
-
-    const updateData = {
-      cash: userData.cash + DAILY_BONUS,
-      lastCheckin: today,
-      totalCheckins: newTotalCheckins,
-      [`dailyMissions.${getTodayDateString()}.checkedIn`]: true,
-      // Weekly missions - track check-in days
-      [`weeklyMissions.${weekId}.checkinDays.${today}`]: true
-    };
-
-    if (newAchievements.length > 0) {
-      updateData.achievements = arrayUnion(...newAchievements);
-    }
-
-    // Check ladder game balance and top up to $100 if needed (only for existing players)
-    let ladderTopUp = 0;
     try {
+      // Check if user wants ladder game top-up (first-time only)
       const ladderRef = doc(db, 'ladderGameUsers', user.uid);
       const ladderDoc = await getDoc(ladderRef);
+      const shouldTopUpLadder = !ladderDoc.exists(); // Only for new ladder players
 
-      // Only top up if they've played before and are below $100
-      if (ladderDoc.exists()) {
-        const currentLadderBalance = ladderDoc.data().balance || 0;
-        if (currentLadderBalance < 100) {
-          ladderTopUp = 100 - currentLadderBalance;
-          await updateDoc(ladderRef, { balance: 100 });
-        }
+      // Call Cloud Function
+      const result = await dailyCheckinFunction({ ladderTopUp: shouldTopUpLadder });
+      const { reward, newStreak, ladderTopUpBonus, totalCheckins } = result.data;
+
+      // Update client-side missions tracking (still needed for UI state)
+      const userRef = doc(db, 'users', user.uid);
+      const weekId = getWeekId();
+      await updateDoc(userRef, {
+        [`dailyMissions.${getTodayDateString()}.checkedIn`]: true,
+        [`weeklyMissions.${weekId}.checkinDays.${today}`]: true
+      });
+
+      // Check for check-in achievements (client-side for immediate feedback)
+      const newAchievements = [];
+      const currentAchievements = userData.achievements || [];
+
+      if (totalCheckins >= 7 && !currentAchievements.includes('DEDICATED_7')) {
+        newAchievements.push('DEDICATED_7');
       }
-      // If they've never played, let LadderGame component create their account with $500
-    } catch (error) {
-      console.error('[LADDER TOP-UP ERROR]', error);
-      // Don't fail the entire check-in if ladder top-up fails
-    }
+      if (totalCheckins >= 14 && !currentAchievements.includes('DEDICATED_14')) {
+        newAchievements.push('DEDICATED_14');
+      }
+      if (totalCheckins >= 30 && !currentAchievements.includes('DEDICATED_30')) {
+        newAchievements.push('DEDICATED_30');
+      }
+      if (totalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) {
+        newAchievements.push('DEDICATED_100');
+      }
 
-    try {
-      await updateDoc(userRef, updateData);
+      // Update achievements if earned
+      if (newAchievements.length > 0) {
+        await updateDoc(userRef, {
+          achievements: arrayUnion(...newAchievements)
+        });
+      }
+
+      // Log transaction for auditing
+      await logTransaction(db, user.uid, 'CHECKIN', {
+        bonus: reward,
+        totalCheckins,
+        cashBefore: userData.cash,
+        cashAfter: userData.cash + reward,
+        ladderTopUpBonus
+      });
+
+      // Add to activity feed
+      let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;
+      if (ladderTopUpBonus > 0) {
+        activityMsg += ` | Ladder Game: +${formatCurrency(ladderTopUpBonus)} (first-time bonus)`;
+      }
+      addActivity('checkin', `${activityMsg} (Day ${totalCheckins})`);
+
+      // Show achievement notification if earned
+      if (newAchievements.length > 0) {
+        const achievement = ACHIEVEMENTS[newAchievements[0]];
+        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+        showNotification('achievement', `🏆 Achievement Unlocked: ${achievement.emoji} ${achievement.name}!`);
+      } else {
+        let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
+        if (ladderTopUpBonus > 0) {
+          notificationMsg += ` | Ladder Game: +${formatCurrency(ladderTopUpBonus)}!`;
+        }
+        showNotification('success', notificationMsg);
+      }
     } catch (error) {
       console.error('[CHECKIN ERROR]', error);
-      showNotification('error', 'Failed to check in. Please try again.');
-      return;
-    }
-
-    // Log transaction for auditing
-    await logTransaction(db, user.uid, 'CHECKIN', {
-      bonus: DAILY_BONUS,
-      totalCheckins: newTotalCheckins,
-      cashBefore: userData.cash,
-      cashAfter: userData.cash + DAILY_BONUS,
-      ladderTopUp
-    });
-
-    // Add to activity feed
-    let activityMsg = `Daily check-in: +${formatCurrency(DAILY_BONUS)}!`;
-    if (ladderTopUp > 0) {
-      activityMsg += ` | Ladder Game: +${formatCurrency(ladderTopUp)} (topped to $100)`;
-    }
-    addActivity('checkin', `${activityMsg} (Day ${newTotalCheckins})`);
-
-    // Show achievement notification if earned
-    if (newAchievements.length > 0) {
-      const achievement = ACHIEVEMENTS[newAchievements[0]];
-      addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-      showNotification('achievement', `🏆 Achievement Unlocked: ${achievement.emoji} ${achievement.name}!`);
-    } else {
-      let notificationMsg = `Daily check-in: +${formatCurrency(DAILY_BONUS)}!`;
-      if (ladderTopUp > 0) {
-        notificationMsg += ` | Ladder Game topped to $100!`;
+      if (error.code === 'failed-precondition' && error.message.includes('Already checked in')) {
+        showNotification('error', 'Already checked in today!');
+      } else {
+        showNotification('error', 'Failed to check in. Please try again.');
       }
-      showNotification('success', notificationMsg);
     }
   }, [user, userData, addActivity]);
 
