@@ -5126,7 +5126,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       <span className={`text-xs ${mutedClass}`}>Click timestamp to set rollback point</span>
                     </div>
                     <div className="max-h-48 overflow-y-auto space-y-1">
-                      {selectedTickerHistory.slice().reverse().slice(0, 100).map((h, i, arr) => {
+                      {selectedTickerHistory.slice().reverse().slice(0, 1000).map((h, i, arr) => {
                         const prevPrice = arr[i + 1]?.price;
                         const change = prevPrice ? ((h.price - prevPrice) / prevPrice * 100) : 0;
                         return (
