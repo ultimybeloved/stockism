@@ -2112,10 +2112,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     // Calculate shorts value (collateral + P&L)
     let shortsValue = 0;
     for (const [ticker, position] of Object.entries(shorts)) {
-      if (!position || position.shares <= 0) continue;
-      const currentPrice = prices[ticker] || position.entryPrice;
+      if (!position || typeof position !== 'object') continue;
+      const shares = position.shares || 0;
+      if (shares <= 0) continue;
+      const entryPrice = position.entryPrice || 0;
+      const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
-      const pnl = (position.entryPrice - currentPrice) * position.shares;
+      const pnl = (entryPrice - currentPrice) * shares;
       shortsValue += collateral + pnl;
     }
 
