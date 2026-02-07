@@ -59,11 +59,30 @@ service cloud.firestore {
       // Direct creation is disabled - use createUser Cloud Function
       allow create: if false;
 
-      // Updates - owner can update their own document, admin can update any
-      allow update: if isAdmin() || isOwner(userId);
+      // SECURITY FIX: Only allow safe field updates (not cash/holdings/shorts/margin)
+      // Trading data must be updated via executeTrade Cloud Function
+      allow update: if isAdmin() || (isOwner(userId) && validateSafeUserUpdate());
 
       // Admin can delete user documents (for cleanup)
       allow delete: if isAdmin();
+    }
+
+    // Validate that user updates don't touch trading-critical fields
+    function validateSafeUserUpdate() {
+      let oldData = resource.data;
+      let newData = request.resource.data;
+
+      // Block updates to critical trading fields
+      // These must only be modified via executeTrade Cloud Function
+      return (
+        (!('cash' in newData) || newData.cash == oldData.cash) &&
+        (!('holdings' in newData) || newData.holdings == oldData.holdings) &&
+        (!('shorts' in newData) || newData.shorts == oldData.shorts) &&
+        (!('marginUsed' in newData) || newData.marginUsed == oldData.marginUsed) &&
+        (!('dailyImpact' in newData) || newData.dailyImpact == oldData.dailyImpact) &&
+        (!('lastTradeTime' in newData) || newData.lastTradeTime == oldData.lastTradeTime) &&
+        (!('lastBuyTime' in newData) || newData.lastBuyTime == oldData.lastBuyTime)
+      );
     }
     
     // ============================================
@@ -74,12 +93,12 @@ service cloud.firestore {
       // Everyone can read market data
       allow read: if true;
 
-      // Market writes - admin can do anything, regular users have restrictions
-      allow update: if isAdmin() || (isAuthenticated() && validateMarketUpdate());
+      // SECURITY FIX: Only Cloud Functions (via Admin SDK) can write market data
+      // This prevents price manipulation via direct client writes
+      allow update: if isAdmin(); // Admin only (Cloud Functions bypass rules)
 
       // Only admin can create market documents
-      // Use merge-safe create (setDoc with merge:true still needs create permission)
-      allow create: if isAdmin() || (isAuthenticated() && validateMarketCreate());
+      allow create: if isAdmin();
 
       // Price history archive sub-collection
       match /price_history/{ticker} {

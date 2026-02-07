@@ -14,6 +14,13 @@ const STARTING_CASH = 1000;
 // Falls back to hardcoded value for backwards compatibility
 const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
+// Daily Impact Anti-Manipulation Constants
+const MAX_DAILY_IMPACT = 0.10; // 10% max price movement per user per ticker per day
+const BASE_IMPACT = 0.012;
+const BASE_LIQUIDITY = 100;
+const BID_ASK_SPREAD = 0.002;
+const MAX_PRICE_CHANGE_PERCENT = 0.05;
+
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
@@ -2315,6 +2322,433 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError(
       'internal',
       'Trade validation failed: ' + error.message
+    );
+  }
+});
+
+/**
+ * SECURITY FIX: Server-side trade execution with dailyImpact enforcement
+ * Executes trades atomically in a Firestore transaction
+ * Prevents price manipulation by enforcing 10% daily impact limit
+ */
+exports.executeTrade = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be logged in to trade.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, action, amount } = data;
+
+  // Validate inputs
+  if (!ticker || !action || !amount || amount <= 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Invalid trade parameters.'
+    );
+  }
+
+  if (!['buy', 'sell', 'short', 'cover'].includes(action)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Invalid trade action. Must be: buy, sell, short, or cover.'
+    );
+  }
+
+  try {
+    const userRef = db.collection('users').doc(uid);
+    const marketRef = db.collection('market').doc('current');
+    const now = admin.firestore.Timestamp.now().toMillis();
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    // Execute trade in atomic transaction
+    const result = await db.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      const marketDoc = await transaction.get(marketRef);
+
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+      if (!marketDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Market data not found.');
+      }
+
+      const userData = userDoc.data();
+      const marketData = marketDoc.data();
+      const prices = marketData.prices || {};
+      const currentPrice = prices[ticker];
+
+      if (!currentPrice) {
+        throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
+      }
+
+      // Get user data
+      const cash = userData.cash || 0;
+      const holdings = userData.holdings || {};
+      const shorts = userData.shorts || {};
+      const marginEnabled = userData.marginEnabled || false;
+      const marginUsed = userData.marginUsed || 0;
+      const tierMultiplier = userData.tierMultiplier || 0.25;
+      const dailyImpact = userData.dailyImpact || {};
+      const userDailyImpact = dailyImpact[todayDate] || {};
+      const tickerDailyImpact = userDailyImpact[ticker] || 0;
+
+      // Enforce 3-second cooldown
+      const lastTradeTime = userData.lastTradeTime;
+      if (lastTradeTime) {
+        const lastTradeMs = lastTradeTime.toMillis ? lastTradeTime.toMillis() : lastTradeTime;
+        const timeSinceLastTrade = now - lastTradeMs;
+        const COOLDOWN_MS = 3000;
+
+        if (timeSinceLastTrade < COOLDOWN_MS) {
+          const remainingMs = COOLDOWN_MS - timeSinceLastTrade;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Trade cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`
+          );
+        }
+      }
+
+      // Check trade velocity (15 trades per ticker per hour)
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const oneHourAgo = new Date(now - ONE_HOUR_MS);
+      const recentTickerTradesSnap = await db.collection('trades')
+        .where('uid', '==', uid)
+        .where('ticker', '==', ticker)
+        .where('timestamp', '>', oneHourAgo)
+        .get();
+
+      const tradesInLastHour = recentTickerTradesSnap.size;
+      const MAX_TRADES_PER_HOUR = 15;
+
+      if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour.`
+        );
+      }
+
+      const priceImpactMultiplier = 1.0 + (tradesInLastHour * 0.3);
+
+      // Calculate price impact
+      let priceImpact = 0;
+      let newPrice = currentPrice;
+      let executionPrice = currentPrice;
+      let totalCost = 0;
+      let newCash = cash;
+      let newHoldings = { ...holdings };
+      let newShorts = { ...shorts };
+      let newMarginUsed = marginUsed;
+
+      // BUY LOGIC
+      if (action === 'buy') {
+        // Calculate price impact
+        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+        priceImpact *= priceImpactMultiplier;
+        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+        priceImpact = Math.min(priceImpact, maxImpact);
+
+        newPrice = currentPrice + priceImpact;
+        executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
+        totalCost = executionPrice * amount;
+
+        // CRITICAL: Check dailyImpact BEFORE executing
+        const impactPercent = priceImpact / currentPrice;
+        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
+          );
+        }
+
+        // Validate cash (with margin if enabled)
+        if (cash < 0) {
+          throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
+        }
+
+        const maxBorrowable = Math.max(0, cash * tierMultiplier);
+        const availableMargin = Math.max(0, maxBorrowable - marginUsed);
+
+        if (!marginEnabled && cash < totalCost) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+        }
+
+        if (marginEnabled && cash + availableMargin < totalCost) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds (including margin).');
+        }
+
+        // Execute buy
+        const cashNeeded = Math.max(0, totalCost - cash);
+        const marginToUse = marginEnabled ? Math.min(cashNeeded, availableMargin) : 0;
+
+        newCash = Math.max(0, cash - totalCost + marginToUse);
+        newMarginUsed = marginUsed + marginToUse;
+        newHoldings[ticker] = (holdings[ticker] || 0) + amount;
+
+        // Update dailyImpact
+        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
+
+      // SELL LOGIC
+      } else if (action === 'sell') {
+        // Validate holdings
+        const currentHoldings = holdings[ticker] || 0;
+        if (currentHoldings < amount) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient shares to sell.');
+        }
+
+        // Enforce 45-second hold period
+        const lastBuyTime = userData.lastBuyTime?.[ticker];
+        if (lastBuyTime) {
+          const lastBuyMs = lastBuyTime.toMillis ? lastBuyTime.toMillis() : lastBuyTime;
+          const timeSinceBuy = now - lastBuyMs;
+          const HOLD_PERIOD_MS = 45 * 1000;
+
+          if (timeSinceBuy < HOLD_PERIOD_MS) {
+            const remainingMs = HOLD_PERIOD_MS - timeSinceBuy;
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+            );
+          }
+        }
+
+        // Calculate price impact (negative for sell)
+        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+        priceImpact *= priceImpactMultiplier;
+        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+        priceImpact = Math.min(priceImpact, maxImpact);
+
+        newPrice = currentPrice - priceImpact;
+        executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
+        totalCost = executionPrice * amount;
+
+        // CRITICAL: Check dailyImpact BEFORE executing
+        const impactPercent = priceImpact / currentPrice;
+        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
+          );
+        }
+
+        // Execute sell
+        newCash = cash + totalCost;
+        newHoldings[ticker] = currentHoldings - amount;
+        if (newHoldings[ticker] === 0) {
+          delete newHoldings[ticker];
+        }
+
+        // Update dailyImpact
+        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
+
+      // SHORT LOGIC
+      } else if (action === 'short') {
+        // Validate margin requirement
+        if (cash < 0) {
+          throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
+        }
+
+        const marginRequired = currentPrice * amount * 0.5; // 50% margin
+        if (cash < marginRequired) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient margin for short position.');
+        }
+
+        // Check short cooldown
+        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+        const MAX_SHORTS_BEFORE_COOLDOWN = 2;
+        const shortHistory = userData.shortHistory?.[ticker] || [];
+        const recentShorts = shortHistory.filter(ts => now - ts < TWELVE_HOURS_MS);
+
+        if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
+          const oldestRecent = Math.min(...recentShorts);
+          const unlocksAt = oldestRecent + TWELVE_HOURS_MS;
+          const remainingMs = unlocksAt - now;
+          const hours = Math.floor(remainingMs / 3600000);
+          const minutes = Math.ceil((remainingMs % 3600000) / 60000);
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Short limit reached. You can short ${ticker} again in ${hours}h ${minutes}m.`
+          );
+        }
+
+        // Calculate price impact (negative for short)
+        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+        priceImpact *= priceImpactMultiplier;
+        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+        priceImpact = Math.min(priceImpact, maxImpact);
+
+        newPrice = currentPrice - priceImpact;
+        executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
+        totalCost = executionPrice * amount;
+
+        // CRITICAL: Check dailyImpact BEFORE executing
+        const impactPercent = priceImpact / currentPrice;
+        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
+          );
+        }
+
+        // Execute short
+        newCash = cash + totalCost - marginRequired;
+
+        const existingShort = shorts[ticker];
+        if (existingShort) {
+          const totalShares = existingShort.shares + amount;
+          const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
+          newShorts[ticker] = {
+            shares: totalShares,
+            costBasis: totalValue / totalShares,
+            openedAt: existingShort.openedAt
+          };
+        } else {
+          newShorts[ticker] = {
+            shares: amount,
+            costBasis: executionPrice,
+            openedAt: admin.firestore.Timestamp.now()
+          };
+        }
+
+        // Update dailyImpact
+        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
+
+      // COVER LOGIC
+      } else if (action === 'cover') {
+        // Validate short position exists
+        const shortPosition = shorts[ticker];
+        if (!shortPosition || shortPosition.shares < amount) {
+          throw new functions.https.HttpsError('failed-precondition', 'No short position to cover.');
+        }
+
+        // Enforce 45-second hold period
+        const openedAt = shortPosition.openedAt;
+        if (openedAt) {
+          const openedMs = openedAt.toMillis ? openedAt.toMillis() : openedAt;
+          const timeSinceOpen = now - openedMs;
+          const HOLD_PERIOD_MS = 45 * 1000;
+
+          if (timeSinceOpen < HOLD_PERIOD_MS) {
+            const remainingMs = HOLD_PERIOD_MS - timeSinceOpen;
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+            );
+          }
+        }
+
+        // Calculate price impact (positive for cover)
+        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+        priceImpact *= priceImpactMultiplier;
+        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+        priceImpact = Math.min(priceImpact, maxImpact);
+
+        newPrice = currentPrice + priceImpact;
+        executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
+        totalCost = executionPrice * amount;
+
+        // CRITICAL: Check dailyImpact BEFORE executing
+        const impactPercent = priceImpact / currentPrice;
+        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
+          );
+        }
+
+        // Calculate profit/loss
+        const costBasis = shortPosition.costBasis;
+        const profit = (costBasis - executionPrice) * amount;
+        const marginToReturn = currentPrice * amount * 0.5;
+
+        // Execute cover
+        newCash = cash - totalCost + marginToReturn + profit;
+        newShorts[ticker] = {
+          ...shortPosition,
+          shares: shortPosition.shares - amount
+        };
+        if (newShorts[ticker].shares === 0) {
+          delete newShorts[ticker];
+        }
+
+        // Update dailyImpact
+        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
+      }
+
+      // Update market prices
+      const newPrices = { ...prices, [ticker]: newPrice };
+      transaction.update(marketRef, { prices: newPrices });
+
+      // Update user data
+      dailyImpact[todayDate] = userDailyImpact;
+      const updates = {
+        cash: newCash,
+        holdings: newHoldings,
+        shorts: newShorts,
+        marginUsed: newMarginUsed,
+        dailyImpact,
+        lastTradeTime: admin.firestore.Timestamp.now()
+      };
+
+      if (action === 'buy') {
+        updates[`lastBuyTime.${ticker}`] = admin.firestore.Timestamp.now();
+      }
+
+      if (action === 'short') {
+        const shortHistory = userData.shortHistory || {};
+        const tickerHistory = shortHistory[ticker] || [];
+        tickerHistory.push(now);
+        updates.shortHistory = { ...shortHistory, [ticker]: tickerHistory };
+      }
+
+      transaction.update(userRef, updates);
+
+      // Log trade
+      const tradeRecord = {
+        uid,
+        ticker,
+        action,
+        amount,
+        price: executionPrice,
+        priceImpact: priceImpact / currentPrice,
+        totalValue: totalCost,
+        cashBefore: cash,
+        cashAfter: newCash,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        ip: context.rawRequest?.ip || 'unknown'
+      };
+      const tradeRef = db.collection('trades').doc();
+      transaction.set(tradeRef, tradeRecord);
+
+      return {
+        success: true,
+        executionPrice,
+        newPrice,
+        priceImpact,
+        totalCost,
+        newCash,
+        remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker]
+      };
+    });
+
+    return result;
+
+  } catch (error) {
+    // Re-throw HttpsErrors as-is
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Trade execution error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Trade execution failed: ' + error.message
     );
   }
 });

@@ -163,7 +163,8 @@ export const calculateMarginStatus = (userData, prices) => {
   });
 
   // Portfolio value = cash + holdings - margin debt
-  const grossValue = cash + holdingsValue;
+  // Fix: Ensure cash never goes negative in calculation (prevents false liquidations)
+  const grossValue = Math.max(0, cash) + holdingsValue;
   const portfolioValue = grossValue - marginUsed;
 
   // Equity ratio = portfolio value / gross value (how much you actually own)

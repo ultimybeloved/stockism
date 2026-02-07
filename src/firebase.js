@@ -41,6 +41,7 @@ export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
 // Trade validation & anti-exploit
 export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
+export const executeTradeFunction = httpsCallable(functions, 'executeTrade'); // NEW: Server-side trade execution
 export const banUserFunction = httpsCallable(functions, 'banUser');
 // Ladder game
 export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
