@@ -2105,7 +2105,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     let holdingsValue = 0;
     for (const [ticker, holdingData] of Object.entries(holdings)) {
       const currentPrice = prices[ticker] || 0;
-      const shares = typeof holdingData === 'number' ? holdingData : (holdingData.shares || 0);
+      const shares = typeof holdingData === 'number' ? holdingData : (holdingData?.shares || 0);
       holdingsValue += currentPrice * shares;
     }
 
