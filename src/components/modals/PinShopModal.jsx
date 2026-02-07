@@ -4,7 +4,7 @@ import { ACHIEVEMENTS } from '../../constants/achievements';
 import { formatCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
 
-const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
+const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading }) => {
   const [selectedPin, setSelectedPin] = useState(null);
   const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'manage'
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot', item: pin | slotType, price: number }
@@ -309,9 +309,10 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase }) => {
                 </button>
                 <button
                   onClick={handleConfirmPurchase}
-                  className="flex-1 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                  disabled={purchaseLoading}
+                  className="flex-1 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-50"
                 >
-                  Confirm
+                  {purchaseLoading ? 'Buying...' : 'Confirm'}
                 </button>
               </div>
             </div>

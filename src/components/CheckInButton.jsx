@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toDateString } from '../utils/date';
 
-const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
+const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode, loading }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [timeUntilReset, setTimeUntilReset] = useState('');
 
@@ -46,13 +46,16 @@ const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode }) => {
         onClick={handleButtonClick}
         onMouseEnter={() => hasCheckedIn && setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        disabled={loading}
         className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm ${
           hasCheckedIn
             ? 'bg-slate-400 cursor-pointer'
-            : 'bg-orange-600 hover:bg-orange-700'
+            : loading
+              ? 'bg-orange-600 opacity-50 cursor-not-allowed'
+              : 'bg-orange-600 hover:bg-orange-700'
         } text-white`}
       >
-        {hasCheckedIn ? 'Checked In ✓' : 'Daily Check-in (+$300)'}
+        {loading ? 'Checking in...' : hasCheckedIn ? 'Checked In ✓' : 'Daily Check-in (+$300)'}
       </button>
 
       {showTooltip && hasCheckedIn && (

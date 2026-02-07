@@ -1058,6 +1058,10 @@ export default function App() {
   }, [user]);
 
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState({});
+  const setLoadingKey = useCallback((key, value) => {
+    setActionLoading(prev => ({ ...prev, [key]: value }));
+  }, []);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -1995,6 +1999,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('leaveCrew', true);
     try {
       const oldCrew = CREW_MAP[userData.crew];
       const result = await leaveCrewFunction({});
@@ -2004,6 +2009,8 @@ export default function App() {
     } catch (err) {
       console.error('Failed to leave crew:', err);
       showNotification('error', 'Failed to leave crew');
+    } finally {
+      setLoadingKey('leaveCrew', false);
     }
   }, [user, userData]);
 
@@ -2011,6 +2018,7 @@ export default function App() {
   const handlePinAction = useCallback(async (action, payload, cost) => {
     if (!user || !userData) return;
 
+    if (action === 'buyPin' || action === 'buySlot') setLoadingKey('pinAction', true);
     try {
       const userRef = doc(db, 'users', user.uid);
 
@@ -2043,6 +2051,8 @@ export default function App() {
     } catch (err) {
       console.error('Pin action failed:', err);
       showNotification('error', 'Action failed');
+    } finally {
+      setLoadingKey('pinAction', false);
     }
   }, [user, userData]);
 
@@ -2050,6 +2060,7 @@ export default function App() {
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
 
+    setLoadingKey('claimMission', true);
     try {
       const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
       addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
@@ -2070,6 +2081,8 @@ export default function App() {
     } catch (err) {
       console.error('Failed to claim reward:', err);
       showNotification('error', 'Failed to claim reward');
+    } finally {
+      setLoadingKey('claimMission', false);
     }
   }, [user, userData, addActivity]);
 
@@ -2077,6 +2090,7 @@ export default function App() {
   const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
 
+    setLoadingKey('claimWeeklyMission', true);
     try {
       const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
       addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
@@ -2097,6 +2111,8 @@ export default function App() {
     } catch (err) {
       console.error('Failed to claim weekly reward:', err);
       showNotification('error', 'Failed to claim reward');
+    } finally {
+      setLoadingKey('claimWeeklyMission', false);
     }
   }, [user, userData, addActivity]);
 
@@ -2169,6 +2185,7 @@ export default function App() {
 
     // SECURITY FIX: Execute trade server-side with atomic transaction
     // Server validates, applies dailyImpact limits, handles trailing effects
+    setLoadingKey('trade', true);
     let result;
     try {
       result = await executeTradeFunction({ ticker, action, amount });
@@ -2185,6 +2202,7 @@ export default function App() {
       } else {
         showNotification('error', 'Cannot execute trade at this time');
       }
+      setLoadingKey('trade', false);
       return;
     }
 
@@ -2613,8 +2631,9 @@ export default function App() {
         } catch {}
       }
 
-    
+
     }
+    setLoadingKey('trade', false);
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
 
   // Update portfolio value and record history periodically
@@ -2945,6 +2964,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('checkin', true);
     try {
       // Check if user wants ladder game top-up (first-time only)
       const ladderRef = doc(db, 'ladderGameUsers', user.uid);
@@ -3022,6 +3042,8 @@ export default function App() {
       } else {
         showNotification('error', 'Failed to check in. Please try again.');
       }
+    } finally {
+      setLoadingKey('checkin', false);
     }
   }, [user, userData, addActivity]);
 
@@ -3081,6 +3103,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('buyIPO', true);
     try {
       await buyIPOSharesFunction({ ticker, quantity });
 
@@ -3091,6 +3114,8 @@ export default function App() {
       console.error('IPO purchase failed:', err);
       const msg = err?.message || 'IPO purchase failed!';
       showNotification('error', msg);
+    } finally {
+      setLoadingKey('buyIPO', false);
     }
   }, [user, userData, addActivity]);
 
@@ -3153,6 +3178,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('placeBet', true);
     try {
       await placeBetFunction({ predictionId, option, amount });
 
@@ -3172,6 +3198,8 @@ export default function App() {
       console.error('Bet placement failed:', error);
       const msg = error?.message || 'Bet failed';
       showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
+    } finally {
+      setLoadingKey('placeBet', false);
     }
   }, [user, userData, predictions, addActivity]);
 
@@ -3226,11 +3254,14 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('enableMargin', true);
     try {
       await toggleMarginFunction({ enable: true });
       showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
     } catch (err) {
       showNotification('error', err?.message || 'Failed to enable margin');
+    } finally {
+      setLoadingKey('enableMargin', false);
     }
   }, [user, userData]);
 
@@ -3243,12 +3274,15 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('disableMargin', true);
     try {
       await toggleMarginFunction({ enable: false });
       showNotification('success', 'Margin trading disabled.');
       setShowLending(false);
     } catch (err) {
       showNotification('error', err?.message || 'Failed to disable margin');
+    } finally {
+      setLoadingKey('disableMargin', false);
     }
   }, [user, userData]);
 
@@ -3267,6 +3301,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('repayMargin', true);
     try {
       const result = await repayMarginFunction({ amount });
       const { repaid, remaining } = result.data;
@@ -3278,6 +3313,8 @@ export default function App() {
       }
     } catch (err) {
       showNotification('error', err?.message || 'Failed to repay margin');
+    } finally {
+      setLoadingKey('repayMargin', false);
     }
   }, [user, userData]);
 
@@ -3291,6 +3328,7 @@ export default function App() {
       return;
     }
 
+    setLoadingKey('bailout', true);
     try {
       const currentCrew = userData.crew;
       const result = await bailoutFunction({});
@@ -3304,6 +3342,8 @@ export default function App() {
     } catch (err) {
       console.error('Bailout failed:', err);
       showNotification('error', 'Bailout failed. Please try again.');
+    } finally {
+      setLoadingKey('bailout', false);
     }
   }, [user, userData]);
 
@@ -3727,6 +3767,7 @@ export default function App() {
               lastCheckin={userData?.lastCheckin}
               onCheckin={handleDailyCheckin}
               darkMode={darkMode}
+              loading={actionLoading.checkin}
             />
           </div>
           <div className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`} onClick={() => !isGuest && setShowPortfolio(true)}>
@@ -3965,6 +4006,9 @@ export default function App() {
               onDisableMargin={handleDisableMargin}
               onRepayMargin={handleRepayMargin}
               isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+              enableLoading={actionLoading.enableMargin}
+              disableLoading={actionLoading.disableMargin}
+              repayLoading={actionLoading.repayMargin}
             />
           )}
           {showCrewSelection && (
@@ -3975,6 +4019,7 @@ export default function App() {
           darkMode={darkMode}
           userData={userData}
           isGuest={isGuest}
+          leaveLoading={actionLoading.leaveCrew}
         />
       )}
       {showPinShop && !isGuest && (
@@ -3983,6 +4028,7 @@ export default function App() {
           darkMode={darkMode}
           userData={userData}
           onPurchase={handlePinAction}
+          purchaseLoading={actionLoading.pinAction}
         />
       )}
       {showDailyMissions && (
@@ -3995,6 +4041,8 @@ export default function App() {
           onClaimWeeklyReward={handleClaimWeeklyMissionReward}
           portfolioValue={portfolioValue}
           isGuest={isGuest}
+          claimLoading={actionLoading.claimMission}
+          claimWeeklyLoading={actionLoading.claimWeeklyMission}
         />
       )}
       {showBailout && !isGuest && (userData?.cash || 0) < 0 && (
@@ -4027,7 +4075,8 @@ export default function App() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowBailout(false)}
-                className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+                disabled={actionLoading.bailout}
+                className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}
               >
                 Cancel
               </button>
@@ -4036,9 +4085,10 @@ export default function App() {
                   await handleBailout();
                   setShowBailout(false);
                 }}
-                className={`flex-1 py-2 rounded-sm text-white font-semibold ${userData?.colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'}`}
+                disabled={actionLoading.bailout}
+                className={`flex-1 py-2 rounded-sm text-white font-semibold ${userData?.colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} disabled:opacity-50`}
               >
-                Accept Bailout
+                {actionLoading.bailout ? 'Processing...' : 'Accept Bailout'}
               </button>
             </div>
           </div>
@@ -4139,20 +4189,22 @@ export default function App() {
             <div className="flex gap-3">
               <button
                 onClick={() => setTradeConfirmation(null)}
-                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                disabled={actionLoading.trade}
+                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'} disabled:opacity-50`}
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleTrade(tradeConfirmation.ticker, tradeConfirmation.action, tradeConfirmation.amount);
+                onClick={async () => {
+                  await handleTrade(tradeConfirmation.ticker, tradeConfirmation.action, tradeConfirmation.amount);
                   setTradeConfirmation(null);
                 }}
+                disabled={actionLoading.trade}
                 className={`flex-1 py-2 rounded-sm font-semibold text-white ${
                   tradeConfirmation.action === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
-                }`}
+                } disabled:opacity-50`}
               >
-                Confirm {tradeConfirmation.action === 'buy' ? 'Buy' : 'Sell'}
+                {actionLoading.trade ? 'Executing...' : `Confirm ${tradeConfirmation.action === 'buy' ? 'Buy' : 'Sell'}`}
               </button>
             </div>
           </div>
@@ -4186,18 +4238,20 @@ export default function App() {
             <div className="flex gap-3">
               <button
                 onClick={() => setBetConfirmation(null)}
-                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                disabled={actionLoading.placeBet}
+                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'} disabled:opacity-50`}
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
+                onClick={async () => {
+                  await handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
                   setBetConfirmation(null);
                 }}
-                className="flex-1 py-2 rounded-sm font-semibold text-white bg-orange-600 hover:bg-orange-700"
+                disabled={actionLoading.placeBet}
+                className="flex-1 py-2 rounded-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
               >
-                Place Bet
+                {actionLoading.placeBet ? 'Placing Bet...' : 'Place Bet'}
               </button>
             </div>
           </div>

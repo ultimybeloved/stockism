@@ -5,7 +5,7 @@ import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 
-const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, portfolioValue, isGuest }) => {
+const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, portfolioValue, isGuest, claimLoading, claimWeeklyLoading }) => {
   const [activeTab, setActiveTab] = useState('daily');
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
@@ -523,9 +523,10 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                   {mission.complete && !mission.claimed && (
                     <button
                       onClick={() => onClaimReward(mission.id, mission.reward)}
-                      className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={claimLoading}
+                      className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
                     >
-                      Claim Reward
+                      {claimLoading ? 'Claiming...' : 'Claim Reward'}
                     </button>
                   )}
                   {mission.claimed && (
@@ -592,9 +593,10 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                     {mission.complete && !mission.claimed && (
                       <button
                         onClick={() => onClaimWeeklyReward(mission.id, mission.reward)}
-                        className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-purple-600 hover:bg-purple-700 text-white"
+                        disabled={claimWeeklyLoading}
+                        className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
                       >
-                        Claim Reward
+                        {claimWeeklyLoading ? 'Claiming...' : 'Claim Reward'}
                       </button>
                     )}
                     {mission.claimed && (

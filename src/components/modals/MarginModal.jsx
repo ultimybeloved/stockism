@@ -143,7 +143,7 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   };
 };
 
-const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin }) => {
+const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading }) => {
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 
@@ -274,9 +274,10 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
                     </button>
                     <button
                       onClick={() => { onEnableMargin(); setShowConfirmEnable(false); }}
-                      className="flex-1 py-2 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={enableLoading}
+                      className="flex-1 py-2 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
                     >
-                      Yes, Enable
+                      {enableLoading ? 'Enabling...' : 'Yes, Enable'}
                     </button>
                   </div>
                 </div>
@@ -407,10 +408,10 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
                   </p>
                   <button
                     onClick={() => { onRepayMargin(repayAmount); setRepayAmount(0); }}
-                    disabled={repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
+                    disabled={repayLoading || repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
                     className={`w-full py-2 font-semibold rounded-sm text-white disabled:opacity-50 disabled:cursor-not-allowed ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'}`}
                   >
-                    Repay {formatCurrency(repayAmount)}
+                    {repayLoading ? 'Repaying...' : `Repay ${formatCurrency(repayAmount)}`}
                   </button>
                 </div>
               )}
@@ -437,11 +438,12 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
               {(marginStatus.marginUsed || 0) < 0.01 && (
                 <button
                   onClick={onDisableMargin}
+                  disabled={disableLoading}
                   className={`w-full py-2 text-sm font-semibold rounded-sm ${
                     darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                  }`}
+                  } disabled:opacity-50`}
                 >
-                  Disable Margin Trading
+                  {disableLoading ? 'Disabling...' : 'Disable Margin Trading'}
                 </button>
               )}
             </div>

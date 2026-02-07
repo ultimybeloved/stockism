@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CREWS, CREW_MAP } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 
-const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, isGuest }) => {
+const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, isGuest, leaveLoading }) => {
   const [selectedCrew, setSelectedCrew] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [leavingCrew, setLeavingCrew] = useState(false);
@@ -28,8 +28,8 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
     onClose();
   };
 
-  const handleLeave = () => {
-    onLeave();
+  const handleLeave = async () => {
+    await onLeave();
     onClose();
   };
 
@@ -100,9 +100,10 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, is
               </button>
               <button
                 onClick={handleLeave}
-                className="px-6 py-2 rounded-sm bg-red-600 hover:bg-red-700 text-white font-semibold"
+                disabled={leaveLoading}
+                className="px-6 py-2 rounded-sm bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-50"
               >
-                Leave Crew
+                {leaveLoading ? 'Leaving...' : 'Leave Crew'}
               </button>
             </div>
           </div>
