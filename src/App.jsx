@@ -2474,416 +2474,75 @@ export default function App() {
       }
 
     } else if (action === 'sell') {
-      const currentHoldings = userData.holdings[ticker] || 0;
-      if (currentHoldings < amount) {
-        showNotification('error', 'Not enough shares!');
-        return;
-      }
+      // Server already handled: validation, price updates, trailing effects, cash/holdings updates
+      // Client handles: missions, cost basis, achievements, activity feed
 
-      // Holding period check - must hold shares for 45 seconds before selling
-      const HOLDING_PERIOD_MS = 45 * 1000; // 45 seconds
-      const lastBuyTime = toMillis(userData.lastBuyTime?.[ticker]);
-      const timeSinceBuy = now - lastBuyTime;
-      
-      if (lastBuyTime > 0 && timeSinceBuy < HOLDING_PERIOD_MS) {
-        const remainingMs = HOLDING_PERIOD_MS - timeSinceBuy;
-        const remainingMins = Math.ceil(remainingMs / 60000);
-        const remainingSecs = Math.ceil((remainingMs % 60000) / 1000);
-        const timeStr = remainingMins > 1 ? `${remainingMins} min` : `${remainingSecs} sec`;
-        showNotification('error', `Hold period: wait ${timeStr} before selling ${ticker}`);
-        return;
-      }
-
-      // Get liquidity for this character
-      const liquidity = getCharacterLiquidity(ticker);
-
-      // Get today's date for daily impact tracking
-      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
-      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-
-      // Calculate price impact using square root model (selling pushes price down, with daily impact limit + velocity multiplier)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
-      const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
-      
-      // You get the BID price (mid - half spread) - market friction
-      const { bid } = getBidAskPrices(newMidPrice);
-      const sellPrice = Math.max(MIN_PRICE, bid);
-      const totalRevenue = sellPrice * amount;
-
-      // Market settles at new mid price
-      const settledPrice = Math.round(newMidPrice * 100) / 100;
-
-      // Build market updates
-      // SECURITY: Use local timestamp for price history (displayed in charts)
-      const priceHistoryTimestamp = Date.now();
-      const marketUpdates = {
-        [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
-      };
-
-      // Apply trailing stock factor effects (recursive with depth limit)
-      const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
-        console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
-
-        if (depth > 3 || visited.has(sourceTicker)) {
-          console.log(`[TRAILING] Skipping ${sourceTicker} - depth=${depth}, inVisited=${visited.has(sourceTicker)}`);
-          return; // Max 3 levels deep, prevent cycles
-        }
-        visited.add(sourceTicker);
-
-        const character = CHARACTER_MAP[sourceTicker];
-        if (!character?.trailingFactors) {
-          console.log(`[TRAILING] ${sourceTicker} has no trailingFactors`);
-          return;
-        }
-
-        const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
-        console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
-
-        character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          // Skip if we've already updated this ticker in this batch
-          if (visited.has(relatedTicker)) {
-            console.log(`[TRAILING] Skipping ${relatedTicker} - already visited`);
-            return;
-          }
-
-          // Get current price - check marketUpdates first, then fall back to prices
-          const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-          if (oldRelatedPrice) {
-            const trailingChange = priceChangePercent * coefficient;
-            const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
-            const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
-
-            console.log(`[TRAILING] Updating ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
-
-            marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
-            marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
-              timestamp: priceHistoryTimestamp,
-              price: settledRelatedPrice
-            });
-
-            // Recursively apply trailing effects with shared visited set (no cloning)
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
-          }
-        });
-      };
-
-      console.log(`[TRAILING START] About to call applyTrailingEffects for ${ticker}: $${price} -> $${settledPrice}`);
-      applyTrailingEffects(ticker, price, settledPrice);
-      console.log(`[TRAILING END] Finished applyTrailingEffects for ${ticker}`);
-
-      // Atomic price + history update
-      await updateDoc(marketRef, marketUpdates);
-
-      // Calculate profit percentage for Bull Run achievement
+      // Calculate profit metrics for achievements
       const costBasis = userData.costBasis?.[ticker] || 0;
-      const profitPercent = costBasis > 0 ? ((sellPrice - costBasis) / costBasis) * 100 : 0;
-      
-      // Check for Diamond Hands - sold at profit after 30%+ dip
+      const profitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
+
+      // Check for Diamond Hands achievement
       const lowestWhileHolding = userData.lowestWhileHolding?.[ticker] || costBasis;
       const dipPercent = costBasis > 0 ? ((costBasis - lowestWhileHolding) / costBasis) * 100 : 0;
       const isDiamondHands = dipPercent >= 30 && profitPercent > 0;
-      
-      // Update cost basis if selling all shares, otherwise keep it
-      const newHoldings = currentHoldings - amount;
-      const costBasisUpdate = newHoldings <= 0 ? 0 : userData.costBasis?.[ticker] || 0;
-      const lowestUpdate = newHoldings <= 0 ? null : userData.lowestWhileHolding?.[ticker];
 
-      // Track daily mission progress
-      const today = getTodayDateString();
-      const weekId = getWeekId();
-
-      // MARGIN DEBT REPAYMENT: Sale proceeds pay down margin debt first
-      const currentMarginUsed = userData.marginUsed || 0;
-      let marginPayment = 0;
-      let cashGain = totalRevenue;
-
-      if (currentMarginUsed > 0) {
-        // Pay down margin debt first
-        marginPayment = Math.min(totalRevenue, currentMarginUsed);
-        cashGain = totalRevenue - marginPayment;
-      }
-
-      // Track actual impact applied for anti-manipulation limits
-      const rawImpactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + rawImpactPercent;
-
-      // Build update data
-      // SECURITY: Use server timestamp for lastTradeTime
-      const sellUpdateData = {
-        cash: userData.cash + cashGain,
-        marginUsed: currentMarginUsed - marginPayment,
-        [`holdings.${ticker}`]: newHoldings,
-        [`costBasis.${ticker}`]: costBasisUpdate,
-        [`lastTickerTradeTime.${ticker}`]: serverTime,
-        lastTradeTime: serverTime,
+      // Update missions and clear cost basis if selling all shares
+      const totalHoldings = newHoldings[ticker] || 0;
+      const updateData = {
         totalTrades: increment(1),
-        // Daily impact tracking (anti-manipulation)
-        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
-        // Daily missions
         [`dailyMissions.${today}.tradesCount`]: increment(1),
         [`dailyMissions.${today}.tradeVolume`]: increment(amount),
         [`dailyMissions.${today}.soldAny`]: true,
-        // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalRevenue),
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
         [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
         [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
-      
-      // Clear lowestWhileHolding if selling all shares
-      if (newHoldings <= 0) {
-        sellUpdateData[`lowestWhileHolding.${ticker}`] = deleteField();
+
+      if (totalHoldings <= 0) {
+        updateData[`costBasis.${ticker}`] = 0;
+        updateData[`lowestWhileHolding.${ticker}`] = deleteField();
       }
 
-      // Update user with trade count and daily mission progress
-      await updateDoc(userRef, sellUpdateData);
+      await updateDoc(userRef, updateData);
 
-      await updateDoc(marketRef, { totalTrades: increment(1) });
-
-      // Record portfolio history (using new cash after margin payment)
-      const newCash = userData.cash + cashGain;
-      const newMarginUsed = currentMarginUsed - marginPayment;
-      const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
-        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares - amount : shares), 0);
+      // Record portfolio history
+      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
+        const price = priceUpdates[t] || prices[t] || 0;
+        return sum + price * shares;
+      }, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
 
-      // Log transaction for auditing
+      // Log transaction
       await logTransaction(db, user.uid, 'SELL', {
         ticker,
         shares: amount,
-        pricePerShare: sellPrice,
-        totalRevenue,
+        pricePerShare: executionPrice,
+        totalRevenue: totalCost,
         costBasis,
         profitPercent: Math.round(profitPercent * 100) / 100,
         cashBefore: userData.cash,
         cashAfter: newCash,
-        marginPaid: marginPayment,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-
-      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
-      recordTradeFunction({
-        ticker,
-        action: 'SELL',
-        amount,
-        price: sellPrice,
-        totalValue: totalRevenue,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
-
-      // Check achievements (pass profit percent for Bull Run, isDiamondHands for Diamond Hands)
-      const earnedAchievements = await checkAndAwardAchievements(userRef, {
-        ...userData,
-        cash: newCash,
-        marginUsed: newMarginUsed,
-        holdings: { ...userData.holdings, [ticker]: newHoldings },
-        totalTrades: (userData.totalTrades || 0) + 1
-      }, prices, { tradeValue: totalRevenue, sellProfitPercent: profitPercent, isDiamondHands });
-      
-      const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
-      
-      // Add to activity feed
-      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
-      addActivity('trade', `Sold ${amount} $${ticker} (${charName}) @ ${formatCurrency(sellPrice)} (${profitText})`);
-      
-      if (earnedAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Sold ${amount} ${ticker}`);
-        // Send achievement alert to Discord
-        try {
-          achievementAlertFunction({
-            achievementId: earnedAchievements[0],
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {}); // Fire and forget
-        } catch {}
-      } else {
-        let message = `Sold ${amount} ${ticker} @ ${formatCurrency(sellPrice)} (${impactPercent}% impact)`;
-        if (marginPayment > 0) {
-          message += ` • Paid ${formatCurrency(marginPayment)} margin debt`;
-        }
-
-        // Warn if approaching daily impact limit
-        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
-          message += ' • Daily impact limit reached for this ticker';
-        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
-          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
-          message += ` • ${remaining}% impact remaining today`;
-        }
-
-        showNotification('success', message);
-      }
-
-      // Send trade spike alert if price moved 1%+
-      if (Math.abs(parseFloat(impactPercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker,
-            priceBefore: price,
-            priceAfter: settledPrice,
-            tradeType: 'SELL',
-            shares: amount
-          }).catch(() => {}); // Fire and forget
-        } catch {}
-      }
-
-    } else if (action === 'short') {
-      // SHORTING: Borrow shares and sell them, hoping to buy back cheaper
-      // Get liquidity for this character
-      const liquidity = getCharacterLiquidity(ticker);
-
-      // Get today's date for daily impact tracking
-      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
-      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-
-      // Calculate price impact (shorting = selling pressure, with daily impact limit + velocity multiplier)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
-      const newMidPrice = Math.max(MIN_PRICE, price - priceImpact);
-      
-      // Entry price is the bid (you're selling borrowed shares)
-      const { bid } = getBidAskPrices(newMidPrice);
-      const shortPrice = Math.max(MIN_PRICE, bid);
-      const marginRequired = shortPrice * amount * SHORT_MARGIN_REQUIREMENT;
-
-      // Check if user has enough cash OR can use margin
-      const cashAvailable = userData.cash || 0;
-      const marginEnabled = userData.marginEnabled || false;
-      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
-      const availableMargin = marginStatus.availableMargin || 0;
-
-      // Cash-based margin: use all available margin (already capped by cash * tierMultiplier)
-      const maxAvailableForShort = cashAvailable + (marginEnabled ? availableMargin : 0);
-
-      if (maxAvailableForShort < marginRequired) {
-        showNotification('error', `Need ${formatCurrency(marginRequired)} margin (50% of position). Max available: ${formatCurrency(maxAvailableForShort)}`);
-        return;
-      }
-
-      // Determine how much to use from cash vs margin
-      let cashToUse = Math.min(cashAvailable, marginRequired);
-      let marginToUse = marginRequired - cashToUse;
-      
-      const existingShort = userData.shorts?.[ticker] || { shares: 0, entryPrice: 0, margin: 0 };
-
-      const totalShares = existingShort.shares + amount;
-      const avgEntryPrice = existingShort.shares > 0
-        ? ((existingShort.entryPrice * existingShort.shares) + (shortPrice * amount)) / totalShares
-        : shortPrice;
-
-      // Deduct cash and/or margin used
-      const newCash = userData.cash - cashToUse;
-      const currentMarginUsed = userData.marginUsed || 0;
-      const newMarginUsed = currentMarginUsed + marginToUse;
-
-      if (isNaN(newCash) || isNaN(newMarginUsed)) {
-        showNotification('error', 'Calculation error, try again');
-        return;
-      }
-
-      const settledPrice = Math.round(newMidPrice * 100) / 100;
-
-      // Weekly mission tracking for shorts
-      const today = getTodayDateString();
-      const weekId = getWeekId();
-
-      // Track actual impact applied for anti-manipulation limits
-      const rawImpactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + rawImpactPercent;
-
-      // Update shortHistory for rate limiting
-      const currentShortHistory = userData.shortHistory?.[ticker] || [];
-      const updatedShortHistory = [...currentShortHistory, Date.now()].slice(-2); // Keep last 2 timestamps
-
-      // SECURITY: Use server timestamp
-      await updateDoc(userRef, {
-        cash: newCash,
-        marginUsed: newMarginUsed,
-        [`shorts.${ticker}`]: {
-          shares: totalShares,
-          entryPrice: Math.round(avgEntryPrice * 100) / 100,
-          margin: existingShort.margin + marginRequired,
-          openedAt: existingShort.openedAt || serverTime
-        },
-        [`lastTickerTradeTime.${ticker}`]: serverTime,
-        lastTradeTime: serverTime,
-        totalTrades: increment(1),
-        // Daily impact tracking (anti-manipulation)
-        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
-        // Short history tracking (anti-manipulation rate limiting)
-        [`shortHistory.${ticker}`]: updatedShortHistory,
-        // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * shortPrice),
-        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
-      });
-
-      // Atomic price + history update
-      const priceHistoryTimestamp = Date.now();
-      await updateDoc(marketRef, {
-        [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount),
-        totalTrades: increment(1),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
-      });
-
-      // Record portfolio history
-      const newPortfolioValue = newCash + Object.entries(userData.holdings || {})
-        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
-      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
-
-      // Log transaction for auditing
-      await logTransaction(db, user.uid, 'SHORT_OPEN', {
-        ticker,
-        shares: amount,
-        entryPrice: shortPrice,
-        marginRequired,
-        cashUsed: cashToUse,
-        marginUsed: marginToUse,
-        totalShares,
-        avgEntryPrice: Math.round(avgEntryPrice * 100) / 100,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        marginUsedAfter: newMarginUsed,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      });
-
-      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
-      recordTradeFunction({
-        ticker,
-        action: 'SHORT',
-        amount,
-        price: shortPrice,
-        totalValue: marginRequired,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
 
       // Check achievements
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
         cash: newCash,
-        marginUsed: newMarginUsed,
+        holdings: newHoldings,
         totalTrades: (userData.totalTrades || 0) + 1
-      }, prices, { tradeValue: marginRequired });
+      }, priceUpdates, { tradeValue: totalCost, sellProfitPercent: profitPercent, isDiamondHands });
 
-      const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
-      
-      // Add to activity feed
+      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `🩳 Shorted ${amount} $${ticker} (${charName}) @ ${formatCurrency(shortPrice)}`);
-      
+      const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
+      addActivity('trade', `Sold ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitText})`);
+
       if (earnedAchievements.length > 0) {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Shorted ${amount} ${ticker}`);
+        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         try {
           achievementAlertFunction({
             achievementId: earnedAchievements[0],
@@ -2892,36 +2551,101 @@ export default function App() {
           }).catch(() => {});
         } catch {}
       } else {
-        let shortMessage = `Shorted ${amount} ${ticker} @ ${formatCurrency(shortPrice)} (${impactPercent}% impact)`;
-        if (marginToUse > 0) {
-          shortMessage += ` • Used ${formatCurrency(marginToUse)} margin`;
+        let message = `Sold ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitText}, ${impactPercent}% impact)`;
+        if (remainingDailyImpact <= 0) {
+          message += ' • Daily impact limit reached';
+        } else if (remainingDailyImpact < 0.02) {
+          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
         }
-
-        // Warn if approaching daily impact limit
-        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
-          shortMessage += ' • Daily impact limit reached for this ticker';
-        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
-          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
-          shortMessage += ` • ${remaining}% impact remaining today`;
-        }
-
-        // Warn if this is the 2nd short (cooldown now active)
-        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-        const recentShorts = updatedShortHistory.filter(ts => Date.now() - ts < TWELVE_HOURS_MS);
-        if (recentShorts.length === 2) {
-          shortMessage += ' • ⚠️ Next short on this ticker will be blocked for 12 hours';
-        }
-
-        showNotification('success', shortMessage);
+        showNotification('success', message);
       }
 
-      // Send trade spike alert if price moved 1%+
       if (Math.abs(parseFloat(impactPercent)) >= 1) {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: price,
-            priceAfter: settledPrice,
+            priceBefore: prices[ticker],
+            priceAfter: tradedTickerPrice,
+            tradeType: 'SELL',
+            shares: amount
+          }).catch(() => {});
+        } catch {}
+      }
+
+    } else if (action === 'short') {
+      // Server already handled: validation, price updates, trailing effects, cash/holdings/shorts updates
+      // Client handles: missions, achievements, activity feed
+
+      // Update missions
+      const updateData = {
+        totalTrades: increment(1),
+        [`dailyMissions.${today}.tradesCount`]: increment(1),
+        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
+        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
+        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
+      };
+
+      await updateDoc(userRef, updateData);
+
+      // Record portfolio history
+      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
+        const price = priceUpdates[t] || prices[t] || 0;
+        return sum + price * shares;
+      }, 0);
+      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+
+      // Log transaction
+      await logTransaction(db, user.uid, 'SHORT', {
+        ticker,
+        shares: amount,
+        pricePerShare: executionPrice,
+        totalCost,
+        cashBefore: userData.cash,
+        cashAfter: newCash,
+        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
+      });
+
+      // Check achievements
+      const earnedAchievements = await checkAndAwardAchievements(userRef, {
+        ...userData,
+        cash: newCash,
+        shorts: newShorts,
+        totalTrades: (userData.totalTrades || 0) + 1
+      }, priceUpdates, { tradeValue: totalCost });
+
+      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
+      addActivity('trade', `Shorted ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)}`);
+
+      if (earnedAchievements.length > 0) {
+        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
+        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+        try {
+          achievementAlertFunction({
+            achievementId: earnedAchievements[0],
+            achievementName: achievement.name,
+            achievementDescription: achievement.description
+          }).catch(() => {});
+        } catch {}
+      } else {
+        let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
+        if (remainingDailyImpact <= 0) {
+          message += ' • Daily impact limit reached';
+        } else if (remainingDailyImpact < 0.02) {
+          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
+        }
+        showNotification('success', message);
+      }
+
+      if (Math.abs(parseFloat(impactPercent)) >= 1) {
+        try {
+          tradeSpikeAlertFunction({
+            ticker,
+            priceBefore: prices[ticker],
+            priceAfter: tradedTickerPrice,
             tradeType: 'SHORT',
             shares: amount
           }).catch(() => {});
@@ -2929,174 +2653,67 @@ export default function App() {
       }
 
     } else if (action === 'cover') {
-      // COVER: Buy back shares to close short position
-      const existingShort = userData.shorts?.[ticker];
-      
-      if (!existingShort || existingShort.shares < amount) {
-        showNotification('error', 'No short position to cover!');
-        return;
-      }
+      // Server already handled: validation, price updates, trailing effects, cash/shorts updates
+      // Client handles: missions, achievements, activity feed
 
-      // Holding period check - must hold short for 45 seconds before covering
-      const HOLDING_PERIOD_MS = 45 * 1000; // 45 seconds
-      const openedAt = existingShort.openedAt || 0;
-      const timeSinceOpen = now - openedAt;
-      
-      if (openedAt > 0 && timeSinceOpen < HOLDING_PERIOD_MS) {
-        const remainingMs = HOLDING_PERIOD_MS - timeSinceOpen;
-        const remainingMins = Math.ceil(remainingMs / 60000);
-        const remainingSecs = Math.ceil((remainingMs % 60000) / 1000);
-        const timeStr = remainingMins > 1 ? `${remainingMins} min` : `${remainingSecs} sec`;
-        showNotification('error', `Hold period: wait ${timeStr} before covering ${ticker}`);
-        return;
-      }
+      // Calculate profit for notifications
+      const shortPosition = userData.shorts?.[ticker] || {};
+      const costBasis = shortPosition.costBasis || shortPosition.entryPrice || 0;
+      const profit = (costBasis - executionPrice) * amount;
+      const profitPercent = costBasis > 0 ? ((costBasis - executionPrice) / costBasis) * 100 : 0;
+      const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : `-${formatCurrency(Math.abs(profit))}`;
 
-      // Get liquidity for this character
-      const liquidity = getCharacterLiquidity(ticker);
-
-      // Get today's date for daily impact tracking
-      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
-      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-
-      // Calculate price INCREASE (covering = buying pressure, with daily impact limit + velocity multiplier)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
-      const newMidPrice = price + priceImpact;
-      
-      // You pay the ASK price to cover (buying back shares)
-      const { ask } = getBidAskPrices(newMidPrice);
-      const coverPrice = ask;
-      
-      // Profit/loss = entry price - cover price (per share)
-      const profitPerShare = existingShort.entryPrice - coverPrice;
-      const profit = profitPerShare * amount;
-      
-      // Get back margin + profit (or margin - loss)
-      const marginReturned = (existingShort.margin / existingShort.shares) * amount;
-      const cashBack = marginReturned + profit;
-      
-      if (userData.cash + cashBack < 0) {
-        showNotification('error', 'Insufficient funds to cover losses!');
-        return;
-      }
-
-      const remainingShares = existingShort.shares - amount;
-      const remainingMargin = existingShort.margin - marginReturned;
-      const settledPrice = Math.round(newMidPrice * 100) / 100;
-
-      // Weekly mission tracking for covers
-      const today = getTodayDateString();
-      const weekId = getWeekId();
-
-      // MARGIN DEBT REPAYMENT: Cover proceeds pay down margin debt first
-      const currentMarginUsed = userData.marginUsed || 0;
-      let coverMarginPayment = 0;
-      let coverCashGain = cashBack;
-
-      if (currentMarginUsed > 0 && cashBack > 0) {
-        // Pay down margin debt first (only if cashBack is positive)
-        coverMarginPayment = Math.min(cashBack, currentMarginUsed);
-        coverCashGain = cashBack - coverMarginPayment;
-      }
-
-      // Track actual impact applied for anti-manipulation limits
-      const rawImpactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + rawImpactPercent;
-
-      // Update user: add cash gain after margin payment
-      // SECURITY: Use server timestamp
+      // Update missions
       const updateData = {
-        cash: userData.cash + coverCashGain,
-        marginUsed: currentMarginUsed - coverMarginPayment,
-        [`lastTickerTradeTime.${ticker}`]: serverTime,
-        lastTradeTime: serverTime,
-        // Daily impact tracking (anti-manipulation)
-        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
-        // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(amount * coverPrice),
+        totalTrades: increment(1),
+        [`dailyMissions.${today}.tradesCount`]: increment(1),
+        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
+        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
         [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
         [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
 
-      if (remainingShares <= 0) {
-        updateData[`shorts.${ticker}`] = { shares: 0, entryPrice: 0, margin: 0 };
-      } else {
-        updateData[`shorts.${ticker}`] = {
-          shares: remainingShares,
-          entryPrice: existingShort.entryPrice,
-          margin: remainingMargin,
-          openedAt: existingShort.openedAt
-        };
-      }
-
-      // Add trade count
-      updateData.totalTrades = increment(1);
-
       await updateDoc(userRef, updateData);
 
-      // Atomic price + history update
-      const priceHistoryTimestamp = Date.now();
-      await updateDoc(marketRef, {
-        [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount),
-        totalTrades: increment(1),
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
-      });
-
-      // Record portfolio history (using new cash after margin payment)
-      const newCoverCash = userData.cash + coverCashGain;
-      const newCoverMarginUsed = currentMarginUsed - coverMarginPayment;
-      const newPortfolioValue = newCoverCash + Object.entries(userData.holdings || {})
-        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * shares, 0);
+      // Record portfolio history
+      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
+        const price = priceUpdates[t] || prices[t] || 0;
+        return sum + price * shares;
+      }, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
 
-      // Log transaction for auditing
-      await logTransaction(db, user.uid, 'SHORT_CLOSE', {
+      // Log transaction
+      await logTransaction(db, user.uid, 'COVER', {
         ticker,
         shares: amount,
-        entryPrice: existingShort.entryPrice,
-        coverPrice,
-        profitPerShare: Math.round(profitPerShare * 100) / 100,
-        totalProfit: Math.round(profit * 100) / 100,
-        marginReturned: Math.round(marginReturned * 100) / 100,
-        cashBack: Math.round(cashBack * 100) / 100,
-        marginPaid: coverMarginPayment,
+        pricePerShare: executionPrice,
+        totalCost,
+        costBasis,
+        profit,
+        profitPercent: Math.round(profitPercent * 100) / 100,
         cashBefore: userData.cash,
-        cashAfter: newCoverCash,
+        cashAfter: newCash,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
-      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
-      recordTradeFunction({
-        ticker,
-        action: 'COVER',
-        amount,
-        price: coverPrice,
-        totalValue: amount * coverPrice,
-        cashBefore: userData.cash,
-        cashAfter: newCoverCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
-
-      // Check achievements (pass short profit for Cold Blooded achievement)
+      // Check achievements
+      const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
-        cash: newCoverCash,
-        marginUsed: newCoverMarginUsed,
+        cash: newCash,
+        shorts: newShorts,
         totalTrades: (userData.totalTrades || 0) + 1
-      }, prices, { shortProfit: profit });
+      }, priceUpdates, { tradeValue: totalCost, isColdBlooded });
 
-      const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
-      const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : formatCurrency(profit);
-
-      // Add to activity feed
+      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `🩳 Covered ${amount} $${ticker} (${charName}) @ ${formatCurrency(coverPrice)} (${profitMsg})`);
+      addActivity('trade', `Covered ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitMsg})`);
 
-      if (earnedAchievements.length > 0 && earnedAchievements.includes('COLD_BLOODED')) {
+      if (isColdBlooded && earnedAchievements.includes('COLD_BLOODED')) {
         const achievement = ACHIEVEMENTS['COLD_BLOODED'];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! ${profitMsg} profit from short!`);
+        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         try {
           achievementAlertFunction({
             achievementId: 'COLD_BLOODED',
@@ -3116,34 +2733,28 @@ export default function App() {
           }).catch(() => {});
         } catch {}
       } else {
-        let coverMessage = `Covered ${amount} ${ticker} @ ${formatCurrency(coverPrice)} (${profitMsg}, +${impactPercent}% impact)`;
-        if (coverMarginPayment > 0) {
-          coverMessage += ` • Paid ${formatCurrency(coverMarginPayment)} margin debt`;
+        let message = `Covered ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitMsg}, ${impactPercent}% impact)`;
+        if (remainingDailyImpact <= 0) {
+          message += ' • Daily impact limit reached';
+        } else if (remainingDailyImpact < 0.02) {
+          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
         }
-
-        // Warn if approaching daily impact limit
-        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
-          coverMessage += ' • Daily impact limit reached for this ticker';
-        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
-          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
-          coverMessage += ` • ${remaining}% impact remaining today`;
-        }
-
-        showNotification(profit >= 0 ? 'success' : 'error', coverMessage);
+        showNotification(profit >= 0 ? 'success' : 'error', message);
       }
 
-      // Send trade spike alert if price moved 1%+
       if (Math.abs(parseFloat(impactPercent)) >= 1) {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: price,
-            priceAfter: settledPrice,
+            priceBefore: prices[ticker],
+            priceAfter: tradedTickerPrice,
             tradeType: 'COVER',
             shares: amount
           }).catch(() => {});
         } catch {}
       }
+
+    
     }
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
 
