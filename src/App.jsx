@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -2308,46 +2308,20 @@ export default function App() {
       return;
     }
 
-    // SECURITY: Server-side validation BEFORE executing trade
-    // This enforces cooldown, validates cash/holdings using server timestamp
-    let priceImpactMultiplier = 1.0;
-    let tradesInLastHour = 0;
-    let serverValidatedPrice = null;
+    // SECURITY FIX: Execute trade server-side with atomic transaction
+    // Server validates, applies dailyImpact limits, handles trailing effects
+    let result;
     try {
-      const validationResult = await validateTradeFunction({ ticker, action, amount });
-      if (!validationResult.data.valid) {
-        showNotification('error', 'Trade validation failed');
-        return;
-      }
-      console.log('[TRADE VALIDATED]', validationResult.data);
-
-      // Extract server-validated current price (prevents stale client data exploits)
-      serverValidatedPrice = validationResult.data.currentPrice;
-
-      // Extract velocity multiplier from validation result
-      priceImpactMultiplier = validationResult.data.priceImpactMultiplier || 1.0;
-      tradesInLastHour = validationResult.data.tradesInLastHour || 0;
-
-      // Show warning if user is approaching velocity limit
-      if (priceImpactMultiplier > 1.0) {
-        const multiplierPercent = ((priceImpactMultiplier - 1) * 100).toFixed(0);
-        showNotification('warning', `⚠️ Repeated trading: Price impact +${multiplierPercent}% (${tradesInLastHour} trades on ${ticker} in last hour)`);
-      }
+      result = await executeTradeFunction({ ticker, action, amount });
+      console.log('[TRADE EXECUTED]', result.data);
     } catch (error) {
-      console.error('[TRADE VALIDATION ERROR]', error);
-      const message = error.message || 'Trade validation failed';
-      // Extract user-friendly error message
-      if (message.includes('Trade cooldown:')) {
-        showNotification('error', message.replace(/^.*: /, ''));
-      } else if (message.includes('Hold period:')) {
-        showNotification('error', message.replace(/^.*: /, ''));
-      } else if (message.includes('Short limit')) {
-        // Show the full short limit message with time remaining
-        showNotification('error', message.replace(/^.*: /, ''));
-      } else if (message.includes('Trade velocity limit')) {
-        // Show velocity limit error
-        showNotification('error', message.replace(/^.*: /, ''));
-      } else if (message.includes('Insufficient')) {
+      console.error('[TRADE EXECUTION ERROR]', error);
+      const message = error.message || 'Trade execution failed';
+
+      // Extract user-friendly error messages
+      if (message.includes('cooldown:') || message.includes('Hold period:') ||
+          message.includes('Short limit') || message.includes('velocity limit') ||
+          message.includes('Insufficient') || message.includes('Daily impact limit')) {
         showNotification('error', message.replace(/^.*: /, ''));
       } else {
         showNotification('error', 'Cannot execute trade at this time');
@@ -2355,222 +2329,57 @@ export default function App() {
       return;
     }
 
-    // SECURITY: Use server timestamp via Firestore serverTimestamp()
-    // This prevents client-side clock manipulation
-    const serverTime = serverTimestamp();
+    // Extract execution results from server
+    const {
+      executionPrice,
+      newPrice: tradedTickerPrice,
+      priceImpact,
+      totalCost,
+      newCash,
+      newHoldings,
+      newShorts,
+      newMarginUsed,
+      priceUpdates, // All affected tickers (including trailing effects)
+      remainingDailyImpact
+    } = result.data;
 
-    // Trade cooldown - client-side check as backup
-    const now = Date.now();
-    const lastTrade = toMillis(userData.lastTradeTime);
-    const cooldownMs = 3000; // 3 second cooldown
-
-    if (now - lastTrade < cooldownMs) {
-      const remaining = Math.ceil((cooldownMs - (now - lastTrade)) / 1000);
-      showNotification('error', `Please wait ${remaining}s between trades`);
-      return;
-    }
-
-    const asset = CHARACTER_MAP[ticker];
-
-    // SECURITY FIX: Use server-validated price to prevent stale data exploits
-    // Client-side priceHistory can be days/weeks old if user doesn't refresh
-    let price;
-    if (serverValidatedPrice && !isNaN(serverValidatedPrice)) {
-      price = serverValidatedPrice;
-      console.log(`[TRADE] Using server-validated price: ${price}`);
-    } else {
-      // Fallback to client data (should never happen but prevents crashes)
-      const history = priceHistory[ticker];
-      if (history && history.length > 0) {
-        price = history[history.length - 1].price;
-      } else {
-        price = prices[ticker] || asset?.basePrice;
-      }
-      console.warn(`[TRADE] Fallback to client price: ${price}`);
-    }
-
-    if (!price || isNaN(price)) {
-      showNotification('error', 'Price unavailable, try again');
-      return;
-    }
-    
-    const basePrice = asset?.basePrice || price;
     const userRef = doc(db, 'users', user.uid);
-    const marketRef = doc(db, 'market', 'current');
+    const now = Date.now();
+    const today = getTodayDateString();
+    const weekId = getWeekId();
 
     if (action === 'buy') {
-      // Get liquidity for this character
-      const liquidity = getCharacterLiquidity(ticker);
-
-      // Get today's date for daily impact tracking
-      const todayDate = new Date().toISOString().split('T')[0]; // "2026-01-31"
-      const userDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-
-      // Calculate price impact using square root model (with daily impact limit + velocity multiplier)
-      const priceImpact = calculatePriceImpact(price, amount, liquidity, userDailyImpact, priceImpactMultiplier);
-      const newMidPrice = price + priceImpact;
-      
-      // You pay the ASK price (mid + half spread) - this is realistic market friction
-      const { ask } = getBidAskPrices(newMidPrice);
-      const buyPrice = ask;
-      const totalCost = buyPrice * amount;
-      
-      // Check if user has enough cash or can use margin
-      const cashAvailable = userData.cash || 0;
-      const marginEnabled = userData.marginEnabled || false;
-      const marginUsed = userData.marginUsed || 0;
-      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
-      const availableMargin = marginStatus.availableMargin || 0;
-
-      let cashToUse = 0;
-      let marginToUse = 0;
-
-      if (cashAvailable >= totalCost) {
-        // Can pay with cash only
-        cashToUse = totalCost;
-        marginToUse = 0;
-      } else if (marginEnabled && availableMargin > 0) {
-        // Cash-based margin: use all available margin (already capped by cash * tierMultiplier)
-        const maxBuyingPower = cashAvailable + availableMargin;
-
-        if (totalCost > maxBuyingPower) {
-          showNotification('error', `Insufficient funds! Need ${formatCurrency(totalCost)}. Max buying power: ${formatCurrency(maxBuyingPower)} (${formatCurrency(cashAvailable)} cash + ${formatCurrency(availableMargin)} margin)`);
-          return;
-        }
-
-        // Use cash first, then margin
-        cashToUse = cashAvailable;
-        marginToUse = totalCost - cashAvailable;
-      } else {
-        // Not enough funds even with margin
-        if (marginEnabled) {
-          showNotification('error', `Insufficient funds! Need ${formatCurrency(totalCost)}, have ${formatCurrency(cashAvailable)} cash`);
-        } else {
-          showNotification('error', 'Insufficient funds!');
-        }
-        return;
-      }
-
-      // Market settles at new mid price (not ask)
-      const settledPrice = Math.round(newMidPrice * 100) / 100;
-
-      // Build market updates
-      // SECURITY: Use local timestamp for price history (displayed in charts)
-      // but validate on server that trades aren't happening too quickly
-      // COLLISION PROTECTION: Prevent timestamp collisions during rapid trades
-      const history = priceHistory[ticker] || [];
-      const lastTimestamp = history.length > 0 ? history[history.length - 1].timestamp : 0;
-      const now = Date.now();
-      const priceHistoryTimestamp = now > lastTimestamp ? now : lastTimestamp + 1;
-      const marketUpdates = {
-        [`prices.${ticker}`]: settledPrice,
-        [`volume.${ticker}`]: increment(amount), // Track trading volume
-        [`priceHistory.${ticker}`]: arrayUnion({ timestamp: priceHistoryTimestamp, price: settledPrice })
-      };
-
-      // Apply trailing stock factor effects (recursive with depth limit)
-      const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, depth = 0, visited = new Set()) => {
-        console.log(`[TRAILING] depth=${depth}, ticker=${sourceTicker}, oldPrice=${sourceOldPrice}, newPrice=${sourceNewPrice}, visited=${Array.from(visited).join(',')}`);
-
-        if (depth > 3 || visited.has(sourceTicker)) {
-          console.log(`[TRAILING] Skipping ${sourceTicker} - depth=${depth}, inVisited=${visited.has(sourceTicker)}`);
-          return; // Max 3 levels deep, prevent cycles
-        }
-        visited.add(sourceTicker);
-
-        const character = CHARACTER_MAP[sourceTicker];
-        if (!character?.trailingFactors) {
-          console.log(`[TRAILING] ${sourceTicker} has no trailingFactors`);
-          return;
-        }
-
-        const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
-        console.log(`[TRAILING] ${sourceTicker} price changed ${(priceChangePercent * 100).toFixed(2)}%, processing ${character.trailingFactors.length} followers`);
-
-        character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-          // Skip if we've already updated this ticker in this batch
-          if (visited.has(relatedTicker)) {
-            console.log(`[TRAILING] Skipping ${relatedTicker} - already visited`);
-            return;
-          }
-
-          // Get current price - check marketUpdates first, then fall back to prices
-          const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-          if (oldRelatedPrice) {
-            const trailingChange = priceChangePercent * coefficient;
-            const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
-            const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
-
-            console.log(`[TRAILING] Updating ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
-
-            marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
-            marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
-              timestamp: priceHistoryTimestamp,
-              price: settledRelatedPrice
-            });
-
-            // Recursively apply trailing effects with shared visited set (no cloning)
-            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, depth + 1, visited);
-          }
-        });
-      };
-
-      console.log(`[TRAILING START] About to call applyTrailingEffects for ${ticker}: $${price} -> $${settledPrice}`);
-      applyTrailingEffects(ticker, price, settledPrice);
-      console.log(`[TRAILING END] Finished applyTrailingEffects for ${ticker}`);
-
-      // Atomic price + history update (prevents data loss if one write fails)
-      await updateDoc(marketRef, marketUpdates);
+      // Server already handled: price updates, trailing effects, cash/holdings/margin updates
+      // Client handles: missions, cost basis, achievements, activity feed
 
       // Calculate new cost basis (weighted average)
       const currentHoldings = userData.holdings[ticker] || 0;
       const currentCostBasis = userData.costBasis?.[ticker] || 0;
-      const newHoldings = currentHoldings + amount;
+      const totalHoldings = newHoldings[ticker] || 0;
       const newCostBasis = currentHoldings > 0
-        ? ((currentCostBasis * currentHoldings) + (buyPrice * amount)) / newHoldings
-        : buyPrice;
-      
+        ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings
+        : executionPrice;
+
       // Track lowest price while holding for Diamond Hands achievement
       const currentLowest = userData.lowestWhileHolding?.[ticker];
-      const newLowest = currentHoldings === 0 
-        ? buyPrice  // First buy, set to buy price
-        : Math.min(currentLowest || buyPrice, buyPrice);  // Keep tracking lowest
+      const newLowest = currentHoldings === 0
+        ? executionPrice
+        : Math.min(currentLowest || executionPrice, executionPrice);
 
-      // Check if this is a crew member purchase for daily missions
-      const today = getTodayDateString();
-      const weekId = getWeekId();
+      // Check mission criteria
       const userCrew = userData.crew;
       const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
       const isBuyingCrewMember = crewMembers.includes(ticker);
       const currentCrewSharesBought = userData.dailyMissions?.[today]?.crewSharesBought || 0;
-
-      // Check if buying a rival (any crew member that's not user's crew)
       const isRival = !isBuyingCrewMember && Object.values(CREWS).some(crew => crew.members.includes(ticker));
+      const isUnderdog = prices[ticker] < 20;
+      const tradeValue = amount * executionPrice;
 
-      // Check if underdog (price under $20)
-      const isUnderdog = price < 20;
-
-      // Calculate trade value for weekly missions
-      const tradeValue = amount * buyPrice;
-
-      // Track actual impact applied for anti-manipulation limits
-      const rawImpactPercent = Math.abs(priceImpact / price);
-      const newDailyImpact = userDailyImpact + rawImpactPercent;
-
-      // Update user with trade count, cost basis, last buy time, and daily/weekly mission progress
-      // SECURITY: Use server timestamp for lastTradeTime to prevent race conditions
+      // Update user missions and cost basis
       const updateData = {
-        cash: cashAvailable - cashToUse,
-        marginUsed: marginUsed + marginToUse,
-        [`holdings.${ticker}`]: newHoldings,
         [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
         [`lowestWhileHolding.${ticker}`]: Math.round(newLowest * 100) / 100,
-        [`lastBuyTime.${ticker}`]: serverTime,
-        [`lastTickerTradeTime.${ticker}`]: serverTime,
-        lastTradeTime: serverTime,
         totalTrades: increment(1),
-        // Daily impact tracking (anti-manipulation)
-        [`dailyImpact.${todayDate}.${ticker}`]: newDailyImpact,
         // Daily missions
         [`dailyMissions.${today}.tradesCount`]: increment(1),
         [`dailyMissions.${today}.tradeVolume`]: increment(amount),
@@ -2581,92 +2390,71 @@ export default function App() {
         [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
         [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
       };
-      
-      // Mark crew member purchase if applicable
+
       if (isBuyingCrewMember) {
         updateData[`dailyMissions.${today}.boughtCrewMember`] = true;
         updateData[`dailyMissions.${today}.crewSharesBought`] = currentCrewSharesBought + amount;
       }
-      
-      // Mark rival purchase if applicable
       if (isRival) {
         updateData[`dailyMissions.${today}.boughtRival`] = true;
       }
-      
-      // Mark underdog purchase if applicable
       if (isUnderdog) {
         updateData[`dailyMissions.${today}.boughtUnderdog`] = true;
       }
 
       await updateDoc(userRef, updateData);
 
-      await updateDoc(marketRef, { totalTrades: increment(1) });
-      
       // Record portfolio history
-      const newPortfolioValue = (cashAvailable - cashToUse) + Object.entries(userData.holdings || {})
-        .reduce((sum, [t, shares]) => sum + (prices[t] || 0) * (t === ticker ? shares + amount : shares), 0);
+      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
+        const price = priceUpdates[t] || prices[t] || 0;
+        return sum + price * shares;
+      }, 0);
       await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
-      
+
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'BUY', {
         ticker,
         shares: amount,
-        pricePerShare: buyPrice,
+        pricePerShare: executionPrice,
         totalCost,
-        cashUsed: cashToUse,
-        marginUsed: marginToUse,
-        cashBefore: cashAvailable,
-        cashAfter: cashAvailable - cashToUse,
+        cashBefore: userData.cash,
+        cashAfter: newCash,
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
-
-      // SECURITY: Record trade in Cloud Functions for auditing & fraud detection
-      recordTradeFunction({
-        ticker,
-        action: 'BUY',
-        amount,
-        price: buyPrice,
-        totalValue: totalCost,
-        cashBefore: cashAvailable,
-        cashAfter: cashAvailable - cashToUse,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      }).catch(err => console.error('[RECORD TRADE ERROR]', err));
 
       // Check achievements (pass trade value for Shark achievement)
       const earnedAchievements = await checkAndAwardAchievements(userRef, {
         ...userData,
-        cash: cashAvailable - cashToUse,
-        holdings: { ...userData.holdings, [ticker]: (userData.holdings[ticker] || 0) + amount },
+        cash: newCash,
+        holdings: newHoldings,
         totalTrades: (userData.totalTrades || 0) + 1
-      }, prices, { tradeValue: totalCost });
-      
-      const impactPercent = ((newMidPrice - price) / price * 100).toFixed(2);
-      
+      }, priceUpdates, { tradeValue: totalCost });
+
+      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+
       // Add to activity feed
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `Bought ${amount} $${ticker} (${charName}) @ ${formatCurrency(buyPrice)}`);
-      
+      addActivity('trade', `Bought ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)}`);
+
       if (earnedAchievements.length > 0) {
         const achievement = ACHIEVEMENTS[earnedAchievements[0]];
         addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
         showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`);
-        // Send achievement alert to Discord
         try {
           achievementAlertFunction({
             achievementId: earnedAchievements[0],
             achievementName: achievement.name,
             achievementDescription: achievement.description
-          }).catch(() => {}); // Fire and forget
+          }).catch(() => {});
         } catch {}
       } else {
-        let message = `Bought ${amount} ${ticker} @ ${formatCurrency(buyPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
+        let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
 
-        // Warn if approaching daily impact limit
-        if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER) {
-          message += ' • Daily impact limit reached for this ticker';
-        } else if (newDailyImpact >= MAX_DAILY_IMPACT_PER_USER * 0.8) {
-          const remaining = ((MAX_DAILY_IMPACT_PER_USER - newDailyImpact) * 100).toFixed(1);
-          message += ` • ${remaining}% impact remaining today`;
+        // Show remaining daily impact
+        if (remainingDailyImpact <= 0) {
+          message += ' • Daily impact limit reached';
+        } else if (remainingDailyImpact < 0.02) {
+          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
         }
 
         showNotification('success', message);
@@ -2677,11 +2465,11 @@ export default function App() {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: price,
-            priceAfter: settledPrice,
+            priceBefore: prices[ticker],
+            priceAfter: tradedTickerPrice,
             tradeType: 'BUY',
             shares: amount
-          }).catch(() => {}); // Fire and forget
+          }).catch(() => {});
         } catch {}
       }
 

@@ -8,6 +8,9 @@ const db = admin.firestore();
 // Import bot trader
 const { botTrader } = require('./botTrader');
 
+// Import character data for trailing effects
+const { CHARACTERS } = require('./characters');
+
 // Constants
 const STARTING_CASH = 1000;
 // Admin UID from environment variable (set in functions/.env)
@@ -2682,9 +2685,65 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
       }
 
-      // Update market prices
-      const newPrices = { ...prices, [ticker]: newPrice };
-      transaction.update(marketRef, { prices: newPrices });
+      // Apply trailing effects to related characters
+      const MIN_PRICE = 0.01;
+      const CHARACTER_MAP = CHARACTERS.reduce((map, char) => {
+        map[char.ticker] = char;
+        return map;
+      }, {});
+
+      const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, priceUpdates, depth = 0, visited = new Set()) => {
+        if (depth > 3 || visited.has(sourceTicker)) {
+          return; // Max 3 levels deep, prevent cycles
+        }
+        visited.add(sourceTicker);
+
+        const character = CHARACTER_MAP[sourceTicker];
+        if (!character?.trailingFactors) {
+          return;
+        }
+
+        const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
+
+        character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
+          if (visited.has(relatedTicker)) {
+            return; // Skip already visited
+          }
+
+          // Get current price - check priceUpdates first, then fall back to prices
+          const oldRelatedPrice = priceUpdates[relatedTicker] || prices[relatedTicker];
+          if (oldRelatedPrice) {
+            const trailingChange = priceChangePercent * coefficient;
+            const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
+            const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
+
+            priceUpdates[relatedTicker] = settledRelatedPrice;
+
+            // Recursively apply trailing effects
+            applyTrailingEffects(relatedTicker, oldRelatedPrice, settledRelatedPrice, priceUpdates, depth + 1, visited);
+          }
+        });
+      };
+
+      // Start with the traded ticker's price change
+      const priceUpdates = { [ticker]: newPrice };
+      applyTrailingEffects(ticker, currentPrice, newPrice, priceUpdates);
+
+      // Build market updates (prices + price history)
+      const timestamp = Date.now();
+      const marketUpdates = {
+        prices: { ...prices, ...priceUpdates }
+      };
+
+      // Add price history for all updated tickers
+      Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
+        marketUpdates[`priceHistory.${updatedTicker}`] = admin.firestore.FieldValue.arrayUnion({
+          timestamp,
+          price: updatedPrice
+        });
+      });
+
+      transaction.update(marketRef, marketUpdates);
 
       // Update user data
       dailyImpact[todayDate] = userDailyImpact;
@@ -2734,6 +2793,10 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         priceImpact,
         totalCost,
         newCash,
+        newHoldings,
+        newShorts,
+        newMarginUsed,
+        priceUpdates, // All affected tickers (including trailing effects)
         remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker]
       };
     });
