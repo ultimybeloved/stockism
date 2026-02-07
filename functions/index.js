@@ -2334,7 +2334,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
  * Executes trades atomically in a Firestore transaction
  * Prevents price manipulation by enforcing 10% daily impact limit
  */
-exports.executeTrade = functions.https.onCall(async (data, context) => {
+exports.executeTrade = functions.region('us-central1').https.onCall(async (data, context) => {
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -2840,8 +2840,25 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       const userData = userDoc.data();
       const now = new Date();
       const today = now.toISOString().split('T')[0];
-      const lastCheckin = userData.lastCheckin?.toDate();
-      const lastCheckinDate = lastCheckin ? lastCheckin.toISOString().split('T')[0] : null;
+
+      // Handle both string (old format) and Timestamp (new format)
+      let lastCheckinDate = null;
+      if (userData.lastCheckin) {
+        if (typeof userData.lastCheckin === 'string') {
+          // Old format: "Mon Jan 27 2025" from toDateString()
+          // Convert to YYYY-MM-DD for comparison
+          const parsedDate = new Date(userData.lastCheckin);
+          if (!isNaN(parsedDate.getTime())) {
+            lastCheckinDate = parsedDate.toISOString().split('T')[0];
+          }
+        } else if (typeof userData.lastCheckin.toDate === 'function') {
+          // New format: Firestore Timestamp
+          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0];
+        } else if (userData.lastCheckin.seconds) {
+          // Fallback: Plain timestamp object with seconds
+          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0];
+        }
+      }
 
       // Check if already checked in today
       if (lastCheckinDate === today) {
