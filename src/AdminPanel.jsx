@@ -5413,7 +5413,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
 
       {/* BADGES TAB */}
       {activeTab === 'badges' && (
-        <div className="space-y-4 p-4">
+        <div className="space-y-4 p-4" onClick={e => e.stopPropagation()}>
           <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Achievement Badges</h3>
           {!badgesLoaded ? (
             <p className={mutedClass}>Loading...</p>
