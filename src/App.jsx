@@ -2400,18 +2400,11 @@ export default function App() {
       }
       addActivity('checkin', `${activityMsg} (Day ${totalCheckins})`);
 
-      // Show achievement notification if earned
-      if (newAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[newAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 Achievement Unlocked: ${achievement.emoji} ${achievement.name}!`);
-      } else {
-        let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
-        if (ladderTopUpAmount > 0) {
-          notificationMsg += ` | Ladder Game topped up to $100`;
-        }
-        showNotification('success', notificationMsg);
+      let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
+      if (ladderTopUpAmount > 0) {
+        notificationMsg += ` | Ladder Game topped up to $100`;
       }
+      showNotification('success', notificationMsg);
     } catch (error) {
       console.error('[CHECKIN ERROR]', error);
       if (error.code === 'failed-precondition' && error.message.includes('Already checked in')) {
