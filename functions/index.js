@@ -2549,14 +2549,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // CRITICAL: Check dailyImpact BEFORE executing
-        const impactPercent = priceImpact / currentPrice;
+        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        let impactPercent = priceImpact / currentPrice;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
-          );
+          priceImpact = 0;
+          impactPercent = 0;
+          newPrice = currentPrice;
+          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2);
+          totalCost = executionPrice * amount;
         }
 
         // Validate cash (with margin if enabled)
@@ -2620,14 +2620,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
         totalCost = executionPrice * amount;
 
-        // CRITICAL: Check dailyImpact BEFORE executing
-        const impactPercent = priceImpact / currentPrice;
+        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        let impactPercent = priceImpact / currentPrice;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
-          );
+          priceImpact = 0;
+          impactPercent = 0;
+          newPrice = currentPrice;
+          executionPrice = currentPrice * (1 - BID_ASK_SPREAD / 2);
+          totalCost = executionPrice * amount;
         }
 
         // Execute sell
@@ -2680,14 +2680,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
         totalCost = executionPrice * amount;
 
-        // CRITICAL: Check dailyImpact BEFORE executing
-        const impactPercent = priceImpact / currentPrice;
+        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        let impactPercent = priceImpact / currentPrice;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
-          );
+          priceImpact = 0;
+          impactPercent = 0;
+          newPrice = currentPrice;
+          executionPrice = currentPrice * (1 - BID_ASK_SPREAD / 2);
+          totalCost = executionPrice * amount;
         }
 
         // Execute short
@@ -2750,14 +2750,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // CRITICAL: Check dailyImpact BEFORE executing
-        const impactPercent = priceImpact / currentPrice;
+        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        let impactPercent = priceImpact / currentPrice;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          const remainingImpact = MAX_DAILY_IMPACT - tickerDailyImpact;
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            `Daily impact limit exceeded. You have ${(remainingImpact * 100).toFixed(1)}% remaining impact for ${ticker} today.`
-          );
+          priceImpact = 0;
+          impactPercent = 0;
+          newPrice = currentPrice;
+          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2);
+          totalCost = executionPrice * amount;
         }
 
         // Calculate margin to return (based on entry price, not current price)
@@ -4392,7 +4392,7 @@ exports.checkLimitOrders = functions.pubsub
       let executed = 0;
       let canceled = 0;
       let expired = 0;
-      let dailyImpactBlocked = 0;
+      let dailyImpactCapped = 0;
       const now = Date.now();
       const todayDate = new Date().toISOString().split('T')[0];
 
@@ -4497,16 +4497,17 @@ exports.checkLimitOrders = functions.pubsub
               // Calculate price impact (same formula as executeTrade)
               const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(order.shares / BASE_LIQUIDITY);
               const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
-              const cappedImpact = Math.min(priceImpact, maxImpact);
+              let effectiveImpact = Math.min(priceImpact, maxImpact);
 
-              // Check dailyImpact limit (same as executeTrade)
+              // Check dailyImpact — if limit reached, execute with zero price impact
               const dailyImpact = userData.dailyImpact || {};
               const userDailyImpact = dailyImpact[todayDate] || {};
               const tickerDailyImpact = userDailyImpact[order.ticker] || 0;
-              const impactPercent = cappedImpact / freshPrice;
+              let impactPercent = effectiveImpact / freshPrice;
 
               if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-                throw new Error(`Daily impact limit exceeded for ${order.ticker}`);
+                effectiveImpact = 0;
+                impactPercent = 0;
               }
 
               // Update dailyImpact in the same transaction
@@ -4516,7 +4517,7 @@ exports.checkLimitOrders = functions.pubsub
               // Execute the trade
               if (order.type === 'BUY') {
                 // Price goes UP on buy
-                const newMarketPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
+                const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
                 const askPrice = newMarketPrice * (1 + BID_ASK_SPREAD / 2);
                 const totalCost = askPrice * order.shares;
 
@@ -4541,19 +4542,21 @@ exports.checkLimitOrders = functions.pubsub
                   dailyImpact
                 });
 
-                // Apply price impact to market
-                transaction.update(marketRef, {
-                  [`prices.${order.ticker}`]: newMarketPrice,
-                  [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
-                    timestamp: Date.now(),
-                    price: newMarketPrice
-                  })
-                });
+                // Apply price impact to market (only if there's actual impact)
+                if (effectiveImpact > 0) {
+                  transaction.update(marketRef, {
+                    [`prices.${order.ticker}`]: newMarketPrice,
+                    [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                      timestamp: Date.now(),
+                      price: newMarketPrice
+                    })
+                  });
+                }
 
                 console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               } else if (order.type === 'SELL') {
                 // Price goes DOWN on sell
-                const newMarketPrice = Math.max(0.01, Math.round((freshPrice - cappedImpact) * 100) / 100);
+                const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
                 const bidPrice = newMarketPrice * (1 - BID_ASK_SPREAD / 2);
                 const totalRevenue = bidPrice * order.shares;
 
@@ -4576,31 +4579,21 @@ exports.checkLimitOrders = functions.pubsub
 
                 transaction.update(userRef, updates);
 
-                // Apply price impact to market
-                transaction.update(marketRef, {
-                  [`prices.${order.ticker}`]: newMarketPrice,
-                  [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
-                    timestamp: Date.now(),
-                    price: newMarketPrice
-                  })
-                });
+                // Apply price impact to market (only if there's actual impact)
+                if (effectiveImpact > 0) {
+                  transaction.update(marketRef, {
+                    [`prices.${order.ticker}`]: newMarketPrice,
+                    [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                      timestamp: Date.now(),
+                      price: newMarketPrice
+                    })
+                  });
+                }
 
                 console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               }
             });
           } catch (transactionError) {
-            // Daily impact limit — cancel the order with specific reason
-            if (transactionError.message.includes('Daily impact limit')) {
-              console.log(`Daily impact blocked order ${orderId}: ${transactionError.message}`);
-              await db.collection('limitOrders').doc(orderId).update({
-                status: 'CANCELED',
-                cancelReason: transactionError.message,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-              });
-              dailyImpactBlocked++;
-              canceled++;
-              continue;
-            }
             // Transaction failed - cancel the order
             console.log(`Transaction failed for order ${orderId}: ${transactionError.message}`);
             await db.collection('limitOrders').doc(orderId).update({
@@ -4643,7 +4636,7 @@ exports.checkLimitOrders = functions.pubsub
         executed,
         canceled,
         expired,
-        dailyImpactBlocked,
+        dailyImpactCapped,
         elapsedSeconds: elapsed
       };
 
