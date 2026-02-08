@@ -139,7 +139,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
   // Calculate short P/L if shorted
-  const shortPL = shorted ? (shortPosition.entryPrice - price) * shortPosition.shares : 0;
+  const shortPL = shorted ? ((shortPosition.costBasis || shortPosition.entryPrice || 0) - price) * shortPosition.shares : 0;
 
   return (
     <>
