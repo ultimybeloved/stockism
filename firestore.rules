@@ -93,7 +93,15 @@ service cloud.firestore {
         // Block bankruptcy flag manipulation
         (!('isBankrupt' in newData) || newData.isBankrupt == oldData.isBankrupt) &&
         // Block bet manipulation
-        (!('bets' in newData) || newData.bets == oldData.bets)
+        (!('bets' in newData) || newData.bets == oldData.bets) &&
+        // Block mission progress manipulation (tracked server-side in executeTrade)
+        (!('dailyMissions' in newData) || newData.dailyMissions == oldData.dailyMissions) &&
+        (!('weeklyMissions' in newData) || newData.weeklyMissions == oldData.weeklyMissions) &&
+        (!('totalTrades' in newData) || newData.totalTrades == oldData.totalTrades) &&
+        (!('totalMissionsCompleted' in newData) || newData.totalMissionsCompleted == oldData.totalMissionsCompleted) &&
+        // Block cost basis manipulation (tracked server-side)
+        (!('costBasis' in newData) || newData.costBasis == oldData.costBasis) &&
+        (!('lowestWhileHolding' in newData) || newData.lowestWhileHolding == oldData.lowestWhileHolding)
       );
     }
     

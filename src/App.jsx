@@ -23,10 +23,8 @@ import {
   orderBy,
   limit,
   getDocs,
-  increment,
   serverTimestamp,
   arrayUnion,
-  deleteField,
   runTransaction,
   addDoc
 } from 'firebase/firestore';
@@ -1432,61 +1430,9 @@ export default function App() {
   }, []);
 
   // Track lowest prices while holding for Diamond Hands achievement
-  useEffect(() => {
-    const updateLowestPrices = async () => {
-      if (!user || !userData || !prices || Object.keys(prices).length === 0) return;
-      
-      const holdings = userData.holdings || {};
-      const lowestWhileHolding = userData.lowestWhileHolding || {};
-      const updates = {};
-      
-      // Check each held stock
-      for (const [ticker, shares] of Object.entries(holdings)) {
-        if (shares > 0 && prices[ticker]) {
-          const currentPrice = prices[ticker];
-          const currentLowest = lowestWhileHolding[ticker];
-          
-          // If we have a lower price than recorded, update it
-          if (currentLowest === undefined || currentPrice < currentLowest) {
-            updates[`lowestWhileHolding.${ticker}`] = Math.round(currentPrice * 100) / 100;
-          }
-        }
-      }
-      
-      // Only update if there are changes
-      if (Object.keys(updates).length > 0) {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, updates);
-      }
-    };
-    
-    updateLowestPrices();
-  }, [user, userData?.holdings, prices]);
+  // lowestWhileHolding tracking now handled server-side in syncPortfolio
 
-  // Initialize weekly mission data if new week
-  useEffect(() => {
-    const initializeWeeklyMissions = async () => {
-      if (!user || !userData || !prices || Object.keys(prices).length === 0) return;
-
-      const weekId = getWeekId();
-      const weeklyData = userData.weeklyMissions?.[weekId];
-
-      // If no data for this week yet, or no startPortfolioValue set, initialize it
-      if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
-        // Calculate current portfolio value
-        const holdingsValue = Object.entries(userData.holdings || {})
-          .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
-        const currentPortfolioValue = Math.round(((userData.cash || 0) + holdingsValue) * 100) / 100;
-
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          [`weeklyMissions.${weekId}.startPortfolioValue`]: currentPortfolioValue
-        });
-      }
-    };
-
-    initializeWeeklyMissions();
-  }, [user, userData?.weeklyMissions, prices]);
+  // Weekly mission startPortfolioValue now initialized server-side in syncPortfolio
 
   // Listen to predictions
   useEffect(() => {
@@ -1903,60 +1849,8 @@ export default function App() {
     const weekId = getWeekId();
 
     if (action === 'buy') {
-      // Server already handled: price updates, trailing effects, cash/holdings/margin updates
-      // Client handles: missions, cost basis, achievements, activity feed
-
-      // Calculate new cost basis (weighted average)
-      const currentHoldings = userData.holdings[ticker] || 0;
-      const currentCostBasis = userData.costBasis?.[ticker] || 0;
-      const totalHoldings = newHoldings[ticker] || 0;
-      const newCostBasis = currentHoldings > 0
-        ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings
-        : executionPrice;
-
-      // Track lowest price while holding for Diamond Hands achievement
-      const currentLowest = userData.lowestWhileHolding?.[ticker];
-      const newLowest = currentHoldings === 0
-        ? executionPrice
-        : Math.min(currentLowest || executionPrice, executionPrice);
-
-      // Check mission criteria
-      const userCrew = userData.crew;
-      const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
-      const isBuyingCrewMember = crewMembers.includes(ticker);
-      const currentCrewSharesBought = userData.dailyMissions?.[today]?.crewSharesBought || 0;
-      const isRival = !isBuyingCrewMember && Object.values(CREWS).some(crew => crew.members.includes(ticker));
-      const isUnderdog = prices[ticker] < 20;
-      const tradeValue = amount * executionPrice;
-
-      // Update user missions and cost basis
-      const updateData = {
-        [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
-        [`lowestWhileHolding.${ticker}`]: Math.round(newLowest * 100) / 100,
-        totalTrades: increment(1),
-        // Daily missions
-        [`dailyMissions.${today}.tradesCount`]: increment(1),
-        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
-        [`dailyMissions.${today}.boughtAny`]: true,
-        // Weekly missions
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(tradeValue),
-        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
-      };
-
-      if (isBuyingCrewMember) {
-        updateData[`dailyMissions.${today}.boughtCrewMember`] = true;
-        updateData[`dailyMissions.${today}.crewSharesBought`] = currentCrewSharesBought + amount;
-      }
-      if (isRival) {
-        updateData[`dailyMissions.${today}.boughtRival`] = true;
-      }
-      if (isUnderdog) {
-        updateData[`dailyMissions.${today}.boughtUnderdog`] = true;
-      }
-
-      await updateDoc(userRef, updateData);
+      // Server handles: price updates, trailing effects, cash/holdings/margin, missions, cost basis
+      // Client handles: achievements, activity feed, portfolio history
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
@@ -2024,36 +1918,12 @@ export default function App() {
 
     } else if (action === 'sell') {
       // Server already handled: validation, price updates, trailing effects, cash/holdings updates
-      // Client handles: missions, cost basis, achievements, activity feed
+      // Server handles: missions, cost basis, lowestWhileHolding
+      // Client handles: achievements, activity feed, portfolio history
 
       // Calculate profit metrics for achievements
       const costBasis = userData.costBasis?.[ticker] || 0;
       const profitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
-
-      // Check for Diamond Hands achievement
-      const lowestWhileHolding = userData.lowestWhileHolding?.[ticker] || costBasis;
-      const dipPercent = costBasis > 0 ? ((costBasis - lowestWhileHolding) / costBasis) * 100 : 0;
-      const isDiamondHands = dipPercent >= 30 && profitPercent > 0;
-
-      // Update missions and clear cost basis if selling all shares
-      const totalHoldings = newHoldings[ticker] || 0;
-      const updateData = {
-        totalTrades: increment(1),
-        [`dailyMissions.${today}.tradesCount`]: increment(1),
-        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
-        [`dailyMissions.${today}.soldAny`]: true,
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
-        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
-      };
-
-      if (totalHoldings <= 0) {
-        updateData[`costBasis.${ticker}`] = 0;
-        updateData[`lowestWhileHolding.${ticker}`] = deleteField();
-      }
-
-      await updateDoc(userRef, updateData);
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
@@ -2117,21 +1987,8 @@ export default function App() {
       }
 
     } else if (action === 'short') {
-      // Server already handled: validation, price updates, trailing effects, cash/holdings/shorts updates
-      // Client handles: missions, achievements, activity feed
-
-      // Update missions
-      const updateData = {
-        totalTrades: increment(1),
-        [`dailyMissions.${today}.tradesCount`]: increment(1),
-        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
-        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
-      };
-
-      await updateDoc(userRef, updateData);
+      // Server handles: validation, price updates, trailing effects, cash/holdings/shorts, missions
+      // Client handles: achievements, activity feed, portfolio history
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
@@ -2192,8 +2049,8 @@ export default function App() {
       }
 
     } else if (action === 'cover') {
-      // Server already handled: validation, price updates, trailing effects, cash/shorts updates
-      // Client handles: missions, achievements, activity feed
+      // Server handles: validation, price updates, trailing effects, cash/shorts, missions
+      // Client handles: achievements, activity feed, portfolio history
 
       // Calculate profit for notifications
       const shortPosition = userData.shorts?.[ticker] || {};
@@ -2201,19 +2058,6 @@ export default function App() {
       const profit = (costBasis - executionPrice) * amount;
       const profitPercent = costBasis > 0 ? ((costBasis - executionPrice) / costBasis) * 100 : 0;
       const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : `-${formatCurrency(Math.abs(profit))}`;
-
-      // Update missions
-      const updateData = {
-        totalTrades: increment(1),
-        [`dailyMissions.${today}.tradesCount`]: increment(1),
-        [`dailyMissions.${today}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeValue`]: increment(totalCost),
-        [`weeklyMissions.${weekId}.tradeVolume`]: increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${today}`]: true
-      };
-
-      await updateDoc(userRef, updateData);
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
@@ -2374,15 +2218,8 @@ export default function App() {
       const result = await dailyCheckinFunction({});
       const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
 
-      // Update client-side missions tracking (still needed for UI state)
-      const userRef = doc(db, 'users', user.uid);
-      const weekId = getWeekId();
-      await updateDoc(userRef, {
-        [`dailyMissions.${getTodayDateString()}.checkedIn`]: true,
-        [`weeklyMissions.${weekId}.checkinDays.${today}`]: true
-      });
-
-      // Checkin achievements now handled server-side in syncPortfolio
+      // Mission tracking now handled server-side in dailyCheckin Cloud Function
+      // Checkin achievements handled server-side in syncPortfolio
 
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'CHECKIN', {

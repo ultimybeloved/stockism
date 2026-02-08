@@ -24,6 +24,21 @@ const BASE_LIQUIDITY = 100;
 const BID_ASK_SPREAD = 0.002;
 const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
+// Crew member mappings for mission tracking
+const CREW_MEMBERS = {
+  ALLIED: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
+  BIG_DEAL: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
+  FIST_GANG: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH'],
+  GOD_DOG: ['GDOG'],
+  SECRET_FRIENDS: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
+  HOSTEL: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
+  WTJC: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
+  WORKERS: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1'],
+  YAMAZAKI: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI']
+};
+// Set of all crew member tickers (for rival detection)
+const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
+
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
@@ -2462,6 +2477,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       const prices = marketData.prices || {};
       const currentPrice = prices[ticker];
 
+      // Whitelist check — only allow trading valid characters
+      const validTicker = CHARACTERS.some(c => c.ticker === ticker);
+      if (!validTicker) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
+      }
+
       if (!currentPrice) {
         throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
       }
@@ -2802,6 +2823,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           return;
         }
 
+        // No price change = no trailing effects (prevents division by zero)
+        if (sourceOldPrice === sourceNewPrice) return;
+
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
         character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
@@ -2857,17 +2881,77 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       // Update user data
       dailyImpact[todayDate] = userDailyImpact;
+
+      // Compute week ID for weekly missions (Monday-based)
+      const nowDate = new Date();
+      const weekStart = new Date(nowDate);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+      if (weekStart > nowDate) weekStart.setDate(weekStart.getDate() - 7);
+      const weekId = weekStart.toISOString().split('T')[0];
+
       const updates = {
         cash: newCash,
         holdings: newHoldings,
         shorts: newShorts,
         marginUsed: newMarginUsed,
         dailyImpact,
-        lastTradeTime: admin.firestore.Timestamp.now()
+        lastTradeTime: admin.firestore.Timestamp.now(),
+        // Mission progress (server-side — blocks client spoofing)
+        totalTrades: admin.firestore.FieldValue.increment(1),
+        [`dailyMissions.${todayDate}.tradesCount`]: admin.firestore.FieldValue.increment(1),
+        [`dailyMissions.${todayDate}.tradeVolume`]: admin.firestore.FieldValue.increment(amount),
+        [`weeklyMissions.${weekId}.tradeValue`]: admin.firestore.FieldValue.increment(totalCost),
+        [`weeklyMissions.${weekId}.tradeVolume`]: admin.firestore.FieldValue.increment(amount),
+        [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
+        [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
       };
 
       if (action === 'buy') {
         updates[`lastBuyTime.${ticker}`] = admin.firestore.Timestamp.now();
+        updates[`dailyMissions.${todayDate}.boughtAny`] = true;
+
+        // Cost basis tracking
+        const currentHoldings = holdings[ticker] || 0;
+        const currentCostBasis = userData.costBasis?.[ticker] || 0;
+        const totalHoldings = newHoldings[ticker] || 0;
+        const newCostBasis = currentHoldings > 0
+          ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings
+          : executionPrice;
+        updates[`costBasis.${ticker}`] = Math.round(newCostBasis * 100) / 100;
+
+        // Lowest price while holding (for Diamond Hands achievement)
+        const currentLowest = userData.lowestWhileHolding?.[ticker];
+        const newLowest = currentHoldings === 0
+          ? executionPrice
+          : Math.min(currentLowest || executionPrice, executionPrice);
+        updates[`lowestWhileHolding.${ticker}`] = Math.round(newLowest * 100) / 100;
+
+        // Crew-specific mission fields
+        const userCrew = userData.crew;
+        if (userCrew) {
+          const crewMembers = CREW_MEMBERS[userCrew] || [];
+          if (crewMembers.includes(ticker)) {
+            updates[`dailyMissions.${todayDate}.boughtCrewMember`] = true;
+            updates[`dailyMissions.${todayDate}.crewSharesBought`] = admin.firestore.FieldValue.increment(amount);
+          }
+          if (!crewMembers.includes(ticker) && ALL_CREW_TICKERS.has(ticker)) {
+            updates[`dailyMissions.${todayDate}.boughtRival`] = true;
+          }
+        }
+        // Underdog check (price < $20)
+        if (currentPrice < 20) {
+          updates[`dailyMissions.${todayDate}.boughtUnderdog`] = true;
+        }
+      }
+
+      if (action === 'sell') {
+        updates[`dailyMissions.${todayDate}.soldAny`] = true;
+        // Clear cost basis if selling all shares
+        const totalHoldings = newHoldings[ticker] || 0;
+        if (totalHoldings <= 0) {
+          updates[`costBasis.${ticker}`] = 0;
+          updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+        }
       }
 
       if (action === 'short') {
@@ -3035,12 +3119,21 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       // Flat $300 daily check-in reward
       const checkinReward = 300;
 
+      // Compute week ID for weekly missions
+      const weekStartDate = new Date(now);
+      weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1);
+      if (weekStartDate > now) weekStartDate.setDate(weekStartDate.getDate() - 7);
+      const checkinWeekId = weekStartDate.toISOString().split('T')[0];
+
       // Update user document
       const updates = {
         cash: (userData.cash || 0) + checkinReward,
         lastCheckin: admin.firestore.Timestamp.now(),
         checkinStreak: newStreak,
-        totalCheckins: (userData.totalCheckins || 0) + 1
+        totalCheckins: (userData.totalCheckins || 0) + 1,
+        // Mission tracking (server-side)
+        [`dailyMissions.${today}.checkedIn`]: true,
+        [`weeklyMissions.${checkinWeekId}.checkinDays.${today}`]: true
       };
 
       // Ladder game: $500 start for new players, top up to $100 if below for existing
@@ -3752,7 +3845,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!['odd', 'even'].includes(bet)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet.');
   }
-  if (!amount || amount <= 0) {
+  if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
   }
 
@@ -3929,7 +4022,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { amount } = data;
 
-  if (!amount || amount <= 0) {
+  if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
   }
 
@@ -4697,8 +4790,10 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
 
     // Max reward validation: daily max $200, weekly max $1000
     const maxReward = type === 'daily' ? 200 : 1000;
-    const reward = Math.min(data.reward || 0, maxReward);
-    if (reward <= 0) throw new functions.https.HttpsError('invalid-argument', 'Invalid reward.');
+    if (!Number.isFinite(data.reward) || data.reward <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid reward.');
+    }
+    const reward = Math.min(data.reward, maxReward);
 
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
     const updates = {
@@ -4797,7 +4892,7 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { predictionId, option, amount } = data;
 
-  if (!predictionId || !option || !amount || amount <= 0) {
+  if (!predictionId || !option || !amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet data.');
   }
 
@@ -5062,7 +5157,7 @@ exports.repayMargin = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { amount } = data;
 
-  if (!amount || amount <= 0) {
+  if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid repay amount.');
   }
 
@@ -5113,6 +5208,11 @@ exports.bailout = functions.https.onCall(async (data, context) => {
     const userData = userDoc.data();
     if ((userData.cash || 0) >= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
+    }
+
+    // Enforce 24-hour cooldown between bailouts
+    if (userData.lastBailout && (Date.now() - userData.lastBailout) < 86400000) {
+      throw new functions.https.HttpsError('failed-precondition', 'Bailout available once per 24 hours.');
     }
 
     const currentCrew = userData.crew;
@@ -5525,6 +5625,30 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
     portfolioValue,
     lastSynced: now
   };
+
+  // Initialize weekly mission startPortfolioValue if not set
+  const syncNow = new Date();
+  const syncWeekStart = new Date(syncNow);
+  syncWeekStart.setDate(syncWeekStart.getDate() - syncWeekStart.getDay() + 1);
+  if (syncWeekStart > syncNow) syncWeekStart.setDate(syncWeekStart.getDate() - 7);
+  const syncWeekId = syncWeekStart.toISOString().split('T')[0];
+  const weeklyData = userData.weeklyMissions?.[syncWeekId];
+  if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
+    updateData[`weeklyMissions.${syncWeekId}.startPortfolioValue`] = portfolioValue;
+  }
+
+  // Track lowest price while holding for Diamond Hands achievement
+  const holdings = userData.holdings || {};
+  const lowestWhileHolding = userData.lowestWhileHolding || {};
+  for (const [ticker, shares] of Object.entries(holdings)) {
+    if (shares > 0 && prices[ticker]) {
+      const currentPrice = prices[ticker];
+      const currentLowest = lowestWhileHolding[ticker];
+      if (currentLowest === undefined || currentPrice < currentLowest) {
+        updateData[`lowestWhileHolding.${ticker}`] = Math.round(currentPrice * 100) / 100;
+      }
+    }
+  }
 
   // Update peak portfolio value
   const peakPortfolioValue = Math.max(userData.peakPortfolioValue || 0, portfolioValue);
