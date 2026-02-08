@@ -2318,7 +2318,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       if (!position || typeof position !== 'object') continue;
       const shares = position.shares || 0;
       if (shares <= 0) continue;
-      const entryPrice = position.entryPrice || 0;
+      const entryPrice = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
       const pnl = (entryPrice - currentPrice) * shares;
@@ -4366,9 +4366,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {Object.entries(selectedUser.shorts).map(([ticker, shortData]) => {
                           if (!shortData || shortData.shares <= 0) return null;
-                          const currentPrice = prices[ticker] || shortData.entryPrice;
-                          const pnl = (shortData.entryPrice - currentPrice) * shortData.shares;
-                          const pnlPct = shortData.entryPrice > 0 ? ((pnl / (shortData.entryPrice * shortData.shares)) * 100) : 0;
+                          const entryPrice = shortData.costBasis || shortData.entryPrice || 0;
+                          const currentPrice = prices[ticker] || entryPrice;
+                          const pnl = (entryPrice - currentPrice) * shortData.shares;
+                          const pnlPct = entryPrice > 0 ? ((pnl / (entryPrice * shortData.shares)) * 100) : 0;
                           return (
                             <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
                               <div className="flex justify-between items-start">
@@ -4381,7 +4382,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                                 </span>
                               </div>
                               <div className={`text-xs ${mutedClass} mt-1`}>
-                                Entry: ${shortData.entryPrice?.toFixed(2)} → Current: ${currentPrice.toFixed(2)} ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+                                Entry: ${entryPrice?.toFixed(2)} → Current: ${currentPrice.toFixed(2)} ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
                               </div>
                               <div className={`text-xs ${mutedClass}`}>
                                 Margin held: ${shortData.margin?.toFixed(2) || '0.00'}
