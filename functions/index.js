@@ -5963,3 +5963,244 @@ exports.adminSetCash = functions.https.onCall(async (data, context) => {
   return { success: true, userId, previousCash: prevCash, newCash: cash };
 });
 
+/**
+ * Repair accounts damaged by the Jiho/Doo price spike.
+ * Modes: scan (find victims), repair (fix one user), repairAll (fix all)
+ */
+exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { mode, userId, victims: victimsInput } = data;
+  const SPIKE_TICKERS = ['JIHO', 'DOO'];
+
+  // --- SCAN MODE ---
+  if (mode === 'scan') {
+    // Find all margin_call_cover trades on JIHO or DOO
+    const tradesSnap = await db.collection('trades')
+      .where('action', '==', 'margin_call_cover')
+      .get();
+
+    // Filter to spike tickers and group by uid
+    const userTrades = {};
+    tradesSnap.forEach(doc => {
+      const trade = doc.data();
+      if (!SPIKE_TICKERS.includes(trade.ticker)) return;
+      if (!userTrades[trade.uid]) userTrades[trade.uid] = [];
+      userTrades[trade.uid].push({ id: doc.id, ...trade });
+    });
+
+    const victims = [];
+
+    for (const [uid, trades] of Object.entries(userTrades)) {
+      // Sort by timestamp to find the first forced cover
+      trades.sort((a, b) => {
+        const tsA = a.timestamp?._seconds || a.timestamp?.seconds || 0;
+        const tsB = b.timestamp?._seconds || b.timestamp?.seconds || 0;
+        return tsA - tsB;
+      });
+
+      const firstTrade = trades[0];
+      const correctedCash = firstTrade.cashBefore;
+      const spikeTimestamp = firstTrade.timestamp?._seconds
+        ? firstTrade.timestamp._seconds * 1000
+        : (firstTrade.timestamp?.seconds ? firstTrade.timestamp.seconds * 1000 : Date.now());
+
+      // Read current user doc
+      const userSnap = await db.collection('users').doc(uid).get();
+      if (!userSnap.exists) continue;
+      const userData = userSnap.data();
+
+      const tookBailout = !!(userData.lastBailout && userData.lastBailout > spikeTimestamp - 86400000);
+
+      let holdingsToRestore = null;
+      let costBasisToRestore = null;
+
+      if (tookBailout) {
+        // Replay buy/sell trades before the spike to reconstruct holdings
+        const allTradesSnap = await db.collection('trades')
+          .where('uid', '==', uid)
+          .get();
+
+        const holdings = {};
+        const costBasis = {};
+
+        const preSpikeTradesArr = [];
+        allTradesSnap.forEach(doc => {
+          const t = doc.data();
+          const ts = t.timestamp?._seconds
+            ? t.timestamp._seconds * 1000
+            : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+          if (ts < spikeTimestamp) {
+            preSpikeTradesArr.push({ ...t, _ts: ts });
+          }
+        });
+
+        preSpikeTradesArr.sort((a, b) => a._ts - b._ts);
+
+        for (const t of preSpikeTradesArr) {
+          const ticker = t.ticker;
+          if (!ticker) continue;
+
+          if (t.action === 'BUY' || t.action === 'buy') {
+            const prevShares = holdings[ticker] || 0;
+            const prevCost = costBasis[ticker] || 0;
+            const newShares = prevShares + (t.amount || 0);
+            if (newShares > 0) {
+              costBasis[ticker] = ((prevCost * prevShares) + (t.price * (t.amount || 0))) / newShares;
+            }
+            holdings[ticker] = newShares;
+          } else if (t.action === 'SELL' || t.action === 'sell') {
+            holdings[ticker] = Math.max(0, (holdings[ticker] || 0) - (t.amount || 0));
+            if (holdings[ticker] === 0) delete costBasis[ticker];
+          }
+        }
+
+        // Clean up zero holdings
+        for (const [ticker, shares] of Object.entries(holdings)) {
+          if (shares <= 0) {
+            delete holdings[ticker];
+            delete costBasis[ticker];
+          }
+        }
+
+        if (Object.keys(holdings).length > 0) {
+          holdingsToRestore = holdings;
+          costBasisToRestore = costBasis;
+        }
+      }
+
+      victims.push({
+        userId: uid,
+        displayName: userData.displayName || 'Unknown',
+        currentCash: userData.cash || 0,
+        correctedCash: correctedCash,
+        isBankrupt: userData.isBankrupt || false,
+        tookBailout,
+        holdingsToRestore,
+        costBasisToRestore,
+        holdingsCount: holdingsToRestore ? Object.keys(holdingsToRestore).length : 0,
+        trades: trades.map(t => ({
+          ticker: t.ticker,
+          shares: t.amount,
+          price: t.price,
+          pnl: t.pnl,
+          cashBefore: t.cashBefore,
+          cashAfter: t.cashAfter
+        }))
+      });
+    }
+
+    return { victims };
+  }
+
+  // --- REPAIR MODE (single user) ---
+  if (mode === 'repair') {
+    if (!userId) {
+      throw new functions.https.HttpsError('invalid-argument', 'userId required for repair mode');
+    }
+
+    // Find the victim data from victimsInput or re-scan
+    let victim = victimsInput;
+    if (!victim) {
+      throw new functions.https.HttpsError('invalid-argument', 'victim data required');
+    }
+
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const updates = {
+      cash: Math.round(victim.correctedCash * 100) / 100,
+      isBankrupt: false
+    };
+
+    // Clear bankruptcy timestamp
+    const userData = userSnap.data();
+    if (userData.bankruptAt) {
+      updates.bankruptAt = admin.firestore.FieldValue.delete();
+    }
+
+    // Restore holdings for bailout users
+    if (victim.tookBailout && victim.holdingsToRestore) {
+      updates.holdings = victim.holdingsToRestore;
+      if (victim.costBasisToRestore) {
+        updates.costBasis = victim.costBasisToRestore;
+      }
+    }
+
+    // Add repair log
+    updates._repairLog = admin.firestore.FieldValue.arrayUnion({
+      type: 'spike_repair',
+      repairedAt: Date.now(),
+      repairedBy: context.auth.uid,
+      previousCash: userData.cash,
+      correctedCash: victim.correctedCash,
+      tookBailout: victim.tookBailout,
+      holdingsRestored: victim.holdingsToRestore ? Object.keys(victim.holdingsToRestore).length : 0
+    });
+
+    await userRef.update(updates);
+
+    return { success: true, userId, correctedCash: victim.correctedCash };
+  }
+
+  // --- REPAIR ALL MODE ---
+  if (mode === 'repairAll') {
+    if (!victimsInput || !Array.isArray(victimsInput)) {
+      throw new functions.https.HttpsError('invalid-argument', 'victims array required');
+    }
+
+    const results = [];
+    for (const victim of victimsInput) {
+      try {
+        const userRef = db.collection('users').doc(victim.userId);
+        const userSnap = await userRef.get();
+        if (!userSnap.exists) {
+          results.push({ userId: victim.userId, success: false, error: 'not found' });
+          continue;
+        }
+
+        const userData = userSnap.data();
+        const updates = {
+          cash: Math.round(victim.correctedCash * 100) / 100,
+          isBankrupt: false
+        };
+
+        if (userData.bankruptAt) {
+          updates.bankruptAt = admin.firestore.FieldValue.delete();
+        }
+
+        if (victim.tookBailout && victim.holdingsToRestore) {
+          updates.holdings = victim.holdingsToRestore;
+          if (victim.costBasisToRestore) {
+            updates.costBasis = victim.costBasisToRestore;
+          }
+        }
+
+        updates._repairLog = admin.firestore.FieldValue.arrayUnion({
+          type: 'spike_repair',
+          repairedAt: Date.now(),
+          repairedBy: context.auth.uid,
+          previousCash: userData.cash,
+          correctedCash: victim.correctedCash,
+          tookBailout: victim.tookBailout,
+          holdingsRestored: victim.holdingsToRestore ? Object.keys(victim.holdingsToRestore).length : 0
+        });
+
+        await userRef.update(updates);
+        results.push({ userId: victim.userId, success: true });
+      } catch (err) {
+        results.push({ userId: victim.userId, success: false, error: err.message });
+      }
+    }
+
+    return { results };
+  }
+
+  throw new functions.https.HttpsError('invalid-argument', 'Invalid mode. Use scan, repair, or repairAll');
+});
+

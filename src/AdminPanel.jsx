@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -52,6 +52,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [recoveryBets, setRecoveryBets] = useState([]);
   const [recoveryWinner, setRecoveryWinner] = useState('');
   const [recoveryOptions, setRecoveryOptions] = useState([]);
+
+  // Spike victim repair state
+  const [spikeVictims, setSpikeVictims] = useState([]);
+  const [spikeScanned, setSpikeScanned] = useState(false);
+  const [scanningSpike, setScanningSpike] = useState(false);
+  const [repairingSpike, setRepairingSpike] = useState(false);
 
   // Price history cleanup state
   const [futureEntries, setFutureEntries] = useState([]);
@@ -293,6 +299,52 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       showMessage('error', `Failed: ${err.message}`);
     }
     setLoading(false);
+  };
+
+  // Spike victim repair handlers
+  const handleScanSpikeVictims = async () => {
+    setScanningSpike(true);
+    try {
+      const result = await repairSpikeVictimsFunction({ mode: 'scan' });
+      setSpikeVictims(result.data.victims || []);
+      setSpikeScanned(true);
+      showMessage('success', `Found ${(result.data.victims || []).length} spike victims`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Scan failed: ${err.message}`);
+    }
+    setScanningSpike(false);
+  };
+
+  const handleRepairSpikeVictim = async (victim) => {
+    if (!confirm(`Repair ${victim.displayName}?\nCash: $${victim.currentCash.toFixed(2)} → $${victim.correctedCash.toFixed(2)}${victim.tookBailout ? '\nWill restore ' + victim.holdingsCount + ' stock holdings' : ''}`)) return;
+    setRepairingSpike(true);
+    try {
+      await repairSpikeVictimsFunction({ mode: 'repair', userId: victim.userId, victims: victim });
+      setSpikeVictims(prev => prev.filter(v => v.userId !== victim.userId));
+      showMessage('success', `Repaired ${victim.displayName}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to repair ${victim.displayName}: ${err.message}`);
+    }
+    setRepairingSpike(false);
+  };
+
+  const handleRepairAllSpikeVictims = async () => {
+    if (spikeVictims.length === 0) return;
+    if (!confirm(`Repair ALL ${spikeVictims.length} spike victims? This will restore their cash and clear bankruptcy.`)) return;
+    setRepairingSpike(true);
+    try {
+      const result = await repairSpikeVictimsFunction({ mode: 'repairAll', victims: spikeVictims });
+      const successes = (result.data.results || []).filter(r => r.success).length;
+      const failures = (result.data.results || []).filter(r => !r.success).length;
+      setSpikeVictims([]);
+      showMessage('success', `Repaired ${successes} users${failures > 0 ? `, ${failures} failed` : ''}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Repair all failed: ${err.message}`);
+    }
+    setRepairingSpike(false);
   };
 
   // Helper function to apply trailing stock effects
@@ -5134,6 +5186,80 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                           >
                             Reinstate
                           </button>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* Spike Victim Repair */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className={`font-semibold ${textClass}`}>⚡ Spike Victim Repair</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleScanSpikeVictims}
+                      disabled={scanningSpike || repairingSpike}
+                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
+                    >
+                      {scanningSpike ? 'Scanning...' : spikeScanned ? 'Re-Scan' : 'Scan'}
+                    </button>
+                    {spikeVictims.length > 0 && (
+                      <button
+                        onClick={handleRepairAllSpikeVictims}
+                        disabled={repairingSpike}
+                        className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50"
+                      >
+                        {repairingSpike ? 'Repairing...' : `Fix All (${spikeVictims.length})`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className={`text-xs ${mutedClass} mb-3`}>
+                  Finds users damaged by the JIHO/DOO price spike. Restores cash to pre-spike levels and clears bankruptcy. Bailout users get holdings reconstructed from trade history.
+                </p>
+                {spikeScanned && (
+                  spikeVictims.length === 0 ? (
+                    <p className={`text-sm ${mutedClass}`}>No spike victims found (all repaired or none affected).</p>
+                  ) : (
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                      {spikeVictims.map(v => (
+                        <div key={v.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <span className={`font-semibold text-sm ${textClass}`}>{v.displayName}</span>
+                              {v.tookBailout && <span className="ml-2 px-1.5 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">Bailed Out</span>}
+                              {v.isBankrupt && <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">Bankrupt</span>}
+                              <div className={`text-xs mt-1 ${mutedClass}`}>
+                                Cash: <span className="text-red-400 font-semibold">${(v.currentCash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                {' → '}
+                                <span className="text-green-400 font-semibold">${(v.correctedCash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                              </div>
+                              {v.tookBailout && v.holdingsCount > 0 && (
+                                <div className={`text-xs mt-0.5 ${mutedClass}`}>
+                                  Holdings to restore: {v.holdingsCount} stocks
+                                  {v.holdingsToRestore && (
+                                    <span className="ml-1 text-blue-400">
+                                      ({Object.entries(v.holdingsToRestore).map(([t, s]) => `${t}: ${s}`).join(', ')})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {v.trades && v.trades.length > 0 && (
+                                <div className={`text-xs mt-0.5 ${mutedClass}`}>
+                                  Forced covers: {v.trades.map(t => `${t.ticker} (${t.shares} @ $${t.price?.toFixed(2)})`).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleRepairSpikeVictim(v)}
+                              disabled={repairingSpike}
+                              className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50 ml-2"
+                            >
+                              Fix
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
