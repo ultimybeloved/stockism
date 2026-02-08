@@ -5972,8 +5972,72 @@ exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
-  const { mode, userId, victims: victimsInput } = data;
+  const { mode, userId, victims: victimsInput, userIds } = data;
   const SPIKE_TICKERS = ['JIHO', 'DOO'];
+
+  // --- DIAGNOSE MODE ---
+  if (mode === 'diagnose') {
+    if (!userIds || !Array.isArray(userIds)) {
+      throw new functions.https.HttpsError('invalid-argument', 'userIds array required');
+    }
+
+    const results = [];
+    for (const uid of userIds) {
+      const userSnap = await db.collection('users').doc(uid).get();
+      if (!userSnap.exists) {
+        results.push({ userId: uid, error: 'not found' });
+        continue;
+      }
+      const userData = userSnap.data();
+
+      // Get all trades for this user
+      const tradesSnap = await db.collection('trades')
+        .where('uid', '==', uid)
+        .get();
+
+      const trades = [];
+      tradesSnap.forEach(doc => {
+        const t = doc.data();
+        const ts = t.timestamp?._seconds
+          ? t.timestamp._seconds * 1000
+          : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+        trades.push({
+          id: doc.id,
+          action: t.action,
+          ticker: t.ticker,
+          amount: t.amount,
+          price: t.price,
+          totalValue: t.totalValue,
+          pnl: t.pnl,
+          cashBefore: t.cashBefore,
+          cashAfter: t.cashAfter,
+          automated: t.automated || false,
+          timestamp: ts
+        });
+      });
+
+      trades.sort((a, b) => b.timestamp - a.timestamp);
+
+      results.push({
+        userId: uid,
+        displayName: userData.displayName || 'Unknown',
+        cash: userData.cash || 0,
+        isBankrupt: userData.isBankrupt || false,
+        bankruptAt: userData.bankruptAt || null,
+        lastBailout: userData.lastBailout || null,
+        holdings: userData.holdings || {},
+        shorts: userData.shorts || {},
+        costBasis: userData.costBasis || {},
+        marginEnabled: userData.marginEnabled || false,
+        marginUsed: userData.marginUsed || 0,
+        portfolioValue: userData.portfolioValue || 0,
+        totalTrades: trades.length,
+        recentTrades: trades.slice(0, 50) // Last 50 trades
+      });
+    }
+
+    return { results };
+  }
 
   // --- SCAN MODE ---
   if (mode === 'scan') {
