@@ -2745,12 +2745,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate profit/loss
-        const costBasis = shortPosition.costBasis;
+        const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
         const profit = (costBasis - executionPrice) * amount;
         const marginToReturn = currentPrice * amount * 0.5;
 
         // Execute cover
         newCash = cash - totalCost + marginToReturn + profit;
+        if (isNaN(newCash)) {
+          throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid cash result');
+        }
         newShorts[ticker] = {
           ...shortPosition,
           shares: shortPosition.shares - amount
