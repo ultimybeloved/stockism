@@ -5418,7 +5418,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           {!badgesLoaded ? (
             <p className={mutedClass}>Loading...</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Object.values(ACHIEVEMENTS).map(ach => {
                 const holders = badgeUsers.filter(u => u.achievements.includes(ach.id));
                 const isExpanded = expandedBadge === ach.id;
