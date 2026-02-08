@@ -78,5 +78,7 @@ export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
 export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
 // Server-side portfolio sync (replaces client-side writes blocked by security rules)
 export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
+// Admin: remove achievement from user
+export const removeAchievementFunction = httpsCallable(functions, 'removeAchievement');
 
 export default app;

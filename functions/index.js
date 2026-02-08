@@ -2922,9 +2922,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
 
         if (newAchievements.length > 0) {
-          await db.collection('users').doc(uid).update({
+          const achievementUpdate = {
             achievements: admin.firestore.FieldValue.arrayUnion(...newAchievements)
-          });
+          };
+          // Track when each achievement was earned
+          for (const achId of newAchievements) {
+            achievementUpdate[`achievementDates.${achId}`] = Date.now();
+          }
+          await db.collection('users').doc(uid).update(achievementUpdate);
           result.newAchievements = newAchievements;
         }
       }
@@ -5520,6 +5525,10 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   if (newAchievements.length > 0) {
     updateData.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
+    // Track when each achievement was earned
+    for (const achId of newAchievements) {
+      updateData[`achievementDates.${achId}`] = Date.now();
+    }
   }
 
   // Check bankruptcy
@@ -5867,4 +5876,32 @@ exports.processIPOPriceJumps = functions.pubsub
       return null;
     }
   });
+
+/**
+ * Remove an achievement from a user (admin only)
+ * Used to clean up achievements awarded due to glitches
+ */
+exports.removeAchievement = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId, achievementId } = data;
+  if (!userId || !achievementId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId and achievementId required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+
+  await userRef.update({
+    achievements: admin.firestore.FieldValue.arrayRemove(achievementId),
+    [`achievementDates.${achievementId}`]: admin.firestore.FieldValue.delete()
+  });
+
+  return { success: true, removed: achievementId, userId };
+});
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
+import { ACHIEVEMENTS } from './constants/achievements';
 import { initializeMarket } from './services/market';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
@@ -10,6 +11,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   
+  // Badges tab state
+  const [badgeUsers, setBadgeUsers] = useState([]);
+  const [badgesLoaded, setBadgesLoaded] = useState(false);
+  const [expandedBadge, setExpandedBadge] = useState(null);
+
   // Create prediction form state
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '', '', '', '', '']);
@@ -163,6 +169,58 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
   const showMessage = (type, text) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
+  };
+
+  // Load users for badges tab
+  const loadBadgeUsers = async () => {
+    if (badgesLoaded) return;
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      const users = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if ((data.achievements || []).length > 0) {
+          users.push({
+            id: doc.id,
+            displayName: data.displayName || 'Unknown',
+            achievements: data.achievements || [],
+            achievementDates: data.achievementDates || {},
+            portfolioValue: data.portfolioValue || 0,
+            isBot: data.isBot || false
+          });
+        }
+      });
+      setBadgeUsers(users);
+      setBadgesLoaded(true);
+      showMessage('success', `Loaded ${users.length} users with achievements`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to load badge data');
+    }
+    setLoading(false);
+  };
+
+  const handleRemoveAchievement = async (userId, achievementId, displayName) => {
+    if (!confirm(`Remove ${achievementId} from ${displayName}?`)) return;
+    setLoading(true);
+    try {
+      await removeAchievementFunction({ userId, achievementId });
+      // Update local state
+      setBadgeUsers(prev => prev.map(u => {
+        if (u.id !== userId) return u;
+        const updated = { ...u, achievements: u.achievements.filter(a => a !== achievementId) };
+        const dates = { ...u.achievementDates };
+        delete dates[achievementId];
+        updated.achievementDates = dates;
+        return updated;
+      }).filter(u => u.achievements.length > 0));
+      showMessage('success', `Removed ${achievementId} from ${displayName}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed to remove: ${err.message}`);
+    }
+    setLoading(false);
   };
 
   // Helper function to apply trailing stock effects
@@ -3021,7 +3079,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         </div>
 
         {/* Tabs - Responsive grid layout */}
-        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <button
             onClick={() => { setActiveTab('ipo'); loadIPOs(); }}
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'ipo' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
@@ -3069,6 +3127,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
             className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
           >
             🔧 Recovery
+          </button>
+          <button
+            onClick={() => { setActiveTab('badges'); loadBadgeUsers(); }}
+            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'badges' ? 'text-amber-500 border-b-2 border-amber-500 bg-amber-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+          >
+            🏅 Badges
           </button>
         </div>
 
@@ -5347,7 +5411,73 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
         </div>
       )}
 
-      {/* CONTENT TAB */}
+      {/* BADGES TAB */}
+      {activeTab === 'badges' && (
+        <div className="space-y-4 p-4">
+          <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Achievement Badges</h3>
+          {!badgesLoaded ? (
+            <p className={mutedClass}>Loading...</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.values(ACHIEVEMENTS).map(ach => {
+                const holders = badgeUsers.filter(u => u.achievements.includes(ach.id));
+                const isExpanded = expandedBadge === ach.id;
+                return (
+                  <div key={ach.id} className={`rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                    <button
+                      onClick={() => setExpandedBadge(isExpanded ? null : ach.id)}
+                      className={`w-full text-left p-3 flex items-center justify-between hover:bg-slate-500/10 transition-colors`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{ach.emoji}</span>
+                        <div>
+                          <div className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-slate-900'}`}>{ach.name}</div>
+                          <div className={`text-xs ${mutedClass}`}>{ach.description}</div>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-bold ${holders.length > 0 ? 'text-amber-500' : mutedClass}`}>
+                        {holders.length}
+                      </span>
+                    </button>
+                    {isExpanded && holders.length > 0 && (
+                      <div className={`border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} max-h-64 overflow-y-auto`}>
+                        {holders
+                          .sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0))
+                          .map(u => (
+                          <div key={u.id} className={`px-3 py-2 flex items-center justify-between text-sm ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}>
+                            <div>
+                              <span className={darkMode ? 'text-white' : 'text-slate-900'}>{u.displayName}</span>
+                              {u.isBot && <span className="ml-1 text-xs text-purple-400">(bot)</span>}
+                              <span className={`ml-2 text-xs ${mutedClass}`}>${(u.portfolioValue || 0).toLocaleString()}</span>
+                              {u.achievementDates[ach.id] && (
+                                <span className={`ml-2 text-xs ${mutedClass}`}>
+                                  {new Date(u.achievementDates[ach.id]).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleRemoveAchievement(u.id, ach.id, u.displayName)}
+                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-sm"
+                              disabled={loading}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isExpanded && holders.length === 0 && (
+                      <div className={`p-3 text-sm border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} ${mutedClass}`}>
+                        No holders
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
