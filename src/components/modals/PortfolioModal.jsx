@@ -127,10 +127,9 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
 
         // Current equity in the position
         const equity = margin + totalPL;
-        const equityRatio = currentPrice > 0 && shares > 0 ? equity / (currentPrice * shares) : 1;
-
-        // Position value (margin + unrealized P/L)
-        const positionValue = isNaN(equity) ? 0 : equity;
+        const safeEquity = isNaN(equity) ? margin : equity;
+        const equityRatio = currentPrice > 0 && shares > 0 ? safeEquity / (currentPrice * shares) : 1;
+        const positionValue = safeEquity;
 
         return {
           ticker,
@@ -139,10 +138,10 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
           entryPrice,
           currentPrice,
           margin,
-          totalPL,
-          totalPLPercent,
-          equity,
-          equityRatio,
+          totalPL: isNaN(totalPL) ? 0 : totalPL,
+          totalPLPercent: isNaN(totalPLPercent) ? 0 : totalPLPercent,
+          equity: safeEquity,
+          equityRatio: isNaN(equityRatio) ? 1 : equityRatio,
           positionValue,
           openedAt: position.openedAt
         };

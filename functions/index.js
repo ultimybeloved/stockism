@@ -4597,11 +4597,12 @@ exports.syncAllPortfolios = functions.pubsub
           const shorts = userData.shorts || {};
           const shortsValue = Object.entries(shorts).reduce((sum, [ticker, position]) => {
             if (!position || position.shares <= 0) return sum;
-            const currentPrice = prices[ticker] || position.entryPrice;
-            const collateral = position.margin || 0;
-            // P&L = (entry price - current price) * shares (profit when price goes down)
-            const pnl = (position.entryPrice - currentPrice) * position.shares;
-            return sum + collateral + pnl;
+            const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
+            const currentPrice = prices[ticker] || entryPrice;
+            const collateral = Number(position.margin) || 0;
+            const pnl = (entryPrice - currentPrice) * position.shares;
+            const value = collateral + pnl;
+            return sum + (isNaN(value) ? 0 : value);
           }, 0);
 
           // Calculate total portfolio value

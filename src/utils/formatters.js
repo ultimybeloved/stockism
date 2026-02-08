@@ -13,7 +13,7 @@ export const formatCurrency = (value) => {
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(value);
+  }).format(Number(value) || 0);
 };
 
 /**
@@ -22,6 +22,7 @@ export const formatCurrency = (value) => {
  * @returns {string} Formatted change string with + or - prefix
  */
 export const formatChange = (change) => {
+  change = Number(change) || 0;
   const sign = change >= 0 ? '+' : '';
   return `${sign}${change.toFixed(2)}%`;
 };
@@ -32,6 +33,7 @@ export const formatChange = (change) => {
  * @returns {string} Formatted number string
  */
 export const formatNumber = (num) => {
+  num = Number(num) || 0;
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
