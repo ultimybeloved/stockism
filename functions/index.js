@@ -3032,14 +3032,8 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       const currentStreak = userData.checkinStreak || 0;
       const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
 
-      // Calculate reward (base + streak bonus)
-      const BASE_REWARD = 100;
-      const STREAK_BONUS = Math.min(newStreak * 10, 100); // Max $100 bonus
-      const checkinReward = BASE_REWARD + STREAK_BONUS;
-
-      // Ladder top-up bonus if requested and first-time
-      const LADDER_BONUS = 100;
-      const ladderTopUpBonus = ladderTopUp && !userData.ladderGameInitialized ? LADDER_BONUS : 0;
+      // Flat $300 daily check-in reward
+      const checkinReward = 300;
 
       // Update user document
       const updates = {
@@ -3049,16 +3043,19 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
         totalCheckins: (userData.totalCheckins || 0) + 1
       };
 
-      // If ladder top-up requested and user hasn't initialized ladder game
-      if (ladderTopUp && !userData.ladderGameInitialized) {
-        updates.ladderGameInitialized = true;
+      // Ladder game: $500 start for new players, top up to $100 if below for existing
+      const ladderRef = db.collection('ladderGameUsers').doc(uid);
+      const ladderDoc = await transaction.get(ladderRef);
+      let ladderTopUpAmount = 0;
 
-        // Create/update ladder game user document
-        const ladderRef = db.collection('ladderGameUsers').doc(uid);
+      if (!ladderDoc.exists) {
+        // New player — initialize with $500
+        ladderTopUpAmount = 500;
+        updates.ladderGameInitialized = true;
         transaction.set(ladderRef, {
           uid,
           displayName: userData.displayName || 'Anonymous',
-          balance: LADDER_BONUS,
+          balance: 500,
           totalDeposited: 0,
           totalWon: 0,
           totalLost: 0,
@@ -3069,7 +3066,14 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
           bestStreak: 0,
           lastPlayed: null,
           createdAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        });
+      } else {
+        // Existing player — top up to $100 if below
+        const ladderBalance = ladderDoc.data().balance || 0;
+        if (ladderBalance < 100) {
+          ladderTopUpAmount = 100 - ladderBalance;
+          transaction.update(ladderRef, { balance: 100 });
+        }
       }
 
       transaction.update(userRef, updates);
@@ -3078,7 +3082,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
         success: true,
         reward: checkinReward,
         newStreak,
-        ladderTopUpBonus,
+        ladderTopUpAmount,
         totalCheckins: updates.totalCheckins
       };
     });

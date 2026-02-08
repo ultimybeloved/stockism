@@ -2370,14 +2370,9 @@ export default function App() {
 
     setLoadingKey('checkin', true);
     try {
-      // Check if user wants ladder game top-up (first-time only)
-      const ladderRef = doc(db, 'ladderGameUsers', user.uid);
-      const ladderDoc = await getDoc(ladderRef);
-      const shouldTopUpLadder = !ladderDoc.exists(); // Only for new ladder players
-
-      // Call Cloud Function
-      const result = await dailyCheckinFunction({ ladderTopUp: shouldTopUpLadder });
-      const { reward, newStreak, ladderTopUpBonus, totalCheckins } = result.data;
+      // Call Cloud Function (ladder top-up handled server-side)
+      const result = await dailyCheckinFunction({});
+      const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
 
       // Update client-side missions tracking (still needed for UI state)
       const userRef = doc(db, 'users', user.uid);
@@ -2395,13 +2390,13 @@ export default function App() {
         totalCheckins,
         cashBefore: userData.cash,
         cashAfter: userData.cash + reward,
-        ladderTopUpBonus
+        ladderTopUpAmount
       });
 
       // Add to activity feed
       let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;
-      if (ladderTopUpBonus > 0) {
-        activityMsg += ` | Ladder Game: +${formatCurrency(ladderTopUpBonus)} (first-time bonus)`;
+      if (ladderTopUpAmount > 0) {
+        activityMsg += ` | Ladder Game topped up to $100`;
       }
       addActivity('checkin', `${activityMsg} (Day ${totalCheckins})`);
 
@@ -2412,8 +2407,8 @@ export default function App() {
         showNotification('achievement', `🏆 Achievement Unlocked: ${achievement.emoji} ${achievement.name}!`);
       } else {
         let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
-        if (ladderTopUpBonus > 0) {
-          notificationMsg += ` | Ladder Game: +${formatCurrency(ladderTopUpBonus)}!`;
+        if (ladderTopUpAmount > 0) {
+          notificationMsg += ` | Ladder Game topped up to $100`;
         }
         showNotification('success', notificationMsg);
       }
