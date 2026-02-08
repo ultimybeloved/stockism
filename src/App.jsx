@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, toggleMarginFunction, chargeMarginInterestFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -89,7 +89,6 @@ import {
   MAX_PRICE_CHANGE_PERCENT,
   SHORT_MARGIN_REQUIREMENT,
   SHORT_INTEREST_RATE,
-  SHORT_MARGIN_CALL_THRESHOLD,
   SHORT_RATE_LIMIT_HOURS,
   MAX_SHORTS_BEFORE_COOLDOWN,
   MARGIN_CASH_MINIMUM,
@@ -292,102 +291,22 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 };
 
 // Helper function to check and award achievements after an action
+// Calls syncPortfolio Cloud Function which handles achievements, portfolio value, and peak updates server-side
 const checkAndAwardAchievements = async (userRef, userData, prices, context = {}) => {
-  const currentAchievements = userData.achievements || [];
-  const newAchievements = [];
-  
-  // Calculate current portfolio value (including shorts)
-  const holdingsValue = Object.entries(userData.holdings || {})
-    .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
-  
-  const shortsValue = Object.entries(userData.shorts || {})
-    .reduce((sum, [ticker, position]) => {
-      if (!position || typeof position !== 'object') return sum;
-      const shares = position.shares || 0;
-      if (shares <= 0) return sum;
-      const entryPrice = position.entryPrice || 0;
-      const currentPrice = prices[ticker] || entryPrice;
-      const collateral = position.margin || 0;
-      const pnl = (entryPrice - currentPrice) * shares;
-      return sum + collateral + pnl;
-    }, 0);
-  
-  const portfolioValue = (userData.cash || 0) + holdingsValue + shortsValue;
-  
-  // Calculate total holdings count
-  const holdingsCount = Object.values(userData.holdings || {}).filter(shares => shares > 0).length;
-  
-  // Trade count achievements
-  const totalTrades = userData.totalTrades || 0;
-  if (totalTrades >= 1 && !currentAchievements.includes('FIRST_BLOOD')) {
-    newAchievements.push('FIRST_BLOOD');
+  try {
+    const result = await syncPortfolioFunction({
+      achievementContext: {
+        tradeValue: context.tradeValue || 0,
+        shortProfit: context.shortProfit || 0,
+        sellProfitPercent: context.sellProfitPercent || 0,
+        isDiamondHands: context.isDiamondHands || false
+      }
+    });
+    return result.data?.newAchievements || [];
+  } catch (error) {
+    console.error('[ACHIEVEMENT CHECK ERROR]', error);
+    return [];
   }
-  if (totalTrades >= 20 && !currentAchievements.includes('TRADER_20')) {
-    newAchievements.push('TRADER_20');
-  }
-  if (totalTrades >= 100 && !currentAchievements.includes('TRADER_100')) {
-    newAchievements.push('TRADER_100');
-  }
-  
-  // Portfolio value achievements
-  if (portfolioValue >= 2500 && !currentAchievements.includes('BROKE_2K')) {
-    newAchievements.push('BROKE_2K');
-  }
-  if (portfolioValue >= 5000 && !currentAchievements.includes('BROKE_5K')) {
-    newAchievements.push('BROKE_5K');
-  }
-  if (portfolioValue >= 10000 && !currentAchievements.includes('BROKE_10K')) {
-    newAchievements.push('BROKE_10K');
-  }
-  if (portfolioValue >= 25000 && !currentAchievements.includes('BROKE_25K')) {
-    newAchievements.push('BROKE_25K');
-  }
-  
-  // Diversification achievement
-  if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) {
-    newAchievements.push('DIVERSIFIED');
-  }
-  
-  // Shark achievement (single trade worth $1000+)
-  if (context.tradeValue && context.tradeValue >= 1000 && !currentAchievements.includes('SHARK')) {
-    newAchievements.push('SHARK');
-  }
-  
-  // Cold Blooded achievement (profitable short cover)
-  if (context.shortProfit && context.shortProfit > 0 && !currentAchievements.includes('COLD_BLOODED')) {
-    newAchievements.push('COLD_BLOODED');
-  }
-  
-  // Bull Run achievement (sell for 25%+ profit)
-  if (context.sellProfitPercent && context.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) {
-    newAchievements.push('BULL_RUN');
-  }
-  
-  // Diamond Hands achievement (held through 30%+ dip and sold at profit)
-  if (context.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) {
-    newAchievements.push('DIAMOND_HANDS');
-  }
-  
-  // Update peak portfolio value
-  const peakPortfolioValue = Math.max(userData.peakPortfolioValue || 0, portfolioValue);
-  
-  // Build update object
-  const updateData = {};
-  
-  if (peakPortfolioValue > (userData.peakPortfolioValue || 0)) {
-    updateData.peakPortfolioValue = peakPortfolioValue;
-  }
-  
-  if (newAchievements.length > 0) {
-    updateData.achievements = arrayUnion(...newAchievements);
-  }
-  
-  // Only update if there's something to update
-  if (Object.keys(updateData).length > 0) {
-    await updateDoc(userRef, updateData);
-  }
-  
-  return newAchievements;
 };
 
 // ============================================
@@ -1721,88 +1640,8 @@ export default function App() {
     processPayouts();
   }, [user, userData, predictions]);
 
-  // Check for margin calls on short positions
-  useEffect(() => {
-    const checkMarginCalls = async () => {
-      if (!user || !userData || !userData.shorts || Object.keys(prices).length === 0) return;
-      
-      const shorts = userData.shorts;
-      const liquidations = [];
-      
-      for (const [ticker, position] of Object.entries(shorts)) {
-        if (!position || position.shares <= 0) continue;
-        
-        const currentPrice = prices[ticker];
-        if (!currentPrice) continue;
-        
-        // Calculate current loss on position
-        const loss = (currentPrice - position.entryPrice) * position.shares;
-        const equityRemaining = position.margin - loss;
-        const equityRatio = equityRemaining / (currentPrice * position.shares);
-        
-        // If equity drops below 25% of position value, liquidate
-        if (equityRatio < SHORT_MARGIN_CALL_THRESHOLD) {
-          liquidations.push({
-            ticker,
-            shares: position.shares,
-            entryPrice: position.entryPrice,
-            currentPrice,
-            loss,
-            margin: position.margin
-          });
-        }
-      }
-      
-      // Process liquidations
-      if (liquidations.length > 0) {
-        const userRef = doc(db, 'users', user.uid);
-        const marketRef = doc(db, 'market', 'current');
-        let totalLoss = 0;
-        const updateData = {};
-        
-        for (const liq of liquidations) {
-          // Force cover at current price (no slippage benefit for liquidation)
-          const coverCost = liq.currentPrice * liq.shares;
-          const proceeds = liq.entryPrice * liq.shares;
-          const netLoss = coverCost - proceeds;
-          totalLoss += Math.max(0, netLoss - liq.margin); // Loss beyond margin
-          
-          // Clear the short position
-          updateData[`shorts.${liq.ticker}`] = { shares: 0, entryPrice: 0, margin: 0 };
-          
-          // Price impact from forced cover (buying pressure) using square root model
-          const liquidity = getCharacterLiquidity(liq.ticker);
-          const priceImpact = calculatePriceImpact(liq.currentPrice, liq.shares, liquidity);
-          const newPrice = liq.currentPrice + priceImpact;
-          
-          await updateDoc(marketRef, {
-            [`prices.${liq.ticker}`]: Math.round(newPrice * 100) / 100,
-            [`volume.${liq.ticker}`]: increment(liq.shares)
-          });
-        }
-        
-        // Deduct any losses beyond margin from cash (can go negative - triggers bankruptcy)
-        const newCash = Math.round((userData.cash - totalLoss) * 100) / 100;
-        updateData.cash = newCash;
-
-        // Mark bankruptcy if going negative
-        if (newCash < 0) {
-          updateData.bankruptAt = Date.now();
-        }
-
-        await updateDoc(userRef, updateData);
-
-        const tickerList = liquidations.map(l => l.ticker).join(', ');
-        if (newCash < 0) {
-          showNotification('error', `💀 BANKRUPT: ${tickerList} liquidated. You owe ${formatCurrency(Math.abs(newCash))}`);
-        } else {
-          showNotification('error', `⚠️ MARGIN CALL: ${tickerList} position(s) liquidated!`);
-        }
-      }
-    };
-    
-    checkMarginCalls();
-  }, [user, userData, prices]);
+  // Short margin calls are now handled server-side by checkShortMarginCalls Cloud Function
+  // (runs every 5 minutes, uses admin SDK to bypass security rules)
 
   // Calculate sentiment based on price changes
   const getSentiment = useCallback((ticker) => {
@@ -2636,104 +2475,20 @@ export default function App() {
     setLoadingKey('trade', false);
   }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
 
-  // Update portfolio value and record history periodically
+  // Sync portfolio value, history, and achievements via Cloud Function
+  // (these fields are blocked from client-side writes by security rules)
   useEffect(() => {
     if (!user || !userData || Object.keys(prices).length === 0) return;
 
-    const updatePortfolio = async () => {
-      // Calculate holdings value
-      const holdingsValue = Object.entries(userData.holdings || {})
-        .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
-
-      // Calculate shorts value (collateral + P&L)
-      const shortsValue = Object.entries(userData.shorts || {})
-        .reduce((sum, [ticker, position]) => {
-          if (!position || typeof position !== 'object') return sum;
-          const shares = position.shares || 0;
-          if (shares <= 0) return sum;
-          const entryPrice = position.entryPrice || 0;
-          const currentPrice = prices[ticker] || entryPrice;
-          const collateral = position.margin || 0;
-          // P&L = (entry price - current price) * shares (profit when price goes down)
-          const pnl = (entryPrice - currentPrice) * shares;
-          return sum + collateral + pnl;
-        }, 0);
-
-      const portfolioValue = userData.cash + holdingsValue + shortsValue;
-      const roundedValue = Math.round(portfolioValue * 100) / 100;
-      const userRef = doc(db, 'users', user.uid);
-
-      // Update current portfolio value
+    const syncPortfolio = async () => {
       try {
-        await updateDoc(userRef, { portfolioValue: roundedValue });
+        await syncPortfolioFunction();
       } catch (error) {
-        console.error('[PORTFOLIO UPDATE ERROR]', error);
-      }
-
-      // Also record to history periodically (every 10 minutes max)
-      const currentHistory = userData.portfolioHistory || [];
-      const lastRecord = currentHistory[currentHistory.length - 1];
-      const now = Date.now();
-      const tenMinutes = 10 * 60 * 1000;
-
-      // Record if: no history yet, OR last record was 10+ minutes ago, OR value changed significantly (>1%)
-      const valueChanged = lastRecord && Math.abs(roundedValue - lastRecord.value) / lastRecord.value > 0.01;
-      const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
-
-      if (!lastRecord || timeElapsed || valueChanged) {
-        const updatedHistory = [...currentHistory, { timestamp: now, value: roundedValue }].slice(-500);
-        try {
-          await updateDoc(userRef, { portfolioHistory: updatedHistory });
-        } catch (error) {
-          console.error('[PORTFOLIO HISTORY ERROR]', error);
-        }
-      }
-
-      // Check for bankruptcy (portfolio value <= $100)
-      if (roundedValue <= 100 && !userData.isBankrupt && userData.displayName) {
-        try {
-          await bankruptcyAlertFunction({
-            username: userData.displayName,
-            finalValue: roundedValue
-          });
-          // Mark user as bankrupt to avoid duplicate alerts
-          await updateDoc(userRef, { isBankrupt: true });
-        } catch (discordErr) {
-          console.error('Failed to send bankruptcy alert:', discordErr);
-        }
-      }
-
-      // Check for comeback (recovered 100%+ from a low point in last 30 days)
-      if (currentHistory.length > 0 && roundedValue >= 1000) {
-        const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
-        const recentHistory = currentHistory.filter(h => h.timestamp >= thirtyDaysAgo);
-
-        if (recentHistory.length > 0) {
-          const lowestPoint = Math.min(...recentHistory.map(h => h.value));
-          const recoveryPercent = ((roundedValue - lowestPoint) / lowestPoint) * 100;
-
-          // If recovered 100%+ and low point was under $500, and haven't sent alert recently
-          if (recoveryPercent >= 100 && lowestPoint <= 500 && !userData.comebackAlertSent) {
-            try {
-              await comebackAlertFunction({
-                username: userData.displayName,
-                lowPoint: Math.round(lowestPoint * 100) / 100,
-                currentValue: roundedValue
-              });
-              // Mark as sent with timestamp to avoid spam
-              await updateDoc(userRef, {
-                comebackAlertSent: true,
-                lastComebackAlert: now
-              });
-            } catch (discordErr) {
-              console.error('Failed to send comeback alert:', discordErr);
-            }
-          }
-        }
+        console.error('[PORTFOLIO SYNC ERROR]', error);
       }
     };
 
-    updatePortfolio();
+    syncPortfolio();
   }, [user, userData, prices]);
 
   // Margin monitoring - check for margin calls and auto-liquidation

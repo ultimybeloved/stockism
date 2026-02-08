@@ -81,7 +81,19 @@ service cloud.firestore {
         (!('marginUsed' in newData) || newData.marginUsed == oldData.marginUsed) &&
         (!('dailyImpact' in newData) || newData.dailyImpact == oldData.dailyImpact) &&
         (!('lastTradeTime' in newData) || newData.lastTradeTime == oldData.lastTradeTime) &&
-        (!('lastBuyTime' in newData) || newData.lastBuyTime == oldData.lastBuyTime)
+        (!('lastBuyTime' in newData) || newData.lastBuyTime == oldData.lastBuyTime) &&
+        // Block leaderboard/portfolio manipulation
+        (!('portfolioValue' in newData) || newData.portfolioValue == oldData.portfolioValue) &&
+        (!('peakPortfolioValue' in newData) || newData.peakPortfolioValue == oldData.peakPortfolioValue) &&
+        (!('portfolioHistory' in newData) || newData.portfolioHistory == oldData.portfolioHistory) &&
+        // Block achievement manipulation (awarded server-side via syncPortfolio)
+        (!('achievements' in newData) || newData.achievements == oldData.achievements) &&
+        // Block crew role manipulation (crew selection is allowed, role changes are not)
+        (!('crewRole' in newData) || newData.crewRole == oldData.crewRole) &&
+        // Block bankruptcy flag manipulation
+        (!('isBankrupt' in newData) || newData.isBankrupt == oldData.isBankrupt) &&
+        // Block bet manipulation
+        (!('bets' in newData) || newData.bets == oldData.bets)
       );
     }
     
@@ -177,29 +189,9 @@ service cloud.firestore {
       // Only admin can create/delete predictions
       allow create, delete: if isAdmin();
       
-      // Updates allowed for:
-      // - Admin (can do anything)
-      // - Regular users (can only add bets)
-      allow update: if isAdmin() || validatePredictionBet();
-    }
-    
-    function validatePredictionBet() {
-      // Users can update the list field to add bet amounts to pools
-      // The list structure contains prediction objects with pools
-      let oldData = resource.data;
-      let newData = request.resource.data;
-
-      return (
-        isAuthenticated() &&
-        // Must have a list field (array of predictions)
-        'list' in newData &&
-        // List must exist in both old and new
-        'list' in oldData &&
-        // List sizes must match (can't add/remove predictions)
-        newData.list.size() == oldData.list.size()
-        // Note: Full validation would check that only pool amounts increased
-        // and user has sufficient cash. Cloud Functions recommended for this.
-      );
+      // All updates go through Cloud Functions (placeBet, claimPredictionPayout)
+      // Direct client writes are blocked to prevent bet manipulation
+      allow update: if isAdmin();
     }
     
     // ============================================

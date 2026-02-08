@@ -2083,11 +2083,11 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, action, amount } = data;
 
-  // Validate inputs
-  if (!ticker || !action || !amount || amount <= 0) {
+  // Validate inputs - require whole numbers, finite, bounded
+  if (!ticker || !action || !amount || !Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1 || amount > 10000) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Invalid trade parameters.'
+      'Invalid trade parameters. Shares must be a whole number between 1 and 10,000.'
     );
   }
 
@@ -2346,11 +2346,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, action, amount } = data;
 
-  // Validate inputs
-  if (!ticker || !action || !amount || amount <= 0) {
+  // Validate inputs - require whole numbers, finite, bounded
+  if (!ticker || !action || !amount || !Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1 || amount > 10000) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Invalid trade parameters.'
+      'Invalid trade parameters. Shares must be a whole number between 1 and 10,000.'
     );
   }
 
@@ -2728,6 +2728,17 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       // Start with the traded ticker's price change
       const priceUpdates = { [ticker]: newPrice };
       applyTrailingEffects(ticker, currentPrice, newPrice, priceUpdates);
+
+      // Track trailing effects in dailyImpact so users can't bypass the 10% limit
+      // by trading one ticker and getting free impact on related tickers
+      Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
+        if (updatedTicker === ticker) return; // Already tracked above
+        const originalPrice = prices[updatedTicker];
+        if (originalPrice && originalPrice > 0) {
+          const trailingImpactPercent = Math.abs(updatedPrice - originalPrice) / originalPrice;
+          userDailyImpact[updatedTicker] = (userDailyImpact[updatedTicker] || 0) + trailingImpactPercent;
+        }
+      });
 
       // Build market updates (prices + price history)
       const timestamp = Date.now();
@@ -5050,5 +5061,279 @@ exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
 
     return { success: true, charged: interest };
   });
+});
+
+/**
+ * Server-side short margin call checker
+ * Runs every 5 minutes - checks all users with active shorts
+ * If equity ratio drops below 25%, force-covers the position
+ * Uses 50% dampened price impact to prevent cascading short squeezes
+ */
+exports.checkShortMarginCalls = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    const startTime = Date.now();
+    console.log('Checking short margin calls...');
+
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) {
+        console.error('Market data not found');
+        return null;
+      }
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+
+      // Query all users - filter for shorts client-side since Firestore
+      // can't query on map key existence efficiently
+      const usersSnap = await db.collection('users').get();
+
+      let liquidatedCount = 0;
+      let checkedCount = 0;
+      const MARGIN_CALL_THRESHOLD = 0.25; // 25% equity ratio
+      const DAMPENING_FACTOR = 0.5; // 50% reduced price impact for forced liquidations
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        const shorts = userData.shorts || {};
+        const shortEntries = Object.entries(shorts).filter(
+          ([, pos]) => pos && pos.shares > 0
+        );
+
+        if (shortEntries.length === 0) continue;
+        checkedCount++;
+
+        for (const [ticker, position] of shortEntries) {
+          const currentPrice = prices[ticker];
+          if (!currentPrice) continue;
+
+          const costBasis = position.costBasis || position.entryPrice || 0;
+          const marginDeposited = position.margin || (costBasis * position.shares * 0.5);
+
+          // Calculate equity: margin deposited minus unrealized loss
+          const unrealizedLoss = (currentPrice - costBasis) * position.shares;
+          const equity = marginDeposited - unrealizedLoss;
+          const positionValue = currentPrice * position.shares;
+          const equityRatio = positionValue > 0 ? equity / positionValue : 0;
+
+          if (equityRatio < MARGIN_CALL_THRESHOLD) {
+            // Force-cover this position
+            try {
+              await db.runTransaction(async (transaction) => {
+                // Re-read latest data inside transaction
+                const freshUserDoc = await transaction.get(db.collection('users').doc(userDoc.id));
+                const freshMarketDoc = await transaction.get(marketRef);
+
+                if (!freshUserDoc.exists || !freshMarketDoc.exists) return;
+
+                const freshUserData = freshUserDoc.data();
+                const freshShorts = freshUserData.shorts || {};
+                const freshPosition = freshShorts[ticker];
+
+                if (!freshPosition || freshPosition.shares <= 0) return;
+
+                const freshPrices = freshMarketDoc.data().prices || {};
+                const freshPrice = freshPrices[ticker];
+                if (!freshPrice) return;
+
+                // Re-check equity ratio with fresh data
+                const freshCostBasis = freshPosition.costBasis || freshPosition.entryPrice || 0;
+                const freshMargin = freshPosition.margin || (freshCostBasis * freshPosition.shares * 0.5);
+                const freshLoss = (freshPrice - freshCostBasis) * freshPosition.shares;
+                const freshEquity = freshMargin - freshLoss;
+                const freshPositionValue = freshPrice * freshPosition.shares;
+                const freshEquityRatio = freshPositionValue > 0 ? freshEquity / freshPositionValue : 0;
+
+                if (freshEquityRatio >= MARGIN_CALL_THRESHOLD) return; // No longer underwater
+
+                // Calculate dampened price impact for forced cover (50% reduced)
+                const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / BASE_LIQUIDITY);
+                const dampenedImpact = priceImpact * DAMPENING_FACTOR;
+                const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
+                const cappedImpact = Math.min(dampenedImpact, maxImpact);
+                const newPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
+
+                // Calculate P&L
+                const coverPrice = newPrice;
+                const coverCost = coverPrice * freshPosition.shares;
+                const proceeds = freshCostBasis * freshPosition.shares;
+                const pnl = proceeds - coverCost; // Negative if loss
+                const cashChange = freshMargin + pnl; // Return margin + P&L
+
+                // Update user: clear short, adjust cash
+                const newCash = Math.round(((freshUserData.cash || 0) + cashChange) * 100) / 100;
+                const updatedShorts = { ...freshShorts };
+                delete updatedShorts[ticker];
+
+                const userUpdates = {
+                  shorts: updatedShorts,
+                  cash: newCash
+                };
+
+                if (newCash < 0) {
+                  userUpdates.isBankrupt = true;
+                  userUpdates.bankruptAt = Date.now();
+                }
+
+                transaction.update(db.collection('users').doc(userDoc.id), userUpdates);
+
+                // Update market price (dampened)
+                transaction.update(marketRef, {
+                  [`prices.${ticker}`]: newPrice,
+                  [`priceHistory.${ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                    timestamp: Date.now(),
+                    price: newPrice
+                  })
+                });
+
+                // Log the liquidation trade
+                const tradeRef = db.collection('trades').doc();
+                transaction.set(tradeRef, {
+                  uid: userDoc.id,
+                  ticker,
+                  action: 'margin_call_cover',
+                  amount: freshPosition.shares,
+                  price: coverPrice,
+                  totalValue: coverCost,
+                  pnl,
+                  cashBefore: freshUserData.cash || 0,
+                  cashAfter: newCash,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                  automated: true
+                });
+
+                console.log(`Liquidated ${userDoc.id}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, P&L: ${pnl.toFixed(2)}`);
+              });
+
+              liquidatedCount++;
+            } catch (error) {
+              console.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
+            }
+          }
+        }
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated in ${elapsed}s`);
+      return { checked: checkedCount, liquidated: liquidatedCount, elapsed };
+
+    } catch (error) {
+      console.error('Margin call check failed:', error);
+      return null;
+    }
+  });
+
+/**
+ * Server-side portfolio sync
+ * Updates portfolioValue, portfolioHistory, peakPortfolioValue, and achievements
+ * Called by clients instead of writing these fields directly (blocked by security rules)
+ */
+exports.syncPortfolio = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { achievementContext } = data || {};
+
+  const userRef = db.collection('users').doc(uid);
+  const marketRef = db.collection('market').doc('current');
+
+  const [userDoc, marketDoc] = await Promise.all([
+    userRef.get(),
+    marketRef.get()
+  ]);
+
+  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+  if (!marketDoc.exists) throw new functions.https.HttpsError('not-found', 'Market data not found.');
+
+  const userData = userDoc.data();
+  const prices = marketDoc.data().prices || {};
+
+  // Calculate portfolio value
+  const holdingsValue = Object.entries(userData.holdings || {})
+    .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+
+  const shortsValue = Object.entries(userData.shorts || {})
+    .reduce((sum, [ticker, position]) => {
+      if (!position || typeof position !== 'object') return sum;
+      const shares = position.shares || 0;
+      if (shares <= 0) return sum;
+      const costBasis = position.costBasis || position.entryPrice || 0;
+      const currentPrice = prices[ticker] || costBasis;
+      const margin = position.margin || (costBasis * shares * 0.5);
+      const pnl = (costBasis - currentPrice) * shares;
+      return sum + margin + pnl;
+    }, 0);
+
+  const portfolioValue = Math.round(((userData.cash || 0) + holdingsValue + shortsValue) * 100) / 100;
+
+  const updateData = {
+    portfolioValue
+  };
+
+  // Update peak portfolio value
+  const peakPortfolioValue = Math.max(userData.peakPortfolioValue || 0, portfolioValue);
+  if (peakPortfolioValue > (userData.peakPortfolioValue || 0)) {
+    updateData.peakPortfolioValue = peakPortfolioValue;
+  }
+
+  // Update portfolio history (rate-limited to every 10 minutes)
+  const currentHistory = userData.portfolioHistory || [];
+  const lastRecord = currentHistory[currentHistory.length - 1];
+  const now = Date.now();
+  const tenMinutes = 10 * 60 * 1000;
+
+  const valueChanged = lastRecord && Math.abs(portfolioValue - lastRecord.value) / lastRecord.value > 0.01;
+  const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
+
+  if (!lastRecord || timeElapsed || valueChanged) {
+    updateData.portfolioHistory = [...currentHistory, { timestamp: now, value: portfolioValue }].slice(-500);
+  }
+
+  // Check achievements
+  const currentAchievements = userData.achievements || [];
+  const newAchievements = [];
+  const holdingsCount = Object.values(userData.holdings || {}).filter(shares => shares > 0).length;
+  const totalTrades = userData.totalTrades || 0;
+
+  if (totalTrades >= 1 && !currentAchievements.includes('FIRST_BLOOD')) newAchievements.push('FIRST_BLOOD');
+  if (totalTrades >= 20 && !currentAchievements.includes('TRADER_20')) newAchievements.push('TRADER_20');
+  if (totalTrades >= 100 && !currentAchievements.includes('TRADER_100')) newAchievements.push('TRADER_100');
+  if (portfolioValue >= 2500 && !currentAchievements.includes('BROKE_2K')) newAchievements.push('BROKE_2K');
+  if (portfolioValue >= 5000 && !currentAchievements.includes('BROKE_5K')) newAchievements.push('BROKE_5K');
+  if (portfolioValue >= 10000 && !currentAchievements.includes('BROKE_10K')) newAchievements.push('BROKE_10K');
+  if (portfolioValue >= 25000 && !currentAchievements.includes('BROKE_25K')) newAchievements.push('BROKE_25K');
+  if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
+
+  // Context-based achievements (passed from client after trades)
+  if (achievementContext) {
+    if (achievementContext.tradeValue >= 1000 && !currentAchievements.includes('SHARK')) newAchievements.push('SHARK');
+    if (achievementContext.shortProfit > 0 && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
+    if (achievementContext.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) newAchievements.push('BULL_RUN');
+    if (achievementContext.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
+  }
+
+  if (newAchievements.length > 0) {
+    updateData.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
+  }
+
+  // Check bankruptcy
+  if (portfolioValue <= 100 && !userData.isBankrupt && userData.displayName) {
+    updateData.isBankrupt = true;
+  }
+
+  await userRef.update(updateData);
+
+  return {
+    portfolioValue,
+    peakPortfolioValue,
+    newAchievements,
+    historyUpdated: !!updateData.portfolioHistory
+  };
 });
 

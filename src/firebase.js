@@ -75,5 +75,7 @@ export const bailoutFunction = httpsCallable(functions, 'bailout');
 export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
 export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
 export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
+// Server-side portfolio sync (replaces client-side writes blocked by security rules)
+export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
 
 export default app;
