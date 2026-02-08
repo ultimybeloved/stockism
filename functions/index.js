@@ -6041,120 +6041,152 @@ exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
 
   // --- SCAN MODE ---
   if (mode === 'scan') {
-    // Find all margin_call_cover trades on JIHO or DOO
-    const tradesSnap = await db.collection('trades')
-      .where('action', '==', 'margin_call_cover')
-      .get();
-
-    // Filter to spike tickers and group by uid
-    const userTrades = {};
-    tradesSnap.forEach(doc => {
-      const trade = doc.data();
-      if (!SPIKE_TICKERS.includes(trade.ticker)) return;
-      if (!userTrades[trade.uid]) userTrades[trade.uid] = [];
-      userTrades[trade.uid].push({ id: doc.id, ...trade });
-    });
-
+    // Broad scan: find ALL users who are bankrupt, have negative cash, or have
+    // empty shorts (position closed without trade log). Excludes bots.
+    const usersSnap = await db.collection('users').get();
     const victims = [];
 
-    for (const [uid, trades] of Object.entries(userTrades)) {
-      // Sort by timestamp to find the first forced cover
-      trades.sort((a, b) => {
-        const tsA = a.timestamp?._seconds || a.timestamp?.seconds || 0;
-        const tsB = b.timestamp?._seconds || b.timestamp?.seconds || 0;
-        return tsA - tsB;
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data();
+      if (userData.isBot) continue;
+
+      const uid = userDoc.id;
+      const cash = userData.cash || 0;
+      const isBankrupt = userData.isBankrupt || false;
+      const holdings = userData.holdings || {};
+      const shorts = userData.shorts || {};
+      const hasHoldings = Object.values(holdings).some(v => v > 0);
+      const hasShorts = Object.values(shorts).some(v => v && (typeof v === 'object' ? v.shares > 0 : v > 0));
+
+      // Flag users who are: bankrupt, negative cash, or $0 with nothing
+      const isDamaged = isBankrupt || cash < 0;
+      if (!isDamaged) continue;
+
+      // Get their trades for context
+      const tradesSnap = await db.collection('trades')
+        .where('uid', '==', uid)
+        .get();
+
+      const trades = [];
+      tradesSnap.forEach(doc => {
+        const t = doc.data();
+        const ts = t.timestamp?._seconds
+          ? t.timestamp._seconds * 1000
+          : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+        trades.push({ ...t, _ts: ts, id: doc.id });
       });
+      trades.sort((a, b) => a._ts - b._ts);
 
-      const firstTrade = trades[0];
-      const correctedCash = firstTrade.cashBefore;
-      const spikeTimestamp = firstTrade.timestamp?._seconds
-        ? firstTrade.timestamp._seconds * 1000
-        : (firstTrade.timestamp?.seconds ? firstTrade.timestamp.seconds * 1000 : Date.now());
+      // Find margin_call_cover trades on spike tickers
+      const spikeTrades = trades.filter(t =>
+        t.action === 'margin_call_cover' && SPIKE_TICKERS.includes(t.ticker)
+      );
 
-      // Read current user doc
-      const userSnap = await db.collection('users').doc(uid).get();
-      if (!userSnap.exists) continue;
-      const userData = userSnap.data();
+      // Find the last SHORT open on spike tickers (for users like Bbb with no cover trade)
+      const spikeShortOpens = trades.filter(t =>
+        (t.action === 'SHORT' || t.action === 'short' || t.action === 'SHORT_OPEN') &&
+        SPIKE_TICKERS.includes(t.ticker)
+      );
 
-      const tookBailout = !!(userData.lastBailout && userData.lastBailout > spikeTimestamp - 86400000);
+      // Determine corrected cash
+      let correctedCash = null;
+      let reason = '';
 
+      if (spikeTrades.length > 0) {
+        // Has margin_call_cover on spike tickers — restore to cashBefore of first one
+        correctedCash = spikeTrades[0].cashBefore;
+        reason = 'margin_call_cover on ' + spikeTrades.map(t => t.ticker).join('/');
+      } else if (spikeShortOpens.length > 0 && cash < 0) {
+        // Shorted spike tickers, no cover trade logged, but negative cash
+        // Restore to cash after the short was opened (last known good state)
+        const lastShortOpen = spikeShortOpens[spikeShortOpens.length - 1];
+        correctedCash = lastShortOpen.cashAfter != null ? lastShortOpen.cashAfter : lastShortOpen.cashBefore;
+        reason = 'short closed without trade log (' + spikeShortOpens.map(t => t.ticker).join('/') + ')';
+      } else if (trades.length === 0 && cash <= 0) {
+        // No trades at all, zero/negative cash — empty or broken account
+        correctedCash = STARTING_CASH;
+        reason = 'empty account (no trades)';
+      }
+
+      // Check if they took bailout
+      const tookBailout = !!(userData.lastBailout);
+
+      // For bailout users, try to reconstruct holdings from trade history
       let holdingsToRestore = null;
       let costBasisToRestore = null;
 
-      if (tookBailout) {
-        // Replay buy/sell trades before the spike to reconstruct holdings
-        const allTradesSnap = await db.collection('trades')
-          .where('uid', '==', uid)
-          .get();
+      if (tookBailout && trades.length > 0) {
+        const replayHoldings = {};
+        const replayCostBasis = {};
 
-        const holdings = {};
-        const costBasis = {};
-
-        const preSpikeTradesArr = [];
-        allTradesSnap.forEach(doc => {
-          const t = doc.data();
-          const ts = t.timestamp?._seconds
-            ? t.timestamp._seconds * 1000
-            : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
-          if (ts < spikeTimestamp) {
-            preSpikeTradesArr.push({ ...t, _ts: ts });
-          }
-        });
-
-        preSpikeTradesArr.sort((a, b) => a._ts - b._ts);
-
-        for (const t of preSpikeTradesArr) {
+        // Replay all buy/sell trades (entire history, since bailout wiped everything)
+        for (const t of trades) {
           const ticker = t.ticker;
           if (!ticker) continue;
+          // Stop replaying if we hit the bailout or damage point
+          if (t.action === 'margin_call_cover' && SPIKE_TICKERS.includes(ticker)) break;
 
           if (t.action === 'BUY' || t.action === 'buy') {
-            const prevShares = holdings[ticker] || 0;
-            const prevCost = costBasis[ticker] || 0;
+            const prevShares = replayHoldings[ticker] || 0;
+            const prevCost = replayCostBasis[ticker] || 0;
             const newShares = prevShares + (t.amount || 0);
             if (newShares > 0) {
-              costBasis[ticker] = ((prevCost * prevShares) + (t.price * (t.amount || 0))) / newShares;
+              replayCostBasis[ticker] = ((prevCost * prevShares) + (t.price * (t.amount || 0))) / newShares;
             }
-            holdings[ticker] = newShares;
+            replayHoldings[ticker] = newShares;
           } else if (t.action === 'SELL' || t.action === 'sell') {
-            holdings[ticker] = Math.max(0, (holdings[ticker] || 0) - (t.amount || 0));
-            if (holdings[ticker] === 0) delete costBasis[ticker];
+            replayHoldings[ticker] = Math.max(0, (replayHoldings[ticker] || 0) - (t.amount || 0));
+            if (replayHoldings[ticker] === 0) delete replayCostBasis[ticker];
           }
         }
 
         // Clean up zero holdings
-        for (const [ticker, shares] of Object.entries(holdings)) {
+        for (const [ticker, shares] of Object.entries(replayHoldings)) {
           if (shares <= 0) {
-            delete holdings[ticker];
-            delete costBasis[ticker];
+            delete replayHoldings[ticker];
+            delete replayCostBasis[ticker];
           }
         }
 
-        if (Object.keys(holdings).length > 0) {
-          holdingsToRestore = holdings;
-          costBasisToRestore = costBasis;
+        if (Object.keys(replayHoldings).length > 0) {
+          holdingsToRestore = replayHoldings;
+          costBasisToRestore = replayCostBasis;
         }
       }
+
+      // Get last 10 trades for display
+      const recentTrades = trades.slice(-10).reverse().map(t => ({
+        action: t.action,
+        ticker: t.ticker,
+        shares: t.amount,
+        price: t.price,
+        pnl: t.pnl,
+        cashBefore: t.cashBefore,
+        cashAfter: t.cashAfter,
+        timestamp: t._ts
+      }));
 
       victims.push({
         userId: uid,
         displayName: userData.displayName || 'Unknown',
-        currentCash: userData.cash || 0,
-        correctedCash: correctedCash,
-        isBankrupt: userData.isBankrupt || false,
+        currentCash: cash,
+        correctedCash,
+        isBankrupt,
+        bankruptAt: userData.bankruptAt || null,
         tookBailout,
         holdingsToRestore,
         costBasisToRestore,
         holdingsCount: holdingsToRestore ? Object.keys(holdingsToRestore).length : 0,
-        trades: trades.map(t => ({
-          ticker: t.ticker,
-          shares: t.amount,
-          price: t.price,
-          pnl: t.pnl,
-          cashBefore: t.cashBefore,
-          cashAfter: t.cashAfter
-        }))
+        hasHoldings,
+        hasShorts,
+        reason,
+        totalTrades: trades.length,
+        trades: recentTrades
       });
     }
+
+    // Sort: most negative cash first
+    victims.sort((a, b) => (a.currentCash || 0) - (b.currentCash || 0));
 
     return { victims };
   }
