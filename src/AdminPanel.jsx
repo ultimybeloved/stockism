@@ -5489,7 +5489,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                           }
                         }
 
-                        // Check shorts for NaN values
+                        // Check shorts for NaN values and costBasis/entryPrice mismatch
                         if (data.shorts) {
                           let shortsCorrupted = false;
                           const fixedShorts = {};
@@ -5498,9 +5498,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                             const hasNaN = isNaN(pos.shares) || isNaN(pos.entryPrice) || isNaN(pos.margin) ||
                                            !isFinite(pos.shares) || !isFinite(pos.entryPrice) || !isFinite(pos.margin);
                             if (hasNaN) {
-                              fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0 };
+                              fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0, costBasis: 0 };
                               shortsCorrupted = true;
                               issues.push(`shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`);
+                            } else if (pos.shares > 0 && pos.entryPrice && !pos.costBasis) {
+                              // Old schema: has entryPrice but no costBasis — copy it over
+                              fixedShorts[ticker] = { ...pos, costBasis: pos.entryPrice };
+                              shortsCorrupted = true;
+                              issues.push(`shorts.${ticker} missing costBasis (had entryPrice=${pos.entryPrice})`);
+                            } else if (pos.shares > 0 && pos.costBasis && !pos.entryPrice) {
+                              // Reverse mismatch: has costBasis but no entryPrice
+                              fixedShorts[ticker] = { ...pos, entryPrice: pos.costBasis };
+                              shortsCorrupted = true;
+                              issues.push(`shorts.${ticker} missing entryPrice (had costBasis=${pos.costBasis})`);
                             }
                           }
                           if (shortsCorrupted) {

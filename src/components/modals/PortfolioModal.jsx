@@ -115,10 +115,10 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
       .filter(([_, position]) => position && position.shares > 0)
       .map(([ticker, position]) => {
         const character = CHARACTER_MAP[ticker];
-        const currentPrice = prices[ticker] || character?.basePrice || position.entryPrice;
-        const entryPrice = position.entryPrice;
-        const shares = position.shares;
-        const margin = position.margin || 0;
+        const currentPrice = prices[ticker] || character?.basePrice || position.costBasis || position.entryPrice || 0;
+        const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
+        const shares = Number(position.shares) || 0;
+        const margin = Number(position.margin) || 0;
 
         // P/L calculation: profit when price goes down
         const profitPerShare = entryPrice - currentPrice;
@@ -127,10 +127,10 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
 
         // Current equity in the position
         const equity = margin + totalPL;
-        const equityRatio = currentPrice > 0 ? equity / (currentPrice * shares) : 1;
+        const equityRatio = currentPrice > 0 && shares > 0 ? equity / (currentPrice * shares) : 1;
 
         // Position value (margin + unrealized P/L)
-        const positionValue = equity;
+        const positionValue = isNaN(equity) ? 0 : equity;
 
         return {
           ticker,
