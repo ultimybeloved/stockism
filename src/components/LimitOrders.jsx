@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db, createLimitOrderFunction } from '../firebase';
 
 const LimitOrders = ({ user, darkMode, prices, characters }) => {
   const [activeTab, setActiveTab] = useState('orders'); // 'create' or 'orders' - default to 'orders' since creation is now in trade modal
@@ -65,21 +65,12 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
 
     setLoading(true);
     try {
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30); // 30 day expiration
-
-      await addDoc(collection(db, 'limitOrders'), {
-        userId: user.uid,
+      await createLimitOrderFunction({
         ticker: selectedTicker,
         type: orderType,
         shares: parseInt(shares),
         limitPrice: priceNum,
-        allowPartialFills,
-        status: 'PENDING',
-        filledShares: 0,
-        createdAt: serverTimestamp(),
-        expiresAt: expiresAt.getTime(),
-        updatedAt: serverTimestamp()
+        allowPartialFills
       });
 
       alert('Limit order created!');

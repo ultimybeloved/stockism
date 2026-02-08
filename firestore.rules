@@ -103,7 +103,15 @@ service cloud.firestore {
         (!('costBasis' in newData) || newData.costBasis == oldData.costBasis) &&
         (!('lowestWhileHolding' in newData) || newData.lowestWhileHolding == oldData.lowestWhileHolding) &&
         // Block transaction log manipulation (logged server-side in trades collection)
-        (!('transactionLog' in newData) || newData.transactionLog == oldData.transactionLog)
+        (!('transactionLog' in newData) || newData.transactionLog == oldData.transactionLog) &&
+        // Block checkin/prediction/pin/badge manipulation (awarded server-side)
+        (!('totalCheckins' in newData) || newData.totalCheckins == oldData.totalCheckins) &&
+        (!('predictionWins' in newData) || newData.predictionWins == oldData.predictionWins) &&
+        (!('predictionStreak' in newData) || newData.predictionStreak == oldData.predictionStreak) &&
+        (!('pins' in newData) || newData.pins == oldData.pins) &&
+        (!('badges' in newData) || newData.badges == oldData.badges) &&
+        (!('crewIcon' in newData) || newData.crewIcon == oldData.crewIcon) &&
+        (!('lendingUnlocked' in newData) || newData.lendingUnlocked == oldData.lendingUnlocked)
       );
     }
     
@@ -322,6 +330,14 @@ service cloud.firestore {
     match /config/{document} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ============================================
+    // BANNED USERS
+    // ============================================
+
+    match /banned_users/{userId} {
+      allow read, write: if isAdmin();
     }
   }
 }

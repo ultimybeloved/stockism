@@ -55,6 +55,125 @@ const MISSION_REWARDS = {
   DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750
 };
 
+// Server-side mission completion verification
+// Maps mission IDs to their completion check logic
+const DAILY_MISSION_CHECKS = {
+  BUY_CREW_MEMBER: (dp) => !!dp.boughtCrewMember,
+  HOLD_CREW_SHARES: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const total = CREW_MEMBERS[crew].reduce((s, t) => s + ((userData.holdings || {})[t] || 0), 0);
+    return total >= 10;
+  },
+  MAKE_TRADES: (dp) => (dp.tradesCount || 0) >= 3,
+  BUY_ANY_STOCK: (dp) => !!dp.boughtAny,
+  SELL_ANY_STOCK: (dp) => !!dp.soldAny,
+  HOLD_LARGE_POSITION: (dp, userData) => {
+    const vals = Object.values(userData.holdings || {});
+    return vals.length > 0 && Math.max(...vals) >= 25;
+  },
+  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= 10,
+  CREW_MAJORITY: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const holdings = userData.holdings || {};
+    const total = Object.values(holdings).reduce((s, v) => s + v, 0);
+    if (total <= 0) return false;
+    const crewShares = CREW_MEMBERS[crew].reduce((s, t) => s + (holdings[t] || 0), 0);
+    return (crewShares / total) * 100 >= 50;
+  },
+  CREW_COLLECTOR: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const owned = CREW_MEMBERS[crew].filter(t => ((userData.holdings || {})[t] || 0) > 0).length;
+    return owned >= 3;
+  },
+  FULL_ROSTER: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const members = CREW_MEMBERS[crew];
+    return members.length > 0 && members.every(t => ((userData.holdings || {})[t] || 0) > 0);
+  },
+  CREW_LEADER: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const maxHolding = Math.max(0, ...CREW_MEMBERS[crew].map(t => ((userData.holdings || {})[t] || 0)));
+    return maxHolding >= 20;
+  },
+  RIVAL_TRADER: (dp) => !!dp.boughtRival,
+  SPY_GAME: (dp, userData) => {
+    const holdings = userData.holdings || {};
+    const crewsOwned = new Set();
+    Object.entries(holdings).forEach(([ticker, shares]) => {
+      if (shares > 0) {
+        Object.entries(CREW_MEMBERS).forEach(([crewId, members]) => {
+          if (members.includes(ticker)) crewsOwned.add(crewId);
+        });
+      }
+    });
+    return crewsOwned.size >= 3;
+  },
+  TOP_DOG: (dp, userData, prices) => {
+    let highestTicker = null, highestPrice = 0;
+    Object.entries(prices || {}).forEach(([t, p]) => { if (p > highestPrice) { highestPrice = p; highestTicker = t; } });
+    return highestTicker && ((userData.holdings || {})[highestTicker] || 0) > 0;
+  },
+  UNDERDOG_INVESTOR: (dp) => !!dp.boughtUnderdog,
+  BALANCED_CREW: (dp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const qualifying = CREW_MEMBERS[crew].filter(t => ((userData.holdings || {})[t] || 0) >= 5).length;
+    return qualifying >= 2;
+  },
+  CREW_ACCUMULATOR: (dp) => (dp.crewSharesBought || 0) >= 10
+};
+
+const WEEKLY_MISSION_CHECKS = {
+  MARKET_WHALE: (wp) => (wp.tradeValue || 0) >= 10000,
+  VOLUME_KING: (wp) => (wp.tradeVolume || 0) >= 100,
+  TRADING_MACHINE: (wp) => (wp.tradeCount || 0) >= 25,
+  TRADING_STREAK: (wp) => Object.keys(wp.tradingDays || {}).length >= 5,
+  DAILY_GRINDER: (wp) => Object.keys(wp.checkinDays || {}).length >= 7,
+  CREW_MAXIMALIST: (wp, userData, prices) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const holdings = userData.holdings || {};
+    let totalVal = 0, crewVal = 0;
+    Object.entries(holdings).forEach(([t, s]) => {
+      if (s > 0) { const v = s * ((prices || {})[t] || 0); totalVal += v; if (CREW_MEMBERS[crew].includes(t)) crewVal += v; }
+    });
+    return totalVal > 0 && (crewVal / totalVal) * 100 >= 80;
+  },
+  CREW_HOARDER: (wp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const total = CREW_MEMBERS[crew].reduce((s, t) => s + ((userData.holdings || {})[t] || 0), 0);
+    return total >= 50;
+  },
+  FULL_CREW_OWNERSHIP: (wp, userData) => {
+    const crew = userData.crew;
+    if (!crew || !CREW_MEMBERS[crew]) return false;
+    const members = CREW_MEMBERS[crew];
+    return members.length > 0 && members.every(t => ((userData.holdings || {})[t] || 0) >= 5);
+  },
+  DIVERSIFICATION_MASTER: (wp, userData) => {
+    const holdings = userData.holdings || {};
+    const crewsOwned = new Set();
+    Object.entries(holdings).forEach(([ticker, shares]) => {
+      if (shares > 0) {
+        Object.entries(CREW_MEMBERS).forEach(([crewId, members]) => {
+          if (members.includes(ticker)) crewsOwned.add(crewId);
+        });
+      }
+    });
+    return crewsOwned.size >= 5;
+  },
+  PORTFOLIO_BUILDER: (wp, userData) => {
+    const startValue = wp.startPortfolioValue || 0;
+    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 2000;
+  }
+};
+
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
@@ -852,7 +971,7 @@ exports.dailyMarketSummary = functions.pubsub
  */
 exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context) => {
   // Admin check
-  if (!context.auth || !ADMIN_UIDS.includes(context.auth.uid)) {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
@@ -1386,9 +1505,7 @@ exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
-  const { username, finalValue } = data;
-
-  // Validate: verify the user is actually bankrupt
+  // Validate: verify the user is actually bankrupt and compute values server-side
   try {
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     if (!userDoc.exists) return { success: true };
@@ -1397,30 +1514,31 @@ exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
       console.log(`Bankruptcy alert rejected: ${context.auth.uid} is not bankrupt`);
       return { success: true };
     }
+
+    const actualValue = userData.portfolioValue || 0;
+    const censoredName = censorUsername(userData.displayName || 'Unknown');
+
+    const embed = {
+      color: 0xFF0000, // Red
+      title: '💔 Trader Bankrupt',
+      description: `**${censoredName}** has gone bust`,
+      fields: [
+        {
+          name: 'Final Portfolio Value',
+          value: `$${actualValue.toFixed(2)}`,
+          inline: true
+        }
+      ],
+      footer: {
+        text: 'Risk management is key!'
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    await sendDiscordMessage(null, [embed]);
   } catch (e) {
-    console.error('Bankruptcy alert validation failed:', e);
-    return { success: true };
+    console.error('Bankruptcy alert failed:', e);
   }
-  const censoredName = censorUsername(username);
-
-  const embed = {
-    color: 0xFF0000, // Red
-    title: '💔 Trader Bankrupt',
-    description: `**${censoredName}** has gone bust`,
-    fields: [
-      {
-        name: 'Final Portfolio Value',
-        value: `$${finalValue.toFixed(2)}`,
-        inline: true
-      }
-    ],
-    footer: {
-      text: 'Risk management is key!'
-    },
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
   return { success: true };
 });
 
@@ -1432,52 +1550,59 @@ exports.comebackAlert = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
-  const { username, lowPoint, currentValue } = data;
-
-  // Validate: verify the user's portfolio roughly matches the claim
+  // Compute all values server-side from user data
   try {
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     if (!userDoc.exists) return { success: true };
-    const actualValue = userDoc.data().portfolioValue || 0;
-    if (typeof currentValue !== 'number' || Math.abs(actualValue - currentValue) > actualValue * 0.2) {
-      console.log(`Comeback alert rejected: claimed ${currentValue}, actual ${actualValue}`);
+    const userData = userDoc.data();
+    const actualValue = userData.portfolioValue || 0;
+
+    // Use lowestWhileHolding or portfolio history to determine low point
+    const portfolioHistory = userData.portfolioHistory || [];
+    const lowestHistorical = portfolioHistory.length > 0
+      ? Math.min(...portfolioHistory.map(h => h.value || Infinity))
+      : actualValue;
+    const serverLowPoint = Math.min(lowestHistorical, actualValue);
+
+    // Only alert if there's a meaningful comeback (at least 50% recovery from a low)
+    if (serverLowPoint <= 0 || actualValue <= serverLowPoint * 1.5) {
       return { success: true };
     }
+
+    const gainPercent = ((actualValue - serverLowPoint) / serverLowPoint * 100).toFixed(0);
+    const censoredName = censorUsername(userData.displayName || 'Unknown');
+
+    const embed = {
+      color: 0x00FF00, // Green
+      title: '🔥 Epic Comeback!',
+      description: `**${censoredName}** recovered from the brink!`,
+      fields: [
+        {
+          name: 'Lowest Point',
+          value: `$${serverLowPoint.toFixed(2)}`,
+          inline: true
+        },
+        {
+          name: 'Current Value',
+          value: `$${actualValue.toFixed(2)}`,
+          inline: true
+        },
+        {
+          name: 'Recovery',
+          value: `+${gainPercent}%`,
+          inline: true
+        }
+      ],
+      footer: {
+        text: 'Never give up!'
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    await sendDiscordMessage(null, [embed]);
   } catch (e) {
-    console.error('Comeback alert validation failed:', e);
-    return { success: true };
+    console.error('Comeback alert failed:', e);
   }
-  const censoredName = censorUsername(username);
-  const gainPercent = ((currentValue - lowPoint) / lowPoint * 100).toFixed(0);
-
-  const embed = {
-    color: 0x00FF00, // Green
-    title: '🔥 Epic Comeback!',
-    description: `**${censoredName}** recovered from the brink!`,
-    fields: [
-      {
-        name: 'Lowest Point',
-        value: `$${lowPoint.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
-        inline: true
-      },
-      {
-        name: 'Current Value',
-        value: `$${currentValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`,
-        inline: true
-      },
-      {
-        name: 'Recovery',
-        value: `+${gainPercent}%`,
-        inline: true
-      }
-    ],
-    footer: {
-      text: 'Never give up!'
-    },
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
   return { success: true };
 });
 
@@ -1883,6 +2008,12 @@ exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
     return { success: true, alerted: false };
   }
 
+  // Validate tradeType
+  const VALID_TRADE_TYPES = ['BUY', 'SELL', 'SHORT', 'COVER'];
+  if (!tradeType || !VALID_TRADE_TYPES.includes(tradeType)) {
+    return { success: true, alerted: false };
+  }
+
   const change = ((priceAfter - priceBefore) / priceBefore) * 100;
   const absChange = Math.abs(change);
 
@@ -1891,7 +2022,7 @@ exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
 
   const emoji = change > 0 ? '⚡' : '💨';
   const direction = change > 0 ? 'spiked' : 'dropped';
-  const tradeAction = tradeType === 'BUY' ? 'buy' : 'sell';
+  const tradeAction = tradeType === 'BUY' ? 'buy' : tradeType === 'SHORT' ? 'short' : 'sell';
 
   const embed = {
     title: `${emoji} Price Spike`,
@@ -4870,11 +5001,17 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
 
   const userRef = db.collection('users').doc(uid);
 
+  const marketRef = db.collection('market').doc('current');
+
   return db.runTransaction(async (transaction) => {
-    const userDoc = await transaction.get(userRef);
+    const [userDoc, marketDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(marketRef)
+    ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
 
     // Get today's date and week ID
     const now = new Date();
@@ -4899,6 +5036,27 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('invalid-argument', 'Unknown mission.');
     }
     const reward = definedReward;
+
+    // Verify mission is actually completed server-side
+    if (type === 'daily') {
+      const dailyProgress = userData.dailyMissions?.[today] || {};
+      const checker = DAILY_MISSION_CHECKS[missionId];
+      if (!checker) {
+        throw new functions.https.HttpsError('invalid-argument', 'Unknown daily mission.');
+      }
+      if (!checker(dailyProgress, userData, prices)) {
+        throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
+      }
+    } else {
+      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+      const checker = WEEKLY_MISSION_CHECKS[missionId];
+      if (!checker) {
+        throw new functions.https.HttpsError('invalid-argument', 'Unknown weekly mission.');
+      }
+      if (!checker(weeklyProgress, userData, prices)) {
+        throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
+      }
+    }
 
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
     const updates = {
@@ -5713,6 +5871,20 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
     };
   }
 
+  // Hourly rate limit: max 60 syncs per hour
+  const syncCount = userData.syncCountHour || 0;
+  const syncHourStart = userData.syncHourStart || 0;
+  const oneHour = 60 * 60 * 1000;
+  if (now - syncHourStart < oneHour && syncCount >= 60) {
+    return {
+      portfolioValue: userData.portfolioValue || 0,
+      peakPortfolioValue: userData.peakPortfolioValue || 0,
+      newAchievements: [],
+      historyUpdated: false,
+      rateLimited: true
+    };
+  }
+
   // Calculate portfolio value
   const holdingsValue = Object.entries(userData.holdings || {})
     .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
@@ -5733,7 +5905,10 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   const updateData = {
     portfolioValue,
-    lastSynced: now
+    lastSynced: now,
+    // Track hourly sync count
+    syncCountHour: (now - syncHourStart >= oneHour) ? 1 : syncCount + 1,
+    syncHourStart: (now - syncHourStart >= oneHour) ? now : syncHourStart
   };
 
   // Initialize weekly mission startPortfolioValue if not set
@@ -6033,6 +6208,10 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
 
   if (!crewId || typeof crewId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid crew ID.');
+  }
+
+  if (!CREW_MEMBERS[crewId]) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid crew.');
   }
 
   const userRef = db.collection('users').doc(uid);
