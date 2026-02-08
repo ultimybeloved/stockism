@@ -2466,13 +2466,26 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
       }
 
+      // Block bankrupt users from trading
+      if (userData.isBankrupt || (userData.cash || 0) < 0) {
+        // Allow selling and covering to exit positions, block new buys/shorts
+        if (action === 'buy' || action === 'short') {
+          throw new functions.https.HttpsError('failed-precondition', 'Account is bankrupt. Use bailout to reset.');
+        }
+      }
+
       // Get user data
       const cash = userData.cash || 0;
       const holdings = userData.holdings || {};
       const shorts = userData.shorts || {};
       const marginEnabled = userData.marginEnabled || false;
       const marginUsed = userData.marginUsed || 0;
-      const tierMultiplier = userData.tierMultiplier || 0.25;
+      // Calculate tier multiplier from peak portfolio (same tiers as frontend)
+      const peakPortfolio = userData.peakPortfolioValue || 0;
+      const tierMultiplier = peakPortfolio >= 30000 ? 0.75
+        : peakPortfolio >= 15000 ? 0.50
+        : peakPortfolio >= 7500 ? 0.35
+        : 0.25;
       const dailyImpact = userData.dailyImpact || {};
       const userDailyImpact = dailyImpact[todayDate] || {};
       const tickerDailyImpact = userDailyImpact[ticker] || 0;
@@ -5312,8 +5325,11 @@ exports.checkShortMarginCalls = functions.pubsub
 
       let liquidatedCount = 0;
       let checkedCount = 0;
+      let throttledCount = 0;
       const MARGIN_CALL_THRESHOLD = 0.25; // 25% equity ratio
       const DAMPENING_FACTOR = 0.5; // 50% reduced price impact for forced liquidations
+      const COVERS_PER_TICKER_PER_CYCLE = 3; // Max forced covers per ticker per 5-min cycle
+      const tickerCoverCount = {};
 
       for (const userDoc of usersSnap.docs) {
         const userData = userDoc.data();
@@ -5328,6 +5344,12 @@ exports.checkShortMarginCalls = functions.pubsub
         for (const [ticker, position] of shortEntries) {
           const currentPrice = prices[ticker];
           if (!currentPrice) continue;
+
+          // Throttle: max 3 forced covers per ticker per cycle to prevent cascading spikes
+          if ((tickerCoverCount[ticker] || 0) >= COVERS_PER_TICKER_PER_CYCLE) {
+            throttledCount++;
+            continue; // Will be picked up in next 5-minute cycle
+          }
 
           const costBasis = position.costBasis || position.entryPrice || 0;
           const marginDeposited = position.margin || (costBasis * position.shares * 0.5);
@@ -5427,6 +5449,7 @@ exports.checkShortMarginCalls = functions.pubsub
               });
 
               liquidatedCount++;
+              tickerCoverCount[ticker] = (tickerCoverCount[ticker] || 0) + 1;
             } catch (error) {
               console.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
             }
@@ -5435,8 +5458,8 @@ exports.checkShortMarginCalls = functions.pubsub
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated in ${elapsed}s`);
-      return { checked: checkedCount, liquidated: liquidatedCount, elapsed };
+      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled in ${elapsed}s`);
+      return { checked: checkedCount, liquidated: liquidatedCount, throttled: throttledCount, elapsed };
 
     } catch (error) {
       console.error('Margin call check failed:', error);
