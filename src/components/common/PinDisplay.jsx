@@ -27,11 +27,12 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     }
   }
 
-  // Achievement pins
+  // Achievement pins (only show if user still has the achievement)
   const achievementPins = userData.displayedAchievementPins || [];
+  const earnedAchievements = userData.achievements || [];
   achievementPins.forEach((achId, idx) => {
     const achievement = ACHIEVEMENTS[achId];
-    if (achievement) {
+    if (achievement && earnedAchievements.includes(achId)) {
       pins.push(
         <span key={`ach-${idx}`} title={achievement.name} className={sizeClass}>
           {achievement.emoji}

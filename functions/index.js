@@ -5899,6 +5899,7 @@ exports.removeAchievement = functions.https.onCall(async (data, context) => {
 
   await userRef.update({
     achievements: admin.firestore.FieldValue.arrayRemove(achievementId),
+    displayedAchievementPins: admin.firestore.FieldValue.arrayRemove(achievementId),
     [`achievementDates.${achievementId}`]: admin.firestore.FieldValue.delete()
   });
 
