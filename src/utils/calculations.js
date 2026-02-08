@@ -85,7 +85,7 @@ export const calculatePortfolioValue = (userData, prices) => {
     if (!position || typeof position !== 'object') return sum;
     const shares = position.shares || 0;
     if (shares <= 0) return sum;
-    const entryPrice = position.entryPrice || 0;
+    const entryPrice = position.costBasis || position.entryPrice || 0;
     const currentPrice = prices[ticker] || entryPrice;
     const collateral = position.margin || 0;
     const pnl = (entryPrice - currentPrice) * shares;
