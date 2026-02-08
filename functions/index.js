@@ -5941,3 +5941,25 @@ exports.reinstateUser = functions.https.onCall(async (data, context) => {
   return { success: true, userId, cashAdded: cashBoost };
 });
 
+exports.adminSetCash = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId, cash } = data;
+  if (!userId || typeof cash !== 'number' || isNaN(cash) || cash < 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cash (>= 0) required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+
+  const prevCash = userSnap.data().cash;
+  await userRef.update({ cash: Math.round(cash * 100) / 100 });
+
+  return { success: true, userId, previousCash: prevCash, newCash: cash };
+});
+

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -267,6 +267,27 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       await reinstateUserFunction({ userId });
       setBankruptUsers(prev => prev.filter(u => u.id !== userId));
       showMessage('success', `Reinstated ${displayName}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const handleSetCash = async (userId, displayName) => {
+    const input = prompt(`Set cash for ${displayName}.\nEnter new cash amount:`);
+    if (input === null) return;
+    const cash = parseFloat(input);
+    if (isNaN(cash) || cash < 0) {
+      showMessage('error', 'Invalid cash amount');
+      return;
+    }
+    if (!confirm(`Set ${displayName}'s cash to $${cash.toFixed(2)}?`)) return;
+    setLoading(true);
+    try {
+      const result = await adminSetCashFunction({ userId, cash });
+      showMessage('success', `Cash set to $${cash.toFixed(2)} (was $${result.data.previousCash})`);
+      setSelectedUser(prev => prev ? { ...prev, cash } : prev);
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -3972,8 +3993,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                   
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                      <div className={`text-xs ${mutedClass}`}>Cash</div>
-                      <div className={`font-bold text-green-500`}>${selectedUser.cash.toFixed(2)}</div>
+                      <div className="flex items-center justify-between">
+                        <div className={`text-xs ${mutedClass}`}>Cash</div>
+                        <button
+                          onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username)}
+                          disabled={loading}
+                          className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
+                        >Set</button>
+                      </div>
+                      <div className={`font-bold ${isNaN(selectedUser.cash) ? 'text-red-500' : 'text-green-500'}`}>
+                        {isNaN(selectedUser.cash) ? '$NaN' : `$${selectedUser.cash.toFixed(2)}`}
+                      </div>
                     </div>
                     <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
                       <div className={`text-xs ${mutedClass}`}>Portfolio</div>

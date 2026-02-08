@@ -82,5 +82,7 @@ export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
 export const removeAchievementFunction = httpsCallable(functions, 'removeAchievement');
 // Admin: reinstate bankrupt user
 export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
+// Admin: directly set user cash (for account repairs)
+export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
 
 export default app;
