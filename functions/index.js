@@ -1356,6 +1356,20 @@ exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
   }
 
   const { username, finalValue } = data;
+
+  // Validate: verify the user is actually bankrupt
+  try {
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!userDoc.exists) return { success: true };
+    const userData = userDoc.data();
+    if (!userData.isBankrupt && (userData.cash || 0) >= 0) {
+      console.log(`Bankruptcy alert rejected: ${context.auth.uid} is not bankrupt`);
+      return { success: true };
+    }
+  } catch (e) {
+    console.error('Bankruptcy alert validation failed:', e);
+    return { success: true };
+  }
   const censoredName = censorUsername(username);
 
   const embed = {
@@ -1388,6 +1402,20 @@ exports.comebackAlert = functions.https.onCall(async (data, context) => {
   }
 
   const { username, lowPoint, currentValue } = data;
+
+  // Validate: verify the user's portfolio roughly matches the claim
+  try {
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!userDoc.exists) return { success: true };
+    const actualValue = userDoc.data().portfolioValue || 0;
+    if (typeof currentValue !== 'number' || Math.abs(actualValue - currentValue) > actualValue * 0.2) {
+      console.log(`Comeback alert rejected: claimed ${currentValue}, actual ${actualValue}`);
+      return { success: true };
+    }
+  } catch (e) {
+    console.error('Comeback alert validation failed:', e);
+    return { success: true };
+  }
   const censoredName = censorUsername(username);
   const gainPercent = ((currentValue - lowPoint) / lowPoint * 100).toFixed(0);
 
@@ -1818,6 +1846,12 @@ exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
 
   const { ticker, priceBefore, priceAfter, tradeType, shares } = data;
 
+  // Validate: verify the price data roughly matches reality
+  if (!ticker || typeof priceBefore !== 'number' || typeof priceAfter !== 'number' ||
+      priceBefore <= 0 || priceAfter <= 0 || !Number.isFinite(priceBefore) || !Number.isFinite(priceAfter)) {
+    return { success: true, alerted: false };
+  }
+
   const change = ((priceAfter - priceBefore) / priceBefore) * 100;
   const absChange = Math.abs(change);
 
@@ -1854,6 +1888,20 @@ exports.achievementAlert = functions.https.onCall(async (data, context) => {
 
   const { achievementId, achievementName, achievementDescription } = data;
 
+  // Validate: verify the user actually has this achievement
+  try {
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!userDoc.exists) return { success: true, alerted: false };
+    const achievements = userDoc.data().achievements || [];
+    if (!achievements.includes(achievementId)) {
+      console.log(`Achievement alert rejected: ${context.auth.uid} doesn't have ${achievementId}`);
+      return { success: true, alerted: false };
+    }
+  } catch (e) {
+    console.error('Achievement validation failed:', e);
+    return { success: true, alerted: false };
+  }
+
   // List of "exciting" achievements worth announcing (skip basic ones)
   const noteworthyAchievements = [
     'SHARK', 'BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED',
@@ -1889,6 +1937,20 @@ exports.leaderboardChangeAlert = functions.https.onCall(async (data, context) =>
   }
 
   const { changeType, newRank, portfolioValue } = data;
+
+  // Validate: verify the user's portfolio value roughly matches claim
+  try {
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!userDoc.exists) return { success: true, alerted: false };
+    const actualValue = userDoc.data().portfolioValue || 0;
+    if (typeof portfolioValue !== 'number' || Math.abs(actualValue - portfolioValue) > actualValue * 0.2) {
+      console.log(`Leaderboard alert rejected: claimed ${portfolioValue}, actual ${actualValue}`);
+      return { success: true, alerted: false };
+    }
+  } catch (e) {
+    console.error('Leaderboard alert validation failed:', e);
+    return { success: true, alerted: false };
+  }
 
   let embed;
 
@@ -1941,6 +2003,22 @@ exports.marginLiquidationAlert = functions.https.onCall(async (data, context) =>
   }
 
   const { lossAmount, portfolioBefore, portfolioAfter } = data;
+
+  // Validate: verify the user actually had a recent liquidation
+  try {
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (!userDoc.exists) return { success: true, alerted: false };
+    const userData = userDoc.data();
+    const lastLiq = userData.lastLiquidation || 0;
+    // Only allow alert if liquidation happened in last 10 minutes
+    if (Date.now() - lastLiq > 10 * 60 * 1000) {
+      console.log(`Liquidation alert rejected: no recent liquidation for ${context.auth.uid}`);
+      return { success: true, alerted: false };
+    }
+  } catch (e) {
+    console.error('Liquidation alert validation failed:', e);
+    return { success: true, alerted: false };
+  }
 
   const embed = {
     title: '💥 Margin Liquidation',
@@ -2797,6 +2875,22 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       const tradeRef = db.collection('trades').doc();
       transaction.set(tradeRef, tradeRecord);
 
+      // Compute achievement context inside transaction (we have the data here)
+      let achievementCtx = { tradeValue: totalCost };
+      if (action === 'sell') {
+        const costBasis = userData.costBasis?.[ticker] || 0;
+        const sellProfitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
+        const lowestWhileHolding = userData.lowestWhileHolding?.[ticker] || costBasis;
+        const dipPercent = costBasis > 0 ? ((costBasis - lowestWhileHolding) / costBasis) * 100 : 0;
+        achievementCtx.sellProfitPercent = sellProfitPercent;
+        achievementCtx.isDiamondHands = dipPercent >= 30 && sellProfitPercent > 0;
+      }
+      if (action === 'cover') {
+        const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;
+        const coverProfitPercent = shortCostBasis > 0 ? ((shortCostBasis - executionPrice) / shortCostBasis) * 100 : 0;
+        achievementCtx.isColdBlooded = coverProfitPercent >= 20;
+      }
+
       return {
         success: true,
         executionPrice,
@@ -2808,10 +2902,38 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newShorts,
         newMarginUsed,
         priceUpdates, // All affected tickers (including trailing effects)
-        remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker]
+        remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker],
+        achievementCtx
       };
     });
 
+    // Award context-based achievements AFTER transaction completes
+    // (can't do additional queries inside the transaction)
+    try {
+      const ctx = result.achievementCtx || {};
+      const userDoc = await db.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        const currentAchievements = userDoc.data().achievements || [];
+        const newAchievements = [];
+
+        if (ctx.tradeValue >= 1000 && !currentAchievements.includes('SHARK')) newAchievements.push('SHARK');
+        if (ctx.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) newAchievements.push('BULL_RUN');
+        if (ctx.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
+        if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
+
+        if (newAchievements.length > 0) {
+          await db.collection('users').doc(uid).update({
+            achievements: admin.firestore.FieldValue.arrayUnion(...newAchievements)
+          });
+          result.newAchievements = newAchievements;
+        }
+      }
+    } catch (achErr) {
+      console.error('Achievement check after trade failed:', achErr);
+    }
+
+    // Remove internal context from response
+    delete result.achievementCtx;
     return result;
 
   } catch (error) {
@@ -3964,6 +4086,11 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
 
 // Archive price history when it gets too large (prevents 1MB document limit)
 exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
+  // Admin-only: prevents unauthorized users from modifying market data
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
   const MAX_HISTORY_SIZE = 1000; // Keep last 1000 entries in main doc
 
   try {
@@ -4024,6 +4151,11 @@ exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
 
 // Clean up old alertedThresholds (Discord alert cooldowns don't need long-term storage)
 exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) => {
+  // Admin-only: prevents unauthorized cleanup of alert state
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
   const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   try {
@@ -4274,22 +4406,26 @@ exports.checkLimitOrders = functions.pubsub
           try {
             await db.runTransaction(async (transaction) => {
               const userSnap = await transaction.get(userRef);
+              const freshMarketSnap = await transaction.get(marketRef);
 
               if (!userSnap.exists) {
                 throw new Error('User not found');
               }
+              if (!freshMarketSnap.exists) {
+                throw new Error('Market data not found');
+              }
 
               const userData = userSnap.data();
+              const freshPrices = freshMarketSnap.data().prices || {};
+              const freshPrice = freshPrices[order.ticker] || currentPrice;
 
               // Validate user has sufficient funds/shares
               if (order.type === 'BUY') {
-                const totalCost = currentPrice * order.shares;
+                const totalCost = freshPrice * order.shares;
                 if (userData.cash < totalCost) {
                   if (order.allowPartialFills) {
-                    // Calculate how many shares we can buy
-                    const affordableShares = Math.floor(userData.cash / currentPrice);
+                    const affordableShares = Math.floor(userData.cash / freshPrice);
                     if (affordableShares > 0) {
-                      // Execute partial fill
                       order.shares = affordableShares;
                       console.log(`Partial fill: can only afford ${affordableShares} shares`);
                     } else {
@@ -4303,7 +4439,6 @@ exports.checkLimitOrders = functions.pubsub
                 const userShares = userData.holdings?.[order.ticker] || 0;
                 if (userShares < order.shares) {
                   if (order.allowPartialFills) {
-                    // Sell whatever shares they have
                     if (userShares > 0) {
                       order.shares = userShares;
                       console.log(`Partial fill: only have ${userShares} shares`);
@@ -4316,14 +4451,23 @@ exports.checkLimitOrders = functions.pubsub
                 }
               }
 
+              // Calculate price impact (same formula as executeTrade)
+              const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(order.shares / BASE_LIQUIDITY);
+              const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
+              const cappedImpact = Math.min(priceImpact, maxImpact);
+
               // Execute the trade
               if (order.type === 'BUY') {
-                // Calculate buy cost with bid-ask spread
-                const bidAskSpread = 0.02; // 2% spread
-                const askPrice = currentPrice * (1 + bidAskSpread);
+                // Price goes UP on buy
+                const newMarketPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
+                const askPrice = newMarketPrice * (1 + BID_ASK_SPREAD / 2);
                 const totalCost = askPrice * order.shares;
 
-                // Update user data
+                // Re-validate with actual cost
+                if (userData.cash < totalCost) {
+                  throw new Error('Insufficient cash after price impact');
+                }
+
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
                 const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
                 const newHoldings = currentHoldings + order.shares;
@@ -4339,14 +4483,22 @@ exports.checkLimitOrders = functions.pubsub
                   totalTrades: admin.firestore.FieldValue.increment(1)
                 });
 
-                console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} for user ${order.userId}`);
+                // Apply price impact to market
+                transaction.update(marketRef, {
+                  [`prices.${order.ticker}`]: newMarketPrice,
+                  [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                    timestamp: Date.now(),
+                    price: newMarketPrice
+                  })
+                });
+
+                console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               } else if (order.type === 'SELL') {
-                // Calculate sell revenue with bid-ask spread
-                const bidAskSpread = 0.02; // 2% spread
-                const bidPrice = currentPrice * (1 - bidAskSpread);
+                // Price goes DOWN on sell
+                const newMarketPrice = Math.max(0.01, Math.round((freshPrice - cappedImpact) * 100) / 100);
+                const bidPrice = newMarketPrice * (1 - BID_ASK_SPREAD / 2);
                 const totalRevenue = bidPrice * order.shares;
 
-                // Update user data
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
                 const newHoldings = currentHoldings - order.shares;
 
@@ -4357,7 +4509,6 @@ exports.checkLimitOrders = functions.pubsub
                   totalTrades: admin.firestore.FieldValue.increment(1)
                 };
 
-                // Clear cost basis if selling all shares
                 if (newHoldings <= 0) {
                   updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
                   updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
@@ -4366,7 +4517,16 @@ exports.checkLimitOrders = functions.pubsub
 
                 transaction.update(userRef, updates);
 
-                console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} for user ${order.userId}`);
+                // Apply price impact to market
+                transaction.update(marketRef, {
+                  [`prices.${order.ticker}`]: newMarketPrice,
+                  [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                    timestamp: Date.now(),
+                    price: newMarketPrice
+                  })
+                });
+
+                console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               }
             });
           } catch (transactionError) {
@@ -5238,7 +5398,6 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { achievementContext } = data || {};
 
   const userRef = db.collection('users').doc(uid);
   const marketRef = db.collection('market').doc('current');
@@ -5253,6 +5412,19 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   const userData = userDoc.data();
   const prices = marketDoc.data().prices || {};
+  const now = Date.now();
+
+  // Rate limit: once per 30 seconds per user
+  const lastSynced = userData.lastSynced || 0;
+  if (now - lastSynced < 30000) {
+    return {
+      portfolioValue: userData.portfolioValue || 0,
+      peakPortfolioValue: userData.peakPortfolioValue || 0,
+      newAchievements: [],
+      historyUpdated: false,
+      rateLimited: true
+    };
+  }
 
   // Calculate portfolio value
   const holdingsValue = Object.entries(userData.holdings || {})
@@ -5273,7 +5445,8 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   const portfolioValue = Math.round(((userData.cash || 0) + holdingsValue + shortsValue) * 100) / 100;
 
   const updateData = {
-    portfolioValue
+    portfolioValue,
+    lastSynced: now
   };
 
   // Update peak portfolio value
@@ -5285,7 +5458,6 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   // Update portfolio history (rate-limited to every 10 minutes)
   const currentHistory = userData.portfolioHistory || [];
   const lastRecord = currentHistory[currentHistory.length - 1];
-  const now = Date.now();
   const tenMinutes = 10 * 60 * 1000;
 
   const valueChanged = lastRecord && Math.abs(portfolioValue - lastRecord.value) / lastRecord.value > 0.01;
@@ -5310,13 +5482,41 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (portfolioValue >= 25000 && !currentAchievements.includes('BROKE_25K')) newAchievements.push('BROKE_25K');
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
 
-  // Context-based achievements (passed from client after trades)
-  if (achievementContext) {
-    if (achievementContext.tradeValue >= 1000 && !currentAchievements.includes('SHARK')) newAchievements.push('SHARK');
-    if (achievementContext.shortProfit > 0 && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
-    if (achievementContext.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) newAchievements.push('BULL_RUN');
-    if (achievementContext.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
+  // Check leaderboard achievements (server-side, no client trust needed)
+  const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
+  if (portfolioValue >= MIN_PORTFOLIO_FOR_LEADERBOARD && !currentAchievements.includes('TOP_1')) {
+    try {
+      const topSnap = await db.collection('users')
+        .orderBy('portfolioValue', 'desc')
+        .limit(10)
+        .get();
+
+      const topUsers = [];
+      topSnap.forEach(doc => {
+        const d = doc.data();
+        if (!d.isBot && (d.portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD) {
+          topUsers.push(doc.id);
+        }
+      });
+
+      const userPosition = topUsers.indexOf(uid);
+      if (userPosition !== -1) {
+        const rank = userPosition + 1;
+        if (rank <= 10 && !currentAchievements.includes('TOP_10')) newAchievements.push('TOP_10');
+        if (rank <= 3 && !currentAchievements.includes('TOP_3')) newAchievements.push('TOP_3');
+        if (rank === 1 && !currentAchievements.includes('TOP_1')) newAchievements.push('TOP_1');
+      }
+    } catch (err) {
+      console.error('Leaderboard achievement check failed:', err);
+    }
   }
+
+  // Check checkin achievements (server-side)
+  const totalCheckins = userData.totalCheckins || 0;
+  if (totalCheckins >= 7 && !currentAchievements.includes('DEDICATED_7')) newAchievements.push('DEDICATED_7');
+  if (totalCheckins >= 14 && !currentAchievements.includes('DEDICATED_14')) newAchievements.push('DEDICATED_14');
+  if (totalCheckins >= 30 && !currentAchievements.includes('DEDICATED_30')) newAchievements.push('DEDICATED_30');
+  if (totalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) newAchievements.push('DEDICATED_100');
 
   if (newAchievements.length > 0) {
     updateData.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
@@ -5336,4 +5536,335 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
     historyUpdated: !!updateData.portfolioHistory
   };
 });
+
+/**
+ * Check Margin Lending - Scheduled every 5 minutes
+ * Monitors users with margin debt and auto-liquidates if equity drops too low
+ * Replaces broken client-side margin monitoring (blocked by security rules)
+ */
+exports.checkMarginLending = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    const startTime = Date.now();
+    console.log('Checking margin lending positions...');
+
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) {
+        console.error('Market data not found');
+        return null;
+      }
+
+      const prices = marketSnap.data().prices || {};
+
+      // Query users with margin enabled
+      const usersSnap = await db.collection('users')
+        .where('marginEnabled', '==', true)
+        .get();
+
+      let liquidatedCount = 0;
+      let marginCallCount = 0;
+      let checkedCount = 0;
+
+      const MARGIN_CALL_THRESHOLD = 0.30;
+      const MARGIN_LIQUIDATION_THRESHOLD = 0.25;
+      const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        const marginUsed = userData.marginUsed || 0;
+        if (marginUsed <= 0) continue;
+        checkedCount++;
+
+        const cash = userData.cash || 0;
+        const holdings = userData.holdings || {};
+
+        // Calculate holdings value
+        let holdingsValue = 0;
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0) {
+            holdingsValue += (prices[ticker] || 0) * shares;
+          }
+        });
+
+        const grossValue = cash + holdingsValue;
+        const portfolioValue = grossValue - marginUsed;
+        const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 0;
+
+        const now = Date.now();
+
+        if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
+          // AUTO-LIQUIDATION
+          try {
+            await db.runTransaction(async (transaction) => {
+              const freshUserDoc = await transaction.get(db.collection('users').doc(userDoc.id));
+              if (!freshUserDoc.exists) return;
+
+              const freshData = freshUserDoc.data();
+              const freshMarginUsed = freshData.marginUsed || 0;
+              if (freshMarginUsed <= 0) return;
+
+              const freshHoldings = freshData.holdings || {};
+              let totalRecovered = 0;
+              const updateData = {};
+
+              // Sell ALL positions with 5% slippage
+              Object.entries(freshHoldings).forEach(([ticker, shares]) => {
+                if (shares > 0) {
+                  const sellValue = (prices[ticker] || 0) * shares * 0.95;
+                  totalRecovered += sellValue;
+                  updateData[`holdings.${ticker}`] = 0;
+                  updateData[`costBasis.${ticker}`] = 0;
+                }
+              });
+
+              const freshCash = freshData.cash || 0;
+              const totalAvailable = freshCash + totalRecovered;
+              const finalCash = Math.round((totalAvailable - freshMarginUsed) * 100) / 100;
+
+              updateData.cash = finalCash;
+              updateData.marginUsed = 0;
+              updateData.marginCallAt = null;
+              updateData.lastLiquidation = now;
+              updateData.marginEnabled = false;
+
+              if (finalCash < 0) {
+                updateData.isBankrupt = true;
+                updateData.bankruptAt = now;
+              }
+
+              transaction.update(db.collection('users').doc(userDoc.id), updateData);
+
+              // Log liquidation trade
+              const tradeRef = db.collection('trades').doc();
+              transaction.set(tradeRef, {
+                uid: userDoc.id,
+                action: 'margin_liquidation',
+                totalValue: totalRecovered,
+                marginDebt: freshMarginUsed,
+                cashBefore: freshCash,
+                cashAfter: finalCash,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                automated: true
+              });
+
+              console.log(`Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`);
+            });
+
+            liquidatedCount++;
+
+            // Send Discord alert
+            try {
+              await sendDiscordMessage(null, [{
+                title: '💥 Margin Liquidation',
+                description: 'A trader was just **LIQUIDATED** by the margin system',
+                color: 0xFF0000,
+                timestamp: new Date().toISOString()
+              }]);
+            } catch (e) {}
+
+          } catch (error) {
+            console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
+          }
+
+        } else if (equityRatio <= MARGIN_CALL_THRESHOLD) {
+          // MARGIN CALL
+          const marginCallAt = userData.marginCallAt || 0;
+
+          if (!marginCallAt) {
+            // First margin call - set grace period
+            await db.collection('users').doc(userDoc.id).update({
+              marginCallAt: now
+            });
+            marginCallCount++;
+          } else if (now >= marginCallAt + MARGIN_CALL_GRACE_PERIOD) {
+            // Grace period expired - will liquidate on next check (equity will still be low)
+            console.log(`Grace period expired for ${userDoc.id}, will liquidate on next cycle`);
+          }
+
+        } else if (userData.marginCallAt) {
+          // Recovered from margin call
+          await db.collection('users').doc(userDoc.id).update({
+            marginCallAt: null
+          });
+        }
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`Margin lending check: ${checkedCount} checked, ${liquidatedCount} liquidated, ${marginCallCount} new margin calls in ${elapsed}s`);
+      return { checked: checkedCount, liquidated: liquidatedCount, marginCalls: marginCallCount };
+
+    } catch (error) {
+      console.error('Margin lending check failed:', error);
+      return null;
+    }
+  });
+
+/**
+ * Switch Crew - Callable function
+ * Handles crew joining/switching with 15% penalty for switches
+ * Replaces broken client-side crew switching (blocked by security rules)
+ */
+exports.switchCrew = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { crewId, isSwitch } = data;
+
+  if (!crewId || typeof crewId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid crew ID.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const marketRef = db.collection('market').doc('current');
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, marketDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(marketRef)
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+
+    // Block if in debt
+    if ((userData.cash || 0) < 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Cannot join a crew while in debt.');
+    }
+
+    // Check exile history
+    const crewHistory = userData.crewHistory || [];
+    if (crewHistory.includes(crewId)) {
+      throw new functions.https.HttpsError('failed-precondition', 'You have been permanently exiled from this crew.');
+    }
+
+    // Check 24-hour cooldown
+    const lastChange = userData.lastCrewChange || 0;
+    const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
+    if (hoursSinceChange < 24) {
+      throw new functions.https.HttpsError('failed-precondition', `Crew change cooldown. Try again in ${Math.ceil(24 - hoursSinceChange)}h.`);
+    }
+
+    const now = Date.now();
+    const updateData = {
+      crew: crewId,
+      crewJoinedAt: now,
+      crewHistory: admin.firestore.FieldValue.arrayUnion(crewId)
+    };
+
+    let totalTaken = 0;
+
+    // Apply 15% penalty if switching crews
+    if (isSwitch && userData.crew) {
+      const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
+      const penaltyRate = 0.15;
+
+      const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
+      const cashTaken = (userData.cash || 0) - newCash;
+
+      const newHoldings = {};
+      let holdingsValueTaken = 0;
+
+      Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
+        if (shares > 0) {
+          const sharesToTake = Math.round(shares * penaltyRate);
+          const sharesToKeep = shares - sharesToTake;
+          newHoldings[ticker] = sharesToKeep;
+          holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+        }
+      });
+
+      totalTaken = cashTaken + holdingsValueTaken;
+      const newPortfolioValue = Math.max(0, (userData.portfolioValue || 0) - totalTaken);
+
+      updateData.cash = newCash;
+      updateData.holdings = newHoldings;
+      updateData.portfolioValue = newPortfolioValue;
+      updateData.lastCrewChange = now;
+    }
+
+    transaction.update(userRef, updateData);
+
+    return { success: true, totalTaken, isSwitch: !!(isSwitch && userData.crew) };
+  });
+});
+
+/**
+ * Process IPO Price Jumps - Scheduled every 5 minutes
+ * Checks for ended IPOs that haven't had their price jump applied
+ * Replaces client-side IPO price jump (only worked when admin was online)
+ */
+exports.processIPOPriceJumps = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const ipoRef = db.collection('market').doc('ipos');
+      const ipoSnap = await ipoRef.get();
+
+      if (!ipoSnap.exists) return null;
+
+      const ipoData = ipoSnap.data();
+      const ipos = ipoData.list || [];
+      const now = Date.now();
+      const IPO_PRICE_JUMP = 0.30;
+      const IPO_TOTAL_SHARES = 150;
+
+      let processedCount = 0;
+      let updatedList = [...ipos];
+
+      for (let i = 0; i < ipos.length; i++) {
+        const ipo = ipos[i];
+        if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
+          // IPO ended - apply 30% price jump
+          const marketRef = db.collection('market').doc('current');
+          const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+
+          await marketRef.update({
+            [`prices.${ipo.ticker}`]: newPrice,
+            [`priceHistory.${ipo.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+              timestamp: now,
+              price: newPrice
+            }),
+            launchedTickers: admin.firestore.FieldValue.arrayUnion(ipo.ticker)
+          });
+
+          updatedList[i] = { ...ipo, priceJumped: true };
+          processedCount++;
+          console.log(`IPO price jump applied for ${ipo.ticker}: $${newPrice}`);
+
+          // Send Discord notification
+          try {
+            const sharesSold = IPO_TOTAL_SHARES - (ipo.sharesRemaining || 0);
+            await sendDiscordMessage(null, [{
+              title: '🎉 IPO Closed',
+              description: `**${ipo.ticker}** IPO has ended! Price jumped to $${newPrice.toFixed(2)}`,
+              color: 0x00FF00,
+              fields: [
+                { name: 'Shares Sold', value: `${sharesSold}/${IPO_TOTAL_SHARES}`, inline: true },
+                { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true }
+              ],
+              timestamp: new Date().toISOString()
+            }]);
+          } catch (e) {}
+        }
+      }
+
+      if (processedCount > 0) {
+        await ipoRef.update({ list: updatedList });
+        console.log(`Processed ${processedCount} IPO price jumps`);
+      }
+
+      return { processed: processedCount };
+    } catch (error) {
+      console.error('IPO price jump check failed:', error);
+      return null;
+    }
+  });
 

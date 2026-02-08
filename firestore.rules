@@ -239,9 +239,11 @@ service cloud.firestore {
                        request.resource.data.userId == request.auth.uid &&
                        validateLimitOrder();
 
-      // Users can update/cancel their own orders, admins can update any
-      allow update: if isAuthenticated() &&
-                       (resource.data.userId == request.auth.uid || isAdmin());
+      // Users can only cancel their own orders (status change only), admins can update any
+      allow update: if isAdmin() ||
+                       (isAuthenticated() &&
+                        resource.data.userId == request.auth.uid &&
+                        validateLimitOrderUpdate());
 
       // Only admins can delete orders
       allow delete: if isAdmin();
@@ -262,10 +264,28 @@ service cloud.firestore {
         // Field types are correct
         data.shares is int &&
         data.shares > 0 &&
+        data.shares <= 10000 &&
         data.limitPrice is number &&
         data.limitPrice > 0 &&
         data.type in ['BUY', 'SELL', 'SHORT', 'COVER'] &&
         data.status == 'PENDING'
+      );
+    }
+
+    // Limit order updates: users can only change status to CANCELED
+    function validateLimitOrderUpdate() {
+      let oldData = resource.data;
+      let newData = request.resource.data;
+      return (
+        // Only allow status change to CANCELED
+        newData.status == 'CANCELED' &&
+        oldData.status == 'PENDING' &&
+        // All other fields must remain unchanged
+        newData.userId == oldData.userId &&
+        newData.ticker == oldData.ticker &&
+        newData.type == oldData.type &&
+        newData.shares == oldData.shares &&
+        newData.limitPrice == oldData.limitPrice
       );
     }
 

@@ -30,7 +30,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, SHOP_PINS_LIST, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -292,16 +292,12 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 
 // Helper function to check and award achievements after an action
 // Calls syncPortfolio Cloud Function which handles achievements, portfolio value, and peak updates server-side
-const checkAndAwardAchievements = async (userRef, userData, prices, context = {}) => {
+const checkAndAwardAchievements = async () => {
+  // Context-based achievements (SHARK, BULL_RUN, DIAMOND_HANDS, COLD_BLOODED) are now
+  // awarded server-side in executeTrade. This just triggers a portfolio sync for
+  // threshold-based achievements (FIRST_BLOOD, BROKE_5K, etc.)
   try {
-    const result = await syncPortfolioFunction({
-      achievementContext: {
-        tradeValue: context.tradeValue || 0,
-        shortProfit: context.shortProfit || 0,
-        sellProfitPercent: context.sellProfitPercent || 0,
-        isDiamondHands: context.isDiamondHands || false
-      }
-    });
+    const result = await syncPortfolioFunction();
     return result.data?.newAchievements || [];
   } catch (error) {
     console.error('[ACHIEVEMENT CHECK ERROR]', error);
@@ -1427,56 +1423,8 @@ export default function App() {
         });
         
         setActiveIPOs(activeOnes);
-        
-        // Check for IPOs that just ended and need price jump
-        ipos.forEach(async (ipo) => {
-          if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
-            // IPO ended - apply 30% price jump and mark as complete
-            const marketRef = doc(db, 'market', 'current');
-            const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
 
-            await updateDoc(marketRef, {
-              [`prices.${ipo.ticker}`]: newPrice,
-              [`priceHistory.${ipo.ticker}`]: arrayUnion({ timestamp: now, price: newPrice }),
-              launchedTickers: arrayUnion(ipo.ticker) // Mark character as launched
-            });
-
-            // Mark IPO as price jumped
-            const updatedList = ipos.map(i =>
-              i.ticker === ipo.ticker ? { ...i, priceJumped: true } : i
-            );
-            await updateDoc(ipoRef, { list: updatedList });
-
-            // Calculate IPO stats and send Discord notification
-            try {
-              const sharesSold = IPO_TOTAL_SHARES - (ipo.sharesRemaining || 0);
-              const ipoPrice = ipo.basePrice / 1.3;
-              const totalInvested = sharesSold * ipoPrice;
-
-              // Query users to count participants
-              const usersSnapshot = await getDocs(collection(db, 'users'));
-              let participants = 0;
-              usersSnapshot.forEach((userDoc) => {
-                const userData = userDoc.data();
-                if (userData.holdings && userData.holdings[ipo.ticker] > 0) {
-                  participants++;
-                }
-              });
-
-              const character = CHARACTER_MAP[ipo.ticker];
-              await ipoClosingAlertFunction({
-                ticker: ipo.ticker,
-                characterName: character?.name || ipo.ticker,
-                participants,
-                totalInvested: Math.round(totalInvested * 100) / 100,
-                totalShares: sharesSold
-              });
-            } catch (discordErr) {
-              console.error('Failed to send IPO closing notification:', discordErr);
-              // Don't block IPO closing if Discord fails
-            }
-          }
-        });
+        // IPO price jumps now handled server-side by processIPOPriceJumps scheduled function
       }
     });
 
@@ -1719,115 +1667,31 @@ export default function App() {
     }
   }, []);
 
-  // Helper function to record user portfolio history
-  const recordPortfolioHistory = useCallback(async (userId, portfolioValue) => {
-    const userRef = doc(db, 'users', userId);
-    const now = Date.now();
-    
-    const snap = await getDoc(userRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      const currentHistory = data.portfolioHistory || [];
-      
-      // Only record if last record was > 5 minutes ago
-      const lastRecord = currentHistory[currentHistory.length - 1];
-      const shouldRecord = !lastRecord || (now - lastRecord.timestamp) > 5 * 60 * 1000;
-      
-      if (shouldRecord) {
-        // Keep last 500 records per user
-        const updatedHistory = [...currentHistory, { timestamp: now, value: portfolioValue }].slice(-500);
-        
-        await updateDoc(userRef, {
-          portfolioHistory: updatedHistory
-        });
-      }
-    }
-  }, []);
+  // recordPortfolioHistory removed — now handled server-side by syncPortfolio Cloud Function
 
-  // Handle crew selection
+  // Handle crew selection (uses Cloud Function for switching to apply 15% penalty server-side)
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
 
-    // Block if user is in debt
-    if ((userData.cash || 0) < 0) {
-      showNotification('error', 'You cannot join a crew while in debt. Pay off your balance first.');
-      return;
-    }
-
-    // Check if user was exiled from this crew (in crew history)
-    const crewHistory = userData.crewHistory || [];
-    if (crewHistory.includes(crewId)) {
-      const crewName = CREW_MAP[crewId]?.name || 'this crew';
-      showNotification('error', `You have been permanently exiled from ${crewName}.`);
-      return;
-    }
-
-    // Check 24-hour cooldown for joining/switching crews
-    const lastChange = userData.lastCrewChange || 0;
-    const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
-    if (hoursSinceChange < 24) {
-      const hoursRemaining = Math.ceil(24 - hoursSinceChange);
-      if (isSwitch && userData.crew) {
-        showNotification('error', `You can only switch crews once every 24 hours. Try again in ${hoursRemaining}h.`);
-      } else if (!userData.crew) {
-        showNotification('error', `You cannot join a crew yet. Try again in ${hoursRemaining}h.`);
-      }
-      return;
-    }
-
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const now = Date.now();
-      const updateData = {
-        crew: crewId,
-        crewJoinedAt: now,
-        crewHistory: arrayUnion(crewId) // Track crew history
-      };
-
-      // Only charge penalty if LEAVING a crew to join another (switching)
       if (isSwitch && userData.crew) {
-        // Take 15% of cash and 15% of each holding
-        const penaltyRate = 0.15;
-        const newCash = Math.floor(userData.cash * (1 - penaltyRate));
-        const cashTaken = userData.cash - newCash;
-        
-        const newHoldings = {};
-        let holdingsValueTaken = 0;
-        
-        Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
-          if (shares > 0) {
-            // Take 15% of shares, rounding to nearest (round up if .5 or more)
-            const sharesToTake = Math.round(shares * penaltyRate);
-            const sharesToKeep = shares - sharesToTake;
-            newHoldings[ticker] = sharesToKeep;
-            holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
-          }
-        });
-
-        const totalTaken = cashTaken + holdingsValueTaken;
-
-        updateData.cash = newCash;
-        updateData.holdings = newHoldings;
-        updateData.portfolioValue = Math.max(0, userData.portfolioValue - totalTaken);
-        updateData.lastCrewChange = Date.now();
-
+        // Switching crews — penalty handled server-side
+        const result = await switchCrewFunction({ crewId, isSwitch: true });
+        const { totalTaken } = result.data;
         const crew = CREW_MAP[crewId];
-        await updateDoc(userRef, updateData);
-
         showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (15% penalty)`);
       } else {
-        // Joining a crew (no existing crew) - no cost
-        await updateDoc(userRef, updateData);
-        
+        // First time joining — no penalty, use Cloud Function
+        const result = await switchCrewFunction({ crewId, isSwitch: false });
         const crew = CREW_MAP[crewId];
         showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
       }
-      
     } catch (err) {
       console.error('Failed to select crew:', err);
-      showNotification('error', 'Failed to join crew');
+      const message = err?.message || err?.details || 'Failed to join crew';
+      showNotification('error', message);
     }
-  }, [user, userData, prices]);
+  }, [user, userData]);
 
   // Handle leaving crew
   const handleCrewLeave = useCallback(async () => {
@@ -2125,7 +1989,7 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      // Portfolio history now handled server-side by syncPortfolio
 
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'BUY', {
@@ -2138,13 +2002,8 @@ export default function App() {
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
-      // Check achievements (pass trade value for Shark achievement)
-      const earnedAchievements = await checkAndAwardAchievements(userRef, {
-        ...userData,
-        cash: newCash,
-        holdings: newHoldings,
-        totalTrades: (userData.totalTrades || 0) + 1
-      }, priceUpdates, { tradeValue: totalCost });
+      // Check achievements (context-based ones handled server-side in executeTrade)
+      const earnedAchievements = await checkAndAwardAchievements();
 
       const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
 
@@ -2227,7 +2086,7 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      // Portfolio history now handled server-side by syncPortfolio
 
       // Log transaction
       await logTransaction(db, user.uid, 'SELL', {
@@ -2242,13 +2101,8 @@ export default function App() {
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
-      // Check achievements
-      const earnedAchievements = await checkAndAwardAchievements(userRef, {
-        ...userData,
-        cash: newCash,
-        holdings: newHoldings,
-        totalTrades: (userData.totalTrades || 0) + 1
-      }, priceUpdates, { tradeValue: totalCost, sellProfitPercent: profitPercent, isDiamondHands });
+      // Check achievements (context-based ones handled server-side in executeTrade)
+      const earnedAchievements = await checkAndAwardAchievements();
 
       const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
@@ -2310,7 +2164,7 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      // Portfolio history now handled server-side by syncPortfolio
 
       // Log transaction
       await logTransaction(db, user.uid, 'SHORT', {
@@ -2323,13 +2177,8 @@ export default function App() {
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
-      // Check achievements
-      const earnedAchievements = await checkAndAwardAchievements(userRef, {
-        ...userData,
-        cash: newCash,
-        shorts: newShorts,
-        totalTrades: (userData.totalTrades || 0) + 1
-      }, priceUpdates, { tradeValue: totalCost });
+      // Check achievements (context-based ones handled server-side in executeTrade)
+      const earnedAchievements = await checkAndAwardAchievements();
 
       const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
@@ -2397,7 +2246,7 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      await recordPortfolioHistory(user.uid, Math.round(newPortfolioValue * 100) / 100);
+      // Portfolio history now handled server-side by syncPortfolio
 
       // Log transaction
       await logTransaction(db, user.uid, 'COVER', {
@@ -2413,14 +2262,9 @@ export default function App() {
         portfolioAfter: Math.round(newPortfolioValue * 100) / 100
       });
 
-      // Check achievements
+      // Check achievements (context-based ones handled server-side in executeTrade)
       const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
-      const earnedAchievements = await checkAndAwardAchievements(userRef, {
-        ...userData,
-        cash: newCash,
-        shorts: newShorts,
-        totalTrades: (userData.totalTrades || 0) + 1
-      }, priceUpdates, { tradeValue: totalCost, isColdBlooded });
+      const earnedAchievements = await checkAndAwardAchievements();
 
       const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
@@ -2473,7 +2317,7 @@ export default function App() {
 
     }
     setLoadingKey('trade', false);
-  }, [user, userData, prices, recordPriceHistory, recordPortfolioHistory, addActivity]);
+  }, [user, userData, prices, recordPriceHistory, addActivity]);
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules)
@@ -2491,104 +2335,7 @@ export default function App() {
     syncPortfolio();
   }, [user, userData, prices]);
 
-  // Margin monitoring - check for margin calls and auto-liquidation
-  useEffect(() => {
-    if (!user || !userData || !userData.marginEnabled || !prices || Object.keys(prices).length === 0) return;
-    
-    const marginUsed = userData.marginUsed || 0;
-    if (marginUsed <= 0) return; // No margin debt, nothing to check
-    
-    const checkMarginStatus = async () => {
-      const status = calculateMarginStatus(userData, prices, priceHistory);
-      const userRef = doc(db, 'users', user.uid);
-      const now = Date.now();
-      
-      if (status.status === 'liquidation') {
-        // AUTO-LIQUIDATION: Sell positions to cover margin debt
-        console.log('MARGIN LIQUIDATION TRIGGERED', status);
-        
-        // Get holdings sorted by value (sell largest first)
-        const holdings = userData.holdings || {};
-        const sortedHoldings = Object.entries(holdings)
-          .filter(([_, shares]) => shares > 0)
-          .map(([ticker, shares]) => ({
-            ticker,
-            shares,
-            value: (prices[ticker] || 0) * shares
-          }))
-          .sort((a, b) => b.value - a.value);
-        
-        let totalRecovered = 0;
-        const updateData = {};
-
-        // Sell ALL positions to cover margin debt
-        for (const position of sortedHoldings) {
-          const sellValue = position.value * 0.95; // 5% slippage on forced liquidation
-          totalRecovered += sellValue;
-          updateData[`holdings.${position.ticker}`] = 0;
-          updateData[`costBasis.${position.ticker}`] = 0;
-        }
-
-        // Calculate final cash position (can go negative if debt > recovered)
-        const currentCash = userData.cash || 0;
-        const totalAvailable = currentCash + totalRecovered;
-        const finalCash = totalAvailable - marginUsed;
-
-        updateData.cash = Math.round(finalCash * 100) / 100;
-        updateData.marginUsed = 0; // Debt is now reflected in negative cash
-        updateData.marginCallAt = null;
-        updateData.lastLiquidation = now;
-        updateData.marginEnabled = false; // Disable margin after liquidation
-
-        // If going into debt, mark bankruptcy timestamp
-        if (finalCash < 0) {
-          updateData.bankruptAt = now;
-        }
-
-        await updateDoc(userRef, updateData);
-
-        if (finalCash < 0) {
-          showNotification('error', `💀 BANKRUPT: All positions liquidated. You owe ${formatCurrency(Math.abs(finalCash))}`);
-        } else {
-          showNotification('error', `💀 MARGIN LIQUIDATION: All positions sold. ${formatCurrency(finalCash)} remaining.`);
-        }
-
-        // Send liquidation alert to Discord
-        try {
-          marginLiquidationAlertFunction({
-            lossAmount: totalRecovered,
-            portfolioBefore: status.portfolioValue,
-            portfolioAfter: Math.max(0, finalCash)
-          }).catch(() => {});
-        } catch {}
-
-      } else if (status.status === 'margin_call' && !userData.marginCallAt) {
-        // First margin call - set grace period
-        await updateDoc(userRef, { marginCallAt: now });
-        
-        showNotification('error', `🚨 MARGIN CALL! Deposit funds or sell positions within 24h to avoid liquidation.`);
-        
-      } else if (status.status === 'margin_call' && userData.marginCallAt) {
-        // Check if grace period expired
-        const gracePeriodEnd = userData.marginCallAt + MARGIN_CALL_GRACE_PERIOD;
-        if (now >= gracePeriodEnd) {
-          // Grace period expired - trigger liquidation on next check
-          // (The liquidation branch above will handle it)
-        }
-      } else if (status.status === 'warning') {
-        // Just a warning, no action needed but could show notification
-      } else if (status.status === 'safe' && userData.marginCallAt) {
-        // Recovered from margin call
-        await updateDoc(userRef, { marginCallAt: null });
-      }
-    };
-    
-    // Check immediately and every 30 seconds
-    checkMarginStatus();
-    const interval = setInterval(checkMarginStatus, 30000);
-    
-    return () => clearInterval(interval);
-  }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.marginCallAt, prices]);
+  // Margin monitoring now handled server-side by checkMarginLending scheduled function (every 5 min)
 
   // Daily margin interest (charged at midnight or on login)
   useEffect(() => {
@@ -2631,79 +2378,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, userData?.cash]);
 
-  // Check leaderboard position for achievements (runs every 30 seconds)
-  useEffect(() => {
-    if (!user || !userData) return;
-    
-    // Make sure userData belongs to the current user (prevent cross-account issues)
-    if (userData.oddsSnaps && Object.keys(userData).length < 3) return; // Incomplete data
-    
-    const checkLeaderboardAchievements = async () => {
-      try {
-        // Re-verify we have the right user data
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) return;
-
-        const currentUserData = userSnap.data();
-        const currentAchievements = currentUserData.achievements || [];
-        const currentPortfolioValue = currentUserData.portfolioValue || 0;
-
-        // Skip if already has all leaderboard achievements
-        if (currentAchievements.includes('TOP_1')) return;
-
-        // CRITICAL: Require minimum portfolio value to qualify for leaderboard achievements
-        // Prevents new accounts or tied low-value accounts from getting achievements
-        const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
-        if (currentPortfolioValue < MIN_PORTFOLIO_FOR_LEADERBOARD) return;
-
-        // Fetch top users to check position (using Cloud Function for security)
-        const result = await getLeaderboardFunction();
-        const topUsers = result.data.leaderboard
-          .filter(u => u.portfolioValue >= MIN_PORTFOLIO_FOR_LEADERBOARD)
-          .slice(0, 10)
-          .map(u => u.userId);
-
-        const userPosition = topUsers.indexOf(user.uid);
-
-        if (userPosition === -1) return; // Not in top 10
-
-        const newAchievements = [];
-        const rank = userPosition + 1;
-        
-        // Check for leaderboard achievements
-        if (rank <= 10 && !currentAchievements.includes('TOP_10')) {
-          newAchievements.push('TOP_10');
-        }
-        if (rank <= 3 && !currentAchievements.includes('TOP_3')) {
-          newAchievements.push('TOP_3');
-        }
-        if (rank === 1 && !currentAchievements.includes('TOP_1')) {
-          newAchievements.push('TOP_1');
-        }
-        
-        if (newAchievements.length > 0) {
-          await updateDoc(userRef, {
-            achievements: arrayUnion(...newAchievements)
-          });
-          
-          // Show notification for highest achievement earned
-          const highestAchievement = newAchievements.includes('TOP_1') ? 'TOP_1' 
-            : newAchievements.includes('TOP_3') ? 'TOP_3' : 'TOP_10';
-          const achievement = ACHIEVEMENTS[highestAchievement];
-          showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! You're #${rank} on the leaderboard!`);
-        }
-      } catch (err) {
-        console.error('Failed to check leaderboard achievements:', err);
-      }
-    };
-    
-    // Check immediately and then every 30 seconds
-    checkLeaderboardAchievements();
-    const interval = setInterval(checkLeaderboardAchievements, 30000);
-    
-    return () => clearInterval(interval);
-  }, [user, userData?.achievements]);
+  // Leaderboard achievements now handled server-side in syncPortfolio
 
   // Daily checkin (now uses Cloud Function to prevent security rule violations)
   const handleDailyCheckin = useCallback(async () => {
@@ -2738,29 +2413,7 @@ export default function App() {
         [`weeklyMissions.${weekId}.checkinDays.${today}`]: true
       });
 
-      // Check for check-in achievements (client-side for immediate feedback)
-      const newAchievements = [];
-      const currentAchievements = userData.achievements || [];
-
-      if (totalCheckins >= 7 && !currentAchievements.includes('DEDICATED_7')) {
-        newAchievements.push('DEDICATED_7');
-      }
-      if (totalCheckins >= 14 && !currentAchievements.includes('DEDICATED_14')) {
-        newAchievements.push('DEDICATED_14');
-      }
-      if (totalCheckins >= 30 && !currentAchievements.includes('DEDICATED_30')) {
-        newAchievements.push('DEDICATED_30');
-      }
-      if (totalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) {
-        newAchievements.push('DEDICATED_100');
-      }
-
-      // Update achievements if earned
-      if (newAchievements.length > 0) {
-        await updateDoc(userRef, {
-          achievements: arrayUnion(...newAchievements)
-        });
-      }
+      // Checkin achievements now handled server-side in syncPortfolio
 
       // Log transaction for auditing
       await logTransaction(db, user.uid, 'CHECKIN', {

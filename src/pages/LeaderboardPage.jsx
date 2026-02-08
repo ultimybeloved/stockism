@@ -10,6 +10,7 @@ const LeaderboardPage = () => {
   const [leaders, setLeaders] = useState([]);
   const [crewLeaders, setCrewLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [crewLoading, setCrewLoading] = useState(false);
   const [crewFilter, setCrewFilter] = useState('ALL');
   const [userRank, setUserRank] = useState(null);
   const scrollContainerRef = useRef(null);
@@ -55,6 +56,7 @@ const LeaderboardPage = () => {
     }
 
     const fetchCrewLeaderboard = async () => {
+      setCrewLoading(true);
       try {
         const result = await getLeaderboardFunction({ crew: crewFilter });
         const crewMembers = result.data.leaderboard.map((user, idx) => ({
@@ -67,6 +69,7 @@ const LeaderboardPage = () => {
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
       }
+      setCrewLoading(false);
     };
     fetchCrewLeaderboard();
   }, [crewFilter]);
@@ -201,7 +204,7 @@ const LeaderboardPage = () => {
             </div>
           )}
 
-          {loading ? (
+          {(loading || crewLoading) ? (
             <div className={`text-center py-8 ${mutedClass}`}>Loading...</div>
           ) : filteredLeaders.length === 0 ? (
             <div className={`text-center py-8 ${mutedClass}`}>

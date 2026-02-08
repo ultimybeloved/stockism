@@ -73,6 +73,7 @@ export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
 export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
 export const bailoutFunction = httpsCallable(functions, 'bailout');
 export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
+export const switchCrewFunction = httpsCallable(functions, 'switchCrew');
 export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
 export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
 // Server-side portfolio sync (replaces client-side writes blocked by security rules)
