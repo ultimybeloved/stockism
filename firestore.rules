@@ -103,7 +103,7 @@ service cloud.firestore {
       // Price history archive sub-collection
       match /price_history/{ticker} {
         allow read: if true;
-        allow write: if false;
+        allow write: if isAdmin();
       }
     }
 

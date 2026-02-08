@@ -1324,7 +1324,7 @@ export default function App() {
 
   // Auto-add price history entries and run tiered pruning
   useEffect(() => {
-    if (!user) return;
+    if (!user || !ADMIN_UIDS.includes(user.uid)) return;
 
     const TWELVE_HOURS = 12 * 60 * 60 * 1000;
     const ONE_DAY = 24 * 60 * 60 * 1000;
