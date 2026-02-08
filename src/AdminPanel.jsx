@@ -5433,6 +5433,141 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
                 </button>
               </div>
 
+              {/* NaN Account Repair */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 text-red-500`}>🔧 Repair Corrupted Accounts</h3>
+                <p className={`text-sm ${mutedClass} mb-3`}>
+                  Scans all accounts for NaN/corrupted values in cash, holdings, shorts, and portfolio data. Fixes them automatically.
+                </p>
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    setMessage(null);
+                    try {
+                      const usersSnap = await getDocs(collection(db, 'users'));
+                      const corrupted = [];
+
+                      for (const userDoc of usersSnap.docs) {
+                        const data = userDoc.data();
+                        const fixes = {};
+                        const issues = [];
+
+                        // Check cash
+                        if (data.cash !== undefined && (isNaN(data.cash) || !isFinite(data.cash))) {
+                          fixes.cash = 0;
+                          issues.push(`cash was ${data.cash}`);
+                        }
+
+                        // Check portfolioValue
+                        if (data.portfolioValue !== undefined && (isNaN(data.portfolioValue) || !isFinite(data.portfolioValue))) {
+                          fixes.portfolioValue = fixes.cash !== undefined ? fixes.cash : (data.cash || 0);
+                          issues.push(`portfolioValue was ${data.portfolioValue}`);
+                        }
+
+                        // Check marginUsed
+                        if (data.marginUsed !== undefined && (isNaN(data.marginUsed) || !isFinite(data.marginUsed))) {
+                          fixes.marginUsed = 0;
+                          issues.push(`marginUsed was ${data.marginUsed}`);
+                        }
+
+                        // Check holdings for NaN values
+                        if (data.holdings) {
+                          const fixedHoldings = {};
+                          let holdingsCorrupted = false;
+                          for (const [ticker, shares] of Object.entries(data.holdings)) {
+                            if (isNaN(shares) || !isFinite(shares)) {
+                              fixedHoldings[ticker] = 0;
+                              holdingsCorrupted = true;
+                              issues.push(`holdings.${ticker} was ${shares}`);
+                            }
+                          }
+                          if (holdingsCorrupted) {
+                            for (const [ticker, shares] of Object.entries(data.holdings)) {
+                              if (!fixedHoldings.hasOwnProperty(ticker)) fixedHoldings[ticker] = shares;
+                            }
+                            fixes.holdings = fixedHoldings;
+                          }
+                        }
+
+                        // Check shorts for NaN values
+                        if (data.shorts) {
+                          let shortsCorrupted = false;
+                          const fixedShorts = {};
+                          for (const [ticker, pos] of Object.entries(data.shorts)) {
+                            if (!pos || typeof pos !== 'object') continue;
+                            const hasNaN = isNaN(pos.shares) || isNaN(pos.entryPrice) || isNaN(pos.margin) ||
+                                           !isFinite(pos.shares) || !isFinite(pos.entryPrice) || !isFinite(pos.margin);
+                            if (hasNaN) {
+                              fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0 };
+                              shortsCorrupted = true;
+                              issues.push(`shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`);
+                            }
+                          }
+                          if (shortsCorrupted) {
+                            for (const [ticker, pos] of Object.entries(data.shorts)) {
+                              if (!fixedShorts.hasOwnProperty(ticker)) fixedShorts[ticker] = pos;
+                            }
+                            fixes.shorts = fixedShorts;
+                          }
+                        }
+
+                        // Check costBasis for NaN
+                        if (data.costBasis) {
+                          const fixedCostBasis = {};
+                          let cbCorrupted = false;
+                          for (const [ticker, cost] of Object.entries(data.costBasis)) {
+                            if (isNaN(cost) || !isFinite(cost)) {
+                              fixedCostBasis[ticker] = 0;
+                              cbCorrupted = true;
+                              issues.push(`costBasis.${ticker} was ${cost}`);
+                            }
+                          }
+                          if (cbCorrupted) {
+                            for (const [ticker, cost] of Object.entries(data.costBasis)) {
+                              if (!fixedCostBasis.hasOwnProperty(ticker)) fixedCostBasis[ticker] = cost;
+                            }
+                            fixes.costBasis = fixedCostBasis;
+                          }
+                        }
+
+                        if (issues.length > 0) {
+                          corrupted.push({
+                            uid: userDoc.id,
+                            displayName: data.displayName || 'Unknown',
+                            issues,
+                            fixes
+                          });
+                        }
+                      }
+
+                      if (corrupted.length === 0) {
+                        setMessage({ type: 'success', text: 'No corrupted accounts found!' });
+                      } else {
+                        // Apply fixes
+                        let fixed = 0;
+                        for (const account of corrupted) {
+                          const userRef = doc(db, 'users', account.uid);
+                          await updateDoc(userRef, account.fixes);
+                          fixed++;
+                        }
+                        setMessage({
+                          type: 'success',
+                          text: `Fixed ${fixed} account(s): ${corrupted.map(a => `${a.displayName} (${a.issues.join(', ')})`).join(' | ')}`
+                        });
+                      }
+                    } catch (error) {
+                      setMessage({ type: 'error', text: `Scan failed: ${error.message}` });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                >
+                  {loading ? 'Scanning...' : '🔧 Scan & Repair All Accounts'}
+                </button>
+              </div>
+
               {/* Restore from Backup */}
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                 <h3 className={`font-semibold mb-2 text-orange-500`}>🔄 Restore Price History</h3>

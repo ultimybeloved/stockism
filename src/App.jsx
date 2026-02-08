@@ -97,7 +97,9 @@ import {
   MARGIN_LIQUIDATION_THRESHOLD,
   MARGIN_CALL_GRACE_PERIOD,
   MARGIN_MAINTENANCE_RATIO,
-  MAX_DAILY_IMPACT_PER_USER
+  MAX_DAILY_IMPACT_PER_USER,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR
 } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
 import {
@@ -322,6 +324,18 @@ const getBidAskPrices = (midPrice) => {
     ask: midPrice + halfSpread,  // Price you pay when buying
     spread: halfSpread * 2
   };
+};
+
+// Calculate reduced price impact for new accounts (anti-manipulation)
+const getAccountAgeImpactFactor = (userData) => {
+  if (!userData?.createdAt) return 1;
+  const createdMs = typeof userData.createdAt?.toMillis === 'function'
+    ? userData.createdAt.toMillis()
+    : typeof userData.createdAt === 'number' ? userData.createdAt : Date.parse(userData.createdAt);
+  if (!createdMs || isNaN(createdMs)) return 1;
+  const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
+  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
+  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
 };
 
 // ============================================
@@ -1733,16 +1747,25 @@ export default function App() {
     const asset = CHARACTER_MAP[ticker];
     const price = prices[ticker] || asset?.basePrice || 0;
     
-    // Calculate estimated total
+    // Calculate estimated total (with new-account impact reduction)
+    const ageFactor = getAccountAgeImpactFactor(userData);
     let total = price * amount;
     if (action === 'buy') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker));
+      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
       const { ask } = getBidAskPrices(price + priceImpact);
       total = ask * amount;
     } else if (action === 'sell') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker));
+      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
       const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact));
       total = bid * amount;
+    } else if (action === 'short') {
+      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact));
+      total = bid * amount;
+    } else if (action === 'cover') {
+      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const { ask } = getBidAskPrices(price + priceImpact);
+      total = ask * amount;
     }
     
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
@@ -1985,12 +2008,13 @@ export default function App() {
       // Server handles: validation, price updates, trailing effects, cash/shorts, missions
       // Client handles: achievements, activity feed, portfolio history
 
-      // Calculate profit for notifications
+      // Calculate profit for notifications (with NaN guards)
       const shortPosition = userData.shorts?.[ticker] || {};
-      const costBasis = shortPosition.costBasis || shortPosition.entryPrice || 0;
+      const costBasis = Number(shortPosition.costBasis || shortPosition.entryPrice) || 0;
       const profit = (costBasis - executionPrice) * amount;
       const profitPercent = costBasis > 0 ? ((costBasis - executionPrice) / costBasis) * 100 : 0;
-      const profitMsg = profit >= 0 ? `+${formatCurrency(profit)}` : `-${formatCurrency(Math.abs(profit))}`;
+      const safeProfitMsg = isNaN(profit) ? '$0.00' : (profit >= 0 ? `+${formatCurrency(profit)}` : `-${formatCurrency(Math.abs(profit))}`);
+      const profitMsg = safeProfitMsg;
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
@@ -2469,14 +2493,15 @@ export default function App() {
   const shortsValue = Object.entries(activeUserData.shorts || {})
     .reduce((sum, [ticker, position]) => {
       if (!position || typeof position !== 'object') return sum;
-      const shares = position.shares || 0;
+      const shares = Number(position.shares) || 0;
       if (shares <= 0) return sum;
-      const entryPrice = position.costBasis || position.entryPrice || 0;
+      const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
       const currentPrice = prices[ticker] || entryPrice;
-      const collateral = position.margin || 0;
+      const collateral = Number(position.margin) || 0;
       // P&L = (entry price - current price) * shares (profit when price goes down)
       const pnl = (entryPrice - currentPrice) * shares;
-      return sum + collateral + pnl;
+      const value = collateral + pnl;
+      return sum + (isNaN(value) ? 0 : value);
     }, 0);
   
   const portfolioValue = activeUserData.cash + holdingsValue + shortsValue;

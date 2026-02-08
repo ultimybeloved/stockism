@@ -51,6 +51,11 @@ export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for
 // Anti-manipulation protections
 export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per user per ticker per day
 
+// Anti-manipulation: New Account Impact Reduction
+export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days
+export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0, ramps to 100%
+export const MAX_ACCOUNTS_PER_IP = 4; // Max unique accounts trading from same IP per hour
+
 // Admin user IDs - only these users can see the Admin button
 export const ADMIN_UIDS = [
   '4usiVxPmHLhmitEKH2HfCpbx4Yi1'

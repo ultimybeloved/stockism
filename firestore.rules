@@ -323,6 +323,11 @@ service cloud.firestore {
     // ADMIN-ONLY COLLECTIONS
     // ============================================
 
+    // IP tracking for multi-account abuse detection (Cloud Functions only)
+    match /ipTracking/{document} {
+      allow read, write: if false;
+    }
+
     match /admin/{document} {
       allow read, write: if isAdmin();
     }

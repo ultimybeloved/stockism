@@ -83,13 +83,14 @@ export const calculatePortfolioValue = (userData, prices) => {
   // Calculate shorts value (collateral + unrealized P&L)
   const shortsValue = Object.entries(shorts).reduce((sum, [ticker, position]) => {
     if (!position || typeof position !== 'object') return sum;
-    const shares = position.shares || 0;
+    const shares = Number(position.shares) || 0;
     if (shares <= 0) return sum;
-    const entryPrice = position.costBasis || position.entryPrice || 0;
+    const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
     const currentPrice = prices[ticker] || entryPrice;
-    const collateral = position.margin || 0;
+    const collateral = Number(position.margin) || 0;
     const pnl = (entryPrice - currentPrice) * shares;
-    return sum + collateral + pnl;
+    const value = collateral + pnl;
+    return sum + (isNaN(value) ? 0 : value);
   }, 0);
 
   return cash + holdingsValue + shortsValue;

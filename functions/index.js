@@ -2545,6 +2545,68 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       }
     }
 
+    // IP-based multi-account abuse detection
+    const ip = context.rawRequest?.ip || 'unknown';
+    if (ip !== 'unknown' && (action === 'buy' || action === 'short')) {
+      const MAX_ACCOUNTS_PER_IP = 4;
+      const ONE_HOUR = 3600000;
+      const sanitizedIp = ip.replace(/[.:/]/g, '_');
+      const ipRef = db.collection('ipTracking').doc(sanitizedIp);
+
+      try {
+        const ipDoc = await ipRef.get();
+        const accounts = {};
+
+        if (ipDoc.exists) {
+          const data = ipDoc.data();
+          // Keep only accounts active in the last hour
+          for (const [accUid, ts] of Object.entries(data.accounts || {})) {
+            const tsMs = typeof ts === 'number' ? ts : (ts.toMillis ? ts.toMillis() : ts);
+            if (now - tsMs < ONE_HOUR) {
+              accounts[accUid] = tsMs;
+            }
+          }
+        }
+
+        // Add current user
+        accounts[uid] = now;
+
+        const uniqueCount = Object.keys(accounts).length;
+
+        // Update tracking doc
+        await ipRef.set({ accounts, lastUpdated: now });
+
+        // Block if too many unique accounts from same IP
+        if (uniqueCount > MAX_ACCOUNTS_PER_IP) {
+          console.warn(`IP ABUSE: ${ip} has ${uniqueCount} accounts trading in last hour`);
+
+          await db.collection('admin').doc('suspicious_activity').set({
+            [`ip_${sanitizedIp}`]: {
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              accountCount: uniqueCount,
+              accounts: Object.keys(accounts),
+              reason: 'Multi-account trading from same IP'
+            }
+          }, { merge: true });
+
+          try {
+            await sendDiscordMessage(`**Multi-Account Abuse Detected**\nIP: ${ip}\nAccounts in last hour: ${uniqueCount}\nBlocked user: ${uid}`);
+          } catch (err) {
+            console.error('Failed to send Discord alert:', err);
+          }
+
+          throw new functions.https.HttpsError(
+            'permission-denied',
+            'Trading temporarily restricted. Too many accounts from this network.'
+          );
+        }
+      } catch (ipError) {
+        // Don't block trading if IP tracking fails - just log it
+        if (ipError instanceof functions.https.HttpsError) throw ipError;
+        console.error('IP tracking error:', ipError);
+      }
+    }
+
     // All validations passed
     return {
       valid: true,
