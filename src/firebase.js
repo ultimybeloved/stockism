@@ -69,6 +69,7 @@ export const claimMissionRewardFunction = httpsCallable(functions, 'claimMission
 export const purchasePinFunction = httpsCallable(functions, 'purchasePin');
 export const placeBetFunction = httpsCallable(functions, 'placeBet');
 export const claimPredictionPayoutFunction = httpsCallable(functions, 'claimPredictionPayout');
+export const createLimitOrderFunction = httpsCallable(functions, 'createLimitOrder');
 export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
 export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
 export const bailoutFunction = httpsCallable(functions, 'bailout');

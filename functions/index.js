@@ -39,6 +39,22 @@ const CREW_MEMBERS = {
 // Set of all crew member tickers (for rival detection)
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
 
+// Server-side mission reward lookup (prevents client reward inflation)
+const MISSION_REWARDS = {
+  // Daily missions
+  BUY_CREW_MEMBER: 150, HOLD_CREW_SHARES: 75, MAKE_TRADES: 100,
+  BUY_ANY_STOCK: 75, SELL_ANY_STOCK: 75, HOLD_LARGE_POSITION: 125, TRADE_VOLUME: 100,
+  CREW_MAJORITY: 125, CREW_COLLECTOR: 100, FULL_ROSTER: 200, CREW_LEADER: 150,
+  RIVAL_TRADER: 75, SPY_GAME: 100,
+  TOP_DOG: 100, UNDERDOG_INVESTOR: 75,
+  BALANCED_CREW: 100, CREW_ACCUMULATOR: 150,
+  // Weekly missions
+  MARKET_WHALE: 750, VOLUME_KING: 500, TRADING_MACHINE: 400,
+  TRADING_STREAK: 600, DAILY_GRINDER: 500,
+  CREW_MAXIMALIST: 600, CREW_HOARDER: 500, FULL_CREW_OWNERSHIP: 1000,
+  DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750
+};
+
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
@@ -4187,7 +4203,6 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
       // Create user document in Firestore
       await db.collection('users').doc(firebaseUid).set({
         username: username,
-        email: email,
         discordId: discordId,
         cash: STARTING_CASH,
         holdings: {},
@@ -4450,6 +4465,96 @@ exports.syncAllPortfolios = functions.pubsub
       return { success: false, error: error.message };
     }
   });
+
+/**
+ * Create a Limit Order (server-side validation)
+ * Replaces direct client addDoc() to enforce business logic
+ */
+exports.createLimitOrder = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, type, shares, limitPrice, allowPartialFills } = data;
+
+  // Validate ticker against character whitelist
+  if (!ticker || !CHARACTERS.some(c => c.ticker === ticker)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
+  }
+
+  // Validate order type
+  if (!type || !['BUY', 'SELL', 'SHORT', 'COVER'].includes(type)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid order type.');
+  }
+
+  // Validate shares (must be finite positive integer, max 10000)
+  if (!shares || !Number.isFinite(shares) || !Number.isInteger(shares) || shares <= 0 || shares > 10000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
+  }
+
+  // Validate limit price (must be finite positive number, max 10000)
+  if (!limitPrice || !Number.isFinite(limitPrice) || limitPrice <= 0 || limitPrice > 10000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid limit price.');
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found.');
+  }
+
+  const userData = userDoc.data();
+
+  // Check if user is banned
+  if (userData.isBanned) {
+    throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
+  }
+
+  // Validate holdings for SELL orders
+  if (type === 'SELL') {
+    const currentHoldings = userData.holdings?.[ticker] || 0;
+    if (currentHoldings < shares) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings to sell.');
+    }
+  }
+
+  // Validate short positions for COVER orders
+  if (type === 'COVER') {
+    const shortShares = userData.shorts?.[ticker]?.shares || 0;
+    if (shortShares < shares) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient short shares to cover.');
+    }
+  }
+
+  // Rate limit: max 20 pending orders per user
+  const pendingOrders = await db.collection('limitOrders')
+    .where('userId', '==', uid)
+    .where('status', '==', 'PENDING')
+    .get();
+
+  if (pendingOrders.size >= 20) {
+    throw new functions.https.HttpsError('resource-exhausted', 'Maximum 20 pending orders allowed.');
+  }
+
+  // Create the order
+  const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
+  const orderRef = await db.collection('limitOrders').add({
+    userId: uid,
+    ticker,
+    type,
+    shares,
+    limitPrice,
+    allowPartialFills: !!allowPartialFills,
+    status: 'PENDING',
+    filledShares: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, orderId: orderRef.id };
+});
 
 /**
  * Check and Execute Limit Orders
@@ -4788,12 +4893,12 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
       if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
     }
 
-    // Max reward validation: daily max $200, weekly max $1000
-    const maxReward = type === 'daily' ? 200 : 1000;
-    if (!Number.isFinite(data.reward) || data.reward <= 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid reward.');
+    // Use server-defined reward amount (ignoring client-provided reward entirely)
+    const definedReward = MISSION_REWARDS[missionId];
+    if (!definedReward) {
+      throw new functions.https.HttpsError('invalid-argument', 'Unknown mission.');
     }
-    const reward = Math.min(data.reward, maxReward);
+    const reward = definedReward;
 
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
     const updates = {
@@ -4831,7 +4936,7 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { action, pinId, slotType, cost } = data;
+  const { action, pinId, slotType } = data;
 
   const userRef = db.collection('users').doc(uid);
 
@@ -5058,8 +5163,13 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, quantity } = data;
 
-  if (!ticker || !quantity || quantity <= 0 || quantity > 10) {
+  if (!ticker || !quantity || !Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0 || quantity > 10) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid IPO purchase data.');
+  }
+
+  const validTicker = CHARACTERS.some(c => c.ticker === ticker);
+  if (!validTicker) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
   }
 
   const userRef = db.collection('users').doc(uid);

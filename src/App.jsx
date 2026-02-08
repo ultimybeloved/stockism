@@ -110,40 +110,6 @@ import {
 import { getTodayDateString, isToday, toMillis, toDateString } from './utils/date';
 
 // Transaction logging - records all significant financial actions for auditing
-const logTransaction = async (db, userId, type, details) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.data() || {};
-
-    const transaction = {
-      type, // 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE', 'CHECKIN', 'BET', 'BET_WIN', 'BET_LOSS', 'MARGIN_INTEREST', 'LIQUIDATION', etc.
-      timestamp: Date.now(),
-      ...details,
-      // Snapshot of user state at time of transaction
-      cashBefore: details.cashBefore ?? userData.cash ?? 0,
-      cashAfter: details.cashAfter ?? 0,
-      portfolioBefore: details.portfolioBefore ?? userData.portfolioValue ?? 0,
-      portfolioAfter: details.portfolioAfter ?? 0
-    };
-
-    // Remove any undefined values (Firestore doesn't support them)
-    Object.keys(transaction).forEach(key => {
-      if (transaction[key] === undefined) {
-        delete transaction[key];
-      }
-    });
-
-    // Keep last 100 transactions per user
-    const transactionLog = userData.transactionLog || [];
-    const updatedLog = [...transactionLog, transaction].slice(-100);
-
-    await updateDoc(userRef, { transactionLog: updatedLog });
-  } catch (err) {
-    console.error('Failed to log transaction:', err);
-    // Don't throw - logging failure shouldn't break the actual transaction
-  }
-};
 
 // Check if user qualifies for margin trading (requires commitment + skill)
 const checkMarginEligibility = (userData, isAdmin = false) => {
@@ -1859,17 +1825,6 @@ export default function App() {
       }, 0);
       // Portfolio history now handled server-side by syncPortfolio
 
-      // Log transaction for auditing
-      await logTransaction(db, user.uid, 'BUY', {
-        ticker,
-        shares: amount,
-        pricePerShare: executionPrice,
-        totalCost,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      });
-
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
 
@@ -1932,18 +1887,7 @@ export default function App() {
       }, 0);
       // Portfolio history now handled server-side by syncPortfolio
 
-      // Log transaction
-      await logTransaction(db, user.uid, 'SELL', {
-        ticker,
-        shares: amount,
-        pricePerShare: executionPrice,
-        totalRevenue: totalCost,
-        costBasis,
-        profitPercent: Math.round(profitPercent * 100) / 100,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      });
+
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
@@ -1996,17 +1940,6 @@ export default function App() {
         return sum + price * shares;
       }, 0);
       // Portfolio history now handled server-side by syncPortfolio
-
-      // Log transaction
-      await logTransaction(db, user.uid, 'SHORT', {
-        ticker,
-        shares: amount,
-        pricePerShare: executionPrice,
-        totalCost,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      });
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
@@ -2065,20 +1998,6 @@ export default function App() {
         return sum + price * shares;
       }, 0);
       // Portfolio history now handled server-side by syncPortfolio
-
-      // Log transaction
-      await logTransaction(db, user.uid, 'COVER', {
-        ticker,
-        shares: amount,
-        pricePerShare: executionPrice,
-        totalCost,
-        costBasis,
-        profit,
-        profitPercent: Math.round(profitPercent * 100) / 100,
-        cashBefore: userData.cash,
-        cashAfter: newCash,
-        portfolioAfter: Math.round(newPortfolioValue * 100) / 100
-      });
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
@@ -2220,15 +2139,6 @@ export default function App() {
 
       // Mission tracking now handled server-side in dailyCheckin Cloud Function
       // Checkin achievements handled server-side in syncPortfolio
-
-      // Log transaction for auditing
-      await logTransaction(db, user.uid, 'CHECKIN', {
-        bonus: reward,
-        totalCheckins,
-        cashBefore: userData.cash,
-        cashAfter: userData.cash + reward,
-        ladderTopUpAmount
-      });
 
       // Add to activity feed
       let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;
@@ -2388,16 +2298,6 @@ export default function App() {
     setLoadingKey('placeBet', true);
     try {
       await placeBetFunction({ predictionId, option, amount });
-
-      // Log transaction for auditing
-      const newBetAmount = (existingBet?.amount || 0) + amount;
-      await logTransaction(db, user.uid, 'BET', {
-        predictionId, option, amount,
-        totalBetAmount: newBetAmount,
-        question: prediction.question,
-        cashBefore: userData.cash,
-        cashAfter: userData.cash - amount
-      });
 
       addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
       showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);

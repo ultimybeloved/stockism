@@ -6,8 +6,7 @@ import {
   SHORT_MARGIN_REQUIREMENT
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
-import { db } from '../../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { createLimitOrderFunction } from '../../firebase';
 
 // Helper functions from App.jsx
 const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
@@ -228,21 +227,12 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       }
 
       try {
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30); // 30 day expiration
-
-        await addDoc(collection(db, 'limitOrders'), {
-          userId: user.uid,
+        await createLimitOrderFunction({
           ticker: character.ticker,
-          type: action.toUpperCase(), // 'BUY', 'SELL', 'SHORT', 'COVER'
+          type: action.toUpperCase(),
           shares: parseInt(amount),
           limitPrice: priceNum,
-          allowPartialFills,
-          status: 'PENDING',
-          filledShares: 0,
-          createdAt: serverTimestamp(),
-          expiresAt: expiresAt.getTime(),
-          updatedAt: serverTimestamp()
+          allowPartialFills
         });
 
         alert('Limit order created! View your orders in Portfolio.');
