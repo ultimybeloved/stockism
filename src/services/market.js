@@ -9,15 +9,10 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
-  increment,
-  serverTimestamp,
-  arrayUnion
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
-
-const MARKET_DOC_PATH = 'market/current';
-const IPO_DOC_PATH = 'market/ipos';
 
 /**
  * Get market document reference
@@ -96,63 +91,6 @@ export const initializeMarket = async () => {
   }, { merge: true });
 
   return { prices: initialPrices, priceHistory: initialHistory };
-};
-
-/**
- * Update price and record history atomically
- * @param {string} ticker - Stock ticker
- * @param {number} newPrice - New price
- * @param {number} volumeChange - Change in volume (number of shares traded)
- */
-export const updatePriceAtomic = async (ticker, newPrice, volumeChange = 0) => {
-  const marketRef = getMarketRef();
-  const now = Date.now();
-
-  const updates = {
-    [`prices.${ticker}`]: newPrice,
-    [`priceHistory.${ticker}`]: arrayUnion({ timestamp: now, price: newPrice })
-  };
-
-  if (volumeChange > 0) {
-    updates[`volume.${ticker}`] = increment(volumeChange);
-  }
-
-  await updateDoc(marketRef, updates);
-};
-
-/**
- * Update multiple prices atomically
- * @param {Object} priceUpdates - Map of ticker -> newPrice
- * @param {Object} volumeChanges - Map of ticker -> volumeChange
- */
-export const updatePricesAtomic = async (priceUpdates, volumeChanges = {}) => {
-  const marketRef = getMarketRef();
-  const now = Date.now();
-
-  const updates = {};
-
-  Object.entries(priceUpdates).forEach(([ticker, price]) => {
-    updates[`prices.${ticker}`] = price;
-    updates[`priceHistory.${ticker}`] = arrayUnion({ timestamp: now, price });
-
-    if (volumeChanges[ticker]) {
-      updates[`volume.${ticker}`] = increment(volumeChanges[ticker]);
-    }
-  });
-
-  if (Object.keys(updates).length > 0) {
-    await updateDoc(marketRef, updates);
-  }
-};
-
-/**
- * Increment total trades counter
- */
-export const incrementTotalTrades = async () => {
-  const marketRef = getMarketRef();
-  await updateDoc(marketRef, {
-    totalTrades: increment(1)
-  });
 };
 
 /**

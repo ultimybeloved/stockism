@@ -4375,7 +4375,13 @@ exports.checkLimitOrders = functions.pubsub
       let executed = 0;
       let canceled = 0;
       let expired = 0;
+      let dailyImpactBlocked = 0;
       const now = Date.now();
+      const todayDate = new Date().toISOString().split('T')[0];
+
+      // Per-ticker execution cap: max 3 orders per ticker per cycle
+      const ORDERS_PER_TICKER_PER_CYCLE = 3;
+      const tickerExecutionCount = {};
 
       for (const orderDoc of ordersSnapshot.docs) {
         try {
@@ -4409,6 +4415,13 @@ exports.checkLimitOrders = functions.pubsub
 
           if (!shouldExecute) {
             continue;
+          }
+
+          // Per-ticker throttle: max 3 orders per ticker per cycle
+          const tickerCount = tickerExecutionCount[order.ticker] || 0;
+          if (tickerCount >= ORDERS_PER_TICKER_PER_CYCLE) {
+            console.log(`Throttled order ${orderId}: ${order.ticker} already had ${tickerCount} executions this cycle`);
+            continue; // Will be picked up in the next 2-minute cycle
           }
 
           console.log(`Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`);
@@ -4469,6 +4482,20 @@ exports.checkLimitOrders = functions.pubsub
               const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
               const cappedImpact = Math.min(priceImpact, maxImpact);
 
+              // Check dailyImpact limit (same as executeTrade)
+              const dailyImpact = userData.dailyImpact || {};
+              const userDailyImpact = dailyImpact[todayDate] || {};
+              const tickerDailyImpact = userDailyImpact[order.ticker] || 0;
+              const impactPercent = cappedImpact / freshPrice;
+
+              if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+                throw new Error(`Daily impact limit exceeded for ${order.ticker}`);
+              }
+
+              // Update dailyImpact in the same transaction
+              userDailyImpact[order.ticker] = tickerDailyImpact + impactPercent;
+              dailyImpact[todayDate] = userDailyImpact;
+
               // Execute the trade
               if (order.type === 'BUY') {
                 // Price goes UP on buy
@@ -4493,7 +4520,8 @@ exports.checkLimitOrders = functions.pubsub
                   [`holdings.${order.ticker}`]: newHoldings,
                   [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1)
+                  totalTrades: admin.firestore.FieldValue.increment(1),
+                  dailyImpact
                 });
 
                 // Apply price impact to market
@@ -4519,7 +4547,8 @@ exports.checkLimitOrders = functions.pubsub
                   cash: admin.firestore.FieldValue.increment(totalRevenue),
                   [`holdings.${order.ticker}`]: newHoldings,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1)
+                  totalTrades: admin.firestore.FieldValue.increment(1),
+                  dailyImpact
                 };
 
                 if (newHoldings <= 0) {
@@ -4543,6 +4572,18 @@ exports.checkLimitOrders = functions.pubsub
               }
             });
           } catch (transactionError) {
+            // Daily impact limit — cancel the order with specific reason
+            if (transactionError.message.includes('Daily impact limit')) {
+              console.log(`Daily impact blocked order ${orderId}: ${transactionError.message}`);
+              await db.collection('limitOrders').doc(orderId).update({
+                status: 'CANCELED',
+                cancelReason: transactionError.message,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              dailyImpactBlocked++;
+              canceled++;
+              continue;
+            }
             // Transaction failed - cancel the order
             console.log(`Transaction failed for order ${orderId}: ${transactionError.message}`);
             await db.collection('limitOrders').doc(orderId).update({
@@ -4553,6 +4594,9 @@ exports.checkLimitOrders = functions.pubsub
             canceled++;
             continue;
           }
+
+          // Track per-ticker execution count for throttling
+          tickerExecutionCount[order.ticker] = (tickerExecutionCount[order.ticker] || 0) + 1;
 
           // Update order status
           const isPartialFill = order.allowPartialFills && (
@@ -4582,6 +4626,7 @@ exports.checkLimitOrders = functions.pubsub
         executed,
         canceled,
         expired,
+        dailyImpactBlocked,
         elapsedSeconds: elapsed
       };
 

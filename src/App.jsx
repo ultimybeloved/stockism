@@ -1640,32 +1640,6 @@ export default function App() {
     return 'Neutral';
   }, [priceHistory, prices]);
 
-  // Helper function to record price history (called after trades)
-  const recordPriceHistory = useCallback(async (ticker, newPrice) => {
-    const marketRef = doc(db, 'market', 'current');
-    const now = Date.now();
-    
-    // Get current history
-    const snap = await getDoc(marketRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      const currentHistory = data.priceHistory?.[ticker] || [];
-      
-      // Only record if price changed or last record was > 5 minutes ago
-      const lastRecord = currentHistory[currentHistory.length - 1];
-      const shouldRecord = !lastRecord || 
-        lastRecord.price !== newPrice || 
-        (now - lastRecord.timestamp) > 5 * 60 * 1000;
-      
-      if (shouldRecord) {
-        const updatedHistory = [...currentHistory, { timestamp: now, price: newPrice }];
-
-        await updateDoc(marketRef, {
-          [`priceHistory.${ticker}`]: updatedHistory
-        });
-      }
-    }
-  }, []);
 
   // recordPortfolioHistory removed — now handled server-side by syncPortfolio Cloud Function
 
@@ -2317,7 +2291,7 @@ export default function App() {
 
     }
     setLoadingKey('trade', false);
-  }, [user, userData, prices, recordPriceHistory, addActivity]);
+  }, [user, userData, prices, addActivity]);
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules)
