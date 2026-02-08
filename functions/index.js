@@ -2684,15 +2684,18 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (existingShort) {
           const totalShares = existingShort.shares + amount;
           const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
+          const existingMargin = existingShort.margin || (existingShort.costBasis * existingShort.shares * 0.5);
           newShorts[ticker] = {
             shares: totalShares,
             costBasis: totalValue / totalShares,
+            margin: existingMargin + marginRequired,
             openedAt: existingShort.openedAt
           };
         } else {
           newShorts[ticker] = {
             shares: amount,
             costBasis: executionPrice,
+            margin: marginRequired,
             openedAt: admin.firestore.Timestamp.now()
           };
         }
@@ -2744,19 +2747,21 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           );
         }
 
-        // Calculate profit/loss
+        // Calculate margin to return (based on entry price, not current price)
         const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
-        const profit = (costBasis - executionPrice) * amount;
-        const marginToReturn = currentPrice * amount * 0.5;
+        const totalPositionMargin = shortPosition.margin || (costBasis * shortPosition.shares * 0.5);
+        const marginToReturn = (totalPositionMargin / shortPosition.shares) * amount;
 
-        // Execute cover
-        newCash = cash - totalCost + marginToReturn + profit;
+        // Execute cover: pay cover cost, get margin back
+        // P&L is implicit (proceeds from short open are already in cash)
+        newCash = cash - totalCost + marginToReturn;
         if (isNaN(newCash)) {
           throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid cash result');
         }
         newShorts[ticker] = {
           ...shortPosition,
-          shares: shortPosition.shares - amount
+          shares: shortPosition.shares - amount,
+          margin: totalPositionMargin - marginToReturn
         };
         if (newShorts[ticker].shares === 0) {
           delete newShorts[ticker];
@@ -5325,12 +5330,12 @@ exports.checkShortMarginCalls = functions.pubsub
                 const cappedImpact = Math.min(dampenedImpact, maxImpact);
                 const newPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
 
-                // Calculate P&L
+                // Calculate cover cost and margin return
+                // Margin return + P&L is NOT correct — proceeds are already in cash from short open
+                // Correct: pay cover cost, get margin back. That's it.
                 const coverPrice = newPrice;
                 const coverCost = coverPrice * freshPosition.shares;
-                const proceeds = freshCostBasis * freshPosition.shares;
-                const pnl = proceeds - coverCost; // Negative if loss
-                const cashChange = freshMargin + pnl; // Return margin + P&L
+                const cashChange = freshMargin - coverCost;
 
                 // Update user: clear short, adjust cash
                 const newCash = Math.round(((freshUserData.cash || 0) + cashChange) * 100) / 100;
@@ -5367,14 +5372,13 @@ exports.checkShortMarginCalls = functions.pubsub
                   amount: freshPosition.shares,
                   price: coverPrice,
                   totalValue: coverCost,
-                  pnl,
                   cashBefore: freshUserData.cash || 0,
                   cashAfter: newCash,
                   timestamp: admin.firestore.FieldValue.serverTimestamp(),
                   automated: true
                 });
 
-                console.log(`Liquidated ${userDoc.id}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, P&L: ${pnl.toFixed(2)}`);
+                console.log(`Liquidated ${userDoc.id}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`);
               });
 
               liquidatedCount++;
