@@ -6092,16 +6092,20 @@ exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
       let correctedCash = null;
       let reason = '';
 
-      if (spikeTrades.length > 0) {
-        // Has margin_call_cover on spike tickers — restore to cashBefore of first one
+      if (spikeTrades.length > 0 && spikeShortOpens.length > 0) {
+        // Has margin_call_cover AND short opens on spike tickers
+        // Restore to cash BEFORE their first spike-ticker short (undo the whole sequence)
+        correctedCash = spikeShortOpens[0].cashBefore;
+        reason = 'margin_call_cover on ' + [...new Set(spikeTrades.map(t => t.ticker))].join('/');
+      } else if (spikeTrades.length > 0) {
+        // Has margin_call_cover but no short open found — use cashBefore of first cover
         correctedCash = spikeTrades[0].cashBefore;
-        reason = 'margin_call_cover on ' + spikeTrades.map(t => t.ticker).join('/');
+        reason = 'margin_call_cover (no short open found)';
       } else if (spikeShortOpens.length > 0 && cash < 0) {
         // Shorted spike tickers, no cover trade logged, but negative cash
-        // Restore to cash after the short was opened (last known good state)
-        const lastShortOpen = spikeShortOpens[spikeShortOpens.length - 1];
-        correctedCash = lastShortOpen.cashAfter != null ? lastShortOpen.cashAfter : lastShortOpen.cashBefore;
-        reason = 'short closed without trade log (' + spikeShortOpens.map(t => t.ticker).join('/') + ')';
+        // Restore to cash BEFORE the first spike short (margin should come back since position is gone)
+        correctedCash = spikeShortOpens[0].cashBefore;
+        reason = 'short closed without trade log (' + [...new Set(spikeShortOpens.map(t => t.ticker))].join('/') + ')';
       } else if (trades.length === 0 && cash <= 0) {
         // No trades at all, zero/negative cash — empty or broken account
         correctedCash = STARTING_CASH;
