@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -219,6 +219,57 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed to remove: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  // Load bankrupt users for recovery tab
+  const [bankruptUsers, setBankruptUsers] = useState([]);
+  const [bankruptLoaded, setBankruptLoaded] = useState(false);
+
+  const loadBankruptUsers = async () => {
+    if (bankruptLoaded) return;
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      const users = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.isBankrupt && !data.isBot) {
+          users.push({
+            id: doc.id,
+            displayName: data.displayName || 'Unknown',
+            cash: data.cash || 0,
+            portfolioValue: data.portfolioValue || 0,
+            bankruptAt: data.bankruptAt || null,
+            totalTrades: data.totalTrades || 0,
+            crew: data.crew || null,
+            holdings: data.holdings || {},
+            shorts: data.shorts || {}
+          });
+        }
+      });
+      users.sort((a, b) => (b.bankruptAt || 0) - (a.bankruptAt || 0));
+      setBankruptUsers(users);
+      setBankruptLoaded(true);
+      showMessage('success', `Found ${users.length} bankrupt users`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to load bankrupt users');
+    }
+    setLoading(false);
+  };
+
+  const handleReinstateUser = async (userId, displayName) => {
+    if (!confirm(`Reinstate ${displayName}? They'll get $1,000 cash and be un-bankrupted.`)) return;
+    setLoading(true);
+    try {
+      await reinstateUserFunction({ userId });
+      setBankruptUsers(prev => prev.filter(u => u.id !== userId));
+      showMessage('success', `Reinstated ${displayName}`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
     }
     setLoading(false);
   };
@@ -5017,6 +5068,49 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
           {/* RECOVERY TAB */}
           {activeTab === 'recovery' && (
             <div className="space-y-4">
+              {/* Bankrupt Users */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className={`font-semibold ${textClass}`}>💔 Bankrupt Users</h3>
+                  <button
+                    onClick={loadBankruptUsers}
+                    disabled={loading}
+                    className="px-3 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-sm disabled:opacity-50"
+                  >
+                    {bankruptLoaded ? 'Refresh' : 'Load'}
+                  </button>
+                </div>
+                {bankruptLoaded && (
+                  bankruptUsers.length === 0 ? (
+                    <p className={`text-sm ${mutedClass}`}>No bankrupt users found.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {bankruptUsers.map(u => (
+                        <div key={u.id} className={`flex items-center justify-between p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                          <div>
+                            <span className={`font-semibold text-sm ${textClass}`}>{u.displayName}</span>
+                            <div className={`text-xs ${mutedClass}`}>
+                              Cash: ${(u.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              {' · '}Portfolio: ${(u.portfolioValue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              {' · '}{u.totalTrades} trades
+                              {u.crew && <> · Crew: {u.crew}</>}
+                              {u.bankruptAt && <> · Bankrupt: {new Date(u.bankruptAt).toLocaleDateString()}</>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleReinstateUser(u.id, u.displayName)}
+                            disabled={loading}
+                            className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50"
+                          >
+                            Reinstate
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+
               {/* Manual Backup */}
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                 <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>

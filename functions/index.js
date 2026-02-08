@@ -5906,3 +5906,35 @@ exports.removeAchievement = functions.https.onCall(async (data, context) => {
   return { success: true, removed: achievementId, userId };
 });
 
+/**
+ * Admin reinstate a bankrupt user - gives them $1000 cash without wiping crew/holdings
+ */
+exports.reinstateUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId } = data;
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+
+  const userData = userSnap.data();
+  const cashBoost = Math.max(0, 1000 - (userData.cash || 0));
+
+  await userRef.update({
+    isBankrupt: false,
+    cash: admin.firestore.FieldValue.increment(cashBoost),
+    reinstatedAt: Date.now(),
+    reinstatedBy: 'admin'
+  });
+
+  return { success: true, userId, cashAdded: cashBoost };
+});
+

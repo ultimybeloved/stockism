@@ -80,5 +80,7 @@ export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarg
 export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = httpsCallable(functions, 'removeAchievement');
+// Admin: reinstate bankrupt user
+export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
 
 export default app;
