@@ -394,6 +394,50 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
         };
       }
 
+      case 'WEEKLY_TOTAL_SHARES': {
+        const totalShares = Object.values(holdings).reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
+        return {
+          complete: totalShares >= mission.requirement,
+          progress: totalShares,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_PENNY_SHARES': {
+        let pennyShares = 0;
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0 && (prices[ticker] || 0) < 25) {
+            pennyShares += shares;
+          }
+        });
+        return {
+          complete: pennyShares >= mission.requirement,
+          progress: pennyShares,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_BLUE_CHIPS': {
+        let blueChipCount = 0;
+        Object.entries(holdings).forEach(([ticker, shares]) => {
+          if (shares > 0 && (prices[ticker] || 0) > 100) {
+            blueChipCount++;
+          }
+        });
+        return {
+          complete: blueChipCount >= mission.requirement,
+          progress: blueChipCount,
+          target: mission.requirement
+        };
+      }
+      case 'WEEKLY_SHORT_COUNT': {
+        const shorts = userData?.shorts || {};
+        const activeShorts = Object.values(shorts).filter(p => p && p.shares > 0).length;
+        return {
+          complete: activeShorts >= mission.requirement,
+          progress: activeShorts,
+          target: mission.requirement
+        };
+      }
+
       default:
         return { complete: false, progress: 0, target: 1 };
     }

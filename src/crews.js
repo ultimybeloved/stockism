@@ -359,6 +359,74 @@ export const WEEKLY_MISSIONS = {
     reward: 750,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
     requirement: 2000
+  },
+
+  // ============================================
+  // HIGHER-TIER TRADING (2)
+  // ============================================
+  SHARE_MOGUL: {
+    id: 'SHARE_MOGUL',
+    name: 'Share Mogul',
+    description: 'Trade 250+ total shares this week',
+    reward: 700,
+    checkType: 'WEEKLY_TRADE_VOLUME',
+    requirement: 250
+  },
+  TRADE_MASTER: {
+    id: 'TRADE_MASTER',
+    name: 'Trade Master',
+    description: 'Make 50+ trades this week',
+    reward: 600,
+    checkType: 'WEEKLY_TRADE_COUNT',
+    requirement: 50
+  },
+
+  // ============================================
+  // PORTFOLIO SNAPSHOT (3)
+  // ============================================
+  HEAVY_BAGS: {
+    id: 'HEAVY_BAGS',
+    name: 'Heavy Bags',
+    description: 'Hold 200+ total shares across all positions',
+    reward: 600,
+    checkType: 'WEEKLY_TOTAL_SHARES',
+    requirement: 200
+  },
+  PENNY_COLLECTOR: {
+    id: 'PENNY_COLLECTOR',
+    name: 'Penny Collector',
+    description: 'Own 50+ shares of stocks priced under $25',
+    reward: 500,
+    checkType: 'WEEKLY_PENNY_SHARES',
+    requirement: 50
+  },
+  BLUE_CHIP_INVESTOR: {
+    id: 'BLUE_CHIP_INVESTOR',
+    name: 'Blue Chip Investor',
+    description: 'Own shares in 3+ stocks priced over $100',
+    reward: 600,
+    checkType: 'WEEKLY_BLUE_CHIPS',
+    requirement: 3
+  },
+
+  // ============================================
+  // SHORTS & GROWTH (2)
+  // ============================================
+  SHORT_KING: {
+    id: 'SHORT_KING',
+    name: 'Short King',
+    description: 'Have 3+ active short positions at the same time',
+    reward: 700,
+    checkType: 'WEEKLY_SHORT_COUNT',
+    requirement: 3
+  },
+  PORTFOLIO_MOONSHOT: {
+    id: 'PORTFOLIO_MOONSHOT',
+    name: 'Portfolio Moonshot',
+    description: 'Grow your portfolio value by $5,000+ this week',
+    reward: 1000,
+    checkType: 'WEEKLY_PORTFOLIO_GROWTH',
+    requirement: 5000
   }
 };
 

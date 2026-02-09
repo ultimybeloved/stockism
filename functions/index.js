@@ -52,7 +52,10 @@ const MISSION_REWARDS = {
   MARKET_WHALE: 750, VOLUME_KING: 500, TRADING_MACHINE: 400,
   TRADING_STREAK: 600, DAILY_GRINDER: 500,
   CREW_MAXIMALIST: 600, CREW_HOARDER: 500, FULL_CREW_OWNERSHIP: 1000,
-  DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750
+  DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750,
+  SHARE_MOGUL: 700, TRADE_MASTER: 600, HEAVY_BAGS: 600,
+  PENNY_COLLECTOR: 500, BLUE_CHIP_INVESTOR: 600, SHORT_KING: 700,
+  PORTFOLIO_MOONSHOT: 1000
 };
 
 // Server-side mission completion verification
@@ -171,6 +174,34 @@ const WEEKLY_MISSION_CHECKS = {
   PORTFOLIO_BUILDER: (wp, userData) => {
     const startValue = wp.startPortfolioValue || 0;
     return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 2000;
+  },
+  SHARE_MOGUL: (wp) => (wp.tradeVolume || 0) >= 250,
+  TRADE_MASTER: (wp) => (wp.tradeCount || 0) >= 50,
+  HEAVY_BAGS: (wp, userData) => {
+    const total = Object.values(userData.holdings || {}).reduce((s, v) => s + (v > 0 ? v : 0), 0);
+    return total >= 200;
+  },
+  PENNY_COLLECTOR: (wp, userData, prices) => {
+    let pennyShares = 0;
+    Object.entries(userData.holdings || {}).forEach(([t, s]) => {
+      if (s > 0 && ((prices || {})[t] || 0) < 25) pennyShares += s;
+    });
+    return pennyShares >= 50;
+  },
+  BLUE_CHIP_INVESTOR: (wp, userData, prices) => {
+    let count = 0;
+    Object.entries(userData.holdings || {}).forEach(([t, s]) => {
+      if (s > 0 && ((prices || {})[t] || 0) > 100) count++;
+    });
+    return count >= 3;
+  },
+  SHORT_KING: (wp, userData) => {
+    const shorts = userData.shorts || {};
+    return Object.values(shorts).filter(p => p && p.shares > 0).length >= 3;
+  },
+  PORTFOLIO_MOONSHOT: (wp, userData) => {
+    const startValue = wp.startPortfolioValue || 0;
+    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 5000;
   }
 };
 
