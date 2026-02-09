@@ -145,7 +145,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       if (availableForShorts <= 0) return 0;
 
       const marginPerShare = price * SHORT_MARGIN_REQUIREMENT;
-      const maxAffordable = Math.floor(availableForShorts / marginPerShare);
+      const maxByEquity = Math.floor(availableForShorts / marginPerShare);
+      // v2: must also have enough cash for the margin deposit
+      const maxByCash = marginPerShare > 0 ? Math.floor(userCash / marginPerShare) : 0;
+      const maxAffordable = Math.min(maxByEquity, maxByCash);
       return Math.max(1, Math.min(maxAffordable, 10000));
     } else if (action === 'cover') {
       return shortPosition?.shares || 0;
@@ -195,7 +198,23 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           label: 'Margin Required',
           disabled: maxShares === 0
         };
-      case 'cover':
+      case 'cover': {
+        const isV2 = shortPosition?.system === 'v2';
+        const coverShares = amount || 1;
+        let coverTotal;
+        let coverLabel;
+        if (isV2 && shortPosition) {
+          // v2: show estimated return (margin back + P&L)
+          const costBasis = shortPosition.costBasis || shortPosition.entryPrice || 0;
+          const totalMargin = shortPosition.margin || 0;
+          const marginBack = shortPosition.shares > 0 ? (totalMargin / shortPosition.shares) * coverShares : 0;
+          const profit = (costBasis - ask) * coverShares;
+          coverTotal = marginBack + profit;
+          coverLabel = 'Est. Return';
+        } else {
+          coverTotal = ask * coverShares;
+          coverLabel = 'Cost to Cover';
+        }
         return {
           title: 'Cover Short',
           colors: {
@@ -205,10 +224,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           },
           buttonStyle: 'outline',
           price: ask,
-          total: ask * (amount || 1),
-          label: 'Cost to Cover',
+          total: coverTotal,
+          label: coverLabel,
           disabled: !shortPosition || shortPosition.shares < (amount || 1)
         };
+      }
       default:
         return { title: '', colors: { text: 'text-gray-400', bg: 'bg-gray-600', bgHover: 'hover:bg-gray-700' }, buttonStyle: 'solid', price: 0, total: 0, label: '', disabled: true };
     }

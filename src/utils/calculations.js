@@ -88,9 +88,14 @@ export const calculatePortfolioValue = (userData, prices) => {
     const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
     const currentPrice = prices[ticker] || entryPrice;
     const collateral = Number(position.margin) || 0;
-    // Short value = margin collateral - cost to buy back shares
-    // (sale proceeds are already in cash, so we don't add P&L here)
-    const value = collateral - (currentPrice * shares);
+    let value;
+    if (position.system === 'v2') {
+      // v2: margin + unrealized P&L (no proceeds in cash)
+      value = collateral + (entryPrice - currentPrice) * shares;
+    } else {
+      // Legacy: margin collateral - cost to buy back shares
+      value = collateral - (currentPrice * shares);
+    }
     return sum + (isNaN(value) ? 0 : value);
   }, 0);
 

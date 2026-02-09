@@ -2321,8 +2321,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       const entryPrice = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
-      // Short value = margin collateral - cost to buy back shares
-      shortsValue += collateral - (currentPrice * shares);
+      if (position.system === 'v2') {
+        // v2: margin + unrealized P&L (no proceeds in cash)
+        shortsValue += collateral + (entryPrice - currentPrice) * shares;
+      } else {
+        // Legacy: margin collateral - cost to buy back shares
+        shortsValue += collateral - (currentPrice * shares);
+      }
     }
 
     return Math.round((cash + holdingsValue + shortsValue) * 100) / 100;

@@ -2511,6 +2511,14 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const marginRequired = currentPrice * amount * 0.5; // 50% margin
       const prices = marketData.prices || {};
 
+      // v2: Must have enough cash for the margin deposit
+      if (cash < marginRequired) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Insufficient cash for short margin deposit.'
+        );
+      }
+
       // Calculate portfolio equity to cap total short leverage
       let portfolioEquity = cash;
       Object.entries(holdings).forEach(([t, s]) => {
@@ -2518,7 +2526,11 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       });
       Object.entries(shorts).forEach(([t, pos]) => {
         if (pos && typeof pos === 'object' && pos.shares > 0) {
-          portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
+          if (pos.system === 'v2') {
+            portfolioEquity += (pos.margin || 0) + ((pos.costBasis || 0) - (prices[t] || 0)) * pos.shares;
+          } else {
+            portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
+          }
         }
       });
 
@@ -2937,6 +2949,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         const marginRequired = currentPrice * amount * 0.5; // 50% margin
 
+        // v2: Must have enough cash for the margin deposit
+        if (cash < marginRequired) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient cash for short margin deposit.');
+        }
+
         // Calculate portfolio equity (net worth) to cap total short leverage
         // This prevents the leverage spiral where each short inflates cash
         let portfolioEquity = cash;
@@ -2945,7 +2962,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         });
         Object.entries(shorts).forEach(([t, pos]) => {
           if (pos && pos.shares > 0) {
-            portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
+            if (pos.system === 'v2') {
+              portfolioEquity += (pos.margin || 0) + ((pos.costBasis || 0) - (prices[t] || 0)) * pos.shares;
+            } else {
+              portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
+            }
           }
         });
 
@@ -2994,8 +3015,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           totalCost = executionPrice * amount;
         }
 
-        // Execute short
-        newCash = cash + totalCost - marginRequired;
+        // Execute short — v2: deduct margin only, no sale proceeds
+        newCash = cash - marginRequired;
 
         const existingShort = shorts[ticker];
         if (existingShort && existingShort.shares > 0) {
@@ -3006,14 +3027,16 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             shares: totalShares,
             costBasis: totalShares > 0 ? totalValue / totalShares : executionPrice,
             margin: existingMargin + marginRequired,
-            openedAt: existingShort.openedAt || admin.firestore.Timestamp.now()
+            openedAt: existingShort.openedAt || admin.firestore.Timestamp.now(),
+            system: 'v2'
           };
         } else {
           newShorts[ticker] = {
             shares: amount,
             costBasis: executionPrice,
             margin: marginRequired,
-            openedAt: admin.firestore.Timestamp.now()
+            openedAt: admin.firestore.Timestamp.now(),
+            system: 'v2'
           };
         }
 
@@ -3068,9 +3091,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const totalPositionMargin = shortPosition.margin || (costBasis * shortPosition.shares * 0.5);
         const marginToReturn = shortPosition.shares > 0 ? (totalPositionMargin / shortPosition.shares) * amount : 0;
 
-        // Execute cover: pay cover cost, get margin back
-        // P&L is implicit (proceeds from short open are already in cash)
-        newCash = cash - totalCost + marginToReturn;
+        // Execute cover
+        if (shortPosition.system === 'v2') {
+          // v2: get margin back + profit/loss (no proceeds were given at open)
+          const shortProfit = (costBasis - executionPrice) * amount;
+          newCash = cash + marginToReturn + shortProfit;
+        } else {
+          // Legacy: pay cover cost, get margin back (proceeds already in cash)
+          newCash = cash - totalCost + marginToReturn;
+        }
         if (isNaN(newCash)) {
           throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid cash result');
         }
@@ -4692,8 +4721,14 @@ exports.syncAllPortfolios = functions.pubsub
             const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
             const currentPrice = prices[ticker] || entryPrice;
             const collateral = Number(position.margin) || 0;
-            // Short value = margin collateral - cost to buy back shares
-            const value = collateral - (currentPrice * position.shares);
+            let value;
+            if (position.system === 'v2') {
+              // v2: margin + unrealized P&L (no proceeds in cash)
+              value = collateral + (entryPrice - currentPrice) * position.shares;
+            } else {
+              // Legacy: margin collateral - cost to buy back shares
+              value = collateral - (currentPrice * position.shares);
+            }
             return sum + (isNaN(value) ? 0 : value);
           }, 0);
 
@@ -5957,11 +5992,17 @@ exports.checkShortMarginCalls = functions.pubsub
                 const newPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
 
                 // Calculate cover cost and margin return
-                // Margin return + P&L is NOT correct — proceeds are already in cash from short open
-                // Correct: pay cover cost, get margin back. That's it.
                 const coverPrice = newPrice;
-                const coverCost = coverPrice * freshPosition.shares;
-                const cashChange = freshMargin - coverCost;
+                let cashChange;
+                if (freshPosition.system === 'v2') {
+                  // v2: margin back + profit/loss
+                  const shortProfit = (freshCostBasis - coverPrice) * freshPosition.shares;
+                  cashChange = freshMargin + shortProfit;
+                } else {
+                  // Legacy: pay cover cost, get margin back (proceeds already in cash)
+                  const coverCost = coverPrice * freshPosition.shares;
+                  cashChange = freshMargin - coverCost;
+                }
 
                 // Update user: clear short, adjust cash
                 const newCash = Math.round(((freshUserData.cash || 0) + cashChange) * 100) / 100;
@@ -6101,7 +6142,11 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
       const costBasis = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || costBasis;
       const margin = position.margin || (costBasis * shares * 0.5);
-      // Short value = margin collateral - cost to buy back shares
+      if (position.system === 'v2') {
+        // v2: margin + unrealized P&L (no proceeds in cash)
+        return sum + margin + (costBasis - currentPrice) * shares;
+      }
+      // Legacy: margin collateral - cost to buy back shares
       return sum + margin - (currentPrice * shares);
     }, 0);
 
