@@ -2728,6 +2728,22 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Anti-manipulation: Block shorting if user has a pending SELL limit order on same ticker
+  if (action === 'short') {
+    const pendingSells = await db.collection('limitOrders')
+      .where('userId', '==', uid)
+      .where('ticker', '==', ticker)
+      .where('status', '==', 'PENDING')
+      .where('type', '==', 'SELL')
+      .limit(1)
+      .get();
+
+    if (!pendingSells.empty) {
+      throw new functions.https.HttpsError('failed-precondition',
+        'Cannot short while you have a pending sell order on this stock.');
+    }
+  }
+
   try {
     const userRef = db.collection('users').doc(uid);
     const marketRef = db.collection('market').doc('current');
@@ -4862,11 +4878,30 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while in debt.');
   }
 
-  // Validate holdings for SELL orders
+  // Fetch pending orders early (needed for validation checks below)
+  const pendingOrders = await db.collection('limitOrders')
+    .where('userId', '==', uid)
+    .where('status', '==', 'PENDING')
+    .get();
+
+  if (pendingOrders.size >= 20) {
+    throw new functions.https.HttpsError('resource-exhausted', 'Maximum 20 pending orders allowed.');
+  }
+
+  // Validate holdings for SELL orders (account for shares reserved by pending sells)
   if (type === 'SELL') {
     const currentHoldings = userData.holdings?.[ticker] || 0;
     if (currentHoldings < shares) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings to sell.');
+    }
+    const pendingSellShares = pendingOrders.docs
+      .filter(doc => {
+        const o = doc.data();
+        return o.ticker === ticker && o.type === 'SELL';
+      })
+      .reduce((sum, doc) => sum + doc.data().shares, 0);
+    if (currentHoldings < shares + pendingSellShares) {
+      throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings (some shares reserved by pending orders).');
     }
   }
 
@@ -4878,14 +4913,23 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // Rate limit: max 20 pending orders per user
-  const pendingOrders = await db.collection('limitOrders')
-    .where('userId', '==', uid)
-    .where('status', '==', 'PENDING')
-    .get();
+  // Anti-manipulation: Block SELL limit if user has an active short on same ticker
+  if (type === 'SELL') {
+    const shortShares = userData.shorts?.[ticker]?.shares || 0;
+    if (shortShares > 0) {
+      throw new functions.https.HttpsError('failed-precondition',
+        'Cannot place a sell order while you have an active short on this stock.');
+    }
+  }
 
-  if (pendingOrders.size >= 20) {
-    throw new functions.https.HttpsError('resource-exhausted', 'Maximum 20 pending orders allowed.');
+  // Block duplicate limit orders on same ticker + type
+  const existingOrderOnTicker = pendingOrders.docs.some(doc => {
+    const o = doc.data();
+    return o.ticker === ticker && o.type === type;
+  });
+  if (existingOrderOnTicker) {
+    throw new functions.https.HttpsError('already-exists',
+      `You already have a pending ${type} order on ${ticker}. Cancel it first.`);
   }
 
   // Create the order
