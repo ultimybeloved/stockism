@@ -12,8 +12,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   const [userRank, setUserRank] = useState(null); // User's actual rank in current view
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
-  const stickyHeaderRef = useRef(null);
-  const stickyFooterRef = useRef(null);
+  const [userRowPosition, setUserRowPosition] = useState('unknown'); // 'above' | 'visible' | 'below' | 'unknown'
 
   // Fetch main top 50 leaderboard (only once on mount)
   useEffect(() => {
@@ -94,36 +93,24 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   }, [leaders, crewLeaders, crewFilter]);
 
 
-  // Track user row position via direct DOM manipulation (no state updates = no re-renders)
+  // Track whether user's row has scrolled above or below the visible area
   useEffect(() => {
     const container = scrollContainerRef.current;
     const userRow = userRowRef.current;
-    const header = stickyHeaderRef.current;
-    const footer = stickyFooterRef.current;
 
-    if (!container || !userRow || !header || !footer) return;
+    if (!container || !userRow) {
+      setUserRowPosition('unknown');
+      return;
+    }
 
-    // Use Intersection Observer to directly update DOM visibility
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          // User row is visible - hide both sticky elements
-          header.style.display = 'none';
-          footer.style.display = 'none';
+          setUserRowPosition('visible');
         } else {
-          // User row is not visible - determine position
           const rowRect = entry.boundingClientRect;
           const containerRect = entry.rootBounds;
-
-          if (rowRect.bottom < containerRect.top) {
-            // Row is above viewport - show header, hide footer
-            header.style.display = 'flex';
-            footer.style.display = 'none';
-          } else {
-            // Row is below viewport - show footer, hide header
-            header.style.display = 'none';
-            footer.style.display = 'flex';
-          }
+          setUserRowPosition(rowRect.bottom < containerRect.top ? 'above' : 'below');
         }
       },
       {
@@ -188,18 +175,14 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         </div>
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
-          {/* Sticky Header - visibility controlled by IO via ref */}
-          {currentUser && userRank && (
+          {/* Sticky Header - shown when user row has scrolled above viewport */}
+          {currentUser && userRank && userRowPosition === 'above' && (
             <div
-              ref={stickyHeaderRef}
               className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
               style={{
-                display: 'none',
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
                 boxShadow: `0 2px 8px ${userCrewColor}40`,
-                willChange: 'transform',
-                transform: 'translateZ(0)'
               }}
             >
               <div className={`text-sm font-semibold ${textClass}`}>
@@ -265,18 +248,14 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
             </div>
           )}
 
-          {/* Sticky Footer - visibility controlled by IO via ref */}
-          {currentUser && userRank && !loading && (
+          {/* Sticky Footer - shown when user row is below viewport */}
+          {currentUser && userRank && !loading && userRowPosition === 'below' && (
             <div
-              ref={stickyFooterRef}
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
-                display: 'flex',
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
                 boxShadow: `0 -2px 12px ${userCrewColor}40`,
-                willChange: 'transform',
-                transform: 'translateZ(0)'
               }}
             >
               <div className={`text-sm font-semibold ${textClass}`}>
