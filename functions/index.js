@@ -834,6 +834,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
         holdingsCount: holdingsCount,
         displayCrewPin: userData.displayCrewPin || null,
         displayedAchievementPins: userData.displayedAchievementPins || [],
+        achievements: userData.achievements || [],
         displayedShopPins: userData.displayedShopPins || []
       });
     });
