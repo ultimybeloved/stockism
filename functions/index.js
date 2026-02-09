@@ -2434,11 +2434,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       );
     }
 
-    // Calculate price impact multiplier (escalates with repeated trades)
-    // Formula: 1.0 + (trades * 0.3)
-    // 1st trade: 1.0x, 5th trade: 2.2x, 10th trade: 3.7x, 15th trade: 5.5x
-    const priceImpactMultiplier = 1.0 + (tradesInLastHour * 0.3);
-
     // Validate based on action
     const cash = userData.cash || 0;
     const holdings = userData.holdings || {};
@@ -2456,10 +2451,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
       let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-
-      // Apply velocity-based multiplier to price impact (anti-manipulation)
-      priceImpact *= priceImpactMultiplier;
-
       const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
       priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -2645,7 +2636,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       serverTimestamp: now,
       cash,
       holdings: holdings[ticker] || 0,
-      priceImpactMultiplier, // Send multiplier to client for display and calculation
       tradesInLastHour // Send trade count for UI warnings
     };
 
@@ -2786,8 +2776,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         );
       }
 
-      const priceImpactMultiplier = 1.0 + (tradesInLastHour * 0.3);
-
       // Calculate price impact
       let priceImpact = 0;
       let newPrice = currentPrice;
@@ -2802,7 +2790,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       if (action === 'buy') {
         // Calculate price impact
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        priceImpact *= priceImpactMultiplier;
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -2873,7 +2860,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Calculate price impact (negative for sell)
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        priceImpact *= priceImpactMultiplier;
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -2933,7 +2919,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Calculate price impact (negative for short)
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        priceImpact *= priceImpactMultiplier;
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -3003,7 +2988,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Calculate price impact (positive for cover)
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        priceImpact *= priceImpactMultiplier;
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
@@ -4815,9 +4799,7 @@ exports.checkLimitOrders = functions.pubsub
       let executed = 0;
       let canceled = 0;
       let expired = 0;
-      let dailyImpactCapped = 0;
       const now = Date.now();
-      const todayDate = new Date().toISOString().split('T')[0];
 
       // Per-ticker execution cap: max 3 orders per ticker per cycle
       const ORDERS_PER_TICKER_PER_CYCLE = 3;
@@ -4918,24 +4900,11 @@ exports.checkLimitOrders = functions.pubsub
               }
 
               // Calculate price impact (same formula as executeTrade)
+              // Limit orders are exempt from daily impact cap — they represent
+              // genuine market pressure (e.g. selling during a squeeze)
               const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(order.shares / BASE_LIQUIDITY);
               const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
-              let effectiveImpact = Math.min(priceImpact, maxImpact);
-
-              // Check dailyImpact — if limit reached, execute with zero price impact
-              const dailyImpact = userData.dailyImpact || {};
-              const userDailyImpact = dailyImpact[todayDate] || {};
-              const tickerDailyImpact = userDailyImpact[order.ticker] || 0;
-              let impactPercent = effectiveImpact / freshPrice;
-
-              if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-                effectiveImpact = 0;
-                impactPercent = 0;
-              }
-
-              // Update dailyImpact in the same transaction
-              userDailyImpact[order.ticker] = tickerDailyImpact + impactPercent;
-              dailyImpact[todayDate] = userDailyImpact;
+              const effectiveImpact = Math.min(priceImpact, maxImpact);
 
               // Execute the trade
               if (order.type === 'BUY') {
@@ -4961,8 +4930,7 @@ exports.checkLimitOrders = functions.pubsub
                   [`holdings.${order.ticker}`]: newHoldings,
                   [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1),
-                  dailyImpact
+                  totalTrades: admin.firestore.FieldValue.increment(1)
                 });
 
                 // Apply price impact to market (only if there's actual impact)
@@ -4990,8 +4958,7 @@ exports.checkLimitOrders = functions.pubsub
                   cash: admin.firestore.FieldValue.increment(totalRevenue),
                   [`holdings.${order.ticker}`]: newHoldings,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1),
-                  dailyImpact
+                  totalTrades: admin.firestore.FieldValue.increment(1)
                 };
 
                 if (newHoldings <= 0) {
@@ -5059,7 +5026,6 @@ exports.checkLimitOrders = functions.pubsub
         executed,
         canceled,
         expired,
-        dailyImpactCapped,
         elapsedSeconds: elapsed
       };
 
