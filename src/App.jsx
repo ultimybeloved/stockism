@@ -1785,11 +1785,20 @@ export default function App() {
     } else if (action === 'short') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
       const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact));
-      total = bid * amount;
+      total = bid * amount * 0.5; // margin cost only
     } else if (action === 'cover') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
       const { ask } = getBidAskPrices(price + priceImpact);
-      total = ask * amount;
+      const shortPos = userData.shorts?.[ticker];
+      if (shortPos?.system === 'v2') {
+        const costBasis = shortPos.costBasis || 0;
+        const totalMargin = shortPos.margin || 0;
+        const marginBack = shortPos.shares > 0 ? (totalMargin / shortPos.shares) * amount : 0;
+        const profit = (costBasis - ask) * amount;
+        total = marginBack + profit;
+      } else {
+        total = ask * amount;
+      }
     }
     
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
@@ -3332,7 +3341,7 @@ export default function App() {
               </div>
               <div className="flex justify-between">
                 <span>Action:</span>
-                <span className={`font-semibold ${tradeConfirmation.action === 'buy' ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`font-semibold ${tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover' ? 'text-green-500' : 'text-red-500'}`}>
                   {tradeConfirmation.action.toUpperCase()}
                 </span>
               </div>
@@ -3341,13 +3350,17 @@ export default function App() {
                 <span className="font-semibold">{tradeConfirmation.amount}</span>
               </div>
               <div className="flex justify-between">
-                <span>Est. Price/Share:</span>
-                <span className="font-semibold">{formatCurrency(tradeConfirmation.total / tradeConfirmation.amount)}</span>
+                <span>{tradeConfirmation.action === 'short' ? 'Margin/Share:' : 'Est. Price/Share:'}</span>
+                <span className="font-semibold">{formatCurrency(Math.abs(tradeConfirmation.total) / tradeConfirmation.amount)}</span>
               </div>
               <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
-                <span className="font-semibold">Est. Total:</span>
-                <span className={`font-bold ${tradeConfirmation.action === 'buy' ? 'text-red-500' : 'text-green-500'}`}>
-                  {tradeConfirmation.action === 'buy' ? '-' : '+'}{formatCurrency(tradeConfirmation.total)}
+                <span className="font-semibold">{tradeConfirmation.action === 'short' ? 'Margin Cost:' : tradeConfirmation.action === 'cover' ? 'Est. Return:' : 'Est. Total:'}</span>
+                <span className={`font-bold ${
+                  tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short' || (tradeConfirmation.action === 'cover' && tradeConfirmation.total < 0)
+                    ? 'text-red-500' : 'text-green-500'
+                }`}>
+                  {tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short'
+                    ? '-' : tradeConfirmation.total < 0 ? '-' : '+'}{formatCurrency(Math.abs(tradeConfirmation.total))}
                 </span>
               </div>
             </div>
@@ -3366,10 +3379,10 @@ export default function App() {
                 }}
                 disabled={actionLoading.trade}
                 className={`flex-1 py-2 rounded-sm font-semibold text-white ${
-                  tradeConfirmation.action === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                  tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
                 } disabled:opacity-50`}
               >
-                {actionLoading.trade ? 'Executing...' : `Confirm ${tradeConfirmation.action === 'buy' ? 'Buy' : 'Sell'}`}
+                {actionLoading.trade ? 'Executing...' : `Confirm ${tradeConfirmation.action.charAt(0).toUpperCase() + tradeConfirmation.action.slice(1)}`}
               </button>
             </div>
           </div>
