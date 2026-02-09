@@ -2964,7 +2964,7 @@ export default function App() {
                     </p>
                   )}
                   <p className={`text-xs ${mutedClass}`}>
-                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {((portfolioValue - STARTING_CASH) / STARTING_CASH * 100).toFixed(2)}% from start
+                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {(STARTING_CASH > 0 ? ((portfolioValue - STARTING_CASH) / STARTING_CASH * 100) : 0).toFixed(2)}% from start
                     {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
                   </p>
                 </>

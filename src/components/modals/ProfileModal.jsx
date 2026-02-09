@@ -46,7 +46,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
   Object.entries(holdings).forEach(([ticker, shares]) => {
     if (shares > 0) {
       const currentPrice = prices[ticker] || 0;
-      const avgCost = costBasis[ticker] || currentPrice;
+      const avgCost = costBasis[ticker] || 0;
       const returnPercent = avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : 0;
 
       if (returnPercent > bestReturn) {

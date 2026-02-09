@@ -66,6 +66,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder);
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
   const [allowPartialFills, setAllowPartialFills] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -216,7 +217,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const config = getActionConfig();
 
   const handleSubmit = async () => {
-    if (config.disabled || amount < 1 || amount > maxShares) return;
+    if (config.disabled || amount < 1 || amount > maxShares || submitting) return;
 
     if (isLimitOrder) {
       // Handle limit order creation
@@ -226,6 +227,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         return;
       }
 
+      setSubmitting(true);
       try {
         await createLimitOrderFunction({
           ticker: character.ticker,
@@ -240,6 +242,8 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       } catch (error) {
         console.error('Error creating limit order:', error);
         alert(`Failed to create order: ${error.message}`);
+      } finally {
+        setSubmitting(false);
       }
     } else {
       // Handle immediate trade
@@ -418,14 +422,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < 1 || amount > maxShares || (isLimitOrder && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={config.disabled || amount < 1 || amount > maxShares || submitting || (isLimitOrder && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
                 : `${config.colors.bg} ${config.colors.bgHover} text-white`
             } disabled:opacity-50`}
           >
-            {isLimitOrder ? `Create Limit ${config.title}` : config.title}
+            {submitting ? 'Creating...' : isLimitOrder ? `Create Limit ${config.title}` : config.title}
           </button>
           <button
             onClick={onClose}

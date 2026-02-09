@@ -38,6 +38,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
 
   const bannerTimeoutRef = useRef(null);
   const tracksRef = useRef(null);
+  const animationTimeoutsRef = useRef([]);
 
   // Real-time listeners
   useEffect(() => {
@@ -98,12 +99,14 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
     }
   }, [userLadderData?.balance, playing]);
 
-  // Cleanup timeout refs on unmount to prevent memory leaks
+  // Cleanup all timeout refs on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (bannerTimeoutRef.current) {
         clearTimeout(bannerTimeoutRef.current);
       }
+      animationTimeoutsRef.current.forEach(id => clearTimeout(id));
+      animationTimeoutsRef.current = [];
     };
   }, []);
 
@@ -120,13 +123,20 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
     }
   }, [playing, complete, selectedStart]);
 
+  // Helper to track setTimeout IDs for cleanup
+  const trackTimeout = (fn, delay) => {
+    const id = setTimeout(fn, delay);
+    animationTimeoutsRef.current.push(id);
+    return id;
+  };
+
   const selectStart = (side) => {
     if (playing) return;
 
     // Fade out init banner when selecting
     if (showInitBanner) {
       setInitBannerFading(true);
-      setTimeout(() => setShowInitBanner(false), 300);
+      trackTimeout(() => setShowInitBanner(false), 300);
     }
 
     if (selectedStart === side) {
@@ -192,7 +202,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
       createRungs(rungs);
 
       // Animate
-      setTimeout(() => {
+      trackTimeout(() => {
         revealRungs().then(() => {
           return animatePath(rungs, selectedStart, gameResult, newBalance);
         }).then(() => {
@@ -246,10 +256,10 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
       }
 
       rungs.forEach((rung, idx) => {
-        setTimeout(() => {
+        trackTimeout(() => {
           rung.style.opacity = '1';
           if (idx === rungs.length - 1) {
-            setTimeout(resolve, 150);
+            trackTimeout(resolve, 150);
           }
         }, idx * 120);
       });
@@ -325,7 +335,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
           bottomSeg.style.height = '7px';
         });
 
-        setTimeout(() => {
+        trackTimeout(() => {
           // Color buttons via React state instead of DOM manipulation
           setActiveButton(side);
           setActiveResult(result); // 'odd' or 'even'
@@ -338,7 +348,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
           if (winBtn) {
             winBtn.classList.add('ladder-result-winner');
           }
-          setTimeout(resolve, 100);
+          trackTimeout(resolve, 100);
         }, 200);
       };
 
@@ -398,13 +408,13 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
         // Start extension animations near end of final segment for seamless transition
         if (idx === totalSegments - 1) {
           // Trigger after 80% of the final segment delay - gives time for segment to be visible
-          setTimeout(startExtensions, delay * 0.8);
+          trackTimeout(startExtensions, delay * 0.8);
         }
 
-        setTimeout(drawNext, delay);
+        trackTimeout(drawNext, delay);
       };
 
-      setTimeout(drawNext, 150);
+      trackTimeout(drawNext, 150);
     });
   };
 
@@ -420,7 +430,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
 
     setShowResultBanner(true);
     setFrozenHistory(null); // Unfreeze history to show new result
-    bannerTimeoutRef.current = setTimeout(dismissBanner, 3000);
+    bannerTimeoutRef.current = trackTimeout(dismissBanner, 3000);
 
     setPlaying(false);
     setComplete(true);
@@ -434,7 +444,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
       clearTimeout(bannerTimeoutRef.current);
       bannerTimeoutRef.current = null;
     }
-    setTimeout(() => {
+    trackTimeout(() => {
       setShowResultBanner(false);
       setResultBannerFading(false);
     }, 300); // Wait for fade animation

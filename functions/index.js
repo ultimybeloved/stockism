@@ -3105,8 +3105,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           return;
         }
 
-        // No price change = no trailing effects (prevents division by zero)
-        if (sourceOldPrice === sourceNewPrice) return;
+        // No price change or zero price = no trailing effects (prevents division by zero)
+        if (sourceOldPrice <= 0 || sourceOldPrice === sourceNewPrice) return;
 
         const priceChangePercent = (sourceNewPrice - sourceOldPrice) / sourceOldPrice;
 
@@ -3242,8 +3242,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       if (action === 'short') {
+        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
         const shortHistory = userData.shortHistory || {};
-        const tickerHistory = shortHistory[ticker] || [];
+        const tickerHistory = (shortHistory[ticker] || []).filter(ts => now - ts < EIGHT_HOURS_MS);
         tickerHistory.push(now);
         updates.shortHistory = { ...shortHistory, [ticker]: tickerHistory };
       }
@@ -4700,16 +4701,33 @@ exports.syncAllPortfolios = functions.pubsub
           const cash = userData.cash || 0;
           const portfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
 
+          // Charge margin interest if due (piggybacks on 6-hour sync)
+          const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily
+          const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+          let marginInterest = 0;
+          const marginUsed = userData.marginUsed || 0;
+          if (userData.marginEnabled && marginUsed > 0) {
+            const lastCharge = userData.lastMarginInterestCharge || 0;
+            if (startTime - lastCharge >= ONE_DAY_MS) {
+              marginInterest = marginUsed * MARGIN_INTEREST_RATE;
+            }
+          }
+
           // Only update if different from stored value (avoid unnecessary writes)
           const storedValue = userData.portfolioValue || 0;
-          const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01;
+          const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01 || marginInterest > 0;
 
           if (isDifferent) {
             const userRef = db.collection('users').doc(userId);
-            batch.update(userRef, {
+            const updateFields = {
               portfolioValue: portfolioValue,
               lastSyncedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            if (marginInterest > 0) {
+              updateFields.marginUsed = marginUsed + marginInterest;
+              updateFields.lastMarginInterestCharge = startTime;
+            }
+            batch.update(userRef, updateFields);
             batchCount++;
             syncedCount++;
 
@@ -4794,6 +4812,14 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
   // Check if user is banned
   if (userData.isBanned) {
     throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
+  }
+
+  // Check if user is bankrupt or in debt
+  if (userData.isBankrupt) {
+    throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while bankrupt.');
+  }
+  if ((userData.cash || 0) < 0) {
+    throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while in debt.');
   }
 
   // Validate holdings for SELL orders
@@ -4897,6 +4923,22 @@ exports.checkLimitOrders = functions.pubsub
             continue;
           }
 
+          // Cancel orders for bankrupt/indebted users
+          const orderUserDoc = await db.collection('users').doc(order.userId).get();
+          if (orderUserDoc.exists) {
+            const orderUserData = orderUserDoc.data();
+            if (orderUserData.isBankrupt || (orderUserData.cash || 0) < 0) {
+              await db.collection('limitOrders').doc(orderId).update({
+                status: 'CANCELLED',
+                cancelReason: 'User bankrupt or in debt',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              console.log(`Cancelled order ${orderId}: user bankrupt/in debt`);
+              canceled++;
+              continue;
+            }
+          }
+
           const currentPrice = prices[order.ticker];
           if (!currentPrice) {
             console.log(`No price data for ${order.ticker}, skipping order ${orderId}`);
@@ -4942,6 +4984,19 @@ exports.checkLimitOrders = functions.pubsub
               const userData = userSnap.data();
               const freshPrices = freshMarketSnap.data().prices || {};
               const freshPrice = freshPrices[order.ticker] || currentPrice;
+
+              // Re-validate limit condition with fresh price
+              if (order.type === 'BUY' && freshPrice > order.limitPrice) {
+                throw new Error('Price no longer meets limit condition');
+              }
+              if (order.type === 'SELL' && freshPrice < order.limitPrice) {
+                throw new Error('Price no longer meets limit condition');
+              }
+
+              // Check if user is bankrupt/in debt (could have changed since order was created)
+              if (userData.isBankrupt || (userData.cash || 0) < 0) {
+                throw new Error('User is bankrupt or in debt');
+              }
 
               // Validate user has sufficient funds/shares
               if (order.type === 'BUY') {
@@ -5639,7 +5694,10 @@ exports.bailout = functions.https.onCall(async (data, context) => {
       isCrewHead: false,
       crewHeadColor: null,
       crewHistory: updatedHistory,
-      lastBailout: Date.now()
+      lastBailout: Date.now(),
+      shortHistory: {},
+      lowestWhileHolding: {},
+      dailyImpact: {}
     });
 
     return { success: true, hadCrew: !!currentCrew };
@@ -5680,12 +5738,12 @@ exports.leaveCrew = functions.https.onCall(async (data, context) => {
     // 15% cash penalty
     const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
 
-    // 15% holdings penalty
+    // 15% holdings penalty (floor to never take more than 15%)
     const newHoldings = {};
     let holdingsValueTaken = 0;
     Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
       if (shares > 0) {
-        const sharesToTake = Math.round(shares * penaltyRate);
+        const sharesToTake = Math.floor(shares * penaltyRate);
         const sharesToKeep = shares - sharesToTake;
         newHoldings[ticker] = sharesToKeep;
         holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
@@ -5852,7 +5910,7 @@ exports.checkShortMarginCalls = functions.pubsub
             continue; // Will be picked up in next 5-minute cycle
           }
 
-          const costBasis = position.costBasis || position.entryPrice || 0;
+          const costBasis = position.costBasis || position.entryPrice || currentPrice;
           const marginDeposited = position.margin || (costBasis * position.shares * 0.5);
 
           // Calculate equity: margin deposited minus unrealized loss
@@ -5882,7 +5940,7 @@ exports.checkShortMarginCalls = functions.pubsub
                 if (!freshPrice) return;
 
                 // Re-check equity ratio with fresh data
-                const freshCostBasis = freshPosition.costBasis || freshPosition.entryPrice || 0;
+                const freshCostBasis = freshPosition.costBasis || freshPosition.entryPrice || freshPrice;
                 const freshMargin = freshPosition.margin || (freshCostBasis * freshPosition.shares * 0.5);
                 const freshLoss = (freshPrice - freshCostBasis) * freshPosition.shares;
                 const freshEquity = freshMargin - freshLoss;
@@ -6413,7 +6471,7 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
 
       Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
         if (shares > 0) {
-          const sharesToTake = Math.round(shares * penaltyRate);
+          const sharesToTake = Math.floor(shares * penaltyRate);
           const sharesToKeep = shares - sharesToTake;
           newHoldings[ticker] = sharesToKeep;
           holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
