@@ -2415,6 +2415,8 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     }
 
     // ANTI-MANIPULATION: Check trade velocity per ticker (last 1 hour)
+    // Only rate-limit position-opening actions (buy/short)
+    // Closing positions (sell/cover) should never be blocked
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const oneHourAgo = new Date(now - ONE_HOUR_MS);
 
@@ -2426,13 +2428,15 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
 
     const tradesInLastHour = recentTickerTradesSnap.size;
 
-    // Hard block at 15 trades per ticker per hour
-    const MAX_TRADES_PER_HOUR = 15;
-    if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour. Please wait before trading this stock again.`
-      );
+    // Hard block at 15 trades per ticker per hour (only for buy/short)
+    if (action === 'buy' || action === 'short') {
+      const MAX_TRADES_PER_HOUR = 15;
+      if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour. Please wait before trading this stock again.`
+        );
+      }
     }
 
     // Validate based on action
@@ -2799,22 +2803,26 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       // Check trade velocity (15 trades per ticker per hour)
-      const ONE_HOUR_MS = 60 * 60 * 1000;
-      const oneHourAgo = new Date(now - ONE_HOUR_MS);
-      const recentTickerTradesSnap = await db.collection('trades')
-        .where('uid', '==', uid)
-        .where('ticker', '==', ticker)
-        .where('timestamp', '>', oneHourAgo)
-        .get();
+      // Only rate-limit position-opening actions (buy/short)
+      // Closing positions (sell/cover) should never be blocked
+      if (action === 'buy' || action === 'short') {
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const oneHourAgo = new Date(now - ONE_HOUR_MS);
+        const recentTickerTradesSnap = await db.collection('trades')
+          .where('uid', '==', uid)
+          .where('ticker', '==', ticker)
+          .where('timestamp', '>', oneHourAgo)
+          .get();
 
-      const tradesInLastHour = recentTickerTradesSnap.size;
-      const MAX_TRADES_PER_HOUR = 15;
+        const tradesInLastHour = recentTickerTradesSnap.size;
+        const MAX_TRADES_PER_HOUR = 15;
 
-      if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
-        throw new functions.https.HttpsError(
-          'failed-precondition',
-          `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour.`
-        );
+        if (tradesInLastHour >= MAX_TRADES_PER_HOUR) {
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour.`
+          );
+        }
       }
 
       // Calculate price impact
