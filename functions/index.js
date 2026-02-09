@@ -2940,7 +2940,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newCash = cash + totalCost - marginRequired;
 
         const existingShort = shorts[ticker];
-        if (existingShort) {
+        if (existingShort && existingShort.shares > 0 && existingShort.costBasis > 0) {
           const totalShares = existingShort.shares + amount;
           const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
           const existingMargin = existingShort.margin || (existingShort.costBasis * existingShort.shares * 0.5);
@@ -2966,7 +2966,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       } else if (action === 'cover') {
         // Validate short position exists
         const shortPosition = shorts[ticker];
-        if (!shortPosition || shortPosition.shares < amount) {
+        if (!shortPosition || !shortPosition.shares || shortPosition.shares < amount) {
           throw new functions.https.HttpsError('failed-precondition', 'No short position to cover.');
         }
 
