@@ -8,6 +8,7 @@ import {
   SHORT_MARGIN_REQUIREMENT
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
+import { calculatePortfolioValue } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
 
 // Helper functions from App.jsx
@@ -131,11 +132,19 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     } else if (action === 'sell') {
       return holdings || 0;
     } else if (action === 'short') {
-      const shortBuyingPower = getBuyingPower();
-      if (shortBuyingPower <= 0) return 0;
-      // Use current price for margin calc to match server (server uses currentPrice, not bid)
-      const margin = price * SHORT_MARGIN_REQUIREMENT;
-      const maxAffordable = Math.floor(shortBuyingPower / margin);
+      // Max short is capped by portfolio equity (prevents leverage spiral)
+      const portfolioEquity = userData && prices ? calculatePortfolioValue(userData, prices) : userCash;
+      if (portfolioEquity <= 0) return 0;
+
+      // Total short margin (existing + new) can't exceed portfolio equity
+      const shorts = userData?.shorts || {};
+      const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
+        sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
+      const availableForShorts = Math.max(0, portfolioEquity - existingShortMargin);
+      if (availableForShorts <= 0) return 0;
+
+      const marginPerShare = price * SHORT_MARGIN_REQUIREMENT;
+      const maxAffordable = Math.floor(availableForShorts / marginPerShare);
       return Math.max(1, Math.min(maxAffordable, 10000));
     } else if (action === 'cover') {
       return shortPosition?.shares || 0;
