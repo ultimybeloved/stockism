@@ -2783,7 +2783,18 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let totalCost = 0;
       let newCash = cash;
       let newHoldings = { ...holdings };
-      let newShorts = { ...shorts };
+      // Sanitize shorts to prevent undefined fields from crashing Firestore writes
+      let newShorts = {};
+      for (const [t, pos] of Object.entries(shorts)) {
+        if (pos && pos.shares > 0) {
+          newShorts[t] = {
+            shares: pos.shares,
+            costBasis: pos.costBasis || pos.entryPrice || 0,
+            margin: pos.margin || 0,
+            openedAt: pos.openedAt || admin.firestore.Timestamp.now()
+          };
+        }
+      }
       let newMarginUsed = marginUsed;
 
       // BUY LOGIC
@@ -3017,11 +3028,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid cash result');
         }
         newShorts[ticker] = {
-          ...shortPosition,
           shares: shortPosition.shares - amount,
-          margin: totalPositionMargin - marginToReturn
+          costBasis: costBasis,
+          margin: totalPositionMargin - marginToReturn,
+          openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now()
         };
-        if (newShorts[ticker].shares === 0) {
+        if (newShorts[ticker].shares <= 0) {
           delete newShorts[ticker];
         }
 
@@ -5831,8 +5843,18 @@ exports.checkShortMarginCalls = functions.pubsub
 
                 // Update user: clear short, adjust cash
                 const newCash = Math.round(((freshUserData.cash || 0) + cashChange) * 100) / 100;
-                const updatedShorts = { ...freshShorts };
-                delete updatedShorts[ticker];
+                // Sanitize shorts to prevent undefined fields from crashing Firestore writes
+                const updatedShorts = {};
+                for (const [t, pos] of Object.entries(freshShorts)) {
+                  if (t !== ticker && pos && pos.shares > 0) {
+                    updatedShorts[t] = {
+                      shares: pos.shares,
+                      costBasis: pos.costBasis || pos.entryPrice || 0,
+                      margin: pos.margin || 0,
+                      openedAt: pos.openedAt || admin.firestore.Timestamp.now()
+                    };
+                  }
+                }
 
                 const userUpdates = {
                   shorts: updatedShorts,
