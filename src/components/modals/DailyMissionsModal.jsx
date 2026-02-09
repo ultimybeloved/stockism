@@ -555,7 +555,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                     <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                       <div
                         className={`h-full rounded-full transition-all ${mission.complete ? 'bg-orange-500' : 'bg-amber-500'}`}
-                        style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }}
+                        style={{ width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%` }}
                       />
                     </div>
                     <span className={`text-xs ${mutedClass} w-12 text-right`}>
@@ -625,7 +625,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                       <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                         <div
                           className={`h-full rounded-full transition-all ${mission.complete ? 'bg-purple-500' : 'bg-purple-400'}`}
-                          style={{ width: `${Math.min(100, (mission.progress / mission.target) * 100)}%` }}
+                          style={{ width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%` }}
                         />
                       </div>
                       <span className={`text-xs ${mutedClass} w-16 text-right`}>

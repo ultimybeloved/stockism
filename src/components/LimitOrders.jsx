@@ -272,7 +272,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
             pendingOrders.map(order => {
               const char = characters.find(c => c.ticker === order.ticker);
               const currentPrice = prices[order.ticker] || 0;
-              const isClose = Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05; // Within 5%
+              const isClose = order.limitPrice > 0 && Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05; // Within 5%
 
               return (
                 <div

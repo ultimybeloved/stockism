@@ -78,7 +78,7 @@ export const useMarket = () => {
           priceOneDayAgo = point.price;
         }
 
-        const change = ((currentPrice - priceOneDayAgo) / priceOneDayAgo) * 100;
+        const change = priceOneDayAgo > 0 ? ((currentPrice - priceOneDayAgo) / priceOneDayAgo) * 100 : 0;
         changes[ticker] = {
           change: Math.round(change * 100) / 100,
           previousPrice: priceOneDayAgo

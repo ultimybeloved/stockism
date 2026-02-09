@@ -787,7 +787,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                     {pendingOrders.map(order => {
                       const character = CHARACTER_MAP[order.ticker];
                       const currentPrice = prices[order.ticker] || 0;
-                      const isClose = Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05;
+                      const isClose = order.limitPrice > 0 && Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05;
 
                       return (
                         <div

@@ -273,7 +273,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
             </div>
             <div className="text-center">
               <div className={mutedClass}>Spread</div>
-              <div className={mutedClass}>{(spread / price * 100).toFixed(2)}%</div>
+              <div className={mutedClass}>{(price > 0 ? (spread / price * 100) : 0).toFixed(2)}%</div>
             </div>
             <div className="text-right">
               <div className={mutedClass}>Ask</div>

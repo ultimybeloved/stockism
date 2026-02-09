@@ -903,7 +903,7 @@ exports.dailyMarketSummary = functions.pubsub
           }
         }
 
-        const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+        const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
         const stock = { ticker, price: currentPrice, change };
 
         if (change > 0) gainers.push(stock);
@@ -1040,7 +1040,7 @@ exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context)
         }
       }
 
-      const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+      const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
       const stock = { ticker, price: currentPrice, change };
 
       if (change > 0) gainers.push(stock);
@@ -1171,7 +1171,7 @@ exports.weeklyMarketSummary = functions.pubsub
           }
         }
 
-        const change = ((currentPrice - priceWeekAgo) / priceWeekAgo) * 100;
+        const change = priceWeekAgo > 0 ? ((currentPrice - priceWeekAgo) / priceWeekAgo) * 100 : 0;
         weeklyChanges.push({ ticker, price: currentPrice, change, priceWeekAgo });
       });
 
@@ -1391,7 +1391,7 @@ exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
       },
       {
         name: 'Gain',
-        value: `+${(((price - previousHigh) / previousHigh) * 100).toFixed(1)}%`,
+        value: `+${(previousHigh > 0 ? ((price - previousHigh) / previousHigh) * 100 : 0).toFixed(1)}%`,
         inline: true
       }
     ],
@@ -1850,7 +1850,7 @@ exports.hourlyMovers = functions.pubsub
           }
         }
 
-        const change = ((currentPrice - priceAtStart) / priceAtStart) * 100;
+        const change = priceAtStart > 0 ? ((currentPrice - priceAtStart) / priceAtStart) * 100 : 0;
         if (Math.abs(change) >= 0.5) { // Only include if moved 0.5%+
           movers.push({ ticker, price: currentPrice, change, priceAtStart });
         }
@@ -1935,7 +1935,7 @@ exports.priceThresholdAlert = functions.pubsub
           }
         }
 
-        const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+        const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
         const absChange = Math.abs(change);
 
         // Check each threshold
@@ -2046,7 +2046,7 @@ exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
     return { success: true, alerted: false };
   }
 
-  const change = ((priceAfter - priceBefore) / priceBefore) * 100;
+  const change = priceBefore > 0 ? ((priceAfter - priceBefore) / priceBefore) * 100 : 0;
   const absChange = Math.abs(change);
 
   // Only alert for 1%+ single-trade moves
@@ -2806,6 +2806,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       // Calculate price impact
+      const MIN_PRICE = 0.01;
       let priceImpact = 0;
       let newPrice = currentPrice;
       let executionPrice = currentPrice;
@@ -2833,12 +2834,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
-        newPrice = currentPrice + priceImpact;
+        newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — if limit reached, trade still executes but with zero price impact
-        let impactPercent = priceImpact / currentPrice;
+        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           priceImpact = 0;
           impactPercent = 0;
@@ -2903,17 +2904,17 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
-        newPrice = currentPrice - priceImpact;
-        executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
+        newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
+        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — if limit reached, trade still executes but with zero price impact
-        let impactPercent = priceImpact / currentPrice;
+        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
-          executionPrice = currentPrice * (1 - BID_ASK_SPREAD / 2);
+          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - BID_ASK_SPREAD / 2));
           totalCost = executionPrice * amount;
         }
 
@@ -2979,17 +2980,17 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
-        newPrice = currentPrice - priceImpact;
-        executionPrice = newPrice * (1 - BID_ASK_SPREAD / 2); // Bid price
+        newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
+        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — if limit reached, trade still executes but with zero price impact
-        let impactPercent = priceImpact / currentPrice;
+        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
-          executionPrice = currentPrice * (1 - BID_ASK_SPREAD / 2);
+          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - BID_ASK_SPREAD / 2));
           totalCost = executionPrice * amount;
         }
 
@@ -2997,13 +2998,13 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newCash = cash + totalCost - marginRequired;
 
         const existingShort = shorts[ticker];
-        if (existingShort && existingShort.shares > 0 && existingShort.costBasis > 0) {
+        if (existingShort && existingShort.shares > 0) {
           const totalShares = existingShort.shares + amount;
           const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
           const existingMargin = existingShort.margin || (existingShort.costBasis * existingShort.shares * 0.5);
           newShorts[ticker] = {
             shares: totalShares,
-            costBasis: totalValue / totalShares,
+            costBasis: totalShares > 0 ? totalValue / totalShares : executionPrice,
             margin: existingMargin + marginRequired,
             openedAt: existingShort.openedAt || admin.firestore.Timestamp.now()
           };
@@ -3048,12 +3049,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         priceImpact = Math.min(priceImpact, maxImpact);
 
-        newPrice = currentPrice + priceImpact;
+        newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — if limit reached, trade still executes but with zero price impact
-        let impactPercent = priceImpact / currentPrice;
+        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           priceImpact = 0;
           impactPercent = 0;
@@ -3065,7 +3066,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         // Calculate margin to return (based on entry price, not current price)
         const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
         const totalPositionMargin = shortPosition.margin || (costBasis * shortPosition.shares * 0.5);
-        const marginToReturn = (totalPositionMargin / shortPosition.shares) * amount;
+        const marginToReturn = shortPosition.shares > 0 ? (totalPositionMargin / shortPosition.shares) * amount : 0;
 
         // Execute cover: pay cover cost, get margin back
         // P&L is implicit (proceeds from short open are already in cash)
@@ -3088,7 +3089,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       // Apply trailing effects to related characters
-      const MIN_PRICE = 0.01;
       const CHARACTER_MAP = CHARACTERS.reduce((map, char) => {
         map[char.ticker] = char;
         return map;
@@ -3171,6 +3171,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       if (weekStart > nowDate) weekStart.setDate(weekStart.getDate() - 7);
       const weekId = weekStart.toISOString().split('T')[0];
 
+      // NaN guard — never write corrupted data to Firestore
+      if (isNaN(newCash) || isNaN(executionPrice) || isNaN(totalCost) || isNaN(newPrice)) {
+        throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid numeric result');
+      }
+
       const updates = {
         cash: newCash,
         holdings: newHoldings,
@@ -3197,7 +3202,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const currentCostBasis = userData.costBasis?.[ticker] || 0;
         const totalHoldings = newHoldings[ticker] || 0;
         const newCostBasis = currentHoldings > 0
-          ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings
+          ? (totalHoldings > 0 ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings : executionPrice)
           : executionPrice;
         updates[`costBasis.${ticker}`] = Math.round(newCostBasis * 100) / 100;
 
@@ -3252,7 +3257,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         action,
         amount,
         price: executionPrice,
-        priceImpact: priceImpact / currentPrice,
+        priceImpact: currentPrice > 0 ? priceImpact / currentPrice : 0,
         totalValue: totalCost,
         cashBefore: cash,
         cashAfter: newCash,
@@ -3965,7 +3970,7 @@ exports.fixBasePriceCliffs = functions.https.onCall(async (data, context) => {
 
       const firstPrice = history[0].price;
       const secondPrice = history[1].price;
-      const percentChange = ((secondPrice - firstPrice) / firstPrice) * 100;
+      const percentChange = firstPrice > 0 ? ((secondPrice - firstPrice) / firstPrice) * 100 : 0;
 
       if (Math.abs(percentChange) > 2) {
         fixedTickers.push({
@@ -4943,7 +4948,7 @@ exports.checkLimitOrders = functions.pubsub
                 const totalCost = freshPrice * order.shares;
                 if (userData.cash < totalCost) {
                   if (order.allowPartialFills) {
-                    const affordableShares = Math.floor(userData.cash / freshPrice);
+                    const affordableShares = freshPrice > 0 ? Math.floor(userData.cash / freshPrice) : 0;
                     if (affordableShares > 0) {
                       order.shares = affordableShares;
                       console.log(`Partial fill: can only afford ${affordableShares} shares`);
@@ -4993,7 +4998,7 @@ exports.checkLimitOrders = functions.pubsub
                 const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
                 const newHoldings = currentHoldings + order.shares;
                 const newCostBasis = currentHoldings > 0
-                  ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings
+                  ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings : askPrice)
                   : askPrice;
 
                 transaction.update(userRef, {
@@ -5511,7 +5516,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
     const currentCostBasis = userData.costBasis?.[ticker] || ipo.basePrice;
     const newHoldings = currentHoldings + quantity;
     const newCostBasis = currentHoldings > 0
-      ? ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings
+      ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings : ipo.basePrice)
       : ipo.basePrice;
 
     // Update user
@@ -6087,7 +6092,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   const lastRecord = currentHistory[currentHistory.length - 1];
   const tenMinutes = 10 * 60 * 1000;
 
-  const valueChanged = lastRecord && Math.abs(portfolioValue - lastRecord.value) / lastRecord.value > 0.01;
+  const valueChanged = lastRecord && lastRecord.value > 0 && Math.abs(portfolioValue - lastRecord.value) / lastRecord.value > 0.01;
   const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
 
   if (!lastRecord || timeElapsed || valueChanged) {

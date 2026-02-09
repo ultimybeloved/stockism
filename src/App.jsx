@@ -291,7 +291,7 @@ const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, 
   impact = Math.min(impact, maxImpact);
 
   // Anti-manipulation: Check daily impact limit per user per ticker
-  const impactPercent = impact / currentPrice;
+  const impactPercent = currentPrice > 0 ? impact / currentPrice : 0;
   const remainingAllowance = MAX_DAILY_IMPACT_PER_USER - userDailyImpact;
 
   if (remainingAllowance <= 0) {
@@ -426,7 +426,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = f
     const weekStartTime = weekStart.getTime();
     const startPrice = history.find(h => h.timestamp >= weekStartTime)?.price || history[0]?.price || currentPrice;
     
-    return ((currentPrice - startPrice) / startPrice) * 100;
+    return startPrice > 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
   };
   
   return (
@@ -445,9 +445,9 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = f
                 <span className={`text-xs ${mutedClass} ml-1`}>${char.ticker}</span>
               </div>
               <div className="text-right ml-2">
-                <span className={`text-sm font-bold ${textClass}`}>${price.toFixed(2)}</span>
+                <span className={`text-sm font-bold ${textClass}`}>${(price || 0).toFixed(2)}</span>
                 <span className={`text-xs ml-1 ${colorBlindMode ? (change >= 0 ? 'text-teal-500' : 'text-purple-500') : (change >= 0 ? 'text-green-500' : 'text-red-500')}`}>
-                  {change >= 0 ? '▲' : '▼'}{Math.abs(change).toFixed(1)}%
+                  {change >= 0 ? '▲' : '▼'}{Math.abs(change || 0).toFixed(1)}%
                 </span>
               </div>
             </div>
@@ -491,7 +491,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
     const myPool = pools[option] || 0;
     const otherPools = totalPool - myPool;
     const newMyPool = myPool + amount;
-    const myShare = amount / newMyPool;
+    const myShare = newMyPool > 0 ? amount / newMyPool : 0;
     return myShare * (otherPools + newMyPool);
   };
 
@@ -1876,7 +1876,7 @@ export default function App() {
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
 
-      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
 
       // Add to activity feed
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
@@ -1940,7 +1940,7 @@ export default function App() {
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
 
-      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
       const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
       addActivity('trade', `Sold ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitText})`);
@@ -1992,7 +1992,7 @@ export default function App() {
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
 
-      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
       addActivity('trade', `Shorted ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)}`);
 
@@ -2055,7 +2055,7 @@ export default function App() {
       const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
       const earnedAchievements = await checkAndAwardAchievements();
 
-      const impactPercent = (priceImpact / prices[ticker] * 100).toFixed(2);
+      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
       const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
       addActivity('trade', `Covered ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitMsg})`);
 
