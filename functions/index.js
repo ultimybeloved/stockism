@@ -4652,8 +4652,8 @@ exports.syncAllPortfolios = functions.pubsub
             const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
             const currentPrice = prices[ticker] || entryPrice;
             const collateral = Number(position.margin) || 0;
-            const pnl = (entryPrice - currentPrice) * position.shares;
-            const value = collateral + pnl;
+            // Short value = margin collateral - cost to buy back shares
+            const value = collateral - (currentPrice * position.shares);
             return sum + (isNaN(value) ? 0 : value);
           }, 0);
 
@@ -6004,8 +6004,8 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
       const costBasis = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || costBasis;
       const margin = position.margin || (costBasis * shares * 0.5);
-      const pnl = (costBasis - currentPrice) * shares;
-      return sum + margin + pnl;
+      // Short value = margin collateral - cost to buy back shares
+      return sum + margin - (currentPrice * shares);
     }, 0);
 
   const portfolioValue = Math.round(((userData.cash || 0) + holdingsValue + shortsValue) * 100) / 100;

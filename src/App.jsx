@@ -2526,9 +2526,9 @@ export default function App() {
       const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
       const currentPrice = prices[ticker] || entryPrice;
       const collateral = Number(position.margin) || 0;
-      // P&L = (entry price - current price) * shares (profit when price goes down)
-      const pnl = (entryPrice - currentPrice) * shares;
-      const value = collateral + pnl;
+      // Short value = margin collateral - cost to buy back shares
+      // (sale proceeds are already in cash, so we don't add P&L here)
+      const value = collateral - (currentPrice * shares);
       return sum + (isNaN(value) ? 0 : value);
     }, 0);
   

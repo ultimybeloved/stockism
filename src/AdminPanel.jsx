@@ -2321,8 +2321,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, onClose }) => {
       const entryPrice = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
-      const pnl = (entryPrice - currentPrice) * shares;
-      shortsValue += collateral + pnl;
+      // Short value = margin collateral - cost to buy back shares
+      shortsValue += collateral - (currentPrice * shares);
     }
 
     return Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
