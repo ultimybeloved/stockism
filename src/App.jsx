@@ -1666,6 +1666,21 @@ export default function App() {
     setLoadingKey('claimMission', true);
     try {
       const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
+
+      // Optimistic update so button disappears immediately
+      const today = getTodayDateString();
+      setUserData(prev => ({
+        ...prev,
+        cash: (prev.cash || 0) + reward,
+        dailyMissions: {
+          ...prev.dailyMissions,
+          [today]: {
+            ...(prev.dailyMissions?.[today] || {}),
+            claimed: { ...(prev.dailyMissions?.[today]?.claimed || {}), [missionId]: true }
+          }
+        }
+      }));
+
       addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
 
       const newTotal = result.data.newTotal;
@@ -1696,6 +1711,15 @@ export default function App() {
     setLoadingKey('claimWeeklyMission', true);
     try {
       const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
+
+      // Optimistic update so claim button disappears immediately
+      const weekId = getWeekId();
+      setUserData(prev => prev ? {
+        ...prev,
+        cash: (prev.cash || 0) + reward,
+        weeklyMissions: { ...prev.weeklyMissions, [weekId]: { ...(prev.weeklyMissions?.[weekId] || {}), claimed: { ...(prev.weeklyMissions?.[weekId]?.claimed || {}), [missionId]: true } } }
+      } : prev);
+
       addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
 
       const newTotal = result.data.newTotal;
