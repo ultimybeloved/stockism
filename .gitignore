@@ -10,6 +10,7 @@ dist/
 .env.*.local
 functions/.env
 functions/.env.*
+!functions/.env.example
 
 # IDE
 .vscode/

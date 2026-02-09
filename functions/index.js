@@ -749,15 +749,14 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
  * @param {string} channelType - Channel type: 'default', 'signups', or custom channel ID
  */
 async function sendDiscordMessage(content, embeds = null, channelType = 'default') {
-  const config = functions.config();
-  const botToken = config.discord?.bot_token;
+  const botToken = process.env.DISCORD_BOT_TOKEN;
 
   // Determine which channel to use
   let channelId;
   if (channelType === 'default') {
-    channelId = config.discord?.channel_id;
+    channelId = process.env.DISCORD_CHANNEL_ID;
   } else if (channelType === 'signups') {
-    channelId = config.discord?.signup_channel_id || config.discord?.channel_id; // Fallback to default
+    channelId = process.env.DISCORD_SIGNUP_CHANNEL_ID || process.env.DISCORD_CHANNEL_ID; // Fallback to default
   } else {
     channelId = channelType; // Assume it's a custom channel ID
   }
@@ -2841,7 +2840,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             shares: pos.shares,
             costBasis: pos.costBasis || pos.entryPrice || 0,
             margin: pos.margin || 0,
-            openedAt: pos.openedAt || admin.firestore.Timestamp.now()
+            openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
+            system: pos.system
           };
         }
       }
@@ -3115,7 +3115,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           shares: shortPosition.shares - amount,
           costBasis: costBasis,
           margin: totalPositionMargin - marginToReturn,
-          openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now()
+          openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
+          system: shortPosition.system
         };
         if (newShorts[ticker].shares <= 0) {
           delete newShorts[ticker];
@@ -4475,9 +4476,8 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const config = functions.config();
-    const clientId = config.discord.client_id;
-    const clientSecret = config.discord.client_secret;
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth';
 
     // Exchange code for access token
@@ -4544,6 +4544,80 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// Helper: Archive price history for a specific ticker (or all if null)
+async function doArchivePriceHistory(ticker = null) {
+  const MAX_HISTORY_SIZE = 1000;
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+
+  if (!marketSnap.exists) {
+    return { success: false, error: 'Market document not found' };
+  }
+
+  const marketData = marketSnap.data();
+  const priceHistory = marketData.priceHistory || {};
+  const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
+  let archivedCount = 0;
+
+  for (const t of tickersToArchive) {
+    const history = priceHistory[t] || [];
+
+    if (history.length > MAX_HISTORY_SIZE) {
+      const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
+      const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
+
+      const archiveRef = marketRef.collection('price_history').doc(t);
+      const archiveSnap = await archiveRef.get();
+      const existingArchive = archiveSnap.exists ? archiveSnap.data().history || [] : [];
+
+      await archiveRef.set({
+        history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await marketRef.update({
+        [`priceHistory.${t}`]: toKeep
+      });
+
+      archivedCount++;
+      console.log(`Archived ${toArchive.length} entries for ${t}, kept ${toKeep.length} recent entries`);
+    }
+  }
+
+  return { success: true, archivedTickers: archivedCount, message: `Archived ${archivedCount} tickers` };
+}
+
+// Helper: Clean up old alertedThresholds
+async function doCleanupAlertedThresholds() {
+  const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+
+  if (!marketSnap.exists) {
+    return { success: false, error: 'Market document not found' };
+  }
+
+  const marketData = marketSnap.data();
+  const alertedThresholds = marketData.alertedThresholds || {};
+  const now = Date.now();
+  const updates = {};
+  let cleanedCount = 0;
+
+  for (const [key, timestamp] of Object.entries(alertedThresholds)) {
+    if (now - timestamp > MAX_AGE_MS) {
+      updates[`alertedThresholds.${key}`] = admin.firestore.FieldValue.delete();
+      cleanedCount++;
+    }
+  }
+
+  if (cleanedCount > 0) {
+    await marketRef.update(updates);
+    console.log(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
+  }
+
+  return { success: true, cleanedCount, message: `Cleaned up ${cleanedCount} old threshold alerts` };
+}
+
 // Archive price history when it gets too large (prevents 1MB document limit)
 exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
   // Admin-only: prevents unauthorized users from modifying market data
@@ -4551,58 +4625,8 @@ exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
 
-  const MAX_HISTORY_SIZE = 1000; // Keep last 1000 entries in main doc
-
   try {
-    const marketRef = db.collection('market').doc('current');
-    const marketSnap = await marketRef.get();
-
-    if (!marketSnap.exists) {
-      return { success: false, error: 'Market document not found' };
-    }
-
-    const marketData = marketSnap.data();
-    const priceHistory = marketData.priceHistory || {};
-
-    const ticker = data.ticker; // Optional: archive specific ticker
-    const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
-
-    let archivedCount = 0;
-
-    for (const t of tickersToArchive) {
-      const history = priceHistory[t] || [];
-
-      if (history.length > MAX_HISTORY_SIZE) {
-        // Archive old entries (keep last MAX_HISTORY_SIZE in main doc)
-        const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
-        const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
-
-        // Save archived entries to subcollection
-        const archiveRef = marketRef.collection('price_history').doc(t);
-        const archiveSnap = await archiveRef.get();
-        const existingArchive = archiveSnap.exists ? archiveSnap.data().history || [] : [];
-
-        await archiveRef.set({
-          history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
-          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Update main doc to keep only recent entries
-        await marketRef.update({
-          [`priceHistory.${t}`]: toKeep
-        });
-
-        archivedCount++;
-        console.log(`Archived ${toArchive.length} entries for ${t}, kept ${toKeep.length} recent entries`);
-      }
-    }
-
-    return {
-      success: true,
-      archivedTickers: archivedCount,
-      message: `Archived ${archivedCount} tickers`
-    };
-
+    return await doArchivePriceHistory(data.ticker || null);
   } catch (error) {
     console.error('Archive error:', error);
     return { success: false, error: error.message };
@@ -4616,41 +4640,8 @@ exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
 
-  const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
   try {
-    const marketRef = db.collection('market').doc('current');
-    const marketSnap = await marketRef.get();
-
-    if (!marketSnap.exists) {
-      return { success: false, error: 'Market document not found' };
-    }
-
-    const marketData = marketSnap.data();
-    const alertedThresholds = marketData.alertedThresholds || {};
-    const now = Date.now();
-
-    const updates = {};
-    let cleanedCount = 0;
-
-    for (const [key, timestamp] of Object.entries(alertedThresholds)) {
-      if (now - timestamp > MAX_AGE_MS) {
-        updates[`alertedThresholds.${key}`] = admin.firestore.FieldValue.delete();
-        cleanedCount++;
-      }
-    }
-
-    if (cleanedCount > 0) {
-      await marketRef.update(updates);
-      console.log(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
-    }
-
-    return {
-      success: true,
-      cleanedCount,
-      message: `Cleaned up ${cleanedCount} old threshold alerts`
-    };
-
+    return await doCleanupAlertedThresholds();
   } catch (error) {
     console.error('Cleanup error:', error);
     return { success: false, error: error.message };
@@ -4664,13 +4655,19 @@ exports.scheduledArchiving = functions.pubsub
   .onRun(async (context) => {
     console.log('Running scheduled archiving...');
 
-    // Archive price history
-    const archiveResult = await exports.archivePriceHistory.run({});
-    console.log('Archive result:', archiveResult);
+    try {
+      const archiveResult = await doArchivePriceHistory();
+      console.log('Archive result:', archiveResult);
+    } catch (error) {
+      console.error('Scheduled archive failed:', error);
+    }
 
-    // Cleanup old thresholds
-    const cleanupResult = await exports.cleanupAlertedThresholds.run({});
-    console.log('Cleanup result:', cleanupResult);
+    try {
+      const cleanupResult = await doCleanupAlertedThresholds();
+      console.log('Cleanup result:', cleanupResult);
+    } catch (error) {
+      console.error('Scheduled cleanup failed:', error);
+    }
 
     return null;
   });
@@ -6022,7 +6019,8 @@ exports.checkShortMarginCalls = functions.pubsub
                       shares: pos.shares,
                       costBasis: pos.costBasis || pos.entryPrice || 0,
                       margin: pos.margin || 0,
-                      openedAt: pos.openedAt || admin.firestore.Timestamp.now()
+                      openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
+                      system: pos.system
                     };
                   }
                 }
@@ -6056,7 +6054,7 @@ exports.checkShortMarginCalls = functions.pubsub
                   action: 'margin_call_cover',
                   amount: freshPosition.shares,
                   price: coverPrice,
-                  totalValue: coverCost,
+                  totalValue: coverPrice * freshPosition.shares,
                   cashBefore: freshUserData.cash || 0,
                   cashAfter: newCash,
                   timestamp: admin.firestore.FieldValue.serverTimestamp(),
