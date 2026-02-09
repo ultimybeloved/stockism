@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { CHARACTER_MAP } from '../../characters';
 import {
+  BASE_IMPACT,
   BASE_LIQUIDITY,
+  BID_ASK_SPREAD,
   MIN_PRICE,
   SHORT_MARGIN_REQUIREMENT
 } from '../../constants';
@@ -10,13 +12,11 @@ import { createLimitOrderFunction } from '../../firebase';
 
 // Helper functions from App.jsx
 const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
-  const BASE_IMPACT = 0.02; // 2% base impact
   const impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
   return impact;
 };
 
 const getBidAskPrices = (midPrice) => {
-  const BID_ASK_SPREAD = 0.01; // 1% spread
   const halfSpread = midPrice * BID_ASK_SPREAD / 2;
   return {
     bid: midPrice - halfSpread,
@@ -133,19 +133,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     } else if (action === 'short') {
       const shortBuyingPower = getBuyingPower();
       if (shortBuyingPower <= 0) return 0;
-      let low = 1, high = Math.floor(shortBuyingPower / (price * 0.25)), maxAffordable = 0;
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const { bid } = getDynamicPrices(mid, 'short');
-        const margin = bid * mid * SHORT_MARGIN_REQUIREMENT;
-        if (margin <= shortBuyingPower) {
-          maxAffordable = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-      return Math.max(1, maxAffordable);
+      // Use current price for margin calc to match server (server uses currentPrice, not bid)
+      const margin = price * SHORT_MARGIN_REQUIREMENT;
+      const maxAffordable = Math.floor(shortBuyingPower / margin);
+      return Math.max(1, Math.min(maxAffordable, 10000));
     } else if (action === 'cover') {
       return shortPosition?.shares || 0;
     }

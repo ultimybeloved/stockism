@@ -2509,7 +2509,18 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       }
 
       const marginRequired = currentPrice * amount * 0.5; // 50% margin
-      if (cash < marginRequired) {
+      const marginEnabled = userData.marginEnabled || false;
+      const marginUsed = userData.marginUsed || 0;
+      const peakPortfolio = userData.peakPortfolioValue || 0;
+      const valTierMultiplier = peakPortfolio >= 30000 ? 0.75
+        : peakPortfolio >= 15000 ? 0.50
+        : peakPortfolio >= 7500 ? 0.35
+        : 0.25;
+      const maxBorrowableShort = marginEnabled ? Math.max(0, cash * valTierMultiplier) : 0;
+      const availableMarginShort = Math.max(0, maxBorrowableShort - marginUsed);
+      const shortBuyingPower = cash + availableMarginShort;
+
+      if (shortBuyingPower < marginRequired) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           'Insufficient margin for short position.'
@@ -2919,7 +2930,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         const marginRequired = currentPrice * amount * 0.5; // 50% margin
-        if (cash < marginRequired) {
+        const maxBorrowableShort = marginEnabled ? Math.max(0, cash * tierMultiplier) : 0;
+        const availableMarginShort = Math.max(0, maxBorrowableShort - marginUsed);
+        const shortBuyingPower = cash + availableMarginShort;
+
+        if (shortBuyingPower < marginRequired) {
           throw new functions.https.HttpsError('failed-precondition', 'Insufficient margin for short position.');
         }
 
