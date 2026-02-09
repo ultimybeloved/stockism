@@ -2948,7 +2948,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             shares: totalShares,
             costBasis: totalValue / totalShares,
             margin: existingMargin + marginRequired,
-            openedAt: existingShort.openedAt
+            openedAt: existingShort.openedAt || admin.firestore.Timestamp.now()
           };
         } else {
           newShorts[ticker] = {
