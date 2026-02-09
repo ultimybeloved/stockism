@@ -1853,7 +1853,8 @@ export default function App() {
       newShorts,
       newMarginUsed,
       priceUpdates, // All affected tickers (including trailing effects)
-      remainingDailyImpact
+      remainingDailyImpact,
+      shortWarning
     } = result.data;
 
     const userRef = doc(db, 'users', user.uid);
@@ -2014,6 +2015,9 @@ export default function App() {
           message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
         }
         showNotification('success', message);
+        if (shortWarning) {
+          setTimeout(() => showNotification('warning', shortWarning), 1500);
+        }
       }
 
       if (Math.abs(parseFloat(impactPercent)) >= 1) {

@@ -2515,15 +2515,15 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         );
       }
 
-      // Anti-manipulation: Short rate limiting (12-hour cooldown after 2nd short)
-      const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-      const MAX_SHORTS_BEFORE_COOLDOWN = 2;
+      // Anti-manipulation: Short rate limiting (8-hour cooldown after 3rd short)
+      const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+      const MAX_SHORTS_BEFORE_COOLDOWN = 3;
       const shortHistory = userData.shortHistory?.[ticker] || [];
-      const recentShorts = shortHistory.filter(ts => now - ts < TWELVE_HOURS_MS);
+      const recentShorts = shortHistory.filter(ts => now - ts < EIGHT_HOURS_MS);
 
       if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
         const oldestRecent = Math.min(...recentShorts);
-        const unlocksAt = oldestRecent + TWELVE_HOURS_MS;
+        const unlocksAt = oldestRecent + EIGHT_HOURS_MS;
         const remainingMs = unlocksAt - now;
         let hours = Math.floor(remainingMs / 3600000);
         let minutes = Math.ceil((remainingMs % 3600000) / 60000);
@@ -2630,7 +2630,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     }
 
     // All validations passed
-    return {
+    const result = {
       valid: true,
       currentPrice,
       serverTimestamp: now,
@@ -2638,6 +2638,18 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       holdings: holdings[ticker] || 0,
       tradesInLastHour // Send trade count for UI warnings
     };
+
+    // Warn on 2nd short that 3rd will trigger cooldown
+    if (action === 'short') {
+      const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+      const shortHistory = userData.shortHistory?.[ticker] || [];
+      const recentShorts = shortHistory.filter(ts => now - ts < EIGHT_HOURS_MS);
+      if (recentShorts.length === 2) {
+        result.shortWarning = `Next short on $${ticker} will trigger an 8-hour cooldown.`;
+      }
+    }
+
+    return result;
 
   } catch (error) {
     // Re-throw HttpsErrors as-is
@@ -2910,15 +2922,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', 'Insufficient margin for short position.');
         }
 
-        // Check short cooldown
-        const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-        const MAX_SHORTS_BEFORE_COOLDOWN = 2;
+        // Check short cooldown (8-hour cooldown after 3rd short per ticker)
+        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+        const MAX_SHORTS_BEFORE_COOLDOWN = 3;
         const shortHistory = userData.shortHistory?.[ticker] || [];
-        const recentShorts = shortHistory.filter(ts => now - ts < TWELVE_HOURS_MS);
+        const recentShorts = shortHistory.filter(ts => now - ts < EIGHT_HOURS_MS);
 
         if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
           const oldestRecent = Math.min(...recentShorts);
-          const unlocksAt = oldestRecent + TWELVE_HOURS_MS;
+          const unlocksAt = oldestRecent + EIGHT_HOURS_MS;
           const remainingMs = unlocksAt - now;
           const hours = Math.floor(remainingMs / 3600000);
           const minutes = Math.ceil((remainingMs % 3600000) / 60000);
@@ -3232,6 +3244,18 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         achievementCtx.isColdBlooded = coverProfitPercent >= 20;
       }
 
+      // Warn if next short will trigger cooldown
+      let shortWarning = null;
+      if (action === 'short') {
+        const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+        const sh = userData.shortHistory?.[ticker] || [];
+        // +1 because this trade's timestamp hasn't been pushed yet when we read shortHistory
+        const recentCount = sh.filter(ts => now - ts < EIGHT_HOURS_MS).length + 1;
+        if (recentCount >= 2) {
+          shortWarning = `Next short on $${ticker} will trigger an 8-hour cooldown.`;
+        }
+      }
+
       return {
         success: true,
         executionPrice,
@@ -3244,6 +3268,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newMarginUsed,
         priceUpdates, // All affected tickers (including trailing effects)
         remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker],
+        shortWarning,
         achievementCtx
       };
     });
