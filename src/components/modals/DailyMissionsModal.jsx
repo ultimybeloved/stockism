@@ -456,7 +456,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
   // Days until week resets (next Monday)
   const getDaysUntilReset = () => {
     const now = new Date();
-    const day = now.getDay();
+    const day = now.getUTCDay();
     const daysUntilMonday = day === 0 ? 1 : (8 - day);
     return daysUntilMonday;
   };

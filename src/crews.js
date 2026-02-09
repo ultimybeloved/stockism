@@ -433,12 +433,12 @@ export const WEEKLY_MISSIONS = {
 // Helper function to get current week identifier (Monday 12:00am start)
 export const getWeekId = (date = new Date()) => {
   const d = new Date(date);
-  // Get Monday of current week
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  const monday = new Date(d.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0]; // Returns "YYYY-MM-DD" of Monday
+  // Get Monday of current week (UTC to match server)
+  const day = d.getUTCDay();
+  const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+  d.setUTCDate(diff);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0]; // Returns "YYYY-MM-DD" of Monday
 };
 
 // Helper to check if we're in a new week

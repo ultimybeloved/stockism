@@ -1698,7 +1698,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to claim reward:', err);
-      showNotification('error', 'Failed to claim reward');
+      showNotification('error', err.message || 'Failed to claim reward');
     } finally {
       setLoadingKey('claimMission', false);
     }
@@ -1737,7 +1737,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to claim weekly reward:', err);
-      showNotification('error', 'Failed to claim reward');
+      showNotification('error', err.message || 'Failed to claim reward');
     } finally {
       setLoadingKey('claimWeeklyMission', false);
     }
