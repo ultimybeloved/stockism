@@ -110,7 +110,6 @@ export const SHOP_PINS = {
   alpha_tester: {
     id: 'alpha_tester',
     name: 'Alpha Tester',
-    emoji: '🎖️',
     image: 'alpha/stockism_logo.png',
     description: 'Exclusive badge for early supporters',
     price: 1,
@@ -119,7 +118,6 @@ export const SHOP_PINS = {
   jay_j_high: {
     id: 'jay_j_high',
     name: 'Jay',
-    emoji: '👊',
     image: 'j-high/jay j high.png',
     description: 'Jay Hong — J High',
     price: 750,
@@ -128,7 +126,6 @@ export const SHOP_PINS = {
   jace_j_high: {
     id: 'jace_j_high',
     name: 'Jace',
-    emoji: '⚡',
     image: 'j-high/jace j high.png',
     description: 'Jace Park — J High',
     price: 750,
@@ -137,7 +134,6 @@ export const SHOP_PINS = {
   vasco_j_high: {
     id: 'vasco_j_high',
     name: 'Vasco',
-    emoji: '💪',
     image: 'j-high/vasco j high.png',
     description: 'Euntae Lee — J High',
     price: 2000,
@@ -147,7 +143,6 @@ export const SHOP_PINS = {
   zack_j_high: {
     id: 'zack_j_high',
     name: 'Zack',
-    emoji: '🥊',
     image: 'j-high/zack j high.png',
     description: 'Zack Lee — J High',
     price: 2000,
@@ -157,7 +152,6 @@ export const SHOP_PINS = {
   daniel_j_high: {
     id: 'daniel_j_high',
     name: 'Daniel',
-    emoji: '👑',
     image: 'j-high/daniel j high.png',
     description: 'Daniel Park — J High',
     price: 5000,

@@ -48,9 +48,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     if (pin) {
       pins.push(
         <span key={`shop-${idx}`} title={pin.name} className={`inline-flex items-center ${sizeClass}`}>
-          {pin.image ? (
-            <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />
-          ) : pin.emoji}
+          <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />
         </span>
       );
     }

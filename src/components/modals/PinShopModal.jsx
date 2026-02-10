@@ -130,9 +130,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                           }`}
                         >
                           <div className="text-2xl text-center mb-2 flex items-center justify-center h-8">
-                            {pin.image ? (
-                              <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
-                            ) : pin.emoji}
+                            <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
                           </div>
                           <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
                           <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
@@ -148,6 +146,9 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                               <button
                                 onClick={() => canBuy && handleBuyPin(pin)}
                                 disabled={!canBuy}
+                                title={pin.requiredCheckinStreak && !streakMet
+                                  ? `Check-in streak: ${userData?.checkinStreak || 0}/${pin.requiredCheckinStreak} days`
+                                  : undefined}
                                 className={`w-full py-1 text-xs rounded-sm font-semibold ${
                                   canBuy
                                     ? 'bg-orange-600 hover:bg-orange-700 text-white'
@@ -248,9 +249,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                           }`}
                         >
                           <span className="mr-1 inline-flex items-center">
-                            {pin.image ? (
-                              <img src={`/pins/${pin.image}`} alt={pin.name} className="w-5 h-5 object-contain" />
-                            ) : pin.emoji}
+                            <img src={`/pins/${pin.image}`} alt={pin.name} className="w-5 h-5 object-contain" />
                           </span>
                           <span className={`text-sm ${textClass}`}>{pin.name}</span>
                         </button>
@@ -308,7 +307,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
               <h3 className={`text-lg font-semibold ${textClass} mb-3`}>Confirm Purchase</h3>
               <p className={`${mutedClass} mb-4`}>
                 {confirmPurchase.type === 'pin' ? (
-                  <>Buy <span className="text-xl">{confirmPurchase.item.emoji}</span> <strong>{confirmPurchase.item.name}</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                  <>Buy <img src={`/pins/${confirmPurchase.item.image}`} alt={confirmPurchase.item.name} className="w-6 h-6 object-contain inline" /> <strong>{confirmPurchase.item.name}</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 ) : (
                   <>Buy <strong>+1 {confirmPurchase.item === 'achievement' ? 'Achievement' : 'Shop'} Slot</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 )}

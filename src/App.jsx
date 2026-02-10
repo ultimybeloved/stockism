@@ -1632,9 +1632,7 @@ export default function App() {
         await purchasePinFunction({ action: 'buyPin', pinId: payload });
 
         const pin = SHOP_PINS[payload];
-        const displayIcon = pin.image ? `/pins/${pin.image}` : null;
-        const displayText = pin.image ? `Purchased ${pin.name}!` : `Purchased ${pin.emoji} ${pin.name}!`;
-        showNotification('success', displayText, displayIcon);
+        showNotification('success', `Purchased ${pin.name}!`, `/pins/${pin.image}`);
 
       } else if (action === 'setShopPins') {
         await updateDoc(userRef, { displayedShopPins: payload });
