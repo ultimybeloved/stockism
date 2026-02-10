@@ -130,7 +130,7 @@ export const SHOP_PINS = {
     name: 'Jace',
     emoji: '⚡',
     image: 'j-high/jace j high.png',
-    description: 'Yoo Jace — J High',
+    description: 'Jace Park — J High',
     price: 750,
     collection: 'j_high_og5'
   },
@@ -139,7 +139,7 @@ export const SHOP_PINS = {
     name: 'Vasco',
     emoji: '💪',
     image: 'j-high/vasco j high.png',
-    description: 'Lee Euntae — J High',
+    description: 'Euntae Lee — J High',
     price: 2000,
     requiredCheckinStreak: 5,
     collection: 'j_high_og5'
