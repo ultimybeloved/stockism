@@ -87,19 +87,93 @@ Object.values(CREWS).forEach(crew => {
 // SHOP PINS - LOOKISM THEMED
 // ============================================
 
-export const SHOP_PINS = {
-  alpha_tester: {
-    id: 'alpha_tester',
-    name: 'Stockism Alpha Tester Badge',
-    emoji: '🎖️',
-    image: 'stockism_logo.png',
-    description: 'Exclusive badge for early supporters',
-    price: 1
+export const PIN_COLLECTIONS = {
+  alpha_rewards: {
+    id: 'alpha_rewards',
+    name: 'Alpha Tester Rewards',
+    active: true,
+    limited: true,
+    expiresAt: null,
+    pins: ['alpha_tester']
+  },
+  j_high_og5: {
+    id: 'j_high_og5',
+    name: 'J High Original 5',
+    active: true,
+    limited: true,
+    expiresAt: null,
+    pins: ['jay_j_high', 'jace_j_high', 'vasco_j_high', 'zack_j_high', 'daniel_j_high']
   }
 };
 
-// Create array sorted by price for shop display
-export const SHOP_PINS_LIST = Object.values(SHOP_PINS).sort((a, b) => a.price - b.price);
+export const SHOP_PINS = {
+  alpha_tester: {
+    id: 'alpha_tester',
+    name: 'Alpha Tester',
+    emoji: '🎖️',
+    image: 'alpha/stockism_logo.png',
+    description: 'Exclusive badge for early supporters',
+    price: 1,
+    collection: 'alpha_rewards'
+  },
+  jay_j_high: {
+    id: 'jay_j_high',
+    name: 'Jay',
+    emoji: '👊',
+    image: 'j-high/jay j high.png',
+    description: 'Jay Hong — J High',
+    price: 750,
+    collection: 'j_high_og5'
+  },
+  jace_j_high: {
+    id: 'jace_j_high',
+    name: 'Jace',
+    emoji: '⚡',
+    image: 'j-high/jace j high.png',
+    description: 'Yoo Jace — J High',
+    price: 750,
+    collection: 'j_high_og5'
+  },
+  vasco_j_high: {
+    id: 'vasco_j_high',
+    name: 'Vasco',
+    emoji: '💪',
+    image: 'j-high/vasco j high.png',
+    description: 'Lee Euntae — J High',
+    price: 2000,
+    requiredCheckinStreak: 5,
+    collection: 'j_high_og5'
+  },
+  zack_j_high: {
+    id: 'zack_j_high',
+    name: 'Zack',
+    emoji: '🥊',
+    image: 'j-high/zack j high.png',
+    description: 'Zack Lee — J High',
+    price: 2000,
+    requiredCheckinStreak: 5,
+    collection: 'j_high_og5'
+  },
+  daniel_j_high: {
+    id: 'daniel_j_high',
+    name: 'Daniel',
+    emoji: '👑',
+    image: 'j-high/daniel j high.png',
+    description: 'Daniel Park — J High',
+    price: 5000,
+    requiredCheckinStreak: 7,
+    collection: 'j_high_og5'
+  }
+};
+
+export const getActiveShopPins = () => {
+  return Object.values(PIN_COLLECTIONS)
+    .filter(c => c.active)
+    .map(c => ({
+      ...c,
+      pins: c.pins.map(id => SHOP_PINS[id]).filter(Boolean)
+    }));
+};
 
 // ============================================
 // DAILY MISSIONS

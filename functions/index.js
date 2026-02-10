@@ -5380,10 +5380,24 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
     const userData = userDoc.data();
 
     if (action === 'buyPin') {
-      // Validate pin cost (only pin currently costs $1)
-      const validCost = 1;
+      const PIN_CATALOG = {
+        alpha_tester: { price: 1 },
+        jay_j_high: { price: 750 },
+        jace_j_high: { price: 750 },
+        vasco_j_high: { price: 2000, requiredCheckinStreak: 5 },
+        zack_j_high: { price: 2000, requiredCheckinStreak: 5 },
+        daniel_j_high: { price: 5000, requiredCheckinStreak: 7 }
+      };
+      const pinInfo = PIN_CATALOG[pinId];
+      if (!pinInfo) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
+      }
+      const validCost = pinInfo.price;
       if ((userData.cash || 0) < validCost) {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+      }
+      if (pinInfo.requiredCheckinStreak && (userData.checkinStreak || 0) < pinInfo.requiredCheckinStreak) {
+        throw new functions.https.HttpsError('failed-precondition', `Requires ${pinInfo.requiredCheckinStreak}-day check-in streak.`);
       }
       const owned = userData.ownedShopPins || [];
       if (owned.includes(pinId)) {

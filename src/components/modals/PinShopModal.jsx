@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHOP_PINS, SHOP_PINS_LIST, PIN_SLOT_COSTS, CREW_MAP } from '../../crews';
+import { SHOP_PINS, PIN_SLOT_COSTS, CREW_MAP, getActiveShopPins } from '../../crews';
 import { ACHIEVEMENTS } from '../../constants/achievements';
 import { formatCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
@@ -103,54 +103,67 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
 
         <div className="flex-1 overflow-y-auto p-4">
           {activeTab === 'shop' && (
-            <div>
-              {SHOP_PINS_LIST.length === 0 ? (
-                <div className={`text-center py-12 ${mutedClass}`}>
-                  <div className="text-4xl mb-4">🏗️</div>
-                  <div className={`font-semibold ${textClass} mb-2`}>Coming Soon!</div>
-                  <div className="text-sm">Custom pins will be available here soon.</div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {SHOP_PINS_LIST.map(pin => {
-                    const owned = ownedPins.includes(pin.id);
-                    const canAfford = cash >= pin.price;
-                    return (
-                      <div
-                        key={pin.id}
-                        className={`p-3 rounded-sm border ${
-                          owned
-                            ? 'border-orange-500 bg-orange-500/10'
-                            : darkMode ? 'border-zinc-700' : 'border-amber-200'
-                        }`}
-                      >
-                        <div className="text-2xl text-center mb-2 flex items-center justify-center h-8">
-                          {pin.image ? (
-                            <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
-                          ) : pin.emoji}
+            <div className="space-y-5">
+              {getActiveShopPins().map(collection => (
+                <div key={collection.id}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className={`font-semibold ${textClass}`}>{collection.name}</h3>
+                    {collection.limited && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-semibold">
+                        Limited
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {collection.pins.map(pin => {
+                      const owned = ownedPins.includes(pin.id);
+                      const canAfford = cash >= pin.price;
+                      const streakMet = !pin.requiredCheckinStreak || (userData?.checkinStreak || 0) >= pin.requiredCheckinStreak;
+                      const canBuy = canAfford && streakMet && !owned;
+                      return (
+                        <div
+                          key={pin.id}
+                          className={`p-3 rounded-sm border ${
+                            owned
+                              ? 'border-orange-500 bg-orange-500/10'
+                              : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                          }`}
+                        >
+                          <div className="text-2xl text-center mb-2 flex items-center justify-center h-8">
+                            {pin.image ? (
+                              <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
+                            ) : pin.emoji}
+                          </div>
+                          <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
+                          <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
+                          {owned ? (
+                            <div className="text-xs text-center text-orange-500 font-semibold">Owned</div>
+                          ) : (
+                            <>
+                              {pin.requiredCheckinStreak && !streakMet && (
+                                <div className={`text-xs text-center mb-1 ${darkMode ? 'text-red-400' : 'text-red-500'}`}>
+                                  Requires {pin.requiredCheckinStreak}-day streak
+                                </div>
+                              )}
+                              <button
+                                onClick={() => canBuy && handleBuyPin(pin)}
+                                disabled={!canBuy}
+                                className={`w-full py-1 text-xs rounded-sm font-semibold ${
+                                  canBuy
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                    : 'bg-slate-600 text-zinc-400 cursor-not-allowed'
+                                }`}
+                              >
+                                {formatCurrency(pin.price)}
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
-                        <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
-                        {owned ? (
-                          <div className="text-xs text-center text-orange-500 font-semibold">✓ Owned</div>
-                        ) : (
-                          <button
-                            onClick={() => handleBuyPin(pin)}
-                            disabled={!canAfford}
-                            className={`w-full py-1 text-xs rounded-sm font-semibold ${
-                              canAfford
-                                ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                                : 'bg-slate-600 text-zinc-400 cursor-not-allowed'
-                            }`}
-                          >
-                            {formatCurrency(pin.price)}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
 
