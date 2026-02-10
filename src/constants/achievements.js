@@ -199,6 +199,41 @@ export const ACHIEVEMENTS = {
     hint: 'Trading is your life now'
   },
 
+  // Collection
+  UNIFIER: {
+    id: 'UNIFIER',
+    name: 'Unifier of Seoul',
+    emoji: '🗺️',
+    description: 'Own at least 1 share of every stock',
+    hint: 'Gotta catch \'em all',
+    revocable: true
+  },
+
+  // Ladder Game
+  COMPULSIVE_GAMBLER: {
+    id: 'COMPULSIVE_GAMBLER',
+    name: 'Compulsive Gambler',
+    emoji: '🎲',
+    description: 'Earn $2,500 net profit in the Ladder Game',
+    hint: 'Lady luck is on your side'
+  },
+  ADDICTED: {
+    id: 'ADDICTED',
+    name: 'Addicted',
+    emoji: '🃏',
+    description: 'Place 100 bets of $50+ in the Ladder Game',
+    hint: 'You can stop anytime... right?'
+  },
+
+  // Profit - special
+  NPC_LOVER: {
+    id: 'NPC_LOVER',
+    name: 'NPC Lover',
+    emoji: '💜',
+    description: 'Earn $1,000 total profit from non-crew characters',
+    hint: 'The underdogs need love too'
+  },
+
   // Daily Mission milestones
   MISSION_10: {
     id: 'MISSION_10',

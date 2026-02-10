@@ -14,10 +14,11 @@ const AchievementsPage = () => {
 
   // Group achievements by category
   const categories = {
-    'Trading': ['FIRST_BLOOD', 'SHARK', 'DIVERSIFIED', 'TRADER_20', 'TRADER_100'],
-    'Profits': ['BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED'],
+    'Trading': ['FIRST_BLOOD', 'SHARK', 'DIVERSIFIED', 'UNIFIER', 'TRADER_20', 'TRADER_100'],
+    'Profits': ['BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED', 'NPC_LOVER'],
     'Portfolio': ['BROKE_2K', 'BROKE_5K', 'BROKE_10K', 'BROKE_25K', 'BROKE_50K', 'BROKE_100K', 'BROKE_250K', 'BROKE_500K', 'BROKE_1M'],
     'Predictions': ['ORACLE', 'PROPHET'],
+    'Ladder Game': ['COMPULSIVE_GAMBLER', 'ADDICTED'],
     'Dedication': ['DEDICATED_7', 'DEDICATED_14', 'DEDICATED_30', 'DEDICATED_100'],
     'Missions': ['MISSION_10', 'MISSION_50', 'MISSION_100'],
     'Leaderboard': ['TOP_10', 'TOP_3', 'TOP_1']

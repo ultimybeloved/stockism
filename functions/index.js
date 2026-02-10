@@ -3355,6 +3355,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const dipPercent = costBasis > 0 ? ((costBasis - lowestWhileHolding) / costBasis) * 100 : 0;
         achievementCtx.sellProfitPercent = sellProfitPercent;
         achievementCtx.isDiamondHands = dipPercent >= 30 && sellProfitPercent > 0;
+        // Track NPC profit (non-crew characters)
+        if (!ALL_CREW_TICKERS.has(ticker) && costBasis > 0) {
+          const profitPerShare = executionPrice - costBasis;
+          if (profitPerShare > 0) {
+            achievementCtx.npcProfit = profitPerShare * amount;
+          }
+        }
+        // Track if user sold last share (for Unifier revocation)
+        achievementCtx.soldLastShare = !(newHoldings[ticker] > 0);
       }
       if (action === 'cover') {
         const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;
@@ -3405,16 +3414,36 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ctx.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
         if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
 
+        // NPC Lover: track cumulative profit from non-crew characters
+        const achievementUpdate = {};
+        if (ctx.npcProfit > 0) {
+          achievementUpdate.npcProfit = admin.firestore.FieldValue.increment(ctx.npcProfit);
+          const currentNpcProfit = (userDoc.data().npcProfit || 0) + ctx.npcProfit;
+          if (currentNpcProfit >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
+        }
+
+        // Unifier of Seoul: revoke if user sold their last share of any stock
+        let revokeUnifier = ctx.soldLastShare && currentAchievements.includes('UNIFIER');
+
         if (newAchievements.length > 0) {
-          const achievementUpdate = {
-            achievements: admin.firestore.FieldValue.arrayUnion(...newAchievements)
-          };
-          // Track when each achievement was earned
+          achievementUpdate.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
           for (const achId of newAchievements) {
             achievementUpdate[`achievementDates.${achId}`] = Date.now();
           }
-          await db.collection('users').doc(uid).update(achievementUpdate);
           result.newAchievements = newAchievements;
+        }
+
+        if (Object.keys(achievementUpdate).length > 0) {
+          await db.collection('users').doc(uid).update(achievementUpdate);
+        }
+
+        // Revoke Unifier separately (can't arrayRemove + arrayUnion same field)
+        if (revokeUnifier) {
+          await db.collection('users').doc(uid).update({
+            achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+            'achievementDates.UNIFIER': admin.firestore.FieldValue.delete()
+          });
+          result.revokedAchievements = ['UNIFIER'];
         }
       }
     } catch (achErr) {
@@ -4262,6 +4291,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
         losses: 0,
         currentStreak: 0,
         bestStreak: 0,
+        highBetGames: 0,
         lastPlayed: null
       };
 
@@ -4307,6 +4337,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       // Update user stats
       userData.balance = userData.balance - amount + payout;
       userData.gamesPlayed += 1;
+      if (amount >= 50) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {
         userData.wins += 1;
         userData.totalWon += payout - amount;
@@ -4383,13 +4414,31 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
         }
       }
 
+      // Check ladder game achievements
+      const currentAchievements = mainUser?.achievements || [];
+      const ladderNewAchievements = [];
+      const netProfit = userData.totalWon - userData.totalLost;
+      if (netProfit >= 2500 && !currentAchievements.includes('COMPULSIVE_GAMBLER')) ladderNewAchievements.push('COMPULSIVE_GAMBLER');
+      if ((userData.highBetGames || 0) >= 100 && !currentAchievements.includes('ADDICTED')) ladderNewAchievements.push('ADDICTED');
+
+      if (ladderNewAchievements.length > 0) {
+        const achUpdate = {
+          achievements: admin.firestore.FieldValue.arrayUnion(...ladderNewAchievements)
+        };
+        for (const achId of ladderNewAchievements) {
+          achUpdate[`achievementDates.${achId}`] = Date.now();
+        }
+        transaction.update(mainUserRef, achUpdate);
+      }
+
       return {
         rungs,
         result,
         won,
         payout,
         newBalance: userData.balance,
-        currentStreak: userData.currentStreak
+        currentStreak: userData.currentStreak,
+        newAchievements: ladderNewAchievements
       };
     });
   } catch (error) {
@@ -6321,6 +6370,18 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (portfolioValue >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
 
+  // Unifier of Seoul: own at least 1 share of every tradeable stock (revocable)
+  const totalCharacters = Object.keys(prices).length;
+  let revokeUnifier = false;
+  if (holdingsCount >= totalCharacters && totalCharacters > 0) {
+    if (!currentAchievements.includes('UNIFIER')) newAchievements.push('UNIFIER');
+  } else if (currentAchievements.includes('UNIFIER')) {
+    revokeUnifier = true;
+  }
+
+  // NPC Lover: check if accumulated profit reached $1,000
+  if ((userData.npcProfit || 0) >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
+
   // Check leaderboard achievements (server-side, no client trust needed)
   const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
   if (portfolioValue >= MIN_PORTFOLIO_FOR_LEADERBOARD && !currentAchievements.includes('TOP_1')) {
@@ -6371,6 +6432,14 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   }
 
   await userRef.update(updateData);
+
+  // Revoke Unifier separately (can't arrayRemove + arrayUnion same field in one update)
+  if (revokeUnifier) {
+    await userRef.update({
+      achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+      'achievementDates.UNIFIER': admin.firestore.FieldValue.delete()
+    });
+  }
 
   return {
     portfolioValue,
