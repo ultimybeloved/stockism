@@ -78,6 +78,41 @@ export const ACHIEVEMENTS = {
     description: 'Reach $25,000 portfolio value',
     hint: 'Market domination'
   },
+  BROKE_50K: {
+    id: 'BROKE_50K',
+    name: 'Well Established',
+    emoji: '🏦',
+    description: 'Reach $50,000 portfolio value',
+    hint: 'You\'re a force to be reckoned with'
+  },
+  BROKE_100K: {
+    id: 'BROKE_100K',
+    name: 'Six Figures',
+    emoji: '💎',
+    description: 'Reach $100,000 portfolio value',
+    hint: 'Welcome to the big leagues'
+  },
+  BROKE_250K: {
+    id: 'BROKE_250K',
+    name: 'Market Shark',
+    emoji: '🐋',
+    description: 'Reach $250,000 portfolio value',
+    hint: 'The market fears you'
+  },
+  BROKE_500K: {
+    id: 'BROKE_500K',
+    name: 'Untouchable',
+    emoji: '👑',
+    description: 'Reach $500,000 portfolio value',
+    hint: 'Nobody can stop you'
+  },
+  BROKE_1M: {
+    id: 'BROKE_1M',
+    name: 'First Million',
+    emoji: '🏆',
+    description: 'Reach $1,000,000 portfolio value',
+    hint: 'You\'ve made it'
+  },
 
   // Prediction milestones
   ORACLE: {
