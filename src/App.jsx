@@ -967,6 +967,10 @@ export default function App() {
   // These features are now accessible via routes: /leaderboard, /profile, /achievements, /ladder
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notifications, setNotifications] = useState([]); // Toast notification queue
+  const [showInAppBanner, setShowInAppBanner] = useState(() => {
+    const ua = navigator.userAgent || '';
+    return /FBAN|FBAV|Instagram|Discord|Twitter|Snapchat|TikTok|Line|WeChat|MicroMessenger|Pinterest/i.test(ua);
+  });
 
   // Handler for viewing charts with default time range
   const handleViewChart = (character, defaultTimeRange = '1d') => {
@@ -2709,6 +2713,14 @@ export default function App() {
           isGuest={isGuest}
           onShowLogin={() => setShowLoginModal(true)}
         >
+          {showInAppBanner && (
+            <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
+              darkMode ? 'bg-amber-900/30 border-amber-700 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'
+            }`}>
+              <span>For the best experience, open this page in your browser. Trading may not work in this app.</span>
+              <button onClick={() => setShowInAppBanner(false)} className="shrink-0 font-bold text-lg leading-none opacity-60 hover:opacity-100">&times;</button>
+            </div>
+          )}
           <Routes>
             <Route path="/" element={
               <div className={`min-h-screen ${bgClass} p-4`}>
