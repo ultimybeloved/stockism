@@ -1582,11 +1582,13 @@ export default function App() {
         // Switching crews — penalty handled server-side
         const result = await switchCrewFunction({ crewId, isSwitch: true });
         const { totalTaken } = result.data;
+        setUserData(prev => prev ? { ...prev, crew: crewId, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
         const crew = CREW_MAP[crewId];
         showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (15% penalty)`);
       } else {
         // First time joining — no penalty, use Cloud Function
         const result = await switchCrewFunction({ crewId, isSwitch: false });
+        setUserData(prev => prev ? { ...prev, crew: crewId } : prev);
         const crew = CREW_MAP[crewId];
         showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
       }
@@ -1612,6 +1614,7 @@ export default function App() {
       const result = await leaveCrewFunction({});
       const totalTaken = result.data.totalTaken;
 
+      setUserData(prev => prev ? { ...prev, crew: null, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
       showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty). You cannot join a new crew for 24 hours.`);
     } catch (err) {
       console.error('Failed to leave crew:', err);
@@ -1635,6 +1638,7 @@ export default function App() {
 
         await purchasePinFunction({ action: 'buyPin', pinId: payload });
 
+        setUserData(prev => prev ? { ...prev, ownedShopPins: [...(prev.ownedShopPins || []), payload], cash: (prev.cash || 0) - (cost || 0) } : prev);
         const pin = SHOP_PINS[payload];
         showNotification('success', `Purchased ${pin.name}!`, `/pins/${pin.image}`);
 
@@ -1651,6 +1655,8 @@ export default function App() {
 
       } else if (action === 'buySlot') {
         await purchasePinFunction({ action: 'buySlot', slotType: payload });
+        const slotKey = payload === 'shop' ? 'shopPinSlots' : 'achievementPinSlots';
+        setUserData(prev => prev ? { ...prev, [slotKey]: (prev[slotKey] || 3) + 1, cash: (prev.cash || 0) - (cost || 0) } : prev);
         showNotification('success', `Unlocked extra ${payload} pin slot!`);
       }
     } catch (err) {
@@ -2200,8 +2206,8 @@ export default function App() {
       const result = await dailyCheckinFunction({});
       const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
 
-      // Mission tracking now handled server-side in dailyCheckin Cloud Function
-      // Checkin achievements handled server-side in syncPortfolio
+      // Optimistic update so check-in button switches immediately
+      setUserData(prev => prev ? { ...prev, lastCheckin: new Date().toDateString(), cash: (prev.cash || 0) + reward, checkinStreak: newStreak, totalCheckins } : prev);
 
       // Add to activity feed
       let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;
@@ -2287,6 +2293,15 @@ export default function App() {
     try {
       await buyIPOSharesFunction({ ticker, quantity });
 
+      const totalCostIPO = ipo.basePrice * quantity;
+      setUserData(prev => {
+        if (!prev) return prev;
+        const existing = prev.holdings?.[ticker] || { quantity: 0, avgCost: 0 };
+        const newQty = existing.quantity + quantity;
+        const newAvg = ((existing.avgCost * existing.quantity) + totalCostIPO) / newQty;
+        return { ...prev, cash: (prev.cash || 0) - totalCostIPO, holdings: { ...prev.holdings, [ticker]: { quantity: newQty, avgCost: newAvg } } };
+      });
+
       const character = CHARACTER_MAP[ticker];
       addActivity('trade', `🚀 IPO: Bought ${quantity} $${ticker} (${character?.name || ticker}) @ ${formatCurrency(ipo.basePrice)}`);
       showNotification('success', `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`);
@@ -2362,6 +2377,13 @@ export default function App() {
     try {
       await placeBetFunction({ predictionId, option, amount });
 
+      setUserData(prev => {
+        if (!prev) return prev;
+        const existingBet = prev.bets?.[predictionId];
+        const newAmount = (existingBet?.amount || 0) + amount;
+        return { ...prev, cash: (prev.cash || 0) - amount, bets: { ...prev.bets, [predictionId]: { option, amount: newAmount, paid: false } } };
+      });
+
       addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
       showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
     } catch (error) {
@@ -2427,6 +2449,7 @@ export default function App() {
     setLoadingKey('enableMargin', true);
     try {
       await toggleMarginFunction({ enable: true });
+      setUserData(prev => prev ? { ...prev, marginEnabled: true } : prev);
       showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
     } catch (err) {
       showNotification('error', err?.message || 'Failed to enable margin');
@@ -2447,6 +2470,7 @@ export default function App() {
     setLoadingKey('disableMargin', true);
     try {
       await toggleMarginFunction({ enable: false });
+      setUserData(prev => prev ? { ...prev, marginEnabled: false } : prev);
       showNotification('success', 'Margin trading disabled.');
       setShowLending(false);
     } catch (err) {
@@ -2476,6 +2500,8 @@ export default function App() {
       const result = await repayMarginFunction({ amount });
       const { repaid, remaining } = result.data;
 
+      setUserData(prev => prev ? { ...prev, cash: (prev.cash || 0) - repaid, marginUsed: remaining } : prev);
+
       if (remaining === 0) {
         showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repaid)}`);
       } else {
@@ -2502,6 +2528,13 @@ export default function App() {
     try {
       const currentCrew = userData.crew;
       const result = await bailoutFunction({});
+
+      setUserData(prev => {
+        if (!prev) return prev;
+        const exiled = [...(prev.exiledCrews || [])];
+        if (currentCrew && !exiled.includes(currentCrew)) exiled.push(currentCrew);
+        return { ...prev, cash: 500, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, exiledCrews: exiled };
+      });
 
       if (result.data.hadCrew) {
         const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
