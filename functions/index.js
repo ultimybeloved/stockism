@@ -3303,6 +3303,30 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         updates.shortHistory = { ...shortHistory, [ticker]: tickerHistory };
       }
 
+      // Append to transaction log (keep last 100 entries)
+      const txLogEntry = { timestamp: now, ticker, shares: amount, cashBefore: cash, cashAfter: newCash };
+      if (action === 'buy') {
+        txLogEntry.type = 'BUY';
+        txLogEntry.pricePerShare = executionPrice;
+        txLogEntry.totalCost = totalCost;
+      } else if (action === 'sell') {
+        txLogEntry.type = 'SELL';
+        txLogEntry.pricePerShare = executionPrice;
+        txLogEntry.totalRevenue = totalCost;
+        const costBasis = userData.costBasis?.[ticker] || 0;
+        txLogEntry.profitPercent = costBasis > 0 ? Math.round(((executionPrice - costBasis) / costBasis) * 100) : 0;
+      } else if (action === 'short') {
+        txLogEntry.type = 'SHORT_OPEN';
+        txLogEntry.entryPrice = executionPrice;
+        txLogEntry.marginRequired = currentPrice * amount * 0.5;
+      } else if (action === 'cover') {
+        txLogEntry.type = 'SHORT_CLOSE';
+        const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;
+        txLogEntry.totalProfit = (shortCostBasis - executionPrice) * amount;
+      }
+      const existingLog = userData.transactionLog || [];
+      updates.transactionLog = [...existingLog, txLogEntry].slice(-100);
+
       transaction.update(userRef, updates);
 
       // Log trade
@@ -3523,6 +3547,17 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
           transaction.update(ladderRef, { balance: 100 });
         }
       }
+
+      // Append check-in to transaction log
+      const existingLog = userData.transactionLog || [];
+      const checkinEntry = {
+        type: 'CHECKIN',
+        timestamp: Date.now(),
+        bonus: checkinReward,
+        cashBefore: userData.cash || 0,
+        cashAfter: (userData.cash || 0) + checkinReward
+      };
+      updates.transactionLog = [...existingLog, checkinEntry].slice(-100);
 
       transaction.update(userRef, updates);
 
