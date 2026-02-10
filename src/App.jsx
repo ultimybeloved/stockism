@@ -109,7 +109,7 @@ import {
   formatTimeRemaining,
   round2
 } from './utils/formatters';
-import { getTodayDateString, isToday, toMillis, toDateString } from './utils/date';
+import { getTodayDateString, isToday, toMillis, toDateString, toUTCDateString } from './utils/date';
 
 // Transaction logging - records all significant financial actions for auditing
 
@@ -2193,8 +2193,8 @@ export default function App() {
       return;
     }
 
-    const today = new Date().toDateString();
-    const lastCheckinStr = toDateString(userData.lastCheckin);
+    const today = getTodayDateString(); // UTC YYYY-MM-DD, matches server
+    const lastCheckinStr = toUTCDateString(userData.lastCheckin);
     if (lastCheckinStr === today) {
       showNotification('error', 'Already checked in today!');
       return;
@@ -2207,7 +2207,7 @@ export default function App() {
       const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
 
       // Optimistic update so check-in button switches immediately
-      setUserData(prev => prev ? { ...prev, lastCheckin: new Date().toDateString(), cash: (prev.cash || 0) + reward, checkinStreak: newStreak, totalCheckins } : prev);
+      setUserData(prev => prev ? { ...prev, lastCheckin: new Date().toISOString(), cash: (prev.cash || 0) + reward, checkinStreak: newStreak, totalCheckins } : prev);
 
       // Add to activity feed
       let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;

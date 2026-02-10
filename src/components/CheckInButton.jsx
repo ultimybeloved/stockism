@@ -1,24 +1,19 @@
 import { useState, useEffect } from 'react';
-import { toDateString } from '../utils/date';
+import { getTodayDateString, toUTCDateString, msUntilUTCMidnight } from '../utils/date';
 
 const CheckInButton = ({ isGuest, lastCheckin, onCheckin, darkMode, loading }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [timeUntilReset, setTimeUntilReset] = useState('');
 
-  const today = new Date().toDateString();
-  const lastCheckinStr = toDateString(lastCheckin);
+  const today = getTodayDateString(); // UTC YYYY-MM-DD, matches server
+  const lastCheckinStr = toUTCDateString(lastCheckin);
   const hasCheckedIn = !isGuest && lastCheckinStr === today;
 
   useEffect(() => {
     if (!hasCheckedIn) return;
 
     const updateTimer = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-
-      const diff = tomorrow - now;
+      const diff = msUntilUTCMidnight();
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);

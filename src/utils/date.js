@@ -129,3 +129,30 @@ export const toDateString = (timestamp) => {
   if (timestamp.seconds) return new Date(timestamp.seconds * 1000).toDateString();
   return null;
 };
+
+/**
+ * Convert any timestamp to UTC YYYY-MM-DD string (matches server format)
+ * Used for check-in comparisons to avoid timezone mismatch
+ */
+export const toUTCDateString = (timestamp) => {
+  if (!timestamp) return null;
+  if (typeof timestamp === 'string') {
+    const parsed = new Date(timestamp);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    return null;
+  }
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString().split('T')[0];
+  if (timestamp instanceof Date) return timestamp.toISOString().split('T')[0];
+  if (typeof timestamp === 'number') return new Date(timestamp).toISOString().split('T')[0];
+  if (timestamp.seconds) return new Date(timestamp.seconds * 1000).toISOString().split('T')[0];
+  return null;
+};
+
+/**
+ * Get milliseconds until next UTC midnight
+ */
+export const msUntilUTCMidnight = () => {
+  const now = new Date();
+  const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return tomorrow.getTime() - now.getTime();
+};
