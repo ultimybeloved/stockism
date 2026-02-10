@@ -8,7 +8,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
 
   const pins = [];
   const sizeClass = size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base';
-  const imgSize = size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6';
+  const imgSize = size === 'sm' ? 'h-4' : size === 'md' ? 'h-5' : 'h-6';
 
   // Crew pin - shown if user has a crew and displayCrewPin is not false
   if (userData.crew) {
