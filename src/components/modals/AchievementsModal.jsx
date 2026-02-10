@@ -13,7 +13,7 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
   const categories = {
     'Trading': ['FIRST_BLOOD', 'SHARK', 'DIVERSIFIED', 'TRADER_20', 'TRADER_100'],
     'Profits': ['BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED'],
-    'Portfolio': ['BROKE_2K', 'BROKE_5K', 'BROKE_10K', 'BROKE_25K'],
+    'Portfolio': ['BROKE_2K', 'BROKE_5K', 'BROKE_10K', 'BROKE_25K', 'BROKE_50K', 'BROKE_100K', 'BROKE_250K', 'BROKE_500K', 'BROKE_1M'],
     'Predictions': ['ORACLE', 'PROPHET'],
     'Dedication': ['DEDICATED_7', 'DEDICATED_14', 'DEDICATED_30', 'DEDICATED_100'],
     'Missions': ['MISSION_10', 'MISSION_50', 'MISSION_100'],
