@@ -98,19 +98,17 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             ))}
           </nav>
 
-          {/* Desktop: Centered oversized logo */}
+          {/* Desktop: Centered logo - appears in header on scroll */}
           <Link
             to="/"
-            className={`hidden md:block absolute left-1/2 -translate-x-1/2 z-50 transition-[transform,top] duration-500 ease-in-out ${
-              scrolled ? 'top-1/2 -translate-y-1/2' : 'top-0 translate-y-0'
+            className={`hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 transition-opacity duration-200 ease-in-out ${
+              scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
             <img
               src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
               alt="Stockism"
-              className={`w-auto select-none cursor-pointer hover:opacity-90 transition-[height,opacity] duration-500 ease-in-out ${
-                scrolled ? 'h-10' : 'h-40'
-              }`}
+              className="h-10 w-auto select-none cursor-pointer hover:opacity-90"
               draggable="false"
               onContextMenu={(e) => e.preventDefault()}
               style={{ userSelect: 'none', WebkitUserSelect: 'none' }}

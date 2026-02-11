@@ -25,7 +25,21 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         darkMode={darkMode}
       />
 
-      <main className="pb-20 md:pb-6 md:pt-36">
+      {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
+      <div className="hidden md:flex justify-center py-2">
+        <Link to="/">
+          <img
+            src={darkMode ? "/stockism grey splatter.png" : "/stockism logo.png"}
+            alt="Stockism"
+            className="h-40 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+            draggable="false"
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+          />
+        </Link>
+      </div>
+
+      <main className="pb-20 md:pb-6">
         {children}
       </main>
 
