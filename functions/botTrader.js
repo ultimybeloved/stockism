@@ -250,6 +250,16 @@ module.exports = {
     .schedule('every 3 minutes')
     .onRun(async (context) => {
       try {
+        // Weekly trading halt: Thursday 13:00–21:00 UTC
+        const now = new Date();
+        if (now.getUTCDay() === 4) {
+          const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+          if (utcMins >= 780 && utcMins < 1260) {
+            console.log('Skipping bot trades — weekly trading halt active');
+            return null;
+          }
+        }
+
         // Random delay before starting (0-90 seconds) to avoid predictable timing
         const startDelay = Math.floor(Math.random() * 90000);
         await new Promise(resolve => setTimeout(resolve, startDelay));
@@ -275,6 +285,13 @@ module.exports = {
         }
 
         const marketData = marketSnap.data();
+
+        // Check emergency halt
+        if (marketData.marketHalted) {
+          console.log('Skipping bot trades — emergency halt active');
+          return null;
+        }
+
         const prices = marketData.prices || {};
         const allTickers = Object.keys(prices);
 

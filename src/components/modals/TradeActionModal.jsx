@@ -10,6 +10,7 @@ import {
 import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
+import { isWeeklyHalt } from '../../utils/marketHours';
 
 // Helper functions from App.jsx
 const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
@@ -240,6 +241,12 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     if (config.disabled || amount < 1 || amount > maxShares || submitting) return;
 
     if (isLimitOrder) {
+      // Block limit order creation during trading halt
+      if (isWeeklyHalt()) {
+        alert('Market is closed for chapter review. Limit orders cannot be created during trading halt.');
+        return;
+      }
+
       // Handle limit order creation
       const priceNum = parseFloat(limitPrice);
       if (isNaN(priceNum) || priceNum <= 0) {

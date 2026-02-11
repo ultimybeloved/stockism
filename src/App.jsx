@@ -33,6 +33,7 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
+import { isWeeklyHalt } from './utils/marketHours';
 import LadderGame from './components/LadderGame';
 import LimitOrders from './components/LimitOrders';
 
@@ -1830,6 +1831,14 @@ export default function App() {
       return;
     }
 
+    // Block trades during weekly halt or emergency halt
+    if (isWeeklyHalt() || marketData?.marketHalted) {
+      showNotification('error', marketData?.marketHalted
+        ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
+        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
+      return;
+    }
+
     // Block buying/shorting if user is in debt (selling/covering allowed)
     if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {
       showNotification('error', 'You cannot open new positions while in debt. Request a bailout to start fresh.');
@@ -2123,7 +2132,7 @@ export default function App() {
 
     }
     setLoadingKey('trade', false);
-  }, [user, userData, prices, addActivity]);
+  }, [user, userData, prices, marketData, addActivity]);
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules)
@@ -2240,6 +2249,13 @@ export default function App() {
       return;
     }
 
+    if (isWeeklyHalt() || marketData?.marketHalted) {
+      showNotification('error', marketData?.marketHalted
+        ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
+        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
+      return;
+    }
+
     const ipoRef = doc(db, 'market', 'ipos');
     const ipoSnap = await getDoc(ipoRef);
     if (!ipoSnap.exists()) {
@@ -2312,7 +2328,7 @@ export default function App() {
     } finally {
       setLoadingKey('buyIPO', false);
     }
-  }, [user, userData, addActivity]);
+  }, [user, userData, marketData, addActivity]);
 
   // Handle prediction bet
   const handleBet = useCallback(async (predictionId, option, amount) => {
@@ -2745,6 +2761,9 @@ export default function App() {
         onShowAdminPanel={() => setShowAdmin(true)}
           isGuest={isGuest}
           onShowLogin={() => setShowLoginModal(true)}
+          prices={prices}
+          priceHistory={priceHistory}
+          marketData={marketData}
         >
           {showInAppBanner && (
             <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
@@ -3317,6 +3336,7 @@ export default function App() {
           predictions={predictions}
           prices={prices}
           darkMode={darkMode}
+          marketData={marketData}
           onClose={() => setShowAdmin(false)}
         />
       )}

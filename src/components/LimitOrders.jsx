@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, createLimitOrderFunction } from '../firebase';
+import { isWeeklyHalt } from '../utils/marketHours';
 
 const LimitOrders = ({ user, darkMode, prices, characters }) => {
   const [activeTab, setActiveTab] = useState('orders'); // 'create' or 'orders' - default to 'orders' since creation is now in trade modal
@@ -52,6 +53,11 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
   };
 
   const handleCreateOrder = async () => {
+    if (isWeeklyHalt()) {
+      alert('Market is closed for chapter review. Limit orders cannot be created during trading halt.');
+      return;
+    }
+
     if (!selectedTicker || !limitPrice || shares < 1) {
       alert('Please fill in all fields');
       return;

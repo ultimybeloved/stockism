@@ -17,6 +17,14 @@ const STARTING_CASH = 1000;
 // Falls back to hardcoded value for backwards compatibility
 const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
+// Weekly trading halt: Thursday 13:00–21:00 UTC (chapter review window)
+const isWeeklyTradingHalt = () => {
+  const now = new Date();
+  if (now.getUTCDay() !== 4) return false;
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return utcMins >= 780 && utcMins < 1260;
+};
+
 // Daily Impact Anti-Manipulation Constants
 const MAX_DAILY_IMPACT = 0.10; // 10% max price movement per user per ticker per day
 const BASE_IMPACT = 0.012;
@@ -1903,6 +1911,11 @@ exports.priceThresholdAlert = functions.pubsub
   .schedule('*/30 * * * *')
   .timeZone('UTC')
   .onRun(async (context) => {
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping price threshold alerts — weekly trading halt active');
+      return null;
+    }
+
     try {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();
@@ -1910,6 +1923,12 @@ exports.priceThresholdAlert = functions.pubsub
       if (!marketSnap.exists) return null;
 
       const marketData = marketSnap.data();
+
+      if (marketData.marketHalted) {
+        console.log('Skipping price threshold alerts — emergency halt active');
+        return null;
+      }
+
       const prices = marketData.prices || {};
       const priceHistory = marketData.priceHistory || {};
       const alertedThresholds = marketData.alertedThresholds || {}; // Track what we've already alerted
@@ -2728,6 +2747,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Block trades during weekly halt
+  if (isWeeklyTradingHalt()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+    );
+  }
+
   // Anti-manipulation: Block shorting if user has a pending SELL limit order on same ticker
   if (action === 'short') {
     const pendingSells = await db.collection('limitOrders')
@@ -2764,6 +2791,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       const userData = userDoc.data();
       const marketData = marketDoc.data();
+
+      // Check emergency admin halt
+      if (marketData.marketHalted) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          marketData.haltReason || 'Market is currently halted.'
+        );
+      }
+
       const prices = marketData.prices || {};
       const currentPrice = prices[ticker];
 
@@ -4918,6 +4954,14 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
+  // Block during weekly halt
+  if (isWeeklyTradingHalt()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+    );
+  }
+
   const uid = context.auth.uid;
   const { ticker, type, shares, limitPrice, allowPartialFills } = data;
 
@@ -5043,6 +5087,12 @@ exports.checkLimitOrders = functions.pubsub
   .schedule('every 2 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
+    // Skip during weekly halt — don't execute pending orders
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping limit order check — weekly trading halt active');
+      return { success: true, skipped: true, reason: 'weekly_halt' };
+    }
+
     try {
       console.log('Checking limit orders...');
       const startTime = Date.now();
@@ -5057,6 +5107,13 @@ exports.checkLimitOrders = functions.pubsub
       }
 
       const marketData = marketSnap.data();
+
+      // Also skip if admin emergency halt is active
+      if (marketData.marketHalted) {
+        console.log('Skipping limit order check — emergency halt active');
+        return { success: true, skipped: true, reason: 'emergency_halt' };
+      }
+
       const prices = marketData.prices || {};
 
       // Get all pending limit orders
@@ -5691,6 +5748,14 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
+  // Block during weekly halt
+  if (isWeeklyTradingHalt()) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+    );
+  }
+
   const uid = context.auth.uid;
   const { ticker, quantity } = data;
 
@@ -6045,6 +6110,11 @@ exports.checkShortMarginCalls = functions.pubsub
   .schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping short margin calls — weekly trading halt active');
+      return null;
+    }
+
     const startTime = Date.now();
     console.log('Checking short margin calls...');
 
@@ -6058,6 +6128,10 @@ exports.checkShortMarginCalls = functions.pubsub
       }
 
       const marketData = marketSnap.data();
+      if (marketData.marketHalted) {
+        console.log('Skipping short margin calls — emergency halt active');
+        return null;
+      }
       const prices = marketData.prices || {};
 
       // Query all users - filter for shorts client-side since Firestore
@@ -6458,6 +6532,11 @@ exports.checkMarginLending = functions.pubsub
   .schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping margin lending check — weekly trading halt active');
+      return null;
+    }
+
     const startTime = Date.now();
     console.log('Checking margin lending positions...');
 
@@ -6470,7 +6549,12 @@ exports.checkMarginLending = functions.pubsub
         return null;
       }
 
-      const prices = marketSnap.data().prices || {};
+      const marketSnapData = marketSnap.data();
+      if (marketSnapData.marketHalted) {
+        console.log('Skipping margin lending check — emergency halt active');
+        return null;
+      }
+      const prices = marketSnapData.prices || {};
 
       // Query users with margin enabled
       const usersSnap = await db.collection('users')
@@ -6720,7 +6804,19 @@ exports.processIPOPriceJumps = functions.pubsub
   .schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping IPO price jumps — weekly trading halt active');
+      return null;
+    }
+
     try {
+      // Check emergency halt
+      const marketSnap = await db.collection('market').doc('current').get();
+      if (marketSnap.exists && marketSnap.data().marketHalted) {
+        console.log('Skipping IPO price jumps — emergency halt active');
+        return null;
+      }
+
       const ipoRef = db.collection('market').doc('ipos');
       const ipoSnap = await ipoRef.get();
 
