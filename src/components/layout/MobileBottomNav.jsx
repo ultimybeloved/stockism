@@ -53,7 +53,7 @@ const MobileBottomNav = ({ darkMode }) => {
   const navItems = [
     {
       path: '/',
-      icon: <img src="/pins/stockism_logo.png" alt="Home" className="w-6 h-6" />,
+      icon: <img src="/pins/alpha/stockism_logo.png" alt="Home" className="w-6 h-6" />,
       label: 'Home'
     },
     { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },

@@ -68,18 +68,18 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
       ? 'bg-red-900/80 border-b border-red-700'
       : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
     }`} style={{ height: '32px' }}>
+      {halted ? (
+        <div className="w-full flex items-center justify-center h-full px-2">
+          <span className="text-red-200 text-xs font-bold tracking-wide text-center truncate">
+            {content}
+          </span>
+        </div>
+      ) : (
       <div
-        className={`ticker-scroll-container flex items-center h-full whitespace-nowrap ${!halted ? 'ticker-scroll-active' : ''}`}
-        onMouseEnter={e => { if (!halted) e.currentTarget.style.animationPlayState = 'paused'; }}
-        onMouseLeave={e => { if (!halted) e.currentTarget.style.animationPlayState = 'running'; }}
+        className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active"
+        onMouseEnter={e => { e.currentTarget.style.animationPlayState = 'paused'; }}
+        onMouseLeave={e => { e.currentTarget.style.animationPlayState = 'running'; }}
       >
-        {halted ? (
-          <div className="w-full flex items-center justify-center px-4">
-            <span className="text-red-200 text-xs font-bold tracking-wide">
-              {content}
-            </span>
-          </div>
-        ) : (
           <>
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
               {movers.map((m, i) => (
@@ -121,8 +121,8 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
               <span className={darkMode ? 'text-zinc-500' : 'text-slate-400'}>{scheduleText}</span>
             </span>
           </>
-        )}
       </div>
+        )}
     </div>
   );
 };
