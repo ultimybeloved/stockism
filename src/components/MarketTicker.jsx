@@ -76,7 +76,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
         </div>
       ) : (
       <div
-        className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active"
+        className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active w-max"
         onMouseEnter={e => { e.currentTarget.style.animationPlayState = 'paused'; }}
         onMouseLeave={e => { e.currentTarget.style.animationPlayState = 'running'; }}
       >
