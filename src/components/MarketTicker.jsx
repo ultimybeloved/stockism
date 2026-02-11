@@ -79,6 +79,10 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
         className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active w-max"
         onMouseEnter={e => { e.currentTarget.style.animationPlayState = 'paused'; }}
         onMouseLeave={e => { e.currentTarget.style.animationPlayState = 'running'; }}
+        onClick={e => {
+          const el = e.currentTarget;
+          el.style.animationPlayState = el.style.animationPlayState === 'paused' ? 'running' : 'paused';
+        }}
       >
           <>
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
