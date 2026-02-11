@@ -45,7 +45,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
 
   // Schedule info
   const nextHalt = getNextHaltStart();
-  const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC`;
+  const scheduleText = `Weekly halt: Thu 14:00–21:00 UTC`;
 
   const haltReason = marketData?.haltReason;
 
@@ -69,10 +69,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
       : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
     }`} style={{ height: '32px' }}>
       <div
-        className="ticker-scroll-container flex items-center h-full whitespace-nowrap"
-        style={{
-          animation: halted ? 'none' : 'ticker-scroll 30s linear infinite',
-        }}
+        className={`ticker-scroll-container flex items-center h-full whitespace-nowrap ${!halted ? 'ticker-scroll-active' : ''}`}
         onMouseEnter={e => { if (!halted) e.currentTarget.style.animationPlayState = 'paused'; }}
         onMouseLeave={e => { if (!halted) e.currentTarget.style.animationPlayState = 'running'; }}
       >

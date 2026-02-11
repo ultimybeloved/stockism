@@ -250,11 +250,11 @@ module.exports = {
     .schedule('every 3 minutes')
     .onRun(async (context) => {
       try {
-        // Weekly trading halt: Thursday 13:00–21:00 UTC
+        // Weekly trading halt: Thursday 14:00–21:00 UTC
         const now = new Date();
         if (now.getUTCDay() === 4) {
           const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-          if (utcMins >= 780 && utcMins < 1260) {
+          if (utcMins >= 840 && utcMins < 1260) {
             console.log('Skipping bot trades — weekly trading halt active');
             return null;
           }

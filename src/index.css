@@ -45,3 +45,13 @@ body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+.ticker-scroll-active {
+  animation: ticker-scroll 12s linear infinite;
+}
+
+@media (min-width: 768px) {
+  .ticker-scroll-active {
+    animation-duration: 30s;
+  }
+}

@@ -6100,7 +6100,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
           {/* Info */}
           <div className={`p-3 rounded-sm text-xs ${darkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-            Automatic weekly halt (Thu 13:00–21:00 UTC) is always active. This is for emergencies only.
+            Automatic weekly halt (Thu 14:00–21:00 UTC) is always active. This is for emergencies only.
           </div>
         </div>
       )}
