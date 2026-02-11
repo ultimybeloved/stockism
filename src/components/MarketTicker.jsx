@@ -64,7 +64,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
   const content = halted ? haltContent : normalContent;
 
   return (
-    <div className={`w-full overflow-hidden sticky top-16 z-30 ${halted
+    <div className={`w-full overflow-hidden ${halted
       ? 'bg-red-900/80 border-b border-red-700'
       : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
     }`} style={{ height: '32px' }}>
