@@ -6004,13 +6004,28 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
     });
 
     // Update IPO shares remaining
+    const newSharesRemaining = sharesRemaining - quantity;
+    const soldOut = newSharesRemaining <= 0;
+
     const updatedList = ipoList.map(i =>
-      i.ticker === ticker ? { ...i, sharesRemaining: sharesRemaining - quantity } : i
+      i.ticker === ticker ? { ...i, sharesRemaining: newSharesRemaining, ...(soldOut ? { priceJumped: true } : {}) } : i
     );
     transaction.update(ipoRef, { list: updatedList });
 
-    // Initialize price if not set
-    if (marketDoc.exists) {
+    // If sold out, immediately apply price jump and launch into normal trading
+    if (soldOut) {
+      const IPO_PRICE_JUMP = 0.15;
+      const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+      transaction.update(marketRef, {
+        [`prices.${ticker}`]: newPrice,
+        [`priceHistory.${ticker}`]: admin.firestore.FieldValue.arrayUnion({
+          timestamp: now,
+          price: newPrice
+        }),
+        launchedTickers: admin.firestore.FieldValue.arrayUnion(ticker)
+      });
+    } else if (marketDoc.exists) {
+      // Initialize price if not set
       const marketData = marketDoc.data();
       if (!marketData.prices?.[ticker]) {
         transaction.update(marketRef, {
@@ -6020,8 +6035,28 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
       }
     }
 
-    return { success: true, totalCost, newHoldings };
+    return { success: true, totalCost, newHoldings, soldOut, ticker: ipo.ticker, basePrice: ipo.basePrice, ipoTotalShares: ipo.totalShares || 150 };
   });
+
+  // Send Discord alert after transaction if sold out
+  if (result.soldOut) {
+    try {
+      const IPO_PRICE_JUMP = 0.15;
+      const newPrice = Math.round(result.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+      await sendDiscordMessage(null, [{
+        title: '🎉 IPO Sold Out!',
+        description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)} — now trading normally.`,
+        color: 0x00FF00,
+        fields: [
+          { name: 'Shares Sold', value: `${result.ipoTotalShares}/${result.ipoTotalShares}`, inline: true },
+          { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (e) {}
+  }
+
+  return result;
 });
 
 /**
