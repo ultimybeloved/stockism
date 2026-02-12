@@ -906,9 +906,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         await ipoAnnouncementAlertFunction({
           ticker: ipoTicker,
           characterName: character.name,
-          basePrice: character.basePrice,
-          ipoPrice: character.basePrice / 1.3,
-          endsAt: ipoEndsAt
+          ipoPrice: character.basePrice,
+          postIpoPrice: Math.round(character.basePrice * 1.15 * 100) / 100,
+          startsAt: ipoStartsAt,
+          endsAt: ipoEndsAt,
+          totalShares: ipoTotalShares,
+          maxPerUser: ipoMaxPerUser
         });
       } catch (discordErr) {
         console.error('Failed to send IPO announcement to Discord:', discordErr);

@@ -1462,10 +1462,12 @@ exports.ipoAnnouncementAlert = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
-  const { ticker, characterName, basePrice, ipoPrice, endsAt } = data;
+  const { ticker, characterName, ipoPrice, postIpoPrice, startsAt, endsAt, totalShares, maxPerUser } = data;
+
+  const startsImmediately = !startsAt || startsAt <= Date.now() + 60000;
 
   const embed = {
-    color: 0x00D4FF, // Bright blue
+    color: 0x00D4FF,
     title: '🚀 NEW IPO ANNOUNCED!',
     description: `**${characterName}** ($${ticker}) is going public!`,
     fields: [
@@ -1476,17 +1478,22 @@ exports.ipoAnnouncementAlert = functions.https.onCall(async (data, context) => {
       },
       {
         name: 'Post-IPO Price',
-        value: `$${basePrice.toFixed(2)} (+30%)`,
+        value: `$${postIpoPrice.toFixed(2)} (+15%)`,
         inline: true
       },
       {
-        name: 'Trading Opens',
-        value: `<t:${Math.floor(endsAt / 1000)}:R>`,
+        name: 'Shares Available',
+        value: `${totalShares || 150} total (max ${maxPerUser || 10}/person)`,
+        inline: false
+      },
+      {
+        name: startsImmediately ? 'IPO Ends' : 'IPO Opens',
+        value: startsImmediately ? `<t:${Math.floor(endsAt / 1000)}:R>` : `<t:${Math.floor(startsAt / 1000)}:R>`,
         inline: false
       }
     ],
     footer: {
-      text: '24-hour IPO window - Get in early!'
+      text: startsImmediately ? 'IPO is LIVE now - first come, first served!' : 'IPO window coming soon - Get in early!'
     },
     timestamp: new Date().toISOString()
   };
