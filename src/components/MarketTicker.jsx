@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { isWeeklyHalt, getHaltTimeRemaining, getNextHaltStart, formatCountdown } from '../utils/marketHours';
 
-const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
+const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMode }) => {
   const [countdown, setCountdown] = useState('');
   const halted = isWeeklyHalt() || marketData?.marketHalted;
   const manualHalt = marketData?.marketHalted;
@@ -94,8 +94,8 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
                   <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
                   {' '}
                   <span className={m.change >= 0
-                    ? 'text-emerald-500'
-                    : 'text-red-500'
+                    ? (colorBlindMode ? 'text-teal-500' : 'text-emerald-500')
+                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
                   }>
                     {m.change >= 0 ? '▲' : '▼'}{m.change >= 0 ? '+' : ''}{m.change.toFixed(1)}%
                   </span>
@@ -114,8 +114,8 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode }) => {
                   <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
                   {' '}
                   <span className={m.change >= 0
-                    ? 'text-emerald-500'
-                    : 'text-red-500'
+                    ? (colorBlindMode ? 'text-teal-500' : 'text-emerald-500')
+                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
                   }>
                     {m.change >= 0 ? '▲' : '▼'}{m.change >= 0 ? '+' : ''}{m.change.toFixed(1)}%
                   </span>

@@ -713,7 +713,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
 // IPO HYPE CARD (24h announcement phase)
 // ============================================
 
-const IPOHypeCard = ({ ipo, darkMode }) => {
+const IPOHypeCard = ({ ipo, darkMode, colorBlindMode }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
@@ -744,7 +744,7 @@ const IPOHypeCard = ({ ipo, darkMode }) => {
           <div className="grid grid-cols-2 gap-3 text-center">
             <div>
               <p className={`text-xs ${mutedClass}`}>IPO Price</p>
-              <p className="text-lg font-bold text-green-500">{formatCurrency(ipo.basePrice)}</p>
+              <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(ipo.basePrice)}</p>
             </div>
             <div>
               <p className={`text-xs ${mutedClass}`}>Shares Available</p>
@@ -770,7 +770,7 @@ const IPOHypeCard = ({ ipo, darkMode }) => {
 // IPO ACTIVE CARD (buying window)
 // ============================================
 
-const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
+const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest, colorBlindMode }) => {
   const [quantity, setQuantity] = useState(1);
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -790,16 +790,16 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
   const userMaxedOut = userIPOPurchases >= ipoMaxPerUser;
   
   return (
-    <div className={`${cardClass} border-2 border-green-500 rounded-sm p-4 relative overflow-hidden`}>
+    <div className={`${cardClass} border-2 ${colorBlindMode ? 'border-teal-500' : 'border-green-500'} rounded-sm p-4 relative overflow-hidden`}>
       {/* Live indicator */}
       <div className="absolute top-2 right-2 flex items-center gap-1">
-        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        <span className="text-xs font-bold text-green-500">LIVE</span>
+        <span className={`w-2 h-2 ${colorBlindMode ? 'bg-teal-500' : 'bg-green-500'} rounded-full animate-pulse`} />
+        <span className={`text-xs font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>LIVE</span>
       </div>
       
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">📈</span>
-        <span className="text-xs font-bold uppercase text-green-500 tracking-wider">IPO Now Open</span>
+        <span className={`text-xs font-bold uppercase ${colorBlindMode ? 'text-teal-500' : 'text-green-500'} tracking-wider`}>IPO Now Open</span>
       </div>
       
       <h3 className={`text-lg font-bold ${textClass}`}>
@@ -810,11 +810,11 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className={`text-xs ${mutedClass}`}>Price</p>
-            <p className="text-lg font-bold text-green-500">{formatCurrency(ipo.basePrice)}</p>
+            <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(ipo.basePrice)}</p>
           </div>
           <div>
             <p className={`text-xs ${mutedClass}`}>Left</p>
-            <p className={`text-lg font-bold ${sharesRemaining <= 20 ? 'text-red-500' : 'text-orange-500'}`}>
+            <p className={`text-lg font-bold ${sharesRemaining <= 20 ? (colorBlindMode ? 'text-purple-500' : 'text-red-500') : 'text-orange-500'}`}>
               {sharesRemaining}/{ipoTotalShares}
             </p>
           </div>
@@ -828,7 +828,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
         <div className="mt-2">
           <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}>
             <div 
-              className="h-full rounded-full bg-gradient-to-r from-green-500 to-orange-500 transition-all"
+              className={`h-full rounded-full bg-gradient-to-r ${colorBlindMode ? 'from-teal-500' : 'from-green-500'} to-orange-500 transition-all`}
               style={{ width: `${((ipoTotalShares - sharesRemaining) / ipoTotalShares) * 100}%` }}
             />
           </div>
@@ -839,7 +839,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
         <p className={`text-center text-sm ${mutedClass} mt-3`}>Sign in to participate in IPO</p>
       ) : soldOut ? (
         <div className="mt-3 text-center">
-          <p className="text-red-500 font-bold">🚫 SOLD OUT</p>
+          <p className={`${colorBlindMode ? 'text-purple-500' : 'text-red-500'} font-bold`}>🚫 SOLD OUT</p>
           <p className={`text-xs ${mutedClass}`}>Normal trading begins soon with 15% price increase</p>
         </div>
       ) : userMaxedOut ? (
@@ -890,7 +890,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
           <button
             onClick={() => onBuyIPO(ipo.ticker, quantity)}
             disabled={!canAfford || quantity > maxCanBuy}
-            className="w-full py-2 text-sm font-bold uppercase bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full py-2 text-sm font-bold uppercase ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {!canAfford ? 'Insufficient Funds' : `Buy ${quantity} Share${quantity > 1 ? 's' : ''}`}
           </button>
@@ -2855,15 +2855,16 @@ export default function App() {
                 const inHypePhase = now < ipo.ipoStartsAt;
                 
                 return inHypePhase ? (
-                  <IPOHypeCard key={ipo.ticker} ipo={ipo} darkMode={darkMode} />
+                  <IPOHypeCard key={ipo.ticker} ipo={ipo} darkMode={darkMode} colorBlindMode={userData?.colorBlindMode || false} />
                 ) : (
-                  <IPOActiveCard 
-                    key={ipo.ticker} 
-                    ipo={ipo} 
+                  <IPOActiveCard
+                    key={ipo.ticker}
+                    ipo={ipo}
                     userData={userData}
                     onBuyIPO={handleBuyIPO}
                     darkMode={darkMode}
                     isGuest={isGuest}
+                    colorBlindMode={userData?.colorBlindMode || false}
                   />
                 );
               })}
@@ -3407,7 +3408,7 @@ export default function App() {
               </div>
               <div className="flex justify-between">
                 <span>Action:</span>
-                <span className={`font-semibold ${tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover' ? 'text-green-500' : 'text-red-500'}`}>
+                <span className={`font-semibold ${tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover' ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
                   {tradeConfirmation.action.toUpperCase()}
                 </span>
               </div>
@@ -3423,7 +3424,7 @@ export default function App() {
                 <span className="font-semibold">{tradeConfirmation.action === 'short' ? 'Margin Cost:' : tradeConfirmation.action === 'cover' ? 'Est. Return:' : 'Est. Total:'}</span>
                 <span className={`font-bold ${
                   tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short' || (tradeConfirmation.action === 'cover' && tradeConfirmation.total < 0)
-                    ? 'text-red-500' : 'text-green-500'
+                    ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500')
                 }`}>
                   {tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short'
                     ? '-' : tradeConfirmation.total < 0 ? '-' : '+'}{formatCurrency(Math.abs(tradeConfirmation.total))}
@@ -3445,7 +3446,9 @@ export default function App() {
                 }}
                 disabled={actionLoading.trade}
                 className={`flex-1 py-2 rounded-sm font-semibold text-white ${
-                  tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                  tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'cover'
+                    ? (userData?.colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700')
+                    : (userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700')
                 } disabled:opacity-50`}
               >
                 {actionLoading.trade ? 'Executing...' : `Confirm ${tradeConfirmation.action.charAt(0).toUpperCase() + tradeConfirmation.action.slice(1)}`}

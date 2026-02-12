@@ -23,6 +23,7 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         priceHistory={priceHistory}
         marketData={marketData}
         darkMode={darkMode}
+        colorBlindMode={userData?.colorBlindMode || false}
       />
 
       {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
