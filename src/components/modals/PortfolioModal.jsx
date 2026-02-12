@@ -45,7 +45,7 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, darkMode, costBasis, priceHistory, colorBlindMode = false, user }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {} }) => {
   const { showNotification } = useAppContext();
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
@@ -150,6 +150,20 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
       })
       .sort((a, b) => b.positionValue - a.positionValue);
   }, [shorts, prices]);
+
+  // IPO holdings — only show active IPOs where user has purchases
+  const ipoItems = useMemo(() => {
+    if (!activeIPOs.length || !ipoPurchases) return [];
+    const now = Date.now();
+    return activeIPOs
+      .filter(ipo => now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && ipo.sharesRemaining > 0 && ipoPurchases[ipo.ticker] > 0)
+      .map(ipo => {
+        const shares = ipoPurchases[ipo.ticker];
+        const character = CHARACTER_MAP[ipo.ticker];
+        const maxPerUser = ipo.maxPerUser || 10;
+        return { ticker: ipo.ticker, character, shares, price: ipo.basePrice, total: ipo.basePrice * shares, maxPerUser };
+      });
+  }, [activeIPOs, ipoPurchases]);
 
   const totalShortsValue = shortItems.reduce((sum, item) => sum + item.positionValue, 0);
 
@@ -479,13 +493,48 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {portfolioItems.length === 0 && shortItems.length === 0 ? (
+          {portfolioItems.length === 0 && shortItems.length === 0 && ipoItems.length === 0 ? (
             <div className={`text-center py-8 ${mutedClass}`}>
               <p className="text-lg mb-2">📭 No positions yet</p>
               <p className="text-sm">Start trading to build your portfolio!</p>
             </div>
           ) : (
             <>
+              {/* IPO Holdings */}
+              {ipoItems.length > 0 && (
+                <>
+                  <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
+                    <span>🏷️</span> IPO Holdings
+                    <span className={`text-xs font-normal ${mutedClass}`}>({ipoItems.length})</span>
+                  </h3>
+                  <div className="space-y-2 mb-4">
+                    {ipoItems.map(item => (
+                      <div key={`ipo-${item.ticker}`} className={`rounded-sm border-2 p-3 ${darkMode ? 'border-indigo-600 bg-indigo-950/30' : 'border-indigo-400 bg-indigo-50'}`}>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>IPO</span>
+                              <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
+                            </div>
+                            <div className={`text-sm ${mutedClass} mt-1`}>
+                              {item.shares} shares @ {formatCurrency(item.price)}
+                              <span className="mx-1">•</span>
+                              {item.shares}/{item.maxPerUser} allocation used
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`font-semibold ${textClass}`}>{formatCurrency(item.total)}</div>
+                            <div className={`text-xs ${mutedClass}`}>invested</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`border-b mb-4 ${darkMode ? 'border-zinc-700' : 'border-amber-300'}`} />
+                </>
+              )}
+
               {/* Holdings List */}
               {portfolioItems.length > 0 && (
                 <>

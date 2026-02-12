@@ -849,19 +849,44 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
         </div>
       ) : (
         <div className="mt-3 space-y-2">
+          <label className={`block text-sm font-semibold mb-1 ${textClass}`}>Shares</label>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
+            >
+              -
+            </button>
             <input
               type="number"
               min="1"
               max={maxCanBuy}
               value={quantity}
-              onChange={(e) => setQuantity(Math.min(maxCanBuy, Math.max(1, parseInt(e.target.value) || 1)))}
-              className={`w-20 px-2 py-1 text-center rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '') return;
+                const num = parseInt(val);
+                if (!isNaN(num)) setQuantity(Math.min(maxCanBuy, Math.max(1, num)));
+              }}
+              className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
             />
-            <span className={`text-sm ${mutedClass}`}>shares</span>
-            <span className={`text-sm font-semibold ${textClass}`}>= {formatCurrency(totalCost)}</span>
+            <button
+              onClick={() => setQuantity(Math.min(maxCanBuy, quantity + 1))}
+              className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
+            >
+              +
+            </button>
+            <button
+              onClick={() => setQuantity(maxCanBuy)}
+              className="px-3 py-2 text-sm font-semibold rounded-sm bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              Max
+            </button>
           </div>
-          
+          <p className={`text-xs ${mutedClass}`}>
+            Max: {maxCanBuy} shares &nbsp;•&nbsp; Total: <span className={`font-semibold ${textClass}`}>{formatCurrency(totalCost)}</span>
+          </p>
+
           <button
             onClick={() => onBuyIPO(ipo.ticker, quantity)}
             disabled={!canAfford || quantity > maxCanBuy}
@@ -869,10 +894,6 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
           >
             {!canAfford ? 'Insufficient Funds' : `Buy ${quantity} Share${quantity > 1 ? 's' : ''}`}
           </button>
-          
-          <p className={`text-xs ${mutedClass} text-center`}>
-            You can buy up to {maxCanBuy} more shares
-          </p>
         </div>
       )}
     </div>
@@ -3353,6 +3374,8 @@ export default function App() {
           priceHistory={priceHistory}
           colorBlindMode={userData?.colorBlindMode || false}
           user={user}
+          activeIPOs={activeIPOs}
+          ipoPurchases={userData?.ipoPurchases || {}}
         />
       )}
       {selectedCharacter && (
