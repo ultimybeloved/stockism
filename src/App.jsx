@@ -1859,12 +1859,12 @@ export default function App() {
         }
       } else {
         console.error('[TRADE EXECUTION ERROR]', firstError);
-        if (firstMsg.includes('cooldown:') || firstMsg.includes('Hold period:') ||
-            firstMsg.includes('Short limit') || firstMsg.includes('velocity limit') ||
-            firstMsg.includes('Insufficient') || firstMsg.includes('Daily impact limit')) {
-          showNotification('error', firstMsg.replace(/^.*: /, ''));
+        const isInfraError = firstMsg.includes('INTERNAL') || firstMsg.includes('DEADLINE_EXCEEDED') ||
+                             firstMsg.includes('UNAVAILABLE') || firstMsg.includes('PERMISSION_DENIED');
+        if (isInfraError) {
+          showNotification('error', 'Cannot execute trade at this time. Please try again.');
         } else {
-          showNotification('error', 'Cannot execute trade at this time');
+          showNotification('error', firstMsg);
         }
         setLoadingKey('trade', false);
         return;
