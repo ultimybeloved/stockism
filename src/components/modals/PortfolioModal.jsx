@@ -4,6 +4,7 @@ import { formatCurrency, formatChange, formatNumber } from '../../utils/formatte
 import LimitOrders from '../LimitOrders';
 import { db } from '../../firebase';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { useAppContext } from '../../context/AppContext';
 
 const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   if (!data || data.length < 2) return null;
@@ -45,6 +46,7 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
 };
 
 const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, darkMode, costBasis, priceHistory, colorBlindMode = false, user }) => {
+  const { showNotification } = useAppContext();
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);
@@ -216,7 +218,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
       setPendingOrders(prev => prev.filter(o => o.id !== orderId));
     } catch (error) {
       console.error('Error canceling order:', error);
-      alert(`Failed to cancel order: ${error.message}`);
+      showNotification('error', `Failed to cancel order: ${error.message}`);
     }
     setLoadingOrders(false);
   };

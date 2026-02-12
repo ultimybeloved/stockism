@@ -180,7 +180,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
 
                 <button
                   onClick={handleSignOut}
-                  className={`hidden sm:block px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  className={`px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                     userData?.colorBlindMode
                       ? (darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-gray-600 hover:bg-gray-100')
                       : (darkMode ? 'text-red-400 hover:bg-zinc-800' : 'text-red-600 hover:bg-gray-100')

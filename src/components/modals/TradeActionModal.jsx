@@ -11,6 +11,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
 import { isWeeklyHalt } from '../../utils/marketHours';
+import { useAppContext } from '../../context/AppContext';
 
 // Helper functions from App.jsx
 const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
@@ -63,6 +64,7 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 };
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false }) => {
+  const { showNotification } = useAppContext();
   const [amount, setAmount] = useState(1);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder);
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
@@ -130,7 +132,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           high = mid - 1;
         }
       }
-      return Math.max(1, maxAffordable);
+      return Math.max(0, maxAffordable);
     } else if (action === 'sell') {
       return holdings || 0;
     } else if (action === 'short') {
@@ -150,7 +152,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       // v2: must also have enough cash for the margin deposit
       const maxByCash = marginPerShare > 0 ? Math.floor(userCash / marginPerShare) : 0;
       const maxAffordable = Math.min(maxByEquity, maxByCash);
-      return Math.max(1, Math.min(maxAffordable, 10000));
+      return Math.max(0, Math.min(maxAffordable, 10000));
     } else if (action === 'cover') {
       return shortPosition?.shares || 0;
     }
@@ -243,14 +245,19 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     if (isLimitOrder) {
       // Block limit order creation during trading halt
       if (isWeeklyHalt()) {
-        alert('Market is closed for chapter review. Limit orders cannot be created during trading halt.');
+        showNotification('error', 'Market is closed for chapter review. Limit orders cannot be created during trading halt.');
         return;
       }
 
       // Handle limit order creation
       const priceNum = parseFloat(limitPrice);
       if (isNaN(priceNum) || priceNum <= 0) {
-        alert('Please enter a valid limit price');
+        showNotification('error', 'Please enter a valid limit price');
+        return;
+      }
+
+      if (priceNum > price * 10) {
+        showNotification('error', 'Limit price cannot exceed 10x current price');
         return;
       }
 
@@ -264,11 +271,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           allowPartialFills
         });
 
-        alert('Limit order created! View your orders in Portfolio.');
+        showNotification('success', 'Limit order created! View your orders in Portfolio.');
         onClose();
       } catch (error) {
         console.error('Error creating limit order:', error);
-        alert(`Failed to create order: ${error.message}`);
+        showNotification('error', `Failed to create order: ${error.message}`);
       } finally {
         setSubmitting(false);
       }
@@ -318,14 +325,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <label className={`block text-sm font-semibold mb-2 ${textClass}`}>Shares</label>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setAmount(Math.max(1, (amount || 1) - 1))}
+              onClick={() => setAmount(Math.max(0, (amount || 1) - 1))}
               className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
             >
               -
             </button>
             <input
               type="number"
-              min="1"
+              min="0"
               max={maxShares}
               value={amount === '' ? '' : amount}
               onChange={(e) => {
@@ -340,8 +347,8 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
                 }
               }}
               onBlur={() => {
-                if (amount === '' || amount < 1) {
-                  setAmount(1);
+                if (amount === '' || amount < 0) {
+                  setAmount(maxShares > 0 ? 1 : 0);
                 }
               }}
               className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}

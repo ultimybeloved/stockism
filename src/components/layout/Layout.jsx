@@ -44,7 +44,7 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
       </main>
 
       <Footer darkMode={darkMode} />
-      <MobileBottomNav darkMode={darkMode} />
+      <MobileBottomNav darkMode={darkMode} user={user} />
     </div>
   );
 };

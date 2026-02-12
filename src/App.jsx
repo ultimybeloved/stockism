@@ -1868,6 +1868,8 @@ export default function App() {
       return;
     }
 
+    // Wrap post-execution processing so setLoadingKey always runs
+    try {
     // Extract execution results from server
     const {
       executionPrice,
@@ -2131,23 +2133,26 @@ export default function App() {
 
 
     }
-    setLoadingKey('trade', false);
+    } finally {
+      setLoadingKey('trade', false);
+    }
   }, [user, userData, prices, marketData, addActivity]);
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules)
+  // Debounced to avoid firing on every price tick
   useEffect(() => {
     if (!user || !userData || Object.keys(prices).length === 0) return;
 
-    const syncPortfolio = async () => {
+    const timeout = setTimeout(async () => {
       try {
         await syncPortfolioFunction();
       } catch (error) {
         console.error('[PORTFOLIO SYNC ERROR]', error);
       }
-    };
+    }, 30000);
 
-    syncPortfolio();
+    return () => clearTimeout(timeout);
   }, [user, userData, prices]);
 
   // Margin monitoring now handled server-side by checkMarginLending scheduled function (every 5 min)
@@ -2712,7 +2717,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -2732,8 +2737,8 @@ export default function App() {
     );
   }
 
-  // Create context value for AppProvider
-  const contextValue = {
+  // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
+  const contextValue = useMemo(() => ({
     darkMode,
     user,
     userData,
@@ -2749,7 +2754,7 @@ export default function App() {
     activeIPOs,
     ipoRestrictedTickers,
     launchedTickers
-  };
+  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers]);
 
   return (
     <AppProvider value={contextValue}>

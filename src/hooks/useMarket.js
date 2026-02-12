@@ -45,7 +45,7 @@ export const useMarket = () => {
         // Filter to only show active IPOs
         const active = ipoList.filter(ipo => {
           const inHypePhase = now < ipo.ipoStartsAt;
-          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining || 150) > 0;
+          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining ?? 150) > 0;
           return inHypePhase || inBuyingPhase;
         });
         setActiveIPOs(active);

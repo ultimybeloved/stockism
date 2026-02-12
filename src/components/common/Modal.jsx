@@ -5,18 +5,8 @@
 
 import React, { useEffect, useCallback } from 'react';
 
-/**
- * Modal wrapper component
- * @param {Object} props
- * @param {boolean} props.isOpen - Whether modal is open
- * @param {Function} props.onClose - Close handler
- * @param {string} props.title - Modal title
- * @param {React.ReactNode} props.children - Modal content
- * @param {string} props.size - Modal size: 'sm' | 'md' | 'lg' | 'xl' | 'full'
- * @param {boolean} props.darkMode - Dark mode flag
- * @param {boolean} props.showCloseButton - Show close button (default true)
- * @param {string} props.className - Additional class names
- */
+let openModalCount = 0;
+
 const Modal = ({
   isOpen,
   onClose,
@@ -34,16 +24,21 @@ const Modal = ({
     }
   }, [onClose]);
 
-  // Add/remove event listener
   useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
+      openModalCount++;
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      if (isOpen) {
+        openModalCount--;
+        if (openModalCount === 0) {
+          document.body.style.overflow = '';
+        }
+      }
     };
   }, [isOpen, handleKeyDown]);
 

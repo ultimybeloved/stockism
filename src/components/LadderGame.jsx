@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
+import { useAppContext } from '../context/AppContext';
 
 const LadderGame = ({ user, onClose, darkMode, userData }) => {
+  const { showNotification } = useAppContext();
   const [userLadderData, setUserLadderData] = useState(null);
   const [globalHistory, setGlobalHistory] = useState([]);
   const [userStockismCash, setUserStockismCash] = useState(0);
@@ -156,7 +158,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
 
     const amount = parseInt(betAmount);
     if (isNaN(amount) || amount <= 0 || amount > (userLadderData?.balance || 0)) {
-      alert('Invalid bet amount.');
+      showNotification('error', 'Invalid bet amount.');
       return;
     }
 
@@ -212,7 +214,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
 
     } catch (error) {
       console.error('Game error:', error);
-      alert(error.message || 'Failed to play game');
+      showNotification('error', error.message || 'Failed to play game');
       setPlaying(false);
       setSelectedStart(null);
       setSelectedBet(null);
@@ -482,11 +484,11 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Invalid amount');
+      showNotification('error', 'Invalid amount');
       return;
     }
     if (amount > userStockismCash) {
-      alert('Insufficient Stockism cash');
+      showNotification('error', 'Insufficient Stockism cash');
       return;
     }
 
@@ -495,10 +497,10 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
       await depositToLadderGameFunction({ amount });
       setDepositAmount('');
       setShowDepositModal(false);
-      alert(`Successfully deposited $${amount}`);
+      showNotification('success', `Successfully deposited $${amount}`);
     } catch (error) {
       console.error('Deposit error:', error);
-      alert(error.message || 'Deposit failed');
+      showNotification('error', error.message || 'Deposit failed');
     } finally {
       setDepositLoading(false);
     }

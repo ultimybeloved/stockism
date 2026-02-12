@@ -5,8 +5,8 @@ const Footer = ({ darkMode }) => {
   const links = [
     { href: 'https://discord.gg/yxw94uNrYv', label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },
-    { href: '/terms.html', label: 'Terms of Service', external: false },
-    { href: '/privacy.html', label: 'Privacy Policy', external: false }
+    { href: '/terms.html', label: 'Terms of Service', external: true },
+    { href: '/privacy.html', label: 'Privacy Policy', external: true }
   ];
 
   return (

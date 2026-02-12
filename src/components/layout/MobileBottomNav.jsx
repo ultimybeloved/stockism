@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 // Ladder icon component - tan circle with X
@@ -19,32 +19,34 @@ const LadderIcon = () => (
   </svg>
 );
 
-const MobileBottomNav = ({ darkMode }) => {
+const MobileBottomNav = ({ darkMode, user }) => {
   const location = useLocation();
   const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const lastScrollY = useRef(0);
+  const isVisibleRef = useRef(true);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      let shouldShow;
 
-      // Show if at top of page
       if (currentScrollY < 10) {
-        setIsVisible(true);
-      }
-      // Hide when scrolling down, show when scrolling up
-      else if (currentScrollY > lastScrollY) {
-        setIsVisible(false);
+        shouldShow = true;
       } else {
-        setIsVisible(true);
+        shouldShow = currentScrollY <= lastScrollY.current;
       }
 
-      setLastScrollY(currentScrollY);
+      if (shouldShow !== isVisibleRef.current) {
+        isVisibleRef.current = shouldShow;
+        setIsVisible(shouldShow);
+      }
+
+      lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+  }, []);
 
   const isActivePage = (path) => {
     return location.pathname === path;
@@ -59,7 +61,7 @@ const MobileBottomNav = ({ darkMode }) => {
     { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
     { path: '/ladder', icon: <LadderIcon />, label: 'Ladder' },
     { path: '/achievements', icon: '🏅', label: 'Achievements' },
-    { path: '/profile', icon: '👤', label: 'Profile' }
+    ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : [])
   ];
 
   return (
