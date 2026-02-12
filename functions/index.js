@@ -2994,7 +2994,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             costBasis: pos.costBasis || pos.entryPrice || 0,
             margin: pos.margin || 0,
             openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
-            system: pos.system
+            system: pos.system || false
           };
         }
       }
@@ -6464,7 +6464,7 @@ exports.checkShortMarginCalls = functions.pubsub
                       costBasis: pos.costBasis || pos.entryPrice || 0,
                       margin: pos.margin || 0,
                       openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
-                      system: pos.system
+                      system: pos.system || false
                     };
                   }
                 }
