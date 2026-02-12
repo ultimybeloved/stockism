@@ -4717,14 +4717,17 @@ exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
     const userIds = ladderUsersSnap.docs.map(doc => doc.id);
     const leaderboard = [];
 
-    // Batch get usernames
-    for (const userId of userIds) {
-      const ladderData = ladderUsersSnap.docs.find(doc => doc.id === userId).data();
-      const userDoc = await db.collection('users').doc(userId).get();
-      const userData = userDoc.data();
+    // Batch get all usernames in one call
+    const userRefs = userIds.map(id => db.collection('users').doc(id));
+    const userDocs = userRefs.length > 0 ? await db.getAll(...userRefs) : [];
+    const userMap = {};
+    userDocs.forEach(doc => { if (doc.exists) userMap[doc.id] = doc.data(); });
 
+    for (const doc of ladderUsersSnap.docs) {
+      const ladderData = doc.data();
+      const userData = userMap[doc.id];
       leaderboard.push({
-        userId,
+        userId: doc.id,
         username: userData?.displayName || 'Anonymous',
         balance: ladderData.balance || 0,
         gamesPlayed: ladderData.gamesPlayed || 0,
@@ -5496,14 +5499,25 @@ exports.checkLimitOrders = functions.pubsub
               }
             });
           } catch (transactionError) {
-            // Transaction failed - cancel the order
-            console.log(`Transaction failed for order ${orderId}: ${transactionError.message}`);
-            await db.collection('limitOrders').doc(orderId).update({
-              status: 'CANCELED',
-              cancelReason: transactionError.message,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            canceled++;
+            const msg = transactionError.message || '';
+            const shouldCancel = [
+              'User not found',
+              'User is bankrupt',
+              'Insufficient cash',
+              'Insufficient shares'
+            ].some(reason => msg.includes(reason));
+
+            if (shouldCancel) {
+              console.log(`Canceling order ${orderId}: ${msg}`);
+              await db.collection('limitOrders').doc(orderId).update({
+                status: 'CANCELED',
+                cancelReason: msg,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              canceled++;
+            } else {
+              console.log(`Order ${orderId} deferred (will retry): ${msg}`);
+            }
             continue;
           }
 
