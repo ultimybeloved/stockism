@@ -993,7 +993,7 @@ exports.dailyMarketSummary = functions.pubsub
 
       embed.fields.push({
         name: '💰 Market Stats',
-        value: `Total Cash: $${(marketData.totalCashInSystem || 0).toLocaleString()}\nActive Traders: ${users.length}`,
+        value: `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.cash || 0), 0)).toLocaleString()}\nActive Traders: ${users.length}`,
         inline: false
       });
 
