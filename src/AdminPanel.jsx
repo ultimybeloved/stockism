@@ -4215,8 +4215,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     }, 0);
 
                     const totalCostBasis = Object.entries(selectedUser.costBasis || {}).reduce((sum, [ticker, cost]) => {
-                      const shareCount = typeof selectedUser.holdings[ticker] === 'number' ? selectedUser.holdings[ticker] : (selectedUser.holdings[ticker]?.shares || 0);
-                      if (shareCount > 0) return sum + cost;
+                      const h = selectedUser.holdings || {};
+                      const shareCount = typeof h[ticker] === 'number' ? h[ticker] : (h[ticker]?.shares || 0);
+                      if (shareCount > 0 && typeof cost === 'number' && !isNaN(cost)) return sum + cost;
                       return sum;
                     }, 0);
 

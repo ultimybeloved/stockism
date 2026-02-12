@@ -4970,9 +4970,9 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
   }
 
-  // Validate order type
-  if (!type || !['BUY', 'SELL', 'SHORT', 'COVER'].includes(type)) {
-    throw new functions.https.HttpsError('invalid-argument', 'Invalid order type.');
+  // Validate order type (only BUY/SELL supported — SHORT/COVER can't execute in checkLimitOrders)
+  if (!type || !['BUY', 'SELL'].includes(type)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Limit orders support BUY and SELL only.');
   }
 
   // Validate shares (must be finite positive integer, max 10000)
@@ -5136,6 +5136,17 @@ exports.checkLimitOrders = functions.pubsub
         try {
           const order = orderDoc.data();
           const orderId = orderDoc.id;
+
+          // Auto-cancel unsupported SHORT/COVER orders
+          if (order.type === 'SHORT' || order.type === 'COVER') {
+            await db.collection('limitOrders').doc(orderId).update({
+              status: 'CANCELLED',
+              cancelReason: 'SHORT/COVER limit orders not supported',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            canceled++;
+            continue;
+          }
 
           // Check expiration (30 days)
           if (order.expiresAt && now > order.expiresAt) {
@@ -5622,11 +5633,27 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
     }
 
-    // Check bet limit (can't bet more than total invested)
+    // Check bet limit (can't bet more than total invested value)
     const holdings = userData.holdings || {};
-    const totalInvested = Object.values(holdings).reduce((sum, s) => sum + s, 0);
+    const costBasisData = userData.costBasis || {};
+    const totalHoldingsValue = Object.entries(holdings).reduce((sum, [t, shares]) => {
+      return sum + ((costBasisData[t] || 0) * shares);
+    }, 0);
+    const totalShortMargin = Object.values(userData.shorts || {})
+      .filter(s => s && s.shares > 0)
+      .reduce((sum, s) => sum + (s.margin || 0), 0);
+    const totalInvested = totalHoldingsValue + totalShortMargin;
+
     if (totalInvested <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Must invest in stocks before betting.');
+    }
+
+    // Enforce bet limit: can't bet more than total invested or available cash
+    const betLimit = Math.min(totalInvested, userData.cash || 0);
+    const existingBetOnThis = userData.bets?.[predictionId]?.amount || 0;
+    if (amount > betLimit - existingBetOnThis) {
+      throw new functions.https.HttpsError('failed-precondition',
+        `Bet exceeds limit. Max: $${Math.max(0, betLimit - existingBetOnThis).toFixed(2)}`);
     }
 
     // Check existing bet on different option

@@ -1598,7 +1598,7 @@ export default function App() {
       const message = err?.message || err?.details || 'Failed to join crew';
       showNotification('error', message);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Handle leaving crew
   const handleCrewLeave = useCallback(async () => {
@@ -1623,7 +1623,7 @@ export default function App() {
     } finally {
       setLoadingKey('leaveCrew', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Handle pin shop purchases and updates
   const handlePinAction = useCallback(async (action, payload, cost) => {
@@ -1666,7 +1666,7 @@ export default function App() {
     } finally {
       setLoadingKey('pinAction', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Handle claiming daily mission rewards
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
@@ -1821,7 +1821,7 @@ export default function App() {
     }
     setLimitOrderRequest({ ticker, action });
     setShowPortfolio(false); // Close portfolio modal
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Handle trade (executes after confirmation)
   const handleTrade = useCallback(async (ticker, action, amount) => {
@@ -2414,7 +2414,7 @@ export default function App() {
     } finally {
       setLoadingKey('placeBet', false);
     }
-  }, [user, userData, predictions, addActivity]);
+  }, [user, userData, predictions, addActivity, showNotification]);
 
   // Hide prediction from feed (admin only)
   const handleHidePrediction = useCallback(async (predictionId) => {
@@ -2477,7 +2477,7 @@ export default function App() {
     } finally {
       setLoadingKey('enableMargin', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Disable margin trading
   const handleDisableMargin = useCallback(async () => {
@@ -2499,7 +2499,7 @@ export default function App() {
     } finally {
       setLoadingKey('disableMargin', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Repay margin
   const handleRepayMargin = useCallback(async (amount) => {
@@ -2533,7 +2533,7 @@ export default function App() {
     } finally {
       setLoadingKey('repayMargin', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Bankruptcy bailout - reset to $500 but exile from all past crews
   const handleBailout = useCallback(async () => {
@@ -2569,7 +2569,7 @@ export default function App() {
     } finally {
       setLoadingKey('bailout', false);
     }
-  }, [user, userData]);
+  }, [user, userData, showNotification]);
 
   // Guest data
   const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: STARTING_CASH };

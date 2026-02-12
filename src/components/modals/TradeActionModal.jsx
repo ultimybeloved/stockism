@@ -377,26 +377,28 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           )}
         </div>
 
-        {/* Limit Order Checkbox */}
-        <div className="mb-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isLimitOrder}
-              onChange={(e) => {
-                setIsLimitOrder(e.target.checked);
-                if (e.target.checked) {
-                  setLimitPrice(price.toFixed(2));
-                }
-              }}
-              className="w-4 h-4"
-            />
-            <span className={`text-sm font-semibold ${textClass}`}>Place as limit order</span>
-          </label>
-          <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
-            Order will execute when price conditions are met (30-day expiration)
-          </p>
-        </div>
+        {/* Limit Order Checkbox (only for buy/sell — short/cover not supported) */}
+        {(action === 'buy' || action === 'sell') && (
+          <div className="mb-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isLimitOrder}
+                onChange={(e) => {
+                  setIsLimitOrder(e.target.checked);
+                  if (e.target.checked) {
+                    setLimitPrice(price.toFixed(2));
+                  }
+                }}
+                className="w-4 h-4"
+              />
+              <span className={`text-sm font-semibold ${textClass}`}>Place as limit order</span>
+            </label>
+            <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
+              Order will execute when price conditions are met (30-day expiration)
+            </p>
+          </div>
+        )}
 
         {/* Limit Order Settings */}
         {isLimitOrder && (
