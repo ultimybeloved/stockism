@@ -1818,22 +1818,34 @@ export default function App() {
     try {
       result = await executeTradeFunction({ ticker, action, amount });
       console.log('[TRADE EXECUTED]', result.data);
-    } catch (error) {
-      console.error('[TRADE EXECUTION ERROR]', error);
-      const message = error.message || 'Trade execution failed';
+    } catch (firstError) {
+      const firstMsg = firstError.message || 'Trade execution failed';
+      const isContention = firstMsg.includes('busy') || firstMsg.includes('try again') || firstMsg.includes('contention');
 
-      // Extract user-friendly error messages
-      if (message.includes('cooldown:') || message.includes('Hold period:') ||
-          message.includes('Short limit') || message.includes('velocity limit') ||
-          message.includes('Insufficient') || message.includes('Daily impact limit')) {
-        showNotification('error', message.replace(/^.*: /, ''));
-      } else if (message.includes('busy') || message.includes('try again')) {
-        showNotification('warning', 'Market was busy — please try again.');
+      // Auto-retry once on contention before showing error
+      if (isContention) {
+        try {
+          await new Promise(r => setTimeout(r, 500));
+          result = await executeTradeFunction({ ticker, action, amount });
+          console.log('[TRADE EXECUTED ON RETRY]', result.data);
+        } catch (retryError) {
+          console.error('[TRADE RETRY FAILED]', retryError);
+          showNotification('warning', 'Market was busy — please try again.');
+          setLoadingKey('trade', false);
+          return;
+        }
       } else {
-        showNotification('error', 'Cannot execute trade at this time');
+        console.error('[TRADE EXECUTION ERROR]', firstError);
+        if (firstMsg.includes('cooldown:') || firstMsg.includes('Hold period:') ||
+            firstMsg.includes('Short limit') || firstMsg.includes('velocity limit') ||
+            firstMsg.includes('Insufficient') || firstMsg.includes('Daily impact limit')) {
+          showNotification('error', firstMsg.replace(/^.*: /, ''));
+        } else {
+          showNotification('error', 'Cannot execute trade at this time');
+        }
+        setLoadingKey('trade', false);
+        return;
       }
-      setLoadingKey('trade', false);
-      return;
     }
 
     // Wrap post-execution processing so setLoadingKey always runs
