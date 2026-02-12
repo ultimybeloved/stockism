@@ -87,5 +87,7 @@ export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
 export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
+// Admin: rename ticker across all data
+export const renameTickerFunction = httpsCallable(functions, 'renameTicker');
 
 export default app;

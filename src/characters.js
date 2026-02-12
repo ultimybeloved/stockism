@@ -169,6 +169,9 @@ export const CHARACTERS = [
 
   // New characters added 2026-01-26
   { name: "Brekdak", ticker: "MUAY", basePrice: 70, volatility: 0.035, dateAdded: "2026-01-26T00:00:00" },
+
+  // IPO characters - require IPO process before trading
+  { name: "Ryu Baekgeon", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
 ];
 
 // Create a map for quick lookup

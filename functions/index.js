@@ -2416,6 +2416,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
 
     // CRITICAL: Enforce 3-second cooldown using server timestamp
     const now = admin.firestore.Timestamp.now().toMillis();
+    const todayDate = new Date().toISOString().split('T')[0];
     const lastTradeTime = userData.lastTradeTime;
 
     if (lastTradeTime) {
@@ -2453,6 +2454,50 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError(
           'failed-precondition',
           `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour. Please wait before trading this stock again.`
+        );
+      }
+
+      // ANTI-MANIPULATION: 5-minute burst limit (max 3 per ticker per 5 min)
+      const FIVE_MIN_MS = 5 * 60 * 1000;
+      const fiveMinAgo = new Date(now - FIVE_MIN_MS);
+      const burstTradesSnap = await db.collection('trades')
+        .where('uid', '==', uid)
+        .where('ticker', '==', ticker)
+        .where('action', '==', action)
+        .where('timestamp', '>', fiveMinAgo)
+        .get();
+
+      if (burstTradesSnap.size >= 3) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Slow down: Max 3 ${action === 'buy' ? 'buys' : 'shorts'} per ticker every 5 minutes.`
+        );
+      }
+    }
+
+    // ANTI-MANIPULATION: 10-second same-ticker cooldown (buy/short only)
+    if (action === 'buy' || action === 'short') {
+      const TICKER_COOLDOWN_MS = 10000;
+      const lastTickerTradeTime = userData.lastTickerTradeTime?.[ticker];
+      if (lastTickerTradeTime) {
+        const lastTickerMs = lastTickerTradeTime.toMillis ? lastTickerTradeTime.toMillis() : lastTickerTradeTime;
+        const timeSinceTickerTrade = now - lastTickerMs;
+        if (timeSinceTickerTrade < TICKER_COOLDOWN_MS) {
+          const remainingMs = TICKER_COOLDOWN_MS - timeSinceTickerTrade;
+          throw new functions.https.HttpsError('failed-precondition',
+            `Same-stock cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`);
+        }
+      }
+    }
+
+    // ANTI-MANIPULATION: Check daily impact cap (buy/short only)
+    if (action === 'buy' || action === 'short') {
+      const todayDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
+      const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
+      if (todayDailyImpact >= MAX_DAILY_IMPACT && overCapCount >= 3) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Daily impact limit reached for ${ticker}. No more ${action === 'buy' ? 'buys' : 'shorts'} today.`
         );
       }
     }
@@ -2838,6 +2883,22 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       const userDailyImpact = dailyImpact[todayDate] || {};
       const tickerDailyImpact = userDailyImpact[ticker] || 0;
 
+      // ANTI-MANIPULATION: Read IP-level daily impact (shared across all accounts on same IP)
+      const ip = context.rawRequest?.ip || 'unknown';
+      let ipDailyImpact = 0;
+      let ipTrackingRef = null;
+      let sanitizedIp = null;
+
+      if (ip !== 'unknown') {
+        sanitizedIp = ip.replace(/[.:/]/g, '_');
+        ipTrackingRef = db.collection('ipTracking').doc(sanitizedIp);
+        const ipDoc = await transaction.get(ipTrackingRef);
+        if (ipDoc.exists) {
+          const ipData = ipDoc.data();
+          ipDailyImpact = ipData.dailyImpact?.[todayDate]?.[ticker] || 0;
+        }
+      }
+
       // Enforce 3-second cooldown
       const lastTradeTime = userData.lastTradeTime;
       if (lastTradeTime) {
@@ -2851,6 +2912,21 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             'failed-precondition',
             `Trade cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`
           );
+        }
+      }
+
+      // ANTI-MANIPULATION: 10-second same-ticker cooldown (buy/short only)
+      if (action === 'buy' || action === 'short') {
+        const TICKER_COOLDOWN_MS = 10000;
+        const lastTickerTradeTime = userData.lastTickerTradeTime?.[ticker];
+        if (lastTickerTradeTime) {
+          const lastTickerMs = lastTickerTradeTime.toMillis ? lastTickerTradeTime.toMillis() : lastTickerTradeTime;
+          const timeSinceTickerTrade = now - lastTickerMs;
+          if (timeSinceTickerTrade < TICKER_COOLDOWN_MS) {
+            const remainingMs = TICKER_COOLDOWN_MS - timeSinceTickerTrade;
+            throw new functions.https.HttpsError('failed-precondition',
+              `Same-stock cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`);
+          }
         }
       }
 
@@ -2873,6 +2949,23 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           throw new functions.https.HttpsError(
             'failed-precondition',
             `Trade velocity limit: You've traded ${ticker} ${tradesInLastHour} times in the last hour.`
+          );
+        }
+
+        // ANTI-MANIPULATION: 5-minute burst limit (max 3 per ticker per 5 min)
+        const FIVE_MIN_MS = 5 * 60 * 1000;
+        const fiveMinAgo = new Date(now - FIVE_MIN_MS);
+        const burstTradesSnap = await db.collection('trades')
+          .where('uid', '==', uid)
+          .where('ticker', '==', ticker)
+          .where('action', '==', action)
+          .where('timestamp', '>', fiveMinAgo)
+          .get();
+
+        if (burstTradesSnap.size >= 3) {
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Slow down: Max 3 ${action === 'buy' ? 'buys' : 'shorts'} per ticker every 5 minutes.`
           );
         }
       }
@@ -2899,6 +2992,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
       }
       let newMarginUsed = marginUsed;
+      let isOverCapTrade = false;
+      let surchargeAmount = 0;
 
       // BUY LOGIC
       if (action === 'buy') {
@@ -2911,14 +3006,29 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+        const userOverCap = tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+        const ipOverCap = ipDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+
+        if (userOverCap || ipOverCap) {
+          const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
+
+          if (overCapCount >= 3) {
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Daily impact limit reached for ${ticker}. No more buys today.`
+            );
+          }
+
+          // Zero market impact, but escalating surcharge (0%, 5%, 10%)
+          const surchargePercent = overCapCount * 0.05;
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
-          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2);
+          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2) * (1 + surchargePercent);
           totalCost = executionPrice * amount;
+          isOverCapTrade = true;
         }
 
         // Validate cash (with margin if enabled)
@@ -2981,15 +3091,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        // Sells always have full market impact (no free exits)
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          priceImpact = 0;
-          impactPercent = 0;
-          newPrice = currentPrice;
-          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - BID_ASK_SPREAD / 2));
-          totalCost = executionPrice * amount;
-        }
 
         // Execute sell
         newCash = cash + totalCost;
@@ -3066,18 +3169,34 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
+        const userOverCap = tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+        const ipOverCap = ipDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+
+        if (userOverCap || ipOverCap) {
+          const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
+
+          if (overCapCount >= 3) {
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Daily impact limit reached for ${ticker}. No more shorts today.`
+            );
+          }
+
+          // Zero market impact, but escalating surcharge (0%, 5%, 10%)
+          const surchargePercent = overCapCount * 0.05;
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
           executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - BID_ASK_SPREAD / 2));
           totalCost = executionPrice * amount;
+          surchargeAmount = totalCost * surchargePercent;
+          isOverCapTrade = true;
         }
 
         // Execute short — v2: deduct margin only, no sale proceeds
-        newCash = cash - marginRequired;
+        newCash = cash - marginRequired - surchargeAmount;
 
         const existingShort = shorts[ticker];
         if (existingShort && existingShort.shares > 0) {
@@ -3137,15 +3256,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — if limit reached, trade still executes but with zero price impact
+        // Covers always have full market impact (no free exits)
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        if (tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-          priceImpact = 0;
-          impactPercent = 0;
-          newPrice = currentPrice;
-          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2);
-          totalCost = executionPrice * amount;
-        }
 
         // Calculate margin to return (based on entry price, not current price)
         const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
@@ -3284,6 +3396,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
       };
 
+      // ANTI-MANIPULATION: Track over-cap trades and ticker trade times
+      if (isOverCapTrade) {
+        updates[`overCapTrades.${todayDate}.${ticker}`] = admin.firestore.FieldValue.increment(1);
+      }
+      if (action === 'buy' || action === 'short') {
+        updates[`lastTickerTradeTime.${ticker}`] = admin.firestore.Timestamp.now();
+      }
+
       if (action === 'buy') {
         updates[`lastBuyTime.${ticker}`] = admin.firestore.Timestamp.now();
         updates[`dailyMissions.${todayDate}.boughtAny`] = true;
@@ -3382,6 +3502,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       };
       const tradeRef = db.collection('trades').doc();
       transaction.set(tradeRef, tradeRecord);
+
+      // ANTI-MANIPULATION: Save IP-level daily impact for buys/shorts
+      if (ipTrackingRef && sanitizedIp && (action === 'buy' || action === 'short')) {
+        const actualImpact = currentPrice > 0 ? priceImpact / currentPrice : 0;
+        transaction.set(ipTrackingRef, {
+          [`dailyImpact.${todayDate}.${ticker}`]: ipDailyImpact + actualImpact
+        }, { merge: true });
+      }
 
       // Compute achievement context inside transaction (we have the data here)
       let achievementCtx = { tradeValue: totalCost };
@@ -5796,7 +5924,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, quantity } = data;
 
-  if (!ticker || !quantity || !Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0 || quantity > 10) {
+  if (!ticker || !quantity || !Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid IPO purchase data.');
   }
 
@@ -5826,9 +5954,16 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
     const ipo = ipoList.find(i => i.ticker === ticker);
     if (!ipo) throw new functions.https.HttpsError('not-found', 'IPO not found.');
 
+    const maxPerUser = ipo.maxPerUser || 10;
+
+    // Validate quantity against per-IPO limit
+    if (quantity > maxPerUser) {
+      throw new functions.https.HttpsError('invalid-argument', `Max ${maxPerUser} shares per user.`);
+    }
+
     // Validate IPO is active
     const now = Date.now();
-    if (ipo.status !== 'active' || !ipo.ipoStartTime || now < ipo.ipoStartTime || now > ipo.ipoEndTime) {
+    if (!ipo.ipoStartsAt || now < ipo.ipoStartsAt || now > ipo.ipoEndsAt) {
       throw new functions.https.HttpsError('failed-precondition', 'IPO is not active.');
     }
 
@@ -5838,10 +5973,10 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Not enough shares available.');
     }
 
-    // Check per-user limit (10 max)
+    // Check per-user limit
     const userIPOPurchases = userData.ipoPurchases?.[ticker] || 0;
-    if (userIPOPurchases + quantity > 10) {
-      throw new functions.https.HttpsError('failed-precondition', 'Exceeds per-user IPO limit (10).');
+    if (userIPOPurchases + quantity > maxPerUser) {
+      throw new functions.https.HttpsError('failed-precondition', `Exceeds per-user IPO limit (${maxPerUser}).`);
     }
 
     // Check cash
@@ -6876,8 +7011,7 @@ exports.processIPOPriceJumps = functions.pubsub
       const ipoData = ipoSnap.data();
       const ipos = ipoData.list || [];
       const now = Date.now();
-      const IPO_PRICE_JUMP = 0.30;
-      const IPO_TOTAL_SHARES = 150;
+      const IPO_PRICE_JUMP = 0.15;
 
       let processedCount = 0;
       let updatedList = [...ipos];
@@ -6904,13 +7038,14 @@ exports.processIPOPriceJumps = functions.pubsub
 
           // Send Discord notification
           try {
-            const sharesSold = IPO_TOTAL_SHARES - (ipo.sharesRemaining || 0);
+            const ipoTotalShares = ipo.totalShares || 150;
+            const sharesSold = ipoTotalShares - (ipo.sharesRemaining || 0);
             await sendDiscordMessage(null, [{
               title: '🎉 IPO Closed',
               description: `**${ipo.ticker}** IPO has ended! Price jumped to $${newPrice.toFixed(2)}`,
               color: 0x00FF00,
               fields: [
-                { name: 'Shares Sold', value: `${sharesSold}/${IPO_TOTAL_SHARES}`, inline: true },
+                { name: 'Shares Sold', value: `${sharesSold}/${ipoTotalShares}`, inline: true },
                 { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true }
               ],
               timestamp: new Date().toISOString()
@@ -7353,5 +7488,271 @@ exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
   }
 
   throw new functions.https.HttpsError('invalid-argument', 'Invalid mode. Use scan, repair, or repairAll');
+});
+
+/**
+ * Rename a ticker across all Firestore data.
+ * Modes: dryRun (preview changes), execute (apply changes)
+ */
+exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { oldTicker, newTicker, dryRun = true } = data;
+
+  if (!oldTicker || !newTicker || typeof oldTicker !== 'string' || typeof newTicker !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'oldTicker and newTicker are required strings');
+  }
+
+  const old = oldTicker.trim().toUpperCase();
+  const nw = newTicker.trim().toUpperCase();
+
+  if (old === nw) {
+    throw new functions.https.HttpsError('invalid-argument', 'Old and new ticker are the same');
+  }
+
+  // Validate: old ticker must exist in market data, new must not
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+  if (!marketSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Market data not found');
+  }
+
+  const marketData = marketSnap.data();
+  const prices = marketData.prices || {};
+  const priceHistory = marketData.priceHistory || {};
+  const volumes = marketData.volumes || {};
+  const launchedTickers = marketData.launchedTickers || [];
+
+  if (prices[old] === undefined) {
+    throw new functions.https.HttpsError('invalid-argument', `Old ticker "${old}" not found in market prices`);
+  }
+  if (prices[nw] !== undefined) {
+    throw new functions.https.HttpsError('invalid-argument', `New ticker "${nw}" already exists in market prices`);
+  }
+
+  const log = [];
+  let docsToModify = 0;
+
+  // --- 1. MARKET DATA ---
+  const marketUpdates = {};
+  // prices
+  marketUpdates[`prices.${nw}`] = prices[old];
+  marketUpdates[`prices.${old}`] = admin.firestore.FieldValue.delete();
+  // priceHistory
+  if (priceHistory[old]) {
+    marketUpdates[`priceHistory.${nw}`] = priceHistory[old];
+    marketUpdates[`priceHistory.${old}`] = admin.firestore.FieldValue.delete();
+  }
+  // volumes
+  if (volumes[old] !== undefined) {
+    marketUpdates[`volumes.${nw}`] = volumes[old];
+    marketUpdates[`volumes.${old}`] = admin.firestore.FieldValue.delete();
+  }
+  // launchedTickers array
+  if (launchedTickers.includes(old)) {
+    marketUpdates.launchedTickers = launchedTickers.map(t => t === old ? nw : t);
+  }
+  // Handle other potential ticker-keyed maps
+  if (marketData.dailyVolumes && marketData.dailyVolumes[old] !== undefined) {
+    marketUpdates[`dailyVolumes.${nw}`] = marketData.dailyVolumes[old];
+    marketUpdates[`dailyVolumes.${old}`] = admin.firestore.FieldValue.delete();
+  }
+  if (marketData.liquidity && marketData.liquidity[old] !== undefined) {
+    marketUpdates[`liquidity.${nw}`] = marketData.liquidity[old];
+    marketUpdates[`liquidity.${old}`] = admin.firestore.FieldValue.delete();
+  }
+
+  log.push(`market/current: rename ${old} → ${nw} in prices, priceHistory, volumes, launchedTickers`);
+  docsToModify++;
+
+  // --- 2. USER DOCS ---
+  const usersSnap = await db.collection('users').get();
+  const userUpdates = []; // { ref, updates }
+
+  for (const userDoc of usersSnap.docs) {
+    const userData = userDoc.data();
+    const updates = {};
+    let touched = false;
+
+    // Simple ticker-keyed maps
+    const simpleMaps = ['holdings', 'shorts', 'costBasis', 'lastBuyTime', 'lowestWhileHolding', 'shortHistory', 'ipoPurchases', 'lastTickerTradeTime'];
+    for (const mapName of simpleMaps) {
+      if (userData[mapName] && userData[mapName][old] !== undefined) {
+        updates[`${mapName}.${nw}`] = userData[mapName][old];
+        updates[`${mapName}.${old}`] = admin.firestore.FieldValue.delete();
+        touched = true;
+      }
+    }
+
+    // Nested date-keyed maps: dailyImpact.{date}.{ticker}, overCapTrades.{date}.{ticker}
+    const nestedMaps = ['dailyImpact', 'overCapTrades'];
+    for (const mapName of nestedMaps) {
+      if (userData[mapName]) {
+        for (const [dateKey, dateData] of Object.entries(userData[mapName])) {
+          if (dateData && dateData[old] !== undefined) {
+            updates[`${mapName}.${dateKey}.${nw}`] = dateData[old];
+            updates[`${mapName}.${dateKey}.${old}`] = admin.firestore.FieldValue.delete();
+            touched = true;
+          }
+        }
+      }
+    }
+
+    if (touched) {
+      userUpdates.push({ ref: userDoc.ref, updates, displayName: userData.displayName || userDoc.id });
+      docsToModify++;
+    }
+  }
+
+  log.push(`users: ${userUpdates.length} user docs to update`);
+
+  // --- 3. TRADE RECORDS ---
+  const tradesSnap = await db.collection('trades').where('ticker', '==', old).get();
+  log.push(`trades: ${tradesSnap.size} trade records to update`);
+  docsToModify += tradesSnap.size;
+
+  // --- 4. LIMIT ORDERS ---
+  const limitOrdersSnap = await db.collection('limitOrders').where('ticker', '==', old).get();
+  log.push(`limitOrders: ${limitOrdersSnap.size} limit orders to update`);
+  docsToModify += limitOrdersSnap.size;
+
+  // --- 5. IP TRACKING ---
+  const ipSnap = await db.collection('ipTracking').get();
+  const ipUpdates = [];
+
+  for (const ipDoc of ipSnap.docs) {
+    const ipData = ipDoc.data();
+    const updates = {};
+    let touched = false;
+
+    if (ipData.dailyImpact) {
+      for (const [dateKey, dateData] of Object.entries(ipData.dailyImpact)) {
+        if (dateData && dateData[old] !== undefined) {
+          updates[`dailyImpact.${dateKey}.${nw}`] = dateData[old];
+          updates[`dailyImpact.${dateKey}.${old}`] = admin.firestore.FieldValue.delete();
+          touched = true;
+        }
+      }
+    }
+
+    if (touched) {
+      ipUpdates.push({ ref: ipDoc.ref, updates });
+      docsToModify++;
+    }
+  }
+
+  log.push(`ipTracking: ${ipUpdates.length} IP docs to update`);
+
+  // --- DRY RUN: return summary ---
+  if (dryRun) {
+    return {
+      dryRun: true,
+      oldTicker: old,
+      newTicker: nw,
+      totalDocsToModify: docsToModify,
+      breakdown: {
+        market: 1,
+        users: userUpdates.length,
+        trades: tradesSnap.size,
+        limitOrders: limitOrdersSnap.size,
+        ipTracking: ipUpdates.length
+      },
+      log
+    };
+  }
+
+  // --- EXECUTE: halt market, apply changes, resume ---
+  // Halt market
+  await marketRef.update({
+    marketHalted: true,
+    haltReason: `Ticker rename in progress: ${old} → ${nw}`,
+    haltedAt: Date.now(),
+    haltedBy: context.auth.uid
+  });
+
+  try {
+    // 1. Update market doc
+    await marketRef.update(marketUpdates);
+
+    // 2. Update users in batches of 500
+    for (let i = 0; i < userUpdates.length; i += 500) {
+      const batch = db.batch();
+      const chunk = userUpdates.slice(i, i + 500);
+      for (const { ref, updates } of chunk) {
+        batch.update(ref, updates);
+      }
+      await batch.commit();
+    }
+
+    // 3. Update trades in batches of 500
+    const tradeDocs = tradesSnap.docs;
+    for (let i = 0; i < tradeDocs.length; i += 500) {
+      const batch = db.batch();
+      const chunk = tradeDocs.slice(i, i + 500);
+      for (const tradeDoc of chunk) {
+        batch.update(tradeDoc.ref, { ticker: nw });
+      }
+      await batch.commit();
+    }
+
+    // 4. Update limit orders in batches of 500
+    const limitDocs = limitOrdersSnap.docs;
+    for (let i = 0; i < limitDocs.length; i += 500) {
+      const batch = db.batch();
+      const chunk = limitDocs.slice(i, i + 500);
+      for (const limitDoc of chunk) {
+        batch.update(limitDoc.ref, { ticker: nw });
+      }
+      await batch.commit();
+    }
+
+    // 5. Update IP tracking in batches of 500
+    for (let i = 0; i < ipUpdates.length; i += 500) {
+      const batch = db.batch();
+      const chunk = ipUpdates.slice(i, i + 500);
+      for (const { ref, updates } of chunk) {
+        batch.update(ref, updates);
+      }
+      await batch.commit();
+    }
+
+    // Resume market
+    await marketRef.update({
+      marketHalted: false,
+      haltReason: '',
+      haltedAt: null,
+      haltedBy: null
+    });
+
+    return {
+      dryRun: false,
+      success: true,
+      oldTicker: old,
+      newTicker: nw,
+      totalDocsModified: docsToModify,
+      breakdown: {
+        market: 1,
+        users: userUpdates.length,
+        trades: tradesSnap.size,
+        limitOrders: limitOrdersSnap.size,
+        ipTracking: ipUpdates.length
+      },
+      log
+    };
+  } catch (err) {
+    // Resume market even on failure
+    try {
+      await marketRef.update({
+        marketHalted: false,
+        haltReason: '',
+        haltedAt: null,
+        haltedBy: null
+      });
+    } catch (_) { /* best effort */ }
+
+    throw new functions.https.HttpsError('internal', `Rename failed mid-execution: ${err.message}. Market resumed. Manual cleanup may be needed.`);
+  }
 });
 

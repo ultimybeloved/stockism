@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -58,6 +58,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [recoveryWinner, setRecoveryWinner] = useState('');
   const [recoveryOptions, setRecoveryOptions] = useState([]);
 
+  // Rename ticker state
+  const [renameOldTicker, setRenameOldTicker] = useState('');
+  const [renameNewTicker, setRenameNewTicker] = useState('');
+  const [renameResult, setRenameResult] = useState(null);
+  const [renaming, setRenaming] = useState(false);
+
   // Spike victim repair state
   const [spikeVictims, setSpikeVictims] = useState([]);
   const [spikeScanned, setSpikeScanned] = useState(false);
@@ -112,6 +118,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [ipoTicker, setIpoTicker] = useState('');
   const [ipoHoursUntilStart, setIpoHoursUntilStart] = useState(24); // Hours until IPO buying starts (hype phase)
   const [ipoDurationHours, setIpoDurationHours] = useState(24); // How long IPO buying lasts
+  const [ipoTotalShares, setIpoTotalShares] = useState(150); // Total shares available
+  const [ipoMaxPerUser, setIpoMaxPerUser] = useState(10); // Max shares per user
   const [activeIPOs, setActiveIPOs] = useState([]);
   const [completedIPOTickers, setCompletedIPOTickers] = useState([]); // Tickers that have had IPOs
   
@@ -876,7 +884,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         basePrice: character.basePrice,
         ipoStartsAt,
         ipoEndsAt,
-        sharesRemaining: 150,
+        sharesRemaining: ipoTotalShares,
+        totalShares: ipoTotalShares,
+        maxPerUser: ipoMaxPerUser,
         priceJumped: false,
         createdAt: now
       };
@@ -3316,8 +3326,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                 <p className={`text-sm ${mutedClass}`}>
                   🚀 <strong>IPO System:</strong> Create limited-time offerings for new characters.
                   <br />• Hype Phase (24h default): Announcement only, no buying
-                  <br />• IPO Window (24h default): 150 shares available, max 10 per user
-                  <br />• After IPO: Price jumps 30%, normal trading begins
+                  <br />• IPO Window (24h default): configurable shares and per-user limits
+                  <br />• After IPO: Price jumps 15%, normal trading begins
                 </p>
               </div>
 
@@ -3374,6 +3384,29 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Total Shares</label>
+                      <input
+                        type="number"
+                        value={ipoTotalShares}
+                        onChange={e => setIpoTotalShares(Math.max(1, parseInt(e.target.value) || 150))}
+                        min="1"
+                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Max Per User</label>
+                      <input
+                        type="number"
+                        value={ipoMaxPerUser}
+                        onChange={e => setIpoMaxPerUser(Math.max(1, parseInt(e.target.value) || 10))}
+                        min="1"
+                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                      />
+                    </div>
+                  </div>
                   
                   {ipoTicker && (
                     <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
@@ -3383,8 +3416,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                       <ul className={`text-xs ${mutedClass} mt-1 space-y-1`}>
                         <li>• Hype phase: {ipoHoursUntilStart}h (announcement)</li>
                         <li>• IPO buying: {ipoDurationHours}h</li>
-                        <li>• 150 shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice}</li>
-                        <li>• After IPO: +30% price jump</li>
+                        <li>• {ipoTotalShares} shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice} (max {ipoMaxPerUser}/user)</li>
+                        <li>• After IPO: +15% price jump</li>
                       </ul>
                     </div>
                   )}
@@ -3437,7 +3470,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                                 inHypePhase ? 'text-orange-400' : mutedClass
                               }`}>
                                 {inHypePhase ? `🔥 Hype Phase - IPO starts in ${formatTime(timeUntilStart)}` :
-                                 inBuyingPhase ? `📈 LIVE - ${ipo.sharesRemaining || 150}/150 left - Ends in ${formatTime(timeUntilEnd)}` :
+                                 inBuyingPhase ? `📈 LIVE - ${ipo.sharesRemaining ?? ipo.totalShares ?? 150}/${ipo.totalShares || 150} left - Ends in ${formatTime(timeUntilEnd)}` :
                                  '✓ Completed'}
                               </div>
                             </div>
@@ -3465,7 +3498,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                       <div key={ipo.ticker} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
                         <span className={`text-sm ${textClass}`}>${ipo.ticker}</span>
                         <span className={`text-xs ${mutedClass} ml-2`}>
-                          Sold {150 - (ipo.sharesRemaining || 0)} shares
+                          Sold {(ipo.totalShares || 150) - (ipo.sharesRemaining || 0)} shares
                         </span>
                       </div>
                     ))}
@@ -5687,6 +5720,110 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
                   </button>
                 </div>
+              </div>
+
+              {/* RENAME TICKER */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h3 className={`font-semibold mb-2 ${textClass}`}>🔄 Rename Ticker</h3>
+                <p className={`text-xs ${mutedClass} mb-3`}>
+                  Rename a ticker across ALL Firestore data (market prices, user holdings, trades, limit orders, IP tracking).
+                  Always do a Dry Run first. The market will be automatically halted during execution.
+                </p>
+
+                <div className="flex gap-2 mb-3">
+                  <div className="flex-1">
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old Ticker</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. JSN"
+                      value={renameOldTicker}
+                      onChange={e => setRenameOldTicker(e.target.value.toUpperCase())}
+                      className={`w-full px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+                      disabled={renaming}
+                    />
+                  </div>
+                  <div className="flex items-end pb-0.5">
+                    <span className={`text-lg ${mutedClass}`}>→</span>
+                  </div>
+                  <div className="flex-1">
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New Ticker</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. JASON"
+                      value={renameNewTicker}
+                      onChange={e => setRenameNewTicker(e.target.value.toUpperCase())}
+                      className={`w-full px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+                      disabled={renaming}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={async () => {
+                      if (!renameOldTicker.trim() || !renameNewTicker.trim()) {
+                        showMessage('error', 'Enter both old and new ticker');
+                        return;
+                      }
+                      setRenaming(true);
+                      setRenameResult(null);
+                      try {
+                        const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: true });
+                        setRenameResult(result.data);
+                      } catch (err) {
+                        showMessage('error', `Dry run failed: ${err.message}`);
+                      }
+                      setRenaming(false);
+                    }}
+                    disabled={renaming || !renameOldTicker.trim() || !renameNewTicker.trim()}
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {renaming ? 'Running...' : '🔍 Dry Run'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!renameResult || !renameResult.dryRun) {
+                        showMessage('error', 'Run a dry run first');
+                        return;
+                      }
+                      if (!window.confirm(`RENAME ${renameOldTicker} → ${renameNewTicker}?\n\nThis will modify ${renameResult.totalDocsToModify} documents.\nThe market will be halted during execution.\n\nAre you sure?`)) {
+                        return;
+                      }
+                      setRenaming(true);
+                      try {
+                        const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: false });
+                        setRenameResult(result.data);
+                        showMessage('success', `Renamed ${renameOldTicker} → ${renameNewTicker} successfully! ${result.data.totalDocsModified} docs modified.`);
+                      } catch (err) {
+                        showMessage('error', `Rename failed: ${err.message}`);
+                      }
+                      setRenaming(false);
+                    }}
+                    disabled={renaming || !renameResult?.dryRun}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    {renaming ? 'Executing...' : '⚡ Execute Rename'}
+                  </button>
+                </div>
+
+                {renameResult && (
+                  <div className={`p-3 rounded-sm ${renameResult.dryRun ? (darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300') : (darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-300')}`}>
+                    <p className={`text-sm font-semibold mb-2 ${renameResult.dryRun ? 'text-blue-400' : 'text-green-400'}`}>
+                      {renameResult.dryRun ? '🔍 Dry Run Preview' : '✅ Rename Complete'}
+                    </p>
+                    <p className={`text-xs ${textClass}`}>
+                      <strong>{renameResult.oldTicker}</strong> → <strong>{renameResult.newTicker}</strong>
+                    </p>
+                    <div className={`text-xs ${mutedClass} mt-1 space-y-0.5`}>
+                      <p>Market doc: 1</p>
+                      <p>User docs: {renameResult.breakdown?.users || 0}</p>
+                      <p>Trade records: {renameResult.breakdown?.trades || 0}</p>
+                      <p>Limit orders: {renameResult.breakdown?.limitOrders || 0}</p>
+                      <p>IP tracking docs: {renameResult.breakdown?.ipTracking || 0}</p>
+                      <p className={`font-semibold ${textClass} mt-1`}>Total: {renameResult.totalDocsToModify || renameResult.totalDocsModified || 0} documents</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* TRADE HISTORY & ROLLBACK SECTION */}

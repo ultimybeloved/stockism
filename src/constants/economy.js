@@ -14,7 +14,7 @@ export const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
 export const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
 export const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
 export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
-export const IPO_PRICE_JUMP = 0.30; // 30% price jump after IPO ends
+export const IPO_PRICE_JUMP = 0.15; // 15% price jump after IPO ends
 
 // Economy balancing constants - Realistic Market Model
 export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement

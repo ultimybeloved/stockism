@@ -748,18 +748,18 @@ const IPOHypeCard = ({ ipo, darkMode }) => {
             </div>
             <div>
               <p className={`text-xs ${mutedClass}`}>Shares Available</p>
-              <p className="text-lg font-bold text-orange-500">{IPO_TOTAL_SHARES}</p>
+              <p className="text-lg font-bold text-orange-500">{ipo.totalShares || IPO_TOTAL_SHARES}</p>
             </div>
           </div>
         </div>
-        
+
         <div className="mt-3 text-center">
           <p className={`text-xs ${mutedClass}`}>IPO Opens In</p>
           <p className={`text-xl font-bold text-orange-500`}>{formatTimeRemaining(timeRemaining)}</p>
         </div>
-        
+
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>
-          Max {IPO_MAX_PER_USER} shares per person • First come, first served
+          Max {ipo.maxPerUser || IPO_MAX_PER_USER} shares per person • First come, first served
         </p>
       </div>
     </div>
@@ -778,14 +778,16 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
   
   const character = CHARACTER_MAP[ipo.ticker];
   const timeRemaining = ipo.ipoEndsAt - Date.now();
-  const sharesRemaining = ipo.sharesRemaining || IPO_TOTAL_SHARES;
+  const ipoTotalShares = ipo.totalShares || IPO_TOTAL_SHARES;
+  const ipoMaxPerUser = ipo.maxPerUser || IPO_MAX_PER_USER;
+  const sharesRemaining = ipo.sharesRemaining || ipoTotalShares;
   const userIPOPurchases = userData?.ipoPurchases?.[ipo.ticker] || 0;
-  const maxCanBuy = Math.min(IPO_MAX_PER_USER - userIPOPurchases, sharesRemaining);
+  const maxCanBuy = Math.min(ipoMaxPerUser - userIPOPurchases, sharesRemaining);
   const totalCost = quantity * ipo.basePrice;
   const canAfford = (userData?.cash || 0) >= totalCost;
   
   const soldOut = sharesRemaining <= 0;
-  const userMaxedOut = userIPOPurchases >= IPO_MAX_PER_USER;
+  const userMaxedOut = userIPOPurchases >= ipoMaxPerUser;
   
   return (
     <div className={`${cardClass} border-2 border-green-500 rounded-sm p-4 relative overflow-hidden`}>
@@ -813,7 +815,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
           <div>
             <p className={`text-xs ${mutedClass}`}>Left</p>
             <p className={`text-lg font-bold ${sharesRemaining <= 20 ? 'text-red-500' : 'text-orange-500'}`}>
-              {sharesRemaining}/{IPO_TOTAL_SHARES}
+              {sharesRemaining}/{ipoTotalShares}
             </p>
           </div>
           <div>
@@ -827,7 +829,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
           <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}>
             <div 
               className="h-full rounded-full bg-gradient-to-r from-green-500 to-orange-500 transition-all"
-              style={{ width: `${((IPO_TOTAL_SHARES - sharesRemaining) / IPO_TOTAL_SHARES) * 100}%` }}
+              style={{ width: `${((ipoTotalShares - sharesRemaining) / ipoTotalShares) * 100}%` }}
             />
           </div>
         </div>
@@ -838,7 +840,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
       ) : soldOut ? (
         <div className="mt-3 text-center">
           <p className="text-red-500 font-bold">🚫 SOLD OUT</p>
-          <p className={`text-xs ${mutedClass}`}>Normal trading begins soon with 30% price increase</p>
+          <p className={`text-xs ${mutedClass}`}>Normal trading begins soon with 15% price increase</p>
         </div>
       ) : userMaxedOut ? (
         <div className="mt-3 text-center">
@@ -1378,7 +1380,7 @@ export default function App() {
         // Filter to only show active IPOs (in hype or buying phase)
         const activeOnes = ipos.filter(ipo => {
           const inHypePhase = now < ipo.ipoStartsAt;
-          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining || IPO_TOTAL_SHARES) > 0;
+          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
           return inHypePhase || inBuyingPhase;
         });
         
@@ -2259,15 +2261,16 @@ export default function App() {
       return;
     }
 
-    const sharesRemaining = ipo.sharesRemaining ?? IPO_TOTAL_SHARES;
+    const sharesRemaining = ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES);
     if (sharesRemaining <= 0) {
       showNotification('error', 'IPO sold out!');
       return;
     }
 
+    const ipoMaxPerUser = ipo.maxPerUser || IPO_MAX_PER_USER;
     const userIPOPurchases = userData.ipoPurchases?.[ticker] || 0;
-    if (userIPOPurchases + quantity > IPO_MAX_PER_USER) {
-      showNotification('error', `Max ${IPO_MAX_PER_USER} shares per person!`);
+    if (userIPOPurchases + quantity > ipoMaxPerUser) {
+      showNotification('error', `Max ${ipoMaxPerUser} shares per person!`);
       return;
     }
 
