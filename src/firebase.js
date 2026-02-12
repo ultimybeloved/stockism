@@ -41,7 +41,7 @@ export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
 // Trade validation & anti-exploit
 export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
-export const executeTradeFunction = httpsCallable(functions, 'executeTrade'); // NEW: Server-side trade execution
+export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
 export const banUserFunction = httpsCallable(functions, 'banUser');
 // Daily checkin
 export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
@@ -61,10 +61,10 @@ export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnounc
 export const ipoClosingAlertFunction = httpsCallable(functions, 'ipoClosingAlert');
 export const bankruptcyAlertFunction = httpsCallable(functions, 'bankruptcyAlert');
 export const comebackAlertFunction = httpsCallable(functions, 'comebackAlert');
-// Data archiving functions (runs automatically every 6 hours)
+// Data archiving functions
 export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
 export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');
-// Secure operations (moved from client-side to prevent exploits)
+// Secure operations
 export const claimMissionRewardFunction = httpsCallable(functions, 'claimMissionReward');
 export const purchasePinFunction = httpsCallable(functions, 'purchasePin');
 export const placeBetFunction = httpsCallable(functions, 'placeBet');
@@ -77,7 +77,7 @@ export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
 export const switchCrewFunction = httpsCallable(functions, 'switchCrew');
 export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
 export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
-// Server-side portfolio sync (replaces client-side writes blocked by security rules)
+// Server-side portfolio sync
 export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = httpsCallable(functions, 'removeAchievement');

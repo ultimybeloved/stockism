@@ -112,8 +112,6 @@ import {
 } from './utils/formatters';
 import { getTodayDateString, isToday, toMillis, toDateString, toUTCDateString } from './utils/date';
 
-// Transaction logging - records all significant financial actions for auditing
-
 // Check if user qualifies for margin trading (requires commitment + skill)
 const checkMarginEligibility = (userData, isAdmin = false) => {
   if (!userData) return { eligible: false, requirements: [] };
@@ -257,12 +255,8 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   };
 };
 
-// Helper function to check and award achievements after an action
-// Calls syncPortfolio Cloud Function which handles achievements, portfolio value, and peak updates server-side
+// Triggers server-side achievement check via syncPortfolio
 const checkAndAwardAchievements = async () => {
-  // Context-based achievements (SHARK, BULL_RUN, DIAMOND_HANDS, COLD_BLOODED) are now
-  // awarded server-side in executeTrade. This just triggers a portfolio sync for
-  // threshold-based achievements (FIRST_BLOOD, BROKE_5K, etc.)
   try {
     const result = await syncPortfolioFunction();
     return result.data?.newAchievements || [];
@@ -338,15 +332,6 @@ const getAccountAgeImpactFactor = (userData) => {
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
   return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
 };
-
-// ============================================
-// SIMPLE LINE CHART COMPONENT
-// (utilities are imported from ./utils)
-// ============================================
-// DETAILED CHART MODAL (imported from modals/)
-// ============================================
-
-// ChartModal - now imported from components/modals/
 
 // ============================================
 // NEW CHARACTERS BOARD COMPONENT
@@ -893,12 +878,6 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest }) => {
 };
 
 // ============================================
-// PORTFOLIO MODAL (with chart)
-// ============================================
-
-// PortfolioModal - now imported from components/modals/
-
-// ============================================
 // LEADERBOARD MODAL
 // ============================================
 
@@ -964,8 +943,6 @@ export default function App() {
   const [showCrewSelection, setShowCrewSelection] = useState(false);
   const [showPinShop, setShowPinShop] = useState(false);
   const [showDailyMissions, setShowDailyMissions] = useState(false);
-  // Removed: showLeaderboard, showProfile, showAchievements, showLadderGame, showLadderIntroModal, showLadderSignInModal, skipLadderIntro
-  // These features are now accessible via routes: /leaderboard, /profile, /achievements, /ladder
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [notifications, setNotifications] = useState([]); // Toast notification queue
   const [showInAppBanner, setShowInAppBanner] = useState(() => {
@@ -1407,17 +1384,11 @@ export default function App() {
         
         setActiveIPOs(activeOnes);
 
-        // IPO price jumps now handled server-side by processIPOPriceJumps scheduled function
       }
     });
 
     return () => unsubscribe();
   }, []);
-
-  // Track lowest prices while holding for Diamond Hands achievement
-  // lowestWhileHolding tracking now handled server-side in syncPortfolio
-
-  // Weekly mission startPortfolioValue now initialized server-side in syncPortfolio
 
   // Listen to predictions
   useEffect(() => {
@@ -1519,9 +1490,6 @@ export default function App() {
     processPayouts();
   }, [user, userData, predictions]);
 
-  // Short margin calls are now handled server-side by checkShortMarginCalls Cloud Function
-  // (runs every 5 minutes, uses admin SDK to bypass security rules)
-
   // Calculate sentiment based on price changes
   const getSentiment = useCallback((ticker) => {
     const currentPrice = prices[ticker];
@@ -1571,8 +1539,6 @@ export default function App() {
     return 'Neutral';
   }, [priceHistory, prices]);
 
-
-  // recordPortfolioHistory removed — now handled server-side by syncPortfolio Cloud Function
 
   // Handle crew selection (uses Cloud Function for switching to apply 15% penalty server-side)
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
@@ -1845,7 +1811,7 @@ export default function App() {
       return;
     }
 
-    // SECURITY FIX: Execute trade server-side with atomic transaction
+    // Server-side trade execution with atomic transaction
     // Server validates, applies dailyImpact limits, handles trailing effects
     setLoadingKey('trade', true);
     let result;
@@ -1894,14 +1860,13 @@ export default function App() {
 
     if (action === 'buy') {
       // Server handles: price updates, trailing effects, cash/holdings/margin, missions, cost basis
-      // Client handles: achievements, activity feed, portfolio history
+      // Client handles: achievements, activity feed
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      // Portfolio history now handled server-side by syncPortfolio
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
@@ -1952,7 +1917,7 @@ export default function App() {
     } else if (action === 'sell') {
       // Server already handled: validation, price updates, trailing effects, cash/holdings updates
       // Server handles: missions, cost basis, lowestWhileHolding
-      // Client handles: achievements, activity feed, portfolio history
+      // Client handles: achievements, activity feed
 
       // Calculate profit metrics for achievements
       const costBasis = userData.costBasis?.[ticker] || 0;
@@ -1963,7 +1928,6 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      // Portfolio history now handled server-side by syncPortfolio
 
 
 
@@ -2010,14 +1974,13 @@ export default function App() {
 
     } else if (action === 'short') {
       // Server handles: validation, price updates, trailing effects, cash/holdings/shorts, missions
-      // Client handles: achievements, activity feed, portfolio history
+      // Client handles: achievements, activity feed
 
       // Record portfolio history
       const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      // Portfolio history now handled server-side by syncPortfolio
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const earnedAchievements = await checkAndAwardAchievements();
@@ -2064,7 +2027,7 @@ export default function App() {
 
     } else if (action === 'cover') {
       // Server handles: validation, price updates, trailing effects, cash/shorts, missions
-      // Client handles: achievements, activity feed, portfolio history
+      // Client handles: achievements, activity feed
 
       // Calculate profit for notifications (with NaN guards)
       const shortPosition = userData.shorts?.[ticker] || {};
@@ -2079,7 +2042,6 @@ export default function App() {
         const price = priceUpdates[t] || prices[t] || 0;
         return sum + price * shares;
       }, 0);
-      // Portfolio history now handled server-side by syncPortfolio
 
       // Check achievements (context-based ones handled server-side in executeTrade)
       const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
@@ -2157,8 +2119,6 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [user, userData, prices]);
 
-  // Margin monitoring now handled server-side by checkMarginLending scheduled function (every 5 min)
-
   // Daily margin interest (charged at midnight or on login)
   useEffect(() => {
     if (!user || !userData || !userData.marginEnabled) return;
@@ -2200,9 +2160,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, userData?.cash]);
 
-  // Leaderboard achievements now handled server-side in syncPortfolio
-
-  // Daily checkin (now uses Cloud Function to prevent security rule violations)
+  // Daily checkin (server-side for security)
   const handleDailyCheckin = useCallback(async () => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to claim your daily bonus!');

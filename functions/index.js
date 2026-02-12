@@ -867,7 +867,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Daily Market Summary - Runs at 4 PM EST (9 PM UTC) - NYSE close
+ * Daily Market Summary - Runs daily at 21:00 UTC
  */
 exports.dailyMarketSummary = functions.pubsub
   .schedule('0 21 * * *')
@@ -1140,7 +1140,7 @@ exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context)
 });
 
 /**
- * Weekly Market Summary - Runs Sundays at 7 PM EST (Monday midnight UTC)
+ * Weekly Market Summary - Runs Mondays at 00:00 UTC
  */
 exports.weeklyMarketSummary = functions.pubsub
   .schedule('0 0 * * 1')
@@ -1646,7 +1646,7 @@ exports.comebackAlert = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Weekly Leaderboard - Runs every Sunday at 8 PM EST (Monday 1 AM UTC)
+ * Weekly Leaderboard - Runs Mondays at 01:00 UTC
  */
 exports.weeklyLeaderboard = functions.pubsub
   .schedule('0 1 * * 1')
@@ -1700,7 +1700,7 @@ exports.weeklyLeaderboard = functions.pubsub
   });
 
 /**
- * Weekly Crew Rankings - Runs every Sunday at 8:30 PM EST (Monday 1:30 AM UTC)
+ * Weekly Crew Rankings - Runs Mondays at 01:30 UTC
  */
 exports.weeklyCrewRankings = functions.pubsub
   .schedule('30 1 * * 1')
@@ -3652,9 +3652,8 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Records and validates a completed trade
- * Called after client executes trade, logs for auditing
- * Detects suspicious patterns
+ * Records and validates a completed trade (legacy - may be unused)
+ * Logs for auditing, detects suspicious patterns
  */
 exports.recordTrade = functions.https.onCall(async (data, context) => {
   // Verify authentication
@@ -3903,7 +3902,7 @@ exports.backupMarketData = functions.pubsub
       });
       console.log('Leaderboard backed up successfully');
 
-      // 3. Cleanup old backups (keep last 7 days, but skip monthly backups)
+      // 3. Cleanup old backups (keep last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -6565,7 +6564,6 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 /**
  * Check Margin Lending - Scheduled every 5 minutes
  * Monitors users with margin debt and auto-liquidates if equity drops too low
- * Replaces broken client-side margin monitoring (blocked by security rules)
  */
 exports.checkMarginLending = functions.pubsub
   .schedule('every 5 minutes')
@@ -6741,7 +6739,6 @@ exports.checkMarginLending = functions.pubsub
 /**
  * Switch Crew - Callable function
  * Handles crew joining/switching with 15% penalty for switches
- * Replaces broken client-side crew switching (blocked by security rules)
  */
 exports.switchCrew = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -6837,7 +6834,6 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
 /**
  * Process IPO Price Jumps - Scheduled every 5 minutes
  * Checks for ended IPOs that haven't had their price jump applied
- * Replaces client-side IPO price jump (only worked when admin was online)
  */
 exports.processIPOPriceJumps = functions.pubsub
   .schedule('every 5 minutes')
