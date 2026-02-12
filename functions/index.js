@@ -1127,7 +1127,7 @@ exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context)
 
     embed.fields.push({
       name: '💰 Market Stats',
-      value: `Total Cash: $${(marketData.totalCashInSystem || 0).toLocaleString()}\nActive Traders: ${users.length}`,
+      value: `Total Cash: $${users.reduce((sum, u) => sum + (u.cash || 0), 0).toLocaleString()}\nActive Traders: ${users.length}`,
       inline: false
     });
 
@@ -2470,11 +2470,11 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const burstTradesSnap = await db.collection('trades')
         .where('uid', '==', uid)
         .where('ticker', '==', ticker)
-        .where('action', '==', action)
         .where('timestamp', '>', fiveMinAgo)
         .get();
+      const burstCount = burstTradesSnap.docs.filter(d => d.data().action === action).length;
 
-      if (burstTradesSnap.size >= 3) {
+      if (burstCount >= 3) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           `Slow down: Max 3 ${action === 'buy' ? 'buys' : 'shorts'} per ticker every 5 minutes.`
@@ -2965,11 +2965,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const burstTradesSnap = await db.collection('trades')
           .where('uid', '==', uid)
           .where('ticker', '==', ticker)
-          .where('action', '==', action)
           .where('timestamp', '>', fiveMinAgo)
           .get();
+        const burstCount = burstTradesSnap.docs.filter(d => d.data().action === action).length;
 
-        if (burstTradesSnap.size >= 3) {
+        if (burstCount >= 3) {
           throw new functions.https.HttpsError(
             'failed-precondition',
             `Slow down: Max 3 ${action === 'buy' ? 'buys' : 'shorts'} per ticker every 5 minutes.`
@@ -5944,7 +5944,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
   const ipoRef = db.collection('market').doc('ipos');
   const marketRef = db.collection('market').doc('current');
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const [userDoc, ipoDoc, marketDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(ipoRef),
@@ -7061,7 +7061,7 @@ exports.processIPOPriceJumps = functions.pubsub
       for (let i = 0; i < ipos.length; i++) {
         const ipo = ipos[i];
         if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
-          // IPO ended - apply 30% price jump
+          // IPO ended - apply 15% price jump
           const marketRef = db.collection('market').doc('current');
           const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
 
