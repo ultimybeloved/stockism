@@ -6475,7 +6475,8 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
 
   // Unifier of Seoul: own at least 1 share of every tradeable stock (revocable)
-  const totalCharacters = Object.keys(prices).length;
+  const launchedTickers = marketDoc.data().launchedTickers || [];
+  const totalCharacters = CHARACTERS.filter(c => !c.ipoRequired || launchedTickers.includes(c.ticker)).length;
   let revokeUnifier = false;
   if (holdingsCount >= totalCharacters && totalCharacters > 0) {
     if (!currentAchievements.includes('UNIFIER')) newAchievements.push('UNIFIER');
