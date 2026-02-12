@@ -2729,14 +2729,6 @@ export default function App() {
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
   const inputClassStyle = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-zinc-900';
 
-  if (loading) {
-    return (
-      <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
-        <div className={`text-lg ${mutedClass}`}>Loading Stockism...</div>
-      </div>
-    );
-  }
-
   // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
   const contextValue = useMemo(() => ({
     darkMode,
@@ -2755,6 +2747,14 @@ export default function App() {
     ipoRestrictedTickers,
     launchedTickers
   }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers]);
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
+        <div className={`text-lg ${mutedClass}`}>Loading Stockism...</div>
+      </div>
+    );
+  }
 
   return (
     <AppProvider value={contextValue}>
