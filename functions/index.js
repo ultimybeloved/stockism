@@ -2777,7 +2777,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     const now = admin.firestore.Timestamp.now().toMillis();
     const todayDate = new Date().toISOString().split('T')[0];
 
-    // Execute trade in atomic transaction
+    // Execute trade in atomic transaction (maxAttempts:1 prevents phantom retries
+    // where the first attempt commits but a retry sees post-trade state and fails)
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       const marketDoc = await transaction.get(marketRef);
@@ -3434,7 +3435,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         shortWarning,
         achievementCtx
       };
-    });
+    }, { maxAttempts: 1 });
 
     // Award context-based achievements AFTER transaction completes
     // (can't do additional queries inside the transaction)
@@ -3494,6 +3495,13 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     // Re-throw HttpsErrors as-is
     if (error instanceof functions.https.HttpsError) {
       throw error;
+    }
+    // Transaction contention (another trade hit the same data) — ask user to retry
+    if (error.code === 10 || error.message?.includes('contention') || error.message?.includes('ABORTED')) {
+      throw new functions.https.HttpsError(
+        'aborted',
+        'Market was busy. Please try again.'
+      );
     }
     console.error('Trade execution error:', error);
     throw new functions.https.HttpsError(

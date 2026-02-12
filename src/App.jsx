@@ -1861,6 +1861,8 @@ export default function App() {
           message.includes('Short limit') || message.includes('velocity limit') ||
           message.includes('Insufficient') || message.includes('Daily impact limit')) {
         showNotification('error', message.replace(/^.*: /, ''));
+      } else if (message.includes('busy') || message.includes('try again')) {
+        showNotification('warning', 'Market was busy — please try again.');
       } else {
         showNotification('error', 'Cannot execute trade at this time');
       }
