@@ -1678,7 +1678,7 @@ export default function App() {
 
       // Optimistic update so button disappears immediately
       const today = getTodayDateString();
-      setUserData(prev => ({
+      setUserData(prev => prev ? ({
         ...prev,
         cash: (prev.cash || 0) + reward,
         dailyMissions: {
@@ -1688,7 +1688,7 @@ export default function App() {
             claimed: { ...(prev.dailyMissions?.[today]?.claimed || {}), [missionId]: true }
           }
         }
-      }));
+      }) : prev);
 
       addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
 
@@ -1711,7 +1711,7 @@ export default function App() {
     } finally {
       setLoadingKey('claimMission', false);
     }
-  }, [user, userData, addActivity]);
+  }, [user, userData, addActivity, showNotification]);
 
   // Handle claiming weekly mission rewards
   const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
@@ -1750,7 +1750,7 @@ export default function App() {
     } finally {
       setLoadingKey('claimWeeklyMission', false);
     }
-  }, [user, userData, addActivity]);
+  }, [user, userData, addActivity, showNotification]);
 
   // Request trade confirmation
   const requestTrade = useCallback((ticker, action, amount) => {
@@ -1811,7 +1811,7 @@ export default function App() {
     }
     
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
-  }, [user, userData, prices, activeIPOs]);
+  }, [user, userData, prices, activeIPOs, launchedTickers, showNotification]);
 
   // Handle limit order request from portfolio
   const handleLimitOrderRequest = useCallback((ticker, action) => {
@@ -2572,7 +2572,7 @@ export default function App() {
   }, [user, userData]);
 
   // Guest data
-  const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, bets: {}, portfolioValue: STARTING_CASH };
+  const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: STARTING_CASH };
   const activeUserData = userData || guestData;
   const isGuest = !user;
 

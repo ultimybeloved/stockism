@@ -395,7 +395,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       // Get the current price - check marketUpdates first, then fall back to prices
       const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-      if (oldRelatedPrice) {
+      if (oldRelatedPrice != null) {
         const trailingChange = priceChangePercent * coefficient;
         const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
         const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);

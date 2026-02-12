@@ -5193,9 +5193,12 @@ exports.checkLimitOrders = functions.pubsub
 
           // Execute trade in transaction to prevent race conditions
           const userRef = db.collection('users').doc(order.userId);
+          const originalShares = orderDoc.data().shares;
+          let fillShares = originalShares;
 
           try {
             await db.runTransaction(async (transaction) => {
+              fillShares = originalShares;  // Reset on every retry
               const userSnap = await transaction.get(userRef);
               const freshMarketSnap = await transaction.get(marketRef);
 
@@ -5225,12 +5228,12 @@ exports.checkLimitOrders = functions.pubsub
 
               // Validate user has sufficient funds/shares
               if (order.type === 'BUY') {
-                const totalCost = freshPrice * order.shares;
+                const totalCost = freshPrice * fillShares;
                 if (userData.cash < totalCost) {
                   if (order.allowPartialFills) {
                     const affordableShares = freshPrice > 0 ? Math.floor(userData.cash / freshPrice) : 0;
                     if (affordableShares > 0) {
-                      order.shares = affordableShares;
+                      fillShares = affordableShares;
                       console.log(`Partial fill: can only afford ${affordableShares} shares`);
                     } else {
                       throw new Error('Insufficient cash');
@@ -5241,10 +5244,10 @@ exports.checkLimitOrders = functions.pubsub
                 }
               } else if (order.type === 'SELL') {
                 const userShares = userData.holdings?.[order.ticker] || 0;
-                if (userShares < order.shares) {
+                if (userShares < fillShares) {
                   if (order.allowPartialFills) {
                     if (userShares > 0) {
-                      order.shares = userShares;
+                      fillShares = userShares;
                       console.log(`Partial fill: only have ${userShares} shares`);
                     } else {
                       throw new Error('Insufficient shares');
@@ -5258,7 +5261,7 @@ exports.checkLimitOrders = functions.pubsub
               // Calculate price impact (same formula as executeTrade)
               // Limit orders are exempt from daily impact cap — they represent
               // genuine market pressure (e.g. selling during a squeeze)
-              const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(order.shares / BASE_LIQUIDITY);
+              const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(fillShares / BASE_LIQUIDITY);
               const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
               const effectiveImpact = Math.min(priceImpact, maxImpact);
 
@@ -5267,7 +5270,7 @@ exports.checkLimitOrders = functions.pubsub
                 // Price goes UP on buy
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
                 const askPrice = newMarketPrice * (1 + BID_ASK_SPREAD / 2);
-                const totalCost = askPrice * order.shares;
+                const totalCost = askPrice * fillShares;
 
                 // Re-validate with actual cost
                 if (userData.cash < totalCost) {
@@ -5276,9 +5279,9 @@ exports.checkLimitOrders = functions.pubsub
 
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
                 const currentCostBasis = userData.costBasis?.[order.ticker] || 0;
-                const newHoldings = currentHoldings + order.shares;
+                const newHoldings = currentHoldings + fillShares;
                 const newCostBasis = currentHoldings > 0
-                  ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * order.shares)) / newHoldings : askPrice)
+                  ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * fillShares)) / newHoldings : askPrice)
                   : askPrice;
 
                 transaction.update(userRef, {
@@ -5300,15 +5303,15 @@ exports.checkLimitOrders = functions.pubsub
                   });
                 }
 
-                console.log(`Executed BUY: ${order.shares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
+                console.log(`Executed BUY: ${fillShares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               } else if (order.type === 'SELL') {
                 // Price goes DOWN on sell
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
                 const bidPrice = newMarketPrice * (1 - BID_ASK_SPREAD / 2);
-                const totalRevenue = bidPrice * order.shares;
+                const totalRevenue = bidPrice * fillShares;
 
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
-                const newHoldings = currentHoldings - order.shares;
+                const newHoldings = currentHoldings - fillShares;
 
                 const updates = {
                   cash: admin.firestore.FieldValue.increment(totalRevenue),
@@ -5336,7 +5339,7 @@ exports.checkLimitOrders = functions.pubsub
                   });
                 }
 
-                console.log(`Executed SELL: ${order.shares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
+                console.log(`Executed SELL: ${fillShares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               }
             });
           } catch (transactionError) {
@@ -5356,13 +5359,13 @@ exports.checkLimitOrders = functions.pubsub
 
           // Update order status
           const isPartialFill = order.allowPartialFills && (
-            (order.type === 'BUY' && order.shares < orderDoc.data().shares) ||
-            (order.type === 'SELL' && order.shares < orderDoc.data().shares)
+            (order.type === 'BUY' && fillShares < originalShares) ||
+            (order.type === 'SELL' && fillShares < originalShares)
           );
 
           await db.collection('limitOrders').doc(orderId).update({
             status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
-            filledShares: order.shares,
+            filledShares: fillShares,
             executedPrice: currentPrice,
             executedAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
