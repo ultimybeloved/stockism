@@ -2600,7 +2600,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       });
       Object.entries(shorts).forEach(([t, pos]) => {
         if (pos && typeof pos === 'object' && pos.shares > 0) {
-          if (pos.system === 'v2') {
+          if ((pos.system || 'v2') === 'v2') {
             portfolioEquity += (pos.margin || 0) + ((pos.costBasis || 0) - (prices[t] || 0)) * pos.shares;
           } else {
             portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
@@ -3133,7 +3133,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         });
         Object.entries(shorts).forEach(([t, pos]) => {
           if (pos && pos.shares > 0) {
-            if (pos.system === 'v2') {
+            if ((pos.system || 'v2') === 'v2') {
               portfolioEquity += (pos.margin || 0) + ((pos.costBasis || 0) - (prices[t] || 0)) * pos.shares;
             } else {
               portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
@@ -3272,7 +3272,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const marginToReturn = shortPosition.shares > 0 ? (totalPositionMargin / shortPosition.shares) * amount : 0;
 
         // Execute cover
-        if (shortPosition.system === 'v2') {
+        if ((shortPosition.system || 'v2') === 'v2') {
           // v2: get margin back + profit/loss (no proceeds were given at open)
           const shortProfit = (costBasis - executionPrice) * amount;
           newCash = cash + marginToReturn + shortProfit;
@@ -5008,7 +5008,7 @@ exports.syncAllPortfolios = functions.pubsub
             const currentPrice = prices[ticker] || entryPrice;
             const collateral = Number(position.margin) || 0;
             let value;
-            if (position.system === 'v2') {
+            if ((position.system || 'v2') === 'v2') {
               // v2: margin + unrealized P&L (no proceeds in cash)
               value = collateral + (entryPrice - currentPrice) * position.shares;
             } else {
@@ -6443,7 +6443,7 @@ exports.checkShortMarginCalls = functions.pubsub
                 // Calculate cover cost and margin return
                 const coverPrice = newPrice;
                 let cashChange;
-                if (freshPosition.system === 'v2') {
+                if ((freshPosition.system || 'v2') === 'v2') {
                   // v2: margin back + profit/loss
                   const shortProfit = (freshCostBasis - coverPrice) * freshPosition.shares;
                   cashChange = freshMargin + shortProfit;
@@ -6592,7 +6592,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
       const costBasis = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || costBasis;
       const margin = position.margin || (costBasis * shares * 0.5);
-      if (position.system === 'v2') {
+      if ((position.system || 'v2') === 'v2') {
         // v2: margin + unrealized P&L (no proceeds in cash)
         return sum + margin + (costBasis - currentPrice) * shares;
       }
