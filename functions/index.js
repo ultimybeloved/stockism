@@ -6140,7 +6140,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
-    if ((userData.cash || 0) >= 0) {
+    if ((userData.cash || 0) >= 0 && !userData.isBankrupt) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
     }
 
@@ -6163,6 +6163,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
       portfolioValue: 500,
       marginEnabled: false,
       marginUsed: 0,
+      isBankrupt: false,
       bankruptAt: null,
       crew: null,
       crewJoinedAt: null,
@@ -6732,6 +6733,14 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   // Check bankruptcy
   if (portfolioValue <= 100 && !userData.isBankrupt && userData.displayName) {
     updateData.isBankrupt = true;
+  }
+
+  // Auto-clear bankruptcy if account has recovered
+  if (userData.isBankrupt && portfolioValue > 500 && (userData.cash || 0) >= 0) {
+    updateData.isBankrupt = false;
+    if (userData.bankruptAt) {
+      updateData.bankruptAt = admin.firestore.FieldValue.delete();
+    }
   }
 
   await userRef.update(updateData);
