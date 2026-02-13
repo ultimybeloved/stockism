@@ -2994,7 +2994,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             costBasis: pos.costBasis || pos.entryPrice || 0,
             margin: pos.margin || 0,
             openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
-            system: pos.system || false
+            system: pos.system || 'v2'
           };
         }
       }
@@ -3288,7 +3288,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           costBasis: costBasis,
           margin: totalPositionMargin - marginToReturn,
           openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
-          system: shortPosition.system
+          system: shortPosition.system || 'v2'
         };
         if (newShorts[ticker].shares <= 0) {
           delete newShorts[ticker];
@@ -6464,7 +6464,7 @@ exports.checkShortMarginCalls = functions.pubsub
                       costBasis: pos.costBasis || pos.entryPrice || 0,
                       margin: pos.margin || 0,
                       openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
-                      system: pos.system || false
+                      system: pos.system || 'v2'
                     };
                   }
                 }
