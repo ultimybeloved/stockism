@@ -320,6 +320,16 @@ function isBannedUsername(username) {
 }
 
 /**
+ * Reusable ban check — throws if user is banned.
+ * Call right after fetching userData in any user-facing function.
+ */
+function checkBanned(userData) {
+  if (userData?.isBanned) {
+    throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
+  }
+}
+
+/**
  * Creates a new user with case-insensitive unique username.
  *
  * Atomically:
@@ -391,6 +401,74 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Watched IP check — block alt accounts from watched IPs
+  let autoLinkData = null;
+  const signupIp = context.rawRequest?.ip || 'unknown';
+  if (signupIp !== 'unknown') {
+    const sanitizedSignupIp = signupIp.replace(/[.:/]/g, '_');
+    try {
+      const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedSignupIp).get();
+      if (watchedIpDoc.exists) {
+        const watchedIpData = watchedIpDoc.data();
+        const watchedUserDoc = await db.collection('watchedUsers').doc(watchedIpData.watchedUserId).get();
+
+        if (watchedUserDoc.exists && watchedUserDoc.data().isActive) {
+          const watchedData = watchedUserDoc.data();
+          const maxAccounts = watchedData.maxAccountsPerIP || 1;
+          const linkedAccounts = watchedData.linkedAccounts || [];
+
+          // Count total linked accounts
+          const activeAccounts = linkedAccounts.length;
+
+          if (activeAccounts >= maxAccounts) {
+            // Block account creation
+            await db.collection('watchlist_alerts').add({
+              type: 'account_blocked',
+              watchedUID: watchedIpData.watchedUserId,
+              relatedUID: uid,
+              ip: signupIp,
+              action: 'blocked',
+              details: `Blocked signup "${trimmed}" — ${activeAccounts} active accounts already exist from watched IP`,
+              timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            try {
+              await sendDiscordMessage(null, [{
+                title: '🚫 Watched IP — Account Blocked',
+                description: `Signup blocked for **${trimmed}**`,
+                color: 0xFF0000,
+                fields: [
+                  { name: 'Watched User', value: watchedData.displayName || watchedIpData.watchedUserId, inline: true },
+                  { name: 'IP', value: signupIp, inline: true },
+                  { name: 'Active Accounts', value: `${activeAccounts}/${maxAccounts}`, inline: true }
+                ],
+                timestamp: new Date().toISOString()
+              }]);
+            } catch (e) {}
+
+            throw new functions.https.HttpsError(
+              'permission-denied',
+              'Account creation temporarily restricted from this network.'
+            );
+          } else {
+            // Under limit — flag for auto-link after transaction succeeds
+            autoLinkData = {
+              watchedUserId: watchedIpData.watchedUserId,
+              watchedDisplayName: watchedData.displayName || watchedIpData.watchedUserId,
+              sanitizedSignupIp,
+              signupIp,
+              activeAccounts,
+              maxAccounts
+            };
+          }
+        }
+      }
+    } catch (ipCheckError) {
+      if (ipCheckError instanceof functions.https.HttpsError) throw ipCheckError;
+      console.error('Watched IP check error during signup:', ipCheckError);
+    }
+  }
+
   // Use a transaction to atomically check and create
   try {
     await db.runTransaction(async (transaction) => {
@@ -444,6 +522,57 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       });
     });
 
+    // Auto-link to watched user after successful account creation
+    if (autoLinkData) {
+      try {
+        // Re-check for duplicates before linking (prevents duplicate entries from concurrent requests)
+        const watchedSnap = await db.collection('watchedUsers').doc(autoLinkData.watchedUserId).get();
+        const alreadyLinked = watchedSnap.exists && (watchedSnap.data().linkedAccounts || []).some(a => a.uid === uid);
+
+        if (!alreadyLinked) {
+          const newLinked = {
+            uid,
+            displayName: trimmed,
+            linkedVia: 'ip',
+            ip: autoLinkData.signupIp,
+            linkedAt: Date.now()
+          };
+
+          await db.collection('watchedUsers').doc(autoLinkData.watchedUserId).update({
+            linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+            [`knownIPs.${autoLinkData.sanitizedSignupIp}.lastSeen`]: Date.now(),
+            [`knownIPs.${autoLinkData.sanitizedSignupIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
+          });
+
+          await db.collection('watchlist_alerts').add({
+            type: 'account_linked',
+            watchedUID: autoLinkData.watchedUserId,
+            relatedUID: uid,
+            ip: autoLinkData.signupIp,
+            action: 'linked',
+            details: `Auto-linked new account "${trimmed}" from watched IP`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          try {
+            await sendDiscordMessage(null, [{
+              title: '🔗 Watched IP — Account Auto-Linked',
+              description: `New account **${trimmed}** auto-linked to watched user`,
+              color: 0xFFA500,
+              fields: [
+                { name: 'Watched User', value: autoLinkData.watchedDisplayName, inline: true },
+                { name: 'IP', value: autoLinkData.signupIp, inline: true },
+                { name: 'Active Accounts', value: `${autoLinkData.activeAccounts + 1}/${autoLinkData.maxAccounts}`, inline: true }
+              ],
+              timestamp: new Date().toISOString()
+            }]);
+          } catch (e) {}
+        }
+      } catch (linkError) {
+        console.error('Auto-link after signup failed:', linkError);
+      }
+    }
+
     // Send Discord notification for new user signup
     try {
       const authProvider = context.auth.token.firebase?.sign_in_provider || 'unknown';
@@ -480,6 +609,19 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     } catch (discordError) {
       console.error('Failed to send Discord signup notification:', discordError);
       // Don't fail user creation if Discord notification fails
+    }
+
+    // Record signup IP in ipTracking
+    if (signupIp !== 'unknown') {
+      try {
+        const sanitizedIp = signupIp.replace(/[.:/]/g, '_');
+        await db.collection('ipTracking').doc(sanitizedIp).set({
+          accounts: { [uid]: Date.now() },
+          lastUpdated: Date.now()
+        }, { merge: true });
+      } catch (e) {
+        console.error('Failed to record signup IP:', e);
+      }
     }
 
     return { success: true };
@@ -2413,6 +2555,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     }
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const marketData = marketDoc.data();
     const prices = marketData.prices || {};
     const currentPrice = prices[ticker];
@@ -2673,12 +2816,122 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     // IP-based multi-account abuse detection
     const ip = context.rawRequest?.ip || 'unknown';
     if (ip !== 'unknown' && (action === 'buy' || action === 'short')) {
-      const MAX_ACCOUNTS_PER_IP = 4;
+      let maxAccountsForIp = 4; // Global default
       const ONE_HOUR = 3600000;
       const sanitizedIp = ip.replace(/[.:/]/g, '_');
       const ipRef = db.collection('ipTracking').doc(sanitizedIp);
 
       try {
+        // Check if this IP is watched (single fast read)
+        const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedIp).get();
+        let watchedUserId = null;
+
+        if (watchedIpDoc.exists) {
+          const watchedIpData = watchedIpDoc.data();
+          watchedUserId = watchedIpData.watchedUserId;
+          maxAccountsForIp = watchedIpData.maxAccountsPerIP || 1;
+
+          // Auto-link: if trading from a watched IP with an unknown account
+          const watchedUserDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
+          if (watchedUserDoc.exists && watchedUserDoc.data().isActive) {
+            const watchedData = watchedUserDoc.data();
+            const knownUIDs = (watchedData.linkedAccounts || []).map(a => a.uid);
+            knownUIDs.push(watchedUserId); // Include the primary
+
+            if (!knownUIDs.includes(uid)) {
+              // Unknown account on watched IP — auto-link it
+              const newLinked = {
+                uid,
+                displayName: userData.displayName || uid,
+                linkedVia: 'ip',
+                ip,
+                linkedAt: Date.now()
+              };
+
+              await db.collection('watchedUsers').doc(watchedUserId).update({
+                linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+                [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+                [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
+              });
+
+              await db.collection('watchlist_alerts').add({
+                type: 'account_linked',
+                watchedUID: watchedUserId,
+                relatedUID: uid,
+                ip,
+                action: 'linked',
+                details: `Auto-linked "${userData.displayName || uid}" — traded from watched IP`,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+              });
+
+              try {
+                await sendDiscordMessage(null, [{
+                  title: '🔗 New Account on Watched IP',
+                  description: `**${userData.displayName || uid}** traded from a watched IP`,
+                  color: 0xFFA500,
+                  fields: [
+                    { name: 'Watched User', value: watchedData.displayName || watchedUserId, inline: true },
+                    { name: 'IP', value: ip, inline: true },
+                    { name: 'Trade', value: `${action} ${amount} ${ticker}`, inline: true }
+                  ],
+                  timestamp: new Date().toISOString()
+                }]);
+              } catch (e) {}
+            }
+
+            // Track new IPs for known watched users/linked accounts
+            if (knownUIDs.includes(uid)) {
+              const knownIPs = watchedData.knownIPs || {};
+              if (!knownIPs[sanitizedIp]) {
+                // New IP for a known watched account
+                await db.collection('watchedUsers').doc(watchedUserId).update({
+                  [`knownIPs.${sanitizedIp}`]: {
+                    firstSeen: Date.now(),
+                    lastSeen: Date.now(),
+                    accounts: [uid]
+                  }
+                });
+
+                await db.collection('watchlist_alerts').add({
+                  type: 'new_ip_detected',
+                  watchedUID: watchedUserId,
+                  relatedUID: uid,
+                  ip,
+                  action: 'flagged',
+                  details: `Known watched account "${userData.displayName || uid}" seen on new IP`,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                try {
+                  await sendDiscordMessage(null, [{
+                    title: '🌐 Watched User — New IP Detected',
+                    description: `**${userData.displayName || uid}** trading from a new IP`,
+                    color: 0xFF6600,
+                    fields: [
+                      { name: 'Watched User', value: watchedData.displayName || watchedUserId, inline: true },
+                      { name: 'New IP', value: ip, inline: true }
+                    ],
+                    timestamp: new Date().toISOString()
+                  }]);
+                } catch (e) {}
+
+                // Also add this IP to watchedIPs for future lookups
+                await db.collection('watchedIPs').doc(sanitizedIp).set({
+                  watchedUserId,
+                  maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
+                  addedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+              } else {
+                // Update lastSeen
+                await db.collection('watchedUsers').doc(watchedUserId).update({
+                  [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+                  [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
+                });
+              }
+            }
+          }
+        }
+
         const ipDoc = await ipRef.get();
         const accounts = {};
 
@@ -2702,20 +2955,20 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         await ipRef.set({ accounts, lastUpdated: now });
 
         // Block if too many unique accounts from same IP
-        if (uniqueCount > MAX_ACCOUNTS_PER_IP) {
-          console.warn(`IP ABUSE: ${ip} has ${uniqueCount} accounts trading in last hour`);
+        if (uniqueCount > maxAccountsForIp) {
+          console.warn(`IP ABUSE: ${ip} has ${uniqueCount} accounts trading in last hour (limit: ${maxAccountsForIp})`);
 
           await db.collection('admin').doc('suspicious_activity').set({
             [`ip_${sanitizedIp}`]: {
               timestamp: admin.firestore.FieldValue.serverTimestamp(),
               accountCount: uniqueCount,
               accounts: Object.keys(accounts),
-              reason: 'Multi-account trading from same IP'
+              reason: watchedUserId ? 'Watched IP multi-account trading' : 'Multi-account trading from same IP'
             }
           }, { merge: true });
 
           try {
-            await sendDiscordMessage(`**Multi-Account Abuse Detected**\nIP: ${ip}\nAccounts in last hour: ${uniqueCount}\nBlocked user: ${uid}`);
+            await sendDiscordMessage(`**Multi-Account Abuse Detected**\nIP: ${ip}\nAccounts in last hour: ${uniqueCount}\nLimit: ${maxAccountsForIp}\nBlocked user: ${uid}${watchedUserId ? `\nWatched user: ${watchedUserId}` : ''}`);
           } catch (err) {
             console.error('Failed to send Discord alert:', err);
           }
@@ -2843,6 +3096,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       const userData = userDoc.data();
+      checkBanned(userData);
       const marketData = marketDoc.data();
 
       // Check emergency admin halt
@@ -3668,6 +3922,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       }
 
       const userData = userDoc.data();
+      checkBanned(userData);
       const now = new Date();
       const today = now.toISOString().split('T')[0];
 
@@ -3801,6 +4056,10 @@ exports.recordTrade = functions.https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   const { ticker, action, amount, price, totalValue, cashBefore, cashAfter, portfolioAfter } = data;
+
+  // Ban check
+  const userSnap = await db.collection('users').doc(uid).get();
+  if (userSnap.exists) checkBanned(userSnap.data());
 
   try {
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -4474,6 +4733,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       };
 
       const mainUser = mainUserDoc.data();
+      checkBanned(mainUser);
       const username = mainUser?.displayName || 'Anonymous';
 
       // Check balance
@@ -4658,6 +4918,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
       }
 
       const mainUser = mainUserDoc.data();
+      checkBanned(mainUser);
       const cash = mainUser.cash || 0;
 
       if (cash < amount) {
@@ -5597,6 +5858,7 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
 
     // Get today's date and week ID
@@ -5689,6 +5951,7 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
 
     if (action === 'buyPin') {
       const PIN_CATALOG = {
@@ -5772,6 +6035,7 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
     if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
 
@@ -5873,6 +6137,7 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
     if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
 
@@ -5969,6 +6234,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
     if (!ipoDoc.exists) throw new functions.https.HttpsError('not-found', 'IPO data not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const ipoData = ipoDoc.data();
     const ipoList = ipoData.list || [];
 
@@ -6102,6 +6368,7 @@ exports.repayMargin = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     const marginUsed = userData.marginUsed || 0;
 
     if (marginUsed <= 0) {
@@ -6140,6 +6407,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     if ((userData.cash || 0) >= 0 && !userData.isBankrupt) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
     }
@@ -6201,6 +6469,7 @@ exports.leaveCrew = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
     if (!userData.crew) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in a crew.');
     }
@@ -6261,6 +6530,7 @@ exports.toggleMargin = functions.https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
+    checkBanned(userData);
 
     if (enable) {
       // Check eligibility: $2000 min cash
@@ -6552,6 +6822,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (!marketDoc.exists) throw new functions.https.HttpsError('not-found', 'Market data not found.');
 
   const userData = userDoc.data();
+  checkBanned(userData);
   const prices = marketDoc.data().prices || {};
   const now = Date.now();
 
@@ -6965,6 +7236,7 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
       if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
       const userData = userDoc.data();
+      checkBanned(userData);
 
       // Block if in debt
       if ((userData.cash || 0) < 0) {
@@ -7819,5 +8091,285 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
 
     throw new functions.https.HttpsError('internal', `Rename failed mid-execution: ${err.message}. Market resumed. Manual cleanup may be needed.`);
   }
+});
+
+// ============================================
+// WATCHLIST FUNCTIONS (Admin-Only)
+// ============================================
+
+/**
+ * Add a user to the watchlist
+ */
+exports.addWatchedUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const { userId, reason, maxAccountsPerIP } = data;
+
+  if (!userId || typeof userId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
+  }
+
+  const maxAccounts = Number(maxAccountsPerIP) || 1;
+
+  // Fetch user info
+  const userDoc = await db.collection('users').doc(userId).get();
+  const displayName = userDoc.exists ? userDoc.data().displayName : 'Unknown';
+
+  // Collect known IPs from ipTracking
+  const knownIPs = {};
+  const ipTrackingSnap = await db.collection('ipTracking').get();
+  for (const ipDoc of ipTrackingSnap.docs) {
+    const accounts = ipDoc.data().accounts || {};
+    if (accounts[userId]) {
+      const rawIp = ipDoc.id;
+      knownIPs[rawIp] = {
+        firstSeen: Date.now(),
+        lastSeen: Date.now(),
+        accounts: [userId]
+      };
+
+      // Create reverse lookup
+      await db.collection('watchedIPs').doc(rawIp).set({
+        watchedUserId: userId,
+        maxAccountsPerIP: maxAccounts,
+        addedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  }
+
+  await db.collection('watchedUsers').doc(userId).set({
+    displayName,
+    reason: reason || '',
+    maxAccountsPerIP: maxAccounts,
+    linkedAccounts: [],
+    knownIPs,
+    addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    addedBy: context.auth.uid,
+    isActive: true
+  });
+
+  await db.collection('watchlist_alerts').add({
+    type: 'user_added',
+    watchedUID: userId,
+    relatedUID: null,
+    ip: null,
+    action: 'flagged',
+    details: `Added "${displayName}" to watchlist. Reason: ${reason || 'None'}. Found ${Object.keys(knownIPs).length} known IPs.`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  try {
+    await sendDiscordMessage(null, [{
+      title: '👁️ User Added to Watchlist',
+      description: `**${displayName}** is now being watched`,
+      color: 0xFF0000,
+      fields: [
+        { name: 'Reason', value: reason || 'None specified', inline: true },
+        { name: 'Max Accounts/IP', value: String(maxAccounts), inline: true },
+        { name: 'Known IPs', value: String(Object.keys(knownIPs).length), inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]);
+  } catch (e) {}
+
+  return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
+});
+
+/**
+ * Remove (deactivate) a user from the watchlist
+ */
+exports.removeWatchedUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const { userId } = data;
+  if (!userId) throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
+
+  const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
+  if (!watchedDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not on watchlist.');
+  }
+
+  await db.collection('watchedUsers').doc(userId).update({ isActive: false });
+
+  // Remove reverse IP lookups
+  const knownIPs = watchedDoc.data().knownIPs || {};
+  for (const ipId of Object.keys(knownIPs)) {
+    const watchedIpDoc = await db.collection('watchedIPs').doc(ipId).get();
+    if (watchedIpDoc.exists && watchedIpDoc.data().watchedUserId === userId) {
+      await db.collection('watchedIPs').doc(ipId).delete();
+    }
+  }
+
+  await db.collection('watchlist_alerts').add({
+    type: 'user_removed',
+    watchedUID: userId,
+    relatedUID: null,
+    ip: null,
+    action: 'flagged',
+    details: `Removed "${watchedDoc.data().displayName}" from watchlist`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true };
+});
+
+/**
+ * Manually link an alt account to a watched user
+ */
+exports.linkAltAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const { watchedUserId, altAccountId } = data;
+  if (!watchedUserId || !altAccountId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Both user IDs required.');
+  }
+
+  const watchedDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
+  if (!watchedDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Watched user not found.');
+  }
+
+  const altDoc = await db.collection('users').doc(altAccountId).get();
+  const altName = altDoc.exists ? altDoc.data().displayName : 'Unknown';
+
+  // Check if already linked
+  const alreadyLinked = (watchedDoc.data().linkedAccounts || []).some(a => a.uid === altAccountId);
+  if (alreadyLinked) {
+    throw new functions.https.HttpsError('already-exists', 'This account is already linked.');
+  }
+
+  const newLinked = {
+    uid: altAccountId,
+    displayName: altName,
+    linkedVia: 'manual',
+    ip: null,
+    linkedAt: Date.now()
+  };
+
+  await db.collection('watchedUsers').doc(watchedUserId).update({
+    linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked)
+  });
+
+  await db.collection('watchlist_alerts').add({
+    type: 'account_linked',
+    watchedUID: watchedUserId,
+    relatedUID: altAccountId,
+    ip: null,
+    action: 'linked',
+    details: `Manually linked "${altName}" as alt of "${watchedDoc.data().displayName}"`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  try {
+    await sendDiscordMessage(null, [{
+      title: '🔗 Alt Account Manually Linked',
+      description: `**${altName}** linked to **${watchedDoc.data().displayName}**`,
+      color: 0xFFA500,
+      fields: [
+        { name: 'Primary', value: watchedDoc.data().displayName, inline: true },
+        { name: 'Alt', value: altName, inline: true },
+        { name: 'Method', value: 'Manual', inline: true }
+      ],
+      timestamp: new Date().toISOString()
+    }]);
+  } catch (e) {}
+
+  return { success: true, altName };
+});
+
+/**
+ * Add an IP address to a watched user
+ */
+exports.addWatchedIP = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const { userId, ip } = data;
+  if (!userId || !ip) {
+    throw new functions.https.HttpsError('invalid-argument', 'User ID and IP required.');
+  }
+
+  const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
+  if (!watchedDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Watched user not found.');
+  }
+
+  const sanitizedIp = ip.replace(/[.:/]/g, '_');
+  const watchedData = watchedDoc.data();
+
+  // Add to watched user's knownIPs
+  await db.collection('watchedUsers').doc(userId).update({
+    [`knownIPs.${sanitizedIp}`]: {
+      firstSeen: Date.now(),
+      lastSeen: Date.now(),
+      accounts: [userId]
+    }
+  });
+
+  // Create reverse lookup
+  await db.collection('watchedIPs').doc(sanitizedIp).set({
+    watchedUserId: userId,
+    maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
+    addedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  await db.collection('watchlist_alerts').add({
+    type: 'ip_added',
+    watchedUID: userId,
+    relatedUID: null,
+    ip,
+    action: 'flagged',
+    details: `Manually added IP ${ip} to "${watchedData.displayName}"`,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true };
+});
+
+/**
+ * Get all active watched users (admin panel)
+ */
+exports.getWatchlist = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const watchedSnap = await db.collection('watchedUsers').where('isActive', '==', true).get();
+  const watchedUsers = [];
+
+  for (const doc of watchedSnap.docs) {
+    const d = doc.data();
+    watchedUsers.push({
+      id: doc.id,
+      displayName: d.displayName,
+      reason: d.reason,
+      maxAccountsPerIP: d.maxAccountsPerIP,
+      linkedAccounts: d.linkedAccounts || [],
+      knownIPs: d.knownIPs || {},
+      addedAt: d.addedAt,
+      isActive: d.isActive
+    });
+  }
+
+  // Fetch recent alerts
+  const alertsSnap = await db.collection('watchlist_alerts')
+    .orderBy('timestamp', 'desc')
+    .limit(50)
+    .get();
+
+  const alerts = alertsSnap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    timestamp: doc.data().timestamp?.toMillis?.() || doc.data().timestamp
+  }));
+
+  return { watchedUsers, alerts };
 });
 
