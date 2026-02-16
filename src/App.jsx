@@ -3224,7 +3224,7 @@ export default function App() {
                 if (userSnap.exists()) {
                   setUserData(userSnap.data());
                   // Subscribe to changes
-                  onSnapshot(userDocRef, (snap) => {
+                  userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
                     if (snap.exists()) setUserData(snap.data());
                   });
                 }
@@ -3421,7 +3421,7 @@ export default function App() {
                 <span className="font-semibold">{formatCurrency(Math.abs(tradeConfirmation.total) / tradeConfirmation.amount)}</span>
               </div>
               <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
-                <span className="font-semibold">{tradeConfirmation.action === 'short' ? 'Margin Cost:' : tradeConfirmation.action === 'cover' ? 'Est. Return:' : 'Est. Total:'}</span>
+                <span className="font-semibold">{tradeConfirmation.action === 'short' ? 'Margin Cost:' : tradeConfirmation.action === 'cover' ? (tradeConfirmation.total < 0 ? 'Est. Cost:' : 'Est. Return:') : 'Est. Total:'}</span>
                 <span className={`font-bold ${
                   tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short' || (tradeConfirmation.action === 'cover' && tradeConfirmation.total < 0)
                     ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500')
