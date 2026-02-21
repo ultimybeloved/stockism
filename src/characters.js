@@ -266,8 +266,8 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "J High Fund", ticker: "JWON", basePrice: 115.20, volatility: 0.025, dateAdded: "2026-02-20T00:08:00",
-    isETF: true, description: "J High school ETF",
+    name: "J High School ETF", ticker: "JWON", basePrice: 115.20, volatility: 0.025, dateAdded: "2026-02-20T00:08:00",
+    isETF: true, description: "J High School ETF",
     constituents: ["BDNL", "LDNL", "ELI", "ZACK", "VSCO", "VIN", "JAY", "LOGN", "2SEC", "CRYS", "DUKE", "DOO", "JACE", "MIRA", "ZOE", "JOY", "JIHO"],
     trailingFactors: [
       { ticker: "BDNL", coefficient: 0.047 }, { ticker: "LDNL", coefficient: 0.047 },
@@ -282,8 +282,8 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "Shadow Alliance Fund", ticker: "SHDW", basePrice: 155, volatility: 0.025, dateAdded: "2026-02-20T00:09:00",
-    isETF: true, description: "Kitae Kim's alliance ETF",
+    name: "Kitae Kim Alliance ETF", ticker: "SHDW", basePrice: 155, volatility: 0.025, dateAdded: "2026-02-20T00:09:00",
+    isETF: true, description: "Kitae Kim Alliance ETF",
     constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU"],
     trailingFactors: [
       { ticker: "KTAE", coefficient: 0.062 }, { ticker: "DG", coefficient: 0.062 },
@@ -296,8 +296,8 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "Jake Alliance Fund", ticker: "JKAL", basePrice: 137.40, volatility: 0.025, dateAdded: "2026-02-20T00:10:00",
-    isETF: true, description: "Jake Kim's alliance ETF",
+    name: "Jake Kim Alliance ETF", ticker: "JKAL", basePrice: 137.40, volatility: 0.025, dateAdded: "2026-02-20T00:10:00",
+    isETF: true, description: "Jake Kim Alliance ETF",
     constituents: ["JAKE", "LINE", "BDNL", "LDNL", "TM", "GONG", "SEOK", "WOLF", "JAEG", "YEUL", "BUCH", "UJBU", "DAEJ"],
     trailingFactors: [
       { ticker: "JAKE", coefficient: 0.062 }, { ticker: "LINE", coefficient: 0.062 },

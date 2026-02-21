@@ -153,6 +153,16 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
               </div>
               <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>
               {character.description && <p className={`text-xs ${mutedClass}`}>{character.description}</p>}
+              {isETF && character.constituents && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {character.constituents.slice(0, 6).map(t => (
+                    <span key={t} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>{t}</span>
+                  ))}
+                  {character.constituents.length > 6 && (
+                    <span className={`text-[10px] ${mutedClass}`}>+{character.constituents.length - 6} more</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>

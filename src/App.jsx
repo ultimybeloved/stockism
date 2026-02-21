@@ -983,6 +983,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
+  const [marketTab, setMarketTab] = useState('stocks'); // 'stocks' or 'etfs'
   const [predictions, setPredictions] = useState([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
@@ -2632,6 +2633,10 @@ export default function App() {
   // Filter and sort
   const filteredCharacters = useMemo(() => {
     let filtered = CHARACTERS.filter(c => {
+      // ETF tab filter
+      if (marketTab === 'etfs' && !c.isETF) return false;
+      if (marketTab === 'stocks' && c.isETF) return false;
+
       // Search filter
       const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.ticker.toLowerCase().includes(searchQuery.toLowerCase());
@@ -2713,7 +2718,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -3115,6 +3120,30 @@ export default function App() {
               );
             })()}
           </div>
+        </div>
+
+        {/* Market Tab Toggle */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => { setMarketTab('stocks'); setCurrentPage(1); setSearchQuery(''); }}
+            className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
+              marketTab === 'stocks'
+                ? 'bg-amber-500 text-white'
+                : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+            }`}
+          >
+            Stocks
+          </button>
+          <button
+            onClick={() => { setMarketTab('etfs'); setCurrentPage(1); setSearchQuery(''); }}
+            className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
+              marketTab === 'etfs'
+                ? 'bg-purple-600 text-white'
+                : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+            }`}
+          >
+            ETFs
+          </button>
         </div>
 
         {/* Controls */}
