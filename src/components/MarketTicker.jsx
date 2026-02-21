@@ -86,6 +86,16 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
       >
           <>
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
+              <a
+                href="https://discord.gg/yxw94uNrYv"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+                onClick={e => e.stopPropagation()}
+              >
+                💬 Join the Discord!
+              </a>
+              <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
@@ -106,6 +116,16 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
             </span>
             {/* Duplicate for seamless loop */}
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
+              <a
+                href="https://discord.gg/yxw94uNrYv"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+                onClick={e => e.stopPropagation()}
+              >
+                💬 Join the Discord!
+              </a>
+              <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}

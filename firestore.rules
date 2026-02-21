@@ -344,5 +344,23 @@ service cloud.firestore {
     match /banned_users/{userId} {
       allow read, write: if isAdmin();
     }
+
+    // ============================================
+    // WATCHLIST COLLECTIONS
+    // ============================================
+
+    match /watchedUsers/{userId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /watchedIPs/{ipId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Alerts are write-only from Cloud Functions (admin SDK bypasses rules)
+    match /watchlist_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
   }
 }

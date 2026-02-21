@@ -17,7 +17,22 @@
       "Bash(npx firebase-tools:*)",
       "Bash(del fix-user-achievements.js browser-console-fix.js)",
       "Bash(python:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebSearch",
+      "WebFetch(domain:haha.world)",
+      "WebFetch(domain:github.com)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(node:*)",
+      "Bash(firebase functions:log:*)",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" diff functions/index.js)",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" add functions/index.js)",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" commit -m \"Fix short cover crash\")",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" push origin main)",
+      "Bash(powershell:*)",
+      "Bash(findstr:*)",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" diff --stat)",
+      "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" log --oneline -5)",
+      "Bash(npx firebase deploy:*)"
     ]
   },
   "hooks": {
