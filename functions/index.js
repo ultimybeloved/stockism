@@ -34,6 +34,7 @@ const MAX_DAILY_IMPACT = 0.10; // 10% max price movement per user per ticker per
 const BASE_IMPACT = 0.012;
 const BASE_LIQUIDITY = 100;
 const BID_ASK_SPREAD = 0.002;
+const ETF_BID_ASK_SPREAD = 0.001;
 const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
 // Crew member mappings for mission tracking
@@ -2833,15 +2834,15 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       // Calculate estimated cost using actual price impact formula (matches client)
       const BASE_IMPACT = 0.012;
       const BASE_LIQUIDITY = 100;
-      const BID_ASK_SPREAD = 0.002;
       const MAX_PRICE_CHANGE_PERCENT = 0.05;
+      const spread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
 
       let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
       const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
       priceImpact = Math.min(priceImpact, maxImpact);
 
       const newMidPrice = currentPrice + priceImpact;
-      const askPrice = newMidPrice * (1 + BID_ASK_SPREAD / 2);
+      const askPrice = newMidPrice * (1 + spread / 2);
       const estimatedCost = askPrice * amount;
 
       if (cash < 0) {
@@ -3392,6 +3393,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let isOverCapTrade = false;
       let surchargeAmount = 0;
 
+      const effectiveSpread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+
       // BUY LOGIC
       if (action === 'buy') {
         // Calculate price impact
@@ -3400,7 +3403,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
-        executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
+        executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
@@ -3423,7 +3426,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
-          executionPrice = currentPrice * (1 + BID_ASK_SPREAD / 2) * (1 + surchargePercent);
+          executionPrice = currentPrice * (1 + effectiveSpread / 2) * (1 + surchargePercent);
           totalCost = executionPrice * amount;
           isOverCapTrade = true;
         }
@@ -3485,7 +3488,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
-        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
+        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
 
         // Sells always have full market impact (no free exits)
@@ -3563,7 +3566,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
-        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - BID_ASK_SPREAD / 2)); // Bid price
+        executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
 
         // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
@@ -3586,7 +3589,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           priceImpact = 0;
           impactPercent = 0;
           newPrice = currentPrice;
-          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - BID_ASK_SPREAD / 2));
+          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - effectiveSpread / 2));
           totalCost = executionPrice * amount;
           surchargeAmount = totalCost * surchargePercent;
           isOverCapTrade = true;
@@ -3650,7 +3653,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
-        executionPrice = newPrice * (1 + BID_ASK_SPREAD / 2); // Ask price
+        executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
         totalCost = executionPrice * amount;
 
         // Covers always have full market impact (no free exits)
@@ -3733,6 +3736,44 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       // Start with the traded ticker's price change
       const priceUpdates = { [ticker]: newPrice };
       applyTrailingEffects(ticker, currentPrice, newPrice, priceUpdates);
+
+      // Stock → ETF reverse propagation: when a non-ETF stock changes price,
+      // update any parent ETFs proportionally using their trailing coefficients.
+      // Build reverse lookup: stockTicker → [{etfTicker, coefficient}]
+      const reverseETFMap = {};
+      CHARACTERS.filter(c => c.isETF && c.trailingFactors).forEach(etf => {
+        etf.trailingFactors.forEach(({ ticker: stockTicker, coefficient }) => {
+          if (!reverseETFMap[stockTicker]) reverseETFMap[stockTicker] = [];
+          reverseETFMap[stockTicker].push({ etfTicker: etf.ticker, coefficient });
+        });
+      });
+
+      // For each changed non-ETF ticker, propagate to parent ETFs
+      Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
+        const updatedChar = CHARACTER_MAP[updatedTicker];
+        if (updatedChar?.isETF) return; // Skip ETFs themselves
+
+        const originalPrice = updatedTicker === ticker ? currentPrice : prices[updatedTicker];
+        if (!originalPrice || originalPrice <= 0 || originalPrice === updatedPrice) return;
+
+        const parentETFs = reverseETFMap[updatedTicker];
+        if (!parentETFs) return;
+
+        const stockChangePercent = (updatedPrice - originalPrice) / originalPrice;
+
+        parentETFs.forEach(({ etfTicker, coefficient }) => {
+          // Skip if this ETF is the ticker being directly traded (prevents feedback loop)
+          if (etfTicker === ticker) return;
+
+          const etfOldPrice = priceUpdates[etfTicker] || prices[etfTicker];
+          if (!etfOldPrice || etfOldPrice <= 0) return;
+
+          const etfChange = stockChangePercent * coefficient;
+          const etfNewPrice = Math.max(MIN_PRICE, Math.round(etfOldPrice * (1 + etfChange) * 100) / 100);
+          priceUpdates[etfTicker] = etfNewPrice;
+          // Do NOT call applyTrailingEffects on updated ETFs (prevents ETF→stock→ETF loop)
+        });
+      });
 
       // Track trailing effects in dailyImpact so users can't bypass the 10% limit
       // by trading one ticker and getting free impact on related tickers
@@ -5819,10 +5860,12 @@ exports.checkLimitOrders = functions.pubsub
               const effectiveImpact = Math.min(priceImpact, maxImpact);
 
               // Execute the trade
+              const orderChar = CHARACTERS.find(c => c.ticker === order.ticker);
+              const limitSpread = orderChar?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
               if (order.type === 'BUY') {
                 // Price goes UP on buy
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
-                const askPrice = newMarketPrice * (1 + BID_ASK_SPREAD / 2);
+                const askPrice = newMarketPrice * (1 + limitSpread / 2);
                 const totalCost = askPrice * fillShares;
 
                 // Re-validate with actual cost
@@ -5860,7 +5903,7 @@ exports.checkLimitOrders = functions.pubsub
               } else if (order.type === 'SELL') {
                 // Price goes DOWN on sell
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
-                const bidPrice = newMarketPrice * (1 - BID_ASK_SPREAD / 2);
+                const bidPrice = newMarketPrice * (1 - limitSpread / 2);
                 const totalRevenue = bidPrice * fillShares;
 
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;

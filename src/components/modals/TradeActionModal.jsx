@@ -4,6 +4,7 @@ import {
   BASE_IMPACT,
   BASE_LIQUIDITY,
   BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   SHORT_MARGIN_REQUIREMENT
 } from '../../constants';
@@ -19,8 +20,9 @@ const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) 
   return impact;
 };
 
-const getBidAskPrices = (midPrice) => {
-  const halfSpread = midPrice * BID_ASK_SPREAD / 2;
+const getBidAskPrices = (midPrice, isETF = false) => {
+  const spread = isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+  const halfSpread = midPrice * spread / 2;
   return {
     bid: midPrice - halfSpread,
     ask: midPrice + halfSpread,
@@ -95,10 +97,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
     if (act === 'buy' || act === 'cover') {
       const newMid = price + impact;
-      return getBidAskPrices(newMid);
+      return getBidAskPrices(newMid, character.isETF);
     } else {
       const newMid = Math.max(MIN_PRICE, price - impact);
-      return getBidAskPrices(newMid);
+      return getBidAskPrices(newMid, character.isETF);
     }
   };
 

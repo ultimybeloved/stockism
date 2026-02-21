@@ -110,8 +110,29 @@ const AboutModal = ({ onClose, darkMode, userData }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">What's the "bid-ask spread"?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Just like real stock markets, there's a tiny gap between buy and sell prices (0.2%).
+                  Just like real stock markets, there's a tiny gap between buy and sell prices (0.2% for stocks, 0.1% for ETFs).
                   This prevents instant arbitrage and makes the simulation more realistic.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">What are ETFs?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  ETFs (Exchange-Traded Funds) are baskets of character stocks bundled together. Instead of buying each character individually, you can buy one ETF to get exposure to an entire crew or group at once.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">How do ETF prices work?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  ETF prices move in two ways: from direct trading (buying/selling the ETF itself) and from the performance of the underlying stocks. If a character in an ETF goes up, the ETF price will rise proportionally too.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">Why is the spread different for ETFs?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  ETFs have a tighter spread (0.1% vs 0.2% for individual stocks) because they're diversified — holding a basket of stocks is less risky than holding a single one, so the trading cost is lower.
                 </p>
               </div>
 

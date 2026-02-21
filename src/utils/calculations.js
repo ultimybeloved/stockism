@@ -6,6 +6,7 @@ import {
   BASE_IMPACT,
   BASE_LIQUIDITY,
   BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
   MARGIN_CASH_MINIMUM,
@@ -39,8 +40,9 @@ export const calculatePriceImpact = (amount, currentPrice, volatility = 1) => {
  * @param {number} midPrice - The current mid price
  * @returns {{ bid: number, ask: number }} Bid and ask prices
  */
-export const getBidAskPrices = (midPrice) => {
-  const halfSpread = midPrice * (BID_ASK_SPREAD / 2);
+export const getBidAskPrices = (midPrice, isETF = false) => {
+  const spread = isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+  const halfSpread = midPrice * (spread / 2);
   return {
     bid: Math.max(MIN_PRICE, midPrice - halfSpread),
     ask: midPrice + halfSpread

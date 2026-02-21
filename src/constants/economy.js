@@ -20,6 +20,7 @@ export const IPO_PRICE_JUMP = 0.15; // 15% price jump after IPO ends
 export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement
 export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
 export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
+export const ETF_BID_ASK_SPREAD = 0.001; // 0.1% spread for ETFs (diversified = lower risk)
 export const MIN_PRICE = 0.01; // Minimum price floor
 export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 

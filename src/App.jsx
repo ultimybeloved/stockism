@@ -85,6 +85,7 @@ import {
   BASE_IMPACT,
   BASE_LIQUIDITY,
   BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
   SHORT_MARGIN_REQUIREMENT,
@@ -313,8 +314,9 @@ const getCharacterLiquidity = (ticker, tradingVolume = 0) => {
 };
 
 // Calculate bid (sell) and ask (buy) prices with spread
-const getBidAskPrices = (midPrice) => {
-  const halfSpread = midPrice * BID_ASK_SPREAD / 2;
+const getBidAskPrices = (midPrice, isETF = false) => {
+  const spread = isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+  const halfSpread = midPrice * spread / 2;
   return {
     bid: midPrice - halfSpread,  // Price you get when selling
     ask: midPrice + halfSpread,  // Price you pay when buying
@@ -1770,25 +1772,26 @@ export default function App() {
     
     const asset = CHARACTER_MAP[ticker];
     const price = prices[ticker] || asset?.basePrice || 0;
-    
+    const etfFlag = asset?.isETF || false;
+
     // Calculate estimated total (with new-account impact reduction)
     const ageFactor = getAccountAgeImpactFactor(userData);
     let total = price * amount;
     if (action === 'buy') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
-      const { ask } = getBidAskPrices(price + priceImpact);
+      const { ask } = getBidAskPrices(price + priceImpact, etfFlag);
       total = ask * amount;
     } else if (action === 'sell') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
-      const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact));
+      const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), etfFlag);
       total = bid * amount;
     } else if (action === 'short') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
-      const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact));
+      const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), etfFlag);
       total = bid * amount * 0.5; // margin cost only
     } else if (action === 'cover') {
       const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
-      const { ask } = getBidAskPrices(price + priceImpact);
+      const { ask } = getBidAskPrices(price + priceImpact, etfFlag);
       const shortPos = userData.shorts?.[ticker];
       if (shortPos?.system === 'v2') {
         const costBasis = shortPos.costBasis || 0;
