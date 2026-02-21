@@ -172,6 +172,143 @@ export const CHARACTERS = [
 
   // IPO characters - require IPO process before trading
   { name: "Ryu Baekgeon", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
+
+  // ETFs - crew-based funds (price = sum of member base prices / 5)
+  {
+    name: "Allied Fund", ticker: "ALLY", basePrice: 78, volatility: 0.025, dateAdded: "2026-02-20T00:00:00",
+    isETF: true, description: "Allied crew ETF",
+    constituents: ["BDNL", "LDNL", "VSCO", "ZACK", "JAY", "VIN", "AHN"],
+    trailingFactors: [
+      { ticker: "BDNL", coefficient: 0.114 }, { ticker: "LDNL", coefficient: 0.114 },
+      { ticker: "VSCO", coefficient: 0.114 }, { ticker: "ZACK", coefficient: 0.114 },
+      { ticker: "JAY", coefficient: 0.114 }, { ticker: "VIN", coefficient: 0.114 },
+      { ticker: "AHN", coefficient: 0.114 }
+    ]
+  },
+  {
+    name: "Big Deal Fund", ticker: "DEAL", basePrice: 46, volatility: 0.025, dateAdded: "2026-02-20T00:01:00",
+    isETF: true, description: "Big Deal crew ETF",
+    constituents: ["JAKE", "SWRD", "JSN", "BRAD", "LINE", "SINU", "LUAH"],
+    trailingFactors: [
+      { ticker: "JAKE", coefficient: 0.114 }, { ticker: "SWRD", coefficient: 0.114 },
+      { ticker: "JSN", coefficient: 0.114 }, { ticker: "BRAD", coefficient: 0.114 },
+      { ticker: "LINE", coefficient: 0.114 }, { ticker: "SINU", coefficient: 0.114 },
+      { ticker: "LUAH", coefficient: 0.114 }
+    ]
+  },
+  {
+    name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, volatility: 0.025, dateAdded: "2026-02-20T00:02:00",
+    isETF: true, description: "Fist Gang crew ETF",
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH"],
+    trailingFactors: [
+      { ticker: "GAP", coefficient: 0.08 }, { ticker: "ELIT", coefficient: 0.08 },
+      { ticker: "JYNG", coefficient: 0.08 }, { ticker: "TOM", coefficient: 0.08 },
+      { ticker: "KWON", coefficient: 0.08 }, { ticker: "DNCE", coefficient: 0.08 },
+      { ticker: "GNTL", coefficient: 0.08 }, { ticker: "MMA", coefficient: 0.08 },
+      { ticker: "LIAR", coefficient: 0.08 }, { ticker: "NOH", coefficient: 0.08 }
+    ]
+  },
+  {
+    name: "Secret Friends Fund", ticker: "SCRT", basePrice: 50, volatility: 0.025, dateAdded: "2026-02-20T00:03:00",
+    isETF: true, description: "Secret Friends crew ETF",
+    constituents: ["GOO", "LOGN", "SAM", "ALEX", "SHMN"],
+    trailingFactors: [
+      { ticker: "GOO", coefficient: 0.16 }, { ticker: "LOGN", coefficient: 0.16 },
+      { ticker: "SAM", coefficient: 0.16 }, { ticker: "ALEX", coefficient: 0.16 },
+      { ticker: "SHMN", coefficient: 0.16 }
+    ]
+  },
+  {
+    name: "Hostel Fund", ticker: "HSTL", basePrice: 34.2, volatility: 0.025, dateAdded: "2026-02-20T00:04:00",
+    isETF: true, description: "Hostel crew ETF",
+    constituents: ["ELI", "SLLY", "CHAE", "MAX", "DJO", "ZAMI", "RYAN"],
+    trailingFactors: [
+      { ticker: "ELI", coefficient: 0.114 }, { ticker: "SLLY", coefficient: 0.114 },
+      { ticker: "CHAE", coefficient: 0.114 }, { ticker: "MAX", coefficient: 0.114 },
+      { ticker: "DJO", coefficient: 0.114 }, { ticker: "ZAMI", coefficient: 0.114 },
+      { ticker: "RYAN", coefficient: 0.114 }
+    ]
+  },
+  {
+    name: "WTJC Fund", ticker: "WTJC", basePrice: 47.5, volatility: 0.025, dateAdded: "2026-02-20T00:05:00",
+    isETF: true, description: "WTJC crew ETF",
+    constituents: ["TOM", "SRMK", "SGUI", "YCHL", "SERA", "MMA", "LIAR", "NOH"],
+    trailingFactors: [
+      { ticker: "TOM", coefficient: 0.10 }, { ticker: "SRMK", coefficient: 0.10 },
+      { ticker: "SGUI", coefficient: 0.10 }, { ticker: "YCHL", coefficient: 0.10 },
+      { ticker: "SERA", coefficient: 0.10 }, { ticker: "MMA", coefficient: 0.10 },
+      { ticker: "LIAR", coefficient: 0.10 }, { ticker: "NOH", coefficient: 0.10 }
+    ]
+  },
+  {
+    name: "Workers Fund", ticker: "VVIP", basePrice: 94.1, volatility: 0.025, dateAdded: "2026-02-20T00:06:00",
+    isETF: true, description: "Workers crew ETF",
+    constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1"],
+    trailingFactors: [
+      { ticker: "WRKR", coefficient: 0.053 }, { ticker: "BANG", coefficient: 0.053 },
+      { ticker: "CAPG", coefficient: 0.053 }, { ticker: "JYNG", coefficient: 0.053 },
+      { ticker: "NOMN", coefficient: 0.053 }, { ticker: "NEKO", coefficient: 0.053 },
+      { ticker: "DOOR", coefficient: 0.053 }, { ticker: "JINJ", coefficient: 0.053 },
+      { ticker: "DRMA", coefficient: 0.053 }, { ticker: "HYOT", coefficient: 0.053 },
+      { ticker: "OLDF", coefficient: 0.053 }, { ticker: "SHKO", coefficient: 0.053 },
+      { ticker: "HIKO", coefficient: 0.053 }, { ticker: "DOC", coefficient: 0.053 },
+      { ticker: "NO1", coefficient: 0.053 }
+    ]
+  },
+  {
+    name: "Yamazaki Fund", ticker: "YAMA", basePrice: 68, volatility: 0.025, dateAdded: "2026-02-20T00:07:00",
+    isETF: true, description: "Yamazaki crew ETF",
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI"],
+    trailingFactors: [
+      { ticker: "GUN", coefficient: 0.133 }, { ticker: "SHNG", coefficient: 0.133 },
+      { ticker: "SHRO", coefficient: 0.133 }, { ticker: "SHKO", coefficient: 0.133 },
+      { ticker: "HIKO", coefficient: 0.133 }, { ticker: "SOMI", coefficient: 0.133 }
+    ]
+  },
+  {
+    name: "J High Fund", ticker: "JWON", basePrice: 115.20, volatility: 0.025, dateAdded: "2026-02-20T00:08:00",
+    isETF: true, description: "J High school ETF",
+    constituents: ["BDNL", "LDNL", "ELI", "ZACK", "VSCO", "VIN", "JAY", "LOGN", "2SEC", "CRYS", "DUKE", "DOO", "JACE", "MIRA", "ZOE", "JOY", "JIHO"],
+    trailingFactors: [
+      { ticker: "BDNL", coefficient: 0.047 }, { ticker: "LDNL", coefficient: 0.047 },
+      { ticker: "ELI", coefficient: 0.047 }, { ticker: "ZACK", coefficient: 0.047 },
+      { ticker: "VSCO", coefficient: 0.047 }, { ticker: "VIN", coefficient: 0.047 },
+      { ticker: "JAY", coefficient: 0.047 }, { ticker: "LOGN", coefficient: 0.047 },
+      { ticker: "2SEC", coefficient: 0.047 }, { ticker: "CRYS", coefficient: 0.047 },
+      { ticker: "DUKE", coefficient: 0.047 }, { ticker: "DOO", coefficient: 0.047 },
+      { ticker: "JACE", coefficient: 0.047 }, { ticker: "MIRA", coefficient: 0.047 },
+      { ticker: "ZOE", coefficient: 0.047 }, { ticker: "JOY", coefficient: 0.047 },
+      { ticker: "JIHO", coefficient: 0.047 }
+    ]
+  },
+  {
+    name: "Shadow Alliance Fund", ticker: "SHDW", basePrice: 155, volatility: 0.025, dateAdded: "2026-02-20T00:09:00",
+    isETF: true, description: "Kitae Kim's alliance ETF",
+    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU"],
+    trailingFactors: [
+      { ticker: "KTAE", coefficient: 0.062 }, { ticker: "DG", coefficient: 0.062 },
+      { ticker: "GNTL", coefficient: 0.062 }, { ticker: "GOO", coefficient: 0.062 },
+      { ticker: "SAM", coefficient: 0.062 }, { ticker: "SHMN", coefficient: 0.062 },
+      { ticker: "SAMC", coefficient: 0.062 }, { ticker: "YONG", coefficient: 0.062 },
+      { ticker: "PAJU", coefficient: 0.062 }, { ticker: "PHNG", coefficient: 0.062 },
+      { ticker: "CROW", coefficient: 0.062 }, { ticker: "COP", coefficient: 0.062 },
+      { ticker: "RYU", coefficient: 0.062 }
+    ]
+  },
+  {
+    name: "Jake Alliance Fund", ticker: "JKAL", basePrice: 137.40, volatility: 0.025, dateAdded: "2026-02-20T00:10:00",
+    isETF: true, description: "Jake Kim's alliance ETF",
+    constituents: ["JAKE", "LINE", "BDNL", "LDNL", "TM", "GONG", "SEOK", "WOLF", "JAEG", "YEUL", "BUCH", "UJBU", "DAEJ"],
+    trailingFactors: [
+      { ticker: "JAKE", coefficient: 0.062 }, { ticker: "LINE", coefficient: 0.062 },
+      { ticker: "BDNL", coefficient: 0.062 }, { ticker: "LDNL", coefficient: 0.062 },
+      { ticker: "TM", coefficient: 0.062 }, { ticker: "GONG", coefficient: 0.062 },
+      { ticker: "SEOK", coefficient: 0.062 }, { ticker: "WOLF", coefficient: 0.062 },
+      { ticker: "JAEG", coefficient: 0.062 }, { ticker: "YEUL", coefficient: 0.062 },
+      { ticker: "BUCH", coefficient: 0.062 }, { ticker: "UJBU", coefficient: 0.062 },
+      { ticker: "DAEJ", coefficient: 0.062 }
+    ]
+  },
 ];
 
 // Create a map for quick lookup
