@@ -436,20 +436,6 @@ exports.createUser = functions.https.onCall(async (data, context) => {
               timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            try {
-              await sendDiscordMessage(null, [{
-                title: '🚫 Watched IP — Account Blocked',
-                description: `Signup blocked for **${trimmed}**`,
-                color: 0xFF0000,
-                fields: [
-                  { name: 'Watched User', value: watchedData.displayName || watchedIpData.watchedUserId, inline: true },
-                  { name: 'IP', value: signupIp, inline: true },
-                  { name: 'Active Accounts', value: `${activeAccounts}/${maxAccounts}`, inline: true }
-                ],
-                timestamp: new Date().toISOString()
-              }]);
-            } catch (e) {}
-
             throw new functions.https.HttpsError(
               'permission-denied',
               'Account creation temporarily restricted from this network.'
@@ -558,19 +544,6 @@ exports.createUser = functions.https.onCall(async (data, context) => {
             timestamp: admin.firestore.FieldValue.serverTimestamp()
           });
 
-          try {
-            await sendDiscordMessage(null, [{
-              title: '🔗 Watched IP — Account Auto-Linked',
-              description: `New account **${trimmed}** auto-linked to watched user`,
-              color: 0xFFA500,
-              fields: [
-                { name: 'Watched User', value: autoLinkData.watchedDisplayName, inline: true },
-                { name: 'IP', value: autoLinkData.signupIp, inline: true },
-                { name: 'Active Accounts', value: `${autoLinkData.activeAccounts + 1}/${autoLinkData.maxAccounts}`, inline: true }
-              ],
-              timestamp: new Date().toISOString()
-            }]);
-          } catch (e) {}
         }
       } catch (linkError) {
         console.error('Auto-link after signup failed:', linkError);
@@ -1158,6 +1131,186 @@ exports.dailyMarketSummary = functions.pubsub
       return null;
     } catch (error) {
       console.error('Error in dailyMarketSummary:', error);
+      return null;
+    }
+  });
+
+/**
+ * Save pre-halt prices snapshot every Thursday at 13:55 UTC (5 min before halt)
+ */
+exports.savePreHaltPrices = functions.pubsub
+  .schedule('55 13 * * 4')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      const marketSnap = await db.collection('market').doc('current').get();
+      if (!marketSnap.exists) {
+        console.log('No market data found for pre-halt snapshot');
+        return null;
+      }
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+
+      await db.collection('market').doc('preHaltSnapshot').set({
+        prices,
+        savedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      console.log(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);
+      return null;
+    } catch (error) {
+      console.error('Error saving pre-halt snapshot:', error);
+      return null;
+    }
+  });
+
+/**
+ * Chapter review recap - posts Discord alert every Thursday at 21:05 UTC
+ * Compares pre-halt prices to current prices after admin adjustments
+ */
+exports.chapterReviewRecap = functions.pubsub
+  .schedule('5 21 * * 4')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      // Read pre-halt snapshot
+      const snapshotRef = db.collection('market').doc('preHaltSnapshot');
+      const snapshotSnap = await snapshotRef.get();
+
+      if (!snapshotSnap.exists) {
+        console.warn('No pre-halt snapshot found, skipping chapter review recap');
+        return null;
+      }
+
+      const beforePrices = snapshotSnap.data().prices || {};
+
+      // Read current prices
+      const marketSnap = await db.collection('market').doc('current').get();
+      if (!marketSnap.exists) {
+        console.error('No current market data found');
+        return null;
+      }
+
+      const afterPrices = marketSnap.data().prices || {};
+
+      // Build ETF ticker set from CHARACTERS
+      const etfTickers = new Set(CHARACTERS.filter(c => c.isETF).map(c => c.ticker));
+
+      // Compute changes per ticker (excluding ETFs)
+      const gainers = [];
+      const losers = [];
+      let unchangedCount = 0;
+
+      for (const [ticker, afterPrice] of Object.entries(afterPrices)) {
+        if (etfTickers.has(ticker)) continue;
+        const beforePrice = beforePrices[ticker];
+        if (beforePrice == null) continue;
+
+        const pctChange = beforePrice > 0
+          ? ((afterPrice - beforePrice) / beforePrice) * 100
+          : 0;
+
+        if (Math.abs(pctChange) < 0.01) {
+          unchangedCount++;
+        } else if (pctChange > 0) {
+          gainers.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
+        } else {
+          losers.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
+        }
+      }
+
+      gainers.sort((a, b) => b.change - a.change);
+      losers.sort((a, b) => a.change - b.change);
+
+      // Compute SMI before and after
+      const nonETFChars = CHARACTERS.filter(c => !c.isETF);
+      const computeSMI = (prices) => {
+        let sum = 0;
+        let count = 0;
+        for (const char of nonETFChars) {
+          const base = char.basePrice;
+          if (base <= 0) continue;
+          const price = prices[char.ticker];
+          sum += (price != null ? price : base) / base;
+          count++;
+        }
+        return count > 0 ? 1000 * (sum / count) : 1000;
+      };
+
+      const smiBefore = computeSMI(beforePrices);
+      const smiAfter = computeSMI(afterPrices);
+      const smiChange = smiBefore > 0
+        ? ((smiAfter - smiBefore) / smiBefore) * 100
+        : 0;
+
+      // Build Discord embed
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      const formatLine = (s) =>
+        `**${s.ticker}**  $${s.before.toFixed(2)} → $${s.after.toFixed(2)}  (${s.change > 0 ? '+' : ''}${s.change.toFixed(1)}%)`;
+
+      const fields = [];
+
+      if (gainers.length > 0) {
+        fields.push({
+          name: '📈 Price Increases',
+          value: gainers.slice(0, 10).map(formatLine).join('\n'),
+          inline: false
+        });
+      }
+
+      if (losers.length > 0) {
+        fields.push({
+          name: '📉 Price Decreases',
+          value: losers.slice(0, 10).map(formatLine).join('\n'),
+          inline: false
+        });
+      }
+
+      if (gainers.length === 0 && losers.length === 0) {
+        fields.push({
+          name: '➖ No Changes',
+          value: 'No price adjustments were made this week.',
+          inline: false
+        });
+      } else if (unchangedCount > 0) {
+        fields.push({
+          name: '➖ Unchanged',
+          value: `${unchangedCount} stock${unchangedCount !== 1 ? 's' : ''}`,
+          inline: false
+        });
+      }
+
+      const smiSign = smiChange >= 0 ? '+' : '';
+      fields.push({
+        name: '📊 Stockism Market Index',
+        value: `${Math.round(smiBefore).toLocaleString()} → ${Math.round(smiAfter).toLocaleString()} (${smiSign}${smiChange.toFixed(1)}%)`,
+        inline: false
+      });
+
+      const embed = {
+        title: '📖 Chapter Review Recap',
+        description: dateStr,
+        color: 0x9B59B6,
+        fields,
+        timestamp: new Date().toISOString()
+      };
+
+      await sendDiscordMessage(null, [embed]);
+
+      // Cleanup snapshot
+      await snapshotRef.delete();
+      console.log(`Chapter review recap sent: ${gainers.length} gainers, ${losers.length} losers, ${unchangedCount} unchanged`);
+
+      return null;
+    } catch (error) {
+      console.error('Error in chapterReviewRecap:', error);
       return null;
     }
   });
@@ -2879,19 +3032,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
               });
 
-              try {
-                await sendDiscordMessage(null, [{
-                  title: '🔗 New Account on Watched IP',
-                  description: `**${userData.displayName || uid}** traded from a watched IP`,
-                  color: 0xFFA500,
-                  fields: [
-                    { name: 'Watched User', value: watchedData.displayName || watchedUserId, inline: true },
-                    { name: 'IP', value: ip, inline: true },
-                    { name: 'Trade', value: `${action} ${amount} ${ticker}`, inline: true }
-                  ],
-                  timestamp: new Date().toISOString()
-                }]);
-              } catch (e) {}
             }
 
             // Track new IPs for known watched users/linked accounts
@@ -2916,19 +3056,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
                   details: `Known watched account "${userData.displayName || uid}" seen on new IP`,
                   timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
-
-                try {
-                  await sendDiscordMessage(null, [{
-                    title: '🌐 Watched User — New IP Detected',
-                    description: `**${userData.displayName || uid}** trading from a new IP`,
-                    color: 0xFF6600,
-                    fields: [
-                      { name: 'Watched User', value: watchedData.displayName || watchedUserId, inline: true },
-                      { name: 'New IP', value: ip, inline: true }
-                    ],
-                    timestamp: new Date().toISOString()
-                  }]);
-                } catch (e) {}
 
                 // Also add this IP to watchedIPs for future lookups
                 await db.collection('watchedIPs').doc(sanitizedIp).set({
@@ -2981,12 +3108,6 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
               reason: watchedUserId ? 'Watched IP multi-account trading' : 'Multi-account trading from same IP'
             }
           }, { merge: true });
-
-          try {
-            await sendDiscordMessage(`**Multi-Account Abuse Detected**\nIP: ${ip}\nAccounts in last hour: ${uniqueCount}\nLimit: ${maxAccountsForIp}\nBlocked user: ${uid}${watchedUserId ? `\nWatched user: ${watchedUserId}` : ''}`);
-          } catch (err) {
-            console.error('Failed to send Discord alert:', err);
-          }
 
           throw new functions.https.HttpsError(
             'permission-denied',
@@ -8175,20 +8296,6 @@ exports.addWatchedUser = functions.https.onCall(async (data, context) => {
     timestamp: admin.firestore.FieldValue.serverTimestamp()
   });
 
-  try {
-    await sendDiscordMessage(null, [{
-      title: '👁️ User Added to Watchlist',
-      description: `**${displayName}** is now being watched`,
-      color: 0xFF0000,
-      fields: [
-        { name: 'Reason', value: reason || 'None specified', inline: true },
-        { name: 'Max Accounts/IP', value: String(maxAccounts), inline: true },
-        { name: 'Known IPs', value: String(Object.keys(knownIPs).length), inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    }]);
-  } catch (e) {}
-
   return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
 });
 
@@ -8280,20 +8387,6 @@ exports.linkAltAccount = functions.https.onCall(async (data, context) => {
     details: `Manually linked "${altName}" as alt of "${watchedDoc.data().displayName}"`,
     timestamp: admin.firestore.FieldValue.serverTimestamp()
   });
-
-  try {
-    await sendDiscordMessage(null, [{
-      title: '🔗 Alt Account Manually Linked',
-      description: `**${altName}** linked to **${watchedDoc.data().displayName}**`,
-      color: 0xFFA500,
-      fields: [
-        { name: 'Primary', value: watchedDoc.data().displayName, inline: true },
-        { name: 'Alt', value: altName, inline: true },
-        { name: 'Method', value: 'Manual', inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    }]);
-  } catch (e) {}
 
   return { success: true, altName };
 });
