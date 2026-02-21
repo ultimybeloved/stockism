@@ -36,6 +36,7 @@ import { containsProfanity, getProfanityMessage } from './utils/profanity';
 import { isWeeklyHalt } from './utils/marketHours';
 import LadderGame from './components/LadderGame';
 import LimitOrders from './components/LimitOrders';
+import MarketIndex from './components/MarketIndex';
 
 // Import modals
 import AboutModal from './components/modals/AboutModal';
@@ -3121,6 +3122,13 @@ export default function App() {
             })()}
           </div>
         </div>
+
+        <MarketIndex
+          prices={prices}
+          priceHistory={priceHistory}
+          darkMode={darkMode}
+          colorBlindMode={userData?.colorBlindMode}
+        />
 
         {/* Market Tab Toggle */}
         <div className="flex gap-2 mb-4">
