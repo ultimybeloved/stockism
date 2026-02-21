@@ -11,6 +11,10 @@ const { botTrader } = require('./botTrader');
 // Import character data for trailing effects
 const { CHARACTERS } = require('./characters');
 
+// Leaderboard in-memory cache (persists across invocations on same instance)
+const leaderboardCache = {};
+const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
+
 // Constants
 const STARTING_CASH = 1000;
 // Admin UID from environment variable (set in functions/.env)
@@ -945,50 +949,61 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
 exports.getLeaderboard = functions.https.onCall(async (data, context) => {
   try {
     const { crew } = data || {};
+    const cacheKey = crew || 'global';
 
-    // Build query - use composite index for crew filtering
-    let query = db.collection('users');
+    // Check server-side cache
+    let leaderboard;
+    const cached = leaderboardCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < LEADERBOARD_CACHE_TTL) {
+      leaderboard = cached.data;
+    } else {
+      // Build query - use composite index for crew filtering
+      let query = db.collection('users');
 
-    if (crew) {
-      query = query.where('crew', '==', crew);
+      if (crew) {
+        query = query.where('crew', '==', crew);
+      }
+
+      query = query.orderBy('portfolioValue', 'desc').limit(100);
+
+      const snapshot = await query.get();
+
+      // Filter out bots and return only safe fields
+      leaderboard = [];
+      snapshot.forEach(doc => {
+        const userData = doc.data();
+
+        // Skip bots
+        if (userData.isBot) return;
+
+        // Limit to top 50
+        if (leaderboard.length >= 50) return;
+
+        // Count holdings (only non-zero positions)
+        const holdingsCount = userData.holdings
+          ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+          : 0;
+
+        leaderboard.push({
+          userId: doc.id,
+          displayName: userData.displayName || 'Anonymous',
+          portfolioValue: userData.portfolioValue || 0,
+          crew: userData.crew || null,
+          isCrewHead: userData.isCrewHead || false,
+          crewHeadColor: userData.crewHeadColor || null,
+          holdingsCount: holdingsCount,
+          displayCrewPin: userData.displayCrewPin || null,
+          displayedAchievementPins: userData.displayedAchievementPins || [],
+          achievements: userData.achievements || [],
+          displayedShopPins: userData.displayedShopPins || []
+        });
+      });
+
+      // Cache the result
+      leaderboardCache[cacheKey] = { data: leaderboard, timestamp: Date.now() };
     }
 
-    query = query.orderBy('portfolioValue', 'desc').limit(100);
-
-    const snapshot = await query.get();
-
-    // Filter out bots and return only safe fields
-    const leaderboard = [];
-    snapshot.forEach(doc => {
-      const userData = doc.data();
-
-      // Skip bots
-      if (userData.isBot) return;
-
-      // Limit to top 50
-      if (leaderboard.length >= 50) return;
-
-      // Count holdings (only non-zero positions)
-      const holdingsCount = userData.holdings
-        ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
-        : 0;
-
-      leaderboard.push({
-        userId: doc.id,
-        displayName: userData.displayName || 'Anonymous',
-        portfolioValue: userData.portfolioValue || 0,
-        crew: userData.crew || null,
-        isCrewHead: userData.isCrewHead || false,
-        crewHeadColor: userData.crewHeadColor || null,
-        holdingsCount: holdingsCount,
-        displayCrewPin: userData.displayCrewPin || null,
-        displayedAchievementPins: userData.displayedAchievementPins || [],
-        achievements: userData.achievements || [],
-        displayedShopPins: userData.displayedShopPins || []
-      });
-    });
-
-    // Find caller's rank if authenticated
+    // Find caller's rank if authenticated (always per-request)
     let callerRank = null;
     if (context.auth) {
       const callerIndex = leaderboard.findIndex(entry => entry.userId === context.auth.uid);
@@ -3108,16 +3123,16 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       const prices = marketData.prices || {};
-      const currentPrice = prices[ticker];
+      let currentPrice = prices[ticker];
 
-      // Whitelist check — only allow trading valid characters
-      const validTicker = CHARACTERS.some(c => c.ticker === ticker);
-      if (!validTicker) {
+      const character = CHARACTERS.find(c => c.ticker === ticker);
+      if (!character) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
       }
 
+      // Auto-initialize price from basePrice if missing in Firestore
       if (!currentPrice) {
-        throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
+        currentPrice = character.basePrice;
       }
 
       // Block bankrupt users from trading

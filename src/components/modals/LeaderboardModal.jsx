@@ -6,13 +6,14 @@ import { formatCurrency } from '../../utils/formatters';
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
   const [leaders, setLeaders] = useState([]);
-  const [crewLeaders, setCrewLeaders] = useState([]); // Separate state for crew-specific leaderboard
+  const [crewLeaders, setCrewLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
-  const [userRank, setUserRank] = useState(null); // User's actual rank in current view
+  const [crewFilter, setCrewFilter] = useState('ALL');
+  const [userRank, setUserRank] = useState(null);
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
-  const [userRowPosition, setUserRowPosition] = useState('unknown'); // 'above' | 'visible' | 'below' | 'unknown'
+  const [userRowPosition, setUserRowPosition] = useState('unknown');
+  const crewCache = useRef({});
 
   // Fetch main top 50 leaderboard (only once on mount)
   useEffect(() => {
@@ -26,6 +27,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         }));
         setLeaders(leaderData);
         setUserRank(result.data.callerRank);
+        crewCache.current['ALL'] = { leaders: leaderData, callerRank: result.data.callerRank };
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       }
@@ -38,16 +40,17 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   useEffect(() => {
     if (crewFilter === 'ALL') {
       setCrewLeaders([]);
-      // Reset to global rank when switching back to ALL
-      const fetchGlobalRank = async () => {
-        try {
-          const result = await getLeaderboardFunction();
-          setUserRank(result.data.callerRank);
-        } catch (err) {
-          console.error('Failed to fetch global rank:', err);
-        }
-      };
-      fetchGlobalRank();
+      if (crewCache.current['ALL']) {
+        setUserRank(crewCache.current['ALL'].callerRank);
+      }
+      return;
+    }
+
+    // Use cached data if available
+    if (crewCache.current[crewFilter]) {
+      const cached = crewCache.current[crewFilter];
+      setCrewLeaders(cached.leaders);
+      setUserRank(cached.callerRank);
       return;
     }
 
@@ -61,6 +64,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
         }));
         setCrewLeaders(crewMembers);
         setUserRank(result.data.callerRank);
+        crewCache.current[crewFilter] = { leaders: crewMembers, callerRank: result.data.callerRank };
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
       }
@@ -141,10 +145,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           </div>
 
           {/* Crew Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
             <button
               onClick={() => setCrewFilter('ALL')}
-              className={`px-3 py-1 text-xs rounded-sm font-semibold ${
+              className={`px-3 py-1.5 text-xs rounded-full font-semibold whitespace-nowrap shrink-0 transition-colors ${
                 crewFilter === 'ALL'
                   ? 'bg-orange-600 text-white'
                   : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
@@ -156,7 +160,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
               <button
                 key={crew.id}
                 onClick={() => setCrewFilter(crew.id)}
-                className={`px-3 py-1 text-xs rounded-sm font-semibold flex items-center gap-1 ${
+                className={`px-3 py-1.5 text-xs rounded-full font-semibold flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors ${
                   crewFilter === crew.id
                     ? 'text-white'
                     : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'

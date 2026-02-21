@@ -16,6 +16,7 @@ const LeaderboardPage = () => {
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
+  const crewCache = useRef({});
 
   // Fetch main top 50 leaderboard (only once on mount)
   useEffect(() => {
@@ -29,6 +30,7 @@ const LeaderboardPage = () => {
         }));
         setLeaders(leaderData);
         setUserRank(result.data.callerRank);
+        crewCache.current['ALL'] = { leaders: leaderData, callerRank: result.data.callerRank };
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       }
@@ -41,16 +43,17 @@ const LeaderboardPage = () => {
   useEffect(() => {
     if (crewFilter === 'ALL') {
       setCrewLeaders([]);
-      // Reset to global rank when switching back to ALL
-      const fetchGlobalRank = async () => {
-        try {
-          const result = await getLeaderboardFunction();
-          setUserRank(result.data.callerRank);
-        } catch (err) {
-          console.error('Failed to fetch global rank:', err);
-        }
-      };
-      fetchGlobalRank();
+      if (crewCache.current['ALL']) {
+        setUserRank(crewCache.current['ALL'].callerRank);
+      }
+      return;
+    }
+
+    // Use cached data if available
+    if (crewCache.current[crewFilter]) {
+      const cached = crewCache.current[crewFilter];
+      setCrewLeaders(cached.leaders);
+      setUserRank(cached.callerRank);
       return;
     }
 
@@ -65,6 +68,7 @@ const LeaderboardPage = () => {
         }));
         setCrewLeaders(crewMembers);
         setUserRank(result.data.callerRank);
+        crewCache.current[crewFilter] = { leaders: crewMembers, callerRank: result.data.callerRank };
       } catch (err) {
         console.error('Failed to fetch crew leaderboard:', err);
       }
@@ -139,10 +143,10 @@ const LeaderboardPage = () => {
           <h2 className={`text-lg font-semibold ${textClass} mb-3`}>🏆 Leaderboard</h2>
 
           {/* Crew Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
             <button
               onClick={() => setCrewFilter('ALL')}
-              className={`px-3 py-1 text-xs rounded-sm font-semibold ${
+              className={`px-3 py-1.5 text-xs rounded-full font-semibold whitespace-nowrap shrink-0 transition-colors ${
                 crewFilter === 'ALL'
                   ? 'bg-orange-600 text-white'
                   : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
@@ -154,7 +158,7 @@ const LeaderboardPage = () => {
               <button
                 key={crew.id}
                 onClick={() => setCrewFilter(crew.id)}
-                className={`px-3 py-1 text-xs rounded-sm font-semibold flex items-center gap-1 ${
+                className={`px-3 py-1.5 text-xs rounded-full font-semibold flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors ${
                   crewFilter === crew.id
                     ? 'text-white'
                     : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
