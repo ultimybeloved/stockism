@@ -8,7 +8,7 @@ const computeIndex = (prices, characters) => {
   let sum = 0;
   let count = 0;
   for (const char of characters) {
-    const price = prices?.[char.ticker]?.currentPrice;
+    const price = prices?.[char.ticker];
     const base = char.basePrice;
     if (base > 0) {
       sum += (price != null ? price : base) / base;
@@ -48,9 +48,9 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
         // Find nearest price at or before time t
         let nearest = null;
         for (let j = history.length - 1; j >= 0; j--) {
-          const ts = history[j].timestamp?.seconds
-            ? history[j].timestamp.seconds * 1000
-            : (typeof history[j].timestamp === 'number' ? history[j].timestamp : null);
+          const ts = typeof history[j].timestamp === 'number' ? history[j].timestamp
+            : history[j].timestamp?.seconds ? history[j].timestamp.seconds * 1000
+            : null;
           if (ts != null && ts <= t) {
             nearest = history[j].price;
             break;
