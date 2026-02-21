@@ -6267,7 +6267,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       {/* MARKET TAB */}
       {activeTab === 'market' && (
-        <div className="space-y-4">
+        <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
           <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Controls</h3>
 
           {/* Status */}
@@ -6353,7 +6353,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       {/* WATCHLIST TAB */}
       {activeTab === 'watchlist' && (
-        <div className="space-y-4">
+        <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
 
           {/* Add to Watchlist */}
           <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-red-50'}`}>
