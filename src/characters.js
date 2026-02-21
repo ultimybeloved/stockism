@@ -176,7 +176,7 @@ export const CHARACTERS = [
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
     name: "Allied Fund", ticker: "ALLY", basePrice: 78, volatility: 0.025, dateAdded: "2026-02-20T00:00:00",
-    isETF: true, description: "Allied crew ETF",
+    isETF: true, description: "Allied ETF",
     constituents: ["BDNL", "LDNL", "VSCO", "ZACK", "JAY", "VIN", "AHN"],
     trailingFactors: [
       { ticker: "BDNL", coefficient: 0.114 }, { ticker: "LDNL", coefficient: 0.114 },
@@ -187,7 +187,7 @@ export const CHARACTERS = [
   },
   {
     name: "Big Deal Fund", ticker: "DEAL", basePrice: 46, volatility: 0.025, dateAdded: "2026-02-20T00:01:00",
-    isETF: true, description: "Big Deal crew ETF",
+    isETF: true, description: "Big Deal ETF",
     constituents: ["JAKE", "SWRD", "JSN", "BRAD", "LINE", "SINU", "LUAH"],
     trailingFactors: [
       { ticker: "JAKE", coefficient: 0.114 }, { ticker: "SWRD", coefficient: 0.114 },
@@ -198,7 +198,7 @@ export const CHARACTERS = [
   },
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, volatility: 0.025, dateAdded: "2026-02-20T00:02:00",
-    isETF: true, description: "Fist Gang crew ETF",
+    isETF: true, description: "Fist Gang ETF",
     constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH"],
     trailingFactors: [
       { ticker: "GAP", coefficient: 0.08 }, { ticker: "ELIT", coefficient: 0.08 },
@@ -210,7 +210,7 @@ export const CHARACTERS = [
   },
   {
     name: "Secret Friends Fund", ticker: "SCRT", basePrice: 50, volatility: 0.025, dateAdded: "2026-02-20T00:03:00",
-    isETF: true, description: "Secret Friends crew ETF",
+    isETF: true, description: "Secret Friends ETF",
     constituents: ["GOO", "LOGN", "SAM", "ALEX", "SHMN"],
     trailingFactors: [
       { ticker: "GOO", coefficient: 0.16 }, { ticker: "LOGN", coefficient: 0.16 },
@@ -220,7 +220,7 @@ export const CHARACTERS = [
   },
   {
     name: "Hostel Fund", ticker: "HSTL", basePrice: 34.2, volatility: 0.025, dateAdded: "2026-02-20T00:04:00",
-    isETF: true, description: "Hostel crew ETF",
+    isETF: true, description: "Hostel ETF",
     constituents: ["ELI", "SLLY", "CHAE", "MAX", "DJO", "ZAMI", "RYAN"],
     trailingFactors: [
       { ticker: "ELI", coefficient: 0.114 }, { ticker: "SLLY", coefficient: 0.114 },
@@ -231,7 +231,7 @@ export const CHARACTERS = [
   },
   {
     name: "WTJC Fund", ticker: "WTJC", basePrice: 47.5, volatility: 0.025, dateAdded: "2026-02-20T00:05:00",
-    isETF: true, description: "WTJC crew ETF",
+    isETF: true, description: "WTJC ETF",
     constituents: ["TOM", "SRMK", "SGUI", "YCHL", "SERA", "MMA", "LIAR", "NOH"],
     trailingFactors: [
       { ticker: "TOM", coefficient: 0.10 }, { ticker: "SRMK", coefficient: 0.10 },
@@ -242,7 +242,7 @@ export const CHARACTERS = [
   },
   {
     name: "Workers Fund", ticker: "VVIP", basePrice: 94.1, volatility: 0.025, dateAdded: "2026-02-20T00:06:00",
-    isETF: true, description: "Workers crew ETF",
+    isETF: true, description: "Workers ETF",
     constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1"],
     trailingFactors: [
       { ticker: "WRKR", coefficient: 0.053 }, { ticker: "BANG", coefficient: 0.053 },
@@ -257,7 +257,7 @@ export const CHARACTERS = [
   },
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 68, volatility: 0.025, dateAdded: "2026-02-20T00:07:00",
-    isETF: true, description: "Yamazaki crew ETF",
+    isETF: true, description: "Yamazaki ETF",
     constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI"],
     trailingFactors: [
       { ticker: "GUN", coefficient: 0.133 }, { ticker: "SHNG", coefficient: 0.133 },

@@ -7,6 +7,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
+  const [etfExpanded, setEtfExpanded] = useState(false);
 
   // Check if this card should open in limit order mode
   useEffect(() => {
@@ -151,18 +152,30 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                 <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
               </div>
-              <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>
-              {character.description && <p className={`text-xs ${mutedClass}`}>{character.description}</p>}
-              {isETF && character.constituents && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {character.constituents.slice(0, 6).map(t => (
-                    <span key={t} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>{t}</span>
-                  ))}
-                  {character.constituents.length > 6 && (
-                    <span className={`text-[10px] ${mutedClass}`}>+{character.constituents.length - 6} more</span>
-                  )}
-                </div>
-              )}
+              {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
+              {character.description && <p className={`text-xs ${mutedClass}${isETF ? ' mt-0.5' : ''}`}>{character.description}</p>}
+              {isETF && character.constituents && (() => {
+                const sorted = [...character.constituents].sort((a, b) => (prices?.[b] || 0) - (prices?.[a] || 0));
+                const preview = sorted.slice(0, 6);
+                const hasMore = sorted.length > 6;
+                return (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(etfExpanded ? sorted : preview).map(t => (
+                      <span key={t} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                        {t}{etfExpanded && prices?.[t] ? ` ${formatCurrency(prices[t])}` : ''}
+                      </span>
+                    ))}
+                    {hasMore && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEtfExpanded(!etfExpanded); }}
+                        className={`text-[10px] ${mutedClass} hover:text-orange-500 cursor-pointer`}
+                      >
+                        {etfExpanded ? 'show less' : `+${sorted.length - 6} more`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
