@@ -1,23 +1,16 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import LadderGame from '../components/LadderGame';
 import { useAppContext } from '../context/AppContext';
 
 const LadderPage = () => {
-  const navigate = useNavigate();
   const { user, userData, darkMode } = useAppContext();
 
-  const handleClose = () => {
-    navigate('/');
-  };
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+    <div style={{ background: '#d4c4a8', minHeight: 'calc(100vh - 4rem)' }}>
       <LadderGame
         user={user}
         userData={userData}
         darkMode={darkMode}
-        onClose={handleClose}
       />
     </div>
   );

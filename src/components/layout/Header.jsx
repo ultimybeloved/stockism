@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { ADMIN_UIDS } from '../../constants';
@@ -25,6 +25,7 @@ const LadderIcon = () => (
 
 const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -79,9 +80,9 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
           {/* Desktop: Nav links on left */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => (
-              <Link
+              <button
                 key={link.path}
-                to={link.path}
+                onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActivePage(link.path)
                     ? darkMode
@@ -94,7 +95,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
               >
                 <span className="mr-1">{link.icon}</span>
                 {link.label}
-              </Link>
+              </button>
             ))}
           </nav>
 
@@ -147,8 +148,8 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             {/* User Info */}
             {user ? (
               <div className="flex items-center space-x-2">
-                <Link
-                  to="/profile"
+                <button
+                  onClick={() => navigate(isActivePage('/profile') ? '/' : '/profile')}
                   className={`flex items-center space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage('/profile')
                       ? darkMode
@@ -176,7 +177,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                       {formatCurrency(userData?.portfolioValue || 0)}
                     </div>
                   </div>
-                </Link>
+                </button>
 
                 <button
                   onClick={handleSignOut}

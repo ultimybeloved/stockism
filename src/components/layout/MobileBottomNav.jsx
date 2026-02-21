@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -21,6 +21,7 @@ const LadderIcon = () => (
 
 const MobileBottomNav = ({ darkMode, user }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const isVisibleRef = useRef(true);
@@ -76,9 +77,11 @@ const MobileBottomNav = ({ darkMode, user }) => {
     >
       <div className="flex items-center justify-around h-16">
         {navItems.map(item => (
-          <Link
+          <button
             key={item.path}
-            to={item.path}
+            onClick={() => navigate(
+              item.path === '/' ? '/' : (isActivePage(item.path) ? '/' : item.path)
+            )}
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActivePage(item.path)
                 ? darkMode
@@ -91,7 +94,7 @@ const MobileBottomNav = ({ darkMode, user }) => {
           >
             <span className="text-2xl mb-1">{item.icon}</span>
             <span className="text-xs font-medium">{item.label}</span>
-          </Link>
+          </button>
         ))}
       </div>
     </nav>

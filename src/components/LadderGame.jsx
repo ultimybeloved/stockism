@@ -565,12 +565,11 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
           background: bgMain,
           maxWidth: '690px',
           width: '100%',
-          borderRadius: '4px',
+          borderRadius: onClose ? '4px' : undefined,
           position: 'relative',
-          maxHeight: '90vh',
-          overflowY: 'auto'
+          ...(onClose ? { maxHeight: '90vh', overflowY: 'auto' } : {})
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={onClose ? (e) => e.stopPropagation() : undefined}
       >
         {/* Close button */}
         {onClose && (
