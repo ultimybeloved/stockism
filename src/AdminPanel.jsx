@@ -3341,74 +3341,78 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           </div>
         </div>
 
-        {/* Tabs - Responsive grid layout */}
-        <div className={`grid grid-cols-3 md:grid-cols-6 lg:grid-cols-11 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <button
-            onClick={() => { setActiveTab('ipo'); loadIPOs(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'ipo' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🚀 IPO
-          </button>
-          <button
-            onClick={() => { setActiveTab('predictions'); loadAllBets(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'predictions' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🎲 Bets {unresolvedPredictions.length > 0 && `(${unresolvedPredictions.length})`}
-          </button>
-          <button
-            onClick={() => setActiveTab('holders')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'holders' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            📊 Holders
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'users' ? 'text-green-500 border-b-2 border-green-500 bg-green-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            👥 Users
-          </button>
-          <button
-            onClick={() => { setActiveTab('bots'); handleLoadBots(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'bots' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🤖 Bots
-          </button>
-          <button
-            onClick={() => { setActiveTab('trades'); loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'trades' ? 'text-yellow-500 border-b-2 border-yellow-500 bg-yellow-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            💹 Trades
-          </button>
-          <button
-            onClick={() => { setActiveTab('stats'); loadMarketStats(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'stats' ? 'text-cyan-500 border-b-2 border-cyan-500 bg-cyan-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            📈 Stats
-          </button>
-          <button
-            onClick={() => setActiveTab('recovery')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🔧 Recovery
-          </button>
-          <button
-            onClick={() => { setActiveTab('badges'); loadBadgeUsers(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'badges' ? 'text-amber-500 border-b-2 border-amber-500 bg-amber-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🏅 Badges
-          </button>
-          <button
-            onClick={() => setActiveTab('market')}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'market' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            🏛️ Market
-          </button>
-          <button
-            onClick={() => { setActiveTab('watchlist'); if (!watchlistLoaded) loadWatchlist(); }}
-            className={`py-2.5 text-xs font-semibold transition-colors ${activeTab === 'watchlist' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-          >
-            👁️ Watch
-          </button>
+        {/* Tabs - Two-row layout */}
+        <div className={`border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex">
+            <button
+              onClick={() => { setActiveTab('ipo'); loadIPOs(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'ipo' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🚀 IPO
+            </button>
+            <button
+              onClick={() => { setActiveTab('predictions'); loadAllBets(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'predictions' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🎲 Bets {unresolvedPredictions.length > 0 && `(${unresolvedPredictions.length})`}
+            </button>
+            <button
+              onClick={() => setActiveTab('holders')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'holders' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              📊 Holders
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'users' ? 'text-green-500 border-b-2 border-green-500 bg-green-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              👥 Users
+            </button>
+            <button
+              onClick={() => { setActiveTab('bots'); handleLoadBots(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'bots' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🤖 Bots
+            </button>
+            <button
+              onClick={() => { setActiveTab('trades'); loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'trades' ? 'text-yellow-500 border-b-2 border-yellow-500 bg-yellow-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              💹 Trades
+            </button>
+          </div>
+          <div className="flex">
+            <button
+              onClick={() => { setActiveTab('stats'); loadMarketStats(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'stats' ? 'text-cyan-500 border-b-2 border-cyan-500 bg-cyan-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              📈 Stats
+            </button>
+            <button
+              onClick={() => setActiveTab('recovery')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🔧 Recovery
+            </button>
+            <button
+              onClick={() => { setActiveTab('badges'); loadBadgeUsers(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'badges' ? 'text-amber-500 border-b-2 border-amber-500 bg-amber-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🏅 Badges
+            </button>
+            <button
+              onClick={() => setActiveTab('market')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'market' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🏛️ Market
+            </button>
+            <button
+              onClick={() => { setActiveTab('watchlist'); if (!watchlistLoaded) loadWatchlist(); }}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'watchlist' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              👁️ Watch
+            </button>
+          </div>
         </div>
 
         {/* Message */}
