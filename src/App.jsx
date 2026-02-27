@@ -513,6 +513,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
     { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-blue-500', fill: 'bg-blue-500' },
     { bg: 'bg-amber-600', border: 'border-amber-600', text: 'text-amber-500', fill: 'bg-amber-500' },
     { bg: 'bg-cyan-600', border: 'border-cyan-600', text: 'text-cyan-500', fill: 'bg-cyan-500' },
+    { bg: 'bg-violet-600', border: 'border-violet-600', text: 'text-violet-500', fill: 'bg-violet-500' },
   ];
 
   return (
