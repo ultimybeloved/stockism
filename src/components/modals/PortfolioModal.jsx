@@ -219,7 +219,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
   }, [user]);
 
   const handleCancelOrder = async (orderId) => {
-    if (!confirm('Cancel this limit order?')) return;
+    if (!confirm('Cancel this order?')) return;
 
     setLoadingOrders(true);
     try {
@@ -668,6 +668,14 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                             >
                               Limit Sell
                             </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onLimitSell && onLimitSell(item.ticker, 'sell', 'stopLoss'); }}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
+                                darkMode ? 'border-orange-600 text-orange-400 hover:bg-orange-950' : 'border-orange-600 text-orange-600 hover:bg-orange-50'
+                              }`}
+                            >
+                              Stop Loss
+                            </button>
                           </div>
                         </div>
                       )}
@@ -829,7 +837,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
               {pendingOrders.length > 0 && (
                 <div className="mt-6">
                   <div className="flex items-center gap-2 mb-3">
-                    <h3 className={`text-lg font-bold ${textClass}`}>Pending Limit Orders</h3>
+                    <h3 className={`text-lg font-bold ${textClass}`}>Pending Orders</h3>
                     <span className={`text-sm px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
                       {pendingOrders.length}
                     </span>
@@ -851,9 +859,11 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                 <span className={`${
                                   order.type === 'BUY' || order.type === 'COVER'
                                     ? 'text-green-500'
-                                    : 'text-red-500'
+                                    : order.type === 'STOP_LOSS'
+                                      ? 'text-orange-500'
+                                      : 'text-red-500'
                                 }`}>
-                                  {order.type}
+                                  {order.type === 'STOP_LOSS' ? 'STOP LOSS' : order.type}
                                 </span>
                                 {' '}
                                 {order.shares} ${order.ticker}
@@ -871,7 +881,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
 
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <div className={mutedClass}>Limit Price</div>
+                              <div className={mutedClass}>{order.type === 'STOP_LOSS' ? 'Stop Price' : 'Limit Price'}</div>
                               <div className={`font-bold ${textClass}`}>${order.limitPrice.toFixed(2)}</div>
                             </div>
                             <div>

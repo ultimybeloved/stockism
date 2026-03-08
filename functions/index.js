@@ -3197,13 +3197,13 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     );
   }
 
-  // Anti-manipulation: Block shorting if user has a pending SELL limit order on same ticker
+  // Anti-manipulation: Block shorting if user has a pending SELL or STOP_LOSS limit order on same ticker
   if (action === 'short') {
     const pendingSells = await db.collection('limitOrders')
       .where('userId', '==', uid)
       .where('ticker', '==', ticker)
       .where('status', '==', 'PENDING')
-      .where('type', '==', 'SELL')
+      .where('type', 'in', ['SELL', 'STOP_LOSS'])
       .limit(1)
       .get();
 
@@ -5553,9 +5553,9 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
   }
 
-  // Validate order type (only BUY/SELL supported — SHORT/COVER can't execute in checkLimitOrders)
-  if (!type || !['BUY', 'SELL'].includes(type)) {
-    throw new functions.https.HttpsError('invalid-argument', 'Limit orders support BUY and SELL only.');
+  // Validate order type (BUY/SELL/STOP_LOSS supported — SHORT/COVER can't execute in checkLimitOrders)
+  if (!type || !['BUY', 'SELL', 'STOP_LOSS'].includes(type)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Limit orders support BUY, SELL, and STOP_LOSS only.');
   }
 
   // Validate shares (must be finite positive integer, max 10000)
@@ -5599,8 +5599,8 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('resource-exhausted', 'Maximum 20 pending orders allowed.');
   }
 
-  // Validate holdings for SELL orders (account for shares reserved by pending sells)
-  if (type === 'SELL') {
+  // Validate holdings for SELL/STOP_LOSS orders (account for shares reserved by pending sells/stop losses)
+  if (type === 'SELL' || type === 'STOP_LOSS') {
     const currentHoldings = userData.holdings?.[ticker] || 0;
     if (currentHoldings < shares) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings to sell.');
@@ -5608,7 +5608,7 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     const pendingSellShares = pendingOrders.docs
       .filter(doc => {
         const o = doc.data();
-        return o.ticker === ticker && o.type === 'SELL';
+        return o.ticker === ticker && (o.type === 'SELL' || o.type === 'STOP_LOSS');
       })
       .reduce((sum, doc) => sum + doc.data().shares, 0);
     if (currentHoldings < shares + pendingSellShares) {
@@ -5624,8 +5624,8 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     }
   }
 
-  // Anti-manipulation: Block SELL limit if user has an active short on same ticker
-  if (type === 'SELL') {
+  // Anti-manipulation: Block SELL/STOP_LOSS if user has an active short on same ticker
+  if (type === 'SELL' || type === 'STOP_LOSS') {
     const shortShares = userData.shorts?.[ticker]?.shares || 0;
     if (shortShares > 0) {
       throw new functions.https.HttpsError('failed-precondition',
@@ -5634,13 +5634,17 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
   }
 
   // Block duplicate limit orders on same ticker + type
+  // Treat SELL and STOP_LOSS as equivalent to prevent double-selling
+  const sellTypes = ['SELL', 'STOP_LOSS'];
+  const isSellType = sellTypes.includes(type);
   const existingOrderOnTicker = pendingOrders.docs.some(doc => {
     const o = doc.data();
-    return o.ticker === ticker && o.type === type;
+    const isExistingSellType = sellTypes.includes(o.type);
+    return o.ticker === ticker && (isSellType ? isExistingSellType : o.type === type);
   });
   if (existingOrderOnTicker) {
     throw new functions.https.HttpsError('already-exists',
-      `You already have a pending ${type} order on ${ticker}. Cancel it first.`);
+      `You already have a pending sell or stop-loss order on ${ticker}. Cancel it first.`);
   }
 
   // Create the order
@@ -5770,6 +5774,8 @@ exports.checkLimitOrders = functions.pubsub
             shouldExecute = true;
           } else if (order.type === 'SELL' && currentPrice >= order.limitPrice) {
             shouldExecute = true;
+          } else if (order.type === 'STOP_LOSS' && currentPrice <= order.limitPrice) {
+            shouldExecute = true;
           }
 
           if (!shouldExecute) {
@@ -5814,14 +5820,20 @@ exports.checkLimitOrders = functions.pubsub
               if (order.type === 'SELL' && freshPrice < order.limitPrice) {
                 throw new Error('Price no longer meets limit condition');
               }
+              if (order.type === 'STOP_LOSS' && freshPrice > order.limitPrice) {
+                throw new Error('Price no longer meets limit condition');
+              }
 
               // Check if user is bankrupt/in debt (could have changed since order was created)
               if (userData.isBankrupt || (userData.cash || 0) < 0) {
                 throw new Error('User is bankrupt or in debt');
               }
 
+              // STOP_LOSS executes as a sell — normalize for validation/execution
+              const effectiveType = order.type === 'STOP_LOSS' ? 'SELL' : order.type;
+
               // Validate user has sufficient funds/shares
-              if (order.type === 'BUY') {
+              if (effectiveType === 'BUY') {
                 const totalCost = freshPrice * fillShares;
                 if (userData.cash < totalCost) {
                   if (order.allowPartialFills) {
@@ -5836,7 +5848,7 @@ exports.checkLimitOrders = functions.pubsub
                     throw new Error('Insufficient cash');
                   }
                 }
-              } else if (order.type === 'SELL') {
+              } else if (effectiveType === 'SELL') {
                 const userShares = userData.holdings?.[order.ticker] || 0;
                 if (userShares < fillShares) {
                   if (order.allowPartialFills) {
@@ -5862,7 +5874,7 @@ exports.checkLimitOrders = functions.pubsub
               // Execute the trade
               const orderChar = CHARACTERS.find(c => c.ticker === order.ticker);
               const limitSpread = orderChar?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
-              if (order.type === 'BUY') {
+              if (effectiveType === 'BUY') {
                 // Price goes UP on buy
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
                 const askPrice = newMarketPrice * (1 + limitSpread / 2);
@@ -5900,7 +5912,7 @@ exports.checkLimitOrders = functions.pubsub
                 }
 
                 console.log(`Executed BUY: ${fillShares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
-              } else if (order.type === 'SELL') {
+              } else if (effectiveType === 'SELL') {
                 // Price goes DOWN on sell
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
                 const bidPrice = newMarketPrice * (1 - limitSpread / 2);
@@ -5935,7 +5947,7 @@ exports.checkLimitOrders = functions.pubsub
                   });
                 }
 
-                console.log(`Executed SELL: ${fillShares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
+                console.log(`Executed ${order.type}: ${fillShares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               }
             });
           } catch (transactionError) {
@@ -5965,10 +5977,7 @@ exports.checkLimitOrders = functions.pubsub
           tickerExecutionCount[order.ticker] = (tickerExecutionCount[order.ticker] || 0) + 1;
 
           // Update order status
-          const isPartialFill = order.allowPartialFills && (
-            (order.type === 'BUY' && fillShares < originalShares) ||
-            (order.type === 'SELL' && fillShares < originalShares)
-          );
+          const isPartialFill = order.allowPartialFills && fillShares < originalShares;
 
           await db.collection('limitOrders').doc(orderId).update({
             status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',

@@ -9,11 +9,11 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
   const [etfExpanded, setEtfExpanded] = useState(false);
 
-  // Check if this card should open in limit order mode
+  // Check if this card should open in limit order or stop loss mode
   useEffect(() => {
     if (limitOrderRequest && limitOrderRequest.ticker === character.ticker) {
       setTradeAction(limitOrderRequest.action);
-      setShouldOpenAsLimit(true);
+      setShouldOpenAsLimit(limitOrderRequest.mode || 'limit');
       if (onClearLimitOrderRequest) {
         onClearLimitOrderRequest();
       }

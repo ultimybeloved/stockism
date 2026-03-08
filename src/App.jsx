@@ -1809,12 +1809,12 @@ export default function App() {
   }, [user, userData, prices, activeIPOs, launchedTickers, showNotification]);
 
   // Handle limit order request from portfolio
-  const handleLimitOrderRequest = useCallback((ticker, action) => {
+  const handleLimitOrderRequest = useCallback((ticker, action, mode) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to start trading!');
       return;
     }
-    setLimitOrderRequest({ ticker, action });
+    setLimitOrderRequest({ ticker, action, mode: mode || 'limit' });
     setShowPortfolio(false); // Close portfolio modal
   }, [user, userData, showNotification]);
 

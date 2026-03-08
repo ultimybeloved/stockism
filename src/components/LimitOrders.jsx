@@ -199,6 +199,16 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
               >
                 Sell
               </button>
+              <button
+                onClick={() => setOrderType('STOP_LOSS')}
+                className={`flex-1 px-4 py-2 font-semibold rounded ${
+                  orderType === 'STOP_LOSS'
+                    ? 'bg-orange-600 text-white'
+                    : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                Stop Loss
+              </button>
             </div>
           </div>
 
@@ -217,7 +227,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
           {/* Limit Price */}
           <div>
             <label className={`block text-sm font-semibold mb-2 ${textClass}`}>
-              Limit Price
+              {orderType === 'STOP_LOSS' ? 'Stop Price' : 'Limit Price'}
               {currentPrice > 0 && (
                 <span className={`ml-2 text-xs ${mutedClass}`}>
                   (Current: ${currentPrice.toFixed(2)})
@@ -236,7 +246,9 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
             <p className={`text-xs ${mutedClass} mt-1`}>
               {orderType === 'BUY'
                 ? 'Order executes when price drops to or below this price'
-                : 'Order executes when price rises to or above this price'}
+                : orderType === 'STOP_LOSS'
+                  ? 'Sells when price drops to or below this price'
+                  : 'Order executes when price rises to or above this price'}
             </p>
           </div>
 
@@ -288,7 +300,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className={`font-bold ${textClass}`}>
-                        {order.type} {order.shares} ${order.ticker}
+                        {order.type === 'STOP_LOSS' ? 'STOP LOSS' : order.type} {order.shares} ${order.ticker}
                       </div>
                       <div className={`text-sm ${mutedClass}`}>{char?.name}</div>
                     </div>

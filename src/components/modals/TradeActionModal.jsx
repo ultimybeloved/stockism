@@ -68,7 +68,8 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false }) => {
   const { showNotification } = useAppContext();
   const [amount, setAmount] = useState(1);
-  const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder);
+  const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);
+  const [isStopLoss, setIsStopLoss] = useState(defaultToLimitOrder === 'stopLoss');
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
   const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -244,39 +245,41 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const handleSubmit = async () => {
     if (config.disabled || amount < 1 || amount > maxShares || submitting) return;
 
-    if (isLimitOrder) {
+    if (isLimitOrder || isStopLoss) {
       // Block limit order creation during trading halt
       if (isWeeklyHalt()) {
-        showNotification('error', 'Market is closed for chapter review. Limit orders cannot be created during trading halt.');
+        showNotification('error', 'Market is closed for chapter review. Orders cannot be created during trading halt.');
         return;
       }
 
-      // Handle limit order creation
+      // Handle limit order / stop loss creation
       const priceNum = parseFloat(limitPrice);
       if (isNaN(priceNum) || priceNum <= 0) {
-        showNotification('error', 'Please enter a valid limit price');
+        showNotification('error', `Please enter a valid ${isStopLoss ? 'stop' : 'limit'} price`);
         return;
       }
 
       if (priceNum > price * 10) {
-        showNotification('error', 'Limit price cannot exceed 10x current price');
+        showNotification('error', `${isStopLoss ? 'Stop' : 'Limit'} price cannot exceed 10x current price`);
         return;
       }
+
+      const orderType = isStopLoss ? 'STOP_LOSS' : action.toUpperCase();
 
       setSubmitting(true);
       try {
         await createLimitOrderFunction({
           ticker: character.ticker,
-          type: action.toUpperCase(),
+          type: orderType,
           shares: parseInt(amount),
           limitPrice: priceNum,
           allowPartialFills
         });
 
-        showNotification('success', 'Limit order created! View your orders in Portfolio.');
+        showNotification('success', `${isStopLoss ? 'Stop loss' : 'Limit order'} created! View your orders in Portfolio.`);
         onClose();
       } catch (error) {
-        console.error('Error creating limit order:', error);
+        console.error('Error creating order:', error);
         showNotification('error', `Failed to create order: ${error.message}`);
       } finally {
         setSubmitting(false);
@@ -379,9 +382,9 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           )}
         </div>
 
-        {/* Limit Order Checkbox (only for buy/sell — short/cover not supported) */}
+        {/* Limit Order / Stop Loss Options (only for buy/sell — short/cover not supported) */}
         {(action === 'buy' || action === 'sell') && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -389,6 +392,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
                 onChange={(e) => {
                   setIsLimitOrder(e.target.checked);
                   if (e.target.checked) {
+                    setIsStopLoss(false);
                     setLimitPrice(price.toFixed(2));
                   }
                 }}
@@ -396,18 +400,41 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               />
               <span className={`text-sm font-semibold ${textClass}`}>Place as limit order</span>
             </label>
-            <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
-              Order will execute when price conditions are met (30-day expiration)
+            {action === 'sell' && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isStopLoss}
+                  onChange={(e) => {
+                    setIsStopLoss(e.target.checked);
+                    if (e.target.checked) {
+                      setIsLimitOrder(false);
+                      setLimitPrice(price.toFixed(2));
+                    }
+                  }}
+                  className="w-4 h-4"
+                />
+                <span className={`text-sm font-semibold ${textClass}`}>Place as stop loss</span>
+              </label>
+            )}
+            <p className={`text-xs ${mutedClass} ml-6`}>
+              {isStopLoss
+                ? 'Auto-sells when price drops to your stop price (30-day expiration)'
+                : isLimitOrder
+                  ? 'Order will execute when price conditions are met (30-day expiration)'
+                  : action === 'sell'
+                    ? 'Limit order sells when price rises. Stop loss sells when price drops.'
+                    : 'Order will execute when price drops to your limit price.'}
             </p>
           </div>
         )}
 
-        {/* Limit Order Settings */}
-        {isLimitOrder && (
+        {/* Limit Order / Stop Loss Settings */}
+        {(isLimitOrder || isStopLoss) && (
           <div className={`p-3 rounded-sm mb-4 space-y-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
             <div>
               <label className={`block text-sm font-semibold mb-1 ${textClass}`}>
-                Limit Price
+                {isStopLoss ? 'Stop Price' : 'Limit Price'}
                 <span className={`ml-2 text-xs ${mutedClass}`}>
                   (Current: {formatCurrency(price)})
                 </span>
@@ -422,9 +449,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
                 className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
               />
               <p className={`text-xs ${mutedClass} mt-1`}>
-                {action === 'buy' || action === 'cover'
-                  ? 'Order executes when price drops to or below this price'
-                  : 'Order executes when price rises to or above this price'}
+                {isStopLoss
+                  ? 'Sells when price drops to or below this price'
+                  : action === 'buy' || action === 'cover'
+                    ? 'Order executes when price drops to or below this price'
+                    : 'Order executes when price rises to or above this price'}
               </p>
             </div>
             <div>
@@ -445,7 +474,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         )}
 
         {/* Total (only show for immediate trades) */}
-        {!isLimitOrder && (
+        {!isLimitOrder && !isStopLoss && (
           <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
             <div className="flex justify-between items-center">
               <span className={`text-sm ${mutedClass}`}>{config.label}</span>
@@ -460,14 +489,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < 1 || amount > maxShares || submitting || (isLimitOrder && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={config.disabled || amount < 1 || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
                 : `${config.colors.bg} ${config.colors.bgHover} text-white`
             } disabled:opacity-50`}
           >
-            {submitting ? 'Creating...' : isLimitOrder ? `Create Limit ${config.title}` : config.title}
+            {submitting ? 'Creating...' : isStopLoss ? 'Create Stop Loss' : isLimitOrder ? `Create Limit ${config.title}` : config.title}
           </button>
           <button
             onClick={onClose}
