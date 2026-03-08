@@ -147,9 +147,9 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const chartIsUp = lastChartValue >= firstChartValue;
 
   const svgWidth = 500;
-  const svgHeight = 120;
+  const svgHeight = 150;
   const padX = 40;
-  const padY = 15;
+  const padY = 20;
   const cw = svgWidth - padX * 2;
   const ch = svgHeight - padY * 2;
   const getChartX = (i) => padX + (i / (chartData.length - 1 || 1)) * cw;
@@ -301,9 +301,9 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
                 <path d={chartPathData} fill="none" stroke={chartStroke} strokeWidth="2" />
                 {chartData.map((point, i) => (
                   <circle key={i} cx={getChartX(i)} cy={getChartY(point.value)}
-                    r={hoveredPoint === i ? 5 : 3}
+                    r={hoveredPoint === i ? 6 : 4}
                     fill={hoveredPoint === i ? chartStroke : (darkMode ? '#1e293b' : '#f8fafc')}
-                    stroke={chartStroke} strokeWidth={1.5} />
+                    stroke={chartStroke} strokeWidth={2} />
                 ))}
                 {hoveredPoint !== null && (
                   <line x1={getChartX(hoveredPoint)} y1={padY} x2={getChartX(hoveredPoint)} y2={padY + ch}
@@ -318,7 +318,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
                   onClick={() => setHoveredPoint(hoveredPoint === i ? null : i)} />
               ))}
               {hoveredPoint !== null && chartData[hoveredPoint] && (
-                <div className={`absolute pointer-events-none px-2 py-1 rounded-sm shadow-lg text-xs z-10 ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'}`}
+                <div className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'}`}
                   style={{ left: `${(getChartX(hoveredPoint) / svgWidth) * 100}%`, top: `${(getChartY(chartData[hoveredPoint].value) / svgHeight) * 100}%`, transform: 'translate(-50%, -130%)' }}>
                   <div className="font-bold text-orange-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
                   <div className="text-zinc-400">{chartData[hoveredPoint].fullDate}</div>
