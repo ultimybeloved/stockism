@@ -52,6 +52,7 @@ import UsernameModal from './components/modals/UsernameModal';
 import TradeActionModal from './components/modals/TradeActionModal';
 import ChartModal from './components/modals/ChartModal';
 import PortfolioModal from './components/modals/PortfolioModal';
+import TradeHistoryModal from './components/modals/TradeHistoryModal';
 
 // Import other components
 import CheckInButton from './components/CheckInButton';
@@ -964,6 +965,8 @@ export default function App() {
   }, []);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showTradeHistory, setShowTradeHistory] = useState(false);
+  const [tradeAnimation, setTradeAnimation] = useState(null); // { ticker, action, timestamp }
   const [showAbout, setShowAbout] = useState(false);
   const [showLending, setShowLending] = useState(false);
   const [showBailout, setShowBailout] = useState(false);
@@ -987,7 +990,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const [marketTab, setMarketTab] = useState('stocks'); // 'stocks' or 'etfs'
+  const [marketTab, setMarketTab] = useState('stocks'); // 'stocks', 'etfs', or 'watchlist'
   const [predictions, setPredictions] = useState([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
@@ -1808,6 +1811,20 @@ export default function App() {
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
   }, [user, userData, prices, activeIPOs, launchedTickers, showNotification]);
 
+  // Watchlist toggle
+  const toggleWatchlist = useCallback(async (ticker) => {
+    if (!user || !userData) return;
+    const current = userData.watchlist || [];
+    const updated = current.includes(ticker)
+      ? current.filter(t => t !== ticker)
+      : [...current, ticker];
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { watchlist: updated });
+    } catch (err) {
+      console.error('Failed to update watchlist:', err);
+    }
+  }, [user, userData]);
+
   // Handle limit order request from portfolio
   const handleLimitOrderRequest = useCallback((ticker, action, mode) => {
     if (!user || !userData) {
@@ -2138,6 +2155,12 @@ export default function App() {
 
 
     }
+
+    // Trigger trade animation on the card
+    const totalValue = Math.abs(totalCost || executionPrice * amount);
+    setTradeAnimation({ ticker, action, big: totalValue >= 1000, timestamp: Date.now() });
+    setTimeout(() => setTradeAnimation(null), 1200);
+
     } finally {
       setLoadingKey('trade', false);
     }
@@ -2638,9 +2661,15 @@ export default function App() {
   // Filter and sort
   const filteredCharacters = useMemo(() => {
     let filtered = CHARACTERS.filter(c => {
-      // ETF tab filter
-      if (marketTab === 'etfs' && !c.isETF) return false;
-      if (marketTab === 'stocks' && c.isETF) return false;
+      // Watchlist tab filter
+      if (marketTab === 'watchlist') {
+        const watchlist = userData?.watchlist || [];
+        if (!watchlist.includes(c.ticker)) return false;
+      } else {
+        // ETF tab filter
+        if (marketTab === 'etfs' && !c.isETF) return false;
+        if (marketTab === 'stocks' && c.isETF) return false;
+      }
 
       // Search filter
       const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -2723,7 +2752,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -3156,6 +3185,18 @@ export default function App() {
           >
             ETFs
           </button>
+          {user && userData && (
+            <button
+              onClick={() => { setMarketTab('watchlist'); setCurrentPage(1); setSearchQuery(''); }}
+              className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
+                marketTab === 'watchlist'
+                  ? 'bg-yellow-500 text-white'
+                  : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+              }`}
+            >
+              Watchlist
+            </button>
+          )}
         </div>
 
         {/* Controls */}
@@ -3221,6 +3262,9 @@ export default function App() {
               user={user}
               limitOrderRequest={limitOrderRequest}
               onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
+              isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
+              onToggleWatchlist={toggleWatchlist}
+              tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
             />
           ))}
         </div>
@@ -3411,6 +3455,7 @@ export default function App() {
           onClose={() => setShowPortfolio(false)}
           onTrade={requestTrade}
           onLimitSell={handleLimitOrderRequest}
+          onOpenTradeHistory={() => { setShowPortfolio(false); setShowTradeHistory(true); }}
           darkMode={darkMode}
           costBasis={userData?.costBasis || {}}
           priceHistory={priceHistory}
@@ -3418,6 +3463,14 @@ export default function App() {
           user={user}
           activeIPOs={activeIPOs}
           ipoPurchases={userData?.ipoPurchases || {}}
+        />
+      )}
+      {showTradeHistory && !isGuest && (
+        <TradeHistoryModal
+          user={user}
+          onClose={() => setShowTradeHistory(false)}
+          darkMode={darkMode}
+          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
       {selectedCharacter && (

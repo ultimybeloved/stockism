@@ -45,7 +45,7 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {} }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {} }) => {
   const { showNotification } = useAppContext();
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
@@ -242,6 +242,8 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
     { key: '1d', label: '24h', hours: 24 },
     { key: '7d', label: '7D', hours: 168 },
     { key: '1m', label: '1M', hours: 720 },
+    { key: '3m', label: '3M', hours: 2160 },
+    { key: '1y', label: '1Y', hours: 8760 },
     { key: 'all', label: 'All', hours: Infinity },
   ];
 
@@ -361,7 +363,15 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                 )}
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+            <div className="flex items-center gap-2">
+              {onOpenTradeHistory && (
+                <button onClick={onOpenTradeHistory}
+                  className={`px-2 py-1 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`}>
+                  Trade History
+                </button>
+              )}
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>&times;</button>
+            </div>
           </div>
         </div>
 

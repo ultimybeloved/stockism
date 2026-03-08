@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
 import { CREW_MAP } from '../crews';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatChange } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
 
 const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
@@ -13,9 +13,13 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const [deleting, setDeleting] = useState(false);
   const [confirmUsername, setConfirmUsername] = useState('');
 
+  const [chartTimeRange, setChartTimeRange] = useState('1m');
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const colorBlindMode = userData?.colorBlindMode || false;
 
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;
@@ -72,6 +76,90 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
       mostShares = { ticker, shares };
     }
   });
+
+  // Portfolio value
+  const holdingsValue = Object.entries(holdings || {}).reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+  const shortsValue = Object.entries(shorts || {}).reduce((sum, [ticker, position]) => {
+    if (!position || typeof position !== 'object') return sum;
+    const shares = Number(position.shares) || 0;
+    if (shares <= 0) return sum;
+    const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
+    const currentPrice = prices[ticker] || entryPrice;
+    const collateral = Number(position.margin) || 0;
+    const value = position.system === 'v2'
+      ? collateral + (entryPrice - currentPrice) * shares
+      : collateral - (currentPrice * shares);
+    return sum + (isNaN(value) ? 0 : value);
+  }, 0);
+  const portfolioValue = (userData?.cash || 0) + holdingsValue + shortsValue;
+
+  // Portfolio chart
+  const portfolioHistory = userData?.portfolioHistory || [];
+  const timeRanges = [
+    { key: '1d', label: '24h', hours: 24 },
+    { key: '7d', label: '7D', hours: 168 },
+    { key: '1m', label: '1M', hours: 720 },
+    { key: 'all', label: 'All', hours: Infinity },
+  ];
+
+  const chartData = useMemo(() => {
+    if (!portfolioHistory || portfolioHistory.length === 0) {
+      const now = Date.now();
+      return [
+        { timestamp: now - 60000, value: portfolioValue, fullDate: 'Now' },
+        { timestamp: now, value: portfolioValue, fullDate: 'Now' }
+      ];
+    }
+    const range = timeRanges.find(r => r.key === chartTimeRange);
+    const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
+    let data = portfolioHistory
+      .filter(point => point.timestamp >= cutoff)
+      .map(point => ({
+        ...point,
+        fullDate: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      }));
+    const maxPoints = 20;
+    if (data.length > maxPoints) {
+      const step = Math.floor(data.length / maxPoints);
+      const sampled = [];
+      for (let i = 0; i < data.length; i += step) sampled.push(data[i]);
+      if (sampled[sampled.length - 1] !== data[data.length - 1]) sampled.push(data[data.length - 1]);
+      data = sampled;
+    }
+    if (data.length === 1) data = [...data, { timestamp: Date.now(), value: portfolioValue, fullDate: 'Now' }];
+    if (data.length === 0) {
+      const now = Date.now();
+      data = [
+        { timestamp: now - 60000, value: portfolioValue, fullDate: 'Now' },
+        { timestamp: now, value: portfolioValue, fullDate: 'Now' }
+      ];
+    }
+    return data;
+  }, [portfolioHistory, chartTimeRange, portfolioValue]);
+
+  const chartValues = chartData.map(d => d.value);
+  const minChartValue = Math.min(...chartValues);
+  const maxChartValue = Math.max(...chartValues);
+  const chartValueRange = maxChartValue - minChartValue || 1;
+  const firstChartValue = chartData[0]?.value || portfolioValue;
+  const lastChartValue = chartData[chartData.length - 1]?.value || portfolioValue;
+  const periodChange = firstChartValue > 0 ? ((lastChartValue - firstChartValue) / firstChartValue) * 100 : 0;
+  const chartIsUp = lastChartValue >= firstChartValue;
+
+  const svgWidth = 500;
+  const svgHeight = 120;
+  const padX = 40;
+  const padY = 15;
+  const cw = svgWidth - padX * 2;
+  const ch = svgHeight - padY * 2;
+  const getChartX = (i) => padX + (i / (chartData.length - 1 || 1)) * cw;
+  const getChartY = (v) => padY + ch - ((v - minChartValue) / chartValueRange) * ch;
+  const chartPathData = chartData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getChartX(i)} ${getChartY(d.value)}`).join(' ');
+  const chartAreaPath = `${chartPathData} L ${getChartX(chartData.length - 1)} ${padY + ch} L ${padX} ${padY + ch} Z`;
+  const chartStroke = colorBlindMode ? (chartIsUp ? '#14b8a6' : '#a855f7') : (chartIsUp ? '#22c55e' : '#ef4444');
+  const chartFill = colorBlindMode
+    ? (chartIsUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')
+    : (chartIsUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');
 
   // Get all predictions user has bet on
   const userBetHistory = Object.entries(bets).map(([predictionId, betData]) => {
@@ -166,6 +254,78 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
               🏴 Join a Crew
             </button>
           )}
+
+          {/* Portfolio Chart */}
+          <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h3 className={`font-semibold ${textClass}`}>Portfolio Value</h3>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</span>
+                  <span className={`text-sm font-semibold ${colorBlindMode ? (chartIsUp ? 'text-teal-500' : 'text-purple-500') : (chartIsUp ? 'text-green-500' : 'text-red-500')}`}>
+                    {chartIsUp ? '▲' : '▼'} {formatChange(periodChange)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                {timeRanges.map(range => (
+                  <button
+                    key={range.key}
+                    onClick={() => setChartTimeRange(range.key)}
+                    className={`px-2 py-1 text-xs font-semibold rounded-sm ${
+                      chartTimeRange === range.key
+                        ? 'bg-orange-600 text-white'
+                        : darkMode ? 'text-zinc-400 hover:bg-zinc-700' : 'text-zinc-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="relative">
+              <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
+                {[0, 0.5, 1].map((ratio, i) => {
+                  const y = padY + ratio * ch;
+                  const value = maxChartValue - ratio * chartValueRange;
+                  return (
+                    <g key={i}>
+                      <line x1={padX} y1={y} x2={svgWidth - padX} y2={y} stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+                      <text x={padX - 5} y={y + 4} textAnchor="end" fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
+                        ${(value / 1000).toFixed(1)}k
+                      </text>
+                    </g>
+                  );
+                })}
+                <path d={chartAreaPath} fill={chartFill} />
+                <path d={chartPathData} fill="none" stroke={chartStroke} strokeWidth="2" />
+                {chartData.map((point, i) => (
+                  <circle key={i} cx={getChartX(i)} cy={getChartY(point.value)}
+                    r={hoveredPoint === i ? 5 : 3}
+                    fill={hoveredPoint === i ? chartStroke : (darkMode ? '#1e293b' : '#f8fafc')}
+                    stroke={chartStroke} strokeWidth={1.5} />
+                ))}
+                {hoveredPoint !== null && (
+                  <line x1={getChartX(hoveredPoint)} y1={padY} x2={getChartX(hoveredPoint)} y2={padY + ch}
+                    stroke={chartStroke} strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                )}
+              </svg>
+              {chartData.map((point, i) => (
+                <div key={i} className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                  style={{ left: `${(getChartX(i) / svgWidth) * 100}%`, top: `${(getChartY(point.value) / svgHeight) * 100}%` }}
+                  onMouseEnter={() => setHoveredPoint(i)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                  onClick={() => setHoveredPoint(hoveredPoint === i ? null : i)} />
+              ))}
+              {hoveredPoint !== null && chartData[hoveredPoint] && (
+                <div className={`absolute pointer-events-none px-2 py-1 rounded-sm shadow-lg text-xs z-10 ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'}`}
+                  style={{ left: `${(getChartX(hoveredPoint) / svgWidth) * 100}%`, top: `${(getChartY(chartData[hoveredPoint].value) / svgHeight) * 100}%`, transform: 'translate(-50%, -130%)' }}>
+                  <div className="font-bold text-orange-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
+                  <div className="text-zinc-400">{chartData[hoveredPoint].fullDate}</div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Stats Summary */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>

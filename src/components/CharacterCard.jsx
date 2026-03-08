@@ -3,7 +3,7 @@ import { formatCurrency, formatChange } from '../utils/formatters';
 import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
@@ -142,9 +142,37 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   // Calculate short P/L if shorted
   const shortPL = shorted ? ((shortPosition.costBasis || shortPosition.entryPrice || 0) - price) * shortPosition.shares : 0;
 
+  // Card rarity tier based on price (ETFs excluded)
+  const getRarityClass = () => {
+    if (isETF) return '';
+    if (price >= 120) return 'rarity-legendary';
+    if (price >= 75) return 'rarity-epic';
+    if (price >= 40) return 'rarity-rare';
+    if (price >= 15) return 'rarity-uncommon';
+    return '';
+  };
+  const rarityClass = getRarityClass();
+
   return (
     <>
-      <div className={`${cardClass} border rounded-sm p-4 transition-all`}>
+      <div className={`${cardClass} border rounded-sm p-4 transition-all relative ${rarityClass} ${
+        tradeAnimation
+          ? tradeAnimation.big
+            ? 'animate-trade-gold'
+            : (tradeAnimation.action === 'buy' || tradeAnimation.action === 'cover')
+              ? 'animate-trade-buy'
+              : 'animate-trade-sell'
+          : ''
+      }`}>
+        {onToggleWatchlist && user && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleWatchlist(character.ticker); }}
+            className={`absolute top-2 right-2 z-10 text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
+            title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+          >
+            {isWatchlisted ? '\u2605' : '\u2606'}
+          </button>
+        )}
         <div className="cursor-pointer" onClick={() => onViewChart(character, defaultChartTimeRange)}>
           <div className="flex justify-between items-start mb-2">
             <div>
