@@ -261,7 +261,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
               <div>
                 <h3 className={`font-semibold ${textClass}`}>Portfolio Value</h3>
                 <div className="flex items-baseline gap-2">
-                  <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</span>
+                  <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(hoveredPoint?.value ?? portfolioValue)}</span>
                   <span className={`text-sm font-semibold ${colorBlindMode ? (chartIsUp ? 'text-teal-500' : 'text-purple-500') : (chartIsUp ? 'text-green-500' : 'text-red-500')}`}>
                     {chartIsUp ? '▲' : '▼'} {formatChange(periodChange)}
                   </span>
@@ -299,29 +299,49 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
                 })}
                 <path d={chartAreaPath} fill={chartFill} />
                 <path d={chartPathData} fill="none" stroke={chartStroke} strokeWidth="2" />
-                {chartData.map((point, i) => (
-                  <circle key={i} cx={getChartX(i)} cy={getChartY(point.value)}
-                    r={hoveredPoint === i ? 6 : 4}
-                    fill={hoveredPoint === i ? chartStroke : (darkMode ? '#1e293b' : '#f8fafc')}
-                    stroke={chartStroke} strokeWidth={2} />
-                ))}
+                {/* Start/end markers */}
+                <circle cx={getChartX(0)} cy={getChartY(chartData[0].value)} r={4}
+                  fill="none" stroke={chartStroke} strokeWidth={2} />
+                <circle cx={getChartX(chartData.length - 1)} cy={getChartY(chartData[chartData.length - 1].value)} r={4}
+                  fill="none" stroke={chartStroke} strokeWidth={2} />
                 {hoveredPoint !== null && (
-                  <line x1={getChartX(hoveredPoint)} y1={padY} x2={getChartX(hoveredPoint)} y2={padY + ch}
-                    stroke={chartStroke} strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                  <>
+                    <line x1={hoveredPoint.x} y1={padY} x2={hoveredPoint.x} y2={padY + ch}
+                      stroke={chartStroke} strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                    <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={6}
+                      fill={chartStroke} stroke={chartStroke} strokeWidth={2} />
+                  </>
                 )}
               </svg>
-              {chartData.map((point, i) => (
-                <div key={i} className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                  style={{ left: `${(getChartX(i) / svgWidth) * 100}%`, top: `${(getChartY(point.value) / svgHeight) * 100}%` }}
-                  onMouseEnter={() => setHoveredPoint(i)}
-                  onMouseLeave={() => setHoveredPoint(null)}
-                  onClick={() => setHoveredPoint(hoveredPoint === i ? null : i)} />
-              ))}
-              {hoveredPoint !== null && chartData[hoveredPoint] && (
+              <div className="absolute inset-0 cursor-crosshair"
+                onMouseMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+                  if (mouseX < padX || mouseX > svgWidth - padX) { setHoveredPoint(null); return; }
+                  // Find bracketing data points
+                  let leftIdx = 0;
+                  for (let i = 0; i < chartData.length - 1; i++) {
+                    if (getChartX(i + 1) >= mouseX) { leftIdx = i; break; }
+                    leftIdx = i;
+                  }
+                  const rightIdx = Math.min(leftIdx + 1, chartData.length - 1);
+                  const x1 = getChartX(leftIdx), x2 = getChartX(rightIdx);
+                  const t = x2 === x1 ? 0 : (mouseX - x1) / (x2 - x1);
+                  const interpValue = chartData[leftIdx].value + t * (chartData[rightIdx].value - chartData[leftIdx].value);
+                  const interpY = getChartY(interpValue);
+                  // Interpolate date
+                  const ts1 = chartData[leftIdx].timestamp, ts2 = chartData[rightIdx].timestamp;
+                  const interpTs = ts1 + t * (ts2 - ts1);
+                  const interpDate = new Date(interpTs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                  setHoveredPoint({ x: mouseX, y: interpY, value: interpValue, fullDate: interpDate });
+                }}
+                onMouseLeave={() => setHoveredPoint(null)}
+              />
+              {hoveredPoint !== null && (
                 <div className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'}`}
-                  style={{ left: `${(getChartX(hoveredPoint) / svgWidth) * 100}%`, top: `${(getChartY(chartData[hoveredPoint].value) / svgHeight) * 100}%`, transform: 'translate(-50%, -130%)' }}>
-                  <div className="font-bold text-orange-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
-                  <div className="text-zinc-400">{chartData[hoveredPoint].fullDate}</div>
+                  style={{ left: `${(hoveredPoint.x / svgWidth) * 100}%`, top: `${(hoveredPoint.y / svgHeight) * 100}%`, transform: 'translate(-50%, -130%)' }}>
+                  <div className="font-bold text-orange-400">{formatCurrency(hoveredPoint.value)}</div>
+                  <div className="text-zinc-400">{hoveredPoint.fullDate}</div>
                 </div>
               )}
             </div>
