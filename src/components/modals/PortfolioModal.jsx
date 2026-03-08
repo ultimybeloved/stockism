@@ -355,7 +355,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h2>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(currentValue)}</span>
+                <span className={`text-xl font-bold ${textClass}`}>{formatCurrency(hoveredPoint?.value ?? currentValue)}</span>
                 {hasChartData && (
                   <span className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : (isUp ? 'text-green-500' : 'text-red-500')}`}>
                     {isUp ? '▲' : '▼'} {formatCurrency(Math.abs(lastValue - firstValue))} ({formatChange(periodChange)})
@@ -431,71 +431,61 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                 {/* Line */}
                 <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
 
-                {/* Dots for each data point */}
-                {chartData.map((point, i) => {
-                  const x = getX(i);
-                  const y = getY(point.value);
-                  const isHovered = hoveredPoint === i;
+                {/* Start/end markers */}
+                <circle cx={getX(0)} cy={getY(chartData[0].value)} r={4}
+                  fill="none" stroke={strokeColor} strokeWidth={2} />
+                <circle cx={getX(chartData.length - 1)} cy={getY(chartData[chartData.length - 1].value)} r={4}
+                  fill="none" stroke={strokeColor} strokeWidth={2} />
 
-                  return (
-                    <circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r={isHovered ? 6 : 4}
-                      fill={isHovered ? strokeColor : (darkMode ? '#1e293b' : '#f8fafc')}
-                      stroke={strokeColor}
-                      strokeWidth={2}
-                    />
-                  );
-                })}
-
-                {/* Hover vertical line */}
+                {/* Hover elements */}
                 {hoveredPoint !== null && (
-                  <line
-                    x1={getX(hoveredPoint)}
-                    y1={paddingY}
-                    x2={getX(hoveredPoint)}
-                    y2={paddingY + chartHeight}
-                    stroke={strokeColor}
-                    strokeWidth="1"
-                    strokeDasharray="4,4"
-                    opacity="0.5"
-                  />
+                  <>
+                    <line x1={hoveredPoint.x} y1={paddingY} x2={hoveredPoint.x} y2={paddingY + chartHeight}
+                      stroke={strokeColor} strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                    <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={6}
+                      fill={strokeColor} stroke={strokeColor} strokeWidth={2} />
+                  </>
                 )}
               </svg>
 
-              {/* Invisible hit areas as absolute positioned divs */}
-              {chartData.map((point, i) => {
-                const xPercent = (getX(i) / svgWidth) * 100;
-                const yPercent = (getY(point.value) / svgHeight) * 100;
-
-                return (
-                  <div
-                    key={i}
-                    className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                    style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
-                    onMouseEnter={() => setHoveredPoint(i)}
-                    onMouseLeave={() => setHoveredPoint(null)}
-                    onClick={() => setHoveredPoint(hoveredPoint === i ? null : i)}
-                  />
-                );
-              })}
+              {/* Smooth hover overlay */}
+              <div className="absolute inset-0 cursor-crosshair"
+                onMouseMove={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
+                  if (mouseX < paddingX || mouseX > svgWidth - paddingX) { setHoveredPoint(null); return; }
+                  let leftIdx = 0;
+                  for (let i = 0; i < chartData.length - 1; i++) {
+                    if (getX(i + 1) >= mouseX) { leftIdx = i; break; }
+                    leftIdx = i;
+                  }
+                  const rightIdx = Math.min(leftIdx + 1, chartData.length - 1);
+                  const x1 = getX(leftIdx), x2 = getX(rightIdx);
+                  const t = x2 === x1 ? 0 : (mouseX - x1) / (x2 - x1);
+                  const interpValue = chartData[leftIdx].value + t * (chartData[rightIdx].value - chartData[leftIdx].value);
+                  const interpY = getY(interpValue);
+                  const ts1 = chartData[leftIdx].timestamp, ts2 = chartData[rightIdx].timestamp;
+                  const interpTs = ts1 + t * (ts2 - ts1);
+                  const interpDate = new Date(interpTs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                  setHoveredPoint({ x: mouseX, y: interpY, value: interpValue, fullDate: interpDate });
+                }}
+                onMouseLeave={() => setHoveredPoint(null)}
+              />
 
               {/* Tooltip */}
-              {hoveredPoint !== null && chartData[hoveredPoint] && (
+              {hoveredPoint !== null && (
                 <div
                   className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${
                     darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
                   }`}
                   style={{
-                    left: `${(getX(hoveredPoint) / svgWidth) * 100}%`,
-                    top: `${(getY(chartData[hoveredPoint].value) / svgHeight) * 100}%`,
+                    left: `${(hoveredPoint.x / svgWidth) * 100}%`,
+                    top: `${(hoveredPoint.y / svgHeight) * 100}%`,
                     transform: 'translate(-50%, -130%)'
                   }}
                 >
-                  <div className="font-bold text-orange-400">{formatCurrency(chartData[hoveredPoint].value)}</div>
-                  <div className="text-zinc-400">{chartData[hoveredPoint].fullDate}</div>
+                  <div className="font-bold text-orange-400">{formatCurrency(hoveredPoint.value)}</div>
+                  <div className="text-zinc-400">{hoveredPoint.fullDate}</div>
                 </div>
               )}
             </div>
