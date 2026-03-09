@@ -96,5 +96,8 @@ export const removeWatchedUserFunction = httpsCallable(functions, 'removeWatched
 export const linkAltAccountFunction = httpsCallable(functions, 'linkAltAccount');
 export const addWatchedIPFunction = httpsCallable(functions, 'addWatchedIP');
 export const getWatchlistFunction = httpsCallable(functions, 'getWatchlist');
+// Price alerts
+export const createPriceAlertFunction = httpsCallable(functions, 'createPriceAlert');
+export const deletePriceAlertFunction = httpsCallable(functions, 'deletePriceAlert');
 
 export default app;

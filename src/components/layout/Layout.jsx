@@ -5,7 +5,7 @@ import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
 import MarketTicker from '../MarketTicker';
 
-const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, prices, priceHistory, marketData }) => {
+const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, prices, priceHistory, marketData, notificationCount, onToggleNotifications }) => {
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-gray-50'}`}>
       <Header
@@ -16,6 +16,8 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         onShowAdminPanel={onShowAdminPanel}
         isGuest={isGuest}
         onShowLogin={onShowLogin}
+        notificationCount={notificationCount}
+        onToggleNotifications={onToggleNotifications}
       />
 
       <MarketTicker

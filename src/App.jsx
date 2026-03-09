@@ -27,9 +27,10 @@ import {
   serverTimestamp,
   arrayUnion,
   runTransaction,
-  addDoc
+  addDoc,
+  deleteDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -59,7 +60,12 @@ import TradeHistoryModal from './components/modals/TradeHistoryModal';
 import CheckInButton from './components/CheckInButton';
 import CharacterCard from './components/CharacterCard';
 import { ToastNotification, ToastContainer } from './components/ToastNotification';
-import ActivityFeed from './components/ActivityFeed';
+import TradeFeed from './components/TradeFeed';
+import NotificationPanel from './components/NotificationPanel';
+import OnboardingTutorial from './components/OnboardingTutorial';
+import PriceAlertModal from './components/modals/PriceAlertModal';
+import PortfolioAnalytics from './components/PortfolioAnalytics';
+import InstallPrompt from './components/InstallPrompt';
 
 // Import Layout and Pages
 import Layout from './components/layout/Layout';
@@ -998,8 +1004,10 @@ export default function App() {
   const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
   const [limitOrderRequest, setLimitOrderRequest] = useState(null); // { ticker, action } - triggers opening trade modal in limit mode
   const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
-  const [activityFeed, setActivityFeed] = useState([]); // Array of { id, type, message, timestamp, isGlobal }
-  const [showActivityFeed, setShowActivityFeed] = useState(false); // Start minimized
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [userNotifications, setUserNotifications] = useState([]);
+  const [showPriceAlertModal, setShowPriceAlertModal] = useState(null); // ticker string or null
+  const [priceAlerts, setPriceAlerts] = useState([]); // user's active price alerts
   const [showPredictions, setShowPredictions] = useState(() => {
     // Initialize directly from localStorage - don't check identifier yet
     try {
@@ -1052,17 +1060,69 @@ export default function App() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  // Helper to add activity to feed
-  const addActivity = useCallback((type, message, isGlobal = false) => {
-    const activity = {
-      id: Date.now() + Math.random(),
-      type, // 'trade', 'achievement', 'mission', 'checkin', 'bet', 'global'
-      message,
-      timestamp: Date.now(),
-      isGlobal
-    };
-    setActivityFeed(prev => [activity, ...prev].slice(0, 50)); // Keep last 50
-  }, []);
+  // addActivity is now a no-op since we use persistent TradeFeed from Firestore
+  const addActivity = useCallback(() => {}, []);
+
+  // Notification handlers
+  const handleMarkNotificationRead = useCallback(async (notificationId) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'notifications', notificationId), { read: true });
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
+  }, [user]);
+
+  const handleMarkAllNotificationsRead = useCallback(async () => {
+    if (!user) return;
+    try {
+      const batch = [];
+      for (const n of userNotifications.filter(n => !n.read)) {
+        batch.push(updateDoc(doc(db, 'users', user.uid, 'notifications', n.id), { read: true }));
+      }
+      await Promise.all(batch);
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
+  }, [user, userNotifications]);
+
+  const handleClearAllNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const promises = userNotifications.map(n =>
+        deleteDoc(doc(db, 'users', user.uid, 'notifications', n.id))
+      );
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    }
+  }, [user, userNotifications]);
+
+  const handleCreatePriceAlert = useCallback(async ({ ticker, targetPrice, direction }) => {
+    try {
+      await createPriceAlertFunction({ ticker, targetPrice, direction });
+      showNotification('success', `Price alert set for $${ticker}`);
+    } catch (err) {
+      showNotification('error', err.message || 'Failed to create alert');
+    }
+  }, [showNotification]);
+
+  const handleDeletePriceAlert = useCallback(async (alertId) => {
+    try {
+      await deletePriceAlertFunction({ alertId });
+    } catch (err) {
+      showNotification('error', err.message || 'Failed to delete alert');
+    }
+  }, [showNotification]);
+
+  const handleOnboardingComplete = useCallback(async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { onboardingComplete: true });
+    } catch (err) {
+      console.error('Failed to complete onboarding:', err);
+    }
+  }, [user]);
 
   // Ref to store user data listener unsubscribe function
   const userDataUnsubscribeRef = useRef(null);
@@ -1148,6 +1208,38 @@ export default function App() {
       }
     };
   }, []);
+
+  // Subscribe to user notifications
+  useEffect(() => {
+    if (!user) { setUserNotifications([]); return; }
+    const notifQuery = query(
+      collection(db, 'users', user.uid, 'notifications'),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const unsub = onSnapshot(notifQuery, (snap) => {
+      const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setUserNotifications(notifs);
+    }, (err) => {
+      console.error('Notification subscription error:', err);
+    });
+    return () => unsub();
+  }, [user]);
+
+  // Subscribe to user price alerts
+  useEffect(() => {
+    if (!user) { setPriceAlerts([]); return; }
+    const alertsQuery = query(
+      collection(db, 'users', user.uid, 'priceAlerts'),
+      where('triggered', '==', false)
+    );
+    const unsub = onSnapshot(alertsQuery, (snap) => {
+      setPriceAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.error('Price alerts subscription error:', err);
+    });
+    return () => unsub();
+  }, [user]);
 
   // Handle Firebase email action codes (verification links)
   useEffect(() => {
@@ -2839,6 +2931,8 @@ export default function App() {
           prices={prices}
           priceHistory={priceHistory}
           marketData={marketData}
+          notificationCount={userNotifications.filter(n => !n.read).length}
+          onToggleNotifications={() => setShowNotificationPanel(prev => !prev)}
         >
           {showInAppBanner && (
             <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
@@ -3300,6 +3394,8 @@ export default function App() {
               isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
               onToggleWatchlist={toggleWatchlist}
               tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
+              haltInfo={marketData?.haltedTickers?.[character.ticker]}
+              onSetAlert={(ticker) => setShowPriceAlertModal(ticker)}
             />
           ))}
         </div>
@@ -3465,15 +3561,52 @@ export default function App() {
         />
       )}
       
-      {/* Activity Feed */}
-      {!isGuest && (
-        <ActivityFeed
-          activities={activityFeed}
-          isOpen={showActivityFeed}
-          onToggle={() => setShowActivityFeed(prev => !prev)}
+      {/* Trade Feed */}
+      {!isGuest && user && (
+        <TradeFeed
+          darkMode={darkMode}
+          user={user}
+          userCrew={userData?.crew}
+        />
+      )}
+
+      {/* Notification Panel */}
+      {showNotificationPanel && user && (
+        <NotificationPanel
+          darkMode={darkMode}
+          notifications={userNotifications}
+          onClose={() => setShowNotificationPanel(false)}
+          onMarkRead={handleMarkNotificationRead}
+          onMarkAllRead={handleMarkAllNotificationsRead}
+          onClearAll={handleClearAllNotifications}
+        />
+      )}
+
+      {/* Onboarding Tutorial */}
+      {user && userData && !userData.onboardingComplete && (
+        <OnboardingTutorial
+          onComplete={handleOnboardingComplete}
           darkMode={darkMode}
         />
       )}
+
+      {/* Price Alert Modal */}
+      {showPriceAlertModal && (
+        <PriceAlertModal
+          ticker={showPriceAlertModal}
+          currentPrice={prices[showPriceAlertModal] || 0}
+          characterName={CHARACTER_MAP[showPriceAlertModal]?.name || showPriceAlertModal}
+          darkMode={darkMode}
+          onClose={() => setShowPriceAlertModal(null)}
+          user={user}
+          existingAlerts={priceAlerts.filter(a => a.ticker === showPriceAlertModal)}
+          onCreateAlert={handleCreatePriceAlert}
+          onDeleteAlert={handleDeletePriceAlert}
+        />
+      )}
+
+      {/* PWA Install Prompt */}
+      <InstallPrompt darkMode={darkMode} />
       
       {/* Toast Notifications */}
       <ToastContainer

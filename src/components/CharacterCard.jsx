@@ -3,7 +3,7 @@ import { formatCurrency, formatChange } from '../utils/formatters';
 import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
@@ -20,10 +20,28 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
     }
   }, [limitOrderRequest, character.ticker, onClearLimitOrderRequest]);
 
+  const [haltCountdown, setHaltCountdown] = useState('');
+
   const owned = holdings > 0;
   const shorted = shortPosition && shortPosition.shares > 0;
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;
+  const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+
+  // Halt countdown timer
+  useEffect(() => {
+    if (!isHalted) { setHaltCountdown(''); return; }
+    const tick = () => {
+      const remaining = haltInfo.resumeAt - Date.now();
+      if (remaining <= 0) { setHaltCountdown(''); return; }
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      setHaltCountdown(`${mins}:${secs.toString().padStart(2, '0')}`);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isHalted, haltInfo]);
 
   // Color blind friendly helper for Buy/Sell (solid buttons)
   const getBuySellColors = (isBuy) => {
@@ -165,13 +183,31 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           : ''
       }`}>
         {onToggleWatchlist && user && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleWatchlist(character.ticker); }}
-            className={`absolute top-2 right-2 z-10 text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
-            title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-          >
-            {isWatchlisted ? '\u2605' : '\u2606'}
-          </button>
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+            {onSetAlert && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onSetAlert(character.ticker); }}
+                className={`text-sm leading-none transition-colors ${mutedClass} hover:text-orange-500 opacity-40 hover:opacity-100`}
+                title="Set price alert"
+              >
+                🔔
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleWatchlist(character.ticker); }}
+              className={`text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
+              title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              {isWatchlisted ? '\u2605' : '\u2606'}
+            </button>
+          </div>
+        )}
+        {isHalted && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-red-600/90 text-white px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-lg">
+              HALTED {haltCountdown && `(${haltCountdown})`}
+            </div>
+          </div>
         )}
         <div className="cursor-pointer" onClick={() => onViewChart(character, defaultChartTimeRange)}>
           <div className="flex justify-between items-start mb-2">
@@ -231,12 +267,15 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
         {!showTradeMenu ? (
           <button
-            onClick={(e) => { e.stopPropagation(); setShowTradeMenu(true); }}
+            onClick={(e) => { e.stopPropagation(); if (!isHalted) setShowTradeMenu(true); }}
+            disabled={isHalted}
             className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
-              darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
+              isHalted
+                ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed'
+                : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
             }`}
           >
-            Trade
+            {isHalted ? 'Trading Halted' : 'Trade'}
           </button>
         ) : (
           <div className="space-y-2" onClick={e => e.stopPropagation()}>
@@ -297,6 +336,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           colorBlindMode={userData?.colorBlindMode || false}
           user={user}
           defaultToLimitOrder={shouldOpenAsLimit}
+          haltInfo={haltInfo}
         />
       )}
     </>

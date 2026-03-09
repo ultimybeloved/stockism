@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import { CREW_MAP } from '../crews';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
+import PortfolioAnalytics from '../components/PortfolioAnalytics';
 
 const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const { darkMode, user, userData, predictions, prices, holdings, shorts, costBasis } = useAppContext();
@@ -416,6 +417,19 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
               )}
             </div>
           </div>
+
+          {/* Portfolio Analytics */}
+          <PortfolioAnalytics
+            darkMode={darkMode}
+            holdings={holdings}
+            shorts={shorts}
+            prices={prices}
+            costBasis={costBasis}
+            portfolioHistory={userData?.portfolioHistory || []}
+            portfolioValue={portfolioValue}
+            userData={userData}
+            user={user}
+          />
 
           {/* Accessibility Settings */}
           <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>

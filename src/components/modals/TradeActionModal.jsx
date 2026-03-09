@@ -65,7 +65,7 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   };
 };
 
-const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false }) => {
+const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false, haltInfo }) => {
   const { showNotification } = useAppContext();
   const [amount, setAmount] = useState(1);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);
@@ -242,8 +242,15 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
   const config = getActionConfig();
 
+  const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+
   const handleSubmit = async () => {
     if (config.disabled || amount < 1 || amount > maxShares || submitting) return;
+
+    if (isHalted) {
+      showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
+      return;
+    }
 
     if (isLimitOrder || isStopLoss) {
       // Block limit order creation during trading halt

@@ -52,6 +52,49 @@ const CREW_MEMBERS = {
 // Set of all crew member tickers (for rival detection)
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
 
+// ============================================
+// NOTIFICATION HELPER
+// ============================================
+// Writes a notification doc to users/{uid}/notifications subcollection
+// Fire-and-forget — errors are logged but don't block the caller
+const writeNotification = async (uid, { type, title, message, data = {} }) => {
+  try {
+    await db.collection('users').doc(uid).collection('notifications').add({
+      type,       // 'trade', 'alert', 'achievement', 'margin', 'system'
+      title,
+      message,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      data        // { ticker?, price?, orderId?, achievementId? }
+    });
+  } catch (err) {
+    console.error(`Failed to write notification for ${uid}:`, err.message);
+  }
+};
+
+// Writes a feed doc to the global feed collection (fire-and-forget)
+const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker, action, amount, price, achievementId }) => {
+  try {
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 day TTL
+    await db.collection('feed').add({
+      type,         // 'trade', 'achievement', 'mission_complete'
+      userId,
+      displayName,
+      crew: crew || null,
+      ticker: ticker || null,
+      action: action || null,
+      amount: amount || null,
+      price: price || null,
+      achievementId: achievementId || null,
+      message,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt
+    });
+  } catch (err) {
+    console.error('Failed to write feed entry:', err.message);
+  }
+};
+
 // Server-side mission reward lookup (prevents client reward inflation)
 const MISSION_REWARDS = {
   // Daily missions
@@ -509,7 +552,8 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         predictionWins: 0,
         costBasis: {},
         lendingUnlocked: false,
-        isBankrupt: false
+        isBankrupt: false,
+        onboardingComplete: false
       });
     });
 
@@ -3308,6 +3352,19 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         );
       }
 
+      // Check circuit breaker halt on this ticker
+      const haltedTickers = marketData.haltedTickers || {};
+      if (haltedTickers[ticker]) {
+        const halt = haltedTickers[ticker];
+        if (halt.resumeAt && Date.now() < halt.resumeAt) {
+          const resumeIn = Math.ceil((halt.resumeAt - Date.now()) / 60000);
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `$${ticker} trading is halted (circuit breaker). Resumes in ~${resumeIn} min. ${halt.reason || ''}`
+          );
+        }
+      }
+
       const prices = marketData.prices || {};
       let currentPrice = prices[ticker];
 
@@ -4119,6 +4176,52 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
     // Remove internal context from response
     delete result.achievementCtx;
+
+    // Fire-and-forget: write trade feed entry + achievement notifications
+    try {
+      const userDoc2 = await db.collection('users').doc(uid).get();
+      const uData = userDoc2.exists ? userDoc2.data() : {};
+      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
+      const feedMsg = action === 'buy' ? `bought ${amount} $${ticker}`
+        : action === 'sell' ? `sold ${amount} $${ticker}`
+        : action === 'short' ? `shorted ${amount} $${ticker}`
+        : `covered ${amount} $${ticker}`;
+
+      writeFeedEntry({
+        type: 'trade',
+        userId: uid,
+        displayName: uData.displayName || 'Anonymous',
+        crew: uData.crew || null,
+        message: feedMsg,
+        ticker,
+        action,
+        amount,
+        price: result.executionPrice || 0
+      });
+
+      // Notify on new achievements
+      if (result.newAchievements && result.newAchievements.length > 0) {
+        for (const achId of result.newAchievements) {
+          writeNotification(uid, {
+            type: 'achievement',
+            title: 'Achievement Unlocked!',
+            message: `You earned: ${achId}`,
+            data: { achievementId: achId }
+          });
+          writeFeedEntry({
+            type: 'achievement',
+            userId: uid,
+            displayName: uData.displayName || 'Anonymous',
+            crew: uData.crew || null,
+            message: `unlocked ${achId}`,
+            achievementId: achId
+          });
+        }
+      }
+    } catch (feedErr) {
+      console.error('Feed/notification write after trade failed:', feedErr.message);
+    }
+
     return result;
 
   } catch (error) {
@@ -5766,6 +5869,7 @@ exports.checkLimitOrders = functions.pubsub
       }
 
       const prices = marketData.prices || {};
+      const haltedTickersMap = marketData.haltedTickers || {};
 
       // Get all pending limit orders
       const ordersSnapshot = await db.collection('limitOrders')
@@ -5829,6 +5933,12 @@ exports.checkLimitOrders = functions.pubsub
           const currentPrice = prices[order.ticker];
           if (!currentPrice) {
             console.log(`No price data for ${order.ticker}, skipping order ${orderId}`);
+            continue;
+          }
+
+          // Skip halted tickers (circuit breaker)
+          const tickerHalt = haltedTickersMap[order.ticker];
+          if (tickerHalt && tickerHalt.resumeAt && Date.now() < tickerHalt.resumeAt) {
             continue;
           }
 
@@ -6051,6 +6161,15 @@ exports.checkLimitOrders = functions.pubsub
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           });
 
+          // Notify user that their limit order filled
+          const effectiveType2 = order.type === 'STOP_LOSS' ? 'Stop loss' : `${order.type} limit order`;
+          writeNotification(order.userId, {
+            type: 'trade',
+            title: `${effectiveType2} Filled`,
+            message: `Your ${effectiveType2.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${currentPrice.toFixed(2)}`,
+            data: { ticker: order.ticker, orderId, price: currentPrice }
+          });
+
           executed++;
 
         } catch (error) {
@@ -6181,6 +6300,16 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
     }
 
     transaction.update(userRef, updates);
+
+    // Fire-and-forget feed entry for mission completion (outside transaction)
+    writeFeedEntry({
+      type: 'mission_complete',
+      userId: uid,
+      displayName: userData.displayName || 'Anonymous',
+      crew: userData.crew || null,
+      message: `completed a ${type} mission (+$${reward})`
+    });
+
     return { success: true, reward, newTotal };
   });
 });
@@ -7101,6 +7230,14 @@ exports.checkShortMarginCalls = functions.pubsub
 
               liquidatedCount++;
               tickerCoverCount[ticker] = (tickerCoverCount[ticker] || 0) + 1;
+
+              // Notify user about margin call liquidation
+              writeNotification(userDoc.id, {
+                type: 'margin',
+                title: 'Margin Call - Position Liquidated',
+                message: `Your short on $${ticker} (${position.shares} shares) was force-covered due to low equity.`,
+                data: { ticker }
+              });
             } catch (error) {
               console.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
             }
@@ -8664,4 +8801,256 @@ exports.getWatchlist = functions.https.onCall(async (data, context) => {
 
   return { watchedUsers, alerts };
 });
+
+// ============================================
+// PRICE ALERTS
+// ============================================
+
+/**
+ * Create a price alert for a ticker
+ * Max 10 active alerts per user
+ */
+exports.createPriceAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, targetPrice, direction } = data;
+
+  // Validate inputs
+  if (!ticker || typeof ticker !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
+  }
+  if (!targetPrice || typeof targetPrice !== 'number' || targetPrice <= 0 || targetPrice > 10000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid target price.');
+  }
+  if (!['above', 'below'].includes(direction)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Direction must be "above" or "below".');
+  }
+
+  // Verify ticker exists
+  const character = CHARACTERS.find(c => c.ticker === ticker);
+  if (!character) {
+    throw new functions.https.HttpsError('invalid-argument', 'Unknown ticker.');
+  }
+
+  // Check active alerts count (max 10)
+  const alertsSnap = await db.collection('users').doc(uid).collection('priceAlerts')
+    .where('triggered', '==', false)
+    .get();
+
+  if (alertsSnap.size >= 10) {
+    throw new functions.https.HttpsError('failed-precondition', 'Maximum 10 active price alerts.');
+  }
+
+  // Create the alert
+  const alertRef = await db.collection('users').doc(uid).collection('priceAlerts').add({
+    ticker,
+    targetPrice,
+    direction,
+    triggered: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, alertId: alertRef.id };
+});
+
+/**
+ * Delete a price alert
+ */
+exports.deletePriceAlert = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { alertId } = data;
+
+  if (!alertId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Alert ID required.');
+  }
+
+  await db.collection('users').doc(uid).collection('priceAlerts').doc(alertId).delete();
+  return { success: true };
+});
+
+/**
+ * Check price alerts - runs on same schedule as limit orders (every 2 min)
+ */
+exports.checkPriceAlerts = functions.pubsub
+  .schedule('every 2 minutes')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      const marketSnap = await db.collection('market').doc('current').get();
+      if (!marketSnap.exists) return null;
+      const prices = marketSnap.data().prices || {};
+
+      // Get all users (we check their priceAlerts subcollection)
+      // For scale, we'd use a collection group query, but subcollection queries
+      // require collectionGroup which needs an index. For now, iterate users.
+      const usersSnap = await db.collection('users').get();
+      let triggered = 0;
+
+      for (const userDoc of usersSnap.docs) {
+        const alertsSnap = await userDoc.ref.collection('priceAlerts')
+          .where('triggered', '==', false)
+          .get();
+
+        if (alertsSnap.empty) continue;
+
+        for (const alertDoc of alertsSnap.docs) {
+          const alert = alertDoc.data();
+          const currentPrice = prices[alert.ticker];
+          if (!currentPrice) continue;
+
+          let shouldTrigger = false;
+          if (alert.direction === 'above' && currentPrice >= alert.targetPrice) shouldTrigger = true;
+          if (alert.direction === 'below' && currentPrice <= alert.targetPrice) shouldTrigger = true;
+
+          if (shouldTrigger) {
+            await alertDoc.ref.update({ triggered: true });
+            writeNotification(userDoc.id, {
+              type: 'alert',
+              title: `Price Alert: $${alert.ticker}`,
+              message: `$${alert.ticker} is now $${currentPrice.toFixed(2)} (${alert.direction === 'above' ? 'above' : 'below'} your target of $${alert.targetPrice.toFixed(2)})`,
+              data: { ticker: alert.ticker, price: currentPrice }
+            });
+            triggered++;
+          }
+        }
+      }
+
+      console.log(`Price alert check: ${triggered} alerts triggered`);
+      return { triggered };
+    } catch (err) {
+      console.error('Price alert check failed:', err);
+      return null;
+    }
+  });
+
+// ============================================
+// CIRCUIT BREAKER / AUTO MARKET HALT
+// ============================================
+
+/**
+ * Check for extreme price moves and halt tickers that move >30% in 1 hour
+ * Runs every 5 minutes
+ */
+exports.checkCircuitBreakers = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+      if (!marketSnap.exists) return null;
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
+      const haltedTickers = marketData.haltedTickers || {};
+      const now = Date.now();
+      const ONE_HOUR = 60 * 60 * 1000;
+      const HALT_THRESHOLD = 0.30; // 30% change triggers halt
+      const HALT_DURATION = 30 * 60 * 1000; // 30 min halt
+
+      const updates = {};
+      let newHalts = 0;
+      let resumed = 0;
+
+      // Check for tickers that should resume
+      for (const [ticker, halt] of Object.entries(haltedTickers)) {
+        if (halt.resumeAt && now >= halt.resumeAt) {
+          updates[`haltedTickers.${ticker}`] = admin.firestore.FieldValue.delete();
+          resumed++;
+
+          // Log resumption
+          await db.collection('circuitBreakerLog').add({
+            ticker,
+            action: 'resume',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+
+      // Check each ticker for extreme moves
+      for (const [ticker, currentPrice] of Object.entries(prices)) {
+        // Skip already halted tickers
+        if (haltedTickers[ticker] && (!haltedTickers[ticker].resumeAt || now < haltedTickers[ticker].resumeAt)) {
+          continue;
+        }
+
+        const history = priceHistory[ticker] || [];
+        if (history.length < 2) continue;
+
+        // Find price from ~1 hour ago
+        let priceOneHourAgo = null;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= now - ONE_HOUR) {
+            priceOneHourAgo = history[i].price;
+            break;
+          }
+        }
+
+        if (!priceOneHourAgo || priceOneHourAgo <= 0) continue;
+
+        const changePercent = (currentPrice - priceOneHourAgo) / priceOneHourAgo;
+
+        if (Math.abs(changePercent) >= HALT_THRESHOLD) {
+          const reason = changePercent > 0
+            ? `Price surged ${(changePercent * 100).toFixed(1)}% in 1 hour`
+            : `Price dropped ${(Math.abs(changePercent) * 100).toFixed(1)}% in 1 hour`;
+
+          updates[`haltedTickers.${ticker}`] = {
+            haltedAt: now,
+            resumeAt: now + HALT_DURATION,
+            reason,
+            changePercent: Math.round(changePercent * 10000) / 100
+          };
+
+          newHalts++;
+
+          // Log the halt
+          await db.collection('circuitBreakerLog').add({
+            ticker,
+            action: 'halt',
+            reason,
+            changePercent: Math.round(changePercent * 10000) / 100,
+            priceAtHalt: currentPrice,
+            priceOneHourAgo,
+            haltDuration: HALT_DURATION,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          });
+
+          // Notify holders
+          const usersSnap = await db.collection('users').get();
+          for (const userDoc of usersSnap.docs) {
+            const userData = userDoc.data();
+            const hasPosition = (userData.holdings?.[ticker] > 0) ||
+              (userData.shorts?.[ticker]?.shares > 0);
+            if (hasPosition) {
+              writeNotification(userDoc.id, {
+                type: 'system',
+                title: `Trading Halted: $${ticker}`,
+                message: `$${ticker} has been halted for 30 minutes. ${reason}.`,
+                data: { ticker }
+              });
+            }
+          }
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await marketRef.update(updates);
+      }
+
+      console.log(`Circuit breaker check: ${newHalts} new halts, ${resumed} resumed`);
+      return { newHalts, resumed };
+    } catch (err) {
+      console.error('Circuit breaker check failed:', err);
+      return null;
+    }
+  });
 

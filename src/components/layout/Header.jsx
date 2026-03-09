@@ -23,7 +23,7 @@ const LadderIcon = () => (
   </svg>
 );
 
-const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin }) => {
+const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -128,6 +128,24 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
+
+            {/* Notification Bell */}
+            {user && !isGuest && (
+              <button
+                onClick={onToggleNotifications}
+                className={`p-2 rounded-md transition-colors relative ${
+                  darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                }`}
+                aria-label="Notifications"
+              >
+                🔔
+                {notificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Admin Panel (Admin Only) */}
             {isAdmin && (
