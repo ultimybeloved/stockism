@@ -314,9 +314,10 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-1">
-                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>25%</span>
-                    <span className="text-orange-500">30%</span>
-                    <span className="text-amber-500">35%</span>
+                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>0%</span>
+                    <span className="text-orange-500">25%</span>
+                    <span className="text-amber-500">50%</span>
+                    <span className={mutedClass}>75%</span>
                     <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>100%</span>
                   </div>
                 </div>
