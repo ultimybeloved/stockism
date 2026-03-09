@@ -8,6 +8,51 @@ const ICONS = {
   mission: '📋',
 };
 
+const EMOJI_POOL = [
+  '🐺','🦊','🐻','🦁','🐯','🦅','🐬','🦈','🐙','🦎',
+  '🐍','🦋','🐝','🐢','🦉','🐸','🐧','🦩','🐋','🦬',
+  '🔥','⚡','💎','🌊','🌪️','☄️','🌸','🍀','🌵','🍄',
+  '⭐','🌙','❄️','🌈','🎯','🎲','🎸','🔮','🧲','🪐',
+  '⚔️','🛡️','🏹','🗡️','🔱','👑','💀','🤖','👾','🎭',
+];
+
+const ADJECTIVES = [
+  'Bold','Swift','Sly','Wild','Iron','Quiet','Lucky','Fierce',
+  'Calm','Sharp','Dark','Bright','Cool','Hot','Slick','Brave',
+  'Keen','Stout','Grand','Grim',
+];
+
+const NOUNS = [
+  'Falcon','Wolf','Bear','Fox','Hawk','Shark','Viper','Tiger',
+  'Lynx','Raven','Otter','Cobra','Eagle','Bison','Mantis','Puma',
+  'Crane','Moose','Condor','Badger',
+];
+
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function getEmojiAvatar(userId) {
+  if (!userId) return '👤👤';
+  const h = simpleHash(userId);
+  const i1 = h % EMOJI_POOL.length;
+  let i2 = (simpleHash(userId + '_2')) % (EMOJI_POOL.length - 1);
+  if (i2 >= i1) i2++;
+  return EMOJI_POOL[i1] + EMOJI_POOL[i2];
+}
+
+function generateAnonName(docId) {
+  if (!docId) return 'Mystery Trader';
+  const h = simpleHash(docId);
+  const adj = ADJECTIVES[h % ADJECTIVES.length];
+  const noun = NOUNS[simpleHash(docId + '_n') % NOUNS.length];
+  return `${adj} ${noun}`;
+}
+
 function timeAgo(timestamp) {
   if (!timestamp) return '';
   const now = Date.now();
@@ -166,7 +211,10 @@ export default function TradeFeed({ darkMode, user, userCrew }) {
                 <span className="text-sm mt-0.5">{ICONS[item.type] || '📈'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs leading-snug">
-                    <span className="font-bold">{item.displayName || 'Someone'}</span>{' '}
+                    <span className="font-bold">
+                      {getEmojiAvatar(item.userId)}{' '}
+                      {tab === 'global' ? generateAnonName(item.id) : ''}
+                    </span>{' '}
                     <span className={darkMode ? 'text-zinc-400' : 'text-zinc-500'}>{item.message}</span>
                   </p>
                   <p className={`text-[10px] mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
