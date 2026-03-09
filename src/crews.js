@@ -515,20 +515,19 @@ export const isNewWeek = (lastWeekId) => {
 };
 
 // Deterministic random selection based on crew ID and week
-export const getCrewWeeklyMissions = (crewId, weekId) => {
-  // Create a seed from crew ID and week
+export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
   const seed = `${crewId}-${weekId}`;
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     const char = seed.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
+  hash = hash + rerollSeed; // Apply reroll offset
 
   const missionKeys = Object.keys(WEEKLY_MISSIONS);
   const count = missionKeys.length;
 
-  // Get two different missions deterministically
   const idx1 = Math.abs(hash) % count;
   const idx2 = Math.abs(hash * 31) % count;
   const finalIdx2 = idx2 === idx1 ? (idx2 + 1) % count : idx2;
@@ -537,6 +536,29 @@ export const getCrewWeeklyMissions = (crewId, weekId) => {
     WEEKLY_MISSIONS[missionKeys[idx1]],
     WEEKLY_MISSIONS[missionKeys[finalIdx2]]
   ];
+};
+
+// Deterministic daily mission selection based on date and crew
+export const getDailyMissions = (today, crewId, rerollSeed = 0) => {
+  const allMissions = Object.values(DAILY_MISSIONS);
+
+  const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
+  const crewSeed = crewId ? crewId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+  const seed = dateSeed + crewSeed + rerollSeed;
+
+  const shuffled = [...allMissions];
+  let currentSeed = seed;
+  const seededRandom = () => {
+    currentSeed = (currentSeed * 9301 + 49297) % 233280;
+    return currentSeed / 233280;
+  };
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled.slice(0, 3);
 };
 
 // ============================================

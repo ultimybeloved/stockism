@@ -922,8 +922,8 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
  */
 exports.getLeaderboard = functions.https.onCall(async (data, context) => {
   try {
-    const { crew } = data || {};
-    const cacheKey = crew || 'global';
+    const { crew, sortBy = 'value' } = data || {};
+    const cacheKey = crew ? (sortBy === 'weeklyGain' ? `weeklyGain_${crew}` : crew) : (sortBy === 'weeklyGain' ? 'weeklyGain' : 'global');
 
     // Check server-side cache
     let leaderboard;
@@ -931,47 +931,111 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
     if (cached && (Date.now() - cached.timestamp) < LEADERBOARD_CACHE_TTL) {
       leaderboard = cached.data;
     } else {
-      // Build query - use composite index for crew filtering
-      let query = db.collection('users');
+      if (sortBy === 'weeklyGain') {
+        let query = db.collection('users');
+        if (crew) {
+          query = query.where('crew', '==', crew);
+        }
+        // Get a reasonable set to calculate gains from
+        query = query.orderBy('portfolioValue', 'desc').limit(200);
 
-      if (crew) {
-        query = query.where('crew', '==', crew);
-      }
+        const snapshot = await query.get();
+        const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
 
-      query = query.orderBy('portfolioValue', 'desc').limit(100);
+        const allUsers = [];
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+          if (userData.isBot) return;
 
-      const snapshot = await query.get();
+          const currentValue = userData.portfolioValue || 0;
+          let valueSevenDaysAgo = currentValue; // default if no history
 
-      // Filter out bots and return only safe fields
-      leaderboard = [];
-      snapshot.forEach(doc => {
-        const userData = doc.data();
+          if (userData.portfolioHistory && Array.isArray(userData.portfolioHistory)) {
+            // Find the entry closest to 7 days ago (first entry >= oneWeekAgo, or last entry before it)
+            let found = false;
+            for (let i = 0; i < userData.portfolioHistory.length; i++) {
+              if (userData.portfolioHistory[i].timestamp >= oneWeekAgo) {
+                valueSevenDaysAgo = userData.portfolioHistory[i].value;
+                found = true;
+                break;
+              }
+            }
+            if (!found && userData.portfolioHistory.length > 0) {
+              // All entries are older than a week, use the most recent one
+              valueSevenDaysAgo = userData.portfolioHistory[userData.portfolioHistory.length - 1].value;
+            }
+          }
 
-        // Skip bots
-        if (userData.isBot) return;
+          const weeklyGain = currentValue - valueSevenDaysAgo;
+          const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
 
-        // Limit to top 50
-        if (leaderboard.length >= 50) return;
+          const holdingsCount = userData.holdings
+            ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+            : 0;
 
-        // Count holdings (only non-zero positions)
-        const holdingsCount = userData.holdings
-          ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
-          : 0;
-
-        leaderboard.push({
-          userId: doc.id,
-          displayName: userData.displayName || 'Anonymous',
-          portfolioValue: userData.portfolioValue || 0,
-          crew: userData.crew || null,
-          isCrewHead: userData.isCrewHead || false,
-          crewHeadColor: userData.crewHeadColor || null,
-          holdingsCount: holdingsCount,
-          displayCrewPin: userData.displayCrewPin || null,
-          displayedAchievementPins: userData.displayedAchievementPins || [],
-          achievements: userData.achievements || [],
-          displayedShopPins: userData.displayedShopPins || []
+          allUsers.push({
+            userId: doc.id,
+            displayName: userData.displayName || 'Anonymous',
+            portfolioValue: currentValue,
+            crew: userData.crew || null,
+            isCrewHead: userData.isCrewHead || false,
+            crewHeadColor: userData.crewHeadColor || null,
+            holdingsCount,
+            displayCrewPin: userData.displayCrewPin || null,
+            displayedAchievementPins: userData.displayedAchievementPins || [],
+            achievements: userData.achievements || [],
+            displayedShopPins: userData.displayedShopPins || [],
+            weeklyGain,
+            weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100
+          });
         });
-      });
+
+        // Sort by weekly gain descending
+        allUsers.sort((a, b) => b.weeklyGain - a.weeklyGain);
+        leaderboard = allUsers.slice(0, 50);
+      } else {
+        // Build query - use composite index for crew filtering
+        let query = db.collection('users');
+
+        if (crew) {
+          query = query.where('crew', '==', crew);
+        }
+
+        query = query.orderBy('portfolioValue', 'desc').limit(100);
+
+        const snapshot = await query.get();
+
+        // Filter out bots and return only safe fields
+        leaderboard = [];
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+
+          // Skip bots
+          if (userData.isBot) return;
+
+          // Limit to top 50
+          if (leaderboard.length >= 50) return;
+
+          // Count holdings (only non-zero positions)
+          const holdingsCount = userData.holdings
+            ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+            : 0;
+
+          leaderboard.push({
+            userId: doc.id,
+            displayName: userData.displayName || 'Anonymous',
+            portfolioValue: userData.portfolioValue || 0,
+            crew: userData.crew || null,
+            isCrewHead: userData.isCrewHead || false,
+            crewHeadColor: userData.crewHeadColor || null,
+            holdingsCount: holdingsCount,
+            displayCrewPin: userData.displayCrewPin || null,
+            displayedAchievementPins: userData.displayedAchievementPins || [],
+            achievements: userData.achievements || [],
+            displayedShopPins: userData.displayedShopPins || []
+          });
+        });
+      }
 
       // Cache the result
       leaderboardCache[cacheKey] = { data: leaderboard, timestamp: Date.now() };
@@ -6118,6 +6182,74 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
 
     transaction.update(userRef, updates);
     return { success: true, reward, newTotal };
+  });
+});
+
+/**
+ * Reroll all missions (daily + weekly) for the current week
+ * Costs $500, once per week, locked if any rewards claimed
+ */
+exports.rerollMissions = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    checkBanned(userData);
+
+    // Must have a crew
+    if (!userData.crew) {
+      throw new functions.https.HttpsError('failed-precondition', 'Must be in a crew.');
+    }
+
+    // Calculate week ID (same as claimMissionReward logic)
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+    if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
+    const weekId = weekStart.toISOString().split('T')[0];
+
+    const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+
+    // Check not already rerolled
+    if (weeklyProgress.rerolled) {
+      throw new functions.https.HttpsError('failed-precondition', 'Already rerolled this week.');
+    }
+
+    // Check no rewards claimed (daily or weekly)
+    const dailyProgress = userData.dailyMissions?.[today] || {};
+    const dailyClaimed = dailyProgress.claimed ? Object.keys(dailyProgress.claimed).length > 0 : false;
+    const weeklyClaimed = weeklyProgress.claimed ? Object.keys(weeklyProgress.claimed).length > 0 : false;
+
+    if (dailyClaimed || weeklyClaimed) {
+      throw new functions.https.HttpsError('failed-precondition', 'Cannot reroll after claiming any reward.');
+    }
+
+    // Check has $500
+    const cash = userData.cash || 0;
+    if (cash < 500) {
+      throw new functions.https.HttpsError('failed-precondition', 'Not enough cash. Need $500.');
+    }
+
+    // Generate random seed offset
+    const rerollSeed = Math.floor(Math.random() * 100000) + 1;
+
+    const updates = {
+      cash: cash - 500,
+      [`weeklyMissions.${weekId}.rerolled`]: true,
+      [`weeklyMissions.${weekId}.rerollSeed`]: rerollSeed
+    };
+
+    transaction.update(userRef, updates);
+    return { success: true, rerollSeed };
   });
 });
 

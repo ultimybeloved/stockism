@@ -66,6 +66,7 @@ export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePric
 export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');
 // Secure operations
 export const claimMissionRewardFunction = httpsCallable(functions, 'claimMissionReward');
+export const rerollMissionsFunction = httpsCallable(functions, 'rerollMissions');
 export const purchasePinFunction = httpsCallable(functions, 'purchasePin');
 export const placeBetFunction = httpsCallable(functions, 'placeBet');
 export const claimPredictionPayoutFunction = httpsCallable(functions, 'claimPredictionPayout');

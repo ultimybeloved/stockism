@@ -14,63 +14,50 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
   const crewCache = useRef({});
+  const [sortBy, setSortBy] = useState('value');
 
-  // Fetch main top 50 leaderboard (only once on mount)
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      const cacheKey = sortBy === 'weeklyGain' ? `gain_${crewFilter}` : crewFilter === 'ALL' ? 'ALL' : crewFilter;
+      if (crewCache.current[cacheKey]) {
+        const cached = crewCache.current[cacheKey];
+        if (crewFilter === 'ALL') {
+          setLeaders(cached.leaders);
+          setCrewLeaders([]);
+        } else {
+          setCrewLeaders(cached.leaders);
+        }
+        setUserRank(cached.callerRank);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
       try {
-        const result = await getLeaderboardFunction();
+        const params = { sortBy };
+        if (crewFilter !== 'ALL') params.crew = crewFilter;
+        const result = await getLeaderboardFunction(params);
         const leaderData = result.data.leaderboard.map((user, index) => ({
           rank: index + 1,
+          crewRank: index + 1,
           ...user,
           id: user.userId
         }));
-        setLeaders(leaderData);
+        if (crewFilter === 'ALL') {
+          setLeaders(leaderData);
+          setCrewLeaders([]);
+        } else {
+          setCrewLeaders(leaderData);
+        }
         setUserRank(result.data.callerRank);
-        crewCache.current['ALL'] = { leaders: leaderData, callerRank: result.data.callerRank };
+        crewCache.current[cacheKey] = { leaders: leaderData, callerRank: result.data.callerRank };
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       }
       setLoading(false);
     };
     fetchLeaderboard();
-  }, []);
-
-  // Fetch crew-specific leaderboard when crew filter changes
-  useEffect(() => {
-    if (crewFilter === 'ALL') {
-      setCrewLeaders([]);
-      if (crewCache.current['ALL']) {
-        setUserRank(crewCache.current['ALL'].callerRank);
-      }
-      return;
-    }
-
-    // Use cached data if available
-    if (crewCache.current[crewFilter]) {
-      const cached = crewCache.current[crewFilter];
-      setCrewLeaders(cached.leaders);
-      setUserRank(cached.callerRank);
-      return;
-    }
-
-    const fetchCrewLeaderboard = async () => {
-      try {
-        const result = await getLeaderboardFunction({ crew: crewFilter });
-        const crewMembers = result.data.leaderboard.map((user, idx) => ({
-          ...user,
-          id: user.userId,
-          crewRank: idx + 1
-        }));
-        setCrewLeaders(crewMembers);
-        setUserRank(result.data.callerRank);
-        crewCache.current[crewFilter] = { leaders: crewMembers, callerRank: result.data.callerRank };
-      } catch (err) {
-        console.error('Failed to fetch crew leaderboard:', err);
-      }
-    };
-    fetchCrewLeaderboard();
-  }, [crewFilter]);
+  }, [sortBy, crewFilter]);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -176,6 +163,30 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
               </button>
             ))}
           </div>
+
+          {/* Sort Toggle */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => { setSortBy('value'); crewCache.current = {}; }}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                sortBy === 'value'
+                  ? 'bg-orange-600 text-white'
+                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+              }`}
+            >
+              Net Worth
+            </button>
+            <button
+              onClick={() => { setSortBy('weeklyGain'); crewCache.current = {}; }}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                sortBy === 'weeklyGain'
+                  ? 'bg-emerald-600 text-white'
+                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+              }`}
+            >
+              Top Gainers
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
@@ -244,7 +255,18 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className={`font-bold ${textClass}`}>{formatCurrency(leader.portfolioValue || 0)}</div>
+                      {sortBy === 'weeklyGain' ? (
+                        <>
+                          <div className={`font-bold ${(leader.weeklyGain || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {(leader.weeklyGain || 0) >= 0 ? '+' : ''}{formatCurrency(leader.weeklyGain || 0)}
+                          </div>
+                          <div className={`text-xs ${mutedClass}`}>
+                            {(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}{(leader.weeklyGainPercent || 0).toFixed(1)}%
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`font-bold ${textClass}`}>{formatCurrency(leader.portfolioValue || 0)}</div>
+                      )}
                     </div>
                   </div>
                 );

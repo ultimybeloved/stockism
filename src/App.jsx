@@ -29,7 +29,7 @@ import {
   runTransaction,
   addDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -1712,6 +1712,35 @@ export default function App() {
     }
   }, [user, userData, addActivity, showNotification]);
 
+  // Handle rerolling missions
+  const handleRerollMissions = useCallback(async () => {
+    if (!user || !userData) return;
+    setLoadingKey('rerollMissions', true);
+    try {
+      const result = await rerollMissionsFunction();
+      const { rerollSeed } = result.data;
+      const weekId = getWeekId();
+      setUserData(prev => prev ? {
+        ...prev,
+        cash: (prev.cash || 0) - 500,
+        weeklyMissions: {
+          ...prev.weeklyMissions,
+          [weekId]: {
+            ...(prev.weeklyMissions?.[weekId] || {}),
+            rerolled: true,
+            rerollSeed
+          }
+        }
+      } : prev);
+      showNotification('success', 'Missions rerolled!');
+    } catch (err) {
+      console.error('Failed to reroll missions:', err);
+      showNotification('error', err.message || 'Failed to reroll missions');
+    } finally {
+      setLoadingKey('rerollMissions', false);
+    }
+  }, [user, userData, showNotification]);
+
   // Handle claiming weekly mission rewards
   const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
@@ -3372,6 +3401,8 @@ export default function App() {
           isGuest={isGuest}
           claimLoading={actionLoading.claimMission}
           claimWeeklyLoading={actionLoading.claimWeeklyMission}
+          onRerollMissions={handleRerollMissions}
+          rerollLoading={actionLoading.rerollMissions}
         />
       )}
       {showBailout && !isGuest && (userData?.cash || 0) < 0 && (

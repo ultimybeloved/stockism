@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, CREW_MAP, CREWS } from '../../crews';
-import { getWeekId, getCrewWeeklyMissions } from '../../crews';
+import { getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 
-const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, portfolioValue, isGuest, claimLoading, claimWeeklyLoading }) => {
+const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, onRerollMissions, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
   const [activeTab, setActiveTab] = useState('daily');
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
@@ -19,33 +19,11 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
   const userCrew = userData?.crew;
   const crewMembers = userCrew ? CREW_MAP[userCrew]?.members || [] : [];
 
-  // Seeded random to pick 3 missions consistently for the day, varying by crew
-  const getDailyMissions = () => {
-    const allMissions = Object.values(DAILY_MISSIONS);
+  // Get reroll seed if any
+  const rerollSeed = userData?.weeklyMissions?.[weekId]?.rerollSeed || 0;
+  const hasRerolled = !!userData?.weeklyMissions?.[weekId]?.rerolled;
 
-    // Create seed from date + crew ID for crew-specific missions
-    // Users without a crew get a default seed
-    const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
-    const crewSeed = userCrew ? userCrew.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
-    const seed = dateSeed + crewSeed;
-
-    // Fisher-Yates shuffle with seeded random
-    const shuffled = [...allMissions];
-    let currentSeed = seed;
-    const seededRandom = () => {
-      currentSeed = (currentSeed * 9301 + 49297) % 233280;
-      return currentSeed / 233280;
-    };
-
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(seededRandom() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    return shuffled.slice(0, 3);
-  };
-
-  const todaysMissions = getDailyMissions();
+  const todaysMissions = getDailyMissions(today, userCrew, rerollSeed);
 
   // Helper to get all crew tickers a character belongs to
   const getCharacterCrews = (ticker) => {
@@ -257,7 +235,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
   // ============================================
 
   // Get this crew's 2 weekly missions
-  const thisWeeksMissions = userCrew ? getCrewWeeklyMissions(userCrew, weekId) : [];
+  const thisWeeksMissions = userCrew ? getCrewWeeklyMissions(userCrew, weekId, rerollSeed) : [];
 
   // Helper to get all crew tickers a character belongs to (for weekly too)
   const getCharacterCrewsForWeekly = (ticker) => {
@@ -503,7 +481,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
 
         {/* Subheader */}
         {!isGuest && !noCrew && (
-          <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+          <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} flex items-center justify-between`}>
             {activeTab === 'daily' ? (
               <p className={`text-xs ${mutedClass}`}>
                 Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
@@ -512,6 +490,25 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
               <p className={`text-xs ${mutedClass}`}>
                 Resets Monday • {getDaysUntilReset()} days left • Earned: <span className="text-purple-500">{formatCurrency(weeklyEarnedRewards)}</span> / {formatCurrency(weeklyTotalRewards)}
               </p>
+            )}
+            {!hasRerolled && (earnedRewards === 0 && weeklyEarnedRewards === 0) && (userData?.cash || 0) >= 500 && (
+              <button
+                onClick={onRerollMissions}
+                disabled={rerollLoading}
+                className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-sm transition-colors ${
+                  rerollLoading
+                    ? 'opacity-50 cursor-not-allowed'
+                    : darkMode
+                      ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
+                      : 'bg-amber-200 hover:bg-amber-300 text-amber-800'
+                }`}
+                title="Reroll all missions ($500)"
+              >
+                {rerollLoading ? '...' : '🎲 Reroll $500'}
+              </button>
+            )}
+            {hasRerolled && (
+              <span className={`text-xs ${mutedClass} italic`}>Rerolled ✓</span>
             )}
           </div>
         )}
