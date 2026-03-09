@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { fireBuyConfetti, fireSellConfetti, fireRewardConfetti, fireBigTradeConfetti } from './utils/confetti';
+import { fireTradeConfetti, fireDailyRewardConfetti, fireWeeklyRewardConfetti } from './utils/confetti';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   signInWithPopup,
@@ -1689,7 +1689,7 @@ export default function App() {
       }) : prev);
 
       addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
-      fireRewardConfetti();
+      fireDailyRewardConfetti();
 
       const newTotal = result.data.newTotal;
       const achievements = userData.achievements || [];
@@ -1729,7 +1729,7 @@ export default function App() {
       } : prev);
 
       addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
-      fireRewardConfetti();
+      fireWeeklyRewardConfetti();
 
       const newTotal = result.data.newTotal;
       const achievements = userData.achievements || [];
@@ -2165,13 +2165,7 @@ export default function App() {
     setTimeout(() => setTradeAnimation(null), 1200);
 
     // Confetti celebration
-    if (totalValue >= 1000) {
-      fireBigTradeConfetti();
-    } else if (action === 'buy') {
-      fireBuyConfetti();
-    } else {
-      fireSellConfetti();
-    }
+    fireTradeConfetti(totalValue, action);
 
     } finally {
       setLoadingKey('trade', false);
