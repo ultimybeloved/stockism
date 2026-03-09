@@ -10,7 +10,8 @@ const STEPS = [
   },
   {
     title: "Join a Crew",
-    emoji: "⚔️",
+    emoji: null,
+    emojiImg: "/crews/wtjc.png",
     description:
       "Pick a crew to join! Each crew gives you unique missions and bonus rewards. Work together with your crewmates to climb the leaderboard and earn extra cash.",
     spotlight: "down",
@@ -19,7 +20,7 @@ const STEPS = [
     title: "Start Trading",
     emoji: "💰",
     description:
-      "Tap any character card to see their price chart. Hit the Trade button, choose Buy or Sell, and pick how many shares you want. Prices go up when people buy and down when they sell — timing is everything.",
+      "Tap any character card to see their price chart. Hit the Trade button, choose Buy or Sell, and pick how many shares you want. Prices go up when people buy and down when they sell. Timing is everything.",
     spotlight: false,
   },
   {
@@ -98,7 +99,13 @@ export default function OnboardingTutorial({ onComplete, darkMode }) {
         </div>
 
         {/* Illustration emoji */}
-        <div className="text-5xl text-center mb-4">{current.emoji}</div>
+        <div className="text-5xl text-center mb-4">
+          {current.emojiImg ? (
+            <img src={current.emojiImg} alt="" className="w-12 h-12 mx-auto object-contain" />
+          ) : (
+            current.emoji
+          )}
+        </div>
 
         {/* Title */}
         <h2 className="text-xl font-bold text-center mb-2">{current.title}</h2>
