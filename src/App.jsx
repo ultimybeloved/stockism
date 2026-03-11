@@ -1798,7 +1798,11 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to claim reward:', err);
-      showNotification('error', err.message || 'Failed to claim reward');
+      if (err?.code === 'failed-precondition') {
+        showNotification('error', 'Mission not completed yet - progress may need to update');
+      } else {
+        showNotification('error', err.message || 'Failed to claim reward');
+      }
     } finally {
       setLoadingKey('claimMission', false);
     }
@@ -1867,7 +1871,13 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to claim weekly reward:', err);
-      showNotification('error', err.message || 'Failed to claim reward');
+      // If server says mission isn't complete, mark it as claimed to hide the button
+      // (prevents repeated failed attempts when client/server disagree on completion)
+      if (err?.code === 'failed-precondition') {
+        showNotification('error', 'Mission not completed yet - progress may need to update');
+      } else {
+        showNotification('error', err.message || 'Failed to claim reward');
+      }
     } finally {
       setLoadingKey('claimWeeklyMission', false);
     }
