@@ -35,7 +35,7 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
-import { isWeeklyHalt } from './utils/marketHours';
+import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
 import LadderGame from './components/LadderGame';
 import LimitOrders from './components/LimitOrders';
 import MarketIndex from './components/MarketIndex';
@@ -997,7 +997,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const [marketTab, setMarketTab] = useState('stocks'); // 'stocks', 'etfs', or 'watchlist'
+  const [marketTab, setMarketTab] = useState('stocks'); // 'stocks', 'etfs', 'watchlist', or 'review'
+  const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
   const [predictions, setPredictions] = useState([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
@@ -2795,17 +2796,43 @@ export default function App() {
       .map(ipo => ipo.ticker);
   }, [activeIPOs]);
 
+  // Detect chapter review changes from most recent Thursday halt window
+  const reviewChanges = useMemo(() => {
+    return getReviewChanges(priceHistory, CHARACTERS);
+  }, [priceHistory]);
+
+  const hasReviewChanges = Object.keys(reviewChanges).length > 0;
+
+  // Build crew membership lookup for crew filter
+  const crewMembershipMap = useMemo(() => {
+    const map = {};
+    Object.values(CREWS).forEach(crew => {
+      crew.members.forEach(ticker => {
+        if (!map[ticker]) map[ticker] = [];
+        map[ticker].push(crew.id);
+      });
+    });
+    return map;
+  }, []);
+
   // Filter and sort
   const filteredCharacters = useMemo(() => {
     let filtered = CHARACTERS.filter(c => {
-      // Watchlist tab filter
-      if (marketTab === 'watchlist') {
+      // Tab filters
+      if (marketTab === 'review') {
+        if (!reviewChanges[c.ticker]) return false;
+      } else if (marketTab === 'watchlist') {
         const watchlist = userData?.watchlist || [];
         if (!watchlist.includes(c.ticker)) return false;
       } else {
-        // ETF tab filter
         if (marketTab === 'etfs' && !c.isETF) return false;
         if (marketTab === 'stocks' && c.isETF) return false;
+      }
+
+      // Crew filter
+      if (crewFilter !== 'ALL') {
+        const crews = crewMembershipMap[c.ticker] || [];
+        if (!crews.includes(crewFilter)) return false;
       }
 
       // Search filter
@@ -2856,6 +2883,12 @@ export default function App() {
       return { weekTrades, dayTrades };
     };
 
+    // Review tab defaults to biggest absolute % change
+    if (marketTab === 'review' && sortBy === 'price-high') {
+      filtered.sort((a, b) => Math.abs(reviewChanges[b.ticker]?.percentChange || 0) - Math.abs(reviewChanges[a.ticker]?.percentChange || 0));
+      return filtered;
+    }
+
     switch (sortBy) {
       case 'price-high': filtered.sort((a, b) => getCurrentPrice(b.ticker, priceHistory, prices) - getCurrentPrice(a.ticker, priceHistory, prices)); break;
       case 'price-low': filtered.sort((a, b) => getCurrentPrice(a.ticker, priceHistory, prices) - getCurrentPrice(b.ticker, priceHistory, prices)); break;
@@ -2889,7 +2922,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, reviewChanges]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -3303,7 +3336,7 @@ export default function App() {
         />
 
         {/* Market Tab Toggle */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-3">
           <button
             onClick={() => { setMarketTab('stocks'); setCurrentPage(1); setSearchQuery(''); }}
             className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
@@ -3336,6 +3369,64 @@ export default function App() {
               Watchlist
             </button>
           )}
+          {hasReviewChanges && (
+            <button
+              onClick={() => { setMarketTab('review'); setCurrentPage(1); setSearchQuery(''); setSortBy('price-high'); }}
+              className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
+                marketTab === 'review'
+                  ? 'bg-emerald-600 text-white'
+                  : `border ${darkMode ? 'border-emerald-800 text-emerald-400 hover:bg-zinc-800' : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`
+              }`}
+            >
+              Review ({Object.keys(reviewChanges).length})
+            </button>
+          )}
+        </div>
+
+        {/* Crew Filter */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          <button
+            onClick={() => { setCrewFilter('ALL'); setCurrentPage(1); }}
+            className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+              crewFilter === 'ALL'
+                ? 'bg-orange-600 text-white'
+                : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+            }`}
+          >
+            All Crews
+          </button>
+          {user && userData?.crew && (
+            <button
+              onClick={() => { setCrewFilter(userData.crew); setCurrentPage(1); }}
+              className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+                crewFilter === userData.crew
+                  ? 'text-white'
+                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+              }`}
+              style={crewFilter === userData.crew ? { backgroundColor: CREW_MAP[userData.crew]?.color || '#f97316' } : {}}
+            >
+              My Crew
+            </button>
+          )}
+          {Object.values(CREWS).map(crew => (
+            <button
+              key={crew.id}
+              onClick={() => { setCrewFilter(crew.id); setCurrentPage(1); }}
+              className={`px-2.5 py-1 text-xs rounded-full font-semibold flex items-center gap-1 transition-colors ${
+                crewFilter === crew.id
+                  ? 'text-white'
+                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+              }`}
+              style={crewFilter === crew.id ? { backgroundColor: crew.color, color: crew.color === '#FFFFFF' || crew.color === '#f3c404' || crew.color === '#f3c803' ? '#000' : '#fff' } : {}}
+            >
+              {crew.icon ? (
+                <img src={crew.icon} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
+              ) : (
+                <span>{crew.emblem}</span>
+              )}
+              <span className="hidden sm:inline">{crew.name}</span>
+            </button>
+          ))}
         </div>
 
         {/* Controls */}
