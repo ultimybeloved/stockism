@@ -12,7 +12,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
   const [confirmUsername, setConfirmUsername] = useState('');
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
 
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;

@@ -61,7 +61,7 @@ export default function OnboardingTutorial({ onComplete, darkMode }) {
   );
 
   const card = darkMode ? "bg-zinc-900 text-zinc-100" : "bg-white text-slate-900";
-  const subtleText = darkMode ? "text-zinc-400" : "text-slate-500";
+  const subtleText = darkMode ? "text-zinc-400" : "text-slate-600";
   const subtleBtn = darkMode
     ? "text-zinc-400 hover:text-zinc-200"
     : "text-slate-500 hover:text-slate-700";

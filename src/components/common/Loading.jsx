@@ -90,7 +90,7 @@ export const LoadingState = ({
 }) => (
   <div className={`
     ${height} flex flex-col items-center justify-center gap-3
-    ${darkMode ? 'text-gray-400' : 'text-gray-500'}
+    ${darkMode ? 'text-gray-400' : 'text-gray-600'}
   `}>
     <Spinner />
     <p className="text-sm">{message}</p>

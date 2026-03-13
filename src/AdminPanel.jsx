@@ -195,7 +195,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
   const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-500';
+  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
   const inputClass = darkMode 
     ? 'bg-slate-900 border-slate-600 text-slate-100' 
     : 'bg-white border-slate-300 text-slate-900';

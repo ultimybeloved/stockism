@@ -188,7 +188,7 @@ const IndexChartModal = ({
 }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
 
   if (chartData.length < 2) return null;

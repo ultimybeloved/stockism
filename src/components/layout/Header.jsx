@@ -183,7 +183,7 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                     <div className={`text-[10px] sm:text-xs ${
                       isActivePage('/profile')
                         ? 'text-white/70'
-                        : darkMode ? 'text-zinc-400' : 'text-gray-500'
+                        : darkMode ? 'text-zinc-400' : 'text-gray-600'
                     }`}>
                       {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
                     </div>

@@ -99,7 +99,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-500'}>{m.ticker}</span>
+                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>
                   {' '}
                   <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
                   {' '}
@@ -112,7 +112,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
                 </span>
               ))}
               {movers.length > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> | </span>}
-              <span className={darkMode ? 'text-zinc-500' : 'text-slate-400'}>{scheduleText}</span>
+              <span className={darkMode ? 'text-zinc-500' : 'text-slate-500'}>{scheduleText}</span>
             </span>
             {/* Duplicate for seamless loop */}
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
@@ -129,7 +129,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-500'}>{m.ticker}</span>
+                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>
                   {' '}
                   <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
                   {' '}
@@ -142,7 +142,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
                 </span>
               ))}
               {movers.length > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> | </span>}
-              <span className={darkMode ? 'text-zinc-500' : 'text-slate-400'}>{scheduleText}</span>
+              <span className={darkMode ? 'text-zinc-500' : 'text-slate-500'}>{scheduleText}</span>
             </span>
           </>
       </div>

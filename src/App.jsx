@@ -397,7 +397,7 @@ const saveCollapsedState = (key, collapsed, identifier) => {
 const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false, launchedTickers = [] }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
   const weekStart = getWeekStart();
   
@@ -466,7 +466,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
 
   const timeRemaining = prediction.endsAt - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
@@ -728,7 +728,7 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
 const IPOHypeCard = ({ ipo, darkMode, colorBlindMode }) => {
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
   const timeRemaining = ipo.ipoStartsAt - Date.now();
   const character = CHARACTER_MAP[ipo.ticker];
@@ -786,7 +786,7 @@ const IPOActiveCard = ({ ipo, userData, onBuyIPO, darkMode, isGuest, colorBlindM
   const [quantity, setQuantity] = useState(1);
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   
   const character = CHARACTER_MAP[ipo.ticker];
   const timeRemaining = ipo.ipoEndsAt - Date.now();
@@ -2931,7 +2931,7 @@ export default function App() {
   const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
   const inputClassStyle = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-zinc-900';
 
   // Create context value for AppProvider (memoized to prevent unnecessary re-renders)

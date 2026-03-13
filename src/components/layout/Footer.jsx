@@ -43,7 +43,7 @@ const Footer = ({ darkMode }) => {
             </React.Fragment>
           ))}
         </div>
-        <div className={`mt-3 text-xs ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+        <div className={`mt-3 text-xs ${darkMode ? 'text-zinc-500' : 'text-gray-600'}`}>
           © {new Date().getFullYear()} Stockism. All rights reserved.
         </div>
       </div>
