@@ -3495,6 +3495,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let newPrice = currentPrice;
       let executionPrice = currentPrice;
       let totalCost = 0;
+      let hitMaxImpact = false;
       let newCash = cash;
       let newHoldings = { ...holdings };
       // Sanitize shorts to prevent undefined fields from crashing Firestore writes
@@ -3521,7 +3522,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         // Calculate price impact
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-        const hitMaxImpact = priceImpact >= maxImpact;
+        hitMaxImpact = priceImpact >= maxImpact;
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
