@@ -3521,6 +3521,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         // Calculate price impact
         priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+        const hitMaxImpact = priceImpact >= maxImpact;
         priceImpact = Math.min(priceImpact, maxImpact);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
@@ -4072,6 +4073,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       // Compute achievement context inside transaction (we have the data here)
       let achievementCtx = { tradeValue: totalCost };
+      if (action === 'buy') {
+        achievementCtx.isMonopoly = hitMaxImpact && !isOverCapTrade;
+      }
       if (action === 'sell') {
         const costBasis = userData.costBasis?.[ticker] || 0;
         const sellProfitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
@@ -4088,11 +4092,25 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
         // Track if user sold last share (for Unifier revocation)
         achievementCtx.soldLastShare = !(newHoldings[ticker] > 0);
+        // Discount Deacon: dollar profit ending in .99
+        if (costBasis > 0) {
+          const dollarProfit = Math.round((executionPrice - costBasis) * amount * 100) / 100;
+          if (dollarProfit > 0 && Math.round(dollarProfit * 100) % 100 === 99) {
+            achievementCtx.isDiscountDeacon = true;
+          }
+        }
       }
       if (action === 'cover') {
         const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;
         const coverProfitPercent = shortCostBasis > 0 ? ((shortCostBasis - executionPrice) / shortCostBasis) * 100 : 0;
         achievementCtx.isColdBlooded = coverProfitPercent >= 20;
+        // Discount Deacon: dollar profit ending in .99
+        if (shortCostBasis > 0) {
+          const dollarProfit = Math.round((shortCostBasis - executionPrice) * amount * 100) / 100;
+          if (dollarProfit > 0 && Math.round(dollarProfit * 100) % 100 === 99) {
+            achievementCtx.isDiscountDeacon = true;
+          }
+        }
       }
 
       // Warn if next short will trigger cooldown
@@ -4137,6 +4155,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ctx.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) newAchievements.push('BULL_RUN');
         if (ctx.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
         if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
+        if (ctx.isMonopoly && !currentAchievements.includes('MONOPOLY')) newAchievements.push('MONOPOLY');
+        if (ctx.isDiscountDeacon && !currentAchievements.includes('DISCOUNT_DEACON')) newAchievements.push('DISCOUNT_DEACON');
 
         // NPC Lover: track cumulative profit from non-crew characters
         const achievementUpdate = {};
@@ -5050,7 +5070,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    return await db.runTransaction(async (transaction) => {
+    const gameResult = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('ladderGameUsers').doc(uid);
       const globalRef = db.collection('ladderGame').doc('global');
       const mainUserRef = db.collection('users').doc(uid);
@@ -5220,9 +5240,32 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
         payout,
         newBalance: userData.balance,
         currentStreak: userData.currentStreak,
-        newAchievements: ladderNewAchievements
+        newAchievements: ladderNewAchievements,
+        checkCasinoChampion: !currentAchievements.includes('CASINO_CHAMPION')
       };
     });
+
+    // Check Casino Champion after transaction (requires additional query)
+    if (gameResult.checkCasinoChampion) {
+      try {
+        const topSnap = await db.collection('ladderGameUsers')
+          .orderBy('balance', 'desc')
+          .limit(1)
+          .get();
+        if (!topSnap.empty && topSnap.docs[0].id === uid) {
+          await db.collection('users').doc(uid).update({
+            achievements: admin.firestore.FieldValue.arrayUnion('CASINO_CHAMPION'),
+            'achievementDates.CASINO_CHAMPION': Date.now()
+          });
+          gameResult.newAchievements.push('CASINO_CHAMPION');
+        }
+      } catch (err) {
+        console.error('Casino Champion check failed:', err);
+      }
+    }
+    delete gameResult.checkCasinoChampion;
+
+    return gameResult;
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;
@@ -5410,11 +5453,24 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
 
       // Create user document in Firestore
       await db.collection('users').doc(firebaseUid).set({
-        username: username,
+        displayName: username,
+        displayNameLower: username.toLowerCase(),
         discordId: discordId,
         cash: STARTING_CASH,
         holdings: {},
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        portfolioValue: STARTING_CASH,
+        portfolioHistory: [{ timestamp: Date.now(), value: STARTING_CASH }],
+        lastCheckin: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        achievements: [],
+        totalCheckins: 0,
+        totalTrades: 0,
+        peakPortfolioValue: STARTING_CASH,
+        predictionWins: 0,
+        costBasis: {},
+        lendingUnlocked: false,
+        isBankrupt: false,
+        onboardingComplete: false
       });
     }
 
@@ -6621,10 +6677,20 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
 
       // Check achievements
       const achievements = userData.achievements || [];
-      if (newPredictionWins >= 10 && !achievements.includes('PROPHET')) {
-        updates.achievements = admin.firestore.FieldValue.arrayUnion('PROPHET');
-      } else if (newPredictionWins >= 3 && !achievements.includes('ORACLE')) {
-        updates.achievements = admin.firestore.FieldValue.arrayUnion('ORACLE');
+      const predictionAchievements = [];
+      if (newPredictionWins >= 10 && !achievements.includes('PROPHET')) predictionAchievements.push('PROPHET');
+      else if (newPredictionWins >= 3 && !achievements.includes('ORACLE')) predictionAchievements.push('ORACLE');
+
+      // Underdog: win when <20% of the pool backed the winning side
+      if (winningPool > 0 && totalPool > 0 && (winningPool / totalPool) < 0.20 && !achievements.includes('UNDERDOG')) {
+        predictionAchievements.push('UNDERDOG');
+      }
+
+      if (predictionAchievements.length > 0) {
+        updates.achievements = admin.firestore.FieldValue.arrayUnion(...predictionAchievements);
+        for (const achId of predictionAchievements) {
+          updates[`achievementDates.${achId}`] = Date.now();
+        }
       }
 
       transaction.update(userRef, updates);
@@ -7440,6 +7506,39 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
       }
     } catch (err) {
       console.error('Leaderboard achievement check failed:', err);
+    }
+  }
+
+  // Compute and store weekly gain for Profit Champion
+  const portfolioHistory = userData.portfolioHistory || [];
+  const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+  let valueSevenDaysAgo = portfolioValue;
+  for (const entry of portfolioHistory) {
+    if (entry.timestamp >= sevenDaysAgo) {
+      valueSevenDaysAgo = entry.value;
+      break;
+    }
+  }
+  const weeklyGain = Math.round((portfolioValue - valueSevenDaysAgo) * 100) / 100;
+  updateData.weeklyGain = weeklyGain;
+
+  // Check Profit Champion: #1 in weekly gains
+  if (weeklyGain > 0 && !currentAchievements.includes('PROFIT_CHAMPION')) {
+    try {
+      const topGainerSnap = await db.collection('users')
+        .orderBy('weeklyGain', 'desc')
+        .limit(1)
+        .get();
+      if (!topGainerSnap.empty) {
+        const topDoc = topGainerSnap.docs[0];
+        const topGain = topDoc.data().weeklyGain || 0;
+        // Award if user's new gain beats the current top (or they ARE the current top)
+        if (topDoc.id === uid || weeklyGain > topGain) {
+          newAchievements.push('PROFIT_CHAMPION');
+        }
+      }
+    } catch (err) {
+      console.error('Profit Champion check failed:', err);
     }
   }
 

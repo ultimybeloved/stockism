@@ -234,6 +234,51 @@ export const ACHIEVEMENTS = {
     hint: 'The underdogs need love too'
   },
 
+  // Market impact
+  MONOPOLY: {
+    id: 'MONOPOLY',
+    name: 'Monopoly',
+    emoji: '🏗️',
+    description: 'Buy so much stock that you increase its price by 5% (the max)',
+    hint: 'Go all in on a single buy'
+  },
+
+  // Ladder Game - competitive
+  CASINO_CHAMPION: {
+    id: 'CASINO_CHAMPION',
+    name: 'Casino Champion',
+    emoji: '🎰',
+    description: 'Place 1st on the Ladder Game leaderboard',
+    hint: 'Top of the gambling world'
+  },
+
+  // Weekly profits
+  PROFIT_CHAMPION: {
+    id: 'PROFIT_CHAMPION',
+    name: 'Profit Champion',
+    emoji: '💰',
+    description: 'Place 1st in weekly portfolio gains',
+    hint: 'Best trader of the week'
+  },
+
+  // Prediction - underdog
+  UNDERDOG: {
+    id: 'UNDERDOG',
+    name: 'Underdog',
+    emoji: '🐶',
+    description: 'Win a prediction where less than 20% of the pool backed your side',
+    hint: 'Bet against the crowd and win'
+  },
+
+  // Profit - special
+  DISCOUNT_DEACON: {
+    id: 'DISCOUNT_DEACON',
+    name: 'Discount Deacon',
+    emoji: '🏷️',
+    description: 'Make a trade resulting in a dollar profit ending in .99',
+    hint: '$9.99 profit, $24.99 profit...'
+  },
+
   // Daily Mission milestones
   MISSION_10: {
     id: 'MISSION_10',
