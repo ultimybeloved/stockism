@@ -5439,28 +5439,76 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
     const discordId = discordUser.id;
     const username = discordUser.username;
     const email = discordUser.email;
+    const avatarURL = discordUser.avatar
+      ? `https://cdn.discordapp.com/avatars/${discordId}/${discordUser.avatar}.png`
+      : null;
 
     // Create or get Firebase user
     let firebaseUid;
-    try {
-      const existingUser = await admin.auth().getUserByEmail(email);
-      firebaseUid = existingUser.uid;
-    } catch (error) {
-      // User doesn't exist, create new one
+
+    // First, check if a Firestore user already has this discordId
+    const discordSnap = await db.collection('users')
+      .where('discordId', '==', discordId)
+      .limit(1)
+      .get();
+
+    if (!discordSnap.empty) {
+      // Existing user found by discordId
+      firebaseUid = discordSnap.docs[0].id;
+    } else if (email) {
+      // Try to find by email
+      try {
+        const existingUser = await admin.auth().getUserByEmail(email);
+        firebaseUid = existingUser.uid;
+        // Store discordId on existing user
+        await db.collection('users').doc(firebaseUid).update({
+          discordId: discordId,
+          discordUsername: username
+        });
+      } catch (error) {
+        // User doesn't exist, create new one with email
+        const newUser = await admin.auth().createUser({
+          email: email,
+          displayName: username,
+          photoURL: avatarURL
+        });
+        firebaseUid = newUser.uid;
+
+        await db.collection('users').doc(firebaseUid).set({
+          displayName: username,
+          displayNameLower: username.toLowerCase(),
+          discordId: discordId,
+          discordUsername: username,
+          cash: STARTING_CASH,
+          holdings: {},
+          portfolioValue: STARTING_CASH,
+          portfolioHistory: [{ timestamp: Date.now(), value: STARTING_CASH }],
+          lastCheckin: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          achievements: [],
+          totalCheckins: 0,
+          totalTrades: 0,
+          peakPortfolioValue: STARTING_CASH,
+          predictionWins: 0,
+          costBasis: {},
+          lendingUnlocked: false,
+          isBankrupt: false,
+          onboardingComplete: false
+        });
+      }
+    } else {
+      // No email from Discord — create user without email
       const newUser = await admin.auth().createUser({
-        email: email,
         displayName: username,
-        photoURL: discordUser.avatar
-          ? `https://cdn.discordapp.com/avatars/${discordId}/${discordUser.avatar}.png`
-          : null
+        photoURL: avatarURL
       });
       firebaseUid = newUser.uid;
 
-      // Create user document in Firestore
       await db.collection('users').doc(firebaseUid).set({
         displayName: username,
         displayNameLower: username.toLowerCase(),
         discordId: discordId,
+        discordUsername: username,
         cash: STARTING_CASH,
         holdings: {},
         portfolioValue: STARTING_CASH,
@@ -5487,7 +5535,7 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
 
   } catch (error) {
     console.error('Discord auth error:', error);
-    return res.status(500).send('Authentication failed');
+    return res.redirect('https://stockism.app/?discord_error=true');
   }
 });
 

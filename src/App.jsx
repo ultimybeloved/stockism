@@ -1163,17 +1163,20 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const discordToken = params.get('discord_token');
+    const discordError = params.get('discord_error');
 
     if (discordToken) {
       // Sign in with custom token from Discord OAuth
       signInWithCustomToken(auth, discordToken)
         .then(() => {
-          // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
         })
         .catch((error) => {
           console.error('Discord sign-in error:', error);
         });
+    } else if (discordError) {
+      alert('Discord sign-in failed. Please try again or use a different sign-in method.');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
