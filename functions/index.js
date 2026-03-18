@@ -9401,7 +9401,7 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
-                '**How to link:** Log into https://stockism.app → go to your **Profile** → click **Link Discord** in Settings.\n\n' +
+                '**Link now:** https://stockism.app/link-discord\n\n' +
                 'Once linked, come back and click the button again — this doesn\'t count as your daily claim!',
               flags: 64
             }
