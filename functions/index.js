@@ -9481,6 +9481,18 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         const uid = userDoc.id;
         const userData = userDoc.data();
 
+        // Check if this drop has expired (72-hour window)
+        if (messageId) {
+          const messageTimestamp = Number(BigInt(messageId) >> 22n) + 1420070400000;
+          const ageHours = (Date.now() - messageTimestamp) / (1000 * 60 * 60);
+          if (ageHours > 72) {
+            await editOriginal({
+              content: '⏰ This drop has expired! Daily drops are only claimable for 72 hours.',
+            });
+            return;
+          }
+        }
+
         // Check if already claimed from this specific message
         if (messageId && userData.lastDailyStockMessageId === messageId) {
           await editOriginal({
