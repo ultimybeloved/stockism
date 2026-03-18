@@ -958,7 +958,7 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
         }
       }
     );
-    console.log(`Discord message sent successfully to ${channelType} channel`);
+    console.log(`Discord message sent successfully to channel ${channelId} (${channelType})`);
   } catch (error) {
     console.error('Error sending Discord message:', error.response?.data || error.message);
   }
@@ -9388,7 +9388,7 @@ exports.dailyFreeStock = functions.pubsub
     ];
 
     await sendDiscordMessage(null, [embed], '1483767343581761658', components);
-    console.log('Daily free stock claim message posted');
+    console.log('Daily free stock claim message posted to channel 1483767343581761658');
     return null;
   });
 
