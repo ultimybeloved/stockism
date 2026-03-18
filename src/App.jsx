@@ -926,6 +926,37 @@ const inputClass = 'bg-zinc-950 border-zinc-700 text-zinc-100';
 // MAIN APP
 // ============================================
 
+function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
+  useEffect(() => {
+    if (user) {
+      window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
+        <div className={`max-w-sm w-full p-6 rounded-sm border text-center ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'}`}>
+          <p className={`text-lg font-semibold mb-3 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Link Your Discord</p>
+          <p className={`text-sm mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Log into Stockism first, then come back to this page.</p>
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
+      <p className={darkMode ? 'text-zinc-400' : 'text-zinc-600'}>Redirecting to Discord...</p>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -3524,31 +3555,7 @@ export default function App() {
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/ladder" element={<LadderPage />} />
             <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} />} />
-            <Route path="/link-discord" element={
-              user ? (
-                (() => {
-                  window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
-                  return (
-                    <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
-                      <p className={darkMode ? 'text-zinc-400' : 'text-zinc-600'}>Redirecting to Discord...</p>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
-                  <div className={`max-w-sm w-full p-6 rounded-sm border text-center ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'}`}>
-                    <p className={`text-lg font-semibold mb-3 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Link Your Discord</p>
-                    <p className={`text-sm mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Log into Stockism first, then come back to this page.</p>
-                    <button
-                      onClick={() => setShowLoginModal(true)}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
-                    >
-                      Log In
-                    </button>
-                  </div>
-                </div>
-              )
-            } />
+            <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
 
