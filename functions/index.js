@@ -9494,7 +9494,8 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         }
 
         // Check if already claimed from this specific message
-        if (messageId && userData.lastDailyStockMessageId === messageId) {
+        const claimedMessages = userData.claimedDailyStockMessages || [];
+        if (messageId && claimedMessages.includes(messageId)) {
           await editOriginal({
             content: '⏰ You already claimed from this drop! Wait for the next one.',
           });
@@ -9514,7 +9515,7 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         // Build Firestore updates
         const updates = {
           lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
-          lastDailyStockMessageId: messageId || null,
+          claimedDailyStockMessages: admin.firestore.FieldValue.arrayUnion(messageId),
           lastDailyStockResult: {
             picks: picks.map(p => ({
               ticker: p.ticker,
