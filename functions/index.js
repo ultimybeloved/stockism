@@ -5602,7 +5602,7 @@ exports.discordLink = functions.https.onRequest(async (req, res) => {
     return res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {
     console.error('Discord link error:', error);
-    return res.redirect('https://stockism.app/profile?discord_link=error&reason=unknown');
+    return res.redirect(`https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(error.message || 'unknown')}`);
   }
 });
 

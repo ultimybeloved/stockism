@@ -21,8 +21,9 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const linkResult = params.get('discord_link');
+    const linkReason = params.get('reason');
     if (linkResult) {
-      setDiscordLinkStatus(linkResult);
+      setDiscordLinkStatus(linkReason ? `${linkResult}:${linkReason}` : linkResult);
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
       // Auto-dismiss after 5s
@@ -223,9 +224,11 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
               Discord linked successfully! You can now claim daily free stocks.
             </div>
           )}
-          {discordLinkStatus === 'error' && (
+          {discordLinkStatus?.startsWith('error') && (
             <div className="p-3 rounded-sm bg-red-900/30 border border-red-700 text-red-400 text-sm">
-              Failed to link Discord. It may already be linked to another account.
+              {discordLinkStatus.includes('already_linked')
+                ? 'Failed to link Discord. It may already be linked to another account.'
+                : `Failed to link Discord: ${discordLinkStatus.split(':').slice(1).join(':') || 'Unknown error'}`}
             </div>
           )}
 
