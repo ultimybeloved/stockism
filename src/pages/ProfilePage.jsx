@@ -503,7 +503,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
                 <span className="text-xs text-green-500 font-semibold">Connected</span>
               ) : (
                 <a
-                  href={`https://discord.com/oauth2/authorize?client_id=1462760577834291262&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user?.uid}`}
+                  href={`https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user?.uid}`}
                   className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-sm transition-colors"
                 >
                   Link Discord
