@@ -929,7 +929,7 @@ const inputClass = 'bg-zinc-950 border-zinc-700 text-zinc-100';
 function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
   useEffect(() => {
     if (user) {
-      window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
+      window.location.href = `https://discord.com/oauth2/authorize?client_id=1462760577834291262&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
     }
   }, [user]);
 
