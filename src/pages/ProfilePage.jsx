@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
@@ -16,6 +16,19 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
 
   const [chartTimeRange, setChartTimeRange] = useState('1m');
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [discordLinkStatus, setDiscordLinkStatus] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const linkResult = params.get('discord_link');
+    if (linkResult) {
+      setDiscordLinkStatus(linkResult);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Auto-dismiss after 5s
+      setTimeout(() => setDiscordLinkStatus(null), 5000);
+    }
+  }, []);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -205,6 +218,17 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
+          {discordLinkStatus === 'success' && (
+            <div className="p-3 rounded-sm bg-green-900/30 border border-green-700 text-green-400 text-sm">
+              Discord linked successfully! You can now claim daily free stocks.
+            </div>
+          )}
+          {discordLinkStatus === 'error' && (
+            <div className="p-3 rounded-sm bg-red-900/30 border border-red-700 text-red-400 text-sm">
+              Failed to link Discord. It may already be linked to another account.
+            </div>
+          )}
+
           {/* Crew Section - Collapsible */}
           {userCrew && crewData && (
             <div
@@ -460,6 +484,28 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
                   }`}
                 />
               </button>
+            </div>
+
+            {/* Discord Link */}
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700/50">
+              <div>
+                <p className={`text-sm font-semibold ${textClass}`}>Discord</p>
+                <p className={`text-xs ${mutedClass}`}>
+                  {userData?.discordId
+                    ? `Linked${userData?.discordUsername ? ` as ${userData.discordUsername}` : ''}`
+                    : 'Link to claim daily free stocks in Discord'}
+                </p>
+              </div>
+              {userData?.discordId ? (
+                <span className="text-xs text-green-500 font-semibold">Connected</span>
+              ) : (
+                <a
+                  href={`https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user?.uid}`}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-sm transition-colors"
+                >
+                  Link Discord
+                </a>
+              )}
             </div>
           </div>
 

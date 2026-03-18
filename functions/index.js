@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const axios = require('axios');
+const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -920,7 +921,7 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
  * @param {Array} embeds - Array of Discord embed objects
  * @param {string} channelType - Channel type: 'default', 'signups', or custom channel ID
  */
-async function sendDiscordMessage(content, embeds = null, channelType = 'default') {
+async function sendDiscordMessage(content, embeds = null, channelType = 'default', components = null) {
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   // Determine which channel to use
@@ -942,6 +943,9 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
     const payload = { content };
     if (embeds) {
       payload.embeds = embeds;
+    }
+    if (components) {
+      payload.components = components;
     }
 
     await axios.post(
@@ -5487,6 +5491,73 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// Discord Link — links Discord to an existing Stockism account (no new account created)
+exports.discordLink = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'https://stockism.app');
+
+  const code = req.query.code;
+  const state = req.query.state; // Firebase UID passed as state
+
+  if (!code || !state) {
+    return res.status(400).send('Missing authorization code or user ID');
+  }
+
+  try {
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordLink';
+
+    // Exchange code for access token
+    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
+      new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: redirectUri
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const accessToken = tokenResponse.data.access_token;
+
+    // Get Discord user info
+    const userResponse = await axios.get('https://discord.com/api/users/@me', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+
+    const discordId = userResponse.data.id;
+    const discordUsername = userResponse.data.username;
+
+    // Verify the Firebase UID (state) is a real user
+    const userDoc = await db.collection('users').doc(state).get();
+    if (!userDoc.exists) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=user_not_found');
+    }
+
+    // Check if this Discord is already linked to another account
+    const existingSnap = await db.collection('users')
+      .where('discordId', '==', discordId)
+      .limit(1)
+      .get();
+
+    if (!existingSnap.empty && existingSnap.docs[0].id !== state) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
+    }
+
+    // Link Discord to the existing account
+    await db.collection('users').doc(state).update({
+      discordId: discordId,
+      discordUsername: discordUsername
+    });
+
+    return res.redirect('https://stockism.app/profile?discord_link=success');
+  } catch (error) {
+    console.error('Discord link error:', error);
+    return res.redirect('https://stockism.app/profile?discord_link=error&reason=unknown');
+  }
+});
+
 // Helper: Archive price history for a specific ticker (or all if null)
 async function doArchivePriceHistory(ticker = null) {
   const MAX_HISTORY_SIZE = 1000;
@@ -9153,4 +9224,294 @@ exports.checkCircuitBreakers = functions.pubsub
       return null;
     }
   });
+
+// ============================================
+// DAILY FREE STOCK CLAIM (Discord Button)
+// ============================================
+
+/**
+ * Weighted random pick from an array using weights.
+ * values[i] has weight weights[i].
+ */
+function weightedRandom(values, weights) {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < values.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return values[i];
+  }
+  return values[values.length - 1];
+}
+
+/**
+ * Roll loot for the daily free stock claim.
+ * Returns { picks: [{ ticker, name, shares, currentPrice }], isJackpot }
+ */
+async function rollDailyStock() {
+  const JACKPOT_CHANCE = 0.03;
+  const isJackpot = Math.random() < JACKPOT_CHANCE;
+
+  let totalShares, varietyCount;
+
+  if (isJackpot) {
+    totalShares = Math.floor(Math.random() * 5) + 6; // 6-10
+    varietyCount = Math.floor(Math.random() * 3) + 3; // 3-5
+  } else {
+    totalShares = weightedRandom([1, 2, 3, 4, 5], [35, 30, 20, 10, 5]);
+    varietyCount = weightedRandom([1, 2, 3], [70, 25, 5]);
+  }
+
+  // Cap variety to total shares (can't have 3 different stocks with only 1 share)
+  varietyCount = Math.min(varietyCount, totalShares);
+
+  // Get tradeable stocks from market data
+  const marketDoc = await db.collection('market').doc('current').get();
+  const prices = marketDoc.data()?.prices || {};
+  const launchedTickers = marketDoc.data()?.launchedTickers || [];
+
+  const tradeableChars = CHARACTERS.filter(c =>
+    !c.ipoRequired || launchedTickers.includes(c.ticker)
+  ).filter(c => prices[c.ticker] != null);
+
+  if (tradeableChars.length === 0) {
+    return { picks: [], isJackpot: false };
+  }
+
+  // Pick random unique stocks
+  const shuffled = [...tradeableChars].sort(() => Math.random() - 0.5);
+  const selectedStocks = shuffled.slice(0, Math.min(varietyCount, shuffled.length));
+
+  // Distribute shares across selected stocks
+  const picks = selectedStocks.map(stock => ({
+    ticker: stock.ticker,
+    name: stock.name,
+    shares: 0,
+    currentPrice: prices[stock.ticker] || stock.basePrice
+  }));
+
+  for (let i = 0; i < totalShares; i++) {
+    picks[i % picks.length].shares += 1;
+  }
+
+  return { picks, isJackpot };
+}
+
+/**
+ * Daily scheduled function — posts the claim button to Discord.
+ * Runs at 10 AM Eastern (14:00 UTC) every day.
+ */
+exports.dailyFreeStock = functions.pubsub
+  .schedule('0 14 * * *')
+  .timeZone('UTC')
+  .onRun(async () => {
+    const embed = {
+      title: '🎁 Daily Free Stock Drop!',
+      description: 'Click the button below to claim your free daily stock(s)!\n\n' +
+        '**How it works:**\n' +
+        '• You get 1-5 random shares of random characters\n' +
+        '• Lucky rolls get even more variety\n' +
+        '• Hit the **jackpot** (super rare!) for 6-10 shares across multiple characters\n\n' +
+        '*Your Discord must be linked to your Stockism account to claim.*',
+      color: 0x00D166,
+      footer: { text: 'Resets daily • One claim per user' }
+    };
+
+    const components = [
+      {
+        type: 1, // Action Row
+        components: [
+          {
+            type: 2, // Button
+            style: 1, // Primary (blurple)
+            label: '🎲 Claim Free Stock',
+            custom_id: 'claim_daily_stock'
+          }
+        ]
+      }
+    ];
+
+    await sendDiscordMessage(null, [embed], 'default', components);
+    console.log('Daily free stock claim message posted');
+    return null;
+  });
+
+/**
+ * Discord Interactions Webhook — handles button clicks for daily stock claim.
+ * Must be registered as the Interactions Endpoint URL in Discord Developer Portal.
+ */
+exports.discordInteractions = functions.https.onRequest(async (req, res) => {
+  // Only accept POST
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method not allowed');
+  }
+
+  // Verify Discord signature
+  const publicKey = process.env.DISCORD_PUBLIC_KEY;
+  if (!publicKey || publicKey === 'PASTE_YOUR_PUBLIC_KEY_HERE') {
+    console.error('DISCORD_PUBLIC_KEY not configured');
+    return res.status(500).send('Server misconfigured');
+  }
+
+  const signature = req.headers['x-signature-ed25519'];
+  const timestamp = req.headers['x-signature-timestamp'];
+  const rawBody = req.rawBody;
+
+  if (!signature || !timestamp || !rawBody) {
+    return res.status(401).send('Invalid request');
+  }
+
+  const isValid = await verifyKey(rawBody, signature, timestamp, publicKey);
+  if (!isValid) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  const interaction = req.body;
+
+  // Handle PING (required for endpoint verification)
+  if (interaction.type === InteractionType.PING) {
+    return res.json({ type: InteractionResponseType.PONG });
+  }
+
+  // Handle button clicks
+  if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
+    const customId = interaction.data?.custom_id;
+
+    if (customId === 'claim_daily_stock') {
+      const discordUserId = interaction.member?.user?.id || interaction.user?.id;
+
+      if (!discordUserId) {
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ Could not identify your Discord account.',
+            flags: 64 // Ephemeral
+          }
+        });
+      }
+
+      try {
+        // Find user with this discordId
+        const usersSnap = await db.collection('users')
+          .where('discordId', '==', discordUserId)
+          .limit(1)
+          .get();
+
+        if (usersSnap.empty) {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
+                '**How to link:** Log into https://stockism.app → go to your **Profile** → click **Link Discord** in Settings.\n\n' +
+                'Once linked, come back and click the button again — this doesn\'t count as your daily claim!',
+              flags: 64
+            }
+          });
+        }
+
+        const userDoc = usersSnap.docs[0];
+        const uid = userDoc.id;
+        const userData = userDoc.data();
+
+        // Check if already claimed today
+        const lastClaim = userData.lastDailyStockClaim;
+        if (lastClaim) {
+          const lastClaimDate = lastClaim.toDate ? lastClaim.toDate() : new Date(lastClaim);
+          const now = new Date();
+          // Compare dates in UTC
+          if (
+            lastClaimDate.getUTCFullYear() === now.getUTCFullYear() &&
+            lastClaimDate.getUTCMonth() === now.getUTCMonth() &&
+            lastClaimDate.getUTCDate() === now.getUTCDate()
+          ) {
+            return res.json({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: '⏰ You already claimed your free stock today! Come back tomorrow.',
+                flags: 64
+              }
+            });
+          }
+        }
+
+        // Roll the loot
+        const { picks, isJackpot } = await rollDailyStock();
+
+        if (picks.length === 0) {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '❌ No stocks available right now. Try again later!',
+              flags: 64
+            }
+          });
+        }
+
+        // Build Firestore updates
+        const updates = {
+          lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        const currentHoldings = userData.holdings || {};
+        const currentCostBasis = userData.costBasis || {};
+
+        for (const pick of picks) {
+          const existingShares = currentHoldings[pick.ticker] || 0;
+          const existingCost = currentCostBasis[pick.ticker] || 0;
+          const newShares = existingShares + pick.shares;
+          // Weighted average cost basis: free shares have $0 cost
+          const newCostBasis = existingShares > 0
+            ? (existingCost * existingShares) / newShares
+            : 0;
+          updates[`holdings.${pick.ticker}`] = newShares;
+          updates[`costBasis.${pick.ticker}`] = newCostBasis;
+        }
+
+        await db.collection('users').doc(uid).update(updates);
+
+        // Build response embed
+        const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
+        const stockList = picks.map(p =>
+          `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * p.currentPrice).toFixed(2)})`
+        ).join('\n');
+
+        const totalValue = picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
+
+        const embed = isJackpot
+          ? {
+            title: '🎰💰 JACKPOT!! 💰🎰',
+            description: `You hit the **JACKPOT**! Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
+            color: 0xFFD700,
+            footer: { text: 'Incredible luck! 🍀' }
+          }
+          : {
+            title: '🎁 Daily Stock Claimed!',
+            description: `Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+            color: 0x00D166,
+            footer: { text: 'Come back tomorrow for more!' }
+          };
+
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            embeds: [embed],
+            flags: 64
+          }
+        });
+
+      } catch (err) {
+        console.error('Daily stock claim error:', err);
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ Something went wrong. Try again in a moment!',
+            flags: 64
+          }
+        });
+      }
+    }
+  }
+
+  // Unknown interaction type — acknowledge
+  return res.json({ type: InteractionResponseType.PONG });
+});
 

@@ -32,7 +32,8 @@
       "Bash(findstr:*)",
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" diff --stat)",
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" log --oneline -5)",
-      "Bash(npx firebase deploy:*)"
+      "Bash(npx firebase deploy:*)",
+      "Bash(cd:*)"
     ]
   },
   "hooks": {
