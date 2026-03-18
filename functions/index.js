@@ -9376,12 +9376,18 @@ exports.dailyFreeStock = functions.pubsub
             style: 1, // Primary (blurple)
             label: '🎲 Claim Free Stock',
             custom_id: 'claim_daily_stock'
+          },
+          {
+            type: 2, // Button
+            style: 2, // Secondary (gray)
+            label: '📋 View Last Claim',
+            custom_id: 'view_last_claim'
           }
         ]
       }
     ];
 
-    await sendDiscordMessage(null, [embed], 'default', components);
+    await sendDiscordMessage(null, [embed], '1483767343581761658', components);
     console.log('Daily free stock claim message posted');
     return null;
   });
@@ -9429,6 +9435,9 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
 
     if (customId === 'claim_daily_stock') {
       const discordUserId = interaction.member?.user?.id || interaction.user?.id;
+      const appId = interaction.application_id;
+      const interactionToken = interaction.token;
+      const messageId = interaction.message?.id;
 
       if (!discordUserId) {
         return res.json({
@@ -9440,6 +9449,18 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         });
       }
 
+      // Send deferred ephemeral response immediately (avoids 3-second timeout)
+      res.json({ type: 5, data: { flags: 64 } });
+
+      // Helper to edit the deferred response via webhook
+      const editOriginal = async (payload) => {
+        await axios.patch(
+          `https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`,
+          payload,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+
       try {
         // Find user with this discordId
         const usersSnap = await db.collection('users')
@@ -9448,58 +9469,50 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
           .get();
 
         if (usersSnap.empty) {
-          return res.json({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-              content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
-                '**Link now:** https://stockism.app/link-discord\n\n' +
-                'Once linked, come back and click the button again — this doesn\'t count as your daily claim!',
-              flags: 64
-            }
+          await editOriginal({
+            content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
+              '**Link now:** https://stockism.app/link-discord\n\n' +
+              'Once linked, come back and click the button again — this doesn\'t count as your daily claim!',
           });
+          return;
         }
 
         const userDoc = usersSnap.docs[0];
         const uid = userDoc.id;
         const userData = userDoc.data();
 
-        // Check if already claimed today
-        const lastClaim = userData.lastDailyStockClaim;
-        if (lastClaim) {
-          const lastClaimDate = lastClaim.toDate ? lastClaim.toDate() : new Date(lastClaim);
-          const now = new Date();
-          // Compare dates in UTC
-          if (
-            lastClaimDate.getUTCFullYear() === now.getUTCFullYear() &&
-            lastClaimDate.getUTCMonth() === now.getUTCMonth() &&
-            lastClaimDate.getUTCDate() === now.getUTCDate()
-          ) {
-            return res.json({
-              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-              data: {
-                content: '⏰ You already claimed your free stock today! Come back tomorrow.',
-                flags: 64
-              }
-            });
-          }
+        // Check if already claimed from this specific message
+        if (messageId && userData.lastDailyStockMessageId === messageId) {
+          await editOriginal({
+            content: '⏰ You already claimed from this drop! Wait for the next one.',
+          });
+          return;
         }
 
         // Roll the loot
         const { picks, isJackpot } = await rollDailyStock();
 
         if (picks.length === 0) {
-          return res.json({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-              content: '❌ No stocks available right now. Try again later!',
-              flags: 64
-            }
+          await editOriginal({
+            content: '❌ No stocks available right now. Try again later!',
           });
+          return;
         }
 
         // Build Firestore updates
         const updates = {
-          lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp()
+          lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
+          lastDailyStockMessageId: messageId || null,
+          lastDailyStockResult: {
+            picks: picks.map(p => ({
+              ticker: p.ticker,
+              name: p.name,
+              shares: p.shares,
+              currentPrice: p.currentPrice
+            })),
+            isJackpot,
+            claimedAt: new Date().toISOString()
+          }
         };
 
         const currentHoldings = userData.holdings || {};
@@ -9527,6 +9540,14 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
 
         const totalValue = picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
 
+        // Send web notification
+        await writeNotification(uid, {
+          type: 'system',
+          title: isJackpot ? '🎰 Jackpot! Daily Stock Claim' : '🎁 Daily Stock Claimed',
+          message: `You received ${totalShares} free share${totalShares !== 1 ? 's' : ''} worth $${totalValue.toFixed(2)}!`,
+          data: {}
+        });
+
         const embed = isJackpot
           ? {
             title: '🎰💰 JACKPOT!! 💰🎰',
@@ -9541,6 +9562,86 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
             footer: { text: 'Come back tomorrow for more!' }
           };
 
+        await editOriginal({ embeds: [embed] });
+
+      } catch (err) {
+        console.error('Daily stock claim error:', err);
+        try {
+          await editOriginal({
+            content: '❌ Something went wrong. Try again in a moment!',
+          });
+        } catch (followUpErr) {
+          console.error('Failed to send error follow-up:', followUpErr.message);
+        }
+      }
+      return;
+    }
+
+    if (customId === 'view_last_claim') {
+      const discordUserId = interaction.member?.user?.id || interaction.user?.id;
+
+      if (!discordUserId) {
+        return res.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ Could not identify your Discord account.',
+            flags: 64
+          }
+        });
+      }
+
+      try {
+        const usersSnap = await db.collection('users')
+          .where('discordId', '==', discordUserId)
+          .limit(1)
+          .get();
+
+        if (usersSnap.empty) {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
+                '**Link now:** https://stockism.app/link-discord',
+              flags: 64
+            }
+          });
+        }
+
+        const userData = usersSnap.docs[0].data();
+        const lastResult = userData.lastDailyStockResult;
+
+        if (!lastResult || !lastResult.picks || lastResult.picks.length === 0) {
+          return res.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '📋 No daily stock claims on record yet. Click **Claim Free Stock** to get your first!',
+              flags: 64
+            }
+          });
+        }
+
+        const totalShares = lastResult.picks.reduce((sum, p) => sum + p.shares, 0);
+        const stockList = lastResult.picks.map(p =>
+          `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * p.currentPrice).toFixed(2)})`
+        ).join('\n');
+        const totalValue = lastResult.picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
+
+        const claimedDate = lastResult.claimedAt
+          ? new Date(lastResult.claimedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'Unknown date';
+
+        const embed = lastResult.isJackpot
+          ? {
+            title: '🎰💰 Last Claim — JACKPOT! 💰🎰',
+            description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}**`,
+            color: 0xFFD700
+          }
+          : {
+            title: '📋 Your Last Daily Claim',
+            description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+            color: 0x5865F2
+          };
+
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
@@ -9550,7 +9651,7 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         });
 
       } catch (err) {
-        console.error('Daily stock claim error:', err);
+        console.error('View last claim error:', err);
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
