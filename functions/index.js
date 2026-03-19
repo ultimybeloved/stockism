@@ -9512,6 +9512,11 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
           return;
         }
 
+        // Fetch current market prices for buy-side price impact
+        const marketRef = db.collection('market').doc('current');
+        const marketDoc = await marketRef.get();
+        const prices = marketDoc.data()?.prices || {};
+
         // Build Firestore updates
         const updates = {
           lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
@@ -9543,15 +9548,40 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
           updates[`costBasis.${pick.ticker}`] = newCostBasis;
         }
 
+        // Apply buy-side price impact (simulates buy pressure for free shares)
+        const timestamp = Date.now();
+        const newPrices = { ...prices };
+        const marketUpdates = {};
+
+        for (const pick of picks) {
+          const currentPrice = newPrices[pick.ticker];
+          if (!currentPrice || currentPrice <= 0) continue;
+
+          let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / BASE_LIQUIDITY);
+          const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+          priceImpact = Math.min(priceImpact, maxImpact);
+
+          newPrices[pick.ticker] = Math.round((currentPrice + priceImpact) * 100) / 100;
+
+          marketUpdates[`priceHistory.${pick.ticker}`] = admin.firestore.FieldValue.arrayUnion({
+            timestamp,
+            price: newPrices[pick.ticker]
+          });
+        }
+
+        marketUpdates.prices = newPrices;
+
         await db.collection('users').doc(uid).update(updates);
+        await marketRef.update(marketUpdates);
 
-        // Build response embed
+        // Build response embed (using post-impact prices)
         const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
-        const stockList = picks.map(p =>
-          `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * p.currentPrice).toFixed(2)})`
-        ).join('\n');
+        const stockList = picks.map(p => {
+          const displayPrice = newPrices[p.ticker] || p.currentPrice;
+          return `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * displayPrice).toFixed(2)})`;
+        }).join('\n');
 
-        const totalValue = picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
+        const totalValue = picks.reduce((sum, p) => sum + (p.shares * (newPrices[p.ticker] || p.currentPrice)), 0);
 
         // Send web notification
         await writeNotification(uid, {
