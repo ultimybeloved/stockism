@@ -6052,7 +6052,7 @@ exports.checkLimitOrders = functions.pubsub
 
       // Get all pending limit orders
       const ordersSnapshot = await db.collection('limitOrders')
-        .where('status', '==', 'PENDING')
+        .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
         .get();
 
       console.log(`Found ${ordersSnapshot.size} pending limit orders`);
@@ -6074,7 +6074,7 @@ exports.checkLimitOrders = functions.pubsub
           // Auto-cancel unsupported SHORT/COVER orders
           if (order.type === 'SHORT' || order.type === 'COVER') {
             await db.collection('limitOrders').doc(orderId).update({
-              status: 'CANCELLED',
+              status: 'CANCELED',
               cancelReason: 'SHORT/COVER limit orders not supported',
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -6099,7 +6099,7 @@ exports.checkLimitOrders = functions.pubsub
             const orderUserData = orderUserDoc.data();
             if (orderUserData.isBankrupt || (orderUserData.cash || 0) < 0) {
               await db.collection('limitOrders').doc(orderId).update({
-                status: 'CANCELLED',
+                status: 'CANCELED',
                 cancelReason: 'User bankrupt or in debt',
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
               });
@@ -6146,12 +6146,16 @@ exports.checkLimitOrders = functions.pubsub
 
           // Execute trade in transaction to prevent race conditions
           const userRef = db.collection('users').doc(order.userId);
-          const originalShares = orderDoc.data().shares;
-          let fillShares = originalShares;
+          const totalShares = order.shares;
+          const alreadyFilled = order.filledShares || 0;
+          const remainingShares = totalShares - alreadyFilled;
+          let fillShares = remainingShares;
+          let executedPrice = 0;
 
           try {
             await db.runTransaction(async (transaction) => {
-              fillShares = originalShares;  // Reset on every retry
+              fillShares = remainingShares;  // Reset on every retry
+              executedPrice = 0;
               const userSnap = await transaction.get(userRef);
               const freshMarketSnap = await transaction.get(marketRef);
 
@@ -6231,6 +6235,7 @@ exports.checkLimitOrders = functions.pubsub
                 // Price goes UP on buy
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
                 const askPrice = newMarketPrice * (1 + limitSpread / 2);
+                executedPrice = Math.round(askPrice * 100) / 100;
                 const totalCost = askPrice * fillShares;
 
                 // Re-validate with actual cost
@@ -6269,6 +6274,7 @@ exports.checkLimitOrders = functions.pubsub
                 // Price goes DOWN on sell
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
                 const bidPrice = newMarketPrice * (1 - limitSpread / 2);
+                executedPrice = Math.round(bidPrice * 100) / 100;
                 const totalRevenue = bidPrice * fillShares;
 
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
@@ -6330,12 +6336,13 @@ exports.checkLimitOrders = functions.pubsub
           tickerExecutionCount[order.ticker] = (tickerExecutionCount[order.ticker] || 0) + 1;
 
           // Update order status
-          const isPartialFill = order.allowPartialFills && fillShares < originalShares;
+          const newFilledTotal = alreadyFilled + fillShares;
+          const isPartialFill = order.allowPartialFills && newFilledTotal < totalShares;
 
           await db.collection('limitOrders').doc(orderId).update({
             status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
-            filledShares: fillShares,
-            executedPrice: currentPrice,
+            filledShares: newFilledTotal,
+            executedPrice: executedPrice,
             executedAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           });
@@ -6345,8 +6352,8 @@ exports.checkLimitOrders = functions.pubsub
           writeNotification(order.userId, {
             type: 'trade',
             title: `${effectiveType2} Filled`,
-            message: `Your ${effectiveType2.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${currentPrice.toFixed(2)}`,
-            data: { ticker: order.ticker, orderId, price: currentPrice }
+            message: `Your ${effectiveType2.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
+            data: { ticker: order.ticker, orderId, price: executedPrice }
           });
 
           executed++;
