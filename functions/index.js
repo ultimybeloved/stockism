@@ -2924,11 +2924,11 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
     // ANTI-MANIPULATION: Check daily impact cap (buy/short only)
     if (action === 'buy' || action === 'short') {
       const todayDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-      const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
-      if (todayDailyImpact >= MAX_DAILY_IMPACT && overCapCount >= 3) {
+      const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
+      if (todayDailyImpact >= MAX_DAILY_IMPACT && postCapTrades >= 1) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          `Daily impact limit reached for ${ticker}. No more ${action === 'buy' ? 'buys' : 'shorts'} today.`
+          `Daily trading limit reached for ${ticker}. No more ${action === 'buy' ? 'buys' : 'shorts'} today.`
         );
       }
     }
@@ -3517,8 +3517,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
       let newMarginUsed = marginUsed;
       let isOverCapTrade = false;
-      let surchargeAmount = 0;
-
       const effectiveSpread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
 
       // BUY LOGIC
@@ -3533,29 +3531,20 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
+        // Check dailyImpact — full impact always applies, block after 1 post-cap trade
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        const userOverCap = tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT;
-        const ipOverCap = ipDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+        const alreadyOverCap = tickerDailyImpact >= MAX_DAILY_IMPACT || ipDailyImpact >= MAX_DAILY_IMPACT;
 
-        if (userOverCap || ipOverCap) {
-          const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
-
-          if (overCapCount >= 3) {
+        if (alreadyOverCap) {
+          const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
+          if (postCapTrades >= 1) {
             throw new functions.https.HttpsError(
               'failed-precondition',
-              `Daily impact limit reached for ${ticker}. No more buys today.`
+              `Daily trading limit reached for ${ticker}. No more buys today.`
             );
           }
-
-          // Zero market impact, but escalating surcharge (0%, 5%, 10%)
-          const surchargePercent = overCapCount * 0.05;
-          priceImpact = 0;
-          impactPercent = 0;
-          newPrice = currentPrice;
-          executionPrice = currentPrice * (1 + effectiveSpread / 2) * (1 + surchargePercent);
-          totalCost = executionPrice * amount;
           isOverCapTrade = true;
+          // Price impact still applies — no zeroing
         }
 
         // Validate cash (with margin if enabled)
@@ -3618,18 +3607,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
 
-        // Sells always have full market impact (no free exits)
-        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-
-        // Execute sell
+        // Execute sell — sells don't count toward daily impact cap
         newCash = cash + totalCost;
         newHoldings[ticker] = currentHoldings - amount;
         if (newHoldings[ticker] === 0) {
           delete newHoldings[ticker];
         }
-
-        // Update dailyImpact
-        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
 
       // SHORT LOGIC
       } else if (action === 'short') {
@@ -3696,34 +3679,24 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
 
-        // Check dailyImpact — escalating surcharge after cap (no more free accumulation)
+        // Check dailyImpact — full impact always applies, block after 1 post-cap trade
         let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        const userOverCap = tickerDailyImpact + impactPercent > MAX_DAILY_IMPACT;
-        const ipOverCap = ipDailyImpact + impactPercent > MAX_DAILY_IMPACT;
+        const alreadyOverCap = tickerDailyImpact >= MAX_DAILY_IMPACT || ipDailyImpact >= MAX_DAILY_IMPACT;
 
-        if (userOverCap || ipOverCap) {
-          const overCapCount = userData.overCapTrades?.[todayDate]?.[ticker] || 0;
-
-          if (overCapCount >= 3) {
+        if (alreadyOverCap) {
+          const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
+          if (postCapTrades >= 1) {
             throw new functions.https.HttpsError(
               'failed-precondition',
-              `Daily impact limit reached for ${ticker}. No more shorts today.`
+              `Daily trading limit reached for ${ticker}. No more shorts today.`
             );
           }
-
-          // Zero market impact, but escalating surcharge (0%, 5%, 10%)
-          const surchargePercent = overCapCount * 0.05;
-          priceImpact = 0;
-          impactPercent = 0;
-          newPrice = currentPrice;
-          executionPrice = Math.max(MIN_PRICE, currentPrice * (1 - effectiveSpread / 2));
-          totalCost = executionPrice * amount;
-          surchargeAmount = totalCost * surchargePercent;
           isOverCapTrade = true;
+          // Price impact still applies — no zeroing
         }
 
         // Execute short — v2: deduct margin only, no sale proceeds
-        newCash = cash - marginRequired - surchargeAmount;
+        newCash = cash - marginRequired;
 
         const existingShort = shorts[ticker];
         if (existingShort && existingShort.shares > 0) {
@@ -3783,9 +3756,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
         totalCost = executionPrice * amount;
 
-        // Covers always have full market impact (no free exits)
-        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-
         // Calculate margin to return (based on entry price, not current price)
         const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
         const totalPositionMargin = shortPosition.margin || (costBasis * shortPosition.shares * 0.5);
@@ -3814,8 +3784,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           delete newShorts[ticker];
         }
 
-        // Update dailyImpact
-        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
+        // Covers don't count toward daily impact cap
       }
 
       // Apply trailing effects to related characters
@@ -3963,7 +3932,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       // ANTI-MANIPULATION: Track over-cap trades and ticker trade times
       if (isOverCapTrade) {
-        updates[`overCapTrades.${todayDate}.${ticker}`] = admin.firestore.FieldValue.increment(1);
+        updates[`postCapTrades.${todayDate}.${ticker}`] = admin.firestore.FieldValue.increment(1);
       }
       if (action === 'buy' || action === 'short') {
         updates[`lastTickerTradeTime.${ticker}`] = admin.firestore.Timestamp.now();
@@ -4142,6 +4111,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newMarginUsed,
         priceUpdates, // All affected tickers (including trailing effects)
         remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker],
+        isLastTrade: isOverCapTrade, // true if this was the final allowed trade
+        dailyImpactPercent: userDailyImpact[ticker],
         shortWarning,
         achievementCtx
       };
@@ -8609,8 +8580,8 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
       }
     }
 
-    // Nested date-keyed maps: dailyImpact.{date}.{ticker}, overCapTrades.{date}.{ticker}
-    const nestedMaps = ['dailyImpact', 'overCapTrades'];
+    // Nested date-keyed maps: dailyImpact.{date}.{ticker}, postCapTrades.{date}.{ticker}
+    const nestedMaps = ['dailyImpact', 'postCapTrades'];
     for (const mapName of nestedMaps) {
       if (userData[mapName]) {
         for (const [dateKey, dateData] of Object.entries(userData[mapName])) {

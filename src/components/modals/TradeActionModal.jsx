@@ -6,7 +6,8 @@ import {
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
-  SHORT_MARGIN_REQUIREMENT
+  SHORT_MARGIN_REQUIREMENT,
+  MAX_DAILY_IMPACT_PER_USER
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
@@ -135,6 +136,24 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           high = mid - 1;
         }
       }
+
+      // Cap by daily impact limit (buy only)
+      const todayDate = new Date().toISOString().split('T')[0];
+      const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
+      const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
+
+      if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
+        return 0; // Fully blocked
+      }
+
+      if (currentImpact < MAX_DAILY_IMPACT_PER_USER) {
+        const remainingImpact = MAX_DAILY_IMPACT_PER_USER - currentImpact;
+        const liquidity = character.liquidity || BASE_LIQUIDITY;
+        const maxByImpact = Math.floor(liquidity * Math.pow(remainingImpact / BASE_IMPACT, 2));
+        return Math.max(0, Math.min(maxAffordable, maxByImpact));
+      }
+
+      // Already over cap but still have 1 trade left — don't restrict max
       return Math.max(0, maxAffordable);
     } else if (action === 'sell') {
       return holdings || 0;
@@ -154,8 +173,26 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       const maxByEquity = Math.floor(availableForShorts / marginPerShare);
       // v2: must also have enough cash for the margin deposit
       const maxByCash = marginPerShare > 0 ? Math.floor(userCash / marginPerShare) : 0;
-      const maxAffordable = Math.min(maxByEquity, maxByCash);
-      return Math.max(0, Math.min(maxAffordable, 10000));
+      let maxAffordable = Math.min(maxByEquity, maxByCash);
+      maxAffordable = Math.max(0, Math.min(maxAffordable, 10000));
+
+      // Cap by daily impact limit (short only)
+      const todayDate = new Date().toISOString().split('T')[0];
+      const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
+      const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
+
+      if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
+        return 0; // Fully blocked
+      }
+
+      if (currentImpact < MAX_DAILY_IMPACT_PER_USER) {
+        const remainingImpact = MAX_DAILY_IMPACT_PER_USER - currentImpact;
+        const liquidity = character.liquidity || BASE_LIQUIDITY;
+        const maxByImpact = Math.floor(liquidity * Math.pow(remainingImpact / BASE_IMPACT, 2));
+        return Math.max(0, Math.min(maxAffordable, maxByImpact));
+      }
+
+      return maxAffordable;
     } else if (action === 'cover') {
       return shortPosition?.shares || 0;
     }
@@ -491,6 +528,37 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
             </div>
           </div>
         )}
+
+        {/* Daily impact cap warnings (buy/short only) */}
+        {(action === 'buy' || action === 'short') && (() => {
+          const todayDate = new Date().toISOString().split('T')[0];
+          const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
+          const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
+          const impactPct = currentImpact * 100;
+
+          if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
+            return (
+              <div className="mb-3 p-2 rounded-sm bg-red-900/40 border border-red-500/50 text-red-300 text-xs font-semibold text-center">
+                Daily trading limit reached for ${character.ticker}
+              </div>
+            );
+          }
+          if (currentImpact >= MAX_DAILY_IMPACT_PER_USER) {
+            return (
+              <div className="mb-3 p-2 rounded-sm bg-red-900/30 border border-red-500/40 text-red-400 text-xs font-semibold text-center">
+                1 trade left on ${character.ticker} today
+              </div>
+            );
+          }
+          if (currentImpact >= 0.07) {
+            return (
+              <div className="mb-3 p-2 rounded-sm bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 text-xs text-center">
+                Approaching daily limit ({impactPct.toFixed(1)}% of 10% used)
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Action buttons */}
         <div className="flex gap-2">

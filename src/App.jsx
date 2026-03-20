@@ -2077,6 +2077,8 @@ export default function App() {
       newMarginUsed,
       priceUpdates, // All affected tickers (including trailing effects)
       remainingDailyImpact,
+      isLastTrade,
+      dailyImpactPercent,
       shortWarning
     } = result.data;
 
@@ -2118,11 +2120,13 @@ export default function App() {
       } else {
         let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
 
-        // Show remaining daily impact
-        if (remainingDailyImpact <= 0) {
-          message += ' • Daily impact limit reached';
-        } else if (remainingDailyImpact < 0.02) {
-          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
+        // Show remaining daily impact warnings
+        if (isLastTrade) {
+          message += ` • This was your last trade on ${ticker} today`;
+        } else if (remainingDailyImpact <= 0) {
+          message += ` • 1 trade remaining on ${ticker} today`;
+        } else if (remainingDailyImpact < 0.03) {
+          message += ` • Approaching daily limit (${(remainingDailyImpact * 100).toFixed(1)}% remaining)`;
         }
 
         showNotification('success', message);
@@ -2179,11 +2183,6 @@ export default function App() {
         } catch {}
       } else {
         let message = `Sold ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitText}, ${impactPercent}% impact)`;
-        if (remainingDailyImpact <= 0) {
-          message += ' • Daily impact limit reached';
-        } else if (remainingDailyImpact < 0.02) {
-          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
-        }
         showNotification('success', message);
       }
 
@@ -2229,10 +2228,14 @@ export default function App() {
         } catch {}
       } else {
         let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
-        if (remainingDailyImpact <= 0) {
-          message += ' • Daily impact limit reached';
-        } else if (remainingDailyImpact < 0.02) {
-          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
+
+        // Show remaining daily impact warnings
+        if (isLastTrade) {
+          message += ` • This was your last trade on ${ticker} today`;
+        } else if (remainingDailyImpact <= 0) {
+          message += ` • 1 trade remaining on ${ticker} today`;
+        } else if (remainingDailyImpact < 0.03) {
+          message += ` • Approaching daily limit (${(remainingDailyImpact * 100).toFixed(1)}% remaining)`;
         }
         showNotification('success', message);
         if (shortWarning) {
@@ -2302,11 +2305,6 @@ export default function App() {
         } catch {}
       } else {
         let message = `Covered ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitMsg}, ${impactPercent}% impact)`;
-        if (remainingDailyImpact <= 0) {
-          message += ' • Daily impact limit reached';
-        } else if (remainingDailyImpact < 0.02) {
-          message += ` • ${(remainingDailyImpact * 100).toFixed(1)}% impact remaining`;
-        }
         showNotification(profit >= 0 ? 'success' : 'error', message);
       }
 
