@@ -6603,7 +6603,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       {/* DIAGNOSTIC TAB */}
       {activeTab === 'diagnostic' && (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-x-hidden">
           {/* Controls */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
             <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
@@ -6718,7 +6718,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                               {u.netCashFlow >= 0 ? '+' : ''}${u.netCashFlow.toFixed(2)}
                             </span>
                           </div>
-                          <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-2 gap-x-4`}>
+                          <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-1 sm:grid-cols-2 gap-x-4`}>
                             <span>Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})</span>
                             <span>Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})</span>
                             <span>Current: {u.currentHoldings} shares</span>
@@ -6728,7 +6728,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                           </div>
                           {ripple && (
                             <div className="mt-1.5 pt-1.5 border-t border-orange-500/30">
-                              <div className="text-xs text-orange-400">
+                              <div className="text-xs text-orange-400 break-words">
                                 💸 Spent ${ripple.spentOnOtherStocks.toFixed(2)} of ${ripple.shroProfit.toFixed(2)} profit on:
                                 {' '}{Object.entries(ripple.breakdown).map(([t, amt]) => `${t} ($${amt.toFixed(2)})`).join(', ')}
                               </div>
