@@ -6603,7 +6603,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       {/* DIAGNOSTIC TAB */}
       {activeTab === 'diagnostic' && (
-        <div className="space-y-4 overflow-x-hidden">
+        <div className="space-y-4 overflow-x-hidden" onClick={e => e.stopPropagation()}>
           {/* Controls */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
             <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
