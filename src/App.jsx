@@ -2027,7 +2027,7 @@ export default function App() {
     }
 
     // Server-side trade execution with atomic transaction
-    // Server validates, applies dailyImpact limits, handles trailing effects
+    // Server validates, applies trade limits, handles trailing effects
     setLoadingKey('trade', true);
     let result;
     try {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -108,6 +108,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [diagRunning, setDiagRunning] = useState(false);
   const [diagResult, setDiagResult] = useState(null);
   const [diagUserSort, setDiagUserSort] = useState('net'); // 'net', 'bought', 'sold'
+  const [recoveryPreview, setRecoveryPreview] = useState(null);
+  const [recoveryRunning, setRecoveryRunning] = useState(false);
+  const [recoveryExecuting, setRecoveryExecuting] = useState(false);
+  const [recoveryDone, setRecoveryDone] = useState(false);
+  const [recoveryTargetPrice, setRecoveryTargetPrice] = useState('');
 
   // User data transfer state
   const [oldUserId, setOldUserId] = useState('');
@@ -432,6 +437,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       setMessage({ type: 'error', text: `Diagnostic failed: ${err.message}` });
     }
     setDiagRunning(false);
+    setRecoveryPreview(null);
+    setRecoveryDone(false);
+  };
+
+  const handleRecoveryPreview = async () => {
+    const price = parseFloat(recoveryTargetPrice);
+    if (isNaN(price) || price <= 0) {
+      setMessage({ type: 'error', text: 'Enter a valid target price' });
+      return;
+    }
+    setRecoveryRunning(true);
+    setRecoveryPreview(null);
+    setRecoveryDone(false);
+    try {
+      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
+      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, targetPrice: price, dryRun: true });
+      setRecoveryPreview(result.data);
+    } catch (err) {
+      setMessage({ type: 'error', text: `Recovery preview failed: ${err.message}` });
+    }
+    setRecoveryRunning(false);
+  };
+
+  const handleRecoveryExecute = async () => {
+    if (!window.confirm(`EXECUTE RECOVERY on ${diagTicker}? This will claw back cash and reset the price. This cannot be undone.`)) return;
+    const price = parseFloat(recoveryTargetPrice);
+    setRecoveryExecuting(true);
+    try {
+      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
+      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, targetPrice: price, dryRun: false });
+      setRecoveryPreview(result.data);
+      setRecoveryDone(true);
+      setMessage({ type: 'success', text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${price.toFixed(2)}` });
+    } catch (err) {
+      setMessage({ type: 'error', text: `Recovery failed: ${err.message}` });
+    }
+    setRecoveryExecuting(false);
   };
 
   const handleScanSpikeVictims = async () => {
@@ -6693,7 +6735,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                 </div>
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {[...diagResult.users]
-                    .filter(u => !u.isBot)
+                    .filter(u => !u.isBot && u.totalTrades > 0)
                     .sort((a, b) => {
                       if (diagUserSort === 'bought') return b.cashSpent - a.cashSpent;
                       if (diagUserSort === 'sold') return b.cashReceived - a.cashReceived;
@@ -6721,6 +6763,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                           <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-1 sm:grid-cols-2 gap-x-4`}>
                             <span>Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})</span>
                             <span>Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})</span>
+                            {u.sharesShorted > 0 && <span>Shorted: {u.sharesShorted} shares (${u.cashFromShorts.toFixed(2)})</span>}
+                            {u.sharesCovered > 0 && <span>Covered: {u.sharesCovered} shares (${u.cashToCover.toFixed(2)})</span>}
                             <span>Current: {u.currentHoldings} shares</span>
                             <span>Gifted (drops): ~{u.giftedShares} shares</span>
                             <span>Cash: ${u.currentCash.toFixed(2)}</span>
@@ -6738,6 +6782,105 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                       );
                     })}
                 </div>
+              </div>
+
+              {/* Recovery Tool */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
+                <div className="flex gap-2 items-end mb-3">
+                  <div>
+                    <label className={`text-xs ${mutedClass}`}>Target Price</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={recoveryTargetPrice}
+                      onChange={e => setRecoveryTargetPrice(e.target.value)}
+                      placeholder={diagResult.summary.priceAtStart.toFixed(2)}
+                      className={`block w-28 px-2 py-1 text-sm border rounded-sm ${inputClass}`}
+                    />
+                  </div>
+                  <button
+                    onClick={handleRecoveryPreview}
+                    disabled={recoveryRunning || recoveryExecuting}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {recoveryRunning ? 'Running...' : 'Preview Recovery'}
+                  </button>
+                </div>
+
+                {recoveryDone && (
+                  <div className="mb-3 p-2 rounded-sm bg-green-900/30 border border-green-700 text-green-400 text-sm font-semibold">
+                    Recovery executed successfully
+                  </div>
+                )}
+
+                {recoveryPreview && (
+                  <div className="space-y-3">
+                    {/* Price Reset */}
+                    <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                      <div className={`text-xs font-semibold ${textClass} mb-1`}>Price Reset</div>
+                      <div className={`text-sm ${textClass}`}>
+                        ${recoveryPreview.priceReset.from.toFixed(2)} → ${recoveryPreview.priceReset.to.toFixed(2)}
+                      </div>
+                    </div>
+
+                    {/* Clawback Table */}
+                    {recoveryPreview.clawbacks.length > 0 && (
+                      <div>
+                        <div className={`text-xs font-semibold ${textClass} mb-1`}>
+                          Clawbacks ({recoveryPreview.clawbacks.length} users — ${recoveryPreview.totalClawedBack.toFixed(2)} total)
+                          {recoveryPreview.totalUnrecoverable > 0 && (
+                            <span className="text-red-400 ml-2">${recoveryPreview.totalUnrecoverable.toFixed(2)} unrecoverable</span>
+                          )}
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {recoveryPreview.clawbacks.map(cb => (
+                            <div key={cb.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? (darkMode ? 'bg-red-900/20' : 'bg-red-50') : (darkMode ? 'bg-slate-700/30' : 'bg-slate-50')}`}>
+                              <span className={textClass}>{cb.displayName}</span>
+                              <div className="text-right">
+                                <span className={mutedClass}>${cb.previousCash.toFixed(2)}</span>
+                                <span className="mx-1">→</span>
+                                <span className="text-red-400 font-semibold">${cb.newCash.toFixed(2)}</span>
+                                <span className={`ml-1 ${mutedClass}`}>(-${cb.actualClawback.toFixed(2)})</span>
+                                {cb.wasFloored && <span className="ml-1 text-red-400">⚠️</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Holders Affected */}
+                    {recoveryPreview.holdersAffected.length > 0 && (
+                      <div>
+                        <div className={`text-xs font-semibold ${textClass} mb-1`}>Holders Affected (value drop from price reset)</div>
+                        <div className="max-h-32 overflow-y-auto space-y-1">
+                          {recoveryPreview.holdersAffected.map(h => (
+                            <div key={h.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+                              <span className={textClass}>{h.displayName} ({h.holdings} shares)</span>
+                              <span className="text-red-400">-${h.valueDrop.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {recoveryPreview.clawbacks.length === 0 && recoveryPreview.holdersAffected.length === 0 && (
+                      <div className={`text-sm ${mutedClass}`}>No users affected by this recovery.</div>
+                    )}
+
+                    {/* Execute Button */}
+                    {!recoveryDone && (
+                      <button
+                        onClick={handleRecoveryExecute}
+                        disabled={recoveryExecuting}
+                        className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-sm hover:bg-red-700 disabled:opacity-50 font-semibold"
+                      >
+                        {recoveryExecuting ? 'Executing...' : `Execute Recovery on ${diagTicker}`}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

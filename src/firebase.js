@@ -101,5 +101,7 @@ export const createPriceAlertFunction = httpsCallable(functions, 'createPriceAle
 export const deletePriceAlertFunction = httpsCallable(functions, 'deletePriceAlert');
 // Admin: ticker rollback diagnostic
 export const diagnoseTickerRollbackFunction = httpsCallable(functions, 'diagnoseTickerRollback');
+// Admin: ticker recovery (clawback + price reset)
+export const recoverTickerFunction = httpsCallable(functions, 'recoverTicker');
 
 export default app;

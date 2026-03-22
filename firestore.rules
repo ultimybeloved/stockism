@@ -79,7 +79,7 @@ service cloud.firestore {
         (!('holdings' in newData) || newData.holdings == oldData.holdings) &&
         (!('shorts' in newData) || newData.shorts == oldData.shorts) &&
         (!('marginUsed' in newData) || newData.marginUsed == oldData.marginUsed) &&
-        (!('dailyImpact' in newData) || newData.dailyImpact == oldData.dailyImpact) &&
+        (!('tickerTradeHistory' in newData) || newData.tickerTradeHistory == oldData.tickerTradeHistory) &&
         (!('lastTradeTime' in newData) || newData.lastTradeTime == oldData.lastTradeTime) &&
         (!('lastBuyTime' in newData) || newData.lastBuyTime == oldData.lastBuyTime) &&
         // Block leaderboard/portfolio manipulation

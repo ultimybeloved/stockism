@@ -51,6 +51,7 @@ export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for
 
 // Anti-manipulation protections
 export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per user per ticker per day
+export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 
 // Anti-manipulation: New Account Impact Reduction
 export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days

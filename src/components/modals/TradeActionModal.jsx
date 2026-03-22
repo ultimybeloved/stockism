@@ -7,7 +7,8 @@ import {
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   SHORT_MARGIN_REQUIREMENT,
-  MAX_DAILY_IMPACT_PER_USER
+  MAX_DAILY_IMPACT_PER_USER,
+  MAX_TRADES_PER_TICKER_24H
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
@@ -15,9 +16,21 @@ import { createLimitOrderFunction } from '../../firebase';
 import { isWeeklyHalt } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 
-// Helper functions from App.jsx
-const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY) => {
-  const impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
+// Helper: cumulative marginal price impact
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const pruneAndSumTradeHistory = (entries, now) => {
+  const cutoff = now - TWENTY_FOUR_HOURS_MS;
+  const recent = (entries || []).filter(e => e.ts > cutoff);
+  const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
+  const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
+  return { recent, totalShares, totalImpact, count: recent.length };
+};
+
+const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
+  const impact = currentPrice * BASE_IMPACT * (
+    Math.sqrt((cumulativeVolume + shares) / liquidity) -
+    Math.sqrt(cumulativeVolume / liquidity)
+  );
   return impact;
 };
 
@@ -92,10 +105,27 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     }
   };
 
+  // Get cumulative volume for this ticker+action from rolling 24h history
+  const getCumulativeVolume = (act) => {
+    const now = Date.now();
+    const history = userData?.tickerTradeHistory?.[character.ticker]?.[act] || [];
+    const { totalShares } = pruneAndSumTradeHistory(history, now);
+    return totalShares;
+  };
+
+  // Get trade count for this ticker+action from rolling 24h history
+  const getTradeCount = (act) => {
+    const now = Date.now();
+    const history = userData?.tickerTradeHistory?.[character.ticker]?.[act] || [];
+    const { count } = pruneAndSumTradeHistory(history, now);
+    return count;
+  };
+
   // Calculate dynamic prices
   const getDynamicPrices = (amt, act) => {
     const liquidity = character.liquidity || BASE_LIQUIDITY;
-    const impact = calculatePriceImpact(price, amt, liquidity);
+    const cumVol = getCumulativeVolume(act);
+    const impact = calculatePriceImpact(price, amt, liquidity, cumVol);
 
     if (act === 'buy' || act === 'cover') {
       const newMid = price + impact;
@@ -122,6 +152,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   // Calculate max shares for this specific action
   const getMaxShares = () => {
     if (action === 'buy') {
+      // Check trade count limit first
+      const buyCount = getTradeCount('buy');
+      if (buyCount >= MAX_TRADES_PER_TICKER_24H) return 0;
+
       const buyingPower = getBuyingPower();
       if (buyingPower <= 0) return 0;
       let low = 1, high = Math.floor(buyingPower / (price * 0.5)), maxAffordable = 0;
@@ -137,27 +171,17 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         }
       }
 
-      // Cap by daily impact limit (buy only)
-      const todayDate = new Date().toISOString().split('T')[0];
-      const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
-      const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
-
-      if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
-        return 0; // Fully blocked
-      }
-
-      if (currentImpact < MAX_DAILY_IMPACT_PER_USER) {
-        const remainingImpact = MAX_DAILY_IMPACT_PER_USER - currentImpact;
-        const liquidity = character.liquidity || BASE_LIQUIDITY;
-        const maxByImpact = Math.floor(liquidity * Math.pow(remainingImpact / BASE_IMPACT, 2));
-        return Math.max(0, Math.min(maxAffordable, maxByImpact));
-      }
-
-      // Already over cap but still have 1 trade left — don't restrict max
       return Math.max(0, maxAffordable);
     } else if (action === 'sell') {
+      // Check trade count limit first
+      const sellCount = getTradeCount('sell');
+      if (sellCount >= MAX_TRADES_PER_TICKER_24H) return 0;
       return holdings || 0;
     } else if (action === 'short') {
+      // Check trade count limit first
+      const shortCount = getTradeCount('short');
+      if (shortCount >= MAX_TRADES_PER_TICKER_24H) return 0;
+
       // Max short is capped by portfolio equity (prevents leverage spiral)
       const portfolioEquity = userData && prices ? calculatePortfolioValue(userData, prices) : userCash;
       if (portfolioEquity <= 0) return 0;
@@ -176,24 +200,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       let maxAffordable = Math.min(maxByEquity, maxByCash);
       maxAffordable = Math.max(0, Math.min(maxAffordable, 10000));
 
-      // Cap by daily impact limit (short only)
-      const todayDate = new Date().toISOString().split('T')[0];
-      const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
-      const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
-
-      if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
-        return 0; // Fully blocked
-      }
-
-      if (currentImpact < MAX_DAILY_IMPACT_PER_USER) {
-        const remainingImpact = MAX_DAILY_IMPACT_PER_USER - currentImpact;
-        const liquidity = character.liquidity || BASE_LIQUIDITY;
-        const maxByImpact = Math.floor(liquidity * Math.pow(remainingImpact / BASE_IMPACT, 2));
-        return Math.max(0, Math.min(maxAffordable, maxByImpact));
-      }
-
       return maxAffordable;
     } else if (action === 'cover') {
+      const coverCount = getTradeCount('cover');
+      if (coverCount >= MAX_TRADES_PER_TICKER_24H) return 0;
       return shortPosition?.shares || 0;
     }
     return 1;
@@ -530,30 +540,21 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         )}
 
         {/* Daily impact cap warnings (buy/short only) */}
-        {(action === 'buy' || action === 'short') && (() => {
-          const todayDate = new Date().toISOString().split('T')[0];
-          const currentImpact = userData?.dailyImpact?.[todayDate]?.[character.ticker] || 0;
-          const postCapTrades = userData?.postCapTrades?.[todayDate]?.[character.ticker] || 0;
-          const impactPct = currentImpact * 100;
+        {/* Trade count warnings (all actions) */}
+        {(() => {
+          const count = getTradeCount(action);
 
-          if (currentImpact >= MAX_DAILY_IMPACT_PER_USER && postCapTrades >= 1) {
+          if (count >= MAX_TRADES_PER_TICKER_24H) {
             return (
               <div className="mb-3 p-2 rounded-sm bg-red-900/40 border border-red-500/50 text-red-300 text-xs font-semibold text-center">
-                Daily trading limit reached for ${character.ticker}
+                Daily trading limit reached for ${character.ticker} ({count}/{MAX_TRADES_PER_TICKER_24H} {action}s used)
               </div>
             );
           }
-          if (currentImpact >= MAX_DAILY_IMPACT_PER_USER) {
-            return (
-              <div className="mb-3 p-2 rounded-sm bg-red-900/30 border border-red-500/40 text-red-400 text-xs font-semibold text-center">
-                1 trade left on ${character.ticker} today
-              </div>
-            );
-          }
-          if (currentImpact >= 0.07) {
+          if (count >= 7) {
             return (
               <div className="mb-3 p-2 rounded-sm bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 text-xs text-center">
-                Approaching daily limit ({impactPct.toFixed(1)}% of 10% used)
+                {count}/{MAX_TRADES_PER_TICKER_24H} {action}s used on ${character.ticker} (rolling 24h)
               </div>
             );
           }

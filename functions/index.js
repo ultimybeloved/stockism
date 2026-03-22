@@ -9852,13 +9852,17 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
   const userMap = {};
   for (const t of trades) {
     if (!userMap[t.uid]) {
-      userMap[t.uid] = { buys: [], sells: [] };
+      userMap[t.uid] = { buys: [], sells: [], shorts: [], covers: [] };
     }
     const action = (t.action || '').toLowerCase();
     if (action === 'buy') {
       userMap[t.uid].buys.push(t);
     } else if (action === 'sell') {
       userMap[t.uid].sells.push(t);
+    } else if (action === 'short') {
+      userMap[t.uid].shorts.push(t);
+    } else if (action === 'cover') {
+      userMap[t.uid].covers.push(t);
     }
   }
 
@@ -9876,19 +9880,35 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
   const profiteers = []; // users with positive net cash flow
 
   for (const uid of uids) {
-    const { buys, sells } = userMap[uid];
+    const { buys, sells, shorts, covers } = userMap[uid];
     const userData = userDocs[uid] || {};
+
+    const totalTrades = buys.length + sells.length + shorts.length + covers.length;
+
+    // Skip users with no actual trades (defensive)
+    if (totalTrades === 0) continue;
 
     const sharesBought = buys.reduce((s, t) => s + (t.amount || 0), 0);
     const cashSpent = buys.reduce((s, t) => s + (t.totalValue || 0), 0);
     const sharesSold = sells.reduce((s, t) => s + (t.amount || 0), 0);
     const cashReceived = sells.reduce((s, t) => s + (t.totalValue || 0), 0);
-    const netCashFlow = cashReceived - cashSpent;
+    const sharesShorted = shorts.reduce((s, t) => s + (t.amount || 0), 0);
+    const cashFromShorts = shorts.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const sharesCovered = covers.reduce((s, t) => s + (t.amount || 0), 0);
+    const cashToCover = covers.reduce((s, t) => s + (t.totalValue || 0), 0);
+
+    // Net cash: money in (sells + shorts) minus money out (buys + covers)
+    const netCashFlow = (cashReceived + cashFromShorts) - (cashSpent + cashToCover);
     const currentHoldings = (userData.holdings || {})[ticker] || 0;
     const netSharesTraded = sharesBought - sharesSold;
     const giftedShares = Math.max(0, currentHoldings - netSharesTraded);
 
     const firstSellTs = sells.length > 0 ? Math.min(...sells.map(s => s._ts)) : null;
+    const firstShortTs = shorts.length > 0 ? Math.min(...shorts.map(s => s._ts)) : null;
+    // Earliest cash-generating trade (sell or short)
+    const firstCashInTs = [firstSellTs, firstShortTs].filter(Boolean).length > 0
+      ? Math.min(...[firstSellTs, firstShortTs].filter(Boolean))
+      : null;
 
     const entry = {
       uid,
@@ -9898,17 +9918,22 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
       cashSpent: Math.round(cashSpent * 100) / 100,
       sharesSold,
       cashReceived: Math.round(cashReceived * 100) / 100,
+      sharesShorted,
+      cashFromShorts: Math.round(cashFromShorts * 100) / 100,
+      sharesCovered,
+      cashToCover: Math.round(cashToCover * 100) / 100,
       netCashFlow: Math.round(netCashFlow * 100) / 100,
       currentHoldings,
       currentCash: Math.round((userData.cash || 0) * 100) / 100,
       giftedShares,
-      totalTrades: buys.length + sells.length,
-      firstSellTs
+      totalTrades,
+      firstSellTs,
+      firstCashInTs
     };
 
     userBreakdowns.push(entry);
-    if (netCashFlow > 0 && firstSellTs) {
-      profiteers.push({ uid, netCashFlow, firstSellTs, displayName: entry.displayName });
+    if (netCashFlow > 0 && firstCashInTs) {
+      profiteers.push({ uid, netCashFlow, firstCashInTs, displayName: entry.displayName });
     }
   }
 
@@ -9920,10 +9945,10 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
   const userRipples = {};
 
   for (const p of profiteers) {
-    // Get all non-ticker trades after first sell
+    // Get all non-ticker trades after first cash-generating trade
     const otherTradesSnap = await db.collection('trades')
       .where('uid', '==', p.uid)
-      .where('timestamp', '>', new Date(p.firstSellTs))
+      .where('timestamp', '>', new Date(p.firstCashInTs))
       .get();
 
     let spentOnOthers = 0;
@@ -9983,7 +10008,7 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
     priceInflation: priceAtStart > 0
       ? Math.round(((currentPrice - priceAtStart) / priceAtStart) * 10000) / 100
       : 0,
-    totalUsers: uids.length,
+    totalUsers: userBreakdowns.length,
     totalTrades: trades.length,
     totalCashOut: Math.round(totalCashOut * 100) / 100,
     cashIntoOtherStocks: Math.round(totalCashIntoOthers * 100) / 100,
@@ -9997,5 +10022,171 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
     rippleByTicker: sortedRipple,
     userRipples
   };
+});
+
+// ─── TICKER RECOVERY ────────────────────────────────────────────────────────
+exports.recoverTicker = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { ticker, startTimestamp, targetPrice, dryRun } = data;
+  if (!ticker || !startTimestamp || targetPrice === undefined || targetPrice === null) {
+    throw new functions.https.HttpsError('invalid-argument', 'ticker, startTimestamp, and targetPrice required');
+  }
+
+  // 1. Re-run diagnostic server-side (don't trust client data)
+  const startDate = new Date(startTimestamp);
+
+  const marketSnap = await db.collection('market').doc('data').get();
+  const marketData = marketSnap.data() || {};
+  const currentPrice = (marketData.prices || {})[ticker] || 0;
+
+  // Query all trades for this ticker after startTimestamp
+  const tradesSnap = await db.collection('trades')
+    .where('ticker', '==', ticker)
+    .where('timestamp', '>', startDate)
+    .get();
+
+  const trades = [];
+  tradesSnap.forEach(doc => {
+    const t = doc.data();
+    const ts = t.timestamp?._seconds
+      ? t.timestamp._seconds * 1000
+      : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+    trades.push({ ...t, _ts: ts, id: doc.id });
+  });
+
+  // Group by uid
+  const userMap = {};
+  for (const t of trades) {
+    if (!userMap[t.uid]) {
+      userMap[t.uid] = { buys: [], sells: [], shorts: [], covers: [] };
+    }
+    const action = (t.action || '').toLowerCase();
+    if (action === 'buy') userMap[t.uid].buys.push(t);
+    else if (action === 'sell') userMap[t.uid].sells.push(t);
+    else if (action === 'short') userMap[t.uid].shorts.push(t);
+    else if (action === 'cover') userMap[t.uid].covers.push(t);
+  }
+
+  const uids = Object.keys(userMap);
+
+  // Fetch user docs
+  const userDocs = {};
+  for (const uid of uids) {
+    const snap = await db.collection('users').doc(uid).get();
+    if (snap.exists) userDocs[uid] = snap.data();
+  }
+
+  // Build per-user net cash flow
+  const clawbacks = [];
+  const holdersAffected = [];
+  let totalClawedBack = 0;
+  let totalUnrecoverable = 0;
+
+  const recoveryId = `recover_${ticker}_${Date.now()}`;
+
+  for (const uid of uids) {
+    const { buys, sells, shorts, covers } = userMap[uid];
+    const userData = userDocs[uid] || {};
+
+    // Skip bots
+    if (userData.isBot) continue;
+
+    const totalTrades = buys.length + sells.length + shorts.length + covers.length;
+    if (totalTrades === 0) continue;
+
+    const cashSpent = buys.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const cashReceived = sells.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const cashFromShorts = shorts.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const cashToCover = covers.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const netCashFlow = (cashReceived + cashFromShorts) - (cashSpent + cashToCover);
+
+    // Track holders who will see value drop from price reset
+    const currentHoldings = (userData.holdings || {})[ticker] || 0;
+    if (currentHoldings > 0 && targetPrice < currentPrice) {
+      const valueDrop = currentHoldings * (currentPrice - targetPrice);
+      holdersAffected.push({
+        uid,
+        displayName: userData.displayName || 'Unknown',
+        holdings: currentHoldings,
+        valueDrop: Math.round(valueDrop * 100) / 100
+      });
+    }
+
+    // Only claw back from profiteers
+    if (netCashFlow <= 0) continue;
+
+    // Check for existing recovery log (idempotent)
+    const repairLog = userData._repairLog || [];
+    if (repairLog.some(entry => entry.recoveryId === recoveryId)) continue;
+
+    const previousCash = Math.round((userData.cash || 0) * 100) / 100;
+    const clawbackAmount = Math.round(netCashFlow * 100) / 100;
+    const newCash = Math.max(0, previousCash - clawbackAmount);
+    const actualClawback = Math.round((previousCash - newCash) * 100) / 100;
+    const wasFloored = actualClawback < clawbackAmount;
+
+    if (wasFloored) {
+      totalUnrecoverable += (clawbackAmount - actualClawback);
+    }
+    totalClawedBack += actualClawback;
+
+    clawbacks.push({
+      uid,
+      displayName: userData.displayName || 'Unknown',
+      previousCash,
+      newCash,
+      clawbackAmount,
+      actualClawback,
+      wasFloored
+    });
+  }
+
+  totalClawedBack = Math.round(totalClawedBack * 100) / 100;
+  totalUnrecoverable = Math.round(totalUnrecoverable * 100) / 100;
+
+  const result = {
+    dryRun: !!dryRun,
+    ticker,
+    priceReset: { from: Math.round(currentPrice * 100) / 100, to: targetPrice },
+    clawbacks,
+    holdersAffected,
+    totalClawedBack,
+    totalUnrecoverable
+  };
+
+  // If dry run, return preview only
+  if (dryRun) return result;
+
+  // 2. Execute writes
+  const batch = db.batch();
+
+  // Reset price
+  batch.update(db.collection('market').doc('data'), {
+    [`prices.${ticker}`]: targetPrice
+  });
+
+  // Claw back cash from profiteers
+  for (const cb of clawbacks) {
+    const userRef = db.collection('users').doc(cb.uid);
+    batch.update(userRef, {
+      cash: cb.newCash,
+      _repairLog: admin.firestore.FieldValue.arrayUnion({
+        recoveryId,
+        type: 'ticker_recovery',
+        ticker,
+        clawbackAmount: cb.actualClawback,
+        previousCash: cb.previousCash,
+        newCash: cb.newCash,
+        timestamp: new Date().toISOString()
+      })
+    });
+  }
+
+  await batch.commit();
+
+  return result;
 });
 

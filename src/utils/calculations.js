@@ -25,11 +25,13 @@ import {
  * @param {number} volatility - Character's volatility multiplier (default 1)
  * @returns {number} Price impact as a decimal (e.g., 0.05 = 5%)
  */
-export const calculatePriceImpact = (amount, currentPrice, volatility = 1) => {
-  // Impact increases with sqrt of shares (diminishing returns for mega trades)
-  // Higher priced stocks are less impacted (more liquid)
+export const calculatePriceImpact = (amount, currentPrice, volatility = 1, cumulativeVolume = 0) => {
+  // Marginal impact: makes splitting trades give same total impact as bulk buying
+  // impact = BASE_IMPACT * (sqrt((cumBefore + new) / BASE_LIQUIDITY) - sqrt(cumBefore / BASE_LIQUIDITY))
   const liquidityFactor = Math.max(1, currentPrice / 50); // Stocks over $50 have more liquidity
-  const rawImpact = (Math.sqrt(amount) * BASE_IMPACT * volatility) / liquidityFactor;
+  const rawImpact = (BASE_IMPACT * volatility *
+    (Math.sqrt((cumulativeVolume + amount) / BASE_LIQUIDITY) - Math.sqrt(cumulativeVolume / BASE_LIQUIDITY))
+  ) / liquidityFactor;
 
   // Cap at max price change
   return Math.min(rawImpact, MAX_PRICE_CHANGE_PERCENT);
