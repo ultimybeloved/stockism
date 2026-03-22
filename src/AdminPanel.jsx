@@ -112,7 +112,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [recoveryRunning, setRecoveryRunning] = useState(false);
   const [recoveryExecuting, setRecoveryExecuting] = useState(false);
   const [recoveryDone, setRecoveryDone] = useState(false);
-  const [recoveryTargetPrice, setRecoveryTargetPrice] = useState('');
+  const [recoveryRollbackDate, setRecoveryRollbackDate] = useState('2026-03-18');
 
   // User data transfer state
   const [oldUserId, setOldUserId] = useState('');
@@ -439,12 +439,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setDiagRunning(false);
     setRecoveryPreview(null);
     setRecoveryDone(false);
+    setRecoveryRollbackDate(diagStartDate);
   };
 
   const handleRecoveryPreview = async () => {
-    const price = parseFloat(recoveryTargetPrice);
-    if (isNaN(price) || price <= 0) {
-      setMessage({ type: 'error', text: 'Enter a valid target price' });
+    if (!recoveryRollbackDate) {
+      setMessage({ type: 'error', text: 'Pick a rollback date' });
       return;
     }
     setRecoveryRunning(true);
@@ -452,7 +452,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setRecoveryDone(false);
     try {
       const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, targetPrice: price, dryRun: true });
+      const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
+      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, rollbackToTimestamp, dryRun: true });
       setRecoveryPreview(result.data);
     } catch (err) {
       setMessage({ type: 'error', text: `Recovery preview failed: ${err.message}` });
@@ -461,15 +462,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   };
 
   const handleRecoveryExecute = async () => {
-    if (!window.confirm(`EXECUTE RECOVERY on ${diagTicker}? This will claw back cash and reset the price. This cannot be undone.`)) return;
-    const price = parseFloat(recoveryTargetPrice);
+    if (!window.confirm(`EXECUTE RECOVERY on ${diagTicker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`)) return;
     setRecoveryExecuting(true);
     try {
       const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, targetPrice: price, dryRun: false });
+      const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
+      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, rollbackToTimestamp, dryRun: false });
       setRecoveryPreview(result.data);
       setRecoveryDone(true);
-      setMessage({ type: 'success', text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${price.toFixed(2)}` });
+      setMessage({ type: 'success', text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${result.data.priceReset.to.toFixed(2)}` });
     } catch (err) {
       setMessage({ type: 'error', text: `Recovery failed: ${err.message}` });
     }
@@ -6733,7 +6734,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     <option value="sold">Sort: Most Sold</option>
                   </select>
                 </div>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
                   {[...diagResult.users]
                     .filter(u => !u.isBot && u.totalTrades > 0)
                     .sort((a, b) => {
@@ -6789,14 +6790,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                 <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
                 <div className="flex gap-2 items-end mb-3">
                   <div>
-                    <label className={`text-xs ${mutedClass}`}>Target Price</label>
+                    <label className={`text-xs ${mutedClass}`}>Roll back price to</label>
                     <input
-                      type="number"
-                      step="0.01"
-                      value={recoveryTargetPrice}
-                      onChange={e => setRecoveryTargetPrice(e.target.value)}
-                      placeholder={diagResult.summary.priceAtStart.toFixed(2)}
-                      className={`block w-28 px-2 py-1 text-sm border rounded-sm ${inputClass}`}
+                      type="date"
+                      value={recoveryRollbackDate}
+                      onChange={e => setRecoveryRollbackDate(e.target.value)}
+                      className={`block px-2 py-1 text-sm border rounded-sm ${inputClass}`}
                     />
                   </div>
                   <button
@@ -6823,6 +6822,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                         ${recoveryPreview.priceReset.from.toFixed(2)} → ${recoveryPreview.priceReset.to.toFixed(2)}
                       </div>
                     </div>
+
+                    {/* History Rewrite */}
+                    {recoveryPreview.historyRewrite && (
+                      <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        <div className={`text-xs font-semibold ${textClass} mb-1`}>Price History Rewrite</div>
+                        <div className={`text-sm ${textClass}`}>
+                          Removing {recoveryPreview.historyRewrite.removedEntries} bad entries, keeping {recoveryPreview.historyRewrite.keptEntries} + adding flat line
+                        </div>
+                      </div>
+                    )}
 
                     {/* Clawback Table */}
                     {recoveryPreview.clawbacks.length > 0 && (

@@ -10030,9 +10030,9 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
-  const { ticker, startTimestamp, targetPrice, dryRun } = data;
-  if (!ticker || !startTimestamp || targetPrice === undefined || targetPrice === null) {
-    throw new functions.https.HttpsError('invalid-argument', 'ticker, startTimestamp, and targetPrice required');
+  const { ticker, startTimestamp, rollbackToTimestamp, dryRun } = data;
+  if (!ticker || !startTimestamp || !rollbackToTimestamp) {
+    throw new functions.https.HttpsError('invalid-argument', 'ticker, startTimestamp, and rollbackToTimestamp required');
   }
 
   // 1. Re-run diagnostic server-side (don't trust client data)
@@ -10041,6 +10041,22 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
   const marketSnap = await db.collection('market').doc('data').get();
   const marketData = marketSnap.data() || {};
   const currentPrice = (marketData.prices || {})[ticker] || 0;
+
+  // Look up price at rollback timestamp from priceHistory
+  const fullHistory = ((marketData.priceHistory || {})[ticker] || []);
+  let targetPrice = null;
+  for (const entry of fullHistory) {
+    const entryTs = entry.timestamp?._seconds
+      ? entry.timestamp._seconds * 1000
+      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
+        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+    if (entryTs <= rollbackToTimestamp) {
+      targetPrice = entry.price;
+    }
+  }
+  if (targetPrice === null) {
+    throw new functions.https.HttpsError('not-found', `No price history found at or before rollback timestamp for ${ticker}`);
+  }
 
   // Query all trades for this ticker after startTimestamp
   const tradesSnap = await db.collection('trades')
@@ -10147,6 +10163,27 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
   totalClawedBack = Math.round(totalClawedBack * 100) / 100;
   totalUnrecoverable = Math.round(totalUnrecoverable * 100) / 100;
 
+  // Build new price history: keep entries before rollback, add flat line
+  const keptHistory = [];
+  let removedCount = 0;
+  for (const entry of fullHistory) {
+    const entryTs = entry.timestamp?._seconds
+      ? entry.timestamp._seconds * 1000
+      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
+        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+    if (entryTs <= rollbackToTimestamp) {
+      keptHistory.push(entry);
+    } else {
+      removedCount++;
+    }
+  }
+  // Add flat line anchors
+  const newHistoryEntries = [
+    { timestamp: rollbackToTimestamp, price: targetPrice },
+    { timestamp: Date.now(), price: targetPrice }
+  ];
+  const newHistory = [...keptHistory, ...newHistoryEntries];
+
   const result = {
     dryRun: !!dryRun,
     ticker,
@@ -10154,7 +10191,8 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
     clawbacks,
     holdersAffected,
     totalClawedBack,
-    totalUnrecoverable
+    totalUnrecoverable,
+    historyRewrite: { removedEntries: removedCount, keptEntries: keptHistory.length, newTotalEntries: newHistory.length }
   };
 
   // If dry run, return preview only
@@ -10163,9 +10201,10 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
   // 2. Execute writes
   const batch = db.batch();
 
-  // Reset price
+  // Reset price and rewrite price history
   batch.update(db.collection('market').doc('data'), {
-    [`prices.${ticker}`]: targetPrice
+    [`prices.${ticker}`]: targetPrice,
+    [`priceHistory.${ticker}`]: newHistory
   });
 
   // Claw back cash from profiteers
