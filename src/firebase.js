@@ -99,5 +99,7 @@ export const getWatchlistFunction = httpsCallable(functions, 'getWatchlist');
 // Price alerts
 export const createPriceAlertFunction = httpsCallable(functions, 'createPriceAlert');
 export const deletePriceAlertFunction = httpsCallable(functions, 'deletePriceAlert');
+// Admin: ticker rollback diagnostic
+export const diagnoseTickerRollbackFunction = httpsCallable(functions, 'diagnoseTickerRollback');
 
 export default app;

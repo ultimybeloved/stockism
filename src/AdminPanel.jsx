@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -101,6 +101,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [watchLinkTarget, setWatchLinkTarget] = useState(null);
   const [watchAddIPValue, setWatchAddIPValue] = useState('');
   const [watchAddIPTarget, setWatchAddIPTarget] = useState(null);
+
+  // Ticker rollback diagnostic state
+  const [diagTicker, setDiagTicker] = useState('SHRO');
+  const [diagStartDate, setDiagStartDate] = useState('2026-03-18');
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [diagResult, setDiagResult] = useState(null);
+  const [diagUserSort, setDiagUserSort] = useState('net'); // 'net', 'bought', 'sold'
 
   // User data transfer state
   const [oldUserId, setOldUserId] = useState('');
@@ -413,6 +420,20 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   };
 
   // Spike victim repair handlers
+  const handleRunDiagnostic = async () => {
+    setDiagRunning(true);
+    setDiagResult(null);
+    try {
+      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
+      const result = await diagnoseTickerRollbackFunction({ ticker: diagTicker, startTimestamp });
+      setDiagResult(result.data);
+      setMessage({ type: 'success', text: `Diagnostic complete — ${result.data.summary.totalTrades} trades found` });
+    } catch (err) {
+      setMessage({ type: 'error', text: `Diagnostic failed: ${err.message}` });
+    }
+    setDiagRunning(false);
+  };
+
   const handleScanSpikeVictims = async () => {
     setScanningSpike(true);
     try {
@@ -3411,6 +3432,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'watchlist' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
             >
               👁️ Watch
+            </button>
+            <button
+              onClick={() => setActiveTab('diagnostic')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'diagnostic' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🔍 Diag
             </button>
           </div>
         </div>
@@ -6571,6 +6598,149 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           >
             {loading ? 'Loading...' : 'Refresh Watchlist'}
           </button>
+        </div>
+      )}
+
+      {/* DIAGNOSTIC TAB */}
+      {activeTab === 'diagnostic' && (
+        <div className="space-y-4">
+          {/* Controls */}
+          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+            <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
+            <p className={`text-xs ${mutedClass} mb-3`}>
+              Analyzes all trades for a ticker after a start date. Shows who traded, who profited, and where dirty money went.
+            </p>
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <label className={`text-xs ${mutedClass} block mb-1`}>Ticker</label>
+                <input
+                  type="text"
+                  value={diagTicker}
+                  onChange={e => setDiagTicker(e.target.value.toUpperCase())}
+                  className={`w-24 px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
+                />
+              </div>
+              <div>
+                <label className={`text-xs ${mutedClass} block mb-1`}>Start Date (UTC)</label>
+                <input
+                  type="date"
+                  value={diagStartDate}
+                  onChange={e => setDiagStartDate(e.target.value)}
+                  className={`px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
+                />
+              </div>
+              <button
+                onClick={handleRunDiagnostic}
+                disabled={diagRunning || !diagTicker}
+                className="px-4 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
+              >
+                {diagRunning ? 'Running...' : 'Run Diagnostic'}
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          {diagResult && (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Price Then', value: `$${diagResult.summary.priceAtStart.toFixed(2)}`, color: 'text-blue-400' },
+                  { label: 'Price Now', value: `$${diagResult.summary.currentPrice.toFixed(2)}`, color: diagResult.summary.priceInflation > 0 ? 'text-red-400' : 'text-green-400', sub: `${diagResult.summary.priceInflation > 0 ? '+' : ''}${diagResult.summary.priceInflation}%` },
+                  { label: 'Total Users', value: diagResult.summary.totalUsers, color: 'text-purple-400' },
+                  { label: 'Total Trades', value: diagResult.summary.totalTrades, color: 'text-yellow-400' },
+                  { label: 'Cash Out (sells)', value: `$${diagResult.summary.totalCashOut.toFixed(2)}`, color: 'text-red-400' },
+                  { label: 'Into Other Stocks', value: `$${diagResult.summary.cashIntoOtherStocks.toFixed(2)}`, color: 'text-orange-400' },
+                ].map((card, i) => (
+                  <div key={i} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                    <div className={`text-xs ${mutedClass}`}>{card.label}</div>
+                    <div className={`text-lg font-bold ${card.color}`}>
+                      {card.value}
+                      {card.sub && <span className="text-xs ml-1 opacity-75">{card.sub}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Ripple Effects */}
+              {diagResult.rippleByTicker && diagResult.rippleByTicker.length > 0 && (
+                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went</h4>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {diagResult.rippleByTicker.map(r => (
+                      <div key={r.ticker} className="flex justify-between items-center text-xs">
+                        <span className={`font-semibold ${textClass}`}>{r.ticker}</span>
+                        <span className="text-orange-400 font-semibold">${r.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Per-user breakdown */}
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
+                  <select
+                    value={diagUserSort}
+                    onChange={e => setDiagUserSort(e.target.value)}
+                    className={`text-xs px-2 py-1 border rounded-sm ${inputClass}`}
+                  >
+                    <option value="net">Sort: Net Cash Flow</option>
+                    <option value="bought">Sort: Most Bought</option>
+                    <option value="sold">Sort: Most Sold</option>
+                  </select>
+                </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {[...diagResult.users]
+                    .filter(u => !u.isBot)
+                    .sort((a, b) => {
+                      if (diagUserSort === 'bought') return b.cashSpent - a.cashSpent;
+                      if (diagUserSort === 'sold') return b.cashReceived - a.cashReceived;
+                      return b.netCashFlow - a.netCashFlow;
+                    })
+                    .map(u => {
+                      const isManipulator = u.netCashFlow > 100;
+                      const isProfiteer = u.netCashFlow > 0 && u.netCashFlow <= 100;
+                      const ripple = diagResult.userRipples?.[u.uid];
+                      return (
+                        <div key={u.uid} className={`p-2.5 rounded-sm ${
+                          isManipulator ? (darkMode ? 'bg-red-900/30 border border-red-800/50' : 'bg-red-50 border border-red-200') :
+                          isProfiteer ? (darkMode ? 'bg-yellow-900/20 border border-yellow-800/50' : 'bg-yellow-50 border border-yellow-200') :
+                          (darkMode ? 'bg-slate-700/50' : 'bg-slate-50')
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className={`font-semibold text-sm ${textClass}`}>
+                              {u.displayName}
+                              {isManipulator && <span className="ml-1.5 text-xs text-red-400">⚠️ Big Profiteer</span>}
+                            </span>
+                            <span className={`font-bold text-sm ${u.netCashFlow > 0 ? 'text-green-400' : u.netCashFlow < 0 ? 'text-red-400' : mutedClass}`}>
+                              {u.netCashFlow >= 0 ? '+' : ''}${u.netCashFlow.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-2 gap-x-4`}>
+                            <span>Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})</span>
+                            <span>Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})</span>
+                            <span>Current: {u.currentHoldings} shares</span>
+                            <span>Gifted (drops): ~{u.giftedShares} shares</span>
+                            <span>Cash: ${u.currentCash.toFixed(2)}</span>
+                            <span>Trades: {u.totalTrades}</span>
+                          </div>
+                          {ripple && (
+                            <div className="mt-1.5 pt-1.5 border-t border-orange-500/30">
+                              <div className="text-xs text-orange-400">
+                                💸 Spent ${ripple.spentOnOtherStocks.toFixed(2)} of ${ripple.shroProfit.toFixed(2)} profit on:
+                                {' '}{Object.entries(ripple.breakdown).map(([t, amt]) => `${t} ($${amt.toFixed(2)})`).join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

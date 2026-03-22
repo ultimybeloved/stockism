@@ -32,11 +32,33 @@ const isWeeklyTradingHalt = () => {
 
 // Daily Impact Anti-Manipulation Constants
 const MAX_DAILY_IMPACT = 0.10; // 10% max price movement per user per ticker per day
+const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 const BASE_IMPACT = 0.012;
 const BASE_LIQUIDITY = 100;
 const BID_ASK_SPREAD = 0.002;
 const ETF_BID_ASK_SPREAD = 0.001;
 const MAX_PRICE_CHANGE_PERCENT = 0.05;
+
+// Cumulative marginal impact: makes splitting trades give same impact as bulk
+// impact = price * 0.012 * (sqrt((cumBefore + new) / 100) - sqrt(cumBefore / 100))
+const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) => {
+  const rawMarginal = currentPrice * BASE_IMPACT * (
+    Math.sqrt((cumulativeSharesBefore + newShares) / BASE_LIQUIDITY) -
+    Math.sqrt(cumulativeSharesBefore / BASE_LIQUIDITY)
+  );
+  const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+  return Math.min(rawMarginal, maxImpact);
+};
+
+// Prune entries older than 24h, return summary
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const pruneAndSumTradeHistory = (entries, now) => {
+  const cutoff = now - TWENTY_FOUR_HOURS_MS;
+  const recent = (entries || []).filter(e => e.ts > cutoff);
+  const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
+  const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
+  return { recent, totalShares, totalImpact, count: recent.length };
+};
 
 // Crew member mappings for mission tracking
 const CREW_MEMBERS = {
@@ -2921,14 +2943,14 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // ANTI-MANIPULATION: Check daily impact cap (buy/short only)
-    if (action === 'buy' || action === 'short') {
-      const todayDailyImpact = userData.dailyImpact?.[todayDate]?.[ticker] || 0;
-      const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
-      if (todayDailyImpact >= MAX_DAILY_IMPACT && postCapTrades >= 1) {
+    // ANTI-MANIPULATION: Check 24h trade count per action per ticker
+    {
+      const tradeHistory = userData.tickerTradeHistory?.[ticker]?.[action] || [];
+      const { count } = pruneAndSumTradeHistory(tradeHistory, now);
+      if (count >= MAX_TRADES_PER_TICKER_24H) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          `Daily trading limit reached for ${ticker}. No more ${action === 'buy' ? 'buys' : 'shorts'} today.`
+          `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} ${action}s on ${ticker}. This resets on a rolling 24h basis.`
         );
       }
     }
@@ -3270,7 +3292,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * SECURITY FIX: Server-side trade execution with dailyImpact enforcement
+ * SECURITY FIX: Server-side trade execution with anti-manipulation enforcement
  * Executes trades atomically in a Firestore transaction
  * Prevents price manipulation by enforcing 10% daily impact limit
  */
@@ -3402,15 +3424,25 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         : peakPortfolio >= 15000 ? 0.50
         : peakPortfolio >= 7500 ? 0.35
         : 0.25;
-      const dailyImpact = userData.dailyImpact || {};
-      const userDailyImpact = dailyImpact[todayDate] || {};
-      const tickerDailyImpact = userDailyImpact[ticker] || 0;
+      // Read tickerTradeHistory and compute cumulative stats for this action
+      const tickerTradeHistory = userData.tickerTradeHistory || {};
+      const actionHistory = tickerTradeHistory[ticker]?.[action] || [];
+      const { recent: recentActionTrades, totalShares: cumulativeVolume, totalImpact: cumulativeActionImpact, count: tradeCount } = pruneAndSumTradeHistory(actionHistory, now);
 
-      // ANTI-MANIPULATION: Read IP-level daily impact (shared across all accounts on same IP)
+      // Compute total daily impact across ALL actions for this ticker (for 10% cap)
+      let cumulativeDailyImpact = 0;
+      const allActionsForTicker = tickerTradeHistory[ticker] || {};
+      for (const act of ['buy', 'sell', 'short', 'cover']) {
+        const { totalImpact } = pruneAndSumTradeHistory(allActionsForTicker[act] || [], now);
+        cumulativeDailyImpact += totalImpact;
+      }
+
+      // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts on same IP)
       const ip = context.rawRequest?.ip || 'unknown';
-      let ipDailyImpact = 0;
+      let ipCumulativeDailyImpact = 0;
       let ipTrackingRef = null;
       let sanitizedIp = null;
+      let ipTickerTradeHistory = {};
 
       if (ip !== 'unknown') {
         sanitizedIp = ip.replace(/[.:/]/g, '_');
@@ -3418,7 +3450,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         const ipDoc = await transaction.get(ipTrackingRef);
         if (ipDoc.exists) {
           const ipData = ipDoc.data();
-          ipDailyImpact = ipData.dailyImpact?.[todayDate]?.[ticker] || 0;
+          ipTickerTradeHistory = ipData.tickerTradeHistory || {};
+          const ipAllActions = ipTickerTradeHistory[ticker] || {};
+          for (const act of ['buy', 'sell', 'short', 'cover']) {
+            const { totalImpact } = pruneAndSumTradeHistory(ipAllActions[act] || [], now);
+            ipCumulativeDailyImpact += totalImpact;
+          }
         }
       }
 
@@ -3516,36 +3553,32 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
       }
       let newMarginUsed = marginUsed;
-      let isOverCapTrade = false;
       const effectiveSpread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
 
       // BUY LOGIC
       if (action === 'buy') {
-        // Calculate price impact
-        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
+        // Enforce 10-trade cap
+        if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} buys on ${ticker}. This resets on a rolling 24h basis.`);
+        }
+
+        // Calculate marginal price impact (cumulative volume-based)
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         hitMaxImpact = priceImpact >= maxImpact;
-        priceImpact = Math.min(priceImpact, maxImpact);
+
+        // Check daily 10% impact cap
+        const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
+        const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
+        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT && effectiveDailyImpact >= MAX_DAILY_IMPACT) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `Daily trading limit reached for ${ticker}. No more buys today.`);
+        }
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
         totalCost = executionPrice * amount;
-
-        // Check dailyImpact — full impact always applies, block after 1 post-cap trade
-        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        const alreadyOverCap = tickerDailyImpact >= MAX_DAILY_IMPACT || ipDailyImpact >= MAX_DAILY_IMPACT;
-
-        if (alreadyOverCap) {
-          const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
-          if (postCapTrades >= 1) {
-            throw new functions.https.HttpsError(
-              'failed-precondition',
-              `Daily trading limit reached for ${ticker}. No more buys today.`
-            );
-          }
-          isOverCapTrade = true;
-          // Price impact still applies — no zeroing
-        }
 
         // Validate cash (with margin if enabled)
         if (cash < 0) {
@@ -3571,11 +3604,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newMarginUsed = marginUsed + marginToUse;
         newHoldings[ticker] = (holdings[ticker] || 0) + amount;
 
-        // Update dailyImpact
-        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
-
       // SELL LOGIC
       } else if (action === 'sell') {
+        // Enforce 10-trade cap for sells
+        if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} sells on ${ticker}. This resets on a rolling 24h basis.`);
+        }
+
         // Validate holdings
         const currentHoldings = holdings[ticker] || 0;
         if (currentHoldings < amount) {
@@ -3598,16 +3634,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           }
         }
 
-        // Calculate price impact (negative for sell)
-        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-        priceImpact = Math.min(priceImpact, maxImpact);
+        // Calculate marginal price impact (cumulative sell volume-based)
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
 
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
 
-        // Execute sell — sells don't count toward daily impact cap
+        // Execute sell
         newCash = cash + totalCost;
         newHoldings[ticker] = currentHoldings - amount;
         if (newHoldings[ticker] === 0) {
@@ -3616,6 +3650,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       // SHORT LOGIC
       } else if (action === 'short') {
+        // Enforce 10-trade cap
+        if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} shorts on ${ticker}. This resets on a rolling 24h basis.`);
+        }
+
         // Validate margin requirement
         if (cash < 0) {
           throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
@@ -3629,7 +3669,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate portfolio equity (net worth) to cap total short leverage
-        // This prevents the leverage spiral where each short inflates cash
         let portfolioEquity = cash;
         Object.entries(holdings).forEach(([t, s]) => {
           if (s > 0) portfolioEquity += (prices[t] || 0) * s;
@@ -3644,7 +3683,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           }
         });
 
-        // Total short margin (existing + new) can't exceed portfolio equity
         const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
           sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
 
@@ -3670,30 +3708,20 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           );
         }
 
-        // Calculate price impact (negative for short)
-        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-        priceImpact = Math.min(priceImpact, maxImpact);
+        // Calculate marginal price impact (cumulative volume-based)
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
+
+        // Check daily 10% impact cap
+        const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
+        const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
+        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT && effectiveDailyImpact >= MAX_DAILY_IMPACT) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `Daily trading limit reached for ${ticker}. No more shorts today.`);
+        }
 
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
-
-        // Check dailyImpact — full impact always applies, block after 1 post-cap trade
-        let impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        const alreadyOverCap = tickerDailyImpact >= MAX_DAILY_IMPACT || ipDailyImpact >= MAX_DAILY_IMPACT;
-
-        if (alreadyOverCap) {
-          const postCapTrades = userData.postCapTrades?.[todayDate]?.[ticker] || 0;
-          if (postCapTrades >= 1) {
-            throw new functions.https.HttpsError(
-              'failed-precondition',
-              `Daily trading limit reached for ${ticker}. No more shorts today.`
-            );
-          }
-          isOverCapTrade = true;
-          // Price impact still applies — no zeroing
-        }
 
         // Execute short — v2: deduct margin only, no sale proceeds
         newCash = cash - marginRequired;
@@ -3720,11 +3748,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           };
         }
 
-        // Update dailyImpact
-        userDailyImpact[ticker] = tickerDailyImpact + impactPercent;
-
       // COVER LOGIC
       } else if (action === 'cover') {
+        // Enforce 10-trade cap for covers
+        if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
+          throw new functions.https.HttpsError('failed-precondition',
+            `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} covers on ${ticker}. This resets on a rolling 24h basis.`);
+        }
+
         // Validate short position exists
         const shortPosition = shorts[ticker];
         if (!shortPosition || !shortPosition.shares || shortPosition.shares < amount) {
@@ -3747,10 +3778,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           }
         }
 
-        // Calculate price impact (positive for cover)
-        priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
-        const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-        priceImpact = Math.min(priceImpact, maxImpact);
+        // Calculate marginal price impact (cumulative cover volume-based)
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
@@ -3784,7 +3813,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           delete newShorts[ticker];
         }
 
-        // Covers don't count toward daily impact cap
+        // Covers tracked in tickerTradeHistory for 10-trade limit
       }
 
       // Apply trailing effects to related characters
@@ -3871,14 +3900,18 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         });
       });
 
-      // Track trailing effects in dailyImpact so users can't bypass the 10% limit
+      // Track trailing effects in tickerTradeHistory so users can't bypass the 10% limit
       // by trading one ticker and getting free impact on related tickers
+      // Append synthetic entries (shares: 0, just impact) for affected tickers
+      const trailingEntries = {}; // { ticker: { action: entry } }
       Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
-        if (updatedTicker === ticker) return; // Already tracked above
+        if (updatedTicker === ticker) return; // Already tracked via main entry
         const originalPrice = prices[updatedTicker];
         if (originalPrice && originalPrice > 0) {
           const trailingImpactPercent = Math.abs(updatedPrice - originalPrice) / originalPrice;
-          userDailyImpact[updatedTicker] = (userDailyImpact[updatedTicker] || 0) + trailingImpactPercent;
+          // Use buy direction for trailing effects (they represent buy-side pressure)
+          const trailingAction = (action === 'buy' || action === 'cover') ? 'buy' : 'sell';
+          trailingEntries[updatedTicker] = { action: trailingAction, entry: { ts: now, shares: 0, impact: trailingImpactPercent } };
         }
       });
 
@@ -3898,8 +3931,30 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       transaction.update(marketRef, marketUpdates);
 
-      // Update user data
-      dailyImpact[todayDate] = userDailyImpact;
+      // Build updated tickerTradeHistory
+      const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
+      const newTradeEntry = { ts: now, shares: amount, impact: impactPercent };
+
+      // Start from existing history, prune old entries, append new
+      const updatedTickerTradeHistory = {};
+      for (const [t, actions] of Object.entries(tickerTradeHistory)) {
+        updatedTickerTradeHistory[t] = {};
+        for (const [act, entries] of Object.entries(actions)) {
+          const { recent } = pruneAndSumTradeHistory(entries, now);
+          updatedTickerTradeHistory[t][act] = recent;
+        }
+      }
+      // Ensure ticker+action path exists
+      if (!updatedTickerTradeHistory[ticker]) updatedTickerTradeHistory[ticker] = {};
+      if (!updatedTickerTradeHistory[ticker][action]) updatedTickerTradeHistory[ticker][action] = [];
+      updatedTickerTradeHistory[ticker][action] = [...(updatedTickerTradeHistory[ticker][action] || []), newTradeEntry];
+
+      // Append trailing effect entries
+      for (const [trailingTicker, { action: trailingAction, entry }] of Object.entries(trailingEntries)) {
+        if (!updatedTickerTradeHistory[trailingTicker]) updatedTickerTradeHistory[trailingTicker] = {};
+        if (!updatedTickerTradeHistory[trailingTicker][trailingAction]) updatedTickerTradeHistory[trailingTicker][trailingAction] = [];
+        updatedTickerTradeHistory[trailingTicker][trailingAction].push(entry);
+      }
 
       // Compute week ID for weekly missions (Monday-based)
       const nowDate = new Date();
@@ -3913,12 +3968,15 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid numeric result');
       }
 
+      // Compute final trade count for this action (after appending new entry)
+      const finalTradeCount = updatedTickerTradeHistory[ticker]?.[action]?.length || 0;
+
       const updates = {
         cash: newCash,
         holdings: newHoldings,
         shorts: newShorts,
         marginUsed: newMarginUsed,
-        dailyImpact,
+        tickerTradeHistory: updatedTickerTradeHistory,
         lastTradeTime: admin.firestore.Timestamp.now(),
         // Mission progress (server-side — blocks client spoofing)
         totalTrades: admin.firestore.FieldValue.increment(1),
@@ -3930,10 +3988,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
       };
 
-      // ANTI-MANIPULATION: Track over-cap trades and ticker trade times
-      if (isOverCapTrade) {
-        updates[`postCapTrades.${todayDate}.${ticker}`] = admin.firestore.FieldValue.increment(1);
-      }
+      // ANTI-MANIPULATION: Track ticker trade times for buy/short cooldown
       if (action === 'buy' || action === 'short') {
         updates[`lastTickerTradeTime.${ticker}`] = admin.firestore.Timestamp.now();
       }
@@ -4037,18 +4092,33 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       const tradeRef = db.collection('trades').doc();
       transaction.set(tradeRef, tradeRecord);
 
-      // ANTI-MANIPULATION: Save IP-level daily impact for buys/shorts
-      if (ipTrackingRef && sanitizedIp && (action === 'buy' || action === 'short')) {
-        const actualImpact = currentPrice > 0 ? priceImpact / currentPrice : 0;
-        transaction.set(ipTrackingRef, {
-          [`dailyImpact.${todayDate}.${ticker}`]: ipDailyImpact + actualImpact
-        }, { merge: true });
+      // ANTI-MANIPULATION: Save IP-level tickerTradeHistory
+      if (ipTrackingRef && sanitizedIp) {
+        // Build IP trade history: prune old, append new entry
+        const updatedIpHistory = {};
+        for (const [t, actions] of Object.entries(ipTickerTradeHistory)) {
+          updatedIpHistory[t] = {};
+          for (const [act, entries] of Object.entries(actions)) {
+            const { recent } = pruneAndSumTradeHistory(entries, now);
+            updatedIpHistory[t][act] = recent;
+          }
+        }
+        if (!updatedIpHistory[ticker]) updatedIpHistory[ticker] = {};
+        if (!updatedIpHistory[ticker][action]) updatedIpHistory[ticker][action] = [];
+        updatedIpHistory[ticker][action].push(newTradeEntry);
+        // Also append trailing entries to IP tracking
+        for (const [trailingTicker, { action: trailingAction, entry }] of Object.entries(trailingEntries)) {
+          if (!updatedIpHistory[trailingTicker]) updatedIpHistory[trailingTicker] = {};
+          if (!updatedIpHistory[trailingTicker][trailingAction]) updatedIpHistory[trailingTicker][trailingAction] = [];
+          updatedIpHistory[trailingTicker][trailingAction].push(entry);
+        }
+        transaction.set(ipTrackingRef, { tickerTradeHistory: updatedIpHistory }, { merge: true });
       }
 
       // Compute achievement context inside transaction (we have the data here)
       let achievementCtx = { tradeValue: totalCost };
       if (action === 'buy') {
-        achievementCtx.isMonopoly = hitMaxImpact && !isOverCapTrade;
+        achievementCtx.isMonopoly = hitMaxImpact;
       }
       if (action === 'sell') {
         const costBasis = userData.costBasis?.[ticker] || 0;
@@ -4110,13 +4180,32 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         newShorts,
         newMarginUsed,
         priceUpdates, // All affected tickers (including trailing effects)
-        remainingDailyImpact: MAX_DAILY_IMPACT - userDailyImpact[ticker],
-        isLastTrade: isOverCapTrade, // true if this was the final allowed trade
-        dailyImpactPercent: userDailyImpact[ticker],
+        remainingDailyImpact: MAX_DAILY_IMPACT - (cumulativeDailyImpact + impactPercent),
+        remainingTrades: MAX_TRADES_PER_TICKER_24H - finalTradeCount,
+        isLastTrade: finalTradeCount >= MAX_TRADES_PER_TICKER_24H,
+        dailyImpactPercent: cumulativeDailyImpact + impactPercent,
         shortWarning,
         achievementCtx
       };
     }, { maxAttempts: 1 });
+
+    // Trade limit notifications (fire-and-forget, after transaction)
+    const tradesUsed = MAX_TRADES_PER_TICKER_24H - (result.remainingTrades || 0);
+    if (tradesUsed >= 7 && tradesUsed < MAX_TRADES_PER_TICKER_24H) {
+      writeNotification(uid, {
+        type: 'system',
+        title: 'Trade Limit Warning',
+        message: `You have ${tradesUsed}/${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker} in the last 24h.`,
+        data: { ticker }
+      });
+    } else if (tradesUsed >= MAX_TRADES_PER_TICKER_24H) {
+      writeNotification(uid, {
+        type: 'system',
+        title: 'Trade Limit Reached',
+        message: `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker}. This resets on a rolling 24h basis.`,
+        data: { ticker }
+      });
+    }
 
     // Award context-based achievements AFTER transaction completes
     // (can't do additional queries inside the transaction)
@@ -6192,16 +6281,27 @@ exports.checkLimitOrders = functions.pubsub
                 }
               }
 
-              // Calculate price impact (same formula as executeTrade)
-              // Limit orders are exempt from daily impact cap — they represent
-              // genuine market pressure (e.g. selling during a squeeze)
-              const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(fillShares / BASE_LIQUIDITY);
-              const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
-              const effectiveImpact = Math.min(priceImpact, maxImpact);
+              // Calculate marginal price impact using cumulative volume from tickerTradeHistory
+              const limitAction = effectiveType.toLowerCase(); // 'buy' or 'sell'
+              const limitTradeHistory = userData.tickerTradeHistory || {};
+              const limitActionHistory = limitTradeHistory[order.ticker]?.[limitAction] || [];
+              const { totalShares: limitCumVolume, count: limitTradeCount } = pruneAndSumTradeHistory(limitActionHistory, now);
+
+              // Enforce 10-trade limit per action per ticker
+              if (limitTradeCount >= MAX_TRADES_PER_TICKER_24H) {
+                throw new Error(`Trade limit reached: ${MAX_TRADES_PER_TICKER_24H} ${limitAction}s on ${order.ticker} in 24h`);
+              }
+
+              const effectiveImpact = calculateMarginalImpact(freshPrice, fillShares, limitCumVolume);
+              const limitImpactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;
 
               // Execute the trade
               const orderChar = CHARACTERS.find(c => c.ticker === order.ticker);
               const limitSpread = orderChar?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+
+              // Build trade history entry for this limit order fill
+              const limitTradeEntry = { ts: now, shares: fillShares, impact: limitImpactPercent };
+
               if (effectiveType === 'BUY') {
                 // Price goes UP on buy
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
@@ -6221,12 +6321,22 @@ exports.checkLimitOrders = functions.pubsub
                   ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * fillShares)) / newHoldings : askPrice)
                   : askPrice;
 
+                // Build updated tickerTradeHistory with new entry appended
+                const updatedLimitHistory = JSON.parse(JSON.stringify(limitTradeHistory));
+                if (!updatedLimitHistory[order.ticker]) updatedLimitHistory[order.ticker] = {};
+                if (!updatedLimitHistory[order.ticker][limitAction]) updatedLimitHistory[order.ticker][limitAction] = [];
+                // Prune old entries
+                const cutoff = now - TWENTY_FOUR_HOURS_MS;
+                updatedLimitHistory[order.ticker][limitAction] = updatedLimitHistory[order.ticker][limitAction].filter(e => e.ts > cutoff);
+                updatedLimitHistory[order.ticker][limitAction].push(limitTradeEntry);
+
                 transaction.update(userRef, {
                   cash: admin.firestore.FieldValue.increment(-totalCost),
                   [`holdings.${order.ticker}`]: newHoldings,
                   [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1)
+                  totalTrades: admin.firestore.FieldValue.increment(1),
+                  tickerTradeHistory: updatedLimitHistory
                 });
 
                 // Apply price impact to market (only if there's actual impact)
@@ -6251,11 +6361,20 @@ exports.checkLimitOrders = functions.pubsub
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;
                 const newHoldings = currentHoldings - fillShares;
 
+                // Build updated tickerTradeHistory with new entry appended
+                const updatedLimitHistory = JSON.parse(JSON.stringify(limitTradeHistory));
+                if (!updatedLimitHistory[order.ticker]) updatedLimitHistory[order.ticker] = {};
+                if (!updatedLimitHistory[order.ticker][limitAction]) updatedLimitHistory[order.ticker][limitAction] = [];
+                const cutoff = now - TWENTY_FOUR_HOURS_MS;
+                updatedLimitHistory[order.ticker][limitAction] = updatedLimitHistory[order.ticker][limitAction].filter(e => e.ts > cutoff);
+                updatedLimitHistory[order.ticker][limitAction].push(limitTradeEntry);
+
                 const updates = {
                   cash: admin.firestore.FieldValue.increment(totalRevenue),
                   [`holdings.${order.ticker}`]: newHoldings,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1)
+                  totalTrades: admin.firestore.FieldValue.increment(1),
+                  tickerTradeHistory: updatedLimitHistory
                 };
 
                 if (newHoldings <= 0) {
@@ -6286,7 +6405,8 @@ exports.checkLimitOrders = functions.pubsub
               'User not found',
               'User is bankrupt',
               'Insufficient cash',
-              'Insufficient shares'
+              'Insufficient shares',
+              'Trade limit reached'
             ].some(reason => msg.includes(reason));
 
             if (shouldCancel) {
@@ -7057,7 +7177,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
       lastBailout: Date.now(),
       shortHistory: {},
       lowestWhileHolding: {},
-      dailyImpact: {}
+      tickerTradeHistory: {}
     });
 
     return { success: true, hadCrew: !!currentCrew };
@@ -8580,18 +8700,11 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
       }
     }
 
-    // Nested date-keyed maps: dailyImpact.{date}.{ticker}, postCapTrades.{date}.{ticker}
-    const nestedMaps = ['dailyImpact', 'postCapTrades'];
-    for (const mapName of nestedMaps) {
-      if (userData[mapName]) {
-        for (const [dateKey, dateData] of Object.entries(userData[mapName])) {
-          if (dateData && dateData[old] !== undefined) {
-            updates[`${mapName}.${dateKey}.${nw}`] = dateData[old];
-            updates[`${mapName}.${dateKey}.${old}`] = admin.firestore.FieldValue.delete();
-            touched = true;
-          }
-        }
-      }
+    // tickerTradeHistory: { ticker -> { action -> [entries] } }
+    if (userData.tickerTradeHistory && userData.tickerTradeHistory[old] !== undefined) {
+      updates[`tickerTradeHistory.${nw}`] = userData.tickerTradeHistory[old];
+      updates[`tickerTradeHistory.${old}`] = admin.firestore.FieldValue.delete();
+      touched = true;
     }
 
     if (touched) {
@@ -8621,14 +8734,11 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
     const updates = {};
     let touched = false;
 
-    if (ipData.dailyImpact) {
-      for (const [dateKey, dateData] of Object.entries(ipData.dailyImpact)) {
-        if (dateData && dateData[old] !== undefined) {
-          updates[`dailyImpact.${dateKey}.${nw}`] = dateData[old];
-          updates[`dailyImpact.${dateKey}.${old}`] = admin.firestore.FieldValue.delete();
-          touched = true;
-        }
-      }
+    // tickerTradeHistory: { ticker -> { action -> [entries] } }
+    if (ipData.tickerTradeHistory && ipData.tickerTradeHistory[old] !== undefined) {
+      updates[`tickerTradeHistory.${nw}`] = ipData.tickerTradeHistory[old];
+      updates[`tickerTradeHistory.${old}`] = admin.firestore.FieldValue.delete();
+      touched = true;
     }
 
     if (touched) {
@@ -9686,5 +9796,206 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
 
   // Unknown interaction type — acknowledge
   return res.json({ type: InteractionResponseType.PONG });
+});
+
+// ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
+exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { ticker, startTimestamp } = data;
+  if (!ticker || !startTimestamp) {
+    throw new functions.https.HttpsError('invalid-argument', 'ticker and startTimestamp required');
+  }
+
+  const startDate = new Date(startTimestamp);
+
+  // 1. Get price at start from priceHistory
+  const marketSnap = await db.collection('market').doc('data').get();
+  const marketData = marketSnap.data() || {};
+  const currentPrice = (marketData.prices || {})[ticker] || 0;
+  const priceHistory = (marketData.priceHistory || {})[ticker] || [];
+
+  // Find price closest to (but before) startTimestamp
+  let priceAtStart = currentPrice;
+  const startMs = startDate.getTime();
+  let closestBefore = null;
+  for (const entry of priceHistory) {
+    const entryMs = entry.timestamp?._seconds
+      ? entry.timestamp._seconds * 1000
+      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
+        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+    if (entryMs <= startMs && (!closestBefore || entryMs > closestBefore.ms)) {
+      closestBefore = { ms: entryMs, price: entry.price };
+    }
+  }
+  if (closestBefore) priceAtStart = closestBefore.price;
+
+  // 2. Query all trades for this ticker after startTimestamp
+  const tradesSnap = await db.collection('trades')
+    .where('ticker', '==', ticker)
+    .where('timestamp', '>', startDate)
+    .get();
+
+  const trades = [];
+  tradesSnap.forEach(doc => {
+    const t = doc.data();
+    const ts = t.timestamp?._seconds
+      ? t.timestamp._seconds * 1000
+      : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+    trades.push({ ...t, _ts: ts, id: doc.id });
+  });
+  trades.sort((a, b) => a._ts - b._ts);
+
+  // 3. Group by uid
+  const userMap = {};
+  for (const t of trades) {
+    if (!userMap[t.uid]) {
+      userMap[t.uid] = { buys: [], sells: [] };
+    }
+    const action = (t.action || '').toLowerCase();
+    if (action === 'buy') {
+      userMap[t.uid].buys.push(t);
+    } else if (action === 'sell') {
+      userMap[t.uid].sells.push(t);
+    }
+  }
+
+  const uids = Object.keys(userMap);
+
+  // Fetch user docs
+  const userDocs = {};
+  for (const uid of uids) {
+    const snap = await db.collection('users').doc(uid).get();
+    if (snap.exists) userDocs[uid] = snap.data();
+  }
+
+  // Build per-user breakdown
+  const userBreakdowns = [];
+  const profiteers = []; // users with positive net cash flow
+
+  for (const uid of uids) {
+    const { buys, sells } = userMap[uid];
+    const userData = userDocs[uid] || {};
+
+    const sharesBought = buys.reduce((s, t) => s + (t.amount || 0), 0);
+    const cashSpent = buys.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const sharesSold = sells.reduce((s, t) => s + (t.amount || 0), 0);
+    const cashReceived = sells.reduce((s, t) => s + (t.totalValue || 0), 0);
+    const netCashFlow = cashReceived - cashSpent;
+    const currentHoldings = (userData.holdings || {})[ticker] || 0;
+    const netSharesTraded = sharesBought - sharesSold;
+    const giftedShares = Math.max(0, currentHoldings - netSharesTraded);
+
+    const firstSellTs = sells.length > 0 ? Math.min(...sells.map(s => s._ts)) : null;
+
+    const entry = {
+      uid,
+      displayName: userData.displayName || 'Unknown',
+      isBot: userData.isBot || false,
+      sharesBought,
+      cashSpent: Math.round(cashSpent * 100) / 100,
+      sharesSold,
+      cashReceived: Math.round(cashReceived * 100) / 100,
+      netCashFlow: Math.round(netCashFlow * 100) / 100,
+      currentHoldings,
+      currentCash: Math.round((userData.cash || 0) * 100) / 100,
+      giftedShares,
+      totalTrades: buys.length + sells.length,
+      firstSellTs
+    };
+
+    userBreakdowns.push(entry);
+    if (netCashFlow > 0 && firstSellTs) {
+      profiteers.push({ uid, netCashFlow, firstSellTs, displayName: entry.displayName });
+    }
+  }
+
+  // Sort by net cash flow descending
+  userBreakdowns.sort((a, b) => b.netCashFlow - a.netCashFlow);
+
+  // 4. Ripple effects — what did profiteers buy after selling ticker?
+  const rippleByTicker = {};
+  const userRipples = {};
+
+  for (const p of profiteers) {
+    // Get all non-ticker trades after first sell
+    const otherTradesSnap = await db.collection('trades')
+      .where('uid', '==', p.uid)
+      .where('timestamp', '>', new Date(p.firstSellTs))
+      .get();
+
+    let spentOnOthers = 0;
+    const byTicker = {};
+
+    otherTradesSnap.forEach(doc => {
+      const t = doc.data();
+      if (t.ticker === ticker) return; // skip same ticker
+      const action = (t.action || '').toLowerCase();
+      if (action !== 'buy') return;
+      const cost = t.totalValue || 0;
+      spentOnOthers += cost;
+      byTicker[t.ticker] = (byTicker[t.ticker] || 0) + cost;
+    });
+
+    // Cap at their profit from the target ticker
+    const cappedSpent = Math.min(spentOnOthers, p.netCashFlow);
+
+    if (cappedSpent > 0) {
+      userRipples[p.uid] = {
+        displayName: p.displayName,
+        shroProfit: Math.round(p.netCashFlow * 100) / 100,
+        spentOnOtherStocks: Math.round(cappedSpent * 100) / 100,
+        breakdown: {}
+      };
+
+      // Scale per-ticker amounts if we capped
+      const scale = spentOnOthers > 0 ? cappedSpent / spentOnOthers : 0;
+      for (const [t, amount] of Object.entries(byTicker)) {
+        const scaled = Math.round(amount * scale * 100) / 100;
+        userRipples[p.uid].breakdown[t] = scaled;
+        rippleByTicker[t] = (rippleByTicker[t] || 0) + scaled;
+      }
+    }
+  }
+
+  // Round ripple totals
+  for (const t of Object.keys(rippleByTicker)) {
+    rippleByTicker[t] = Math.round(rippleByTicker[t] * 100) / 100;
+  }
+
+  // Sort ripple by amount
+  const sortedRipple = Object.entries(rippleByTicker)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, amount]) => ({ ticker: t, amount }));
+
+  // 5. Summary
+  const totalCashOut = userBreakdowns
+    .filter(u => u.netCashFlow > 0)
+    .reduce((s, u) => s + u.netCashFlow, 0);
+  const totalCashIntoOthers = Object.values(rippleByTicker).reduce((s, v) => s + v, 0);
+
+  const summary = {
+    ticker,
+    priceAtStart: Math.round(priceAtStart * 100) / 100,
+    currentPrice: Math.round(currentPrice * 100) / 100,
+    priceInflation: priceAtStart > 0
+      ? Math.round(((currentPrice - priceAtStart) / priceAtStart) * 10000) / 100
+      : 0,
+    totalUsers: uids.length,
+    totalTrades: trades.length,
+    totalCashOut: Math.round(totalCashOut * 100) / 100,
+    cashIntoOtherStocks: Math.round(totalCashIntoOthers * 100) / 100,
+    cashSittingAsCash: Math.round((totalCashOut - totalCashIntoOthers) * 100) / 100,
+    windowStart: startDate.toISOString()
+  };
+
+  return {
+    summary,
+    users: userBreakdowns,
+    rippleByTicker: sortedRipple,
+    userRipples
+  };
 });
 
