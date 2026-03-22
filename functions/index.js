@@ -9812,7 +9812,7 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
   const startDate = new Date(startTimestamp);
 
   // 1. Get price at start from priceHistory
-  const marketSnap = await db.collection('market').doc('data').get();
+  const marketSnap = await db.collection('market').doc('current').get();
   const marketData = marketSnap.data() || {};
   const currentPrice = (marketData.prices || {})[ticker] || 0;
   const priceHistory = (marketData.priceHistory || {})[ticker] || [];
@@ -10038,7 +10038,7 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
   // 1. Re-run diagnostic server-side (don't trust client data)
   const startDate = new Date(startTimestamp);
 
-  const marketSnap = await db.collection('market').doc('data').get();
+  const marketSnap = await db.collection('market').doc('current').get();
   const marketData = marketSnap.data() || {};
   const currentPrice = (marketData.prices || {})[ticker] || 0;
 
@@ -10054,6 +10054,25 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
       targetPrice = entry.price;
     }
   }
+  // Fallback: check archived price history if live array had no match
+  if (targetPrice === null) {
+    const archiveSnap = await db.collection('market').doc('current')
+      .collection('price_history').doc(ticker).get();
+    if (archiveSnap.exists) {
+      const archiveData = archiveSnap.data();
+      const archiveHistory = archiveData.history || [];
+      for (const entry of archiveHistory) {
+        const entryTs = entry.timestamp?._seconds
+          ? entry.timestamp._seconds * 1000
+          : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
+            : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+        if (entryTs <= rollbackToTimestamp) {
+          targetPrice = entry.price;
+        }
+      }
+    }
+  }
+
   if (targetPrice === null) {
     throw new functions.https.HttpsError('not-found', `No price history found at or before rollback timestamp for ${ticker}`);
   }
@@ -10202,7 +10221,7 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
   const batch = db.batch();
 
   // Reset price and rewrite price history
-  batch.update(db.collection('market').doc('data'), {
+  batch.update(db.collection('market').doc('current'), {
     [`prices.${ticker}`]: targetPrice,
     [`priceHistory.${ticker}`]: newHistory
   });

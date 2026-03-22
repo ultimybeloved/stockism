@@ -6650,9 +6650,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           {/* Controls */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
             <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
-            <p className={`text-xs ${mutedClass} mb-3`}>
-              Analyzes all trades for a ticker after a start date. Shows who traded, who profited, and where dirty money went.
-            </p>
             <div className="flex gap-2 items-end flex-wrap">
               <div>
                 <label className={`text-xs ${mutedClass} block mb-1`}>Ticker</label>
@@ -6686,7 +6683,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           {diagResult && (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: 'Price Then', value: `$${diagResult.summary.priceAtStart.toFixed(2)}`, color: 'text-blue-400' },
                   { label: 'Price Now', value: `$${diagResult.summary.currentPrice.toFixed(2)}`, color: diagResult.summary.priceInflation > 0 ? 'text-red-400' : 'text-green-400', sub: `${diagResult.summary.priceInflation > 0 ? '+' : ''}${diagResult.summary.priceInflation}%` },
@@ -6695,9 +6692,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                   { label: 'Cash Out (sells)', value: `$${diagResult.summary.totalCashOut.toFixed(2)}`, color: 'text-red-400' },
                   { label: 'Into Other Stocks', value: `$${diagResult.summary.cashIntoOtherStocks.toFixed(2)}`, color: 'text-orange-400' },
                 ].map((card, i) => (
-                  <div key={i} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                     <div className={`text-xs ${mutedClass}`}>{card.label}</div>
-                    <div className={`text-lg font-bold ${card.color}`}>
+                    <div className={`text-base font-bold ${card.color}`}>
                       {card.value}
                       {card.sub && <span className="text-xs ml-1 opacity-75">{card.sub}</span>}
                     </div>
@@ -6707,9 +6704,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
               {/* Ripple Effects */}
               {diagResult.rippleByTicker && diagResult.rippleByTicker.length > 0 && (
-                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went</h4>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                  <h4 className={`font-semibold text-sm mb-1 ${textClass}`}>💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went</h4>
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
                     {diagResult.rippleByTicker.map(r => (
                       <div key={r.ticker} className="flex justify-between items-center text-xs">
                         <span className={`font-semibold ${textClass}`}>{r.ticker}</span>
@@ -6721,8 +6718,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               )}
 
               {/* Per-user breakdown */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-2">
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+                <div className="flex justify-between items-center mb-1">
                   <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
                   <select
                     value={diagUserSort}
@@ -6734,7 +6731,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     <option value="sold">Sort: Most Sold</option>
                   </select>
                 </div>
-                <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                <div className="space-y-2 max-h-[160px] overflow-y-auto">
                   {[...diagResult.users]
                     .filter(u => !u.isBot && u.totalTrades > 0)
                     .sort((a, b) => {
@@ -6786,7 +6783,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               </div>
 
               {/* Recovery Tool */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                 <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
                 <div className="flex gap-2 items-end mb-3">
                   <div>
