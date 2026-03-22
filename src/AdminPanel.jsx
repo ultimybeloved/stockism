@@ -3401,6 +3401,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
             >
               💹 Trades
             </button>
+            <button
+              onClick={() => setActiveTab('diagnostic')}
+              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'diagnostic' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
+            >
+              🔍 Diag
+            </button>
           </div>
           <div className="flex">
             <button
@@ -3432,12 +3438,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'watchlist' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
             >
               👁️ Watch
-            </button>
-            <button
-              onClick={() => setActiveTab('diagnostic')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'diagnostic' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🔍 Diag
             </button>
           </div>
         </div>
