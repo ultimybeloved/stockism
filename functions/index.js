@@ -7688,11 +7688,14 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (portfolioValue >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
 
-  // Unifier of Seoul: own at least 1 share of every tradeable stock (revocable)
+  // Unifier of Seoul: own at least 1 share of every tradeable character (excludes ETFs)
   const launchedTickers = marketDoc.data().launchedTickers || [];
-  const totalCharacters = CHARACTERS.filter(c => !c.ipoRequired || launchedTickers.includes(c.ticker)).length;
+  const tradeableCharacters = CHARACTERS.filter(c => !c.isETF && (!c.ipoRequired || launchedTickers.includes(c.ticker)));
+  const totalCharacters = tradeableCharacters.length;
+  const characterTickers = new Set(tradeableCharacters.map(c => c.ticker));
+  const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(([ticker, shares]) => shares > 0 && characterTickers.has(ticker)).length;
   let revokeUnifier = false;
-  if (holdingsCount >= totalCharacters && totalCharacters > 0) {
+  if (ownedCharacterCount >= totalCharacters && totalCharacters > 0) {
     if (!currentAchievements.includes('UNIFIER')) newAchievements.push('UNIFIER');
   } else if (currentAchievements.includes('UNIFIER')) {
     revokeUnifier = true;
