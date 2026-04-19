@@ -4231,9 +4231,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           if (currentNpcProfit >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
         }
 
-        // Unifier of Seoul: revoke if user sold their last share of any stock
-        let revokeUnifier = ctx.soldLastShare && currentAchievements.includes('UNIFIER');
-
         if (newAchievements.length > 0) {
           achievementUpdate.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
           for (const achId of newAchievements) {
@@ -4244,15 +4241,6 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         if (Object.keys(achievementUpdate).length > 0) {
           await db.collection('users').doc(uid).update(achievementUpdate);
-        }
-
-        // Revoke Unifier separately (can't arrayRemove + arrayUnion same field)
-        if (revokeUnifier) {
-          await db.collection('users').doc(uid).update({
-            achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
-            'achievementDates.UNIFIER': admin.firestore.FieldValue.delete()
-          });
-          result.revokedAchievements = ['UNIFIER'];
         }
       }
     } catch (achErr) {
@@ -4386,6 +4374,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
 
       const currentStreak = userData.checkinStreak || 0;
       const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
+      const maxCheckinStreak = Math.max(userData.maxCheckinStreak || 0, newStreak);
 
       // Flat $300 daily check-in reward
       const checkinReward = 300;
@@ -4401,6 +4390,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
         cash: (userData.cash || 0) + checkinReward,
         lastCheckin: admin.firestore.Timestamp.now(),
         checkinStreak: newStreak,
+        maxCheckinStreak,
         totalCheckins: (userData.totalCheckins || 0) + 1,
         // Mission tracking (server-side)
         [`dailyMissions.${today}.checkedIn`]: true,
@@ -6696,7 +6686,8 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
       if ((userData.cash || 0) < validCost) {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
       }
-      if (pinInfo.requiredCheckinStreak && (userData.checkinStreak || 0) < pinInfo.requiredCheckinStreak) {
+      const bestStreak = Math.max(userData.maxCheckinStreak || 0, userData.checkinStreak || 0);
+      if (pinInfo.requiredCheckinStreak && bestStreak < pinInfo.requiredCheckinStreak) {
         throw new functions.https.HttpsError('failed-precondition', `Requires ${pinInfo.requiredCheckinStreak}-day check-in streak.`);
       }
       const owned = userData.ownedShopPins || [];
@@ -7694,11 +7685,8 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   const totalCharacters = tradeableCharacters.length;
   const characterTickers = new Set(tradeableCharacters.map(c => c.ticker));
   const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(([ticker, shares]) => shares > 0 && characterTickers.has(ticker)).length;
-  let revokeUnifier = false;
   if (ownedCharacterCount >= totalCharacters && totalCharacters > 0) {
     if (!currentAchievements.includes('UNIFIER')) newAchievements.push('UNIFIER');
-  } else if (currentAchievements.includes('UNIFIER')) {
-    revokeUnifier = true;
   }
 
   // NPC Lover: check if accumulated profit reached $1,000
@@ -7795,14 +7783,6 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   }
 
   await userRef.update(updateData);
-
-  // Revoke Unifier separately (can't arrayRemove + arrayUnion same field in one update)
-  if (revokeUnifier) {
-    await userRef.update({
-      achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
-      'achievementDates.UNIFIER': admin.firestore.FieldValue.delete()
-    });
-  }
 
   return {
     portfolioValue,

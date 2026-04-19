@@ -206,7 +206,7 @@ export const ACHIEVEMENTS = {
     emoji: '🗺️',
     description: 'Own at least 1 share of every character',
     hint: 'Gotta catch \'em all',
-    revocable: true
+    revocable: false
   },
 
   // Ladder Game

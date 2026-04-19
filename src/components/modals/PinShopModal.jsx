@@ -118,7 +118,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                     {collection.pins.map(pin => {
                       const owned = ownedPins.includes(pin.id);
                       const canAfford = cash >= pin.price;
-                      const streakMet = !pin.requiredCheckinStreak || (userData?.checkinStreak || 0) >= pin.requiredCheckinStreak;
+                      const bestStreak = Math.max(userData?.maxCheckinStreak || 0, userData?.checkinStreak || 0);
+                      const streakMet = !pin.requiredCheckinStreak || bestStreak >= pin.requiredCheckinStreak;
                       const canBuy = canAfford && streakMet && !owned;
                       return (
                         <div
@@ -147,7 +148,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                                 onClick={() => canBuy && handleBuyPin(pin)}
                                 disabled={!canBuy}
                                 title={pin.requiredCheckinStreak && !streakMet
-                                  ? `Check-in streak: ${userData?.checkinStreak || 0}/${pin.requiredCheckinStreak} days`
+                                  ? `Best streak: ${bestStreak}/${pin.requiredCheckinStreak} days`
                                   : undefined}
                                 className={`w-full py-1 text-xs rounded-sm font-semibold ${
                                   canBuy
