@@ -1,13 +1,13 @@
 /**
  * Weekly trading halt utility
- * Every Thursday 14:00–21:00 UTC (chapter review window)
+ * Every Thursday 13:00–21:00 UTC (chapter review window)
  */
 
 export const isWeeklyHalt = () => {
   const now = new Date();
   if (now.getUTCDay() !== 4) return false; // Thursday = 4
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return utcMins >= 840 && utcMins < 1260; // 14:00 (840) to 21:00 (1260)
+  return utcMins >= 780 && utcMins < 1260; // 13:00 (780) to 21:00 (1260)
 };
 
 export const getHaltTimeRemaining = () => {
@@ -22,20 +22,20 @@ export const getNextHaltStart = () => {
   const day = now.getUTCDay();
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   // If Thursday before halt starts, return today
-  if (day === 4 && utcMins < 840) {
+  if (day === 4 && utcMins < 780) {
     const today = new Date(now);
-    today.setUTCHours(14, 0, 0, 0);
+    today.setUTCHours(13, 0, 0, 0);
     return today;
   }
   const daysUntil = (4 - day + 7) % 7 || 7;
   const next = new Date(now);
   next.setUTCDate(next.getUTCDate() + daysUntil);
-  next.setUTCHours(14, 0, 0, 0);
+  next.setUTCHours(13, 0, 0, 0);
   return next;
 };
 
 /**
- * Get the most recent Thursday halt window (14:00-21:00 UTC).
+ * Get the most recent Thursday halt window (13:00-21:00 UTC).
  * Returns { start, end } as epoch timestamps.
  * If currently in the halt window, returns the current one.
  */
@@ -56,7 +56,7 @@ export const getMostRecentHaltWindow = () => {
   }
 
   const start = new Date(d);
-  start.setUTCHours(14, 0, 0, 0);
+  start.setUTCHours(13, 0, 0, 0);
   const end = new Date(d);
   end.setUTCHours(21, 0, 0, 0);
 

@@ -45,7 +45,7 @@ const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMo
 
   // Schedule info
   const nextHalt = getNextHaltStart();
-  const scheduleText = `Weekly halt: Thu 14:00–21:00 UTC`;
+  const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC`;
 
   const haltReason = marketData?.haltReason;
 

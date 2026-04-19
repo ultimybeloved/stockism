@@ -22,12 +22,12 @@ const STARTING_CASH = 1000;
 // Falls back to hardcoded value for backwards compatibility
 const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
-// Weekly trading halt: Thursday 14:00–21:00 UTC (chapter review window)
+// Weekly trading halt: Thursday 13:00–21:00 UTC (chapter review window)
 const isWeeklyTradingHalt = () => {
   const now = new Date();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return utcMins >= 840 && utcMins < 1260;
+  return utcMins >= 780 && utcMins < 1260;
 };
 
 // Daily Impact Anti-Manipulation Constants
@@ -1271,10 +1271,10 @@ exports.dailyMarketSummary = functions.pubsub
   });
 
 /**
- * Save pre-halt prices snapshot every Thursday at 13:55 UTC (5 min before halt)
+ * Save pre-halt prices snapshot every Thursday at 12:55 UTC (5 min before halt)
  */
 exports.savePreHaltPrices = functions.pubsub
-  .schedule('55 13 * * 4')
+  .schedule('55 12 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
