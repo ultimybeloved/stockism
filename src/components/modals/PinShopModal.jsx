@@ -190,7 +190,11 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
                           : darkMode ? 'border-zinc-700' : 'border-amber-200'
                       }`}
                     >
-                      <div className="text-2xl mb-1">{ach.emoji}</div>
+                      <div className="text-2xl mb-1 inline-flex items-center justify-center h-7">
+                        {ach.icon ? (
+                          <img src={`/pins/${ach.icon}`} alt={ach.name} className="h-7 w-7 object-contain" />
+                        ) : ach.emoji}
+                      </div>
                       <div className={`text-sm font-semibold ${textClass}`}>{ach.name}</div>
                       {isDisplayed && <span className="text-xs text-orange-500">✓ Displayed</span>}
                     </button>
