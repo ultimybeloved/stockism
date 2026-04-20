@@ -18,7 +18,8 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
     'Ladder Game': ['COMPULSIVE_GAMBLER', 'ADDICTED', 'CASINO_CHAMPION'],
     'Dedication': ['DEDICATED_7', 'DEDICATED_14', 'DEDICATED_30', 'DEDICATED_100'],
     'Missions': ['MISSION_10', 'MISSION_50', 'MISSION_100'],
-    'Leaderboard': ['TOP_10', 'TOP_3', 'TOP_1']
+    'Leaderboard': ['TOP_10', 'TOP_3', 'TOP_1'],
+    'Community': ['DISCORD_LINKED']
   };
 
   return (
@@ -57,8 +58,10 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className={`text-2xl ${earned ? '' : 'grayscale opacity-50'}`}>
-                          {achievement.emoji}
+                        <span className={`text-2xl inline-flex items-center justify-center ${earned ? '' : 'grayscale opacity-50'}`}>
+                          {achievement.icon ? (
+                            <img src={`/pins/${achievement.icon}`} alt={achievement.name} className="h-7 w-7 object-contain" />
+                          ) : achievement.emoji}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className={`font-semibold text-sm ${earned ? 'text-orange-500' : mutedClass}`}>

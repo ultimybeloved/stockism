@@ -5644,10 +5644,19 @@ exports.discordLink = functions.https.onRequest(async (req, res) => {
     }
 
     // Link Discord to the existing account
-    await db.collection('users').doc(state).update({
+    const linkUpdate = {
       discordId: discordId,
       discordUsername: discordUsername
-    });
+    };
+
+    // Award DISCORD_LINKED achievement if not already earned
+    const currentAchievements = userDoc.data().achievements || [];
+    if (!currentAchievements.includes('DISCORD_LINKED')) {
+      linkUpdate.achievements = admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED');
+      linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
+    }
+
+    await db.collection('users').doc(state).update(linkUpdate);
 
     return res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {
@@ -7691,6 +7700,9 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   // NPC Lover: check if accumulated profit reached $1,000
   if ((userData.npcProfit || 0) >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
+
+  // Plugged In: awarded to users who have linked their Discord
+  if (userData.discordId && !currentAchievements.includes('DISCORD_LINKED')) newAchievements.push('DISCORD_LINKED');
 
   // Check leaderboard achievements (server-side, no client trust needed)
   const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;

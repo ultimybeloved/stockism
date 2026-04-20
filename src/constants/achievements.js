@@ -279,6 +279,17 @@ export const ACHIEVEMENTS = {
     hint: '$9.99 profit, $24.99 profit...'
   },
 
+  // Community
+  DISCORD_LINKED: {
+    id: 'DISCORD_LINKED',
+    name: 'Plugged In',
+    emoji: '🔗',
+    icon: 'discord/discord.png',
+    description: 'Link your Discord account to your Stockism profile',
+    hint: 'Connect your Discord from the profile page',
+    revocable: false
+  },
+
   // Daily Mission milestones
   MISSION_10: {
     id: 'MISSION_10',

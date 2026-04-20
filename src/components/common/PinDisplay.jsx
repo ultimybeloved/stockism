@@ -34,8 +34,10 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     const achievement = ACHIEVEMENTS[achId];
     if (achievement && earnedAchievements.includes(achId)) {
       pins.push(
-        <span key={`ach-${idx}`} title={achievement.name} className={sizeClass}>
-          {achievement.emoji}
+        <span key={`ach-${idx}`} title={achievement.name} className={`inline-flex items-center ${sizeClass}`}>
+          {achievement.icon ? (
+            <img src={`/pins/${achievement.icon}`} alt={achievement.name} className={`${imgSize} object-contain`} />
+          ) : achievement.emoji}
         </span>
       );
     }
