@@ -9579,13 +9579,37 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
           }
         }
 
-        // Check if already claimed from this specific message
-        const claimedMessages = userData.claimedDailyStockMessages || [];
-        if (messageId && claimedMessages.includes(messageId)) {
-          await editOriginal({
-            content: '⏰ You already claimed from this drop! Wait for the next one.',
-          });
-          return;
+        // Atomically reserve this claim to prevent double-claim race conditions
+        // (user can click the button twice while it's buffering — without a transaction,
+        // both requests pass the "already claimed" check and award separate rolls)
+        if (messageId) {
+          let alreadyClaimed = false;
+          try {
+            await db.runTransaction(async (tx) => {
+              const freshDoc = await tx.get(db.collection('users').doc(uid));
+              const freshClaimed = freshDoc.data().claimedDailyStockMessages || [];
+              if (freshClaimed.includes(messageId)) {
+                alreadyClaimed = true;
+                return;
+              }
+              tx.update(freshDoc.ref, {
+                claimedDailyStockMessages: admin.firestore.FieldValue.arrayUnion(messageId)
+              });
+            });
+          } catch (txErr) {
+            console.error('Daily stock claim reservation failed:', txErr);
+            await editOriginal({
+              content: '❌ Something went wrong reserving your claim. Try again in a moment!',
+            });
+            return;
+          }
+
+          if (alreadyClaimed) {
+            await editOriginal({
+              content: '⏰ You already claimed from this drop! Wait for the next one.',
+            });
+            return;
+          }
         }
 
         // Roll the loot
@@ -9603,10 +9627,10 @@ exports.discordInteractions = functions.https.onRequest(async (req, res) => {
         const marketDoc = await marketRef.get();
         const prices = marketDoc.data()?.prices || {};
 
-        // Build Firestore updates
+        // Build Firestore updates (claimedDailyStockMessages was already written
+        // by the reservation transaction above)
         const updates = {
           lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
-          claimedDailyStockMessages: admin.firestore.FieldValue.arrayUnion(messageId),
           lastDailyStockResult: {
             picks: picks.map(p => ({
               ticker: p.ticker,
