@@ -4223,6 +4223,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ctx.isMonopoly && !currentAchievements.includes('MONOPOLY')) newAchievements.push('MONOPOLY');
         if (ctx.isDiscountDeacon && !currentAchievements.includes('DISCOUNT_DEACON')) newAchievements.push('DISCOUNT_DEACON');
 
+        // Plugged In: awarded once a Discord-linked user makes any trade
+        if (userDoc.data().discordId && !currentAchievements.includes('DISCORD_LINKED')) newAchievements.push('DISCORD_LINKED');
+
         // NPC Lover: track cumulative profit from non-crew characters
         const achievementUpdate = {};
         if (ctx.npcProfit > 0) {
