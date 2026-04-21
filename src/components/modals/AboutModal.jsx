@@ -155,6 +155,17 @@ const AboutModal = ({ onClose, darkMode, userData }) => {
               </div>
 
               <div>
+                <h3 className="font-semibold text-orange-500 mb-1">How do dividends work?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  Some stocks pay weekly dividends to long-term holders, just like real life. Shares must be held for
+                  at least 10 days to become eligible. Payouts run every Thursday right before the chapter halt, using
+                  the pre-halt price snapshot. "Blue-chip" stocks pay the most, "Dividend" stocks pay moderately, ETFs
+                  pay a middle rate, and "Growth" stocks don't pay (they're expected to go up in price instead).
+                  Check the Portfolio modal to see each holding's tier and projected weekly income.
+                </p>
+              </div>
+
+              <div>
                 <h3 className="font-semibold text-orange-500 mb-1">How do predictions work?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool,

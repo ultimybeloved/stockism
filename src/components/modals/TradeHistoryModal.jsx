@@ -85,7 +85,7 @@ const TradeHistoryModal = ({ user, onClose, darkMode, colorBlindMode = false }) 
   };
 
   const getActionColor = (action) => {
-    if (action === 'buy' || action === 'cover') {
+    if (action === 'buy' || action === 'cover' || action === 'dividend') {
       return colorBlindMode ? 'text-teal-500' : 'text-green-500';
     }
     return colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -96,6 +96,7 @@ const TradeHistoryModal = ({ user, onClose, darkMode, colorBlindMode = false }) 
     if (action === 'sell') return colorBlindMode ? 'bg-purple-900/20' : 'bg-red-900/20';
     if (action === 'short') return 'bg-orange-900/20';
     if (action === 'cover' || action === 'margin_call_cover') return 'bg-blue-900/20';
+    if (action === 'dividend') return 'bg-emerald-900/20';
     return '';
   };
 
@@ -238,7 +239,7 @@ const TradeHistoryModal = ({ user, onClose, darkMode, colorBlindMode = false }) 
 
           {/* Action filter buttons */}
           <div className="flex gap-1 mt-2">
-            {['all', 'buy', 'sell', 'short', 'cover'].map(action => (
+            {['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map(action => (
               <button key={action} onClick={() => setFilterAction(action)}
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                   filterAction === action ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'
@@ -268,6 +269,39 @@ const TradeHistoryModal = ({ user, onClose, darkMode, colorBlindMode = false }) 
           ) : (
             <div className="space-y-2">
               {filtered.map(trade => {
+                // Dividend payouts are a different shape — render separately
+                if (trade.action === 'dividend') {
+                  const breakdown = trade.breakdown || {};
+                  const entries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+                  return (
+                    <div key={trade.id} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} ${darkMode ? getActionBg('dividend') : ''}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 text-sm font-semibold">💵 Dividend</span>
+                            <span className={`text-xs font-bold uppercase ${getActionColor('dividend')}`}>PAID</span>
+                          </div>
+                          <p className={`text-xs ${mutedClass}`}>
+                            {trade.tickerCount || entries.length} holding{(trade.tickerCount || entries.length) === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                            +{formatCurrency(trade.totalAmount || 0)}
+                          </p>
+                        </div>
+                      </div>
+                      {entries.length > 0 && (
+                        <p className={`text-xs ${mutedClass} mt-1`}>
+                          {entries.slice(0, 4).map(([t, amt]) => `$${t} ${formatCurrency(amt)}`).join(' • ')}
+                          {entries.length > 4 ? ` • +${entries.length - 4} more` : ''}
+                        </p>
+                      )}
+                      <p className={`text-xs ${mutedClass} mt-1`}>{formatTimestamp(trade.timestamp)}</p>
+                    </div>
+                  );
+                }
+
                 const char = CHARACTER_MAP[trade.ticker];
                 const pl = getTradeP_L(trade);
                 return (

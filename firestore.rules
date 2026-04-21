@@ -102,6 +102,8 @@ service cloud.firestore {
         // Block cost basis manipulation (tracked server-side)
         (!('costBasis' in newData) || newData.costBasis == oldData.costBasis) &&
         (!('lowestWhileHolding' in newData) || newData.lowestWhileHolding == oldData.lowestWhileHolding) &&
+        // Block dividend cohort manipulation (maintained server-side by executeTrade/payDividends)
+        (!('holdingCohorts' in newData) || newData.holdingCohorts == oldData.holdingCohorts) &&
         // Block transaction log manipulation (logged server-side in trades collection)
         (!('transactionLog' in newData) || newData.transactionLog == oldData.transactionLog) &&
         // Block checkin/prediction/pin/badge manipulation (awarded server-side)
@@ -135,6 +137,16 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
       }
+    }
+
+    // ============================================
+    // DIVIDEND CONFIG
+    // ============================================
+    // Public read so the client can show tier badges. Admin-only writes
+    // via the admin panel (tier overrides) or via Cloud Functions (run logs).
+    match /dividendConfig/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Validate market creation (for merge:true setDoc calls)

@@ -62,3 +62,22 @@ export const MAX_ACCOUNTS_PER_IP = 4; // Max unique accounts trading from same I
 export const ADMIN_UIDS = [
   '4usiVxPmHLhmitEKH2HfCpbx4Yi1'
 ];
+
+// ============================================
+// DIVIDEND SYSTEM
+// ============================================
+
+// Weekly dividend payout. Runs Thursday 12:55 UTC (right before chapter halt),
+// uses the pre-halt price snapshot so prices are frozen and non-gameable.
+export const DIVIDEND_HOLD_DAYS = 10;
+export const DIVIDEND_HOLD_MS = DIVIDEND_HOLD_DAYS * 24 * 60 * 60 * 1000;
+
+// Per-payout rate applied to the snapshot price (weekly cadence).
+// Tiers drive which rate a stock gets. ETFs use ETF rate via the isETF flag.
+// Untagged stocks default to 'growth' (0%).
+export const DIVIDEND_RATES = {
+  'blue-chip': 0.010, // 1.0% / week
+  'dividend':  0.005, // 0.5% / week
+  'etf':       0.007, // 0.7% / week (auto-applied to ETFs)
+  'growth':    0,
+};

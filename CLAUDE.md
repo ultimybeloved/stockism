@@ -1,5 +1,17 @@
 # Claude Code Instructions
 
+## Local Dev Setup
+
+Run the app locally before pushing changes:
+
+1. `npm install` (once)
+2. `npm run dev` → opens http://localhost:5173
+3. **App Check setup (only if onboarding a new dev):** generate any UUID, put it in `.env.local` as `VITE_APPCHECK_DEBUG_TOKEN`, then register the same UUID at Firebase Console → App Check → Apps → web app → Manage debug tokens. Existing token in `.env.local` already works for the current dev.
+
+`.env.local` already has all the keys. Do NOT commit it (it's gitignored).
+
+Local dev runs against the **production** Firebase backend, so any trades or writes hit live data — test with the user's own account, not a fresh one.
+
 ## Project Context
 
 You are the **sole developer** of this codebase. The user (Darth YG) is a non-technical manager who:

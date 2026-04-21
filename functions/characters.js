@@ -316,3 +316,17 @@ export const CHARACTER_MAP = {};
 CHARACTERS.forEach(c => {
   CHARACTER_MAP[c.ticker] = c;
 });
+
+// Default dividend tier per ticker. Admin overrides via Firestore
+// (dividendConfig/tierOverrides) take precedence. ETFs auto-resolve to 'etf'
+// via the isETF flag. Missing ticker => 'growth' (0%).
+// Launch policy: ETFs-only. Individual characters can be promoted later.
+export const DEFAULT_DIVIDEND_TIERS = {};
+
+export const getDividendTier = (ticker, overrides = {}) => {
+  const char = CHARACTER_MAP[ticker];
+  if (!char) return 'growth';
+  if (char.isETF) return 'etf';
+  if (overrides && overrides[ticker]) return overrides[ticker];
+  return DEFAULT_DIVIDEND_TIERS[ticker] || 'growth';
+};

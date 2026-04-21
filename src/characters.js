@@ -316,3 +316,23 @@ export const CHARACTER_MAP = {};
 CHARACTERS.forEach(c => {
   CHARACTER_MAP[c.ticker] = c;
 });
+
+// Default dividend tier per ticker. Admin can override via Firestore
+// (dividendConfig/tierOverrides) without a code deploy. ETFs auto-resolve to
+// 'etf' via the isETF flag. Missing ticker => 'growth' (0%).
+//
+// Launch policy: ETFs-only. The game is too young for any individual character
+// to qualify as a genuine blue-chip (every price is still in discovery and can
+// swing 10-20% on a reveal). Individual characters will be promoted into
+// dividend/blue-chip tiers later as their price history stabilizes.
+export const DEFAULT_DIVIDEND_TIERS = {};
+
+// Resolve dividend tier for a ticker. Pass optional overrides from Firestore config
+// doc to trump the hardcoded defaults. ETFs (isETF true) always return 'etf'.
+export const getDividendTier = (ticker, overrides = {}) => {
+  const char = CHARACTER_MAP[ticker];
+  if (!char) return 'growth';
+  if (char.isETF) return 'etf';
+  if (overrides && overrides[ticker]) return overrides[ticker];
+  return DEFAULT_DIVIDEND_TIERS[ticker] || 'growth';
+};

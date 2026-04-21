@@ -53,6 +53,7 @@ export const createUser = async (userId, displayName) => {
     displayName: displayName || 'Anonymous',
     cash: STARTING_CASH,
     holdings: {},
+    holdingCohorts: {},
     portfolioValue: STARTING_CASH,
     totalTrades: 0,
     totalCheckins: 0,

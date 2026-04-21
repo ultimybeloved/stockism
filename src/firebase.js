@@ -16,6 +16,15 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// Local dev: bypass App Check using a fixed debug token from .env.local.
+// Register the same UUID under Firebase Console → App Check → Apps → Manage
+// debug tokens. Pinning a fixed token (instead of `true`) prevents the SDK
+// from regenerating a new unregistered token on every reload.
+if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+  // eslint-disable-next-line no-undef
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+}
+
 const appCheck = initializeAppCheck(app, {
   provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
   isTokenAutoRefreshEnabled: true
@@ -105,5 +114,8 @@ export const diagnoseTickerRollbackFunction = httpsCallable(functions, 'diagnose
 export const recoverTickerFunction = httpsCallable(functions, 'recoverTicker');
 // Admin: drop audit
 export const auditUserDropsFunction = httpsCallable(functions, 'auditUserDrops');
+// Dividends
+export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividendPayoutNow');
+export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfillHoldingCohorts');
 
 export default app;

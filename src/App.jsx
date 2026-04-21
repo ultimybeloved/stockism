@@ -963,6 +963,7 @@ export default function App() {
   const [prices, setPrices] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
   const [marketData, setMarketData] = useState(null);
+  const [dividendTierOverrides, setDividendTierOverrides] = useState({});
   const [launchedTickers, setLaunchedTickers] = useState([]);
   const [darkMode, setDarkMode] = useState(() => {
     // Initialize from localStorage if available
@@ -1353,6 +1354,22 @@ export default function App() {
       }
     });
 
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to dividend tier overrides (admin-editable config doc)
+  useEffect(() => {
+    const ref = doc(db, 'dividendConfig', 'tierOverrides');
+    const unsubscribe = onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        setDividendTierOverrides(snap.data().tiers || {});
+      } else {
+        setDividendTierOverrides({});
+      }
+    }, (err) => {
+      // Missing doc is fine — fall back to hardcoded defaults.
+      console.warn('dividendConfig/tierOverrides subscription:', err?.message);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -3767,6 +3784,8 @@ export default function App() {
           user={user}
           activeIPOs={activeIPOs}
           ipoPurchases={userData?.ipoPurchases || {}}
+          holdingCohorts={activeUserData.holdingCohorts || {}}
+          dividendTierOverrides={dividendTierOverrides}
         />
       )}
       {showTradeHistory && !isGuest && (

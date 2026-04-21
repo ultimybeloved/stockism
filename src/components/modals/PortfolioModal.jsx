@@ -1,10 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CHARACTER_MAP } from '../../characters';
+import { CHARACTER_MAP, getDividendTier } from '../../characters';
+import { DIVIDEND_RATES, DIVIDEND_HOLD_MS } from '../../constants/economy';
 import { formatCurrency, formatChange, formatNumber } from '../../utils/formatters';
 import LimitOrders from '../LimitOrders';
 import { db } from '../../firebase';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useAppContext } from '../../context/AppContext';
+
+const DIVIDEND_TIER_META = {
+  'blue-chip': { label: 'Blue-chip', emoji: '⭐', color: 'text-amber-500' },
+  'dividend':  { label: 'Dividend', emoji: '💵', color: 'text-emerald-500' },
+  'etf':       { label: 'ETF',      emoji: '📊', color: 'text-sky-500' },
+  'growth':    { label: 'Growth',   emoji: '📈', color: 'text-zinc-400' },
+};
 
 const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   if (!data || data.length < 2) return null;
@@ -45,7 +53,7 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {} }) => {
+const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {} }) => {
   const { showNotification } = useAppContext();
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
@@ -76,6 +84,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
   };
 
   const portfolioItems = useMemo(() => {
+    const now = Date.now();
     return Object.entries(holdings)
       .filter(([_, shares]) => shares > 0)
       .map(([ticker, shares]) => {
@@ -95,6 +104,24 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
         const todayReturnDollar = value - value24hAgo;
         const todayReturnPercent = value24hAgo > 0 ? ((value - value24hAgo) / value24hAgo) * 100 : 0;
 
+        // Dividend eligibility — graduates any pending entries past their availableAt.
+        const tier = getDividendTier(ticker, dividendTierOverrides);
+        const tierRate = DIVIDEND_RATES[tier] || 0;
+        const cohort = holdingCohorts?.[ticker];
+        let eligibleShares = 0;
+        let soonestReadyMs = null;
+        if (cohort) {
+          eligibleShares = cohort.eligible || 0;
+          for (const p of (cohort.pending || [])) {
+            if ((p.availableAt || 0) <= now) {
+              eligibleShares += p.shares || 0;
+            } else if (soonestReadyMs === null || p.availableAt < soonestReadyMs) {
+              soonestReadyMs = p.availableAt;
+            }
+          }
+        }
+        const weeklyDividend = eligibleShares * currentPrice * tierRate;
+
         return {
           ticker,
           shares,
@@ -106,11 +133,21 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
           totalReturnDollar,
           totalReturnPercent,
           todayReturnDollar,
-          todayReturnPercent
+          todayReturnPercent,
+          tier,
+          tierRate,
+          eligibleShares,
+          soonestReadyMs,
+          weeklyDividend,
         };
       })
       .sort((a, b) => b.value - a.value);
-  }, [holdings, prices, costBasis, priceHistory]);
+  }, [holdings, prices, costBasis, priceHistory, holdingCohorts, dividendTierOverrides]);
+
+  const totalWeeklyDividends = useMemo(
+    () => portfolioItems.reduce((sum, item) => sum + (item.weeklyDividend || 0), 0),
+    [portfolioItems]
+  );
 
   const shortItems = useMemo(() => {
     return Object.entries(shorts || {})
@@ -541,6 +578,11 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                   <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
                     <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>📈</span> Long Positions
                     <span className={`text-xs font-normal ${mutedClass}`}>({portfolioItems.length})</span>
+                    {totalWeeklyDividends > 0 && (
+                      <span className={`ml-auto text-xs font-normal ${mutedClass}`}>
+                        ~{formatCurrency(totalWeeklyDividends)} / week in dividends
+                      </span>
+                    )}
                   </h3>
                   <div className="space-y-2">
                     {portfolioItems.map(item => {
@@ -559,6 +601,14 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                             <div className="flex items-center gap-2">
                               <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
                               <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
+                              {item.tierRate > 0 && (
+                                <span
+                                  className={`text-xs ${DIVIDEND_TIER_META[item.tier]?.color || 'text-zinc-400'}`}
+                                  title={`${DIVIDEND_TIER_META[item.tier]?.label} — pays ${(item.tierRate * 100).toFixed(2)}% weekly on eligible shares`}
+                                >
+                                  {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label}
+                                </span>
+                              )}
                               <span className={`text-xs ${mutedClass}`}>
                                 {isExpanded ? '▼' : '▶'}
                               </span>
@@ -615,6 +665,28 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               />
                             </div>
                           </div>
+
+                          {/* Dividend info */}
+                          {item.tierRate > 0 && (
+                            <div className={`mb-3 p-2 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-950' : 'border-amber-200 bg-white'}`}>
+                              <div className={`text-xs ${mutedClass} mb-1`}>
+                                {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier — pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
+                              </div>
+                              <div className={`text-sm ${textClass}`}>
+                                {item.eligibleShares} / {item.shares} shares eligible
+                                {item.weeklyDividend > 0 && (
+                                  <span className={`ml-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                                    → ~{formatCurrency(item.weeklyDividend)} / week
+                                  </span>
+                                )}
+                              </div>
+                              {item.eligibleShares < item.shares && item.soonestReadyMs && (
+                                <div className={`text-xs ${mutedClass} mt-1`}>
+                                  Next {item.shares - item.eligibleShares} share(s) become eligible in {Math.ceil((item.soonestReadyMs - Date.now()) / (24 * 60 * 60 * 1000))} day(s)
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Sell Controls */}
                           <div className="flex items-center gap-2">
