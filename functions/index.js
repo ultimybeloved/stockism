@@ -8049,7 +8049,12 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (portfolioValue >= 250000 && !currentAchievements.includes('BROKE_250K')) newAchievements.push('BROKE_250K');
   if (portfolioValue >= 500000 && !currentAchievements.includes('BROKE_500K')) newAchievements.push('BROKE_500K');
   if (portfolioValue >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
-  if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
+  // Diversified: hold 5+ tickers. Auto-revoked if user drops below 5.
+  if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) {
+    newAchievements.push('DIVERSIFIED');
+  } else if (holdingsCount < 5 && currentAchievements.includes('DIVERSIFIED')) {
+    revokedAchievements.push('DIVERSIFIED');
+  }
 
   // Unifier of Seoul: own at least 1 share of every tradeable character (excludes ETFs).
   // Auto-revoked if user no longer qualifies — e.g. they sold a share or a new
