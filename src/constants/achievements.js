@@ -205,8 +205,7 @@ export const ACHIEVEMENTS = {
     name: 'Unifier of Seoul',
     emoji: '🗺️',
     description: 'Own at least 1 share of every character',
-    hint: 'Gotta catch \'em all',
-    revocable: false
+    hint: 'Gotta catch \'em all'
   },
 
   // Ladder Game

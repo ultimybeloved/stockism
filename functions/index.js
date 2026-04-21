@@ -4588,6 +4588,22 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (Object.keys(achievementUpdate).length > 0) {
           await db.collection('users').doc(uid).update(achievementUpdate);
         }
+
+        // Unifier of Seoul revocation: if this sell emptied a non-ETF holding
+        // and the user currently holds UNIFIER, they no longer qualify.
+        // syncPortfolio will re-award it if they buy the share back.
+        if (
+          action === 'sell' &&
+          ctx.soldLastShare &&
+          currentAchievements.includes('UNIFIER')
+        ) {
+          const char = CHARACTERS.find(c => c.ticker === ticker);
+          if (char && !char.isETF) {
+            await db.collection('users').doc(uid).update({
+              achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+            });
+          }
+        }
       }
     } catch (achErr) {
       console.error('Achievement check after trade failed:', achErr);
@@ -8017,6 +8033,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   // Check achievements
   const currentAchievements = userData.achievements || [];
   const newAchievements = [];
+  const revokedAchievements = [];
   const holdingsCount = Object.values(userData.holdings || {}).filter(shares => shares > 0).length;
   const totalTrades = userData.totalTrades || 0;
 
@@ -8034,14 +8051,19 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (portfolioValue >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) newAchievements.push('DIVERSIFIED');
 
-  // Unifier of Seoul: own at least 1 share of every tradeable character (excludes ETFs)
+  // Unifier of Seoul: own at least 1 share of every tradeable character (excludes ETFs).
+  // Auto-revoked if user no longer qualifies — e.g. they sold a share or a new
+  // character was added to the roster since they earned it.
   const launchedTickers = marketDoc.data().launchedTickers || [];
   const tradeableCharacters = CHARACTERS.filter(c => !c.isETF && (!c.ipoRequired || launchedTickers.includes(c.ticker)));
   const totalCharacters = tradeableCharacters.length;
   const characterTickers = new Set(tradeableCharacters.map(c => c.ticker));
   const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(([ticker, shares]) => shares > 0 && characterTickers.has(ticker)).length;
-  if (ownedCharacterCount >= totalCharacters && totalCharacters > 0) {
-    if (!currentAchievements.includes('UNIFIER')) newAchievements.push('UNIFIER');
+  const qualifiesForUnifier = ownedCharacterCount >= totalCharacters && totalCharacters > 0;
+  if (qualifiesForUnifier && !currentAchievements.includes('UNIFIER')) {
+    newAchievements.push('UNIFIER');
+  } else if (!qualifiesForUnifier && currentAchievements.includes('UNIFIER')) {
+    revokedAchievements.push('UNIFIER');
   }
 
   // NPC Lover: check if accumulated profit reached $1,000
@@ -8142,10 +8164,19 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   await userRef.update(updateData);
 
+  // Revocations go in a separate write — Firestore forbids mixing arrayUnion
+  // and arrayRemove on the same field in one update.
+  if (revokedAchievements.length > 0) {
+    await userRef.update({
+      achievements: admin.firestore.FieldValue.arrayRemove(...revokedAchievements),
+    });
+  }
+
   return {
     portfolioValue,
     peakPortfolioValue,
     newAchievements,
+    revokedAchievements,
     historyUpdated: !!updateData.portfolioHistory
   };
 });
