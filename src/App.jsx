@@ -2291,7 +2291,7 @@ export default function App() {
       }, 0);
 
       // Check achievements (context-based ones handled server-side in executeTrade)
-      const isColdBlooded = profitPercent >= 20; // 20%+ profit on short
+      const isColdBlooded = profit > 0;
       const earnedAchievements = await checkAndAwardAchievements();
 
       const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);

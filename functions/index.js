@@ -4489,8 +4489,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
       if (action === 'cover') {
         const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;
-        const coverProfitPercent = shortCostBasis > 0 ? ((shortCostBasis - executionPrice) / shortCostBasis) * 100 : 0;
-        achievementCtx.isColdBlooded = coverProfitPercent >= 20;
+        achievementCtx.isColdBlooded = shortCostBasis > 0 && executionPrice < shortCostBasis;
         // Discount Deacon: dollar profit ending in .99
         if (shortCostBasis > 0) {
           const dollarProfit = Math.round((shortCostBasis - executionPrice) * amount * 100) / 100;
