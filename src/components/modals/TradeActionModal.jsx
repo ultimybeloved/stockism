@@ -407,7 +407,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
                 checked={partialShares}
                 onChange={(e) => {
                   setPartialShares(e.target.checked);
-                  if (!e.target.checked) setAmount(Math.max(1, Math.round(amount || 1)));
+                  if (!e.target.checked) setAmount(Math.max(1, Math.floor(amount || 1)));
                 }}
                 className="cursor-pointer"
               />
