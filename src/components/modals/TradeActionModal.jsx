@@ -225,7 +225,9 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     return 1;
   };
 
-  const maxShares = getMaxShares();
+  const maxSharesFractional = getMaxShares();
+  const maxSharesWhole = Math.floor(maxSharesFractional);
+  const maxShares = partialShares ? maxSharesFractional : maxSharesWhole;
   const { bid, ask, spread } = getDynamicPrices(amount || 1, action);
 
   const getActionConfig = () => {
