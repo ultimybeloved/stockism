@@ -3154,11 +3154,11 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, action, amount } = data;
 
-  // Validate inputs - require whole numbers, finite, bounded
-  if (!ticker || !action || !amount || !Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1 || amount > 10000) {
+  // Validate inputs - finite, bounded, max 2 decimal places
+  if (!ticker || !action || !amount || !Number.isFinite(amount) || amount < 0.01 || amount > 10000 || Math.round(amount * 100) / 100 !== amount) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Invalid trade parameters. Shares must be a whole number between 1 and 10,000.'
+      'Invalid trade parameters. Shares must be between 0.01 and 10,000 (max 2 decimal places).'
     );
   }
 
@@ -3637,11 +3637,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, action, amount } = data;
 
-  // Validate inputs - require whole numbers, finite, bounded
-  if (!ticker || !action || !amount || !Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1 || amount > 10000) {
+  // Validate inputs - finite, bounded, max 2 decimal places
+  if (!ticker || !action || !amount || !Number.isFinite(amount) || amount < 0.01 || amount > 10000 || Math.round(amount * 100) / 100 !== amount) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Invalid trade parameters. Shares must be a whole number between 1 and 10,000.'
+      'Invalid trade parameters. Shares must be between 0.01 and 10,000 (max 2 decimal places).'
     );
   }
 
@@ -6324,8 +6324,8 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Limit orders support BUY, SELL, and STOP_LOSS only.');
   }
 
-  // Validate shares (must be finite positive integer, max 10000)
-  if (!shares || !Number.isFinite(shares) || !Number.isInteger(shares) || shares <= 0 || shares > 10000) {
+  // Validate shares (finite, positive, max 2 decimal places, max 10000)
+  if (!shares || !Number.isFinite(shares) || shares < 0.01 || shares > 10000 || Math.round(shares * 100) / 100 !== shares) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }
 
@@ -7307,7 +7307,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
   const uid = context.auth.uid;
   const { ticker, quantity } = data;
 
-  if (!ticker || !quantity || !Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
+  if (!ticker || !quantity || !Number.isFinite(quantity) || quantity < 0.01 || Math.round(quantity * 100) / 100 !== quantity) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid IPO purchase data.');
   }
 

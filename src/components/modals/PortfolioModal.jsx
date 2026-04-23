@@ -14,6 +14,12 @@ const DIVIDEND_TIER_META = {
   'growth':    { label: 'Growth',   emoji: '📈', color: 'text-zinc-400' },
 };
 
+const formatShares = (n) => {
+  if (n === 0) return '0';
+  const rounded = Math.round(n * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+};
+
 const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   if (!data || data.length < 2) return null;
 
@@ -555,9 +561,9 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
                             </div>
                             <div className={`text-sm ${mutedClass} mt-1`}>
-                              {item.shares} shares @ {formatCurrency(item.price)}
+                              {formatShares(item.shares)} shares @ {formatCurrency(item.price)}
                               <span className="mx-1">•</span>
-                              {item.shares}/{item.maxPerUser} allocation used
+                              {formatShares(item.shares)}/{item.maxPerUser} allocation used
                             </div>
                           </div>
                           <div className="text-right">
@@ -614,7 +620,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               </span>
                             </div>
                             <div className={`text-sm ${mutedClass} mt-0.5`}>
-                              {item.shares} shares • {diversityPercent.toFixed(1)}% of portfolio
+                              {formatShares(item.shares)} shares • {diversityPercent.toFixed(1)}% of portfolio
                             </div>
                           </div>
                           <div className="text-right">
@@ -673,7 +679,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                 {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier — pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
                               </div>
                               <div className={`text-sm ${textClass}`}>
-                                {item.eligibleShares} / {item.shares} shares eligible
+                                {formatShares(item.eligibleShares)} / {formatShares(item.shares)} shares eligible
                                 {item.weeklyDividend > 0 && (
                                   <span className={`ml-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
                                     → ~{formatCurrency(item.weeklyDividend)} / week
@@ -682,7 +688,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               </div>
                               {item.eligibleShares < item.shares && item.soonestReadyMs && (
                                 <div className={`text-xs ${mutedClass} mt-1`}>
-                                  Next {item.shares - item.eligibleShares} share(s) become eligible in {Math.ceil((item.soonestReadyMs - Date.now()) / (24 * 60 * 60 * 1000))} day(s)
+                                  Next {formatShares(item.shares - item.eligibleShares)} share(s) become eligible in {Math.ceil((item.soonestReadyMs - Date.now()) / (24 * 60 * 60 * 1000))} day(s)
                                 </div>
                               )}
                             </div>
@@ -692,15 +698,16 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                           <div className="flex items-center gap-2">
                             <input
                               type="number"
-                              min="1"
+                              min="0.01"
+                              step="0.01"
                               max={item.shares}
-                              value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 1)}
+                              value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 0.01)}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === '') {
                                   setSellAmounts(prev => ({ ...prev, [item.ticker]: '' }));
                                 } else {
-                                  const num = parseInt(val) || 0;
+                                  const num = Math.round(parseFloat(val) * 100) / 100 || 0;
                                   setSellAmounts(prev => ({
                                     ...prev,
                                     [item.ticker]: Math.min(item.shares, Math.max(0, num))
@@ -709,8 +716,8 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               }}
                               onBlur={() => {
                                 const current = sellAmounts[item.ticker];
-                                if (current === '' || current < 1) {
-                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: 1 }));
+                                if (current === '' || current < 0.01) {
+                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: 0.01 }));
                                 }
                               }}
                               onClick={(e) => e.stopPropagation()}
@@ -719,7 +726,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               }`}
                             />
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, Math.max(1, sellAmounts[item.ticker] || 1)); }}
+                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, Math.max(0.01, sellAmounts[item.ticker] || 0.01)); }}
                               className="px-4 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm"
                             >
                               Sell
@@ -792,7 +799,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                                   </span>
                                 </div>
                                 <div className={`text-sm ${mutedClass} mt-0.5`}>
-                                  {item.shares} shares shorted
+                                  {formatShares(item.shares)} shares shorted
                                   {isAtRisk && <span className="text-orange-500 ml-2">⚠️ Margin Warning</span>}
                                 </div>
                               </div>

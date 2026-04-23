@@ -149,6 +149,12 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     return buyingPower;
   };
 
+  const formatShares = (n) => {
+    if (n === 0) return '0';
+    const rounded = Math.round(n * 100) / 100;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  };
+
   // Calculate max shares for this specific action
   const getMaxShares = () => {
     if (action === 'buy') {
@@ -171,7 +177,16 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         }
       }
 
-      return Math.max(0, maxAffordable);
+      // Fine-tune fractional: check if 0.1 increments beyond integer max fit
+      let fractionalBonus = 0;
+      for (let f = 1; f <= 9; f++) {
+        const candidate = maxAffordable + f * 0.1;
+        const { ask } = getDynamicPrices(candidate, 'buy');
+        if (ask * candidate <= buyingPower) fractionalBonus = f * 0.1;
+        else break;
+      }
+
+      return Math.max(0, Math.round((maxAffordable + fractionalBonus) * 100) / 100);
     } else if (action === 'sell') {
       // Check trade count limit first
       const sellCount = getTradeCount('sell');
@@ -194,9 +209,9 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       if (availableForShorts <= 0) return 0;
 
       const marginPerShare = price * SHORT_MARGIN_REQUIREMENT;
-      const maxByEquity = Math.floor(availableForShorts / marginPerShare);
+      const maxByEquity = marginPerShare > 0 ? Math.floor((availableForShorts / marginPerShare) * 100) / 100 : 0;
       // v2: must also have enough cash for the margin deposit
-      const maxByCash = marginPerShare > 0 ? Math.floor(userCash / marginPerShare) : 0;
+      const maxByCash = marginPerShare > 0 ? Math.floor((userCash / marginPerShare) * 100) / 100 : 0;
       let maxAffordable = Math.min(maxByEquity, maxByCash);
       maxAffordable = Math.max(0, Math.min(maxAffordable, 10000));
 
@@ -292,7 +307,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
 
   const handleSubmit = async () => {
-    if (config.disabled || amount < 1 || amount > maxShares || submitting) return;
+    if (config.disabled || amount < 0.01 || amount > maxShares || submitting) return;
 
     if (isHalted) {
       showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
@@ -325,7 +340,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         await createLimitOrderFunction({
           ticker: character.ticker,
           type: orderType,
-          shares: parseInt(amount),
+          shares: Math.round(parseFloat(amount) * 100) / 100,
           limitPrice: priceNum,
           allowPartialFills
         });
@@ -384,7 +399,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <label className={`block text-sm font-semibold mb-2 ${textClass}`}>Shares</label>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setAmount(Math.max(0, (amount || 1) - 1))}
+              onClick={() => setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)}
               className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
             >
               -
@@ -393,13 +408,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               type="number"
               min="0"
               max={maxShares}
+              step="0.01"
               value={amount === '' ? '' : amount}
               onChange={(e) => {
                 const val = e.target.value;
                 if (val === '') {
                   setAmount('');
                 } else {
-                  const num = parseInt(val);
+                  const num = Math.round(parseFloat(val) * 100) / 100;
                   if (!isNaN(num)) {
                     setAmount(Math.min(maxShares, Math.max(0, num)));
                   }
@@ -407,13 +423,13 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               }}
               onBlur={() => {
                 if (amount === '' || amount < 0) {
-                  setAmount(maxShares > 0 ? 1 : 0);
+                  setAmount(maxShares > 0 ? 0.01 : 0);
                 }
               }}
               className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
             />
             <button
-              onClick={() => setAmount(Math.min(maxShares, (amount || 0) + 1))}
+              onClick={() => setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))}
               className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
             >
               +
@@ -432,7 +448,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
             </p>
           )}
           {maxShares > 0 && (
-            <p className={`text-xs ${mutedClass} mt-1`}>Max: {maxShares} shares</p>
+            <p className={`text-xs ${mutedClass} mt-1`}>Max: {formatShares(maxShares)} shares</p>
           )}
         </div>
 
@@ -565,7 +581,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < 1 || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={config.disabled || amount < 0.01 || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`

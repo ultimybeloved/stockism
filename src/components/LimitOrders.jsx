@@ -74,7 +74,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
       await createLimitOrderFunction({
         ticker: selectedTicker,
         type: orderType,
-        shares: parseInt(shares),
+        shares: Math.round(parseFloat(shares) * 100) / 100,
         limitPrice: priceNum,
         allowPartialFills
       });
@@ -83,7 +83,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
 
       // Reset form
       setSelectedTicker('');
-      setShares(1);
+      setShares(0.01);
       setLimitPrice('');
       setAllowPartialFills(false);
 
@@ -217,9 +217,10 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
             <label className={`block text-sm font-semibold mb-2 ${textClass}`}>Shares</label>
             <input
               type="number"
-              min="1"
+              min="0.01"
+              step="0.01"
               value={shares}
-              onChange={e => setShares(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={e => setShares(Math.max(0.01, Math.round(parseFloat(e.target.value) * 100) / 100 || 0.01))}
               className={`w-full px-3 py-2 border rounded ${inputClass}`}
             />
           </div>
