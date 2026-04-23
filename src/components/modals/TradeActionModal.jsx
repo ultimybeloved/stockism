@@ -82,6 +82,7 @@ const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false, haltInfo }) => {
   const { showNotification } = useAppContext();
   const [amount, setAmount] = useState(1);
+  const [partialShares, setPartialShares] = useState(false);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);
   const [isStopLoss, setIsStopLoss] = useState(defaultToLimitOrder === 'stopLoss');
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
@@ -307,7 +308,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
 
   const handleSubmit = async () => {
-    if (config.disabled || amount < 0.01 || amount > maxShares || submitting) return;
+    if (config.disabled || amount < (partialShares ? 0.01 : 1) || amount > maxShares || submitting) return;
 
     if (isHalted) {
       showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
@@ -396,10 +397,26 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
         {/* Amount input */}
         <div className="mb-4">
-          <label className={`block text-sm font-semibold mb-2 ${textClass}`}>Shares</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className={`text-sm font-semibold ${textClass}`}>Shares</label>
+            <label className={`flex items-center gap-1.5 text-xs ${mutedClass} cursor-pointer select-none`}>
+              <input
+                type="checkbox"
+                checked={partialShares}
+                onChange={(e) => {
+                  setPartialShares(e.target.checked);
+                  if (!e.target.checked) setAmount(Math.max(1, Math.round(amount || 1)));
+                }}
+                className="cursor-pointer"
+              />
+              Partial shares
+            </label>
+          </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)}
+              onClick={() => partialShares
+                ? setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)
+                : setAmount(Math.max(0, (amount || 1) - 1))}
               className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
             >
               -
@@ -408,14 +425,16 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               type="number"
               min="0"
               max={maxShares}
-              step="0.01"
+              step={partialShares ? '0.01' : '1'}
               value={amount === '' ? '' : amount}
               onChange={(e) => {
                 const val = e.target.value;
                 if (val === '') {
                   setAmount('');
                 } else {
-                  const num = Math.round(parseFloat(val) * 100) / 100;
+                  const num = partialShares
+                    ? Math.round(parseFloat(val) * 100) / 100
+                    : parseInt(val);
                   if (!isNaN(num)) {
                     setAmount(Math.min(maxShares, Math.max(0, num)));
                   }
@@ -423,13 +442,15 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               }}
               onBlur={() => {
                 if (amount === '' || amount < 0) {
-                  setAmount(maxShares > 0 ? 0.01 : 0);
+                  setAmount(maxShares > 0 ? (partialShares ? 0.01 : 1) : 0);
                 }
               }}
               className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
             />
             <button
-              onClick={() => setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))}
+              onClick={() => partialShares
+                ? setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))
+                : setAmount(Math.min(maxShares, (amount || 0) + 1))}
               className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
             >
               +
@@ -581,7 +602,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < 0.01 || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={config.disabled || amount < (partialShares ? 0.01 : 1) || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
