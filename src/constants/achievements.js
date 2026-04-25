@@ -310,7 +310,51 @@ export const ACHIEVEMENTS = {
     emoji: '🎗️',
     description: 'Complete 100 daily missions',
     hint: 'Never miss a mission'
-  }
+  },
+
+  // Investor milestones
+  DIVIDEND_DEMON: {
+    id: 'DIVIDEND_DEMON',
+    name: 'Dividend Demon',
+    emoji: '😈',
+    description: 'Hold any ETF for 50 consecutive days',
+    hint: 'Be patient and let dividends stack up'
+  },
+  TOPPED_OFF: {
+    id: 'TOPPED_OFF',
+    name: 'Topped Off',
+    emoji: '🎯',
+    description: 'Sell a stock at its all-time high',
+    hint: 'Perfect timing'
+  },
+  JIHOISM: {
+    id: 'JIHOISM',
+    name: 'Jihoism',
+    emoji: '💸',
+    description: 'Lose your entire Ladder Game balance',
+    hint: 'You know what you did'
+  },
+  THATS_A_BIG_DEAL: {
+    id: 'THATS_A_BIG_DEAL',
+    name: "That's a Big Deal",
+    emoji: '📉',
+    description: 'Buy a bullish stock at its 7-day low',
+    hint: 'Buy the dip while others are scared'
+  },
+  YOURE_A_WORKER: {
+    id: 'YOURE_A_WORKER',
+    name: "You're a Worker",
+    emoji: '💪',
+    description: 'Gain 25%+ of your net worth in a single week',
+    hint: 'Put in the work'
+  },
+  ANIMAL_INSTINCT: {
+    id: 'ANIMAL_INSTINCT',
+    name: 'Animal Instinct',
+    emoji: '🐾',
+    description: 'Earn $250 combined profit from Ryan, Eden, Miro, or Enu',
+    hint: 'The animals are worth investing in'
+  },
 };
 
 // Achievement IDs for easy checking

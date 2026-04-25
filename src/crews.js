@@ -33,7 +33,7 @@ export const CREWS = {
     color: '#162141',
     emblem: '🐕',
     icon: '/crews/god dog.png',
-    members: ['GDOG']
+    members: ['GDOG', 'MIRO', 'EDEN']
   },
   SECRET_FRIENDS: {
     id: 'SECRET_FRIENDS',

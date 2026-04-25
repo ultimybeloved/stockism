@@ -129,7 +129,7 @@ const CREW_MEMBERS = {
   ALLIED: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
   BIG_DEAL: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
   FIST_GANG: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH'],
-  GOD_DOG: ['GDOG'],
+  GOD_DOG: ['GDOG', 'MIRO', 'EDEN'],
   SECRET_FRIENDS: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
   HOSTEL: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
   WTJC: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
@@ -138,6 +138,9 @@ const CREW_MEMBERS = {
 };
 // Set of all crew member tickers (for rival detection)
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
+
+// Animal characters for Animal Instinct achievement
+const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
 
 // ============================================
 // NOTIFICATION HELPER
@@ -3855,6 +3858,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       const prices = marketData.prices || {};
+      const priceHistory = marketData.priceHistory || {};
       let currentPrice = prices[ticker];
 
       const character = CHARACTERS.find(c => c.ticker === ticker);
@@ -4474,7 +4478,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Dividend cohort: new shares enter pending with a 10-day wait
         const existingCohort = userData.holdingCohorts?.[ticker] || null;
-        updates[`holdingCohorts.${ticker}`] = addPendingShares(existingCohort, amount, now);
+        const newCohort = addPendingShares(existingCohort, amount, now);
+        // Dividend Demon: track when user first held this ETF (preserve on add, reset on full sell)
+        if (character?.isETF) {
+          newCohort.firstHeldAt = existingCohort?.firstHeldAt || now;
+        }
+        updates[`holdingCohorts.${ticker}`] = newCohort;
 
         // Lowest price while holding (for Diamond Hands achievement)
         const currentLowest = userData.lowestWhileHolding?.[ticker];
@@ -4599,6 +4608,21 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let achievementCtx = { tradeValue: totalCost };
       if (action === 'buy') {
         achievementCtx.isMonopoly = hitMaxImpact;
+        // That's a Big Deal: bought a bullish stock at its 7-day low
+        const buyHistory = priceHistory[ticker] || [];
+        if (buyHistory.length >= 2) {
+          const now7d = now - 7 * 24 * 60 * 60 * 1000;
+          const now24h = now - 24 * 60 * 60 * 1000;
+          const last7d = buyHistory.filter(h => h.timestamp >= now7d);
+          const weeklyLow = last7d.length > 0 ? Math.min(...last7d.map(h => h.price)) : 0;
+          const price24hAgo = [...buyHistory].reverse().find(h => h.timestamp <= now24h)?.price || currentPrice;
+          const price7dAgo = [...buyHistory].reverse().find(h => h.timestamp <= now7d)?.price || currentPrice;
+          const dailyChange = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
+          const weeklyChange = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
+          const sentimentScore = (dailyChange * 0.6) + (weeklyChange * 0.4);
+          achievementCtx.boughtBullishAtWeeklyLow =
+            weeklyLow > 0 && currentPrice <= weeklyLow * 1.03 && sentimentScore >= 1;
+        }
       }
       if (action === 'sell') {
         const costBasis = userData.costBasis?.[ticker] || 0;
@@ -4622,6 +4646,21 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           if (dollarProfit > 0 && Math.round(dollarProfit * 100) % 100 === 99) {
             achievementCtx.isDiscountDeacon = true;
           }
+        }
+        // Topped Off: sold at all-time high
+        const tickerHistory = priceHistory[ticker] || [];
+        if (tickerHistory.length > 0) {
+          const allTimeHigh = Math.max(...tickerHistory.map(h => h.price));
+          achievementCtx.soldAtAllTimeHigh = executionPrice >= allTimeHigh;
+        }
+        // Animal Instinct: track cumulative profit from animal characters
+        if (ANIMAL_TICKERS.has(ticker) && costBasis > 0) {
+          const profitThisSell = Math.max(0, (executionPrice - costBasis) * amount);
+          const pbt = userData.profitByTicker || {};
+          const newTickerProfit = (pbt[ticker] || 0) + profitThisSell;
+          updates[`profitByTicker.${ticker}`] = newTickerProfit;
+          achievementCtx.animalProfit = newTickerProfit +
+            [...ANIMAL_TICKERS].filter(t => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
         }
       }
       if (action === 'cover') {
@@ -4701,6 +4740,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
         if (ctx.isMonopoly && !currentAchievements.includes('MONOPOLY')) newAchievements.push('MONOPOLY');
         if (ctx.isDiscountDeacon && !currentAchievements.includes('DISCOUNT_DEACON')) newAchievements.push('DISCOUNT_DEACON');
+        if (ctx.soldAtAllTimeHigh && !currentAchievements.includes('TOPPED_OFF')) newAchievements.push('TOPPED_OFF');
+        if (ctx.boughtBullishAtWeeklyLow && !currentAchievements.includes('THATS_A_BIG_DEAL')) newAchievements.push('THATS_A_BIG_DEAL');
+        if ((ctx.animalProfit || 0) >= 250 && !currentAchievements.includes('ANIMAL_INSTINCT')) newAchievements.push('ANIMAL_INSTINCT');
 
         // Plugged In: awarded once a Discord-linked user makes any trade
         if (userDoc.data().discordId && !currentAchievements.includes('DISCORD_LINKED')) newAchievements.push('DISCORD_LINKED');
@@ -5775,6 +5817,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const netProfit = userData.totalWon - userData.totalLost;
       if (netProfit >= 2500 && !currentAchievements.includes('COMPULSIVE_GAMBLER')) ladderNewAchievements.push('COMPULSIVE_GAMBLER');
       if ((userData.highBetGames || 0) >= 100 && !currentAchievements.includes('ADDICTED')) ladderNewAchievements.push('ADDICTED');
+      if ((userData.balance || 0) <= 0 && !currentAchievements.includes('JIHOISM')) ladderNewAchievements.push('JIHOISM');
 
       if (ladderNewAchievements.length > 0) {
         const achUpdate = {
@@ -8281,6 +8324,24 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   if (totalCheckins >= 14 && !currentAchievements.includes('DEDICATED_14')) newAchievements.push('DEDICATED_14');
   if (totalCheckins >= 30 && !currentAchievements.includes('DEDICATED_30')) newAchievements.push('DEDICATED_30');
   if (totalCheckins >= 100 && !currentAchievements.includes('DEDICATED_100')) newAchievements.push('DEDICATED_100');
+
+  // You're a Worker: gained 25%+ of net worth in a week
+  const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
+  if (weeklyGainPercent >= 25 && weeklyGain > 0 && !currentAchievements.includes('YOURE_A_WORKER')) newAchievements.push('YOURE_A_WORKER');
+
+  // Dividend Demon: held any ETF for 50 consecutive days
+  const FIFTY_DAYS_MS = 50 * 24 * 60 * 60 * 1000;
+  const holdingCohorts = userData.holdingCohorts || {};
+  const hasHeldETF50Days = Object.entries(holdingCohorts).some(([t, cohort]) => {
+    const char = CHARACTERS.find(c => c.ticker === t);
+    return char?.isETF && cohort?.firstHeldAt && (now - cohort.firstHeldAt >= FIFTY_DAYS_MS);
+  });
+  if (hasHeldETF50Days && !currentAchievements.includes('DIVIDEND_DEMON')) newAchievements.push('DIVIDEND_DEMON');
+
+  // Animal Instinct: check cumulative profit in case it was already tracked
+  const pbt = userData.profitByTicker || {};
+  const totalAnimalProfit = [...ANIMAL_TICKERS].reduce((s, t) => s + (pbt[t] || 0), 0);
+  if (totalAnimalProfit >= 250 && !currentAchievements.includes('ANIMAL_INSTINCT')) newAchievements.push('ANIMAL_INSTINCT');
 
   if (newAchievements.length > 0) {
     updateData.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);

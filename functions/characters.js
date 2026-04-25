@@ -173,6 +173,11 @@ export const CHARACTERS = [
   // New characters added 2026-04-23
   { name: "Sangcheol Park", ticker: "DAD", basePrice: 30, volatility: 0.04, dateAdded: "2026-04-23T00:00:00" },
 
+  // New characters added 2026-04-25
+  { name: "Enu", ticker: "ENU", basePrice: 10, volatility: 0.03, dateAdded: "2026-04-25T00:00:00" },
+  { name: "Miro", ticker: "MIRO", basePrice: 10, volatility: 0.03, dateAdded: "2026-04-25T00:01:00" },
+  { name: "Eden", ticker: "EDEN", basePrice: 12.50, volatility: 0.03, dateAdded: "2026-04-25T00:02:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Ryu Baekgeon", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
 
@@ -269,9 +274,9 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "J High School ETF", ticker: "JWON", basePrice: 115.20, volatility: 0.025, dateAdded: "2026-02-20T00:08:00",
+    name: "J High School ETF", ticker: "JWON", basePrice: 117.20, volatility: 0.025, dateAdded: "2026-02-20T00:08:00",
     isETF: true, description: "J High School ETF",
-    constituents: ["BDNL", "LDNL", "ELI", "ZACK", "VSCO", "VIN", "JAY", "LOGN", "2SEC", "CRYS", "DUKE", "DOO", "JACE", "MIRA", "ZOE", "JOY", "JIHO"],
+    constituents: ["BDNL", "LDNL", "ELI", "ZACK", "VSCO", "VIN", "JAY", "LOGN", "2SEC", "CRYS", "DUKE", "DOO", "JACE", "MIRA", "ZOE", "JOY", "JIHO", "ENU"],
     trailingFactors: [
       { ticker: "BDNL", coefficient: 0.047 }, { ticker: "LDNL", coefficient: 0.047 },
       { ticker: "ELI", coefficient: 0.047 }, { ticker: "ZACK", coefficient: 0.047 },
@@ -281,7 +286,7 @@ export const CHARACTERS = [
       { ticker: "DUKE", coefficient: 0.047 }, { ticker: "DOO", coefficient: 0.047 },
       { ticker: "JACE", coefficient: 0.047 }, { ticker: "MIRA", coefficient: 0.047 },
       { ticker: "ZOE", coefficient: 0.047 }, { ticker: "JOY", coefficient: 0.047 },
-      { ticker: "JIHO", coefficient: 0.047 }
+      { ticker: "JIHO", coefficient: 0.047 }, { ticker: "ENU", coefficient: 0.047 }
     ]
   },
   {
