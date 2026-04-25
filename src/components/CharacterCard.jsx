@@ -22,7 +22,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
   const [haltCountdown, setHaltCountdown] = useState('');
 
-  const owned = holdings > 0;
+  const owned = holdings > 0.001;
   const shorted = shortPosition && shortPosition.shares > 0;
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;

@@ -1780,6 +1780,140 @@ exports.chapterReviewRecap = functions.pubsub
   });
 
 /**
+ * Fill pending stop loss orders at market open after chapter review.
+ * Runs at exactly 21:00 UTC Thursday — same moment the halt ends.
+ * Executes fills before circuit breakers or community trading can move prices.
+ */
+exports.processMarketOpenOrders = functions.pubsub
+  .schedule('0 21 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+      if (!marketSnap.exists) return null;
+      const openingPrices = marketSnap.data().prices || {};
+
+      const ordersSnapshot = await db.collection('limitOrders')
+        .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
+        .get();
+
+      console.log(`processMarketOpenOrders: checking ${ordersSnapshot.size} orders`);
+      let filled = 0;
+      let skipped = 0;
+
+      for (const orderDoc of ordersSnapshot.docs) {
+        const order = orderDoc.data();
+        if (order.type !== 'STOP_LOSS') continue;
+
+        const openingPrice = openingPrices[order.ticker];
+        if (!openingPrice || openingPrice > order.limitPrice) continue;
+
+        const userRef = db.collection('users').doc(order.userId);
+        const alreadyFilled = order.filledShares || 0;
+        let fillShares = order.shares - alreadyFilled;
+        let executedPrice = 0;
+
+        try {
+          await db.runTransaction(async (transaction) => {
+            fillShares = order.shares - alreadyFilled;
+            const userSnap = await transaction.get(userRef);
+            const freshMarketSnap = await transaction.get(marketRef);
+            if (!userSnap.exists) throw new Error('User not found');
+            const userData = userSnap.data();
+            const freshPrice = freshMarketSnap.data().prices?.[order.ticker] || openingPrice;
+
+            if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
+            const userShares = userData.holdings?.[order.ticker] || 0;
+            if (userShares < fillShares) {
+              if (order.allowPartialFills && userShares > 0) {
+                fillShares = userShares;
+              } else {
+                throw new Error('Insufficient shares');
+              }
+            }
+
+            const now = Date.now();
+            const limitTradeHistory = userData.tickerTradeHistory || {};
+            const limitActionHistory = limitTradeHistory[order.ticker]?.['sell'] || [];
+            const { totalShares: cumVol, count: tradeCount } = pruneAndSumTradeHistory(limitActionHistory, now);
+            if (tradeCount >= MAX_TRADES_PER_TICKER_24H) throw new Error('Trade limit reached');
+
+            const effectiveImpact = calculateMarginalImpact(freshPrice, fillShares, cumVol);
+            const orderChar = CHARACTERS.find(c => c.ticker === order.ticker);
+            const spread = orderChar?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+            const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
+            const bidPrice = newMarketPrice * (1 - spread / 2);
+            executedPrice = Math.round(bidPrice * 100) / 100;
+
+            const updatedHistory = JSON.parse(JSON.stringify(limitTradeHistory));
+            if (!updatedHistory[order.ticker]) updatedHistory[order.ticker] = {};
+            if (!updatedHistory[order.ticker]['sell']) updatedHistory[order.ticker]['sell'] = [];
+            const cutoff = now - TWENTY_FOUR_HOURS_MS;
+            updatedHistory[order.ticker]['sell'] = updatedHistory[order.ticker]['sell'].filter(e => e.ts > cutoff);
+            updatedHistory[order.ticker]['sell'].push({
+              ts: now,
+              shares: fillShares,
+              impact: freshPrice > 0 ? effectiveImpact / freshPrice : 0
+            });
+
+            const newHoldings = Math.round(((userData.holdings?.[order.ticker] || 0) - fillShares) * 10000) / 10000;
+            const updates = {
+              cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
+              [`holdings.${order.ticker}`]: newHoldings,
+              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              totalTrades: admin.firestore.FieldValue.increment(1),
+              tickerTradeHistory: updatedHistory
+            };
+            if (newHoldings <= 0) {
+              updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
+              updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
+              updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+            }
+            transaction.update(userRef, updates);
+            if (effectiveImpact > 0) {
+              transaction.update(marketRef, {
+                [`prices.${order.ticker}`]: newMarketPrice,
+                [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+                  timestamp: now,
+                  price: newMarketPrice
+                })
+              });
+            }
+          });
+
+          const newFilledTotal = alreadyFilled + fillShares;
+          const isPartial = order.allowPartialFills && newFilledTotal < order.shares;
+          await db.collection('limitOrders').doc(orderDoc.id).update({
+            status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
+            filledShares: newFilledTotal,
+            executedPrice,
+            executedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          writeNotification(order.userId, {
+            type: 'trade',
+            title: 'Stop Loss Filled',
+            message: `Your stop loss for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
+            data: { ticker: order.ticker, orderId: orderDoc.id, price: executedPrice }
+          });
+          console.log(`processMarketOpenOrders: filled stop loss ${orderDoc.id} — ${fillShares} ${order.ticker} @ $${executedPrice}`);
+          filled++;
+        } catch (err) {
+          console.log(`processMarketOpenOrders: order ${orderDoc.id} skipped — ${err.message}`);
+          skipped++;
+        }
+      }
+
+      console.log(`processMarketOpenOrders complete: ${filled} filled, ${skipped} skipped`);
+      return null;
+    } catch (err) {
+      console.error('processMarketOpenOrders failed:', err);
+      return null;
+    }
+  });
+
+/**
  * Manual trigger for daily market summary (admin only)
  */
 exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context) => {
@@ -3867,7 +4001,10 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let totalCost = 0;
       let hitMaxImpact = false;
       let newCash = cash;
-      let newHoldings = { ...holdings };
+      let newHoldings = {};
+      for (const [t, s] of Object.entries(holdings)) {
+        if (s > 0.001) newHoldings[t] = s;
+      }
       // Sanitize shorts to prevent undefined fields from crashing Firestore writes
       let newShorts = {};
       for (const [t, pos] of Object.entries(shorts)) {
@@ -3972,8 +4109,8 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Execute sell
         newCash = cash + totalCost;
-        newHoldings[ticker] = currentHoldings - amount;
-        if (newHoldings[ticker] === 0) {
+        newHoldings[ticker] = Math.round((currentHoldings - amount) * 10000) / 10000;
+        if (newHoldings[ticker] <= 0) {
           delete newHoldings[ticker];
         }
 
@@ -9628,6 +9765,7 @@ exports.checkCircuitBreakers = functions.pubsub
   .schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async () => {
+    if (isWeeklyTradingHalt()) return null;
     try {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();

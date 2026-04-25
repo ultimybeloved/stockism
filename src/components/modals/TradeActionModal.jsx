@@ -227,7 +227,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
   const maxSharesFractional = getMaxShares();
   const maxSharesWhole = Math.floor(maxSharesFractional);
-  const maxShares = partialShares ? maxSharesFractional : maxSharesWhole;
+  // Selling/covering: always allow full fractional position — prevents getting stuck
+  // with unsellable dust shares when partial toggle is off.
+  const maxShares = (partialShares || action === 'sell' || action === 'cover')
+    ? maxSharesFractional
+    : maxSharesWhole;
   const { bid, ask, spread } = getDynamicPrices(amount || 1, action);
 
   const getActionConfig = () => {
@@ -310,7 +314,8 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
 
   const handleSubmit = async () => {
-    if (config.disabled || amount < (partialShares ? 0.01 : 1) || amount > maxShares || submitting) return;
+    const minAmount = (partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1;
+    if (config.disabled || amount < minAmount || amount > maxShares || submitting) return;
 
     if (isHalted) {
       showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
@@ -604,7 +609,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < (partialShares ? 0.01 : 1) || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={config.disabled || amount < ((partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1) || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
