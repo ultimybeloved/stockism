@@ -3148,8 +3148,8 @@ export default function App() {
               </svg>
             </button>
             {showPredictions && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
+              <div className="grid grid-cols-2 gap-4 animate-fadeIn">
+                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4).map(prediction => {
                   const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
                     const costBasis = userData?.costBasis?.[ticker] || 0;
                     return sum + (costBasis * shares);
