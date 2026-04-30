@@ -81,18 +81,20 @@ export const getReviewChanges = (priceHistory, characters) => {
     const history = priceHistory[char.ticker];
     if (!history || history.length === 0) continue;
 
+    // Only show stocks the admin manually adjusted — not trailers or automatic movements
+    const hasAdminAdjust = history.some(
+      e => e.source === 'admin_adjust' && e.timestamp >= start && e.timestamp <= end
+    );
+    if (!hasAdminAdjust) continue;
+
     // Find price just before halt started (last entry before start)
     let preBefore = null;
     // Find price at end of halt (last entry at or before end)
     let postAfter = null;
 
     for (const entry of history) {
-      if (entry.timestamp < start) {
-        preBefore = entry.price;
-      }
-      if (entry.timestamp <= end) {
-        postAfter = entry.price;
-      }
+      if (entry.timestamp < start) preBefore = entry.price;
+      if (entry.timestamp <= end) postAfter = entry.price;
     }
 
     if (preBefore == null || postAfter == null) continue;

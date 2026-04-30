@@ -680,7 +680,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
         marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
           timestamp,
-          price: settledRelatedPrice
+          price: settledRelatedPrice,
+          source: 'trailing'
         });
 
         // Recursively apply trailing effects with shared visited set (no cloning)
@@ -730,7 +731,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           now = lastTimestamp + 1;
         }
 
-        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
+        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice, source: 'admin_adjust' }];
 
         console.log(`Adding price point for ${character.ticker}:`, { timestamp: now, price: targetPrice });
         console.log(`History length: ${currentHistory.length} → ${updatedHistory.length}`);
@@ -750,7 +751,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       } else {
         await setDoc(marketRef, {
           prices: { [character.ticker]: targetPrice },
-          priceHistory: { [character.ticker]: [{ timestamp: now, price: targetPrice }] }
+          priceHistory: { [character.ticker]: [{ timestamp: now, price: targetPrice, source: 'admin_adjust' }] }
         }, { merge: true });
       }
 
@@ -838,7 +839,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         console.log('Last entry:', currentHistory[currentHistory.length - 1]);
 
         // Add new price to history
-        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice }];
+        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice, source: 'admin_adjust' }];
 
         console.log('New history length:', updatedHistory.length);
         console.log('New last entry:', updatedHistory[updatedHistory.length - 1]);
@@ -859,7 +860,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         // Market doc doesn't exist, create it with this price
         await setDoc(marketRef, {
           prices: { [selectedTicker]: targetPrice },
-          priceHistory: { [selectedTicker]: [{ timestamp: now, price: targetPrice }] }
+          priceHistory: { [selectedTicker]: [{ timestamp: now, price: targetPrice, source: 'admin_adjust' }] }
         }, { merge: true });
       }
 
