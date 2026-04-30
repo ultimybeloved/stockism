@@ -2893,6 +2893,89 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
+  // Override previous payout decision — pays correct winners regardless of paid status
+  const handleOverridePayout = async () => {
+    if (recoveryBets.length === 0) {
+      showMessage('error', 'No bets loaded — scan first');
+      return;
+    }
+    if (!recoveryWinner) {
+      showMessage('error', 'Select the correct winning option');
+      return;
+    }
+
+    const predId = recoveryPredictionId.trim();
+    const totalPool = recoveryBets.reduce((sum, bet) => sum + bet.amount, 0);
+    const winningPool = recoveryBets
+      .filter(b => b.option === recoveryWinner)
+      .reduce((sum, bet) => sum + bet.amount, 0);
+
+    if (winningPool === 0) {
+      showMessage('error', 'No bets found for that option');
+      return;
+    }
+
+    if (!window.confirm(
+      `Pay correct winners for "${recoveryWinner}"?\n\n` +
+      `Total pool: $${totalPool.toFixed(2)}\nWinning pool: $${winningPool.toFixed(2)}\n` +
+      `${recoveryBets.filter(b => b.option === recoveryWinner).length} winners will be paid.\n\n` +
+      `This ignores any previous payout. Losers are NOT touched.`
+    )) return;
+
+    setLoading(true);
+    try {
+      let paid = 0;
+      for (const bet of recoveryBets) {
+        if (bet.option !== recoveryWinner) continue;
+        const userShare = bet.amount / winningPool;
+        const payout = Math.round(userShare * totalPool * 100) / 100;
+
+        const newPredictionWins = (bet.predictionWins || 0) + 1;
+        const currentAchievements = bet.achievements || [];
+        const newAchievements = [];
+        if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) newAchievements.push('ORACLE');
+        if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) newAchievements.push('PROPHET');
+        if (winningPool > 0 && totalPool > 0 && (winningPool / totalPool) < 0.20 && !currentAchievements.includes('UNDERDOG')) newAchievements.push('UNDERDOG');
+
+        const updateData = {
+          cash: bet.cash + payout,
+          [`bets.${predId}.paid`]: true,
+          [`bets.${predId}.payout`]: payout,
+          predictionWins: newPredictionWins
+        };
+        if (newAchievements.length > 0) updateData.achievements = arrayUnion(...newAchievements);
+
+        try {
+          await updateDoc(doc(db, 'users', bet.userId), updateData);
+          paid++;
+        } catch (err) {
+          console.error('Failed to pay:', bet.displayName, err);
+        }
+      }
+
+      // Update prediction outcome in Firestore to reflect the corrected winner
+      const predictionsRef = doc(db, 'predictions', 'current');
+      const snap = await getDoc(predictionsRef);
+      if (snap.exists()) {
+        const currentList = snap.data().list || [];
+        const updatedList = currentList.map(p =>
+          p.id === predId ? { ...p, resolved: true, outcome: recoveryWinner } : p
+        );
+        await updateDoc(predictionsRef, { list: updatedList });
+      }
+
+      showMessage('success', `Paid ${paid} correct winners for "${recoveryWinner}"`);
+      setRecoveryBets([]);
+      setRecoveryWinner('');
+      setRecoveryOptions([]);
+      setRecoveryPredictionId('');
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Scan for future price history entries
   const handleScanFutureEntries = async () => {
     setScanningHistory(true);
@@ -4048,6 +4131,79 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* SECTION 5b: Override Previous Decision */}
+              <div className={`p-4 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
+                <h3 className="font-semibold text-red-500 mb-1">⚠️ Override Previous Decision</h3>
+                <p className={`text-xs ${mutedClass} mb-3`}>
+                  Use this if you paid out the wrong winner. Scan the prediction, select the correct winner, and pay them — regardless of previous payout status.
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Prediction ID</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={recoveryPredictionId}
+                        onChange={e => { setRecoveryPredictionId(e.target.value); setRecoveryBets([]); setRecoveryOptions([]); setRecoveryWinner(''); }}
+                        placeholder="e.g. pred_1"
+                        className={`flex-1 px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+                      />
+                      <button
+                        onClick={handleScanForBets}
+                        disabled={loading || !recoveryPredictionId.trim()}
+                        className="px-4 py-2 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded-sm disabled:opacity-50 font-semibold"
+                      >
+                        {loading ? '...' : 'Scan'}
+                      </button>
+                    </div>
+                    <p className={`text-xs ${mutedClass} mt-1`}>Find the ID in the All Predictions list above (e.g. pred_1, pred_2)</p>
+                  </div>
+
+                  {recoveryBets.length > 0 && (
+                    <>
+                      <div className={`p-2 rounded-sm text-xs ${mutedClass} ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                        Found {recoveryBets.length} bets •
+                        Total pool: ${recoveryBets.reduce((s, b) => s + b.amount, 0).toFixed(2)} •
+                        Already paid: {recoveryBets.filter(b => b.paid).length}
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Correct Winner</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {recoveryOptions.map(opt => (
+                            <button
+                              key={opt}
+                              onClick={() => setRecoveryWinner(opt)}
+                              className={`p-3 rounded-sm border-2 font-semibold transition-all ${
+                                recoveryWinner === opt
+                                  ? 'border-red-500 bg-red-500 text-white'
+                                  : darkMode ? 'border-slate-600 text-slate-300 hover:border-red-500' : 'border-slate-300 hover:border-red-400'
+                              }`}
+                            >
+                              {opt}
+                              <span className={`block text-xs font-normal mt-0.5 ${recoveryWinner === opt ? 'text-red-100' : mutedClass}`}>
+                                ${recoveryBets.filter(b => b.option === opt).reduce((s, b) => s + b.amount, 0).toFixed(0)} pool
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {recoveryWinner && (
+                        <button
+                          onClick={handleOverridePayout}
+                          disabled={loading}
+                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                        >
+                          {loading ? 'Processing...' : `⚠️ Pay correct winners: "${recoveryWinner}"`}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* SECTION 5: Bets Summary */}
