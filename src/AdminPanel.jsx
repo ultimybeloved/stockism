@@ -4142,15 +4142,23 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
                 <div className="space-y-3">
                   <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Prediction ID</label>
+                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Prediction</label>
                     <div className="flex gap-2">
-                      <input
-                        type="text"
+                      <select
                         value={recoveryPredictionId}
                         onChange={e => { setRecoveryPredictionId(e.target.value); setRecoveryBets([]); setRecoveryOptions([]); setRecoveryWinner(''); }}
-                        placeholder="e.g. pred_1"
-                        className={`flex-1 px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                      />
+                        className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
+                      >
+                        <option value="">-- Choose prediction --</option>
+                        {predictions.map(p => {
+                          const status = p.resolved ? '✅' : p.endsAt < Date.now() ? '🔒' : '⏳';
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {status} {p.question}
+                            </option>
+                          );
+                        })}
+                      </select>
                       <button
                         onClick={handleScanForBets}
                         disabled={loading || !recoveryPredictionId.trim()}
@@ -4159,7 +4167,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                         {loading ? '...' : 'Scan'}
                       </button>
                     </div>
-                    <p className={`text-xs ${mutedClass} mt-1`}>Find the ID in the All Predictions list above (e.g. pred_1, pred_2)</p>
                   </div>
 
                   {recoveryBets.length > 0 && (
