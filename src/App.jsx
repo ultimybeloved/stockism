@@ -538,6 +538,9 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
             )}
           </div>
           <h3 className={`font-semibold ${textClass}`}>{prediction.question}</h3>
+          {prediction.mayExtend && !prediction.resolved && (
+            <p className="text-xs text-amber-500 mt-1">⏳ Result may take an extra week to confirm</p>
+          )}
         </div>
         <div className="text-right">
           <div className={`text-xs ${mutedClass}`}>{isActive ? 'Ends in' : 'Ended'}</div>
@@ -1054,10 +1057,22 @@ export default function App() {
     }
     return true; // Default to expanded
   });
-  const [showNewCharacters, setShowNewCharacters] = useState(() => {
-    // Initialize from localStorage based on current week
-    return loadCollapsedState('showNewCharacters', getWeekIdentifier());
-  });
+  // Compute new characters for header notification
+  const newCharactersWithData = useMemo(() => {
+    const weekStart = getWeekStart();
+    return CHARACTERS.filter(char => {
+      const isNewThisWeek = new Date(char.dateAdded) >= weekStart;
+      const isAvailable = !char.ipoRequired || launchedTickers.includes(char.ticker);
+      return isNewThisWeek && isAvailable;
+    }).map(char => {
+      const currentPrice = prices[char.ticker] || char.basePrice;
+      const history = priceHistory[char.ticker] || [];
+      const weekStartTime = weekStart.getTime();
+      const startPrice = history.find(h => h.timestamp >= weekStartTime)?.price || history[0]?.price || currentPrice;
+      const weeklyChange = startPrice > 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
+      return { ...char, currentPrice, weeklyChange };
+    });
+  }, [prices, priceHistory, launchedTickers]);
 
   // Color blind mode helpers - returns accessible colors
   const getColorBlindColors = useCallback((isPositive) => {
@@ -1611,30 +1626,6 @@ export default function App() {
     const predictionsId = getPredictionsIdentifier(predictions);
     saveCollapsedState('showPredictions', showPredictions, predictionsId);
   }, [showPredictions, predictions]);
-
-  // Handle new characters collapse state - reset on new week
-  useEffect(() => {
-    const currentWeek = getWeekIdentifier();
-    const stored = localStorage.getItem('showNewCharacters');
-
-    if (stored) {
-      try {
-        const { identifier } = JSON.parse(stored);
-        // If week has changed, reset to expanded
-        if (identifier !== currentWeek) {
-          setShowNewCharacters(true);
-        }
-      } catch {
-        // Ignore errors
-      }
-    }
-  }, []); // Only run on mount
-
-  // Persist new characters collapse state
-  useEffect(() => {
-    const currentWeek = getWeekIdentifier();
-    saveCollapsedState('showNewCharacters', showNewCharacters, currentWeek);
-  }, [showNewCharacters]);
 
   // Auto-process payouts when prediction is resolved
   useEffect(() => {
@@ -3025,6 +3016,7 @@ export default function App() {
           marketData={marketData}
           notificationCount={userNotifications.filter(n => !n.read).length}
           onToggleNotifications={() => setShowNotificationPanel(prev => !prev)}
+          newCharacters={newCharactersWithData}
         >
           {showInAppBanner && (
             <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
@@ -3132,68 +3124,11 @@ export default function App() {
           </div>
         )}
 
-        {/* Weekly Predictions & New Characters */}
-        <div className="mb-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Predictions - takes 2 columns */}
-          {predictions.length > 0 && (
-            <div className="lg:col-span-2">
-              <button
-                onClick={() => setShowPredictions(!showPredictions)}
-                className={`w-full flex items-center justify-between px-4 py-3 mb-3 rounded-sm transition-all ${
-                  darkMode
-                    ? 'bg-zinc-900/50 hover:bg-zinc-800/70 border border-zinc-800'
-                    : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
-                }`}
-              >
-                <span className={`text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
-                  🔮 Weekly Predictions
-                </span>
-                <svg
-                  className={`w-5 h-5 transition-transform ${showPredictions ? 'rotate-180' : ''} ${mutedClass}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showPredictions && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
-                  {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
-                    // Calculate bet limit = total $ spent on stocks, capped by cash
-                    const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
-                      const costBasis = userData?.costBasis?.[ticker] || 0;
-                      return sum + (costBasis * shares);
-                    }, 0);
-                    const totalShortMargin = Object.values(userData?.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
-                    const totalInvested = totalSpentOnStocks + totalShortMargin;
-                    const betLimit = Math.min(totalInvested, userData?.cash || 0);
-
-                    return (
-                      <PredictionCard
-                        key={prediction.id}
-                        prediction={prediction}
-                        userBet={getUserBet(prediction.id)}
-                        onBet={handleBet}
-                        onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
-                        darkMode={darkMode}
-                        isGuest={isGuest}
-                        betLimit={betLimit}
-                        isAdmin={user && ADMIN_UIDS.includes(user.uid)}
-                        onHide={handleHidePrediction}
-                        userData={userData}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* New Characters Board - takes 1 column */}
-          <div className={predictions.length === 0 ? 'lg:col-span-3' : ''}>
+        {/* Weekly Predictions */}
+        {predictions.length > 0 && (
+          <div className="mb-4">
             <button
-              onClick={() => setShowNewCharacters(!showNewCharacters)}
+              onClick={() => setShowPredictions(!showPredictions)}
               className={`w-full flex items-center justify-between px-4 py-3 mb-3 rounded-sm transition-all ${
                 darkMode
                   ? 'bg-zinc-900/50 hover:bg-zinc-800/70 border border-zinc-800'
@@ -3201,10 +3136,10 @@ export default function App() {
               }`}
             >
               <span className={`text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
-                ✨ New This Week
+                🔮 Weekly Predictions
               </span>
               <svg
-                className={`w-5 h-5 transition-transform ${showNewCharacters ? 'rotate-180' : ''} ${mutedClass}`}
+                className={`w-5 h-5 transition-transform ${showPredictions ? 'rotate-180' : ''} ${mutedClass}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -3212,19 +3147,37 @@ export default function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {showNewCharacters && (
-              <div className="animate-fadeIn">
-                <NewCharactersBoard
-                  prices={prices}
-                  priceHistory={priceHistory}
-                  darkMode={darkMode}
-                  colorBlindMode={userData?.colorBlindMode || false}
-                  launchedTickers={launchedTickers}
-                />
+            {showPredictions && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).map(prediction => {
+                  const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
+                    const costBasis = userData?.costBasis?.[ticker] || 0;
+                    return sum + (costBasis * shares);
+                  }, 0);
+                  const totalShortMargin = Object.values(userData?.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
+                  const totalInvested = totalSpentOnStocks + totalShortMargin;
+                  const betLimit = Math.min(totalInvested, userData?.cash || 0);
+
+                  return (
+                    <PredictionCard
+                      key={prediction.id}
+                      prediction={prediction}
+                      userBet={getUserBet(prediction.id)}
+                      onBet={handleBet}
+                      onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
+                      darkMode={darkMode}
+                      isGuest={isGuest}
+                      betLimit={betLimit}
+                      isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+                      onHide={handleHidePrediction}
+                      userData={userData}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

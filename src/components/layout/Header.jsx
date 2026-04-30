@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
@@ -23,10 +23,22 @@ const LadderIcon = () => (
   </svg>
 );
 
-const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications }) => {
+const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters = [] }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [showNewCharsPopout, setShowNewCharsPopout] = useState(false);
+  const newCharsRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (newCharsRef.current && !newCharsRef.current.contains(e.target)) {
+        setShowNewCharsPopout(false);
+      }
+    };
+    if (showNewCharsPopout) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNewCharsPopout]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -145,6 +157,59 @@ const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGue
                   </span>
                 )}
               </button>
+            )}
+
+            {/* New Characters Notification */}
+            {newCharacters.length > 0 && (
+              <div className="relative" ref={newCharsRef}>
+                <button
+                  onClick={() => setShowNewCharsPopout(prev => !prev)}
+                  className={`p-2 rounded-md transition-colors relative ${
+                    darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                  }`}
+                  aria-label="New characters this week"
+                  title="New characters this week"
+                >
+                  ✨
+                  <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
+                    {newCharacters.length}
+                  </span>
+                </button>
+
+                {showNewCharsPopout && (
+                  <div className={`absolute right-0 top-full mt-2 w-72 rounded-sm border shadow-lg z-50 ${
+                    darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'
+                  }`}>
+                    <div className={`px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${
+                      darkMode ? 'border-zinc-700 text-zinc-400' : 'border-amber-200 text-zinc-500'
+                    }`}>
+                      ✨ New This Week
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {newCharacters.map(char => (
+                        <div key={char.ticker} className={`flex items-center justify-between px-3 py-2 border-b last:border-0 ${
+                          darkMode ? 'border-zinc-800' : 'border-amber-100'
+                        }`}>
+                          <div className="min-w-0 flex-1">
+                            <span className={`text-sm font-semibold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>{char.name}</span>
+                            <span className={`text-xs ml-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>${char.ticker}</span>
+                          </div>
+                          <div className="text-right ml-2 shrink-0">
+                            <span className={`text-sm font-bold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>${(char.currentPrice || 0).toFixed(2)}</span>
+                            <span className={`text-xs ml-1 ${
+                              userData?.colorBlindMode
+                                ? (char.weeklyChange >= 0 ? 'text-teal-500' : 'text-purple-500')
+                                : (char.weeklyChange >= 0 ? 'text-green-500' : 'text-red-500')
+                            }`}>
+                              {char.weeklyChange >= 0 ? '▲' : '▼'}{Math.abs(char.weeklyChange || 0).toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Admin Panel (Admin Only) */}

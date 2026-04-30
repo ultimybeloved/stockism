@@ -33,8 +33,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   // Create prediction form state
   const [question, setQuestion] = useState('');
-  const [options, setOptions] = useState(['', '', '', '', '', '']);
+  const [options, setOptions] = useState(['Yes', 'No', '', '', '', '']);
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
+  const [mayExtend, setMayExtend] = useState(false);
   
   // Calculate end time at 13:55 UTC (7:55 AM CST) on target day (5 min before chapter release)
   const getEndTime = (days) => {
@@ -1079,7 +1080,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         resolved: false,
         outcome: null,
         payoutsProcessed: false,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        ...(mayExtend && { mayExtend: true })
       };
 
       await updateDoc(predictionsRef, {
@@ -1088,8 +1090,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       showMessage('success', `Created prediction: "${question.trim()}"`);
       setQuestion('');
-      setOptions(['', '', '', '', '', '']);
+      setOptions(['Yes', 'No', '', '', '', '']);
       setDaysUntilEnd(7);
+      setMayExtend(false);
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to create prediction');
@@ -3995,6 +3998,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     <p className={`text-xs ${mutedClass} mt-1`}>
                       Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
                     </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="mayExtend"
+                      checked={mayExtend}
+                      onChange={e => setMayExtend(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
+                      ⏳ Result may need an extra week to confirm
+                    </label>
                   </div>
 
                   <button
