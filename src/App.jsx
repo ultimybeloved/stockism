@@ -3147,9 +3147,12 @@ export default function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {showPredictions && (
-              <div className="grid grid-cols-2 gap-4 animate-fadeIn">
-                {predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4).map(prediction => {
+            {showPredictions && (() => {
+              const visiblePredictions = predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
+              const colClass = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4'][visiblePredictions.length - 1] || 'grid-cols-1';
+              return (
+              <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
+                {visiblePredictions.map(prediction => {
                   const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
                     const costBasis = userData?.costBasis?.[ticker] || 0;
                     return sum + (costBasis * shares);
@@ -3175,7 +3178,8 @@ export default function App() {
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
