@@ -2876,8 +2876,10 @@ export default function App() {
       }
 
       // Search filter
-      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.ticker.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = c.name.toLowerCase().includes(q) ||
+        c.ticker.toLowerCase().includes(q) ||
+        (c.altNames || []).some(n => n.toLowerCase().includes(q));
       if (!matchesSearch) return false;
 
       // Hide characters that require IPO and haven't launched yet

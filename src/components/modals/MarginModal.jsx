@@ -241,7 +241,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
                   <li>• Tier based on <span className="text-orange-500">peak portfolio achievement</span> (&lt;$7.5k, $7.5k-$15k, $15k-$30k, $30k+)</li>
                   <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
                   <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
-                  <li>• Sale proceeds <span className="text-orange-500">pay debt first</span>, then become cash</li>
+                  <li>• Sale proceeds <span className="text-orange-500">become cash</span> directly</li>
                   <li>• Keep equity <span className="text-orange-500">above 30%</span> or face margin call</li>
                   <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to or below 25%</li>
                 </ul>
@@ -350,7 +350,7 @@ const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnab
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
                   Your tier determines max borrowable: <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> = {formatCurrency(marginStatus.maxBorrowable)}.
-                  When you sell stocks, proceeds <span className="text-orange-500 font-semibold">pay down debt first</span>, then become cash.
+                  When you sell stocks, proceeds <span className="text-orange-500 font-semibold">become cash</span> directly.
                 </p>
               </div>
 
