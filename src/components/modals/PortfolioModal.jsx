@@ -701,7 +701,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               min="0.01"
                               step="0.01"
                               max={item.shares}
-                              value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 0.01)}
+                              value={sellAmounts[item.ticker] === '' ? '' : (sellAmounts[item.ticker] || 1)}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === '') {
@@ -717,7 +717,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               onBlur={() => {
                                 const current = sellAmounts[item.ticker];
                                 if (current === '' || current < 0.01) {
-                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: 0.01 }));
+                                  setSellAmounts(prev => ({ ...prev, [item.ticker]: 1 }));
                                 }
                               }}
                               onClick={(e) => e.stopPropagation()}
@@ -726,7 +726,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
                               }`}
                             />
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, Math.max(0.01, sellAmounts[item.ticker] || 0.01)); }}
+                              onClick={(e) => { e.stopPropagation(); handleSell(item.ticker, Math.max(0.01, sellAmounts[item.ticker] || 1)); }}
                               className="px-4 py-1.5 text-xs font-semibold uppercase bg-red-600 hover:bg-red-700 text-white rounded-sm"
                             >
                               Sell
