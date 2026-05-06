@@ -954,6 +954,11 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
 
   if (newNameLower === oldNameLower) throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
 
+  const NAME_CHANGE_COST = 10000;
+  if ((userData.balance || 0) < NAME_CHANGE_COST) {
+    throw new functions.https.HttpsError('failed-precondition', `Name change costs $${NAME_CHANGE_COST.toLocaleString()}. You don't have enough cash.`);
+  }
+
   // Check uniqueness
   const existingDoc = await db.collection('usernames').doc(newNameLower).get();
   if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
@@ -966,6 +971,7 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
     displayNameLower: newNameLower,
     previousDisplayName: oldDisplayName,
     nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
+    balance: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
   });
   await batch.commit();
 
