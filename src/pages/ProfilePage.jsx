@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, changeDisplayNameFunction } from '../firebase';
 import { useAppContext } from '../context/AppContext';
 import { CREW_MAP } from '../crews';
 import { formatCurrency, formatChange } from '../utils/formatters';
@@ -13,6 +13,10 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const [deleteStep, setDeleteStep] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [confirmUsername, setConfirmUsername] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
 
   const [chartTimeRange, setChartTimeRange] = useState('1m');
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -200,6 +204,25 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
     return myShare * totalPool;
   };
 
+  const nameChangedAt = userData?.nameChangedAt?.toDate?.() || null;
+  const cooldownMs = 14 * 24 * 60 * 60 * 1000;
+  const msSinceChange = nameChangedAt ? Date.now() - nameChangedAt.getTime() : Infinity;
+  const daysUntilChange = msSinceChange < cooldownMs ? Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000)) : 0;
+  const canChangeName = daysUntilChange === 0;
+
+  const handleNameSave = async () => {
+    setNameError('');
+    setNameSaving(true);
+    try {
+      await changeDisplayNameFunction({ displayName: newName });
+      setEditingName(false);
+      setNewName('');
+    } catch (err) {
+      setNameError(err.message || 'Failed to change name.');
+    }
+    setNameSaving(false);
+  };
+
   if (!user || !userData) {
     return (
       <div className="max-w-2xl mx-auto p-4">
@@ -216,6 +239,49 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
           <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
+
+          {!editingName ? (
+            <div className="mt-3">
+              {canChangeName ? (
+                <button
+                  onClick={() => { setEditingName(true); setNewName(userData?.displayName || ''); setNameError(''); }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
+                >
+                  ✏️ Change name — $10,000
+                </button>
+              ) : (
+                <p className={`text-xs ${mutedClass}`}>Name change available in {daysUntilChange} day{daysUntilChange === 1 ? '' : 's'}</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                maxLength={20}
+                placeholder="New username"
+                className={`w-full px-3 py-1.5 text-sm rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-300 text-slate-900'} focus:outline-none focus:border-orange-500`}
+              />
+              {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleNameSave}
+                  disabled={nameSaving || !newName.trim()}
+                  className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
+                >
+                  {nameSaving ? 'Saving…' : 'Confirm — $10,000'}
+                </button>
+                <button
+                  onClick={() => { setEditingName(false); setNameError(''); }}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className={`text-xs ${mutedClass}`}>3–20 chars, letters/numbers/underscores. Once every 2 weeks.</p>
+            </div>
+          )}
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
