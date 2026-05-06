@@ -10,7 +10,6 @@ const LeaderboardPage = () => {
   const [leaders, setLeaders] = useState([]);
   const [crewLeaders, setCrewLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [crewLoading, setCrewLoading] = useState(false);
   const [crewFilter, setCrewFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('value');
   const [userRank, setUserRank] = useState(null);
@@ -209,7 +208,7 @@ const LeaderboardPage = () => {
             </div>
           )}
 
-          {(loading || crewLoading) ? (
+          {loading ? (
             <div className={`text-center py-8 ${mutedClass}`}>Loading...</div>
           ) : filteredLeaders.length === 0 ? (
             <div className={`text-center py-8 ${mutedClass}`}>
@@ -250,6 +249,10 @@ const LeaderboardPage = () => {
                         </span>
                         <PinDisplay userData={leader} size="sm" />
                       </div>
+                      {leader.previousDisplayName && leader.nameChangedAt &&
+                        Date.now() - (leader.nameChangedAt._seconds ? leader.nameChangedAt._seconds * 1000 : leader.nameChangedAt) < 30 * 24 * 60 * 60 * 1000 && (
+                        <div className={`text-xs ${mutedClass}`}>formerly {leader.previousDisplayName}</div>
+                      )}
                       <div className={`text-xs ${mutedClass}`}>
                         {leader.holdingsCount || 0} characters
                       </div>

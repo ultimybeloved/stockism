@@ -255,6 +255,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                         </span>
                         <PinDisplay userData={leader} size="sm" />
                       </div>
+                      {leader.previousDisplayName && leader.nameChangedAt &&
+                        Date.now() - (leader.nameChangedAt._seconds ? leader.nameChangedAt._seconds * 1000 : leader.nameChangedAt) < 30 * 24 * 60 * 60 * 1000 && (
+                        <div className={`text-xs ${mutedClass}`}>formerly {leader.previousDisplayName}</div>
+                      )}
                       <div className={`text-xs ${mutedClass}`}>
                         {leader.holdingsCount || 0} characters
                       </div>

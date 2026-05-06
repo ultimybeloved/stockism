@@ -908,6 +908,70 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
   };
 });
 
+exports.changeDisplayName = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const newDisplayName = data.displayName;
+
+  if (!newDisplayName || typeof newDisplayName !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Display name is required.');
+  }
+
+  const trimmed = newDisplayName.trim();
+
+  if (trimmed.length < 3) throw new functions.https.HttpsError('invalid-argument', 'Username must be at least 3 characters.');
+  if (trimmed.length > 20) throw new functions.https.HttpsError('invalid-argument', 'Username must be 20 characters or less.');
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username can only contain letters, numbers, and underscores.');
+
+  const newNameLower = trimmed.toLowerCase();
+
+  if (isBannedUsername(newNameLower)) throw new functions.https.HttpsError('invalid-argument', 'This username is not allowed.');
+  if (containsProfanity(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username contains inappropriate language.');
+
+  const userRef = db.collection('users').doc(uid);
+  const userDoc = await userRef.get();
+
+  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+  const userData = userDoc.data();
+  if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
+
+  // Cooldown: 14 days between changes
+  if (userData.nameChangedAt) {
+    const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
+    const cooldownMs = 14 * 24 * 60 * 60 * 1000;
+    if (msSinceChange < cooldownMs) {
+      const daysLeft = Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000));
+      throw new functions.https.HttpsError('failed-precondition', `You can change your name again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
+    }
+  }
+
+  const oldDisplayName = userData.displayName;
+  const oldNameLower = userData.displayNameLower;
+
+  if (newNameLower === oldNameLower) throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
+
+  // Check uniqueness
+  const existingDoc = await db.collection('usernames').doc(newNameLower).get();
+  if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
+
+  const batch = db.batch();
+  batch.delete(db.collection('usernames').doc(oldNameLower));
+  batch.set(db.collection('usernames').doc(newNameLower), { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+  batch.update(userRef, {
+    displayName: trimmed,
+    displayNameLower: newNameLower,
+    previousDisplayName: oldDisplayName,
+    nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+
+  return { success: true };
+});
+
 /**
  * Deletes a user account and all associated data.
  *
@@ -1123,7 +1187,9 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             achievements: userData.achievements || [],
             displayedShopPins: userData.displayedShopPins || [],
             weeklyGain,
-            weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100
+            weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100,
+            previousDisplayName: userData.previousDisplayName || null,
+            nameChangedAt: userData.nameChangedAt || null,
           });
         });
 
@@ -1169,7 +1235,9 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             displayCrewPin: userData.displayCrewPin || null,
             displayedAchievementPins: userData.displayedAchievementPins || [],
             achievements: userData.achievements || [],
-            displayedShopPins: userData.displayedShopPins || []
+            displayedShopPins: userData.displayedShopPins || [],
+            previousDisplayName: userData.previousDisplayName || null,
+            nameChangedAt: userData.nameChangedAt || null,
           });
         });
       }
@@ -1187,14 +1255,17 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
       } else if (sortBy !== 'weeklyGain') {
         // Caller is outside top 50 — count how many non-bot users have a higher portfolioValue
         try {
-          const callerDoc = await db.collection('users').doc(context.auth.uid).get();
-          if (callerDoc.exists && !callerDoc.data().isBot) {
-            const callerValue = callerDoc.data().portfolioValue || 0;
-            let rankQuery = db.collection('users').where('portfolioValue', '>', callerValue);
-            if (crew) rankQuery = rankQuery.where('crew', '==', crew);
-            const higherSnapshot = await rankQuery.get();
-            const higherCount = higherSnapshot.docs.filter(d => !d.data().isBot).length;
-            callerRank = higherCount + 1;
+          const callerDoc = await db.collection('users').doc(context.auth.uid).select('isBot', 'portfolioValue').get();
+          if (callerDoc.exists) {
+            const callerData = callerDoc.data();
+            if (!callerData.isBot) {
+              const callerValue = callerData.portfolioValue || 0;
+              let rankQuery = db.collection('users').where('portfolioValue', '>', callerValue).select('isBot');
+              if (crew) rankQuery = rankQuery.where('crew', '==', crew);
+              const higherSnapshot = await rankQuery.get();
+              const higherCount = higherSnapshot.docs.filter(d => !d.data().isBot).length;
+              callerRank = higherCount + 1;
+            }
           }
         } catch (e) {
           // Leave callerRank null if lookup fails
