@@ -84,6 +84,11 @@ const LeaderboardPage = () => {
     return crewLeaders;
   }, [leaders, crewLeaders, crewFilter]);
 
+  const userInList = useMemo(
+    () => filteredLeaders.some(leader => user && leader.id === user.uid),
+    [filteredLeaders, user]
+  );
+
 
   // Track whether user's row has scrolled above or below the visible area
   useEffect(() => {
@@ -186,7 +191,7 @@ const LeaderboardPage = () => {
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
           {/* Sticky Header - shown when user row has scrolled above viewport */}
-          {user && userRank && userRowPosition === 'above' && (
+          {user && userRank && userInList && userRowPosition === 'above' && (
             <div
               className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
               style={{
@@ -270,7 +275,7 @@ const LeaderboardPage = () => {
           )}
 
           {/* Sticky Footer - shown when user row is below viewport */}
-          {user && userRank && !loading && userRowPosition === 'below' && (
+          {user && userRank && !loading && (userRowPosition === 'below' || !userInList) && (
             <div
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
