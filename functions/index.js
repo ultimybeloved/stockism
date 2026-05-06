@@ -1184,6 +1184,21 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
       const callerIndex = leaderboard.findIndex(entry => entry.userId === context.auth.uid);
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
+      } else if (sortBy !== 'weeklyGain') {
+        // Caller is outside top 50 — count how many non-bot users have a higher portfolioValue
+        try {
+          const callerDoc = await db.collection('users').doc(context.auth.uid).get();
+          if (callerDoc.exists && !callerDoc.data().isBot) {
+            const callerValue = callerDoc.data().portfolioValue || 0;
+            let rankQuery = db.collection('users').where('portfolioValue', '>', callerValue);
+            if (crew) rankQuery = rankQuery.where('crew', '==', crew);
+            const higherSnapshot = await rankQuery.get();
+            const higherCount = higherSnapshot.docs.filter(d => !d.data().isBot).length;
+            callerRank = higherCount + 1;
+          }
+        } catch (e) {
+          // Leave callerRank null if lookup fails
+        }
       }
     }
 
@@ -2176,7 +2191,7 @@ exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
   // - 100+ shares of any price
   if ((shares >= 50 && price >= 35) || shares >= 100) {
     const embed = {
-      title: '🚨 Large Trade Detected',
+      title: '🐋 Whale Alert',
       description: `A significant ${type.toLowerCase()} order was executed`,
       color: type === 'BUY' ? 0x44FF44 : 0xFF4444,
       fields: [
@@ -2445,7 +2460,7 @@ exports.ipoClosingAlert = functions.https.onCall(async (data, context) => {
       }
     ],
     footer: {
-      text: 'Trading is now live at +30% from IPO price!'
+      text: 'Trading is now live at +15% from IPO price!'
     },
     timestamp: new Date().toISOString()
   };
@@ -5770,46 +5785,6 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
         totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1
       }, { merge: true });
 
-      // Send Discord notification for big wins
-      if (won && (amount >= 5000 || userData.currentStreak >= 5)) {
-        try {
-          const embed = {
-            color: 0xFFD700, // Gold
-            title: '🎰 Ladder Game Big Win!',
-            description: `**${username}** just ${userData.currentStreak >= 5 ? 'hit a hot streak' : 'made a huge bet'}!`,
-            fields: [
-              {
-                name: 'Bet Amount',
-                value: `$${amount.toLocaleString()}`,
-                inline: true
-              },
-              {
-                name: 'Payout',
-                value: `$${payout.toLocaleString()}`,
-                inline: true
-              },
-              {
-                name: 'Current Streak',
-                value: `${userData.currentStreak} win${userData.currentStreak === 1 ? '' : 's'}`,
-                inline: true
-              },
-              {
-                name: 'New Balance',
-                value: `$${userData.balance.toLocaleString()}`,
-                inline: true
-              }
-            ],
-            timestamp: new Date().toISOString()
-          };
-
-          // Send asynchronously without blocking the transaction
-          sendDiscordMessage(null, [embed]).catch(err => {
-            console.error('Failed to send ladder game Discord notification:', err);
-          });
-        } catch (discordError) {
-          console.error('Error preparing ladder Discord notification:', discordError);
-        }
-      }
 
       // Check ladder game achievements
       const currentAchievements = mainUser?.achievements || [];
