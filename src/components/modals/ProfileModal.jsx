@@ -135,13 +135,13 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
 
           {/* Name change */}
           {!editingName ? (
-            <div className="mt-2">
+            <div className="mt-3">
               {canChangeName ? (
                 <button
                   onClick={() => { setEditingName(true); setNewName(userData?.displayName || ''); setNameError(''); }}
-                  className={`text-xs ${mutedClass} hover:text-orange-500 underline`}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
                 >
-                  Change name — $10,000
+                  ✏️ Change name — $10,000
                 </button>
               ) : (
                 <p className={`text-xs ${mutedClass}`}>Name change available in {daysUntilChange} day{daysUntilChange === 1 ? '' : 's'}</p>
