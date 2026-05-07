@@ -79,7 +79,7 @@ const PublicProfilePage = () => {
           <div className="flex-1 min-w-0">
             <h1 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
               <span style={{ color: nameColorC?.color }}>
-                {profile.displayName}
+                {profile.displayName || 'Anonymous Trader'}
               </span>
               <PinDisplay userData={profile} size="sm" />
             </h1>
@@ -100,13 +100,13 @@ const PublicProfilePage = () => {
               <div className={`text-sm font-bold ${textClass}`}>#{profile.rank}</div>
             )}
             <div className={`text-lg font-bold ${textClass}`}>{formatCurrency(profile.portfolioValue)}</div>
-            <div className={`text-xs ${mutedClass}`}>{profile.holdingsCount} characters</div>
+            <div className={`text-xs ${mutedClass}`}>{profile.holdingsCount || 0} characters</div>
           </div>
         </div>
       </div>
 
       {/* Holdings */}
-      {profile.holdingTickers.length > 0 && (
+      {(profile.holdingTickers || []).length > 0 && (
         <div className={`${cardClass} border rounded-sm p-4`}>
           <h2 className={`font-semibold ${textClass} mb-3`}>📦 Holdings</h2>
           <div className="flex flex-wrap gap-2">
@@ -125,7 +125,7 @@ const PublicProfilePage = () => {
       )}
 
       {/* Recent Trades */}
-      {profile.trades.length > 0 && (
+      {(profile.trades || []).length > 0 && (
         <div className={`${cardClass} border rounded-sm p-4`}>
           <h2 className={`font-semibold ${textClass} mb-3`}>📈 Recent Trades</h2>
           <div className="space-y-1">
@@ -134,8 +134,9 @@ const PublicProfilePage = () => {
               const ts = trade.timestamp?._seconds
                 ? new Date(trade.timestamp._seconds * 1000)
                 : trade.timestamp?.toDate?.() || new Date(trade.timestamp);
+              const tradeKey = `${trade.ticker}-${trade.action}-${trade.timestamp?._seconds || i}`;
               return (
-                <div key={i} className={`flex items-center justify-between py-1.5 ${i > 0 ? `border-t ${darkMode ? 'border-zinc-800' : 'border-amber-100'}` : ''}`}>
+                <div key={tradeKey} className={`flex items-center justify-between py-1.5 ${i > 0 ? `border-t ${darkMode ? 'border-zinc-800' : 'border-amber-100'}` : ''}`}>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isBuy ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
                       {isBuy ? 'BUY' : 'SELL'}

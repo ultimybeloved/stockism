@@ -22,7 +22,7 @@ const LeaderboardPage = () => {
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const cacheKey = sortBy === 'weeklyGain' ? `gain_${crewFilter}` : crewFilter;
+      const cacheKey = sortBy === 'weeklyGain' ? `gain_${crewFilter}` : crewFilter === 'ALL' ? 'ALL' : crewFilter;
       if (crewCache.current[cacheKey]) {
         const cached = crewCache.current[cacheKey];
         if (crewFilter === 'ALL') {

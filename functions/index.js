@@ -971,7 +971,7 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
     displayNameLower: newNameLower,
     previousDisplayName: oldDisplayName,
     nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
-    balance: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
+    cash: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
   });
   await batch.commit();
 
@@ -5361,7 +5361,7 @@ exports.banUser = functions.https.onCall(async (data, context) => {
 
     // Send Discord alert
     try {
-      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${userData.cash.toFixed(2)} to $${rollbackCash}`);
+      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}`);
     } catch (err) {
       console.error('Failed to send Discord alert:', err);
     }
