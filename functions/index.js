@@ -1377,27 +1377,29 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     rank = higherCount + 1;
   } catch (e) { /* leave null */ }
 
-  // Last 20 trades
-  const tradesSnap = await db.collection('trades')
-    .where('uid', '==', uid)
-    .orderBy('timestamp', 'desc')
-    .limit(20)
-    .get();
-  const trades = tradesSnap.docs.map(d => {
-    const t = d.data();
-    return {
-      ticker: t.ticker,
-      action: t.action,
-      price: t.price,
-      totalValue: t.totalValue,
-      timestamp: t.timestamp,
-    };
-  });
+  // Holdings tickers only (no share counts exposed), sorted by share count for top holdings
+  const holdingsRaw = userData.holdings || {};
+  const holdingTickers = Object.keys(holdingsRaw).filter(k => (holdingsRaw[k] || 0) > 0);
+  const topHoldings = [...holdingTickers]
+    .sort((a, b) => (holdingsRaw[b] || 0) - (holdingsRaw[a] || 0))
+    .slice(0, 5);
 
-  // Holdings tickers only (no share counts)
-  const holdingTickers = userData.holdings
-    ? Object.keys(userData.holdings).filter(k => (userData.holdings[k] || 0) > 0)
-    : [];
+  // Crew rank
+  let crewRank = null;
+  if (userData.crew) {
+    try {
+      const crewSnap = await db.collection('users')
+        .where('crew', '==', userData.crew)
+        .where('portfolioValue', '>', userData.portfolioValue || 0)
+        .select('isBot')
+        .get();
+      const higherCrewCount = crewSnap.docs.filter(d => !d.data().isBot).length;
+      crewRank = higherCrewCount + 1;
+    } catch (e) { /* leave null */ }
+  }
+
+  // Portfolio history for sparkline (cap at 100 points)
+  const portfolioHistory = (userData.portfolioHistory || []).slice(-100);
 
   return {
     displayName: userData.displayName || 'Anonymous',
@@ -1405,11 +1407,25 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     isCrewHead: userData.isCrewHead || false,
     crewHeadColor: userData.crewHeadColor || null,
     activeCosmetics: userData.activeCosmetics || null,
+    displayCrewPin: userData.displayCrewPin || null,
+    displayedAchievementPins: userData.displayedAchievementPins || [],
+    displayedShopPins: userData.displayedShopPins || [],
     portfolioValue: userData.portfolioValue || 0,
     holdingsCount: holdingTickers.length,
     rank,
+    crewRank,
     holdingTickers,
-    trades,
+    topHoldings,
+    portfolioHistory,
+    achievements: userData.achievements || [],
+    stats: {
+      totalTrades: userData.totalTrades || 0,
+      predictionWins: userData.predictionWins || 0,
+      totalCheckins: userData.totalCheckins || 0,
+      checkinStreak: userData.checkinStreak || 0,
+      peakPortfolioValue: userData.peakPortfolioValue || 0,
+      createdAt: userData.createdAt || null,
+    },
   };
 });
 
