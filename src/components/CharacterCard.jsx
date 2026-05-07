@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
+import { CREWS } from '../crews';
+import { CHARACTERS } from '../characters';
 
 const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
@@ -27,6 +29,9 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+
+  const characterCrew = !isETF ? Object.values(CREWS).find(c => c.members.includes(character.ticker)) : null;
+  const characterEtfs = !isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(character.ticker)) : [];
 
   // Halt countdown timer
   useEffect(() => {
@@ -217,6 +222,21 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
+              {!isETF && (characterCrew || characterEtfs.length > 0) && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {characterCrew && (
+                    <span className={`flex items-center gap-0.5 text-[10px] px-1 rounded font-semibold ${mutedClass}`} style={{ backgroundColor: characterCrew.color + '22', border: `1px solid ${characterCrew.color}55` }}>
+                      <img src={characterCrew.icon} alt="" className="w-3 h-3 object-contain" />
+                      {characterCrew.name}
+                    </span>
+                  )}
+                  {characterEtfs.map(etf => (
+                    <span key={etf.ticker} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                      {etf.ticker}
+                    </span>
+                  ))}
+                </div>
+              )}
               {character.description && <p className={`text-xs ${mutedClass}${isETF ? ' mt-0.5' : ''}`}>{character.description}</p>}
               {isETF && character.constituents && (() => {
                 const sorted = [...character.constituents].sort((a, b) => (prices?.[b] || 0) - (prices?.[a] || 0));

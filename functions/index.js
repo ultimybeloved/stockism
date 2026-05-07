@@ -7308,7 +7308,7 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
 
 /**
  * Reroll all missions (daily + weekly) for the current week
- * Costs $500, once per week, locked if any rewards claimed
+ * Costs $50, once per week, locked if any rewards claimed
  */
 exports.rerollMissions = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -7354,17 +7354,17 @@ exports.rerollMissions = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Cannot reroll after claiming any reward.');
     }
 
-    // Check has $500
+    // Check has $50
     const cash = userData.cash || 0;
-    if (cash < 500) {
-      throw new functions.https.HttpsError('failed-precondition', 'Not enough cash. Need $500.');
+    if (cash < 50) {
+      throw new functions.https.HttpsError('failed-precondition', 'Not enough cash. Need $50.');
     }
 
     // Generate random seed offset
     const rerollSeed = Math.floor(Math.random() * 100000) + 1;
 
     const updates = {
-      cash: cash - 500,
+      cash: cash - 50,
       [`weeklyMissions.${weekId}.rerolled`]: true,
       [`weeklyMissions.${weekId}.rerollSeed`]: rerollSeed
     };

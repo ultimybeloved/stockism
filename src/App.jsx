@@ -1884,7 +1884,7 @@ export default function App() {
       const weekId = getWeekId();
       setUserData(prev => prev ? {
         ...prev,
-        cash: (prev.cash || 0) - 500,
+        cash: (prev.cash || 0) - 50,
         weeklyMissions: {
           ...prev.weeklyMissions,
           [weekId]: {

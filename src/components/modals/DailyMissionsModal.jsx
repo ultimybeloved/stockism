@@ -491,7 +491,7 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                 Resets Monday • {getDaysUntilReset()} days left • Earned: <span className="text-purple-500">{formatCurrency(weeklyEarnedRewards)}</span> / {formatCurrency(weeklyTotalRewards)}
               </p>
             )}
-            {!hasRerolled && (earnedRewards === 0 && weeklyEarnedRewards === 0) && (userData?.cash || 0) >= 500 && (
+            {!hasRerolled && (earnedRewards === 0 && weeklyEarnedRewards === 0) && (userData?.cash || 0) >= 50 && (
               <button
                 onClick={onRerollMissions}
                 disabled={rerollLoading}
@@ -502,9 +502,9 @@ const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward
                       ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
                       : 'bg-amber-200 hover:bg-amber-300 text-amber-800'
                 }`}
-                title="Reroll all missions ($500)"
+                title="Reroll all missions ($50)"
               >
-                {rerollLoading ? '...' : '🎲 Reroll $500'}
+                {rerollLoading ? '...' : '🎲 Reroll $50'}
               </button>
             )}
             {hasRerolled && (
