@@ -955,7 +955,7 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
   if (newNameLower === oldNameLower) throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
 
   const NAME_CHANGE_COST = 10000;
-  if ((userData.balance || 0) < NAME_CHANGE_COST) {
+  if ((userData.cash || 0) < NAME_CHANGE_COST) {
     throw new functions.https.HttpsError('failed-precondition', `Name change costs $${NAME_CHANGE_COST.toLocaleString()}. You don't have enough cash.`);
   }
 
@@ -1007,11 +1007,11 @@ exports.purchaseCosmetic = functions.https.onCall(async (data, context) => {
   const userData = userDoc.data();
   if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
   if ((userData.ownedCosmetics || []).includes(cosmeticId)) throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
-  if ((userData.balance || 0) < cosmetic.price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+  if ((userData.cash || 0) < cosmetic.price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
 
   await userRef.update({
     ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId),
-    balance: admin.firestore.FieldValue.increment(-cosmetic.price),
+    cash: admin.firestore.FieldValue.increment(-cosmetic.price),
   });
 
   return { success: true };
