@@ -30,7 +30,7 @@ import {
   addDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import AdminPanel from './AdminPanel';
@@ -1800,6 +1800,28 @@ export default function App() {
       setLoadingKey('pinAction', false);
     }
   }, [user, userData, showNotification]);
+
+  const handlePurchaseCosmetic = useCallback(async (cosmeticId) => {
+    if (!user || !userData) return;
+    try {
+      await purchaseCosmeticFunction({ cosmeticId });
+      setUserData(prev => prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev);
+      showNotification('success', 'Cosmetic purchased!');
+    } catch (err) {
+      showNotification('error', err.message || 'Purchase failed');
+    }
+  }, [user, userData, showNotification]);
+
+  const handleEquipCosmetic = useCallback(async (type, cosmeticId) => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    const update = { [`activeCosmetics.${type}`]: cosmeticId };
+    await updateDoc(userRef, update);
+    setUserData(prev => prev ? {
+      ...prev,
+      activeCosmetics: { ...(prev.activeCosmetics || {}), [type]: cosmeticId }
+    } : prev);
+  }, [user]);
 
   // Handle claiming daily mission rewards
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
@@ -3592,6 +3614,8 @@ export default function App() {
           darkMode={darkMode}
           userData={userData}
           onPurchase={handlePinAction}
+          onPurchaseCosmetic={handlePurchaseCosmetic}
+          onEquipCosmetic={handleEquipCosmetic}
           purchaseLoading={actionLoading.pinAction}
         />
       )}

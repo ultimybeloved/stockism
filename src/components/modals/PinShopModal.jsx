@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { SHOP_PINS, PIN_SLOT_COSTS, CREW_MAP, getActiveShopPins } from '../../crews';
 import { ACHIEVEMENTS } from '../../constants/achievements';
+import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../constants/cosmetics';
 import { formatCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
 
-const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading }) => {
+const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
   const [selectedPin, setSelectedPin] = useState(null);
-  const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'manage'
-  const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot', item: pin | slotType, price: number }
+  const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'cosmetics', 'manage'
+  const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -42,6 +43,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
       onPurchase('buyPin', confirmPurchase.item.id, confirmPurchase.price);
     } else if (confirmPurchase.type === 'slot') {
       onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
+    } else if (confirmPurchase.type === 'cosmetic') {
+      onPurchaseCosmetic(confirmPurchase.item.id);
     }
     setConfirmPurchase(null);
   };
@@ -86,22 +89,84 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, purchaseLoading
 
         {/* Tabs */}
         <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
-          {['shop', 'achievement', 'manage'].map(tab => (
+          {['shop', 'achievement', 'cosmetics', 'manage'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 text-sm font-semibold ${
+              className={`flex-1 py-2 text-xs font-semibold ${
                 activeTab === tab
                   ? 'text-orange-500 border-b-2 border-orange-500'
                   : mutedClass
               }`}
             >
-              {tab === 'shop' ? '🛒 Buy Pins' : tab === 'achievement' ? '🏆 Achievements' : '📋 Display'}
+              {tab === 'shop' ? '🛒 Pins' : tab === 'achievement' ? '🏆 Achievements' : tab === 'cosmetics' ? '✨ Cosmetics' : '📋 Display'}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === 'cosmetics' && (() => {
+            const ownedCosmetics = userData?.ownedCosmetics || [];
+            const activeCosmetics = userData?.activeCosmetics || {};
+            return (
+              <div className="space-y-6">
+                <p className={`text-xs ${mutedClass}`}>Cosmetics apply visual effects to your leaderboard row, visible to all players. One active per type.</p>
+                {COSMETIC_TYPES.map(type => (
+                  <div key={type}>
+                    <h3 className={`font-semibold ${textClass} mb-3`}>{COSMETIC_TYPE_LABELS[type]}</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {COSMETICS.filter(c => c.type === type).map(cosmetic => {
+                        const owned = ownedCosmetics.includes(cosmetic.id);
+                        const active = activeCosmetics[type] === cosmetic.id;
+                        const canAfford = cash >= cosmetic.price;
+                        return (
+                          <div
+                            key={cosmetic.id}
+                            className={`p-3 rounded-sm border ${
+                              active ? 'border-orange-500 bg-orange-500/10'
+                              : owned ? `border-2` : darkMode ? 'border-zinc-700' : 'border-slate-200'
+                            }`}
+                            style={owned && !active ? { borderColor: cosmetic.color + '80' } : {}}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-5 h-5 rounded-full shrink-0" style={{ backgroundColor: cosmetic.color }} />
+                              <span className={`font-semibold text-sm ${textClass}`}>{cosmetic.name}</span>
+                            </div>
+                            <p className={`text-xs ${mutedClass} mb-2`}>{cosmetic.description}</p>
+                            {owned ? (
+                              <button
+                                onClick={() => onEquipCosmetic(type, active ? null : cosmetic.id)}
+                                className={`w-full py-1 text-xs font-semibold rounded-sm ${
+                                  active
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                    : darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                                }`}
+                              >
+                                {active ? 'Equipped ✓' : 'Equip'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => canAfford && setConfirmPurchase({ type: 'cosmetic', item: cosmetic, price: cosmetic.price })}
+                                disabled={!canAfford}
+                                className={`w-full py-1 text-xs font-semibold rounded-sm ${
+                                  canAfford
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                    : darkMode ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                }`}
+                              >
+                                {formatCurrency(cosmetic.price)}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           {activeTab === 'shop' && (
             <div className="space-y-5">
               {getActiveShopPins().map(collection => (

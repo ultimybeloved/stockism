@@ -43,6 +43,7 @@ export const createUserFunction = httpsCallable(functions, 'createUser');
 export const checkUsernameFunction = httpsCallable(functions, 'checkUsername');
 export const deleteAccountFunction = httpsCallable(functions, 'deleteAccount');
 export const changeDisplayNameFunction = httpsCallable(functions, 'changeDisplayName');
+export const purchaseCosmeticFunction = httpsCallable(functions, 'purchaseCosmetic');
 export const createBotsFunction = httpsCallable(functions, 'createBots');
 export const fixBasePriceCliffsFunction = httpsCallable(functions, 'fixBasePriceCliffs');
 export const triggerManualBackupFunction = httpsCallable(functions, 'triggerManualBackup');

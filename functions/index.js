@@ -978,6 +978,45 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+const COSMETIC_CATALOG = {
+  name_gold:         { type: 'nameColor',   price: 5000  },
+  name_crimson:      { type: 'nameColor',   price: 5000  },
+  name_emerald:      { type: 'nameColor',   price: 5000  },
+  name_sapphire:     { type: 'nameColor',   price: 5000  },
+  name_violet:       { type: 'nameColor',   price: 5000  },
+  glow_gold:         { type: 'rowGlow',     price: 15000 },
+  glow_crimson:      { type: 'rowGlow',     price: 15000 },
+  glow_neon:         { type: 'rowGlow',     price: 15000 },
+  backdrop_royal:    { type: 'rowBackdrop', price: 25000 },
+  backdrop_inferno:  { type: 'rowBackdrop', price: 25000 },
+  backdrop_frost:    { type: 'rowBackdrop', price: 25000 },
+};
+
+exports.purchaseCosmetic = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+  const { cosmeticId } = data || {};
+  const cosmetic = COSMETIC_CATALOG[cosmeticId];
+  if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
+
+  const uid = context.auth.uid;
+  const userRef = db.collection('users').doc(uid);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+  const userData = userDoc.data();
+  if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
+  if ((userData.ownedCosmetics || []).includes(cosmeticId)) throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
+  if ((userData.balance || 0) < cosmetic.price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+
+  await userRef.update({
+    ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId),
+    balance: admin.firestore.FieldValue.increment(-cosmetic.price),
+  });
+
+  return { success: true };
+});
+
 /**
  * Deletes a user account and all associated data.
  *
@@ -1196,6 +1235,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100,
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
+            activeCosmetics: userData.activeCosmetics || null,
           });
         });
 
@@ -1244,6 +1284,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             displayedShopPins: userData.displayedShopPins || [],
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
+            activeCosmetics: userData.activeCosmetics || null,
           });
         });
       }

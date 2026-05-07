@@ -3,6 +3,7 @@ import { CREWS, CREW_MAP } from '../../crews';
 import PinDisplay from '../common/PinDisplay';
 import { getLeaderboardFunction } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
+import { COSMETIC_MAP } from '../../constants/cosmetics';
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
   const [leaders, setLeaders] = useState([]);
@@ -227,6 +228,10 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                 const displayRank = crewFilter === 'ALL' ? leader.rank : leader.crewRank;
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
                 const isCurrentUser = currentUser && leader.id === currentUser.uid;
+                const ac = leader.activeCosmetics || {};
+                const nameColorC = ac.nameColor ? COSMETIC_MAP[ac.nameColor] : null;
+                const rowGlowC = ac.rowGlow ? COSMETIC_MAP[ac.rowGlow] : null;
+                const rowBackdropC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
 
                 return (
                   <div
@@ -237,20 +242,24 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                     } ${
                       isCurrentUser ? 'border-l-4' : ''
                     }`}
-                    style={isCurrentUser ? {
-                      borderLeftColor: userCrewColor,
-                      backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15`,
-                      boxShadow: `inset 0 0 12px ${userCrewColor}30`,
-                      willChange: 'auto',
-                      contain: 'layout style paint'
-                    } : {}}
+                    style={{
+                      ...(isCurrentUser ? {
+                        borderLeftColor: userCrewColor,
+                        backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15`,
+                        boxShadow: `inset 0 0 12px ${userCrewColor}30`,
+                        willChange: 'auto',
+                        contain: 'layout style paint',
+                      } : {}),
+                      ...(rowGlowC && !isCurrentUser ? { boxShadow: `0 0 18px ${rowGlowC.color}50` } : {}),
+                      ...(rowBackdropC && !isCurrentUser ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+                    }}
                   >
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
                       {getRankEmoji(displayRank)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={`font-semibold truncate ${textClass} flex items-center`}>
-                        <span style={leader.isCrewHead && crew ? { color: leader.crewHeadColor || crew.color } : {}}>
+                        <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}>
                           {leader.displayName || 'Anonymous Trader'}
                         </span>
                         <PinDisplay userData={leader} size="sm" />
