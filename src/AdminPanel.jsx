@@ -6456,7 +6456,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                     const search = priceModalSearch.toLowerCase();
                     return !search ||
                            c.name.toLowerCase().includes(search) ||
-                           c.ticker.toLowerCase().includes(search);
+                           c.ticker.toLowerCase().includes(search) ||
+                           (c.altNames || []).some(n => n.toLowerCase().includes(search));
                   })
                   .map(character => {
                     const currentPrice = prices[character.ticker] || character.basePrice;

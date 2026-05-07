@@ -2,7 +2,7 @@
 // dateAdded: used for "Newest" / "Oldest" sorting - includes time for unique ordering
 // Strongest characters = oldest (added first), Weakest = newest (added last)
 export const CHARACTERS = [
-  { name: "James Lee", ticker: "DG", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:00:00" },
+  { name: "James Lee", ticker: "DG", basePrice: 85, volatility: 0.03, dateAdded: "2026-01-13T00:00:00", altNames: ["Diego Kang"] },
   {
     name: "Mujin Jin",
     ticker: "JIN",
@@ -54,12 +54,12 @@ export const CHARACTERS = [
   },
   { name: "Sophia Alexander", ticker: "SOPH", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:06:00" },
   { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:07:00", altNames: ["Gitae Kim"] },
-  { name: "Johan Seong", ticker: "GDOG", basePrice: 80, volatility: 0.045, dateAdded: "2026-01-13T00:08:00" },
+  { name: "Johan Seong", ticker: "GDOG", basePrice: 80, volatility: 0.045, dateAdded: "2026-01-13T00:08:00", altNames: ["Yohan Seong"] },
   { name: "Tom Lee", ticker: "TOM", basePrice: 78, volatility: 0.035, dateAdded: "2026-01-13T00:09:00" },
   { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:10:00" },
   { name: "Changsu Oh", ticker: "CROW", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:11:00" },
   { name: "Manager Kim", ticker: "SRMK", basePrice: 74, volatility: 0.03, dateAdded: "2026-01-13T00:12:00" },
-  { name: "Charles Choi", ticker: "ELIT", basePrice: 72, volatility: 0.025, dateAdded: "2026-01-13T00:13:00" },
+  { name: "Charles Choi", ticker: "ELIT", basePrice: 72, volatility: 0.025, dateAdded: "2026-01-13T00:13:00", altNames: ["Elite"] },
   { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, volatility: 0.03, dateAdded: "2026-01-13T00:14:00" },
   {
     name: "Daniel Park (Small)",
@@ -123,7 +123,7 @@ export const CHARACTERS = [
   { name: "Shigeaki Kojima", ticker: "SHKO", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:08:00" },
   { name: "Hiroaki Kojima", ticker: "HIKO", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:09:00" },
   { name: "Yugang Ha", ticker: "INCH", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-16T00:10:00" },
-  { name: "Yeonwoo Kim", ticker: "MISS", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:11:00" },
+  { name: "Yeonwoo Kim", ticker: "MISS", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:11:00", altNames: ["Reporter Kim"] },
   { name: "Doksu Heo", ticker: "PYNG", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:12:00" },
   { name: "Jinyoung Go", ticker: "SNAM", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:13:00" },
   { name: "Mugeon Jang", ticker: "SAMC", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:14:00" },
