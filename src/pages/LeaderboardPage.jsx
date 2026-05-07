@@ -239,13 +239,14 @@ const LeaderboardPage = () => {
                     style={{
                       ...(isCurrentUser ? {
                         borderLeftColor: userCrewColor,
-                        backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15`,
-                        boxShadow: `inset 0 0 12px ${userCrewColor}30`,
+                        backgroundColor: rowBackdropC ? (darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12`) : (darkMode ? `${userCrewColor}20` : `${userCrewColor}15`),
+                        boxShadow: rowGlowC ? `0 0 18px ${rowGlowC.color}50` : `inset 0 0 12px ${userCrewColor}30`,
                         willChange: 'auto',
                         contain: 'layout style paint',
-                      } : {}),
-                      ...(rowGlowC && !isCurrentUser ? { boxShadow: `0 0 18px ${rowGlowC.color}50` } : {}),
-                      ...(rowBackdropC && !isCurrentUser ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+                      } : {
+                        ...(rowGlowC ? { boxShadow: `0 0 18px ${rowGlowC.color}50` } : {}),
+                        ...(rowBackdropC ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+                      }),
                     }}
                   >
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
