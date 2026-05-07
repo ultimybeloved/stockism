@@ -63,6 +63,7 @@ export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderL
 export const triggerDailyMarketSummaryFunction = httpsCallable(functions, 'triggerDailyMarketSummary');
 // Leaderboard
 export const getLeaderboardFunction = httpsCallable(functions, 'getLeaderboard');
+export const getPublicProfileFunction = httpsCallable(functions, 'getPublicProfile');
 // Discord alert functions
 export const tradeSpikeAlertFunction = httpsCallable(functions, 'tradeSpikeAlert');
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');

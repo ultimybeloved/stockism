@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { CREWS, CREW_MAP } from '../../crews';
 import PinDisplay from '../common/PinDisplay';
 import { getLeaderboardFunction } from '../../firebase';
@@ -259,10 +260,22 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                       {getRankEmoji(displayRank)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`font-semibold truncate ${textClass} flex items-center`}>
-                        <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}>
-                          {leader.displayName || 'Anonymous Trader'}
-                        </span>
+                      <div className={`font-semibold truncate ${textClass} flex items-center gap-1`}>
+                        {leader.isPublic ? (
+                          <Link
+                            to={`/u/${(leader.displayName || '').toLowerCase()}`}
+                            className="hover:underline"
+                            onClick={onClose}
+                            style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}
+                          >
+                            {leader.displayName || 'Anonymous Trader'}
+                          </Link>
+                        ) : (
+                          <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}>
+                            {leader.displayName || 'Anonymous Trader'}
+                          </span>
+                        )}
+                        {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
                         <PinDisplay userData={leader} size="sm" />
                       </div>
                       {leader.previousDisplayName && leader.nameChangedAt &&

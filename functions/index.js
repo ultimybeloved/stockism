@@ -1236,6 +1236,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
             activeCosmetics: userData.activeCosmetics || null,
+            isPublic: userData.isPublic || false,
           });
         });
 
@@ -1285,6 +1286,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
             activeCosmetics: userData.activeCosmetics || null,
+            isPublic: userData.isPublic || false,
           });
         });
       }
@@ -1329,6 +1331,77 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
     console.error('Error fetching leaderboard:', error);
     throw new functions.https.HttpsError('internal', 'Failed to fetch leaderboard');
   }
+});
+
+/**
+ * Get public profile by username
+ */
+exports.getPublicProfile = functions.https.onCall(async (data, context) => {
+  const { username } = data || {};
+  if (!username || typeof username !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'Username required');
+  }
+
+  // Resolve username → uid
+  const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
+  if (!usernameDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+  const { uid } = usernameDoc.data();
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+  const userData = userDoc.data();
+
+  if (!userData.isPublic) {
+    throw new functions.https.HttpsError('permission-denied', 'This profile is private');
+  }
+
+  // Compute global rank
+  let rank = null;
+  try {
+    const rankQuery = db.collection('users').where('portfolioValue', '>', userData.portfolioValue || 0).select('isBot');
+    const higherSnap = await rankQuery.get();
+    const higherCount = higherSnap.docs.filter(d => !d.data().isBot).length;
+    rank = higherCount + 1;
+  } catch (e) { /* leave null */ }
+
+  // Last 20 trades
+  const tradesSnap = await db.collection('trades')
+    .where('uid', '==', uid)
+    .orderBy('timestamp', 'desc')
+    .limit(20)
+    .get();
+  const trades = tradesSnap.docs.map(d => {
+    const t = d.data();
+    return {
+      ticker: t.ticker,
+      action: t.action,
+      price: t.price,
+      totalValue: t.totalValue,
+      timestamp: t.timestamp,
+    };
+  });
+
+  // Holdings tickers only (no share counts)
+  const holdingTickers = userData.holdings
+    ? Object.keys(userData.holdings).filter(k => (userData.holdings[k] || 0) > 0)
+    : [];
+
+  return {
+    displayName: userData.displayName || 'Anonymous',
+    crew: userData.crew || null,
+    isCrewHead: userData.isCrewHead || false,
+    crewHeadColor: userData.crewHeadColor || null,
+    activeCosmetics: userData.activeCosmetics || null,
+    portfolioValue: userData.portfolioValue || 0,
+    holdingsCount: holdingTickers.length,
+    rank,
+    holdingTickers,
+    trades,
+  };
 });
 
 /**

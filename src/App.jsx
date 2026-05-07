@@ -73,6 +73,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import AchievementsPage from './pages/AchievementsPage';
 import LadderPage from './pages/LadderPage';
 import ProfilePage from './pages/ProfilePage';
+import PublicProfilePage from './pages/PublicProfilePage';
 
 // Import AppContext
 import { AppProvider } from './context/AppContext';
@@ -3555,6 +3556,7 @@ export default function App() {
             <Route path="/ladder" element={<LadderPage />} />
             <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} />} />
             <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
+            <Route path="/u/:username" element={<PublicProfilePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
 

@@ -569,6 +569,45 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
               </button>
             </div>
 
+            {/* Public Profile */}
+            <div className="mt-3 pt-3 border-t border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-sm font-semibold ${textClass}`}>Public Profile</p>
+                  <p className={`text-xs ${mutedClass}`}>
+                    {userData?.isPublic ? 'Anyone can view your profile' : 'Your profile is private'}
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await updateDoc(doc(db, 'users', user.uid), { isPublic: !userData?.isPublic });
+                    } catch (err) {
+                      console.error('Failed to update profile visibility:', err);
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    userData?.isPublic ? 'bg-orange-600' : (darkMode ? 'bg-zinc-700' : 'bg-slate-300')
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${userData?.isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {userData?.isPublic && userData?.displayName && (
+                <div className={`mt-2 flex items-center gap-2 text-xs ${mutedClass}`}>
+                  <span>🔗</span>
+                  <a
+                    href={`/u/${userData.displayName.toLowerCase()}`}
+                    className="text-orange-500 hover:underline break-all"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    stockism.app/u/{userData.displayName.toLowerCase()}
+                  </a>
+                </div>
+              )}
+            </div>
+
             {/* Discord Link */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-700/50">
               <div>
