@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { CREW_MAP } from '../../crews';
 import PinDisplay from '../common/PinDisplay';
 import { db, changeDisplayNameFunction } from '../../firebase';
+import { COSMETIC_MAP } from '../../constants/cosmetics';
 import { updateDoc, doc } from 'firebase/firestore';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -99,6 +100,11 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
     return myShare * totalPool;
   };
 
+  const ac = userData?.activeCosmetics || {};
+  const nameColorC   = ac.nameColor   ? COSMETIC_MAP[ac.nameColor]   : null;
+  const rowGlowC     = ac.rowGlow     ? COSMETIC_MAP[ac.rowGlow]     : null;
+  const rowBackdropC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
+
   const nameChangedAt = userData?.nameChangedAt?.toDate?.() || null;
   const cooldownMs = 14 * 24 * 60 * 60 * 1000;
   const msSinceChange = nameChangedAt ? Date.now() - nameChangedAt.getTime() : Infinity;
@@ -124,10 +130,18 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
         className={`w-full max-w-lg max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div
+          className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
+          style={{
+            ...(rowGlowC     ? { boxShadow: `0 0 24px ${rowGlowC.color}40` } : {}),
+            ...(rowBackdropC ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+          }}
+        >
           <div className="flex justify-between items-center">
             <div>
-              <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
+              <h2 className={`text-lg font-semibold ${textClass}`}>
+                👤 <span style={{ color: nameColorC?.color }}>{userData?.displayName}</span>
+              </h2>
               <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
             </div>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>

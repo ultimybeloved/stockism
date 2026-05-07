@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, changeDisplayNameFunction } from '../firebase';
+import { COSMETIC_MAP } from '../constants/cosmetics';
 import { useAppContext } from '../context/AppContext';
 import { CREW_MAP } from '../crews';
 import { formatCurrency, formatChange } from '../utils/formatters';
@@ -223,6 +224,11 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
     setNameSaving(false);
   };
 
+  const ac = userData?.activeCosmetics || {};
+  const nameColorC   = ac.nameColor   ? COSMETIC_MAP[ac.nameColor]   : null;
+  const rowGlowC     = ac.rowGlow     ? COSMETIC_MAP[ac.rowGlow]     : null;
+  const rowBackdropC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
+
   if (!user || !userData) {
     return (
       <div className="max-w-2xl mx-auto p-4">
@@ -236,8 +242,16 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   return (
     <div className="max-w-2xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
-          <h2 className={`text-lg font-semibold ${textClass}`}>👤 {userData?.displayName}</h2>
+        <div
+          className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
+          style={{
+            ...(rowGlowC     ? { boxShadow: `0 0 24px ${rowGlowC.color}40` } : {}),
+            ...(rowBackdropC ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+          }}
+        >
+          <h2 className={`text-lg font-semibold ${textClass}`}>
+            👤 <span style={{ color: nameColorC?.color }}>{userData?.displayName}</span>
+          </h2>
           <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 
           {!editingName ? (
