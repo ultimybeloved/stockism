@@ -378,6 +378,8 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosme
               <p className={`${mutedClass} mb-4`}>
                 {confirmPurchase.type === 'pin' ? (
                   <>Buy <img src={`/pins/${confirmPurchase.item.image}`} alt={confirmPurchase.item.name} className="w-6 h-6 object-contain inline" /> <strong>{confirmPurchase.item.name}</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
+                ) : confirmPurchase.type === 'cosmetic' ? (
+                  <>Buy <span className="inline-block w-3 h-3 rounded-full mx-1 align-middle" style={{ backgroundColor: confirmPurchase.item.color }} /><strong>{confirmPurchase.item.name}</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 ) : (
                   <>Buy <strong>+1 {confirmPurchase.item === 'achievement' ? 'Achievement' : 'Shop'} Slot</strong> for <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?</>
                 )}
