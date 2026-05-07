@@ -9,6 +9,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosme
   const [selectedPin, setSelectedPin] = useState(null);
   const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'cosmetics', 'manage'
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
+  const [purchasing, setPurchasing] = useState(false);
 
   const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
   const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
@@ -36,17 +37,21 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosme
     }
   };
 
-  const handleConfirmPurchase = () => {
-    if (!confirmPurchase) return;
-
-    if (confirmPurchase.type === 'pin') {
-      onPurchase('buyPin', confirmPurchase.item.id, confirmPurchase.price);
-    } else if (confirmPurchase.type === 'slot') {
-      onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
-    } else if (confirmPurchase.type === 'cosmetic') {
-      onPurchaseCosmetic(confirmPurchase.item.id);
+  const handleConfirmPurchase = async () => {
+    if (!confirmPurchase || purchasing) return;
+    setPurchasing(true);
+    try {
+      if (confirmPurchase.type === 'pin') {
+        await onPurchase('buyPin', confirmPurchase.item.id, confirmPurchase.price);
+      } else if (confirmPurchase.type === 'slot') {
+        await onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
+      } else if (confirmPurchase.type === 'cosmetic') {
+        await onPurchaseCosmetic(confirmPurchase.item.id);
+      }
+    } finally {
+      setPurchasing(false);
+      setConfirmPurchase(null);
     }
-    setConfirmPurchase(null);
   };
 
   const handleToggleShopPin = (pinId) => {
@@ -393,10 +398,10 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosme
                 </button>
                 <button
                   onClick={handleConfirmPurchase}
-                  disabled={purchaseLoading}
+                  disabled={purchasing}
                   className="flex-1 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-50"
                 >
-                  {purchaseLoading ? 'Buying...' : 'Confirm'}
+                  {purchasing ? 'Buying…' : 'Confirm'}
                 </button>
               </div>
             </div>
