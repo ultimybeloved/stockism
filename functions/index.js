@@ -1342,12 +1342,21 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Username required');
   }
 
-  // Resolve username → uid
+  // Resolve username → uid via usernames collection, fallback to querying by displayNameLower
+  let uid;
   const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
-  if (!usernameDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'User not found');
+  if (usernameDoc.exists) {
+    uid = usernameDoc.data().uid;
+  } else {
+    const fallbackSnap = await db.collection('users')
+      .where('displayNameLower', '==', username.toLowerCase())
+      .limit(1)
+      .get();
+    if (fallbackSnap.empty) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+    uid = fallbackSnap.docs[0].id;
   }
-  const { uid } = usernameDoc.data();
 
   const userDoc = await db.collection('users').doc(uid).get();
   if (!userDoc.exists) {
