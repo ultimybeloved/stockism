@@ -1,0 +1,203 @@
+'use strict';
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const db = admin.firestore();
+const { ADMIN_UID } = require('../constants');
+
+exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
+  // Admin-only: prevents unauthorized users from modifying market data
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  try {
+    return await doArchivePriceHistory(data.ticker || null);
+  } catch (error) {
+    console.error('Archive error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Clean up old alertedThresholds (Discord alert cooldowns don't need long-term storage)
+exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) => {
+  // Admin-only: prevents unauthorized cleanup of alert state
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  try {
+    return await doCleanupAlertedThresholds();
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Scheduled function: Auto-archive every 6 hours
+exports.scheduledArchiving = functions.pubsub
+  .schedule('every 6 hours')
+  .timeZone('America/New_York')
+  .onRun(async (context) => {
+    console.log('Running scheduled archiving...');
+
+    try {
+      const archiveResult = await doArchivePriceHistory();
+      console.log('Archive result:', archiveResult);
+    } catch (error) {
+      console.error('Scheduled archive failed:', error);
+    }
+
+    try {
+      const cleanupResult = await doCleanupAlertedThresholds();
+      console.log('Cleanup result:', cleanupResult);
+    } catch (error) {
+      console.error('Scheduled cleanup failed:', error);
+    }
+
+    return null;
+  });
+
+/**
+ * Sync All Portfolio Values
+ * Runs every 6 hours to recalculate and update all users' portfolio values
+ * Ensures leaderboards and rankings reflect current market prices
+ */
+exports.syncAllPortfolios = functions.pubsub
+  .schedule('every 6 hours')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    try {
+      console.log('Starting portfolio sync for all users...');
+      const startTime = Date.now();
+
+      // Get current market prices
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
+
+      if (!marketSnap.exists) {
+        console.error('Market data not found');
+        return { success: false, error: 'Market data missing' };
+      }
+
+      const marketData = marketSnap.data();
+      const prices = marketData.prices || {};
+
+      // Get all users
+      const usersSnapshot = await db.collection('users').get();
+      console.log(`Found ${usersSnapshot.size} users to sync`);
+
+      let syncedCount = 0;
+      let errorCount = 0;
+      const batch = db.batch();
+      let batchCount = 0;
+
+      for (const userDoc of usersSnapshot.docs) {
+        try {
+          const userData = userDoc.data();
+          const userId = userDoc.id;
+
+          // Calculate holdings value
+          const holdings = userData.holdings || {};
+          const holdingsValue = Object.entries(holdings).reduce((sum, [ticker, shares]) => {
+            if (!shares || shares <= 0) return sum;
+            const currentPrice = prices[ticker] || 0;
+            return sum + (shares * currentPrice);
+          }, 0);
+
+          // Calculate shorts value
+          const shorts = userData.shorts || {};
+          const shortsValue = Object.entries(shorts).reduce((sum, [ticker, position]) => {
+            if (!position || position.shares <= 0) return sum;
+            const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
+            const currentPrice = prices[ticker] || entryPrice;
+            const collateral = Number(position.margin) || 0;
+            let value;
+            if ((position.system || 'v2') === 'v2') {
+              // v2: margin + unrealized P&L (no proceeds in cash)
+              value = collateral + (entryPrice - currentPrice) * position.shares;
+            } else {
+              // Legacy: margin collateral - cost to buy back shares
+              value = collateral - (currentPrice * position.shares);
+            }
+            return sum + (isNaN(value) ? 0 : value);
+          }, 0);
+
+          // Calculate total portfolio value
+          const cash = userData.cash || 0;
+          const portfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
+
+          // Charge margin interest if due (piggybacks on 6-hour sync)
+          const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily
+          const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+          let marginInterest = 0;
+          const marginUsed = userData.marginUsed || 0;
+          if (userData.marginEnabled && marginUsed > 0) {
+            const lastCharge = userData.lastMarginInterestCharge || 0;
+            if (startTime - lastCharge >= ONE_DAY_MS) {
+              marginInterest = marginUsed * MARGIN_INTEREST_RATE;
+            }
+          }
+
+          // Only update if different from stored value (avoid unnecessary writes)
+          const storedValue = userData.portfolioValue || 0;
+          const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01 || marginInterest > 0;
+
+          if (isDifferent) {
+            const userRef = db.collection('users').doc(userId);
+            const updateFields = {
+              portfolioValue: portfolioValue,
+              lastSyncedAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            if (marginInterest > 0) {
+              updateFields.marginUsed = marginUsed + marginInterest;
+              updateFields.lastMarginInterestCharge = startTime;
+            }
+            batch.update(userRef, updateFields);
+            batchCount++;
+            syncedCount++;
+
+            // Commit batch every 500 operations (Firestore limit)
+            if (batchCount >= 500) {
+              await batch.commit();
+              console.log(`Committed batch of ${batchCount} updates`);
+              batchCount = 0;
+            }
+          }
+        } catch (error) {
+          console.error(`Error syncing user ${userDoc.id}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Commit remaining updates
+      if (batchCount > 0) {
+        await batch.commit();
+        console.log(`Committed final batch of ${batchCount} updates`);
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      const result = {
+        success: true,
+        totalUsers: usersSnapshot.size,
+        synced: syncedCount,
+        skipped: usersSnapshot.size - syncedCount - errorCount,
+        errors: errorCount,
+        elapsedSeconds: elapsed
+      };
+
+      console.log('Portfolio sync complete:', result);
+      return result;
+
+    } catch (error) {
+      console.error('Portfolio sync failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+/**
+ * Create a Limit Order (server-side validation)
+ * Replaces direct client addDoc() to enforce business logic
+ */
+Object.assign(exports, require('./services/limitOrders'));
+Object.assign(exports, require('./services/missions'));
+
