@@ -6,7 +6,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } = require('../constants');
-const { writeNotification, sendDiscordMessage } = require('../helpers');
+const { writeNotification, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 exports.dailyMarketSummary = functions.pubsub
   .schedule('0 21 * * *')

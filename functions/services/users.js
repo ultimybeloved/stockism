@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID, STARTING_CASH } = require('../constants');
-const { isBannedUsername, containsProfanity, sendDiscordMessage } = require('../helpers');
+const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned } = require('../helpers');
 
 /**
  * Creates a new user with case-insensitive unique username.

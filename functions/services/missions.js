@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CREW_MEMBERS } = require('../constants');
-const { writeNotification, writeFeedEntry } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned } = require('../helpers');
 
 // Server-side mission reward lookup (prevents client reward inflation)
 const MISSION_REWARDS = {

@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, STARTING_CASH } = require('../constants');
-const { writeNotification } = require('../helpers');
+const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 // Discord OAuth Authentication
 exports.discordAuth = functions.https.onRequest(async (req, res) => {
