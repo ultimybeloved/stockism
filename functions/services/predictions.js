@@ -437,4 +437,3 @@ exports.processIPOPriceJumps = functions.pubsub
  * Remove an achievement from a user (admin only)
  * Used to clean up achievements awarded due to glitches
  */
-Object.assign(exports, require('./services/adminOps'));

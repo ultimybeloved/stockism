@@ -174,8 +174,6 @@ exports.savePreHaltPrices = functions.pubsub
     }
   });
 
-Object.assign(exports, require('./services/dividends'));
-
 /**
  * Chapter review recap - posts Discord alert every Thursday at 21:05 UTC
  * Compares pre-halt prices to current prices after admin adjustments
@@ -702,8 +700,6 @@ exports.weeklyMarketSummary = functions.pubsub
       return null;
     }
   });
-
-Object.assign(exports, require('./services/alerts'));
 
 /**
  * Weekly Leaderboard - Runs Mondays at 01:00 UTC

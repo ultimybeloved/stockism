@@ -273,6 +273,4 @@ exports.syncAllPortfolios = functions.pubsub
  * Create a Limit Order (server-side validation)
  * Replaces direct client addDoc() to enforce business logic
  */
-Object.assign(exports, require('./services/limitOrders'));
-Object.assign(exports, require('./services/missions'));
 
