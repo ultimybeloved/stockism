@@ -353,5 +353,91 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * Repay margin debt
+ * Process IPO Price Jumps - Scheduled every 5 minutes
+ * Checks for ended IPOs that haven't had their price jump applied
  */
+exports.processIPOPriceJumps = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping IPO price jumps — weekly trading halt active');
+      return null;
+    }
+
+    try {
+      // Check emergency halt
+      const marketSnap = await db.collection('market').doc('current').get();
+      if (marketSnap.exists && marketSnap.data().marketHalted) {
+        console.log('Skipping IPO price jumps — emergency halt active');
+        return null;
+      }
+
+      const ipoRef = db.collection('market').doc('ipos');
+      const ipoSnap = await ipoRef.get();
+
+      if (!ipoSnap.exists) return null;
+
+      const ipoData = ipoSnap.data();
+      const ipos = ipoData.list || [];
+      const now = Date.now();
+      const IPO_PRICE_JUMP = 0.15;
+
+      let processedCount = 0;
+      let updatedList = [...ipos];
+
+      for (let i = 0; i < ipos.length; i++) {
+        const ipo = ipos[i];
+        if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
+          // IPO ended - apply 15% price jump
+          const marketRef = db.collection('market').doc('current');
+          const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+
+          await marketRef.update({
+            [`prices.${ipo.ticker}`]: newPrice,
+            [`priceHistory.${ipo.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+              timestamp: now,
+              price: newPrice
+            }),
+            launchedTickers: admin.firestore.FieldValue.arrayUnion(ipo.ticker)
+          });
+
+          updatedList[i] = { ...ipo, priceJumped: true };
+          processedCount++;
+          console.log(`IPO price jump applied for ${ipo.ticker}: $${newPrice}`);
+
+          // Send Discord notification
+          try {
+            const ipoTotalShares = ipo.totalShares || 150;
+            const sharesSold = ipoTotalShares - (ipo.sharesRemaining || 0);
+            await sendDiscordMessage(null, [{
+              title: '🎉 IPO Closed',
+              description: `**${ipo.ticker}** IPO has ended! Price jumped to $${newPrice.toFixed(2)}`,
+              color: 0x00FF00,
+              fields: [
+                { name: 'Shares Sold', value: `${sharesSold}/${ipoTotalShares}`, inline: true },
+                { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true }
+              ],
+              timestamp: new Date().toISOString()
+            }]);
+          } catch (e) {}
+        }
+      }
+
+      if (processedCount > 0) {
+        await ipoRef.update({ list: updatedList });
+        console.log(`Processed ${processedCount} IPO price jumps`);
+      }
+
+      return { processed: processedCount };
+    } catch (error) {
+      console.error('IPO price jump check failed:', error);
+      return null;
+    }
+  });
+
+/**
+ * Remove an achievement from a user (admin only)
+ * Used to clean up achievements awarded due to glitches
+ */
+Object.assign(exports, require('./services/adminOps'));

@@ -566,3 +566,102 @@ exports.monthlyPermanentBackup = functions.pubsub
   });
 
 // ============================================
+exports.createBots = functions.https.onCall(async (data, context) => {
+  // Verify admin
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only admin can create bots.'
+    );
+  }
+
+  const BOT_PROFILES = [
+    { name: 'Momentum Mike', personality: 'momentum', cash: 2500 },
+    { name: 'Contrarian Carl', personality: 'contrarian', cash: 3000 },
+    { name: 'Diamond Dave', personality: 'hodler', cash: 2000 },
+    { name: 'Day Trader Dan', personality: 'daytrader', cash: 4000 },
+    { name: 'Gambler Greg', personality: 'random', cash: 1500 },
+    { name: 'Big Deal Billy', personality: 'crew_loyal', cash: 2500, crew: 'BIG_DEAL' },
+    { name: 'Swing Trader Sam', personality: 'swing', cash: 3500 },
+    { name: 'FOMO Frank', personality: 'momentum', cash: 2000 },
+    { name: 'Bargain Betty', personality: 'contrarian', cash: 3000 },
+    { name: 'Long Term Larry', personality: 'hodler', cash: 5000 },
+    { name: 'Scalper Steve', personality: 'daytrader', cash: 3500 },
+    { name: 'Lucky Lucy', personality: 'random', cash: 2500 },
+    { name: 'Hostel Harry', personality: 'crew_loyal', cash: 3000, crew: 'HOSTEL' },
+    { name: 'Pattern Pete', personality: 'swing', cash: 2500 },
+    { name: 'Panic Paul', personality: 'panic', cash: 2000 },
+    { name: 'Value Vince', personality: 'contrarian', cash: 4000 },
+    { name: 'Buy High Brian', personality: 'random', cash: 1500 },
+    { name: 'Workers Wendy', personality: 'crew_loyal', cash: 3500, crew: 'WORKERS' },
+    { name: 'Trend Tom', personality: 'momentum', cash: 3000 },
+    { name: 'Diversified Donna', personality: 'balanced', cash: 4500 },
+    // Market Follower Bots - amplify market trends
+    { name: 'Amplifier Amy', personality: 'market_follower', cash: 3000 },
+    { name: 'Wave Rider Will', personality: 'market_follower', cash: 2500 },
+    { name: 'Trend Booster Bo', personality: 'market_follower', cash: 3500 },
+    { name: 'Market Mover Max', personality: 'market_follower', cash: 4000 },
+    { name: 'Momentum Amplifier Mia', personality: 'market_follower', cash: 2000 },
+    { name: 'Surge Sarah', personality: 'market_follower', cash: 3500 },
+    { name: 'Flow Follower Fred', personality: 'market_follower', cash: 2500 },
+    { name: 'Velocity Vicky', personality: 'market_follower', cash: 3000 }
+  ];
+
+  let created = 0;
+  let skipped = 0;
+
+  try {
+    for (const profile of BOT_PROFILES) {
+      const botId = `bot_${profile.name.toLowerCase().replace(/\s+/g, '_')}`;
+      const userRef = db.collection('users').doc(botId);
+
+      // Check if bot already exists
+      const botSnap = await userRef.get();
+      if (botSnap.exists) {
+        skipped++;
+        continue;
+      }
+
+      // Create bot user
+      await userRef.set({
+        displayName: profile.name,
+        displayNameLower: profile.name.toLowerCase(),
+        isBot: true,
+        botPersonality: profile.personality,
+        botCrew: profile.crew || null,
+        cash: profile.cash,
+        portfolioValue: profile.cash,
+        holdings: {},
+        shorts: {},
+        costBasis: {},
+        bets: {},
+        marginUsed: 0,
+        totalTrades: 0,
+        totalCheckins: 0,
+        peakPortfolioValue: profile.cash,
+        crew: null,
+        dailyMissions: {},
+        transactionLog: [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastActive: Date.now()
+      });
+
+      created++;
+    }
+
+    return {
+      success: true,
+      created,
+      skipped,
+      message: `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`
+    };
+  } catch (error) {
+    console.error('Error creating bots:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to create bots: ' + error.message
+    );
+  }
+});
+
+// Export bot trader

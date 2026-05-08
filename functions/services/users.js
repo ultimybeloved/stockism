@@ -649,3 +649,221 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
   }
 });
 
+exports.dailyCheckin = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ladderTopUp } = data; // Boolean flag for first-time ladder initialization
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const userRef = db.collection('users').doc(uid);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+
+      const userData = userDoc.data();
+      checkBanned(userData);
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+
+      // Handle both string (old format) and Timestamp (new format)
+      let lastCheckinDate = null;
+      if (userData.lastCheckin) {
+        if (typeof userData.lastCheckin === 'string') {
+          // Old format: "Mon Jan 27 2025" from toDateString()
+          // Convert to YYYY-MM-DD for comparison
+          const parsedDate = new Date(userData.lastCheckin);
+          if (!isNaN(parsedDate.getTime())) {
+            lastCheckinDate = parsedDate.toISOString().split('T')[0];
+          }
+        } else if (typeof userData.lastCheckin.toDate === 'function') {
+          // New format: Firestore Timestamp
+          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0];
+        } else if (userData.lastCheckin.seconds) {
+          // Fallback: Plain timestamp object with seconds
+          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0];
+        }
+      }
+
+      // Check if already checked in today
+      if (lastCheckinDate === today) {
+        throw new functions.https.HttpsError('failed-precondition', 'Already checked in today.');
+      }
+
+      // Calculate streak
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+      const currentStreak = userData.checkinStreak || 0;
+      const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
+      const maxCheckinStreak = Math.max(userData.maxCheckinStreak || 0, newStreak);
+
+      // Flat $300 daily check-in reward
+      const checkinReward = 300;
+
+      // Compute week ID for weekly missions
+      const weekStartDate = new Date(now);
+      weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1);
+      if (weekStartDate > now) weekStartDate.setDate(weekStartDate.getDate() - 7);
+      const checkinWeekId = weekStartDate.toISOString().split('T')[0];
+
+      // Update user document
+      const updates = {
+        cash: (userData.cash || 0) + checkinReward,
+        lastCheckin: admin.firestore.Timestamp.now(),
+        checkinStreak: newStreak,
+        maxCheckinStreak,
+        totalCheckins: (userData.totalCheckins || 0) + 1,
+        // Mission tracking (server-side)
+        [`dailyMissions.${today}.checkedIn`]: true,
+        [`weeklyMissions.${checkinWeekId}.checkinDays.${today}`]: true
+      };
+
+      // Ladder game: $500 start for new players, top up to $100 if below for existing
+      const ladderRef = db.collection('ladderGameUsers').doc(uid);
+      const ladderDoc = await transaction.get(ladderRef);
+      let ladderTopUpAmount = 0;
+
+      if (!ladderDoc.exists) {
+        // New player — initialize with $500
+        ladderTopUpAmount = 500;
+        updates.ladderGameInitialized = true;
+        transaction.set(ladderRef, {
+          uid,
+          displayName: userData.displayName || 'Anonymous',
+          balance: 500,
+          totalDeposited: 0,
+          totalWon: 0,
+          totalLost: 0,
+          gamesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          currentStreak: 0,
+          bestStreak: 0,
+          lastPlayed: null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // Existing player — top up to $100 if below
+        const ladderBalance = ladderDoc.data().balance || 0;
+        if (ladderBalance < 100) {
+          ladderTopUpAmount = 100 - ladderBalance;
+          transaction.update(ladderRef, { balance: 100 });
+        }
+      }
+
+      // Append check-in to transaction log
+      const existingLog = userData.transactionLog || [];
+      const checkinEntry = {
+        type: 'CHECKIN',
+        timestamp: Date.now(),
+        bonus: checkinReward,
+        cashBefore: userData.cash || 0,
+        cashAfter: (userData.cash || 0) + checkinReward
+      };
+      updates.transactionLog = [...existingLog, checkinEntry].slice(-100);
+
+      transaction.update(userRef, updates);
+
+      return {
+        success: true,
+        reward: checkinReward,
+        newStreak,
+        ladderTopUpAmount,
+        totalCheckins: updates.totalCheckins
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Daily checkin error:', error);
+    throw new functions.https.HttpsError('internal', 'Checkin failed: ' + error.message);
+  }
+});
+
+/**
+ * Records and validates a completed trade (legacy - may be unused)
+ * Logs for auditing, detects suspicious patterns
+ */
+exports.recordTrade = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be logged in.'
+    );
+  }
+
+  const uid = context.auth.uid;
+  const { ticker, action, amount, price, totalValue, cashBefore, cashAfter, portfolioAfter } = data;
+
+  // Ban check
+  const userSnap = await db.collection('users').doc(uid).get();
+  if (userSnap.exists) checkBanned(userSnap.data());
+
+  try {
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    // Record in transaction log
+    const tradeRecord = {
+      uid,
+      ticker,
+      action,
+      amount,
+      price,
+      totalValue,
+      cashBefore,
+      cashAfter,
+      portfolioAfter,
+      timestamp: now,
+      ip: context.rawRequest?.ip || 'unknown'
+    };
+
+    // Store in a separate trades collection for auditing
+    await db.collection('trades').add(tradeRecord);
+
+    // Check for suspicious patterns
+    const recentTradesSnap = await db.collection('trades')
+      .where('uid', '==', uid)
+      .where('timestamp', '>', new Date(Date.now() - 60000)) // Last minute
+      .get();
+
+    const tradeCount = recentTradesSnap.size;
+
+    // Flag suspicious activity (>10 trades per minute)
+    if (tradeCount > 10) {
+      console.warn(`SUSPICIOUS ACTIVITY: User ${uid} made ${tradeCount} trades in 1 minute`);
+
+      // Log to admin collection for review
+      await db.collection('admin').doc('suspicious_activity').set({
+        [uid]: {
+          timestamp: now,
+          tradeCount,
+          reason: 'Excessive trading frequency',
+          recentTrade: tradeRecord
+        }
+      }, { merge: true });
+
+      // Send Discord alert if configured
+      try {
+        await sendDiscordMessage(`⚠️ **Suspicious Activity Detected**\nUser: ${uid}\nTrades in 1 minute: ${tradeCount}\nAction: Manual review required`);
+      } catch (err) {
+        console.error('Failed to send Discord alert:', err);
+      }
+    }
+
+    return { success: true, recorded: true };
+
+  } catch (error) {
+    console.error('Trade recording error:', error);
+    // Don't throw - recording failure shouldn't block the trade
+    return { success: false, error: error.message };
+  }
+});

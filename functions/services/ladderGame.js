@@ -267,6 +267,39 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
   }
 });
 
-/**
- * Get ladder game leaderboard (top 50 by balance)
- */
+exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
+  try {
+    const ladderUsersSnap = await db.collection('ladderGameUsers')
+      .orderBy('balance', 'desc')
+      .limit(50)
+      .get();
+
+    const userIds = ladderUsersSnap.docs.map(doc => doc.id);
+    const leaderboard = [];
+
+    const userRefs = userIds.map(id => db.collection('users').doc(id));
+    const userDocs = userRefs.length > 0 ? await db.getAll(...userRefs) : [];
+    const userMap = {};
+    userDocs.forEach(doc => { if (doc.exists) userMap[doc.id] = doc.data(); });
+
+    for (const doc of ladderUsersSnap.docs) {
+      const ladderData = doc.data();
+      const userData = userMap[doc.id];
+      leaderboard.push({
+        userId: doc.id,
+        username: userData?.displayName || 'Anonymous',
+        balance: ladderData.balance || 0,
+        gamesPlayed: ladderData.gamesPlayed || 0,
+        wins: ladderData.wins || 0,
+        winRate: ladderData.gamesPlayed > 0
+          ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100)
+          : 0
+      });
+    }
+
+    return { leaderboard };
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + error.message);
+  }
+});

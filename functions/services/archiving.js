@@ -4,6 +4,82 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { ADMIN_UID } = require('../constants');
 
+// ─── Internal ────────────────────────────────────────────────────────────────
+
+async function doArchivePriceHistory(ticker = null) {
+  const MAX_HISTORY_SIZE = 1000;
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+
+  if (!marketSnap.exists) {
+    return { success: false, error: 'Market document not found' };
+  }
+
+  const marketData = marketSnap.data();
+  const priceHistory = marketData.priceHistory || {};
+  const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
+  let archivedCount = 0;
+
+  for (const t of tickersToArchive) {
+    const history = priceHistory[t] || [];
+
+    if (history.length > MAX_HISTORY_SIZE) {
+      const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
+      const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
+
+      const archiveRef = marketRef.collection('price_history').doc(t);
+      const archiveSnap = await archiveRef.get();
+      const existingArchive = archiveSnap.exists ? archiveSnap.data().history || [] : [];
+
+      await archiveRef.set({
+        history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await marketRef.update({
+        [`priceHistory.${t}`]: toKeep
+      });
+
+      archivedCount++;
+      console.log(`Archived ${toArchive.length} entries for ${t}, kept ${toKeep.length} recent entries`);
+    }
+  }
+
+  return { success: true, archivedTickers: archivedCount, message: `Archived ${archivedCount} tickers` };
+}
+
+async function doCleanupAlertedThresholds() {
+  const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+
+  if (!marketSnap.exists) {
+    return { success: false, error: 'Market document not found' };
+  }
+
+  const marketData = marketSnap.data();
+  const alertedThresholds = marketData.alertedThresholds || {};
+  const now = Date.now();
+  const updates = {};
+  let cleanedCount = 0;
+
+  for (const [key, timestamp] of Object.entries(alertedThresholds)) {
+    if (now - timestamp > MAX_AGE_MS) {
+      updates[`alertedThresholds.${key}`] = admin.firestore.FieldValue.delete();
+      cleanedCount++;
+    }
+  }
+
+  if (cleanedCount > 0) {
+    await marketRef.update(updates);
+    console.log(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
+  }
+
+  return { success: true, cleanedCount, message: `Cleaned up ${cleanedCount} old threshold alerts` };
+}
+
+// ─── Exports ─────────────────────────────────────────────────────────────────
+
 exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
   // Admin-only: prevents unauthorized users from modifying market data
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
