@@ -8,6 +8,7 @@ import {
   signOut
 } from 'firebase/auth';
 import { auth, googleProvider, twitterProvider } from '../../firebase';
+import { getThemeClasses } from '../../utils/theme';
 
 const LoginModal = ({ onClose, darkMode }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -136,9 +137,7 @@ const LoginModal = ({ onClose, darkMode }) => {
     setLoading(false);
   };
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
   const inputClass = darkMode
     ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
     : 'bg-white border-amber-200 text-slate-900';

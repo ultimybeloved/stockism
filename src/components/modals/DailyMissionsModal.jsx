@@ -4,13 +4,12 @@ import { getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews'
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
+import { getThemeClasses } from '../../utils/theme';
 
 const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, onRerollMissions, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
   const [activeTab, setActiveTab] = useState('daily');
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const today = getTodayDateString();
   const weekId = getWeekId();

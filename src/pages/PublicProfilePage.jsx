@@ -9,6 +9,7 @@ import { ACHIEVEMENTS } from '../constants/achievements';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
 import SimpleLineChart from '../components/charts/SimpleLineChart';
+import { getThemeClasses } from '../utils/theme';
 
 const CHARACTER_MAP = Object.fromEntries(CHARACTERS.map(c => [c.ticker, c]));
 
@@ -33,9 +34,7 @@ const PublicProfilePage = () => {
     fetch();
   }, [username]);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   if (loading) {
     return (

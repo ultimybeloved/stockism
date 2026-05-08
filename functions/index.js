@@ -11,6 +11,25 @@ const { botTrader } = require('./botTrader');
 
 // Import character data for trailing effects
 const { CHARACTERS, getDividendTier } = require('./characters');
+const {
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
+  MAX_PRICE_CHANGE_PERCENT,
+  MAX_DAILY_IMPACT,
+  MAX_TRADES_PER_TICKER_24H,
+  TWENTY_FOUR_HOURS_MS,
+  WEEKLY_HALT_START_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+  isWeeklyTradingHalt,
+  STARTING_CASH,
+  LEADERBOARD_CACHE_TTL,
+  CREW_MEMBERS,
+  ALL_CREW_TICKERS,
+  ANIMAL_TICKERS,
+  ADMIN_UID,
+} = require('./constants');
 
 // ============================================
 // DIVIDEND SYSTEM CONSTANTS
@@ -78,30 +97,6 @@ const graduateCohort = (cohort, now) => {
 
 // Leaderboard in-memory cache (persists across invocations on same instance)
 const leaderboardCache = {};
-const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
-
-// Constants
-const STARTING_CASH = 1000;
-// Admin UID from environment variable (set in functions/.env)
-// Falls back to hardcoded value for backwards compatibility
-const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
-
-// Weekly trading halt: Thursday 13:00–21:00 UTC (chapter review window)
-const isWeeklyTradingHalt = () => {
-  const now = new Date();
-  if (now.getUTCDay() !== 4) return false;
-  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return utcMins >= 780 && utcMins < 1260;
-};
-
-// Daily Impact Anti-Manipulation Constants
-const MAX_DAILY_IMPACT = 0.10; // 10% max price movement per user per ticker per day
-const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
-const BASE_IMPACT = 0.012;
-const BASE_LIQUIDITY = 100;
-const BID_ASK_SPREAD = 0.002;
-const ETF_BID_ASK_SPREAD = 0.001;
-const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
 // Cumulative marginal impact: makes splitting trades give same impact as bulk
 // impact = price * 0.012 * (sqrt((cumBefore + new) / 100) - sqrt(cumBefore / 100))
@@ -115,7 +110,6 @@ const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore
 };
 
 // Prune entries older than 24h, return summary
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const pruneAndSumTradeHistory = (entries, now) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
   const recent = (entries || []).filter(e => e.ts > cutoff);
@@ -124,23 +118,6 @@ const pruneAndSumTradeHistory = (entries, now) => {
   return { recent, totalShares, totalImpact, count: recent.length };
 };
 
-// Crew member mappings for mission tracking
-const CREW_MEMBERS = {
-  ALLIED: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
-  BIG_DEAL: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
-  FIST_GANG: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH'],
-  GOD_DOG: ['GDOG', 'MIRO', 'EDEN'],
-  SECRET_FRIENDS: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
-  HOSTEL: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
-  WTJC: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
-  WORKERS: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1'],
-  YAMAZAKI: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI']
-};
-// Set of all crew member tickers (for rival detection)
-const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
-
-// Animal characters for Animal Instinct achievement
-const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
 
 // ============================================
 // NOTIFICATION HELPER

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { getThemeClasses } from "../../utils/theme";
 
 export default function PriceAlertModal({
   ticker,
@@ -17,7 +18,7 @@ export default function PriceAlertModal({
   const cardClass = darkMode
     ? "bg-zinc-900 border-zinc-800 text-zinc-100"
     : "bg-white border-amber-200 text-slate-900";
-  const mutedClass = darkMode ? "text-zinc-400" : "text-zinc-600";
+  const { mutedClass } = getThemeClasses(darkMode);
   const inputClass = darkMode
     ? "bg-zinc-950 border-zinc-800 text-zinc-100"
     : "bg-white border-amber-200 text-slate-900";

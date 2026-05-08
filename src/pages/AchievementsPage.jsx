@@ -1,13 +1,12 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ACHIEVEMENTS } from '../constants/achievements';
+import { getThemeClasses } from '../utils/theme';
 
 const AchievementsPage = () => {
   const { darkMode, userData } = useAppContext();
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);

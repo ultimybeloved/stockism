@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { formatCurrency, formatChange } from '../../utils/formatters';
+import { getThemeClasses } from '../../utils/theme';
 
 const TIME_RANGES = [
   { key: '1d', label: 'Today', hours: 24 },
@@ -158,10 +159,7 @@ const PriceChart = ({
     ? (isUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')  // teal / purple
     : (isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');   // green / red
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
-  const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
+  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>

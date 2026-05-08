@@ -1,7 +1,8 @@
 {
   "functions": {
     "source": "functions",
-    "runtime": "nodejs20"
+    "runtime": "nodejs20",
+    "predeploy": ["npm run sync:chars"]
   },
   "firestore": {
     "rules": "firestore.rules",

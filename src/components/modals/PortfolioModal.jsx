@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
+import { getThemeClasses } from '../../utils/theme';
 import { DIVIDEND_RATES, DIVIDEND_HOLD_MS } from '../../constants/economy';
 import { formatCurrency, formatChange, formatNumber } from '../../utils/formatters';
 import LimitOrders from '../LimitOrders';
@@ -71,9 +72,7 @@ const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentVal
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   // Helper to get price from 24h ago
   const getPrice24hAgo = (ticker) => {

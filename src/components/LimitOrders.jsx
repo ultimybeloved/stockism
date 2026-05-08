@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, createLimitOrderFunction } from '../firebase';
 import { isWeeklyHalt } from '../utils/marketHours';
+import { getThemeClasses } from '../utils/theme';
 
 const LimitOrders = ({ user, darkMode, prices, characters }) => {
   const [activeTab, setActiveTab] = useState('orders'); // 'create' or 'orders' - default to 'orders' since creation is now in trade modal
@@ -15,12 +16,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
   const [limitPrice, setLimitPrice] = useState('');
   const [allowPartialFills, setAllowPartialFills] = useState(false);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-slate-600';
-  const inputClass = darkMode
-    ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
-    : 'bg-white border-slate-300 text-slate-900';
+  const { cardClass, textClass, mutedClass, inputClass } = getThemeClasses(darkMode);
 
   useEffect(() => {
     if (user) {

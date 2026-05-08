@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
+import { getThemeClasses } from '../../utils/theme';
 
 const EmailVerificationModal = ({ user, darkMode, userData }) => {
   const [loading, setLoading] = useState(false);
@@ -36,9 +37,7 @@ const EmailVerificationModal = ({ user, darkMode, userData }) => {
     }
   };
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">

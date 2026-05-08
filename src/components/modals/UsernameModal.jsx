@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createUserFunction } from '../../firebase';
 import { containsProfanity, getProfanityMessage } from '../../utils/profanity';
+import { getThemeClasses } from '../../utils/theme';
 
 const UsernameModal = ({ user, onComplete, darkMode }) => {
   const [username, setUsername] = useState('');
@@ -52,9 +53,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
     setLoading(false);
   };
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
   const inputClass = darkMode
     ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
     : 'bg-white border-amber-200 text-slate-900';

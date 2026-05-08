@@ -1,4 +1,5 @@
 import React from 'react';
+import { getThemeClasses } from '../utils/theme';
 
 const TYPE_ICONS = {
   trade: '📈',
@@ -41,9 +42,7 @@ export default function NotificationPanel({
     }
   };
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   return (
     <>

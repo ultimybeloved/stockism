@@ -1,11 +1,13 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-
-// Economy constants (match src/constants/economy.js)
-const BASE_IMPACT = 0.012;
-const BASE_LIQUIDITY = 100;
-const MIN_PRICE = 0.01;
-const MAX_PRICE_CHANGE_PERCENT = 0.05;
+const {
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MIN_PRICE,
+  MAX_PRICE_CHANGE_PERCENT,
+  WEEKLY_HALT_START_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+} = require('./constants');
 
 /**
  * Calculate price impact using square root model
@@ -54,12 +56,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
   // Filter to bot's crew preference if they have one
   let tickerPool = allTickers;
   if (bot.botCrew) {
-    // Get crew members for this crew
-    const CREW_MEMBERS = {
-      'BIG_DEAL': ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
-      'HOSTEL': ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
-      'WORKERS': ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1']
-    };
+    const { CREW_MEMBERS } = require('./constants');
     tickerPool = (CREW_MEMBERS[bot.botCrew] || allTickers).filter(t => allTickers.includes(t));
   }
 
@@ -254,7 +251,7 @@ module.exports = {
         const now = new Date();
         if (now.getUTCDay() === 4) {
           const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-          if (utcMins >= 780 && utcMins < 1260) {
+          if (utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
             console.log('Skipping bot trades — weekly trading halt active');
             return null;
           }

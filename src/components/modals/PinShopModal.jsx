@@ -4,6 +4,7 @@ import { ACHIEVEMENTS } from '../../constants/achievements';
 import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../constants/cosmetics';
 import { formatCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
+import { getThemeClasses } from '../../utils/theme';
 
 const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
   const [selectedPin, setSelectedPin] = useState(null);
@@ -11,9 +12,7 @@ const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosme
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const ownedPins = userData?.ownedShopPins || [];
   const displayedShopPins = userData?.displayedShopPins || [];

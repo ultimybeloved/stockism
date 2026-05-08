@@ -9,13 +9,27 @@ import {
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
-  MARGIN_CASH_MINIMUM,
-  MARGIN_TIERS,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_CALL_THRESHOLD,
   MARGIN_LIQUIDATION_THRESHOLD
 } from '../constants/economy';
+import { CHARACTER_MAP } from '../characters';
+
+/**
+ * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
+ * @param {string} ticker
+ * @param {Object} priceHistory - ticker → [{price, ts}] map
+ * @param {Object} prices - ticker → price map
+ * @returns {number}
+ */
+export const getCurrentPrice = (ticker, priceHistory, prices) => {
+  const history = priceHistory?.[ticker];
+  if (history && history.length > 0) {
+    return history[history.length - 1].price;
+  }
+  return prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+};
 
 /**
  * Calculate price impact based on trade size and character volatility
@@ -47,8 +61,24 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
   const halfSpread = midPrice * (spread / 2);
   return {
     bid: Math.max(MIN_PRICE, midPrice - halfSpread),
-    ask: midPrice + halfSpread
+    ask: midPrice + halfSpread,
+    spread: halfSpread * 2
   };
+};
+
+/**
+ * Calculate price impact as an absolute dollar amount using the marginal (cumulative) model.
+ * Used for UI previews in the trade modal.
+ * @param {number} currentPrice - Mid price of the asset
+ * @param {number} shares - Number of shares being traded
+ * @param {number} liquidity - Liquidity factor (default BASE_LIQUIDITY)
+ * @param {number} cumulativeVolume - Shares already traded in the rolling window
+ * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
+ */
+export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
+  return currentPrice * BASE_IMPACT * (
+    Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
+  );
 };
 
 /**
@@ -112,12 +142,7 @@ export const calculatePortfolioValue = (userData, prices) => {
  * @param {Object} prices - Current prices by ticker
  * @returns {Object} Margin status including available margin, equity ratio, etc.
  */
-/**
- * Helper to get margin tier multiplier based on peak portfolio achievement
- * @param {number} peakPortfolioValue - User's peak portfolio value
- * @returns {number} Tier multiplier (0.25, 0.35, 0.50, or 0.75)
- */
-const getMarginTierMultiplier = (peakPortfolioValue) => {
+export const getMarginTierMultiplier = (peakPortfolioValue) => {
   const peak = peakPortfolioValue || 0;
   if (peak >= 30000) return 0.75;
   if (peak >= 15000) return 0.50;
@@ -125,12 +150,7 @@ const getMarginTierMultiplier = (peakPortfolioValue) => {
   return 0.25;
 };
 
-/**
- * Helper to get margin tier name for display
- * @param {number} peakPortfolioValue - User's peak portfolio value
- * @returns {string} Tier name
- */
-const getMarginTierName = (peakPortfolioValue) => {
+export const getMarginTierName = (peakPortfolioValue) => {
   const peak = peakPortfolioValue || 0;
   if (peak >= 30000) return 'Platinum (0.75x)';
   if (peak >= 15000) return 'Gold (0.50x)';
@@ -138,7 +158,7 @@ const getMarginTierName = (peakPortfolioValue) => {
   return 'Bronze (0.25x)';
 };
 
-export const calculateMarginStatus = (userData, prices) => {
+export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   if (!userData || !userData.marginEnabled) {
     return {
       enabled: false,
@@ -159,36 +179,29 @@ export const calculateMarginStatus = (userData, prices) => {
   const marginUsed = userData.marginUsed || 0;
   const peakPortfolio = userData.peakPortfolioValue || 0;
 
-  // Get tier multiplier based on peak portfolio achievement
   const tierMultiplier = getMarginTierMultiplier(peakPortfolio);
   const tierName = getMarginTierName(peakPortfolio);
 
-  // Calculate total holdings value and maintenance requirement
   let holdingsValue = 0;
   let totalMaintenanceRequired = 0;
 
   Object.entries(holdings).forEach(([ticker, shares]) => {
     if (shares > 0) {
-      const price = prices[ticker] || 0;
+      const price = getCurrentPrice(ticker, priceHistory, prices);
       const positionValue = price * shares;
       holdingsValue += positionValue;
       totalMaintenanceRequired += positionValue * MARGIN_MAINTENANCE_RATIO;
     }
   });
 
-  // Portfolio value = cash + holdings - margin debt
-  // Fix: Ensure cash never goes negative in calculation (prevents false liquidations)
+  // Cash can't go below zero in equity calculation (prevents false liquidations)
   const grossValue = Math.max(0, cash) + holdingsValue;
   const portfolioValue = grossValue - marginUsed;
-
-  // Equity ratio = portfolio value / gross value (how much you actually own)
   const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 1;
 
-  // NEW: Cash-based borrowing with tiered multipliers
   const maxBorrowable = Math.max(0, cash * tierMultiplier);
   const availableMargin = Math.max(0, maxBorrowable - marginUsed);
 
-  // Determine status
   let status = 'safe';
   if (marginUsed > 0) {
     if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
@@ -226,32 +239,29 @@ export const calculateMarginStatus = (userData, prices) => {
 export const checkMarginEligibility = (userData, isAdmin = false) => {
   if (!userData) return { eligible: false, requirements: [] };
 
-  // Admin bypass - always eligible
   if (isAdmin) {
     return {
       eligible: true,
       requirements: [
         { met: true, label: '10+ daily check-ins', current: '∞', required: 10 },
         { met: true, label: '35+ total trades', current: '∞', required: 35 },
-        { met: true, label: '$2,000+ cash balance', current: '∞', required: 2000 }
+        { met: true, label: '$7,500+ peak portfolio', current: '∞', required: 7500 }
       ]
     };
   }
 
   const totalCheckins = userData.totalCheckins || 0;
   const totalTrades = userData.totalTrades || 0;
-  const cash = userData.cash || 0;
+  const peakPortfolio = userData.peakPortfolioValue || 0;
 
   const requirements = [
     { met: totalCheckins >= 10, label: '10+ daily check-ins', current: totalCheckins, required: 10 },
     { met: totalTrades >= 35, label: '35+ total trades', current: totalTrades, required: 35 },
-    { met: cash >= MARGIN_CASH_MINIMUM, label: '$2,000+ cash balance', current: cash, required: MARGIN_CASH_MINIMUM }
+    { met: peakPortfolio >= 7500, label: '$7,500+ peak portfolio', current: peakPortfolio, required: 7500 }
   ];
 
-  const allMet = requirements.every(r => r.met);
-
   return {
-    eligible: allMet,
+    eligible: requirements.every(r => r.met),
     requirements
   };
 };

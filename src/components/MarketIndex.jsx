@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import SimpleLineChart from './charts/SimpleLineChart';
 import { CHARACTERS } from '../characters';
+import { getThemeClasses } from '../utils/theme';
 
 const nonETFCharacters = CHARACTERS.filter(c => !c.isETF);
 
@@ -100,7 +101,7 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+  const { cardClass } = getThemeClasses(darkMode);
   const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters), [prices]);
 
   // 24h sparkline data
@@ -186,10 +187,7 @@ const IndexChartModal = ({
   chartData, currentIndex, timeRange, setTimeRange,
   hoveredPoint, setHoveredPoint, darkMode, colorBlindMode, onClose
 }) => {
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
-  const bgClass = darkMode ? 'bg-zinc-950' : 'bg-amber-50';
+  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
 
   if (chartData.length < 2) return null;
 

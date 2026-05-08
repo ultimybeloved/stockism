@@ -5,6 +5,7 @@ import PinDisplay from '../common/PinDisplay';
 import { getLeaderboardFunction } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { COSMETIC_MAP } from '../../constants/cosmetics';
+import { getThemeClasses } from '../../utils/theme';
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
   const [leaders, setLeaders] = useState([]);
@@ -61,9 +62,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     fetchLeaderboard();
   }, [sortBy, crewFilter]);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const getRankStyle = (rank) => {
     if (rank === 1) return 'text-yellow-500';

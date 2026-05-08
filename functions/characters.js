@@ -47,12 +47,13 @@ export const CHARACTERS = [
     basePrice: 85,
     volatility: 0.04,
     dateAdded: "2026-01-13T00:05:00",
+    altNames: ["Big Daniel"],
     trailingFactors: [
       { ticker: "LDNL", coefficient: 0.3 }
     ]
   },
   { name: "Sophia Alexander", ticker: "SOPH", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:06:00" },
-  { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:07:00" },
+  { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, volatility: 0.035, dateAdded: "2026-01-13T00:07:00", altNames: ["Gitae Kim"] },
   { name: "Johan Seong", ticker: "GDOG", basePrice: 80, volatility: 0.045, dateAdded: "2026-01-13T00:08:00", altNames: ["Yohan Seong"] },
   { name: "Tom Lee", ticker: "TOM", basePrice: 78, volatility: 0.035, dateAdded: "2026-01-13T00:09:00" },
   { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, volatility: 0.035, dateAdded: "2026-01-13T00:10:00" },
@@ -66,6 +67,7 @@ export const CHARACTERS = [
     basePrice: 70,
     volatility: 0.05,
     dateAdded: "2026-01-13T00:15:00",
+    altNames: ["Little Daniel"],
     trailingFactors: [
       { ticker: "BDNL", coefficient: 0.3 }
     ]
@@ -77,15 +79,15 @@ export const CHARACTERS = [
   { name: "Eli Jang", ticker: "ELI", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:20:00" },
   { name: "Samuel Seo", ticker: "SAM", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:21:00" },
   { name: "Taesoo Ma", ticker: "TM", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-13T00:22:00" },
-  { name: "Gongseop Ji", ticker: "GONG", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-13T00:23:00" },
+  { name: "Gongseop Ji", ticker: "GONG", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-13T00:23:00", altNames: ["Gongseob Ji"] },
   { name: "Seongji Yuk", ticker: "6KNG", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:24:00" },
-  { name: "Lang Jin", ticker: "WOLF", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:25:00" },
+  { name: "Lang Jin", ticker: "WOLF", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:25:00", altNames: ["Jinrang"] },
   { name: "J", ticker: "COP", basePrice: 60, volatility: 0.04, dateAdded: "2026-01-13T00:26:00" },
   { name: "Vin Jin", ticker: "VIN", basePrice: 57, volatility: 0.045, dateAdded: "2026-01-13T00:27:00" },
-  { name: "Vasco", ticker: "VSCO", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:28:00" },
+  { name: "Vasco", ticker: "VSCO", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:28:00", altNames: ["Euntae Lee"] },
   { name: "Zack Lee", ticker: "ZACK", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:29:00" },
   { name: "Ryuhei Kuroda", ticker: "NOMN", basePrice: 55, volatility: 0.04, dateAdded: "2026-01-13T00:30:00" },
-  { name: "Yuseong", ticker: "CAPG", basePrice: 50, volatility: 0.035, dateAdded: "2026-01-13T00:31:00" },
+  { name: "Yuseong", ticker: "CAPG", basePrice: 50, volatility: 0.035, dateAdded: "2026-01-13T00:31:00", altNames: ["Cap Guy"] },
   { name: "Mandeok Bang", ticker: "BANG", basePrice: 50, volatility: 0.035, dateAdded: "2026-01-13T00:32:00" },
   { name: "Jichang Kwak", ticker: "SNEK", basePrice: 50, volatility: 0.04, dateAdded: "2026-01-13T00:33:00" },
   { name: "Seokdu Wang", ticker: "SEOK", basePrice: 50, volatility: 0.04, dateAdded: "2026-01-13T00:34:00" },
@@ -96,7 +98,7 @@ export const CHARACTERS = [
   { name: "Hudson Ahn", ticker: "AHN", basePrice: 38, volatility: 0.035, dateAdded: "2026-01-13T00:39:00" },
   { name: "Jay Hong", ticker: "JAY", basePrice: 30, volatility: 0.03, dateAdded: "2026-01-13T00:40:00" },
   { name: "Logan Lee", ticker: "LOGN", basePrice: 30, volatility: 0.05, dateAdded: "2026-01-13T00:41:00" },
-  { name: "Eugene", ticker: "WRKR", basePrice: 26, volatility: 0.03, dateAdded: "2026-01-13T00:42:00" },
+  { name: "Eugene", ticker: "WRKR", basePrice: 26, volatility: 0.03, dateAdded: "2026-01-13T00:42:00", altNames: ["Yoojin"] },
   { name: "Crystal Choi", ticker: "CRYS", basePrice: 25, volatility: 0.03, dateAdded: "2026-01-13T00:43:00" },
   { name: "Olly Wang", ticker: "OLLY", basePrice: 20, volatility: 0.04, dateAdded: "2026-01-13T00:44:00" },
   { name: "Brad Lee", ticker: "BRAD", basePrice: 18, volatility: 0.035, dateAdded: "2026-01-13T00:45:00" },
@@ -117,7 +119,7 @@ export const CHARACTERS = [
   { name: "Duke Pyeon", ticker: "DUKE", basePrice: 20, volatility: 0.035, dateAdded: "2026-01-16T00:04:00" },
   { name: "Baekho Kwon", ticker: "KWON", basePrice: 70, volatility: 0.035, dateAdded: "2026-01-16T00:05:00" },
   { name: "Lightning Choi", ticker: "DNCE", basePrice: 30, volatility: 0.04, dateAdded: "2026-01-16T00:06:00" },
-  { name: "Gentleman", ticker: "GNTL", basePrice: 50, volatility: 0.035, dateAdded: "2026-01-16T00:07:00" },
+  { name: "Gentleman", ticker: "GNTL", basePrice: 50, volatility: 0.035, dateAdded: "2026-01-16T00:07:00", altNames: ["Chilbok Kang"] },
   { name: "Shigeaki Kojima", ticker: "SHKO", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:08:00" },
   { name: "Hiroaki Kojima", ticker: "HIKO", basePrice: 40, volatility: 0.035, dateAdded: "2026-01-16T00:09:00" },
   { name: "Yugang Ha", ticker: "INCH", basePrice: 60, volatility: 0.035, dateAdded: "2026-01-16T00:10:00" },
@@ -180,14 +182,14 @@ export const CHARACTERS = [
 
   // New characters added 2026-05-01
   { name: "Gangnam Landlord", ticker: "LAND", basePrice: 5, volatility: 0.04, dateAdded: "2026-05-01T00:00:00" },
-  { name: "Changyi Seo", ticker: "SWMP", basePrice: 45, volatility: 0.04, dateAdded: "2026-05-01T00:01:00" },
+  { name: "Changyi Seo", ticker: "SWMP", basePrice: 45, volatility: 0.04, dateAdded: "2026-05-01T00:01:00", altNames: ["Swamp Genius"] },
   { name: "Chilsu Kang", ticker: "JEON", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:02:00" },
   { name: "Youngjin Jin", ticker: "SCHN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:03:00" },
   { name: "Dongchun Bae", ticker: "SIN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:04:00" },
   { name: "Minyong Park", ticker: "DOC2", basePrice: 7.50, volatility: 0.04, dateAdded: "2026-05-01T00:05:00" },
 
   // IPO characters - require IPO process before trading
-  { name: "Ryu Baekgeon", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
+  { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -335,12 +337,18 @@ CHARACTERS.forEach(c => {
   CHARACTER_MAP[c.ticker] = c;
 });
 
-// Default dividend tier per ticker. Admin overrides via Firestore
-// (dividendConfig/tierOverrides) take precedence. ETFs auto-resolve to 'etf'
-// via the isETF flag. Missing ticker => 'growth' (0%).
-// Launch policy: ETFs-only. Individual characters can be promoted later.
+// Default dividend tier per ticker. Admin can override via Firestore
+// (dividendConfig/tierOverrides) without a code deploy. ETFs auto-resolve to
+// 'etf' via the isETF flag. Missing ticker => 'growth' (0%).
+//
+// Launch policy: ETFs-only. The game is too young for any individual character
+// to qualify as a genuine blue-chip (every price is still in discovery and can
+// swing 10-20% on a reveal). Individual characters will be promoted into
+// dividend/blue-chip tiers later as their price history stabilizes.
 export const DEFAULT_DIVIDEND_TIERS = {};
 
+// Resolve dividend tier for a ticker. Pass optional overrides from Firestore config
+// doc to trump the hardcoded defaults. ETFs (isETF true) always return 'etf'.
 export const getDividendTier = (ticker, overrides = {}) => {
   const char = CHARACTER_MAP[ticker];
   if (!char) return 'growth';

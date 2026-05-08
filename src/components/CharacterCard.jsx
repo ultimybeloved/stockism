@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { formatCurrency, formatChange } from '../utils/formatters';
+import { getThemeClasses } from '../utils/theme';
 import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
 import { CREWS } from '../crews';
@@ -64,8 +65,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const cardClass = darkMode
     ? `bg-zinc-900 border-zinc-800 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`
     : `bg-white border-amber-200 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { textClass, mutedClass } = getThemeClasses(darkMode);
 
   const getSentimentColor = () => {
     const positiveColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';

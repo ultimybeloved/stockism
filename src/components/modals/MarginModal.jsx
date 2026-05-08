@@ -4,152 +4,19 @@ import {
   MARGIN_CALL_GRACE_PERIOD
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
-
-// Helper functions from App.jsx
-const checkMarginEligibility = (userData, isAdmin = false) => {
-  if (!userData) return { eligible: false, requirements: [] };
-
-  // Admin bypass - always eligible
-  if (isAdmin) {
-    return {
-      eligible: true,
-      requirements: [
-        { met: true, label: '10+ daily check-ins', current: '∞', required: 10 },
-        { met: true, label: '35+ total trades', current: '∞', required: 35 },
-        { met: true, label: '$7,500+ peak portfolio', current: '∞', required: 7500 }
-      ]
-    };
-  }
-
-  const totalCheckins = userData.totalCheckins || 0;
-  const totalTrades = userData.totalTrades || 0;
-  const peakPortfolio = userData.peakPortfolioValue || 0;
-
-  const requirements = [
-    { met: totalCheckins >= 10, label: '10+ daily check-ins', current: totalCheckins, required: 10 },
-    { met: totalTrades >= 35, label: '35+ total trades', current: totalTrades, required: 35 },
-    { met: peakPortfolio >= 7500, label: '$7,500+ peak portfolio', current: peakPortfolio, required: 7500 }
-  ];
-
-  const allMet = requirements.every(r => r.met);
-
-  return {
-    eligible: allMet,
-    requirements
-  };
-};
-
-const getMarginTierMultiplier = (peakPortfolioValue) => {
-  const peak = peakPortfolioValue || 0;
-  if (peak >= 30000) return 0.75;
-  if (peak >= 15000) return 0.50;
-  if (peak >= 7500) return 0.35;
-  return 0.25;
-};
-
-const getMarginTierName = (peakPortfolioValue) => {
-  const peak = peakPortfolioValue || 0;
-  if (peak >= 30000) return 'Platinum (0.75x)';
-  if (peak >= 15000) return 'Gold (0.50x)';
-  if (peak >= 7500) return 'Silver (0.35x)';
-  return 'Bronze (0.25x)';
-};
-
-const getCurrentPrice = (ticker, priceHistory, prices) => {
-  const history = priceHistory?.[ticker];
-  if (history && history.length > 0) {
-    return history[history.length - 1].price;
-  }
-  return prices?.[ticker] || 0;
-};
-
-const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
-  if (!userData || !userData.marginEnabled) {
-    return {
-      enabled: false,
-      marginUsed: 0,
-      availableMargin: 0,
-      maxBorrowable: 0,
-      tierMultiplier: 0,
-      tierName: 'N/A',
-      portfolioValue: 0,
-      totalMaintenanceRequired: 0,
-      equityRatio: 1,
-      status: 'disabled'
-    };
-  }
-
-  const cash = userData.cash || 0;
-  const holdings = userData.holdings || {};
-  const marginUsed = userData.marginUsed || 0;
-  const peakPortfolio = userData.peakPortfolioValue || 0;
-
-  // Get tier multiplier based on peak portfolio achievement
-  const tierMultiplier = getMarginTierMultiplier(peakPortfolio);
-  const tierName = getMarginTierName(peakPortfolio);
-
-  // Calculate total holdings value and maintenance requirement
-  let holdingsValue = 0;
-  let totalMaintenanceRequired = 0;
-
-  Object.entries(holdings).forEach(([ticker, shares]) => {
-    if (shares > 0) {
-      const price = getCurrentPrice(ticker, priceHistory, prices);
-      const positionValue = price * shares;
-      holdingsValue += positionValue;
-
-      // Use a fixed maintenance ratio
-      totalMaintenanceRequired += positionValue * 0.30; // 30% maintenance ratio
-    }
-  });
-
-  // Portfolio value = cash + holdings - margin debt
-  const grossValue = cash + holdingsValue;
-  const portfolioValue = grossValue - marginUsed;
-
-  // Equity ratio = portfolio value / gross value (how much you actually own)
-  const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 1;
-
-  // Cash-based borrowing with tiered multipliers
-  const maxBorrowable = Math.max(0, cash * tierMultiplier);
-  const availableMargin = Math.max(0, maxBorrowable - marginUsed);
-
-  // Determine status
-  let status = 'safe';
-  if (marginUsed > 0) {
-    if (equityRatio <= 0.25) {
-      status = 'liquidation';
-    } else if (equityRatio <= 0.30) {
-      status = 'margin_call';
-    } else if (equityRatio <= 0.35) {
-      status = 'warning';
-    }
-  }
-
-  return {
-    enabled: true,
-    marginUsed,
-    availableMargin: Math.round(availableMargin * 100) / 100,
-    maxBorrowable: Math.round(maxBorrowable * 100) / 100,
-    tierMultiplier,
-    tierName,
-    portfolioValue: Math.round(portfolioValue * 100) / 100,
-    grossValue: Math.round(grossValue * 100) / 100,
-    holdingsValue: Math.round(holdingsValue * 100) / 100,
-    totalMaintenanceRequired: Math.round(totalMaintenanceRequired * 100) / 100,
-    equityRatio: Math.round(equityRatio * 1000) / 1000,
-    status,
-    marginCallAt: userData.marginCallAt || null
-  };
-};
+import {
+  checkMarginEligibility,
+  calculateMarginStatus,
+  getMarginTierMultiplier,
+  getMarginTierName
+} from '../../utils/calculations';
+import { getThemeClasses } from '../../utils/theme';
 
 const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading }) => {
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const eligibility = checkMarginEligibility(userData, isAdmin);
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);

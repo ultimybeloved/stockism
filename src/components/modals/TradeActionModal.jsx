@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { CHARACTER_MAP } from '../../characters';
 import {
-  BASE_IMPACT,
   BASE_LIQUIDITY,
-  BID_ASK_SPREAD,
-  ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   SHORT_MARGIN_REQUIREMENT,
-  MAX_DAILY_IMPACT_PER_USER,
   MAX_TRADES_PER_TICKER_24H
 } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
-import { calculatePortfolioValue } from '../../utils/calculations';
+import { getThemeClasses } from '../../utils/theme';
+import {
+  calculatePortfolioValue,
+  calculatePriceImpactDollars,
+  getBidAskPrices,
+  getCurrentPrice,
+  calculateMarginStatus
+} from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
 import { isWeeklyHalt } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
@@ -26,58 +28,6 @@ const pruneAndSumTradeHistory = (entries, now) => {
   return { recent, totalShares, totalImpact, count: recent.length };
 };
 
-const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
-  const impact = currentPrice * BASE_IMPACT * (
-    Math.sqrt((cumulativeVolume + shares) / liquidity) -
-    Math.sqrt(cumulativeVolume / liquidity)
-  );
-  return impact;
-};
-
-const getBidAskPrices = (midPrice, isETF = false) => {
-  const spread = isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
-  const halfSpread = midPrice * spread / 2;
-  return {
-    bid: midPrice - halfSpread,
-    ask: midPrice + halfSpread,
-    spread: halfSpread * 2
-  };
-};
-
-const getCurrentPrice = (ticker, priceHistory, prices) => {
-  const history = priceHistory?.[ticker];
-  if (history && history.length > 0) {
-    return history[history.length - 1].price;
-  }
-  return prices?.[ticker] || 0;
-};
-
-const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
-  if (!userData || !userData.marginEnabled) {
-    return {
-      enabled: false,
-      availableMargin: 0
-    };
-  }
-
-  const cash = userData.cash || 0;
-  const marginUsed = userData.marginUsed || 0;
-  const peakPortfolio = userData.peakPortfolioValue || 0;
-
-  // Get tier multiplier
-  let tierMultiplier = 0.25;
-  if (peakPortfolio >= 30000) tierMultiplier = 0.75;
-  else if (peakPortfolio >= 15000) tierMultiplier = 0.50;
-  else if (peakPortfolio >= 7500) tierMultiplier = 0.35;
-
-  const maxBorrowable = Math.max(0, cash * tierMultiplier);
-  const availableMargin = Math.max(0, maxBorrowable - marginUsed);
-
-  return {
-    enabled: true,
-    availableMargin: Math.round(availableMargin * 100) / 100
-  };
-};
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false, haltInfo }) => {
   const { showNotification } = useAppContext();
@@ -89,9 +39,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const cardClass = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
-  const textClass = darkMode ? 'text-zinc-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-zinc-600';
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   // Color blind friendly colors for price indicators (bid/ask displays)
   const getColors = (isPositive) => {
@@ -126,7 +74,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const getDynamicPrices = (amt, act) => {
     const liquidity = character.liquidity || BASE_LIQUIDITY;
     const cumVol = getCumulativeVolume(act);
-    const impact = calculatePriceImpact(price, amt, liquidity, cumVol);
+    const impact = calculatePriceImpactDollars(price, amt, liquidity, cumVol);
 
     if (act === 'buy' || act === 'cover') {
       const newMid = price + impact;
