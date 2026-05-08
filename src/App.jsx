@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { fireTradeConfetti, fireDailyRewardConfetti, fireWeeklyRewardConfetti } from './utils/confetti';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
@@ -33,28 +33,31 @@ import {
 import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
-import AdminPanel from './AdminPanel';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
 import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
-import LadderGame from './components/LadderGame';
 import LimitOrders from './components/LimitOrders';
 import MarketIndex from './components/MarketIndex';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
-// Import modals
-import AboutModal from './components/modals/AboutModal';
-import CrewSelectionModal from './components/modals/CrewSelectionModal';
-import PinShopModal from './components/modals/PinShopModal';
-import DailyMissionsModal from './components/modals/DailyMissionsModal';
-import ProfileModal from './components/modals/ProfileModal';
-import AchievementsModal from './components/modals/AchievementsModal';
-import MarginModal from './components/modals/MarginModal';
-import EmailVerificationModal from './components/modals/EmailVerificationModal';
+// Eagerly-loaded modals (shown immediately / on critical auth flows)
 import LoginModal from './components/modals/LoginModal';
 import UsernameModal from './components/modals/UsernameModal';
-import TradeActionModal from './components/modals/TradeActionModal';
-import ChartModal from './components/modals/ChartModal';
-import PortfolioModal from './components/modals/PortfolioModal';
-import TradeHistoryModal from './components/modals/TradeHistoryModal';
+import EmailVerificationModal from './components/modals/EmailVerificationModal';
+
+// Lazy-loaded — only downloaded when the user actually opens them
+const AdminPanel        = lazy(() => import('./AdminPanel'));
+const LadderGame        = lazy(() => import('./components/LadderGame'));
+const AboutModal        = lazy(() => import('./components/modals/AboutModal'));
+const CrewSelectionModal = lazy(() => import('./components/modals/CrewSelectionModal'));
+const PinShopModal      = lazy(() => import('./components/modals/PinShopModal'));
+const DailyMissionsModal = lazy(() => import('./components/modals/DailyMissionsModal'));
+const ProfileModal      = lazy(() => import('./components/modals/ProfileModal'));
+const AchievementsModal = lazy(() => import('./components/modals/AchievementsModal'));
+const MarginModal       = lazy(() => import('./components/modals/MarginModal'));
+const TradeActionModal  = lazy(() => import('./components/modals/TradeActionModal'));
+const ChartModal        = lazy(() => import('./components/modals/ChartModal'));
+const PortfolioModal    = lazy(() => import('./components/modals/PortfolioModal'));
+const TradeHistoryModal = lazy(() => import('./components/modals/TradeHistoryModal'));
 
 // Import other components
 import CheckInButton from './components/CheckInButton';
@@ -72,13 +75,15 @@ import IPOHypeCard from './components/IPOHypeCard';
 import IPOActiveCard from './components/IPOActiveCard';
 import { useModalManager } from './hooks/useModalManager';
 
-// Import Layout and Pages
+// Layout is always needed — eagerly loaded
 import Layout from './components/layout/Layout';
-import LeaderboardPage from './pages/LeaderboardPage';
-import AchievementsPage from './pages/AchievementsPage';
-import LadderPage from './pages/LadderPage';
-import ProfilePage from './pages/ProfilePage';
-import PublicProfilePage from './pages/PublicProfilePage';
+
+// Pages are lazy-loaded for route-based code splitting
+const LeaderboardPage  = lazy(() => import('./pages/LeaderboardPage'));
+const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
+const LadderPage       = lazy(() => import('./pages/LadderPage'));
+const ProfilePage      = lazy(() => import('./pages/ProfilePage'));
+const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage'));
 
 // Import AppContext
 import { AppProvider } from './context/AppContext';
@@ -2384,6 +2389,8 @@ export default function App() {
               <button onClick={() => setShowInAppBanner(false)} className="shrink-0 font-bold text-lg leading-none opacity-60 hover:opacity-100">&times;</button>
             </div>
           )}
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>}>
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={
               <div className={`min-h-screen ${bgClass} p-4`}>
@@ -2892,8 +2899,12 @@ export default function App() {
             <Route path="/u/:username" element={<PublicProfilePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
+          </Suspense>
 
           {/* Global Modals - rendered outside Routes */}
+          {/* Suspense: lazy modals show nothing while their chunk loads (acceptable — they need a user action first) */}
+          <Suspense fallback={null}>
           {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} darkMode={darkMode} />}
           {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} userData={userData} />}
           {needsUsername && user && (
@@ -3240,6 +3251,7 @@ export default function App() {
         </div>
       )}
 
+          </Suspense>
       </Layout>
     </AppProvider>
   );
