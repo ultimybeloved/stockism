@@ -3,8 +3,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const ChartModal = ({ character, currentPrice, priceHistory, onClose, darkMode, defaultTimeRange = '1d', colorBlindMode = false }) => {
+const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }) => {
+  const { darkMode, userData, priceHistory } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
   const [hoveredPoint, setHoveredPoint] = useState(null); // Tracks cursor position data
   const [archivedHistory, setArchivedHistory] = useState([]);

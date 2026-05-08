@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAppContext } from '../../context/AppContext';
 
-const Footer = ({ darkMode }) => {
+const Footer = () => {
+  const { darkMode } = useAppContext();
   const links = [
     { href: 'https://discord.gg/yxw94uNrYv', label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },

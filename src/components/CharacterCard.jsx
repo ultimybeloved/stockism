@@ -5,8 +5,10 @@ import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
 import { CREWS } from '../crews';
 import { CHARACTERS } from '../characters';
+import { useAppContext } from '../context/AppContext';
 
-const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, priceHistory, darkMode, userCash = 0, userData, prices, user, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
+const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
+  const { darkMode, user, userData, prices, priceHistory } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
@@ -347,14 +349,8 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           holdings={holdings}
           shortPosition={shortPosition}
           userCash={userCash}
-          userData={userData}
-          prices={prices}
           onTrade={onTrade}
           onClose={() => { setTradeAction(null); setShouldOpenAsLimit(false); }}
-          darkMode={darkMode}
-          priceHistory={priceHistory}
-          colorBlindMode={userData?.colorBlindMode || false}
-          user={user}
           defaultToLimitOrder={shouldOpenAsLimit}
           haltInfo={haltInfo}
         />

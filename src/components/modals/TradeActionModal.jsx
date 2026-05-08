@@ -29,8 +29,9 @@ const pruneAndSumTradeHistory = (entries, now) => {
 };
 
 
-const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, userData, prices, onTrade, onClose, darkMode, priceHistory, colorBlindMode = false, user, defaultToLimitOrder = false, haltInfo }) => {
-  const { showNotification } = useAppContext();
+const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, onTrade, onClose, defaultToLimitOrder = false, haltInfo }) => {
+  const { darkMode, user, userData, prices, priceHistory, showNotification } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const [amount, setAmount] = useState(1);
   const [partialShares, setPartialShares] = useState(false);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);

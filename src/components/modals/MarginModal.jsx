@@ -11,8 +11,10 @@ import {
   getMarginTierName
 } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const MarginModal = ({ onClose, darkMode, userData, prices, priceHistory, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading }) => {
+const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading }) => {
+  const { darkMode, userData, prices, priceHistory } = useAppContext();
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 

@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { ADMIN_UIDS } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
+import { useAppContext } from '../../context/AppContext';
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -23,7 +24,8 @@ const LadderIcon = () => (
   </svg>
 );
 
-const Header = ({ darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters = [] }) => {
+const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters = [] }) => {
+  const { darkMode, user, userData } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);

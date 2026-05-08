@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { CREWS, CREW_MAP } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const CrewSelectionModal = ({ onClose, onSelect, onLeave, darkMode, userData, isGuest, leaveLoading }) => {
+const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading }) => {
+  const { darkMode, userData } = useAppContext();
   const [selectedCrew, setSelectedCrew] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [leavingCrew, setLeavingCrew] = useState(false);

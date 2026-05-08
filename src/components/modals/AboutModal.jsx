@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const AboutModal = ({ onClose, darkMode, userData }) => {
+const AboutModal = ({ onClose }) => {
+  const { darkMode, userData } = useAppContext();
   const [activeTab, setActiveTab] = useState('about');
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);

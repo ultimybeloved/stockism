@@ -2367,20 +2367,14 @@ export default function App() {
   return (
     <AppProvider value={contextValue}>
       <Layout
-        darkMode={darkMode}
         setDarkMode={handleToggleDarkMode}
-        user={user}
-        userData={userData}
         onShowAdminPanel={() => setShowAdmin(true)}
-          isGuest={isGuest}
-          onShowLogin={() => setShowLoginModal(true)}
-          prices={prices}
-          priceHistory={priceHistory}
-          marketData={marketData}
-          notificationCount={userNotifications.filter(n => !n.read).length}
-          onToggleNotifications={() => setShowNotificationPanel(prev => !prev)}
-          newCharacters={newCharactersWithData}
-        >
+        isGuest={isGuest}
+        onShowLogin={() => setShowLoginModal(true)}
+        notificationCount={userNotifications.filter(n => !n.read).length}
+        onToggleNotifications={() => setShowNotificationPanel(prev => !prev)}
+        newCharacters={newCharactersWithData}
+      >
           {showInAppBanner && (
             <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
               darkMode ? 'bg-amber-900/30 border-amber-700 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'
@@ -2842,7 +2836,6 @@ export default function App() {
               key={character.ticker}
               character={character}
               price={(() => {
-                // Use priceHistory as source of truth, fall back to prices object
                 const history = priceHistory[character.ticker];
                 if (history && history.length > 0) {
                   return history[history.length - 1].price;
@@ -2855,12 +2848,7 @@ export default function App() {
               shortPosition={activeUserData.shorts?.[character.ticker]}
               onTrade={requestTrade}
               onViewChart={handleViewChart}
-              priceHistory={priceHistory}
-              darkMode={darkMode}
               userCash={activeUserData.cash || 0}
-              userData={activeUserData}
-              prices={prices}
-              user={user}
               limitOrderRequest={limitOrderRequest}
               onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
               isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
@@ -2926,14 +2914,10 @@ export default function App() {
               darkMode={darkMode}
             />
           )}
-          {showAbout && <AboutModal onClose={() => setShowAbout(false)} darkMode={darkMode} userData={userData} />}
+          {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
           {showLending && !isGuest && (
             <MarginModal
               onClose={() => setShowLending(false)}
-              darkMode={darkMode}
-              userData={userData}
-              prices={prices}
-              priceHistory={priceHistory}
               onEnableMargin={handleEnableMargin}
               onDisableMargin={handleDisableMargin}
               onRepayMargin={handleRepayMargin}
@@ -2948,8 +2932,6 @@ export default function App() {
           onClose={() => setShowCrewSelection(false)}
           onSelect={handleCrewSelect}
           onLeave={handleCrewLeave}
-          darkMode={darkMode}
-          userData={userData}
           isGuest={isGuest}
           leaveLoading={actionLoading.leaveCrew}
         />
@@ -2957,8 +2939,6 @@ export default function App() {
       {showPinShop && !isGuest && (
         <PinShopModal
           onClose={() => setShowPinShop(false)}
-          darkMode={darkMode}
-          userData={userData}
           onPurchase={handlePinAction}
           onPurchaseCosmetic={handlePurchaseCosmetic}
           onEquipCosmetic={handleEquipCosmetic}
@@ -2968,9 +2948,6 @@ export default function App() {
       {showDailyMissions && (
         <DailyMissionsModal
           onClose={() => setShowDailyMissions(false)}
-          darkMode={darkMode}
-          userData={userData}
-          prices={prices}
           onClaimReward={handleClaimMissionReward}
           onClaimWeeklyReward={handleClaimWeeklyMissionReward}
           portfolioValue={portfolioValue}
@@ -3097,21 +3074,12 @@ export default function App() {
       
       {showPortfolio && !isGuest && (
         <PortfolioModal
-          holdings={activeUserData.holdings || {}}
-          shorts={activeUserData.shorts || {}}
-          prices={prices}
           portfolioHistory={userData?.portfolioHistory || []}
           currentValue={portfolioValue}
           onClose={() => setShowPortfolio(false)}
           onTrade={requestTrade}
           onLimitSell={handleLimitOrderRequest}
           onOpenTradeHistory={() => { setShowPortfolio(false); setShowTradeHistory(true); }}
-          darkMode={darkMode}
-          costBasis={userData?.costBasis || {}}
-          priceHistory={priceHistory}
-          colorBlindMode={userData?.colorBlindMode || false}
-          user={user}
-          activeIPOs={activeIPOs}
           ipoPurchases={userData?.ipoPurchases || {}}
           holdingCohorts={activeUserData.holdingCohorts || {}}
           dividendTierOverrides={dividendTierOverrides}
@@ -3119,21 +3087,15 @@ export default function App() {
       )}
       {showTradeHistory && !isGuest && (
         <TradeHistoryModal
-          user={user}
           onClose={() => setShowTradeHistory(false)}
-          darkMode={darkMode}
-          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
       {selectedCharacter && (
         <ChartModal
           character={selectedCharacter.character || selectedCharacter}
           currentPrice={prices[(selectedCharacter.character || selectedCharacter).ticker] || (selectedCharacter.character || selectedCharacter).basePrice}
-          priceHistory={priceHistory}
           onClose={() => setSelectedCharacter(null)}
-          darkMode={darkMode}
           defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
-          colorBlindMode={userData?.colorBlindMode || false}
         />
       )}
 

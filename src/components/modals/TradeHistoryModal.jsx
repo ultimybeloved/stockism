@@ -4,10 +4,13 @@ import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { CHARACTER_MAP } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
 const PAGE_SIZE = 30;
 
-const TradeHistoryModal = ({ user, onClose, darkMode, colorBlindMode = false }) => {
+const TradeHistoryModal = ({ onClose }) => {
+  const { darkMode, user, userData } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);

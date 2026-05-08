@@ -5,8 +5,10 @@ import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const DailyMissionsModal = ({ onClose, darkMode, userData, prices, onClaimReward, onClaimWeeklyReward, onRerollMissions, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
+const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
+  const { darkMode, userData, prices } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);

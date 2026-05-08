@@ -1,7 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { isWeeklyHalt, getHaltTimeRemaining, getNextHaltStart, formatCountdown } from '../utils/marketHours';
+import { useAppContext } from '../context/AppContext';
 
-const MarketTicker = ({ prices, priceHistory, marketData, darkMode, colorBlindMode }) => {
+const MarketTicker = () => {
+  const { prices, priceHistory, marketData, darkMode, userData } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const [countdown, setCountdown] = useState('');
   const halted = isWeeklyHalt() || marketData?.marketHalted;
   const manualHalt = marketData?.marketHalted;

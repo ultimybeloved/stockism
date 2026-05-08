@@ -4,15 +4,14 @@ import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
 import MarketTicker from '../MarketTicker';
+import { useAppContext } from '../../context/AppContext';
 
-const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPanel, isGuest, onShowLogin, prices, priceHistory, marketData, notificationCount, onToggleNotifications, newCharacters }) => {
+const Layout = ({ children, setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters }) => {
+  const { darkMode } = useAppContext();
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-gray-50'}`}>
       <Header
-        darkMode={darkMode}
         setDarkMode={setDarkMode}
-        user={user}
-        userData={userData}
         onShowAdminPanel={onShowAdminPanel}
         isGuest={isGuest}
         onShowLogin={onShowLogin}
@@ -21,13 +20,7 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         newCharacters={newCharacters || []}
       />
 
-      <MarketTicker
-        prices={prices}
-        priceHistory={priceHistory}
-        marketData={marketData}
-        darkMode={darkMode}
-        colorBlindMode={userData?.colorBlindMode || false}
-      />
+      <MarketTicker />
 
       {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
       <div className="hidden md:flex justify-center py-2">
@@ -47,8 +40,8 @@ const Layout = ({ children, darkMode, setDarkMode, user, userData, onShowAdminPa
         {children}
       </main>
 
-      <Footer darkMode={darkMode} />
-      <MobileBottomNav darkMode={darkMode} user={user} />
+      <Footer />
+      <MobileBottomNav />
     </div>
   );
 };

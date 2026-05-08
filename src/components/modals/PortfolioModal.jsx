@@ -60,8 +60,9 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ holdings, shorts, prices, portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, darkMode, costBasis, priceHistory, colorBlindMode = false, user, activeIPOs = [], ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {} }) => {
-  const { showNotification } = useAppContext();
+const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {} }) => {
+  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
   const [showChart, setShowChart] = useState(true);

@@ -5,8 +5,10 @@ import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../constants
 import { formatCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
 
-const PinShopModal = ({ onClose, darkMode, userData, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
+const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
+  const { darkMode, userData } = useAppContext();
   const [selectedPin, setSelectedPin] = useState(null);
   const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'cosmetics', 'manage'
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
