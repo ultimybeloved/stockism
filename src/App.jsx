@@ -51,7 +51,6 @@ const AboutModal        = lazy(() => import('./components/modals/AboutModal'));
 const CrewSelectionModal = lazy(() => import('./components/modals/CrewSelectionModal'));
 const PinShopModal      = lazy(() => import('./components/modals/PinShopModal'));
 const DailyMissionsModal = lazy(() => import('./components/modals/DailyMissionsModal'));
-const ProfileModal      = lazy(() => import('./components/modals/ProfileModal'));
 const AchievementsModal = lazy(() => import('./components/modals/AchievementsModal'));
 const MarginModal       = lazy(() => import('./components/modals/MarginModal'));
 const TradeActionModal  = lazy(() => import('./components/modals/TradeActionModal'));
