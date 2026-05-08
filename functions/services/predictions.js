@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const { isWeeklyTradingHalt } = require('../constants');
+const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
 const { checkBanned, sendDiscordMessage } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
@@ -307,7 +307,6 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
 
     // If sold out, immediately apply price jump and launch into normal trading
     if (soldOut) {
-      const IPO_PRICE_JUMP = 0.15;
       const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
       transaction.update(marketRef, {
         [`prices.${ticker}`]: newPrice,
@@ -334,7 +333,6 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
   // Send Discord alert after transaction if sold out
   if (result.soldOut) {
     try {
-      const IPO_PRICE_JUMP = 0.15;
       const newPrice = Math.round(result.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
       await sendDiscordMessage(null, [{
         title: '🎉 IPO Sold Out!',
@@ -381,7 +379,6 @@ exports.processIPOPriceJumps = functions.pubsub
       const ipoData = ipoSnap.data();
       const ipos = ipoData.list || [];
       const now = Date.now();
-      const IPO_PRICE_JUMP = 0.15;
 
       let processedCount = 0;
       let updatedList = [...ipos];

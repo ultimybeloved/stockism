@@ -2,7 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { ADMIN_UID } = require('../constants');
+const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE } = require('../constants');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ async function doArchivePriceHistory(ticker = null) {
 }
 
 async function doCleanupAlertedThresholds() {
-  const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+  const MAX_AGE_MS = ONE_WEEK_MS;
   const marketRef = db.collection('market').doc('current');
   const marketSnap = await marketRef.get();
 
@@ -203,13 +203,12 @@ exports.syncAllPortfolios = functions.pubsub
           const portfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
 
           // Charge margin interest if due (piggybacks on 6-hour sync)
-          const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily
-          const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+          
           let marginInterest = 0;
           const marginUsed = userData.marginUsed || 0;
           if (userData.marginEnabled && marginUsed > 0) {
             const lastCharge = userData.lastMarginInterestCharge || 0;
-            if (startTime - lastCharge >= ONE_DAY_MS) {
+            if (startTime - lastCharge >= TWENTY_FOUR_HOURS_MS) {
               marginInterest = marginUsed * MARGIN_INTEREST_RATE;
             }
           }

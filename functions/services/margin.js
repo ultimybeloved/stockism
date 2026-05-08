@@ -3,7 +3,11 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, isWeeklyTradingHalt } = require('../constants');
+const {
+  ADMIN_UID, isWeeklyTradingHalt,
+  TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS,
+  MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
+} = require('../constants');
 const { checkBanned, writeNotification, sendDiscordMessage } = require('../helpers');
 
 exports.repayMargin = functions.https.onCall(async (data, context) => {
@@ -70,7 +74,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
     }
 
     // Enforce 24-hour cooldown between bailouts
-    if (userData.lastBailout && (Date.now() - userData.lastBailout) < 86400000) {
+    if (userData.lastBailout && (Date.now() - userData.lastBailout) < TWENTY_FOUR_HOURS_MS) {
       throw new functions.https.HttpsError('failed-precondition', 'Bailout available once per 24 hours.');
     }
 
@@ -81,11 +85,11 @@ exports.bailout = functions.https.onCall(async (data, context) => {
       : crewHistory;
 
     transaction.update(userRef, {
-      cash: 500,
+      cash: BAILOUT_CASH,
       holdings: {},
       shorts: {},
       costBasis: {},
-      portfolioValue: 500,
+      portfolioValue: BAILOUT_CASH,
       marginEnabled: false,
       marginUsed: 0,
       isBankrupt: false,
@@ -135,7 +139,7 @@ exports.leaveCrew = functions.https.onCall(async (data, context) => {
     }
 
     const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
-    const penaltyRate = 0.15;
+    const penaltyRate = CREW_SWITCH_PENALTY;
 
     // 15% cash penalty
     const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
@@ -224,7 +228,6 @@ exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -240,9 +243,7 @@ exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
 
     const lastCharge = userData.lastMarginInterestCharge || 0;
     const now = Date.now();
-    const oneDayMs = 24 * 60 * 60 * 1000;
-
-    if (now - lastCharge < oneDayMs) {
+    if (now - lastCharge < TWENTY_FOUR_HOURS_MS) {
       return { success: true, charged: 0, reason: 'Already charged today' };
     }
 
@@ -667,7 +668,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   // Compute and store weekly gain for Profit Champion
   const portfolioHistory = userData.portfolioHistory || [];
-  const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = now - ONE_WEEK_MS;
   let valueSevenDaysAgo = portfolioValue;
   for (const entry of portfolioHistory) {
     if (entry.timestamp >= sevenDaysAgo) {
@@ -806,7 +807,7 @@ exports.checkMarginLending = functions.pubsub
 
       const MARGIN_CALL_THRESHOLD = 0.30;
       const MARGIN_LIQUIDATION_THRESHOLD = 0.25;
-      const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
+      const MARGIN_CALL_GRACE_PERIOD = TWENTY_FOUR_HOURS_MS;
 
       for (const userDoc of usersSnap.docs) {
         const userData = userDoc.data();

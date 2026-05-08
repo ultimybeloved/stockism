@@ -16,6 +16,8 @@ const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
 
 // ============================================
 // WEEKLY TRADING HALT (Thursday 13:00–21:00 UTC)
@@ -34,7 +36,19 @@ const isWeeklyTradingHalt = () => {
 // ECONOMY
 // ============================================
 const STARTING_CASH = 1000;
+const BAILOUT_CASH = 500;
 const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
+
+// ============================================
+// MARGIN
+// ============================================
+const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
+const CREW_SWITCH_PENALTY  = 0.15;   // 15% of portfolio value lost on crew switch
+
+// ============================================
+// IPO
+// ============================================
+const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
 
 // ============================================
 // CREW MEMBER MAPPINGS
@@ -71,11 +85,17 @@ module.exports = {
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
   TWENTY_FOUR_HOURS_MS,
+  ONE_WEEK_MS,
+  THIRTY_DAYS_MS,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   isWeeklyTradingHalt,
   STARTING_CASH,
+  BAILOUT_CASH,
   LEADERBOARD_CACHE_TTL,
+  MARGIN_INTEREST_RATE,
+  CREW_SWITCH_PENALTY,
+  IPO_PRICE_JUMP,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,

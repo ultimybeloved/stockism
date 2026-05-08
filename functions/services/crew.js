@@ -2,7 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { CREW_MEMBERS } = require('../constants');
+const { CREW_MEMBERS, CREW_SWITCH_PENALTY, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { checkBanned } = require('../helpers');
 
 
@@ -69,7 +69,7 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
         const marketRef = db.collection('market').doc('current');
         const marketDoc = await transaction.get(marketRef);
         const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
-        const penaltyRate = 0.15;
+        const penaltyRate = CREW_SWITCH_PENALTY;
 
         const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
         const cashTaken = (userData.cash || 0) - newCash;
