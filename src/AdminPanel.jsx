@@ -7,6 +7,19 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
 import { initializeMarket } from './services/market';
+import IpoTab from './components/admin/IpoTab';
+import PredictionsTab from './components/admin/PredictionsTab';
+import HoldersTab from './components/admin/HoldersTab';
+import UsersTab from './components/admin/UsersTab';
+import BotsTab from './components/admin/BotsTab';
+import TradesTab from './components/admin/TradesTab';
+import StatsTab from './components/admin/StatsTab';
+import RecoveryTab from './components/admin/RecoveryTab';
+import BadgesTab from './components/admin/BadgesTab';
+import MarketTab from './components/admin/MarketTab';
+import WatchlistTab from './components/admin/WatchlistTab';
+import DiagnosticTab from './components/admin/DiagnosticTab';
+import DividendsTab from './components/admin/DividendsTab';
 
 const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }) => {
   const [activeTab, setActiveTab] = useState('users');
@@ -3560,6 +3573,153 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
+  const handleManualBackup = async () => {
+    if (!window.confirm('Create a manual backup of market data?')) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const result = await triggerManualBackupFunction();
+      setMessage({ type: 'success', text: `Backup created: ${result.data.filename}` });
+    } catch (error) {
+      setMessage({ type: 'error', text: `Backup failed: ${error.message}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRepairCorruptedAccounts = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const corrupted = [];
+
+      for (const userDoc of usersSnap.docs) {
+        const data = userDoc.data();
+        const fixes = {};
+        const issues = [];
+
+        if (data.cash !== undefined && (isNaN(data.cash) || !isFinite(data.cash))) {
+          fixes.cash = 0;
+          issues.push(`cash was ${data.cash}`);
+        }
+        if (data.portfolioValue !== undefined && (isNaN(data.portfolioValue) || !isFinite(data.portfolioValue))) {
+          fixes.portfolioValue = fixes.cash !== undefined ? fixes.cash : (data.cash || 0);
+          issues.push(`portfolioValue was ${data.portfolioValue}`);
+        }
+        if (data.marginUsed !== undefined && (isNaN(data.marginUsed) || !isFinite(data.marginUsed))) {
+          fixes.marginUsed = 0;
+          issues.push(`marginUsed was ${data.marginUsed}`);
+        }
+        if (data.holdings) {
+          const fixedHoldings = {};
+          let holdingsCorrupted = false;
+          for (const [ticker, shares] of Object.entries(data.holdings)) {
+            if (isNaN(shares) || !isFinite(shares)) {
+              fixedHoldings[ticker] = 0;
+              holdingsCorrupted = true;
+              issues.push(`holdings.${ticker} was ${shares}`);
+            }
+          }
+          if (holdingsCorrupted) {
+            for (const [ticker, shares] of Object.entries(data.holdings)) {
+              if (!fixedHoldings.hasOwnProperty(ticker)) fixedHoldings[ticker] = shares;
+            }
+            fixes.holdings = fixedHoldings;
+          }
+        }
+        if (data.shorts) {
+          let shortsCorrupted = false;
+          const fixedShorts = {};
+          for (const [ticker, pos] of Object.entries(data.shorts)) {
+            if (!pos || typeof pos !== 'object') continue;
+            const hasNaN = isNaN(pos.shares) || isNaN(pos.entryPrice) || isNaN(pos.margin) ||
+                           !isFinite(pos.shares) || !isFinite(pos.entryPrice) || !isFinite(pos.margin);
+            if (hasNaN) {
+              fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0, costBasis: 0 };
+              shortsCorrupted = true;
+              issues.push(`shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`);
+            } else if (pos.shares > 0 && pos.entryPrice && !pos.costBasis) {
+              fixedShorts[ticker] = { ...pos, costBasis: pos.entryPrice };
+              shortsCorrupted = true;
+              issues.push(`shorts.${ticker} missing costBasis (had entryPrice=${pos.entryPrice})`);
+            } else if (pos.shares > 0 && pos.costBasis && !pos.entryPrice) {
+              fixedShorts[ticker] = { ...pos, entryPrice: pos.costBasis };
+              shortsCorrupted = true;
+              issues.push(`shorts.${ticker} missing entryPrice (had costBasis=${pos.costBasis})`);
+            }
+          }
+          if (shortsCorrupted) {
+            for (const [ticker, pos] of Object.entries(data.shorts)) {
+              if (!fixedShorts.hasOwnProperty(ticker)) fixedShorts[ticker] = pos;
+            }
+            fixes.shorts = fixedShorts;
+          }
+        }
+        if (data.costBasis) {
+          const fixedCostBasis = {};
+          let cbCorrupted = false;
+          for (const [ticker, cost] of Object.entries(data.costBasis)) {
+            if (isNaN(cost) || !isFinite(cost)) {
+              fixedCostBasis[ticker] = 0;
+              cbCorrupted = true;
+              issues.push(`costBasis.${ticker} was ${cost}`);
+            }
+          }
+          if (cbCorrupted) {
+            for (const [ticker, cost] of Object.entries(data.costBasis)) {
+              if (!fixedCostBasis.hasOwnProperty(ticker)) fixedCostBasis[ticker] = cost;
+            }
+            fixes.costBasis = fixedCostBasis;
+          }
+        }
+        if (issues.length > 0) {
+          corrupted.push({ uid: userDoc.id, displayName: data.displayName || 'Unknown', issues, fixes });
+        }
+      }
+
+      if (corrupted.length === 0) {
+        setMessage({ type: 'success', text: 'No corrupted accounts found!' });
+      } else {
+        let fixed = 0;
+        for (const account of corrupted) {
+          const userRef = doc(db, 'users', account.uid);
+          await updateDoc(userRef, account.fixes);
+          fixed++;
+        }
+        setMessage({
+          type: 'success',
+          text: `Fixed ${fixed} account(s): ${corrupted.map(a => `${a.displayName} (${a.issues.join(', ')})`).join(' | ')}`
+        });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Scan failed: ${error.message}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateMarketHalt = async (halted, reason) => {
+    if (halted && !reason.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a halt reason.' });
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'market', 'current'), {
+        marketHalted: halted,
+        haltReason: halted ? reason.trim() : '',
+        haltedAt: halted ? Date.now() : null,
+        haltedBy: halted ? user.uid : null
+      });
+      setMessage({ type: 'success', text: halted ? 'Market halted.' : 'Market resumed.' });
+      if (halted) setHaltReasonInput('');
+    } catch (err) {
+      setMessage({ type: 'error', text: halted ? 'Failed to halt market.' : 'Failed to resume market.' });
+    }
+    setLoading(false);
+  };
+
   // Check admin access
   if (!isAdmin) {
     return (
@@ -3700,2723 +3860,249 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
           {/* IPO TAB */}
           {activeTab === 'ipo' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
-                <p className={`text-sm ${mutedClass}`}>
-                  🚀 <strong>IPO System:</strong> Create limited-time offerings for new characters.
-                  <br />• Hype Phase (24h default): Announcement only, no buying
-                  <br />• IPO Window (24h default): configurable shares and per-user limits
-                  <br />• After IPO: Price jumps 15%, normal trading begins
-                </p>
-              </div>
-
-              {/* Create IPO Form */}
-              <div className={`p-4 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold ${textClass} mb-3`}>Create New IPO</h3>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Character</label>
-                    <select
-                      value={ipoTicker}
-                      onChange={e => setIpoTicker(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                    >
-                      <option value="">Select character...</option>
-                      {ipoEligibleCharacters.length === 0 ? (
-                        <option disabled>No characters need IPO (add ipoRequired: true to characters.js)</option>
-                      ) : (
-                        ipoEligibleCharacters.map(c => (
-                          <option key={c.ticker} value={c.ticker}>
-                            ${c.ticker} - {c.name} (Base: ${c.basePrice})
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    {ipoEligibleCharacters.length === 0 && (
-                      <p className={`text-xs ${mutedClass} mt-1`}>
-                        💡 To add a new character for IPO, add them to characters.js with <code className="bg-slate-700 px-1 rounded">ipoRequired: true</code>
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Hype Phase (hours)</label>
-                      <input
-                        type="number"
-                        value={ipoHoursUntilStart}
-                        onChange={e => setIpoHoursUntilStart(Math.max(0, parseInt(e.target.value) || 0))}
-                        min="0"
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                      <p className={`text-xs ${mutedClass} mt-1`}>0 = IPO starts immediately</p>
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>IPO Duration (hours)</label>
-                      <input
-                        type="number"
-                        value={ipoDurationHours}
-                        onChange={e => setIpoDurationHours(Math.max(1, parseInt(e.target.value) || 24))}
-                        min="1"
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Total Shares</label>
-                      <input
-                        type="number"
-                        value={ipoTotalShares}
-                        onChange={e => setIpoTotalShares(Math.max(1, parseInt(e.target.value) || 150))}
-                        min="1"
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Max Per User</label>
-                      <input
-                        type="number"
-                        value={ipoMaxPerUser}
-                        onChange={e => setIpoMaxPerUser(Math.max(1, parseInt(e.target.value) || 10))}
-                        min="1"
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      />
-                    </div>
-                  </div>
-                  
-                  {ipoTicker && (
-                    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                      <p className={`text-sm ${textClass}`}>
-                        <strong>${ipoTicker}</strong> IPO will:
-                      </p>
-                      <ul className={`text-xs ${mutedClass} mt-1 space-y-1`}>
-                        <li>• Hype phase: {ipoHoursUntilStart}h (announcement)</li>
-                        <li>• IPO buying: {ipoDurationHours}h</li>
-                        <li>• {ipoTotalShares} shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice} (max {ipoMaxPerUser}/user)</li>
-                        <li>• After IPO: +15% price jump</li>
-                      </ul>
-                    </div>
-                  )}
-                  
-                  <button
-                    onClick={handleCreateIPO}
-                    disabled={loading || !ipoTicker}
-                    className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? 'Creating...' : '🚀 Create IPO'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Active IPOs */}
-              <div>
-                <h3 className={`font-semibold ${textClass} mb-3`}>Active IPOs ({activeIPOs.filter(i => !i.priceJumped).length})</h3>
-                
-                {activeIPOs.filter(i => !i.priceJumped).length === 0 ? (
-                  <p className={`text-sm ${mutedClass}`}>No active IPOs</p>
-                ) : (
-                  <div className="space-y-2">
-                    {activeIPOs.filter(i => !i.priceJumped).map(ipo => {
-                      const character = CHARACTERS.find(c => c.ticker === ipo.ticker);
-                      const now = Date.now();
-                      const inHypePhase = now < ipo.ipoStartsAt;
-                      const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt;
-                      const timeUntilStart = ipo.ipoStartsAt - now;
-                      const timeUntilEnd = ipo.ipoEndsAt - now;
-                      
-                      const formatTime = (ms) => {
-                        if (ms <= 0) return 'Now';
-                        const hours = Math.floor(ms / (1000 * 60 * 60));
-                        const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-                        return `${hours}h ${mins}m`;
-                      };
-                      
-                      return (
-                        <div key={ipo.ticker} className={`p-3 rounded-sm border ${
-                          inBuyingPhase ? 'border-green-500 bg-green-900/20' : 
-                          inHypePhase ? 'border-orange-500 bg-orange-900/20' : 
-                          'border-slate-600'
-                        }`}>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className={`font-bold ${textClass}`}>${ipo.ticker}</span>
-                              <span className={`text-sm ${mutedClass} ml-2`}>{character?.name}</span>
-                              <div className={`text-xs mt-1 ${
-                                inBuyingPhase ? 'text-green-400' : 
-                                inHypePhase ? 'text-orange-400' : mutedClass
-                              }`}>
-                                {inHypePhase ? `🔥 Hype Phase - IPO starts in ${formatTime(timeUntilStart)}` :
-                                 inBuyingPhase ? `📈 LIVE - ${ipo.sharesRemaining ?? ipo.totalShares ?? 150}/${ipo.totalShares || 150} left - Ends in ${formatTime(timeUntilEnd)}` :
-                                 '✓ Completed'}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleCancelIPO(ipo.ticker)}
-                              disabled={loading}
-                              className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Past IPOs */}
-              {activeIPOs.filter(i => i.priceJumped).length > 0 && (
-                <div>
-                  <h3 className={`font-semibold ${textClass} mb-3`}>Completed IPOs</h3>
-                  <div className="space-y-1">
-                    {activeIPOs.filter(i => i.priceJumped).slice(-5).map(ipo => (
-                      <div key={ipo.ticker} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                        <span className={`text-sm ${textClass}`}>${ipo.ticker}</span>
-                        <span className={`text-xs ${mutedClass} ml-2`}>
-                          Sold {(ipo.totalShares || 150) - (ipo.sharesRemaining || 0)} shares
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <IpoTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              loading={loading}
+              ipoTicker={ipoTicker}
+              setIpoTicker={setIpoTicker}
+              ipoHoursUntilStart={ipoHoursUntilStart}
+              setIpoHoursUntilStart={setIpoHoursUntilStart}
+              ipoDurationHours={ipoDurationHours}
+              setIpoDurationHours={setIpoDurationHours}
+              ipoTotalShares={ipoTotalShares}
+              setIpoTotalShares={setIpoTotalShares}
+              ipoMaxPerUser={ipoMaxPerUser}
+              setIpoMaxPerUser={setIpoMaxPerUser}
+              ipoEligibleCharacters={ipoEligibleCharacters}
+              activeIPOs={activeIPOs}
+              handleCreateIPO={handleCreateIPO}
+              handleCancelIPO={handleCancelIPO}
+            />
           )}
-
           {/* PREDICTIONS TAB (Consolidated: Create + Resolve + View All + Bets) */}
           {activeTab === 'predictions' && (
-            <div className="space-y-6">
-
-              {/* SECTION 1: Resolve Pending Predictions */}
-              {unresolvedPredictions.length > 0 && (
-                <div className={`p-4 rounded-sm border-2 border-amber-500 ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'}`}>
-                  <h3 className={`font-semibold text-amber-500 mb-3`}>⏳ Pending Resolution ({unresolvedPredictions.length})</h3>
-                  <div className="space-y-2 mb-3">
-                    {unresolvedPredictions.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => { setSelectedPrediction(p); setSelectedOutcome(''); }}
-                        className={`w-full p-3 text-left rounded-sm border transition-all ${
-                          selectedPrediction?.id === p.id
-                            ? 'border-teal-500 bg-teal-500/10'
-                            : darkMode ? 'border-slate-600 hover:border-slate-500' : 'border-slate-300 hover:border-slate-400'
-                        }`}
-                      >
-                        <div className={`font-semibold ${textClass}`}>{p.question}</div>
-                        <div className={`text-xs ${mutedClass} mt-1`}>
-                          {p.options.join(' • ')} | Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedPrediction && (
-                    <>
-                      <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner</label>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        {selectedPrediction.options.map(opt => (
-                          <button
-                            key={opt}
-                            onClick={() => setSelectedOutcome(opt)}
-                            className={`p-3 rounded-sm border-2 font-semibold transition-all ${
-                              selectedOutcome === opt
-                                ? 'border-green-500 bg-green-500 text-white'
-                                : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-
-                      {selectedOutcome && (
-                        <button
-                          onClick={handleResolvePrediction}
-                          disabled={loading}
-                          className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                        >
-                          {loading ? 'Resolving...' : `✅ Confirm Winner: "${selectedOutcome}"`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* SECTION 2: Create New Prediction */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
-                    <input
-                      type="text"
-                      value={question}
-                      onChange={e => setQuestion(e.target.value)}
-                      placeholder=""
-                      className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Options (2-6)</label>
-                    <div className="space-y-2">
-                      {options.map((opt, idx) => (
-                        <input
-                          key={idx}
-                          type="text"
-                          value={opt}
-                          onChange={e => {
-                            const newOpts = [...options];
-                            newOpts[idx] = e.target.value;
-                            setOptions(newOpts);
-                          }}
-                          placeholder={idx < 2 ? `Option ${idx + 1} (required)` : `Option ${idx + 1} (optional)`}
-                          className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="1"
-                        max="14"
-                        value={daysUntilEnd}
-                        onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
-                        className="flex-1"
-                      />
-                      <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
-                    </div>
-                    <p className={`text-xs ${mutedClass} mt-1`}>
-                      Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="mayExtend"
-                      checked={mayExtend}
-                      onChange={e => setMayExtend(e.target.checked)}
-                      className="w-4 h-4 cursor-pointer"
-                    />
-                    <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
-                      ⏳ Result may need an extra week to confirm
-                    </label>
-                  </div>
-
-                  <button
-                    onClick={handleCreatePrediction}
-                    disabled={loading}
-                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? 'Creating...' : '➕ Create Prediction'}
-                  </button>
-                </div>
-              </div>
-
-              {/* SECTION 3: Extend/Reopen Prediction */}
-              {predictions.length > 0 && (
-                <div className={`p-4 rounded-sm border-2 border-blue-500 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                  <h3 className={`font-semibold text-blue-500 mb-3`}>⏰ Extend/Reopen Prediction</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
-                      <select
-                        value={extendPredictionId}
-                        onChange={e => setExtendPredictionId(e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                      >
-                        <option value="">-- Choose prediction --</option>
-                        {predictions.map(p => {
-                          const isClosed = p.endsAt < Date.now();
-                          const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
-                          return (
-                            <option key={p.id} value={p.id}>
-                              {status} - {p.question}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-
-                    {extendPredictionId && (
-                      <>
-                        <div>
-                          <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Extend By (Days)</label>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="range"
-                              min="1"
-                              max="14"
-                              value={extendDays}
-                              onChange={e => setExtendDays(parseInt(e.target.value))}
-                              className="flex-1"
-                            />
-                            <span className={`text-lg font-semibold ${textClass} w-20`}>{extendDays} days</span>
-                          </div>
-                          <p className={`text-xs ${mutedClass} mt-1`}>
-                            New deadline: {new Date(getEndTime(extendDays)).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="allowAdditionalBets"
-                            checked={allowAdditionalBets}
-                            onChange={e => setAllowAdditionalBets(e.target.checked)}
-                            className="w-4 h-4 cursor-pointer"
-                          />
-                          <label htmlFor="allowAdditionalBets" className={`text-sm cursor-pointer ${textClass}`}>
-                            Allow users to add to existing bets
-                          </label>
-                        </div>
-                        {allowAdditionalBets && (
-                          <p className={`text-xs ${mutedClass} pl-6`}>
-                            Users who already bet can add more money to their original choice (cannot change or remove)
-                          </p>
-                        )}
-
-                        <button
-                          onClick={handleExtendPrediction}
-                          disabled={loading}
-                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                        >
-                          {loading ? 'Extending...' : '⏰ Extend Prediction'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* SECTION 4: All Predictions List */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
-                  <button
-                    onClick={loadAllBets}
-                    disabled={betsLoading}
-                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-sm disabled:opacity-50"
-                  >
-                    {betsLoading ? '...' : '🔄 Refresh Bets'}
-                  </button>
-                </div>
-
-                {predictions.length === 0 ? (
-                  <p className={`text-center py-4 ${mutedClass}`}>No predictions yet</p>
-                ) : (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {predictions.map(p => (
-                      <div key={p.id} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-semibold ${p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
-                                {p.resolved ? '✅ Resolved' : '⏳ Active'}
-                              </span>
-                            </div>
-                            <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
-                            <div className={`text-xs ${mutedClass} mt-1`}>
-                              Options: {p.options.join(', ')}
-                            </div>
-                            {p.resolved && (
-                              <div className="text-xs text-green-500 mt-1">Winner: {p.outcome}</div>
-                            )}
-                            <div className={`text-xs ${mutedClass} mt-1`}>
-                              Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDeletePrediction(p.id)}
-                            disabled={loading}
-                            className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 5b: Override Previous Decision */}
-              <div className={`p-4 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
-                <h3 className="font-semibold text-red-500 mb-1">⚠️ Override Previous Decision</h3>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Use this if you paid out the wrong winner. Scan the prediction, select the correct winner, and pay them — regardless of previous payout status.
-                </p>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Select Prediction</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={recoveryPredictionId}
-                        onChange={e => { setRecoveryPredictionId(e.target.value); setRecoveryBets([]); setRecoveryOptions([]); setRecoveryWinner(''); }}
-                        className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
-                      >
-                        <option value="">-- Choose prediction --</option>
-                        {predictions.map(p => {
-                          const status = p.resolved ? '✅' : p.endsAt < Date.now() ? '🔒' : '⏳';
-                          return (
-                            <option key={p.id} value={p.id}>
-                              {status} {p.question}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <button
-                        onClick={handleScanForBets}
-                        disabled={loading || !recoveryPredictionId.trim()}
-                        className="px-4 py-2 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-                      >
-                        {loading ? '...' : 'Scan'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {recoveryBets.length > 0 && (
-                    <>
-                      <div className={`p-2 rounded-sm text-xs ${mutedClass} ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                        Found {recoveryBets.length} bets •
-                        Total pool: ${recoveryBets.reduce((s, b) => s + b.amount, 0).toFixed(2)} •
-                        Already paid: {recoveryBets.filter(b => b.paid).length}
-                      </div>
-
-                      <div>
-                        <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Correct Winner</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {recoveryOptions.map(opt => (
-                            <button
-                              key={opt}
-                              onClick={() => setRecoveryWinner(opt)}
-                              className={`p-3 rounded-sm border-2 font-semibold transition-all ${
-                                recoveryWinner === opt
-                                  ? 'border-red-500 bg-red-500 text-white'
-                                  : darkMode ? 'border-slate-600 text-slate-300 hover:border-red-500' : 'border-slate-300 hover:border-red-400'
-                              }`}
-                            >
-                              {opt}
-                              <span className={`block text-xs font-normal mt-0.5 ${recoveryWinner === opt ? 'text-red-100' : mutedClass}`}>
-                                ${recoveryBets.filter(b => b.option === opt).reduce((s, b) => s + b.amount, 0).toFixed(0)} pool
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {recoveryWinner && (
-                        <button
-                          onClick={handleOverridePayout}
-                          disabled={loading}
-                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                        >
-                          {loading ? 'Processing...' : `⚠️ Pay correct winners: "${recoveryWinner}"`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* SECTION 5: Bets Summary */}
-              {allBets.length > 0 && (
-                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {(() => {
-                      const byPrediction = {};
-                      allBets.forEach(bet => {
-                        if (!byPrediction[bet.predictionId]) {
-                          byPrediction[bet.predictionId] = {
-                            question: bet.question,
-                            totalAmount: 0,
-                            betCount: 0,
-                            byOption: {}
-                          };
-                        }
-                        byPrediction[bet.predictionId].totalAmount += bet.amount;
-                        byPrediction[bet.predictionId].betCount += 1;
-                        if (!byPrediction[bet.predictionId].byOption[bet.option]) {
-                          byPrediction[bet.predictionId].byOption[bet.option] = 0;
-                        }
-                        byPrediction[bet.predictionId].byOption[bet.option] += bet.amount;
-                      });
-
-                      return Object.entries(byPrediction).map(([predId, data]) => (
-                        <div key={predId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-50'}`}>
-                          <div className={`font-semibold ${textClass} text-sm`}>{data.question}</div>
-                          <div className={`text-xs ${mutedClass} mt-1`}>
-                            {data.betCount} bets • Total: ${data.totalAmount.toFixed(0)}
-                          </div>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {Object.entries(data.byOption).map(([opt, amt]) => (
-                              <span key={opt} className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}>
-                                {opt}: ${amt.toFixed(0)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </div>
-              )}
-            </div>
+            <PredictionsTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              loading={loading}
+              predictions={predictions}
+              unresolvedPredictions={unresolvedPredictions}
+              selectedPrediction={selectedPrediction}
+              setSelectedPrediction={setSelectedPrediction}
+              selectedOutcome={selectedOutcome}
+              setSelectedOutcome={setSelectedOutcome}
+              handleResolvePrediction={handleResolvePrediction}
+              question={question}
+              setQuestion={setQuestion}
+              options={options}
+              setOptions={setOptions}
+              daysUntilEnd={daysUntilEnd}
+              setDaysUntilEnd={setDaysUntilEnd}
+              mayExtend={mayExtend}
+              setMayExtend={setMayExtend}
+              endDate={endDate}
+              getEndTime={getEndTime}
+              handleCreatePrediction={handleCreatePrediction}
+              extendPredictionId={extendPredictionId}
+              setExtendPredictionId={setExtendPredictionId}
+              extendDays={extendDays}
+              setExtendDays={setExtendDays}
+              allowAdditionalBets={allowAdditionalBets}
+              setAllowAdditionalBets={setAllowAdditionalBets}
+              handleExtendPrediction={handleExtendPrediction}
+              handleDeletePrediction={handleDeletePrediction}
+              loadAllBets={loadAllBets}
+              betsLoading={betsLoading}
+              allBets={allBets}
+              recoveryPredictionId={recoveryPredictionId}
+              setRecoveryPredictionId={setRecoveryPredictionId}
+              recoveryBets={recoveryBets}
+              setRecoveryBets={setRecoveryBets}
+              recoveryOptions={recoveryOptions}
+              setRecoveryOptions={setRecoveryOptions}
+              recoveryWinner={recoveryWinner}
+              setRecoveryWinner={setRecoveryWinner}
+              handleScanForBets={handleScanForBets}
+              handleOverridePayout={handleOverridePayout}
+            />
           )}
 
-          {/* HOLDERS TAB */}
+                    {/* HOLDERS TAB */}
           {activeTab === 'holders' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-purple-50'}`}>
-                <p className={`text-sm ${mutedClass}`}>
-                  📊 View all users who hold shares of a specific character. Click a character to see their holders.
-                </p>
-              </div>
-
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Search Characters</label>
-                <input
-                  type="text"
-                  placeholder="Filter by name or ticker..."
-                  value={holdersTicker}
-                  onChange={e => setHoldersTicker(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm ${inputClass} mb-3`}
-                />
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-96 overflow-y-auto p-2">
-                  {CHARACTERS
-                    .filter(c => {
-                      const searchTerm = holdersTicker.toLowerCase();
-                      return !searchTerm ||
-                             c.name.toLowerCase().includes(searchTerm) ||
-                             c.ticker.toLowerCase().includes(searchTerm);
-                    })
-                    .map(c => {
-                      const currentPrice = prices[c.ticker] || c.basePrice;
-                      return (
-                        <button
-                          key={c.ticker}
-                          onClick={() => {
-                            setHoldersTicker(c.ticker);
-                            loadHolders(c.ticker);
-                          }}
-                          className={`p-3 rounded-sm text-left transition-all ${
-                            darkMode
-                              ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
-                              : 'bg-white hover:bg-blue-50 border border-slate-200'
-                          }`}
-                        >
-                          <div className={`text-xs font-semibold ${mutedClass} mb-1`}>${c.ticker}</div>
-                          <div className={`text-sm font-semibold ${textClass} truncate`}>{c.name}</div>
-                          <div className={`text-xs text-green-500 mt-1`}>${currentPrice.toFixed(2)}</div>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {holdersTicker && CHARACTERS.find(c => c.ticker === holdersTicker) && (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className={`font-semibold ${textClass}`}>
-                      ${holdersTicker} - {CHARACTERS.find(c => c.ticker === holdersTicker)?.name} ({holdersData.length} holders)
-                    </h3>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setHoldersTicker('');
-                          setHoldersData([]);
-                        }}
-                        className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded-sm"
-                      >
-                        ← Back
-                      </button>
-                      <button
-                        onClick={() => loadHolders(holdersTicker)}
-                        disabled={holdersLoading}
-                        className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
-                      >
-                        {holdersLoading ? '...' : '🔄 Refresh'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {holdersLoading ? (
-                    <p className={`text-center py-4 ${mutedClass}`}>Loading holders...</p>
-                  ) : holdersData.length === 0 ? (
-                    <p className={`text-center py-4 ${mutedClass}`}>No one holds ${holdersTicker}</p>
-                  ) : (
-                    <>
-                      {/* Summary */}
-                      <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div>
-                            <p className={`text-xs ${mutedClass}`}>Holders</p>
-                            <p className={`font-bold ${textClass}`}>{holdersData.length}</p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${mutedClass}`}>Total Shares</p>
-                            <p className={`font-bold ${textClass}`}>
-                              {holdersData.reduce((sum, h) => sum + h.shares, 0)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className={`text-xs ${mutedClass}`}>Total Value</p>
-                            <p className={`font-bold text-green-500`}>
-                              ${holdersData.reduce((sum, h) => sum + h.value, 0).toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Holders List */}
-                      <div className="space-y-1 max-h-80 overflow-y-auto">
-                        {holdersData.map((holder, idx) => (
-                          <div 
-                            key={holder.userId}
-                            className={`p-2 rounded-sm flex justify-between items-center ${
-                              darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'
-                            } ${idx === 0 ? 'border-2 border-yellow-500' : ''}`}
-                          >
-                            <div>
-                              <span className={`font-semibold ${textClass}`}>
-                                {idx === 0 && '👑 '}{holder.displayName}
-                              </span>
-                              {holder.costBasis && (
-                                <span className={`text-xs ${mutedClass} ml-2`}>
-                                  (avg: ${holder.costBasis.toFixed(2)})
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <span className={`font-bold ${textClass}`}>{holder.shares}</span>
-                              <span className={`text-xs ${mutedClass} ml-1`}>shares</span>
-                              <p className={`text-xs text-green-500`}>${holder.value.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <HoldersTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              prices={prices}
+              holdersTicker={holdersTicker}
+              setHoldersTicker={setHoldersTicker}
+              holdersData={holdersData}
+              setHoldersData={setHoldersData}
+              holdersLoading={holdersLoading}
+              loadHolders={loadHolders}
+            />
           )}
 
-          {/* USERS TAB */}
+                    {/* USERS TAB */}
           {activeTab === 'users' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                <p className={`text-sm ${mutedClass}`}>
-                  👥 Browse, search, and manage users. Click "Load" to fetch all users.
-                </p>
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                <input
-                  type="text"
-                  value={userSearchQuery}
-                  onChange={e => { handleUserSearch(e.target.value); setUsersPage(0); }}
-                  placeholder="Search by name or ID..."
-                  className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
-                />
-                <select
-                  value={userSortBy}
-                  onChange={e => handleUserSortChange(e.target.value)}
-                  className={`px-3 py-2 border rounded-sm ${inputClass}`}
-                >
-                  <option value="portfolio-high">Portfolio: High → Low</option>
-                  <option value="portfolio-low">Portfolio: Low → High</option>
-                  <option value="cash-high">Cash: High → Low</option>
-                  <option value="cash-low">Cash: Low → High</option>
-                </select>
-                <button
-                  onClick={handleLoadAllUsers}
-                  disabled={loading}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? '...' : '🔄 Load'}
-                </button>
-                <button
-                  onClick={handleRecalculatePortfolios}
-                  disabled={loading}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  title="Recalculate all portfolio values based on current prices"
-                >
-                  {loading ? '...' : '📊 Recalc'}
-                </button>
-                <button
-                  onClick={() => { setDeleteMode(!deleteMode); setSelectedForDeletion(new Set()); }}
-                  className={`px-4 py-2 font-semibold rounded-sm ${
-                    deleteMode 
-                      ? 'bg-red-600 hover:bg-red-700 text-white' 
-                      : darkMode ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
-                  }`}
-                >
-                  {deleteMode ? '✕ Cancel' : '🗑️ Delete Mode'}
-                </button>
-              </div>
-
-              {/* Delete Mode Controls */}
-              {deleteMode && (
-                <div className={`p-3 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-red-500 font-semibold">Delete Mode Active</span>
-                      <span className={`ml-2 ${mutedClass}`}>
-                        {selectedForDeletion.size} selected
-                      </span>
-                    </div>
-                    <button
-                      onClick={deleteSelectedUsers}
-                      disabled={loading || selectedForDeletion.size === 0}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      {loading ? '...' : `🗑️ Delete ${selectedForDeletion.size} Users`}
-                    </button>
-                  </div>
-                  
-                  {/* Live selection summary */}
-                  {selectedForDeletion.size > 0 && (() => {
-                    let totalCash = 0;
-                    let totalShares = 0;
-                    let totalValue = 0;
-                    let totalShortShares = 0;
-                    let totalShortValue = 0;
-                    
-                    for (const userId of selectedForDeletion) {
-                      const user = allUsers.find(u => u.id === userId);
-                      if (!user) continue;
-                      totalCash += user.cash || 0;
-                      
-                      // Count long holdings
-                      if (user.holdings && Object.keys(user.holdings).length > 0) {
-                        Object.entries(user.holdings).forEach(([ticker, shares]) => {
-                          const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                          if (shareCount > 0) {
-                            totalShares += shareCount;
-                            const character = CHARACTERS.find(c => c.ticker === ticker);
-                            const price = prices[ticker] || character?.basePrice || 0;
-                            totalValue += shareCount * price;
-                          }
-                        });
-                      }
-                      
-                      // Count short positions
-                      if (user.shorts && Object.keys(user.shorts).length > 0) {
-                        Object.entries(user.shorts).forEach(([ticker, position]) => {
-                          if (position && position.shares > 0) {
-                            totalShortShares += position.shares;
-                            totalShortValue += position.margin || 0;
-                          }
-                        });
-                      }
-                    }
-                    
-                    return (
-                      <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <span className={mutedClass}>Cash: </span>
-                            <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
-                          </div>
-                          <div>
-                            <span className={mutedClass}>Shares: </span>
-                            <span className={`font-semibold ${textClass}`}>{totalShares}</span>
-                          </div>
-                          <div>
-                            <span className={mutedClass}>Value: </span>
-                            <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
-                          </div>
-                        </div>
-                        {totalShortShares > 0 && (
-                          <div className="grid grid-cols-3 gap-2 mt-1">
-                            <div>
-                              <span className={mutedClass}>Shorts: </span>
-                              <span className="text-orange-500 font-semibold">{totalShortShares}</span>
-                            </div>
-                            <div>
-                              <span className={mutedClass}>Collateral: </span>
-                              <span className="text-orange-500 font-semibold">${totalShortValue.toFixed(2)}</span>
-                            </div>
-                            <div></div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  
-                  <p className={`text-xs ${mutedClass} mt-2`}>
-                    Click on users to select them for deletion. Admin accounts cannot be deleted.
-                  </p>
-                </div>
-              )}
-
-              {allUsers.length > 0 && (
-                <div className={`text-xs ${mutedClass}`}>
-                  Showing {Math.min(usersPage * USERS_PER_PAGE + 1, userSearchResults.length)}-{Math.min((usersPage + 1) * USERS_PER_PAGE, userSearchResults.length)} of {userSearchResults.length} users
-                  {userSearchQuery && ` (filtered from ${allUsers.length})`}
-                </div>
-              )}
-
-              {/* Selected User Detail */}
-              {selectedUser && !deleteMode && (
-                <div className={`p-4 rounded-sm border-2 border-teal-500 ${darkMode ? 'bg-slate-700' : 'bg-teal-50'}`}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className={`font-bold text-lg ${textClass}`}>{selectedUser.displayName}</h3>
-                      <p className={`text-xs ${mutedClass} font-mono`}>{selectedUser.id}</p>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedUser(null)}
-                      className={`text-xl ${mutedClass} hover:text-red-500`}
-                    >×</button>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                      <div className="flex items-center justify-between">
-                        <div className={`text-xs ${mutedClass}`}>Cash</div>
-                        <button
-                          onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username)}
-                          disabled={loading}
-                          className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
-                        >Set</button>
-                      </div>
-                      <div className={`font-bold ${isNaN(selectedUser.cash) ? 'text-red-500' : 'text-green-500'}`}>
-                        {isNaN(selectedUser.cash) ? '$NaN' : `$${selectedUser.cash.toFixed(2)}`}
-                      </div>
-                    </div>
-                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                      <div className={`text-xs ${mutedClass}`}>Portfolio</div>
-                      <div className={`font-bold ${textClass}`}>${selectedUser.portfolioValue.toFixed(2)}</div>
-                    </div>
-                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                      <div className={`text-xs ${mutedClass}`}>Peak Value</div>
-                      <div className={`font-bold text-cyan-500`}>${(selectedUser.peakPortfolioValue || 0).toFixed(2)}</div>
-                    </div>
-                    <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                      <div className={`text-xs ${mutedClass}`}>Total P&L</div>
-                      <div className={`font-bold ${selectedUser.portfolioValue >= 1000 ? 'text-green-500' : 'text-red-500'}`}>
-                        {selectedUser.portfolioValue >= 1000 ? '+' : ''}${(selectedUser.portfolioValue - 1000).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sync Status */}
-                  {(() => {
-                    const liveValue = calculateLivePortfolioValue(selectedUser);
-                    const storedValue = selectedUser.portfolioValue || 0;
-                    const difference = liveValue !== null ? Math.abs(liveValue - storedValue) : 0;
-                    const isOutOfSync = difference > 0.01;
-                    const lastSynced = selectedUser.lastSyncedAt;
-
-                    return (
-                      <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className={`text-xs font-semibold uppercase ${mutedClass}`}>🔄 Sync Status</h4>
-                          <button
-                            onClick={() => handleSyncSingleUser(selectedUser.id)}
-                            disabled={loading}
-                            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded disabled:opacity-50"
-                          >
-                            {loading ? '...' : 'Sync Now'}
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className={`text-xs ${mutedClass}`}>Stored Value</div>
-                            <div className={`font-bold ${textClass}`}>${storedValue.toFixed(2)}</div>
-                          </div>
-                          <div>
-                            <div className={`text-xs ${mutedClass}`}>Calculated Value</div>
-                            <div className={`font-bold ${liveValue !== null ? (isOutOfSync ? 'text-orange-500' : 'text-green-500') : mutedClass}`}>
-                              {liveValue !== null ? `$${liveValue.toFixed(2)}` : 'N/A'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className={`text-xs ${mutedClass}`}>Difference</div>
-                            <div className={`font-bold ${isOutOfSync ? 'text-red-500' : 'text-green-500'}`}>
-                              {liveValue !== null ? `$${difference.toFixed(2)}` : 'N/A'}
-                            </div>
-                          </div>
-                          <div>
-                            <div className={`text-xs ${mutedClass}`}>Status</div>
-                            <div className={`font-bold text-xs ${isOutOfSync ? 'text-orange-500' : 'text-green-500'}`}>
-                              {isOutOfSync ? '⚠️ Out of Sync' : '✅ Synced'}
-                            </div>
-                          </div>
-                        </div>
-
-                        {lastSynced && (
-                          <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'} text-xs ${mutedClass}`}>
-                            Last synced: {lastSynced instanceof Date ? lastSynced.toLocaleString() : new Date(lastSynced.seconds * 1000).toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Financial Breakdown */}
-                  {(() => {
-                    const txLog = selectedUser.transactionLog || [];
-
-                    // Calculate profit sources
-                    let tradingProfit = 0;
-                    let betProfit = 0;
-                    let checkinBonus = 0;
-                    let totalTrades = 0;
-                    let profitableTrades = 0;
-                    let totalBets = 0;
-                    let wonBets = 0;
-
-                    txLog.forEach(tx => {
-                      if (tx.type === 'SELL') {
-                        totalTrades++;
-                        const profit = (tx.totalRevenue || 0) - (tx.totalCost || 0);
-                        tradingProfit += profit;
-                        if (profit > 0) profitableTrades++;
-                      }
-                      if (tx.type === 'SHORT_CLOSE') {
-                        totalTrades++;
-                        const profit = tx.totalProfit || 0;
-                        tradingProfit += profit;
-                        if (profit > 0) profitableTrades++;
-                      }
-                      if (tx.type === 'CHECKIN') {
-                        checkinBonus += tx.bonus || 0;
-                      }
-                      if (tx.type === 'BET') {
-                        totalBets++;
-                      }
-                    });
-
-                    // Count bet wins from bets object
-                    Object.values(selectedUser.bets || {}).forEach(bet => {
-                      if (bet.paid && bet.payout > 0) {
-                        betProfit += (bet.payout - bet.amount);
-                        wonBets++;
-                      } else if (bet.paid) {
-                        betProfit -= bet.amount;
-                      }
-                    });
-
-                    const holdingsValue = Object.entries(selectedUser.holdings || {}).reduce((sum, [ticker, shares]) => {
-                      const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                      return sum + (prices[ticker] || 0) * shareCount;
-                    }, 0);
-
-                    const totalCostBasis = Object.entries(selectedUser.costBasis || {}).reduce((sum, [ticker, cost]) => {
-                      const h = selectedUser.holdings || {};
-                      const shareCount = typeof h[ticker] === 'number' ? h[ticker] : (h[ticker]?.shares || 0);
-                      if (shareCount > 0 && typeof cost === 'number' && !isNaN(cost)) return sum + cost;
-                      return sum;
-                    }, 0);
-
-                    const unrealizedGains = holdingsValue - totalCostBasis;
-
-                    return (
-                      <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                        <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-3`}>💰 Money Breakdown</h4>
-
-                        <div className="space-y-2 text-sm">
-                          {/* Trading Stats */}
-                          <div className="flex justify-between">
-                            <span className={mutedClass}>Trading Realized P&L:</span>
-                            <span className={`font-bold ${tradingProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {tradingProfit >= 0 ? '+' : ''}${tradingProfit.toFixed(2)}
-                            </span>
-                          </div>
-                          {totalTrades > 0 && (
-                            <div className="flex justify-between pl-4">
-                              <span className={`text-xs ${mutedClass}`}>
-                                {totalTrades} trades • {profitableTrades} wins ({((profitableTrades / totalTrades) * 100).toFixed(0)}%)
-                              </span>
-                              <span className={`text-xs ${mutedClass}`}>
-                                avg: ${(tradingProfit / totalTrades).toFixed(2)}/trade
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Unrealized Gains */}
-                          <div className="flex justify-between">
-                            <span className={mutedClass}>Holdings Unrealized:</span>
-                            <span className={`font-bold ${unrealizedGains >= 0 ? 'text-cyan-500' : 'text-orange-500'}`}>
-                              {unrealizedGains >= 0 ? '+' : ''}${unrealizedGains.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between pl-4">
-                            <span className={`text-xs ${mutedClass}`}>
-                              Cost basis: ${totalCostBasis.toFixed(2)} → Value: ${holdingsValue.toFixed(2)}
-                            </span>
-                          </div>
-
-                          {/* Betting */}
-                          {totalBets > 0 && (
-                            <>
-                              <div className="flex justify-between">
-                                <span className={mutedClass}>Betting Net:</span>
-                                <span className={`font-bold ${betProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {betProfit >= 0 ? '+' : ''}${betProfit.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between pl-4">
-                                <span className={`text-xs ${mutedClass}`}>
-                                  {wonBets}/{totalBets} bets won ({totalBets > 0 ? ((wonBets / totalBets) * 100).toFixed(0) : 0}%)
-                                </span>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Check-ins */}
-                          {checkinBonus > 0 && (
-                            <div className="flex justify-between">
-                              <span className={mutedClass}>Check-in Bonuses:</span>
-                              <span className="font-bold text-blue-500">+${checkinBonus.toFixed(2)}</span>
-                            </div>
-                          )}
-
-                          {/* Total */}
-                          <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
-                            <span className={`font-semibold ${textClass}`}>Total Income:</span>
-                            <span className={`font-bold ${(tradingProfit + betProfit + checkinBonus) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {(tradingProfit + betProfit + checkinBonus) >= 0 ? '+' : ''}${(tradingProfit + betProfit + checkinBonus).toFixed(2)}
-                            </span>
-                          </div>
-
-                          {/* Activity Stats */}
-                          <div className={`pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
-                            <div className="flex justify-between text-xs">
-                              <span className={mutedClass}>Total Trades:</span>
-                              <span className={textClass}>{selectedUser.totalTrades || 0}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className={mutedClass}>Check-ins:</span>
-                              <span className={textClass}>{selectedUser.totalCheckins || 0}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className={mutedClass}>Crew:</span>
-                              <span className={textClass}>{selectedUser.crew || 'None'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Margin/Loan Info */}
-                  {(selectedUser.marginEnabled || selectedUser.activeLoan) && (
-                    <div className={`p-2 rounded mb-4 ${darkMode ? 'bg-amber-900/30' : 'bg-amber-50'}`}>
-                      <h4 className={`text-xs font-semibold uppercase text-amber-500 mb-2`}>Debt Info</h4>
-                      {selectedUser.marginEnabled && (
-                        <div className="text-sm flex justify-between">
-                          <span className={mutedClass}>Margin Used:</span>
-                          <span className="text-amber-500 font-bold">${(selectedUser.marginUsed || 0).toFixed(2)}</span>
-                        </div>
-                      )}
-                      {selectedUser.activeLoan && (
-                        <div className="text-sm flex justify-between">
-                          <span className={mutedClass}>Active Loan:</span>
-                          <span className="text-red-500 font-bold">${selectedUser.activeLoan.principal?.toFixed(2) || '?'}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Holdings */}
-                  {Object.keys(selectedUser.holdings).length > 0 && (
-                    <div className="mb-4">
-                      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Holdings (with P&L)</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {Object.entries(selectedUser.holdings)
-                          .map(([ticker, shares]) => {
-                            const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                            if (shareCount <= 0) return null;
-
-                            const currentPrice = prices[ticker] || 0;
-                            const currentValue = currentPrice * shareCount;
-                            const avgCost = selectedUser.costBasis?.[ticker] || 0; // This is avg cost per share
-                            const totalCost = avgCost * shareCount;
-                            const unrealizedPL = currentValue - totalCost;
-                            const unrealizedPct = avgCost > 0 ? (((currentPrice - avgCost) / avgCost) * 100) : 0;
-
-                            return { ticker, shareCount, currentPrice, currentValue, totalCost, avgCost, unrealizedPL, unrealizedPct };
-                          })
-                          .filter(h => h !== null)
-                          .sort((a, b) => b.unrealizedPL - a.unrealizedPL)
-                          .map(({ ticker, shareCount, currentPrice, currentValue, totalCost, avgCost, unrealizedPL, unrealizedPct }) => (
-                            <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <span className={`font-semibold ${textClass}`}>{ticker}</span>
-                                  <span className={`ml-2 text-xs ${mutedClass}`}>{shareCount} shares</span>
-                                </div>
-                                <span className={`font-bold ${unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {unrealizedPL >= 0 ? '+' : ''}${unrealizedPL.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className={`text-xs ${mutedClass} mt-1`}>
-                                Avg cost: ${avgCost.toFixed(2)} → Price: ${currentPrice.toFixed(2)} ({unrealizedPct >= 0 ? '+' : ''}{unrealizedPct.toFixed(1)}%)
-                              </div>
-                              <div className={`text-xs ${mutedClass}`}>
-                                Total cost: ${totalCost.toFixed(2)} → Value: ${currentValue.toFixed(2)}
-                              </div>
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Shorts */}
-                  {Object.keys(selectedUser.shorts).length > 0 && (
-                    <div className="mb-4">
-                      <h4 className={`text-xs font-semibold uppercase text-red-400 mb-2`}>Short Positions</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {Object.entries(selectedUser.shorts).map(([ticker, shortData]) => {
-                          if (!shortData || shortData.shares <= 0) return null;
-                          const entryPrice = shortData.costBasis || shortData.entryPrice || 0;
-                          const currentPrice = prices[ticker] || entryPrice;
-                          const pnl = (entryPrice - currentPrice) * shortData.shares;
-                          const pnlPct = entryPrice > 0 ? ((pnl / (entryPrice * shortData.shares)) * 100) : 0;
-                          return (
-                            <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <span className="text-red-400 font-semibold">{ticker}</span>
-                                  <span className={`ml-2 text-xs ${mutedClass}`}>{shortData.shares} shares short</span>
-                                </div>
-                                <span className={`font-bold ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className={`text-xs ${mutedClass} mt-1`}>
-                                Entry: ${entryPrice?.toFixed(2)} → Current: ${currentPrice.toFixed(2)} ({pnl >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
-                              </div>
-                              <div className={`text-xs ${mutedClass}`}>
-                                Margin held: ${shortData.margin?.toFixed(2) || '0.00'}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bets */}
-                  {Object.keys(selectedUser.bets).length > 0 && (
-                    <div>
-                      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Bets</h4>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {Object.entries(selectedUser.bets).map(([predId, bet]) => (
-                          <div key={predId} className={`text-sm ${textClass}`}>
-                            <div className="flex justify-between">
-                              <span className="font-mono text-xs">{predId}</span>
-                              <span className="text-teal-500">${bet.amount}</span>
-                            </div>
-                            <div className={`text-xs ${mutedClass}`}>
-                              {bet.option} 
-                              {bet.paid && (
-                                <span className={bet.payout > 0 ? 'text-green-500 ml-2' : 'text-red-400 ml-2'}>
-                                  {bet.payout > 0 ? `Won $${bet.payout.toFixed(2)}` : 'Lost'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Display Name Editor */}
-                  <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
-                    <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>⚙️ Manual Tools</h4>
-                    <div className="space-y-2">
-                      <div>
-                        <label className={`text-xs ${mutedClass} block mb-1`}>Change Display Name:</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newDisplayName}
-                            onChange={(e) => setNewDisplayName(e.target.value)}
-                            placeholder={selectedUser.displayName}
-                            className={`flex-1 px-2 py-1 text-sm rounded border ${
-                              darkMode
-                                ? 'bg-slate-700 border-slate-600 text-white'
-                                : 'bg-white border-slate-300 text-slate-900'
-                            }`}
-                          />
-                          <button
-                            onClick={() => handleChangeDisplayName(selectedUser.id, newDisplayName)}
-                            disabled={!newDisplayName || newDisplayName.trim().length === 0}
-                            className={`px-3 py-1 text-xs font-semibold rounded ${
-                              newDisplayName && newDisplayName.trim().length > 0
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-slate-400 text-slate-200 cursor-not-allowed'
-                            }`}
-                          >
-                            Update
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Transaction Log */}
-                  {selectedUser.transactionLog && selectedUser.transactionLog.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className={`text-xs font-semibold uppercase text-cyan-400 mb-2`}>Transaction Log (Last {selectedUser.transactionLog.length})</h4>
-                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                        {[...selectedUser.transactionLog].reverse().map((tx, i) => (
-                          <div key={i} className={`text-xs p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                            <div className="flex justify-between items-start">
-                              <span className={`font-semibold ${
-                                tx.type === 'BUY' ? 'text-green-500' :
-                                tx.type === 'SELL' ? 'text-red-400' :
-                                tx.type === 'SHORT_OPEN' ? 'text-orange-500' :
-                                tx.type === 'SHORT_CLOSE' ? 'text-amber-400' :
-                                tx.type === 'CHECKIN' ? 'text-cyan-400' :
-                                tx.type === 'BET' ? 'text-purple-400' :
-                                'text-zinc-400'
-                              }`}>
-                                {tx.type}
-                              </span>
-                              <span className={mutedClass}>
-                                {new Date(tx.timestamp).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className={`${textClass} mt-1`}>
-                              {tx.type === 'BUY' && `${tx.shares} ${tx.ticker} @ $${tx.pricePerShare?.toFixed(2)} = $${tx.totalCost?.toFixed(2)}`}
-                              {tx.type === 'SELL' && `${tx.shares} ${tx.ticker} @ $${tx.pricePerShare?.toFixed(2)} = $${tx.totalRevenue?.toFixed(2)} (${tx.profitPercent >= 0 ? '+' : ''}${tx.profitPercent}%)`}
-                              {tx.type === 'SHORT_OPEN' && `${tx.shares} ${tx.ticker} @ $${tx.entryPrice?.toFixed(2)}, margin $${tx.marginRequired?.toFixed(2)}`}
-                              {tx.type === 'SHORT_CLOSE' && `${tx.shares} ${tx.ticker}, P&L: $${tx.totalProfit?.toFixed(2)}`}
-                              {tx.type === 'CHECKIN' && `+$${tx.bonus} daily bonus`}
-                              {tx.type === 'BET' && `$${tx.amount} on "${tx.option}"`}
-                            </div>
-                            <div className={`${mutedClass} mt-1 flex justify-between items-center`}>
-                              <span>Cash: ${tx.cashBefore?.toFixed(2)} → ${tx.cashAfter?.toFixed(2)}</span>
-                              <button
-                                onClick={() => handleRollbackUser(selectedUser.id, tx)}
-                                className="ml-2 px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
-                              >
-                                ⏮ Rollback
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* User List */}
-              {!selectedUser && userSearchResults.length > 0 && (
-                <>
-                  <div className="space-y-1">
-                    {userSearchResults
-                      .slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE)
-                      .map((u, i) => {
-                        const isSelected = selectedForDeletion.has(u.id);
-                        const isAdmin = ADMIN_UIDS.includes(u.id);
-                        
-                        return (
-                          <div 
-                            key={u.id}
-                            onClick={() => {
-                              if (deleteMode) {
-                                if (!isAdmin) toggleUserForDeletion(u.id);
-                              } else {
-                                setSelectedUser(u);
-                              }
-                            }}
-                            className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${
-                              deleteMode && isSelected
-                                ? 'bg-red-500/30 border border-red-500'
-                                : deleteMode && isAdmin
-                                ? `${darkMode ? 'bg-slate-800 opacity-50' : 'bg-slate-200 opacity-50'} cursor-not-allowed`
-                                : darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {deleteMode && (
-                                <span className={`text-lg ${isSelected ? 'text-red-500' : mutedClass}`}>
-                                  {isSelected ? '☑' : isAdmin ? '🔒' : '☐'}
-                                </span>
-                              )}
-                              <div>
-                                <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
-                                {isAdmin && <span className="ml-2 text-xs text-amber-500">👑 Admin</span>}
-                                {(u.isBankrupt || u.portfolioValue <= 100) && <span className="ml-2 text-xs text-red-500">💔 Bankrupt</span>}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`text-sm font-bold ${textClass}`}>${u.portfolioValue.toFixed(2)}</div>
-                              <div className={`text-xs ${mutedClass}`}>Cash: ${u.cash.toFixed(2)}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  {/* Pagination */}
-                  {userSearchResults.length > USERS_PER_PAGE && (
-                    <div className="flex justify-center items-center gap-2 pt-2">
-                      <button
-                        onClick={() => setUsersPage(0)}
-                        disabled={usersPage === 0}
-                        className={`px-2 py-1 text-xs rounded-sm ${
-                          usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
-                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
-                      >
-                        ««
-                      </button>
-                      <button
-                        onClick={() => setUsersPage(p => Math.max(0, p - 1))}
-                        disabled={usersPage === 0}
-                        className={`px-3 py-1 text-xs rounded-sm ${
-                          usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
-                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
-                      >
-                        ‹ Prev
-                      </button>
-                      <span className={`px-3 py-1 text-sm ${textClass}`}>
-                        Page {usersPage + 1} of {Math.ceil(userSearchResults.length / USERS_PER_PAGE)}
-                      </span>
-                      <button
-                        onClick={() => setUsersPage(p => Math.min(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1, p + 1))}
-                        disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
-                        className={`px-3 py-1 text-xs rounded-sm ${
-                          usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
-                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
-                      >
-                        Next ›
-                      </button>
-                      <button
-                        onClick={() => setUsersPage(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1)}
-                        disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
-                        className={`px-2 py-1 text-xs rounded-sm ${
-                          usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
-                        } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
-                      >
-                        »»
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {allUsers.length === 0 && (
-                <p className={`text-center ${mutedClass} py-8`}>
-                  Click "Load" to fetch all users
-                </p>
-              )}
-            </div>
+            <UsersTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              loading={loading}
+              prices={prices}
+              userSearchQuery={userSearchQuery}
+              handleUserSearch={handleUserSearch}
+              setUsersPage={setUsersPage}
+              userSortBy={userSortBy}
+              handleUserSortChange={handleUserSortChange}
+              handleLoadAllUsers={handleLoadAllUsers}
+              handleRecalculatePortfolios={handleRecalculatePortfolios}
+              deleteMode={deleteMode}
+              setDeleteMode={setDeleteMode}
+              setSelectedForDeletion={setSelectedForDeletion}
+              selectedForDeletion={selectedForDeletion}
+              allUsers={allUsers}
+              userSearchResults={userSearchResults}
+              usersPage={usersPage}
+              USERS_PER_PAGE={25}
+              selectedUser={selectedUser}
+              setSelectedUser={setSelectedUser}
+              calculateLivePortfolioValue={calculateLivePortfolioValue}
+              handleSyncSingleUser={handleSyncSingleUser}
+              handleSetCash={handleSetCash}
+              handleReinstateUser={handleReinstateUser}
+              handleChangeDisplayName={handleChangeDisplayName}
+              newDisplayName={newDisplayName}
+              setNewDisplayName={setNewDisplayName}
+              handleRollbackUser={handleRollbackUser}
+              toggleUserForDeletion={toggleUserForDeletion}
+              deleteSelectedUsers={deleteSelectedUsers}
+            />
           )}
 
-          {/* BOTS TAB */}
+                    {/* BOTS TAB */}
           {activeTab === 'bots' && (
-            <div className="space-y-4">
-              {/* Bot List */}
-              {bots.length > 0 && (
-                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Active Bots ({bots.length})</h3>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {bots.map(bot => {
-                      const holdingsValue = Object.entries(bot.holdings || {}).reduce((sum, [ticker, shares]) => {
-                        const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                        return sum + (prices[ticker] || 0) * shareCount;
-                      }, 0);
-
-                      return (
-                        <div key={bot.id} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`font-semibold ${textClass}`}>{bot.displayName}</span>
-                                <span className="text-xs px-2 py-0.5 rounded bg-purple-600 text-white">
-                                  {bot.botPersonality}
-                                </span>
-                                {bot.botCrew && (
-                                  <span className="text-xs px-2 py-0.5 rounded bg-blue-600 text-white">
-                                    {bot.botCrew}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
-                                <div>
-                                  <span className={mutedClass}>Cash:</span>
-                                  <span className={`ml-1 font-semibold text-green-500`}>
-                                    ${bot.cash?.toFixed(2) || '0.00'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className={mutedClass}>Holdings:</span>
-                                  <span className={`ml-1 font-semibold ${textClass}`}>
-                                    ${holdingsValue.toFixed(2)}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className={mutedClass}>Portfolio:</span>
-                                  <span className={`ml-1 font-semibold ${textClass}`}>
-                                    ${bot.portfolioValue?.toFixed(2) || '0.00'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className={mutedClass}>Trades:</span>
-                                  <span className={`ml-1 font-semibold ${textClass}`}>
-                                    {bot.totalTrades || 0}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteBot(bot.id)}
-                              className="ml-3 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {bots.length === 0 && !botsLoading && (
-                <p className={`text-center ${mutedClass} py-8`}>
-                  No bots found.
-                </p>
-              )}
-            </div>
+            <BotsTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              loading={loading}
+              prices={prices}
+              bots={bots}
+              botsLoading={botsLoading}
+              handleDeleteBot={handleDeleteBot}
+            />
           )}
 
-          {/* TRADES TAB */}
+                    {/* TRADES TAB */}
           {activeTab === 'trades' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
-                <p className={`text-sm ${mutedClass}`}>
-                  💹 View trade history across all users. Filter by time period, trade type, or ticker.
-                </p>
-              </div>
-
-              {/* Filters */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex flex-wrap gap-3 items-end">
-                  {/* Time Period */}
-                  <div>
-                    <label className={`text-xs ${mutedClass} block mb-1`}>Time Period</label>
-                    <select
-                      value={tradeTimePeriod}
-                      onChange={(e) => setTradeTimePeriod(e.target.value)}
-                      className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                    >
-                      <option value="24h">Last 24 Hours</option>
-                      <option value="week">Last 7 Days</option>
-                      <option value="month">Last 30 Days</option>
-                      <option value="all">All Time</option>
-                    </select>
-                  </div>
-
-                  {/* Trade Type */}
-                  <div>
-                    <label className={`text-xs ${mutedClass} block mb-1`}>Trade Type</label>
-                    <select
-                      value={tradeTypeFilter}
-                      onChange={(e) => setTradeTypeFilter(e.target.value)}
-                      className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                    >
-                      <option value="all">All Types</option>
-                      <option value="BUY">Buy</option>
-                      <option value="SELL">Sell</option>
-                      <option value="SHORT_OPEN">Short Open</option>
-                      <option value="SHORT_CLOSE">Short Close</option>
-                    </select>
-                  </div>
-
-                  {/* Ticker Filter */}
-                  <div>
-                    <label className={`text-xs ${mutedClass} block mb-1`}>Ticker (optional)</label>
-                    <input
-                      type="text"
-                      value={tradeFilterTicker}
-                      onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
-                      placeholder="e.g. LUFFY"
-                      className={`w-24 px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                    />
-                  </div>
-
-                  {/* Bot Filter */}
-                  <div>
-                    <label className={`text-xs ${mutedClass} block mb-1`}>User Type</label>
-                    <select
-                      value={tradeBotFilter}
-                      onChange={(e) => setTradeBotFilter(e.target.value)}
-                      className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
-                    >
-                      <option value="real">Real Users Only</option>
-                      <option value="bots">Bots Only</option>
-                      <option value="all">All Trades</option>
-                    </select>
-                  </div>
-
-                  {/* Load Button */}
-                  <button
-                    onClick={() => loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter)}
-                    disabled={tradesLoading}
-                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {tradesLoading ? 'Loading...' : '🔍 Load Trades'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Trade Stats Summary */}
-              {recentTrades.length > 0 && (
-                <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <div className="grid grid-cols-5 gap-4 text-center">
-                    <div>
-                      <p className="text-xl font-bold text-yellow-500">{recentTrades.length}</p>
-                      <p className={`text-xs ${mutedClass}`}>Total Trades</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-green-500">{recentTrades.filter(t => t.type === 'BUY').length}</p>
-                      <p className={`text-xs ${mutedClass}`}>Buys</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-red-400">{recentTrades.filter(t => t.type === 'SELL').length}</p>
-                      <p className={`text-xs ${mutedClass}`}>Sells</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-orange-500">{recentTrades.filter(t => t.type === 'SHORT_OPEN').length}</p>
-                      <p className={`text-xs ${mutedClass}`}>Shorts Opened</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-purple-500">{recentTrades.filter(t => t.type === 'SHORT_CLOSE').length}</p>
-                      <p className={`text-xs ${mutedClass}`}>Shorts Closed</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Trades Feed */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-3 ${textClass}`}>Trade Feed</h3>
-
-                {tradesLoading ? (
-                  <p className={`text-center ${mutedClass} py-8`}>Loading trades...</p>
-                ) : recentTrades.length === 0 ? (
-                  <p className={`text-center ${mutedClass} py-8`}>No trades found. Click "Load Trades" to fetch.</p>
-                ) : (
-                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                    {recentTrades.map((trade, i) => (
-                      <div
-                        key={`${trade.userId}-${trade.timestamp}-${i}`}
-                        className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'} flex justify-between items-center`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Trade Type Badge */}
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            trade.type === 'BUY' ? 'bg-green-500/20 text-green-500' :
-                            trade.type === 'SELL' ? 'bg-red-500/20 text-red-400' :
-                            trade.type === 'SHORT_OPEN' ? 'bg-orange-500/20 text-orange-500' :
-                            'bg-purple-500/20 text-purple-500'
-                          }`}>
-                            {trade.type === 'SHORT_OPEN' ? 'SHORT' : trade.type === 'SHORT_CLOSE' ? 'COVER' : trade.type}
-                          </span>
-
-                          {/* Trade Details */}
-                          <div>
-                            <p className={textClass}>
-                              <span className="font-semibold">{trade.userName}</span>
-                              {trade.isBot && (
-                                <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-purple-600 text-white">🤖</span>
-                              )}
-                              <span className={mutedClass}> {trade.type === 'BUY' ? 'bought' : trade.type === 'SELL' ? 'sold' : trade.type === 'SHORT_OPEN' ? 'shorted' : 'covered'} </span>
-                              <span className="font-bold text-cyan-500">{trade.shares}</span>
-                              <span className={mutedClass}> shares of </span>
-                              <span className="font-bold">${trade.ticker}</span>
-                            </p>
-                            <p className={`text-xs ${mutedClass}`}>
-                              @ ${trade.price?.toFixed(2)} • Total: ${trade.total?.toFixed(2)}
-                              {trade.profit !== null && trade.profit !== undefined && (
-                                <span className={trade.profit >= 0 ? 'text-green-500 ml-2' : 'text-red-400 ml-2'}>
-                                  P/L: {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Timestamp */}
-                        <div className="text-right">
-                          <p className={`text-xs ${mutedClass}`}>
-                            {new Date(trade.timestamp).toLocaleDateString()}
-                          </p>
-                          <p className={`text-xs ${mutedClass}`}>
-                            {new Date(trade.timestamp).toLocaleTimeString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <TradesTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              tradeTimePeriod={tradeTimePeriod}
+              setTradeTimePeriod={setTradeTimePeriod}
+              tradeTypeFilter={tradeTypeFilter}
+              setTradeTypeFilter={setTradeTypeFilter}
+              tradeFilterTicker={tradeFilterTicker}
+              setTradeFilterTicker={setTradeFilterTicker}
+              tradeBotFilter={tradeBotFilter}
+              setTradeBotFilter={setTradeBotFilter}
+              tradesLoading={tradesLoading}
+              recentTrades={recentTrades}
+              loadRecentTrades={loadRecentTrades}
+            />
           )}
 
-          {/* STATS TAB */}
+                    {/* STATS TAB */}
           {activeTab === 'stats' && (
-            <div className="space-y-4">
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
-                <div className="flex justify-between items-center">
-                  <p className={`text-sm ${mutedClass}`}>
-                    📈 Market overview and platform statistics
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={handleCleanupBasePrices}
-                      disabled={loading}
-                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
-                      title="Remove recent base price entries from history"
-                    >
-                      {loading ? '...' : '🧹 Cleanup Base Prices'}
-                    </button>
-                    <button
-                      onClick={handleSyncPricesToHistory}
-                      disabled={loading}
-                      className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
-                      title="Sync current prices to match latest price history"
-                    >
-                      {loading ? '...' : '🔄 Sync Prices to History'}
-                    </button>
-                    <button
-                      onClick={handleResetAllPrices}
-                      disabled={loading}
-                      className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
-                      title="Reset ALL character prices to base prices"
-                    >
-                      {loading ? '...' : '🔄 Reset All Prices'}
-                    </button>
-                    <button
-                      onClick={loadMarketStats}
-                      disabled={statsLoading}
-                      className="px-3 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded-sm disabled:opacity-50"
-                    >
-                      {statsLoading ? '...' : '🔄 Refresh Stats'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {statsLoading ? (
-                <p className={`text-center py-8 ${mutedClass}`}>Loading market stats...</p>
-              ) : !marketStats ? (
-                <p className={`text-center py-8 ${mutedClass}`}>Click refresh to load stats</p>
-              ) : (
-                <>
-                  {/* User Stats */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h3 className={`font-semibold mb-3 ${textClass}`}>👥 Users</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <p className={`text-2xl font-bold ${textClass}`}>{marketStats.totalUsers}</p>
-                        <p className={`text-xs ${mutedClass}`}>Total Users</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-green-500">{marketStats.activeUsers24h}</p>
-                        <p className={`text-xs ${mutedClass}`}>Active (24h)</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-cyan-500">{marketStats.activeUsers7d}</p>
-                        <p className={`text-xs ${mutedClass}`}>Active (7d)</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Financial Stats */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h3 className={`font-semibold mb-3 ${textClass}`}>💰 Financials</h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Total Cash in System:</span>
-                        <span className="font-bold text-green-500">${marketStats.totalCashInSystem.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Total Portfolio Value:</span>
-                        <span className={`font-bold ${textClass}`}>${marketStats.totalPortfolioValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Total Market Cap:</span>
-                        <span className="font-bold text-cyan-500">${marketStats.totalMarketCap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Total Shares Held:</span>
-                        <span className={`font-bold ${textClass}`}>{marketStats.totalSharesHeld.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Margin Used:</span>
-                        <span className="font-bold text-amber-500">${marketStats.totalMarginUsed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className={mutedClass}>Users with Margin:</span>
-                        <span className={`font-bold ${textClass}`}>{marketStats.usersWithMargin}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Activity Stats */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Activity</h3>
-                    
-                    {/* 24h Activity */}
-                    <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
-                      <h4 className="text-cyan-500 font-semibold text-sm mb-2">Last 24 Hours</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-cyan-500">{marketStats.trades24h || 0}</p>
-                          <p className={`text-xs ${mutedClass}`}>Trades</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-green-500">${(marketStats.volume24h || 0).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
-                          <p className={`text-xs ${mutedClass}`}>Volume</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-amber-500">{marketStats.checkins24h || 0}</p>
-                          <p className={`text-xs ${mutedClass}`}>Check-ins</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-purple-500">{marketStats.bets24h || 0}</p>
-                          <p className={`text-xs ${mutedClass}`}>Bets</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className={mutedClass}>Buys:</span>
-                          <span className="text-green-500 font-semibold">{marketStats.buys24h || 0}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={mutedClass}>Sells:</span>
-                          <span className="text-red-400 font-semibold">{marketStats.sells24h || 0}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={mutedClass}>Shorts:</span>
-                          <span className="text-orange-500 font-semibold">{marketStats.shorts24h || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Top Traded 24h */}
-                    {marketStats.topTraded24h && marketStats.topTraded24h.length > 0 && (
-                      <div className="mb-3">
-                        <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Most Traded (24h)</h4>
-                        <div className="space-y-1">
-                          {marketStats.topTraded24h.map((item, i) => (
-                            <div key={item.ticker} className="flex justify-between text-sm">
-                              <span className={textClass}>${item.ticker}</span>
-                              <span className="font-bold text-cyan-500">${item.volume.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* All Time */}
-                    <div className={`pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>All Time</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex justify-between">
-                          <span className={mutedClass}>Total Trades:</span>
-                          <span className={`font-bold ${textClass}`}>{marketStats.totalTradesAllTime.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className={mutedClass}>Total Bets:</span>
-                          <span className={`font-bold ${textClass}`}>{marketStats.totalBetsPlaced.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Top Held Characters */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h3 className={`font-semibold mb-3 ${textClass}`}>🏆 Most Held Characters</h3>
-                    <div className="space-y-2">
-                      {marketStats.topHeld.map((item, i) => {
-                        const char = CHARACTERS.find(c => c.ticker === item.ticker);
-                        return (
-                          <div key={item.ticker} className="flex justify-between items-center">
-                            <span className={textClass}>
-                              <span className={mutedClass}>{i + 1}.</span> {char?.name || item.ticker} <span className={mutedClass}>(${item.ticker})</span>
-                            </span>
-                            <span className="font-bold text-cyan-500">{item.shares.toLocaleString()} shares</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Price Movers */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Top Gainers */}
-                    <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                      <h3 className={`font-semibold mb-3 text-green-500`}>📈 Top Gainers</h3>
-                      <div className="space-y-1">
-                        {marketStats.topGainers.map((item, i) => (
-                          <div key={item.ticker} className="flex justify-between text-sm">
-                            <span className={textClass}>${item.ticker}</span>
-                            <span className="font-bold text-green-500">+{item.change.toFixed(1)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Top Losers */}
-                    <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                      <h3 className={`font-semibold mb-3 text-red-500`}>📉 Top Losers</h3>
-                      <div className="space-y-1">
-                        {marketStats.topLosers.map((item, i) => (
-                          <div key={item.ticker} className="flex justify-between text-sm">
-                            <span className={textClass}>${item.ticker}</span>
-                            <span className="font-bold text-red-500">{item.change.toFixed(1)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Crew Membership */}
-                  <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <h3 className={`font-semibold mb-3 ${textClass}`}>🏴 Crew Membership</h3>
-                    <div className="grid grid-cols-3 gap-2">
-                      {Object.entries(marketStats.crewCounts).sort((a, b) => b[1] - a[1]).map(([crewId, count]) => (
-                        <div key={crewId} className="flex justify-between text-sm">
-                          <span className={textClass}>{crewId}</span>
-                          <span className="font-bold text-purple-500">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {Object.keys(marketStats.crewCounts).length === 0 && (
-                      <p className={`text-sm ${mutedClass}`}>No crew memberships yet</p>
-                    )}
-                  </div>
-
-                  <p className={`text-xs ${mutedClass} text-center`}>
-                    Last updated: {new Date(marketStats.lastUpdated).toLocaleString()}
-                  </p>
-                </>
-              )}
-
-              {/* Orphan Cleanup Section */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
-                <h3 className={`font-semibold mb-3 text-red-500`}>🧹 Orphaned Account Cleanup</h3>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash).
-                  These are likely bot accounts or users who were deleted from Firebase Auth.
-                </p>
-                
-                <button
-                  onClick={scanForOrphanedUsers}
-                  disabled={loading}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50 mr-2"
-                >
-                  {loading ? 'Scanning...' : '🔍 Scan for Orphans'}
-                </button>
-                
-                {orphanScanComplete && (
-                  <span className={`text-sm ${mutedClass}`}>
-                    Found {orphanedUsers.length} suspicious accounts
-                  </span>
-                )}
-
-                {orphanedUsers.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={`text-sm font-semibold ${textClass}`}>
-                        {orphanedUsers.length} Orphaned Accounts
-                      </span>
-                      <button
-                        onClick={deleteAllOrphanedUsers}
-                        disabled={loading}
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-sm disabled:opacity-50"
-                      >
-                        🗑️ Delete All ({orphanedUsers.length})
-                      </button>
-                    </div>
-                    
-                    <div className="max-h-60 overflow-y-auto space-y-1">
-                      {orphanedUsers.slice(0, 100).map(u => (
-                        <div 
-                          key={u.id} 
-                          className={`p-2 rounded-sm flex justify-between items-center text-sm ${
-                            darkMode ? 'bg-slate-800' : 'bg-white'
-                          }`}
-                        >
-                          <div>
-                            <span className={textClass}>{u.displayName}</span>
-                            <span className={`text-xs ${mutedClass} ml-2`}>
-                              ${u.cash.toFixed(0)} • {u.totalTrades} trades
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => deleteOrphanedUser(u.id)}
-                            className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-sm"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      ))}
-                      {orphanedUsers.length > 100 && (
-                        <p className={`text-xs ${mutedClass} text-center py-2`}>
-                          Showing first 100 of {orphanedUsers.length}. Use "Delete All" for the rest.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <StatsTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              loading={loading}
+              statsLoading={statsLoading}
+              marketStats={marketStats}
+              loadMarketStats={loadMarketStats}
+              handleCleanupBasePrices={handleCleanupBasePrices}
+              handleSyncPricesToHistory={handleSyncPricesToHistory}
+              handleResetAllPrices={handleResetAllPrices}
+              orphanScanComplete={orphanScanComplete}
+              orphanedUsers={orphanedUsers}
+              scanForOrphanedUsers={scanForOrphanedUsers}
+              deleteAllOrphanedUsers={deleteAllOrphanedUsers}
+              deleteOrphanedUser={deleteOrphanedUser}
+            />
           )}
 
-          {/* RECOVERY TAB */}
+                    {/* RECOVERY TAB */}
           {activeTab === 'recovery' && (
-            <div className="space-y-4">
-              {/* Bankrupt Users */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className={`font-semibold ${textClass}`}>💔 Bankrupt Users</h3>
-                  <button
-                    onClick={loadBankruptUsers}
-                    disabled={loading}
-                    className="px-3 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-sm disabled:opacity-50"
-                  >
-                    {bankruptLoaded ? 'Refresh' : 'Load'}
-                  </button>
-                </div>
-                {bankruptLoaded && (
-                  bankruptUsers.length === 0 ? (
-                    <p className={`text-sm ${mutedClass}`}>No bankrupt users found.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {bankruptUsers.map(u => (
-                        <div key={u.id} className={`flex items-center justify-between p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                          <div>
-                            <span className={`font-semibold text-sm ${textClass}`}>{u.displayName}</span>
-                            <div className={`text-xs ${mutedClass}`}>
-                              Cash: ${(u.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                              {' · '}Portfolio: ${(u.portfolioValue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                              {' · '}{u.totalTrades} trades
-                              {u.crew && <> · Crew: {u.crew}</>}
-                              {u.bankruptAt && <> · Bankrupt: {new Date(u.bankruptAt).toLocaleDateString()}</>}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleReinstateUser(u.id, u.displayName)}
-                            disabled={loading}
-                            className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50"
-                          >
-                            Reinstate
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-              </div>
-
-              {/* Spike Victim Repair */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className={`font-semibold ${textClass}`}>⚡ Spike Victim Repair</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleScanSpikeVictims}
-                      disabled={scanningSpike || repairingSpike}
-                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
-                    >
-                      {scanningSpike ? 'Scanning...' : spikeScanned ? 'Re-Scan' : 'Scan'}
-                    </button>
-                    {spikeVictims.length > 0 && (
-                      <button
-                        onClick={handleRepairAllSpikeVictims}
-                        disabled={repairingSpike}
-                        className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50"
-                      >
-                        {repairingSpike ? 'Repairing...' : `Fix All (${spikeVictims.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Finds ALL bankrupt or negative-cash users (non-bot). Shows reason, suggested fix, and recent trades.
-                </p>
-                {spikeScanned && (
-                  spikeVictims.length === 0 ? (
-                    <p className={`text-sm ${mutedClass}`}>No damaged accounts found.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                      {spikeVictims.map(v => (
-                        <div key={v.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center flex-wrap gap-1">
-                                <span className={`font-semibold text-sm ${textClass}`}>{v.displayName}</span>
-                                {v.isBankrupt && <span className="px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">Bankrupt</span>}
-                                {v.tookBailout && <span className="px-1.5 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">Bailed Out</span>}
-                              </div>
-                              {v.reason && (
-                                <div className={`text-xs mt-0.5 text-purple-400`}>
-                                  Reason: {v.reason}
-                                </div>
-                              )}
-                              <div className={`text-xs mt-1 ${mutedClass}`}>
-                                Cash: <span className="text-red-400 font-semibold">${(v.currentCash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                {v.correctedCash != null && (
-                                  <>
-                                    {' → '}
-                                    <span className="text-green-400 font-semibold">${(v.correctedCash || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                  </>
-                                )}
-                                {' · '}{v.totalTrades || 0} trades
-                                {v.bankruptAt && <> · Bankrupt: {new Date(v.bankruptAt).toLocaleDateString()}</>}
-                              </div>
-                              {v.tookBailout && v.holdingsCount > 0 && (
-                                <div className={`text-xs mt-0.5 ${mutedClass}`}>
-                                  Holdings to restore: {v.holdingsCount} stocks
-                                  {v.holdingsToRestore && (
-                                    <span className="ml-1 text-blue-400">
-                                      ({Object.entries(v.holdingsToRestore).map(([t, s]) => `${t}: ${s}`).join(', ')})
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {v.trades && v.trades.length > 0 && (
-                                <details className="mt-1">
-                                  <summary className={`text-xs cursor-pointer ${mutedClass}`}>Recent trades</summary>
-                                  <div className="mt-1 space-y-0.5">
-                                    {v.trades.map((t, i) => (
-                                      <div key={i} className={`text-xs py-0.5 px-1 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                        <span className={t.action === 'margin_call_cover' ? 'text-red-400 font-semibold' : t.action === 'BUY' ? 'text-green-400' : 'text-orange-400'}>
-                                          {t.action}
-                                        </span>
-                                        {' '}{t.ticker} × {t.shares} @ ${t.price?.toFixed(2)}
-                                        {t.pnl != null && <span className={t.pnl >= 0 ? ' text-green-400' : ' text-red-400'}> P&L: ${t.pnl?.toFixed(2)}</span>}
-                                        {t.cashBefore != null && <span className={mutedClass}> (${t.cashBefore?.toFixed(2)} → ${t.cashAfter?.toFixed(2)})</span>}
-                                        {t.timestamp && <span className={mutedClass}> {new Date(t.timestamp).toLocaleDateString()}</span>}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </details>
-                              )}
-                            </div>
-                            {v.correctedCash != null && (
-                              <button
-                                onClick={() => handleRepairSpikeVictim(v)}
-                                disabled={repairingSpike}
-                                className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50 ml-2 shrink-0"
-                              >
-                                Fix
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-              </div>
-
-              {/* Diagnose Users */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Diagnose User Accounts</h3>
-                <p className={`text-xs ${mutedClass} mb-2`}>
-                  Paste user IDs (comma or newline separated) to see their account state and recent trades.
-                </p>
-                <textarea
-                  value={diagnosisIds}
-                  onChange={e => setDiagnosisIds(e.target.value)}
-                  placeholder="Paste user IDs here..."
-                  rows={3}
-                  className={`w-full px-3 py-2 border rounded-sm text-xs font-mono mb-2 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                />
-                <button
-                  onClick={handleDiagnoseUsers}
-                  disabled={diagnosing || !diagnosisIds.trim()}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50 mb-3"
-                >
-                  {diagnosing ? 'Diagnosing...' : '🔍 Diagnose'}
-                </button>
-                {diagnosisResults.length > 0 && (
-                  <div className="space-y-3">
-                    {diagnosisResults.map(u => (
-                      <div key={u.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {u.error ? (
-                          <p className="text-red-400 text-sm">{u.userId}: {u.error}</p>
-                        ) : (
-                          <>
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
-                                <span className={`text-xs ml-2 font-mono ${mutedClass}`}>{u.userId}</span>
-                              </div>
-                              <div className="flex gap-1">
-                                {u.isBankrupt && <span className="px-1.5 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">Bankrupt</span>}
-                                {u.lastBailout && <span className="px-1.5 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">Bailed Out</span>}
-                              </div>
-                            </div>
-                            <div className={`text-xs ${mutedClass} space-y-0.5`}>
-                              <p>Cash: <span className={u.cash < 0 ? 'text-red-400 font-semibold' : 'text-green-400 font-semibold'}>${u.cash?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span> · Portfolio: ${u.portfolioValue?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                              {Object.keys(u.holdings || {}).length > 0 && (
-                                <p>Holdings: {Object.entries(u.holdings).map(([t, s]) => `${t}: ${s}`).join(', ')}</p>
-                              )}
-                              {Object.keys(u.shorts || {}).length > 0 && (
-                                <p>Shorts: {Object.entries(u.shorts).map(([t, s]) => `${t}: ${typeof s === 'object' ? s.shares : s}`).join(', ')}</p>
-                              )}
-                              {u.bankruptAt && <p>Bankrupt at: {new Date(u.bankruptAt).toLocaleString()}</p>}
-                              {u.lastBailout && <p>Last bailout: {new Date(u.lastBailout).toLocaleString()}</p>}
-                            </div>
-                            {u.recentTrades && u.recentTrades.length > 0 && (
-                              <details className="mt-2">
-                                <summary className={`text-xs cursor-pointer ${mutedClass}`}>Recent trades ({u.totalTrades} total)</summary>
-                                <div className="max-h-48 overflow-y-auto mt-1 space-y-0.5">
-                                  {u.recentTrades.map((t, i) => (
-                                    <div key={i} className={`text-xs py-1 px-2 rounded flex justify-between ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                      <span>
-                                        <span className={t.action === 'margin_call_cover' ? 'text-red-400 font-semibold' : t.action === 'BUY' ? 'text-green-400' : 'text-orange-400'}>
-                                          {t.action}
-                                        </span>
-                                        {' '}{t.ticker} × {t.amount} @ ${t.price?.toFixed(2)}
-                                        {t.pnl != null && <span className={t.pnl >= 0 ? 'text-green-400' : 'text-red-400'}> P&L: ${t.pnl?.toFixed(2)}</span>}
-                                      </span>
-                                      <span className={mutedClass}>
-                                        {t.cashBefore != null && `$${t.cashBefore?.toFixed(2)} → $${t.cashAfter?.toFixed(2)}`}
-                                        {' '}{t.timestamp ? new Date(t.timestamp).toLocaleString() : ''}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Manual Backup */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>
-                <p className={`text-sm ${mutedClass} mb-3`}>
-                  Create an instant backup of all market data (prices, price history, liquidity). Backups are stored in Firebase Storage.
-                </p>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm('Create a manual backup of market data?')) {
-                      return;
-                    }
-
-                    setLoading(true);
-                    setMessage(null);
-
-                    try {
-                      const result = await triggerManualBackupFunction();
-                      setMessage({
-                        type: 'success',
-                        text: `Backup created: ${result.data.filename}`
-                      });
-                    } catch (error) {
-                      setMessage({
-                        type: 'error',
-                        text: `Backup failed: ${error.message}`
-                      });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
-                </button>
-              </div>
-
-              {/* NaN Account Repair */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 text-red-500`}>🔧 Repair Corrupted Accounts</h3>
-                <p className={`text-sm ${mutedClass} mb-3`}>
-                  Scans all accounts for NaN/corrupted values in cash, holdings, shorts, and portfolio data. Fixes them automatically.
-                </p>
-                <button
-                  onClick={async () => {
-                    setLoading(true);
-                    setMessage(null);
-                    try {
-                      const usersSnap = await getDocs(collection(db, 'users'));
-                      const corrupted = [];
-
-                      for (const userDoc of usersSnap.docs) {
-                        const data = userDoc.data();
-                        const fixes = {};
-                        const issues = [];
-
-                        // Check cash
-                        if (data.cash !== undefined && (isNaN(data.cash) || !isFinite(data.cash))) {
-                          fixes.cash = 0;
-                          issues.push(`cash was ${data.cash}`);
-                        }
-
-                        // Check portfolioValue
-                        if (data.portfolioValue !== undefined && (isNaN(data.portfolioValue) || !isFinite(data.portfolioValue))) {
-                          fixes.portfolioValue = fixes.cash !== undefined ? fixes.cash : (data.cash || 0);
-                          issues.push(`portfolioValue was ${data.portfolioValue}`);
-                        }
-
-                        // Check marginUsed
-                        if (data.marginUsed !== undefined && (isNaN(data.marginUsed) || !isFinite(data.marginUsed))) {
-                          fixes.marginUsed = 0;
-                          issues.push(`marginUsed was ${data.marginUsed}`);
-                        }
-
-                        // Check holdings for NaN values
-                        if (data.holdings) {
-                          const fixedHoldings = {};
-                          let holdingsCorrupted = false;
-                          for (const [ticker, shares] of Object.entries(data.holdings)) {
-                            if (isNaN(shares) || !isFinite(shares)) {
-                              fixedHoldings[ticker] = 0;
-                              holdingsCorrupted = true;
-                              issues.push(`holdings.${ticker} was ${shares}`);
-                            }
-                          }
-                          if (holdingsCorrupted) {
-                            for (const [ticker, shares] of Object.entries(data.holdings)) {
-                              if (!fixedHoldings.hasOwnProperty(ticker)) fixedHoldings[ticker] = shares;
-                            }
-                            fixes.holdings = fixedHoldings;
-                          }
-                        }
-
-                        // Check shorts for NaN values and costBasis/entryPrice mismatch
-                        if (data.shorts) {
-                          let shortsCorrupted = false;
-                          const fixedShorts = {};
-                          for (const [ticker, pos] of Object.entries(data.shorts)) {
-                            if (!pos || typeof pos !== 'object') continue;
-                            const hasNaN = isNaN(pos.shares) || isNaN(pos.entryPrice) || isNaN(pos.margin) ||
-                                           !isFinite(pos.shares) || !isFinite(pos.entryPrice) || !isFinite(pos.margin);
-                            if (hasNaN) {
-                              fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0, costBasis: 0 };
-                              shortsCorrupted = true;
-                              issues.push(`shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`);
-                            } else if (pos.shares > 0 && pos.entryPrice && !pos.costBasis) {
-                              // Old schema: has entryPrice but no costBasis — copy it over
-                              fixedShorts[ticker] = { ...pos, costBasis: pos.entryPrice };
-                              shortsCorrupted = true;
-                              issues.push(`shorts.${ticker} missing costBasis (had entryPrice=${pos.entryPrice})`);
-                            } else if (pos.shares > 0 && pos.costBasis && !pos.entryPrice) {
-                              // Reverse mismatch: has costBasis but no entryPrice
-                              fixedShorts[ticker] = { ...pos, entryPrice: pos.costBasis };
-                              shortsCorrupted = true;
-                              issues.push(`shorts.${ticker} missing entryPrice (had costBasis=${pos.costBasis})`);
-                            }
-                          }
-                          if (shortsCorrupted) {
-                            for (const [ticker, pos] of Object.entries(data.shorts)) {
-                              if (!fixedShorts.hasOwnProperty(ticker)) fixedShorts[ticker] = pos;
-                            }
-                            fixes.shorts = fixedShorts;
-                          }
-                        }
-
-                        // Check costBasis for NaN
-                        if (data.costBasis) {
-                          const fixedCostBasis = {};
-                          let cbCorrupted = false;
-                          for (const [ticker, cost] of Object.entries(data.costBasis)) {
-                            if (isNaN(cost) || !isFinite(cost)) {
-                              fixedCostBasis[ticker] = 0;
-                              cbCorrupted = true;
-                              issues.push(`costBasis.${ticker} was ${cost}`);
-                            }
-                          }
-                          if (cbCorrupted) {
-                            for (const [ticker, cost] of Object.entries(data.costBasis)) {
-                              if (!fixedCostBasis.hasOwnProperty(ticker)) fixedCostBasis[ticker] = cost;
-                            }
-                            fixes.costBasis = fixedCostBasis;
-                          }
-                        }
-
-                        if (issues.length > 0) {
-                          corrupted.push({
-                            uid: userDoc.id,
-                            displayName: data.displayName || 'Unknown',
-                            issues,
-                            fixes
-                          });
-                        }
-                      }
-
-                      if (corrupted.length === 0) {
-                        setMessage({ type: 'success', text: 'No corrupted accounts found!' });
-                      } else {
-                        // Apply fixes
-                        let fixed = 0;
-                        for (const account of corrupted) {
-                          const userRef = doc(db, 'users', account.uid);
-                          await updateDoc(userRef, account.fixes);
-                          fixed++;
-                        }
-                        setMessage({
-                          type: 'success',
-                          text: `Fixed ${fixed} account(s): ${corrupted.map(a => `${a.displayName} (${a.issues.join(', ')})`).join(' | ')}`
-                        });
-                      }
-                    } catch (error) {
-                      setMessage({ type: 'error', text: `Scan failed: ${error.message}` });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Scanning...' : '🔧 Scan & Repair All Accounts'}
-                </button>
-              </div>
-
-              {/* Restore from Backup */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 text-orange-500`}>🔄 Restore Price History</h3>
-                <p className={`text-sm ${mutedClass} mb-3`}>
-                  Restore price history from a backup. Current prices will be kept, only historical data is restored.
-                </p>
-
-                <button
-                  onClick={handleListBackups}
-                  disabled={loadingBackups}
-                  className="w-full px-4 py-2 mb-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loadingBackups ? 'Loading...' : '📋 List Available Backups'}
-                </button>
-
-                {backups.length > 0 && (
-                  <div className={`max-h-64 overflow-y-auto space-y-2 p-3 rounded-sm ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-                    {backups.map((backup, i) => (
-                      <div key={i} className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <p className={`text-xs font-mono ${textClass}`}>{backup.name.split('/').pop()}</p>
-                            <p className={`text-xs ${mutedClass}`}>{new Date(backup.created).toLocaleString()}</p>
-                            <p className={`text-xs ${mutedClass}`}>{(backup.size / 1024).toFixed(1)} KB</p>
-                          </div>
-                          <button
-                            onClick={() => handleRestoreBackup(backup.name)}
-                            disabled={restoringBackup}
-                            className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
-                          >
-                            {restoringBackup ? '...' : 'Restore'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* User Data Transfer */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 ${textClass}`}>👤 Transfer User Data</h3>
-                <p className={`text-sm ${mutedClass} mb-3`}>
-                  Copy all data from one user account to another. Useful when a user lost access to their email.
-                  The new user's data will be COMPLETELY OVERWRITTEN.
-                </p>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old User ID</label>
-                    <input
-                      type="text"
-                      placeholder="User ID with old email/data"
-                      value={oldUserId}
-                      onChange={(e) => setOldUserId(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                      disabled={transferring}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New User ID</label>
-                    <input
-                      type="text"
-                      placeholder="User ID of new account"
-                      value={newUserId}
-                      onChange={(e) => setNewUserId(e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                      disabled={transferring}
-                    />
-                  </div>
-
-                  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-                    <p className={`text-xs ${mutedClass}`}>
-                      <strong>How to find User IDs:</strong>
-                      <br/>1. Ask user for their display name (username)
-                      <br/>2. Search for them in the Users tab
-                      <br/>3. Click on them to view details
-                      <br/>4. Copy the User ID from the top of their profile
-                      <br/><br/>
-                      <strong className="text-orange-500">⚠️ Warning:</strong> This will copy ALL data (cash, holdings, achievements, transactions, etc.) from the old account to the new account. Any data on the new account will be lost.
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleTransferUserData}
-                    disabled={transferring || !oldUserId.trim() || !newUserId.trim()}
-                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
-                  </button>
-                </div>
-              </div>
-
-              {/* RENAME TICKER */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 ${textClass}`}>🔄 Rename Ticker</h3>
-                <p className={`text-xs ${mutedClass} mb-3`}>
-                  Rename a ticker across ALL Firestore data (market prices, user holdings, trades, limit orders, IP tracking).
-                  Always do a Dry Run first. The market will be automatically halted during execution.
-                </p>
-
-                <div className="flex gap-2 mb-3">
-                  <div className="flex-1">
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old Ticker</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. JSN"
-                      value={renameOldTicker}
-                      onChange={e => setRenameOldTicker(e.target.value.toUpperCase())}
-                      className={`w-full px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                      disabled={renaming}
-                    />
-                  </div>
-                  <div className="flex items-end pb-0.5">
-                    <span className={`text-lg ${mutedClass}`}>→</span>
-                  </div>
-                  <div className="flex-1">
-                    <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New Ticker</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. JASON"
-                      value={renameNewTicker}
-                      onChange={e => setRenameNewTicker(e.target.value.toUpperCase())}
-                      className={`w-full px-3 py-2 border rounded-sm text-sm font-mono ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
-                      disabled={renaming}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mb-3">
-                  <button
-                    onClick={async () => {
-                      if (!renameOldTicker.trim() || !renameNewTicker.trim()) {
-                        showMessage('error', 'Enter both old and new ticker');
-                        return;
-                      }
-                      setRenaming(true);
-                      setRenameResult(null);
-                      try {
-                        const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: true });
-                        setRenameResult(result.data);
-                      } catch (err) {
-                        showMessage('error', `Dry run failed: ${err.message}`);
-                      }
-                      setRenaming(false);
-                    }}
-                    disabled={renaming || !renameOldTicker.trim() || !renameNewTicker.trim()}
-                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {renaming ? 'Running...' : '🔍 Dry Run'}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!renameResult || !renameResult.dryRun) {
-                        showMessage('error', 'Run a dry run first');
-                        return;
-                      }
-                      if (!window.confirm(`RENAME ${renameOldTicker} → ${renameNewTicker}?\n\nThis will modify ${renameResult.totalDocsToModify} documents.\nThe market will be halted during execution.\n\nAre you sure?`)) {
-                        return;
-                      }
-                      setRenaming(true);
-                      try {
-                        const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: false });
-                        setRenameResult(result.data);
-                        showMessage('success', `Renamed ${renameOldTicker} → ${renameNewTicker} successfully! ${result.data.totalDocsModified} docs modified.`);
-                      } catch (err) {
-                        showMessage('error', `Rename failed: ${err.message}`);
-                      }
-                      setRenaming(false);
-                    }}
-                    disabled={renaming || !renameResult?.dryRun}
-                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {renaming ? 'Executing...' : '⚡ Execute Rename'}
-                  </button>
-                </div>
-
-                {renameResult && (
-                  <div className={`p-3 rounded-sm ${renameResult.dryRun ? (darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300') : (darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-300')}`}>
-                    <p className={`text-sm font-semibold mb-2 ${renameResult.dryRun ? 'text-blue-400' : 'text-green-400'}`}>
-                      {renameResult.dryRun ? '🔍 Dry Run Preview' : '✅ Rename Complete'}
-                    </p>
-                    <p className={`text-xs ${textClass}`}>
-                      <strong>{renameResult.oldTicker}</strong> → <strong>{renameResult.newTicker}</strong>
-                    </p>
-                    <div className={`text-xs ${mutedClass} mt-1 space-y-0.5`}>
-                      <p>Market doc: 1</p>
-                      <p>User docs: {renameResult.breakdown?.users || 0}</p>
-                      <p>Trade records: {renameResult.breakdown?.trades || 0}</p>
-                      <p>Limit orders: {renameResult.breakdown?.limitOrders || 0}</p>
-                      <p>IP tracking docs: {renameResult.breakdown?.ipTracking || 0}</p>
-                      <p className={`font-semibold ${textClass} mt-1`}>Total: {renameResult.totalDocsToModify || renameResult.totalDocsModified || 0} documents</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* TRADE HISTORY & ROLLBACK SECTION */}
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Trade History & Rollback</h3>
-
-                {/* Ticker selector for investigation */}
-                <div className="mb-3">
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Investigate Ticker</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={tradeFilterTicker}
-                      onChange={e => { setTradeFilterTicker(e.target.value); setSelectedTickerHistory([]); }}
-                      className={`flex-1 px-3 py-2 border rounded-sm ${inputClass}`}
-                    >
-                      <option value="">-- Select Ticker --</option>
-                      {sortedCharacters.map(c => (
-                        <option key={c.ticker} value={c.ticker}>
-                          {c.name} (${c.ticker}) - ${(prices[c.ticker] || c.basePrice).toFixed(2)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={async () => {
-                        if (tradeFilterTicker) {
-                          const history = await getPriceHistoryForTicker(tradeFilterTicker);
-                          setSelectedTickerHistory(history);
-                        }
-                      }}
-                      disabled={!tradeFilterTicker}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                    >
-                      Load History
-                    </button>
-                  </div>
-                </div>
-
-                {/* Price History Display */}
-                {selectedTickerHistory.length > 0 && (
-                  <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className={`text-sm font-semibold ${textClass}`}>
-                        ${tradeFilterTicker} Price History ({selectedTickerHistory.length} entries)
-                      </span>
-                      <span className={`text-xs ${mutedClass}`}>Click timestamp to set rollback point</span>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {selectedTickerHistory.slice().reverse().slice(0, 1000).map((h, i, arr) => {
-                        const prevPrice = arr[i + 1]?.price;
-                        const change = prevPrice ? ((h.price - prevPrice) / prevPrice * 100) : 0;
-                        return (
-                          <div
-                            key={i}
-                            className={`text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 ${darkMode ? 'bg-slate-700' : 'bg-white'}`}
-                            onClick={() => setRollbackTimestamp(h.timestamp.toString())}
-                          >
-                            <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
-                            <div className="flex items-center gap-3">
-                              <span className={`font-semibold ${textClass}`}>${h.price.toFixed(2)}</span>
-                              {change !== 0 && (
-                                <span className={`font-semibold ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                  {change > 0 ? '+' : ''}{change.toFixed(1)}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Rollback Controls */}
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}>
-                  <h4 className="font-semibold text-red-500 mb-2">⚠️ Rollback Trades</h4>
-                  <p className={`text-xs ${mutedClass} mb-3`}>
-                    This will reverse ALL trades after the selected timestamp and restore prices.
-                  </p>
-
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={rollbackTimestamp}
-                      onChange={e => setRollbackTimestamp(e.target.value)}
-                      placeholder="Timestamp (click history above)"
-                      className={`flex-1 px-3 py-2 border rounded-sm text-sm ${inputClass}`}
-                    />
-                  </div>
-
-                  {rollbackTimestamp && (
-                    <p className={`text-sm ${textClass} mb-2`}>
-                      Rollback to: <span className="text-orange-500 font-semibold">{new Date(parseInt(rollbackTimestamp)).toLocaleString()}</span>
-                    </p>
-                  )}
-
-                  <label className={`flex items-center gap-2 text-sm ${textClass} mb-3`}>
-                    <input
-                      type="checkbox"
-                      checked={rollbackConfirm}
-                      onChange={e => setRollbackConfirm(e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    I understand this will reverse ALL trades and cannot be undone
-                  </label>
-
-                  <button
-                    onClick={() => {
-                      if (rollbackTimestamp && rollbackConfirm) {
-                        executeFullRollback(parseInt(rollbackTimestamp));
-                      }
-                    }}
-                    disabled={loading || !rollbackTimestamp || !rollbackConfirm}
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                  >
-                    {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <RecoveryTab
+              darkMode={darkMode}
+              textClass={textClass}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              loading={loading}
+              bankruptLoaded={bankruptLoaded}
+              bankruptUsers={bankruptUsers}
+              loadBankruptUsers={loadBankruptUsers}
+              handleReinstateUser={handleReinstateUser}
+              scanningSpike={scanningSpike}
+              repairingSpike={repairingSpike}
+              spikeScanned={spikeScanned}
+              spikeVictims={spikeVictims}
+              handleScanSpikeVictims={handleScanSpikeVictims}
+              handleRepairAllSpikeVictims={handleRepairAllSpikeVictims}
+              handleRepairSpikeVictim={handleRepairSpikeVictim}
+              diagnosisIds={diagnosisIds}
+              setDiagnosisIds={setDiagnosisIds}
+              diagnosing={diagnosing}
+              diagnosisResults={diagnosisResults}
+              handleDiagnoseUsers={handleDiagnoseUsers}
+              handleManualBackup={handleManualBackup}
+              handleRepairCorruptedAccounts={handleRepairCorruptedAccounts}
+              loadingBackups={loadingBackups}
+              backups={backups}
+              handleListBackups={handleListBackups}
+              restoringBackup={restoringBackup}
+              handleRestoreBackup={handleRestoreBackup}
+              oldUserId={oldUserId}
+              setOldUserId={setOldUserId}
+              newUserId={newUserId}
+              setNewUserId={setNewUserId}
+              transferring={transferring}
+              handleTransferUserData={handleTransferUserData}
+              renameOldTicker={renameOldTicker}
+              setRenameOldTicker={setRenameOldTicker}
+              renameNewTicker={renameNewTicker}
+              setRenameNewTicker={setRenameNewTicker}
+              renaming={renaming}
+              renameResult={renameResult}
+              setRenameResult={setRenameResult}
+              showMessage={showMessage}
+              renameTickerFunction={renameTickerFunction}
+              tradeFilterTicker={tradeFilterTicker}
+              setTradeFilterTicker={setTradeFilterTicker}
+              sortedCharacters={sortedCharacters}
+              prices={prices}
+              selectedTickerHistory={selectedTickerHistory}
+              setSelectedTickerHistory={setSelectedTickerHistory}
+              getPriceHistoryForTicker={getPriceHistoryForTicker}
+              rollbackTimestamp={rollbackTimestamp}
+              setRollbackTimestamp={setRollbackTimestamp}
+              rollbackConfirm={rollbackConfirm}
+              setRollbackConfirm={setRollbackConfirm}
+              executeFullRollback={executeFullRollback}
+            />
           )}
-
         </div>
       </div>
 
@@ -6564,866 +4250,124 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       {/* BADGES TAB */}
       {activeTab === 'badges' && (
-        <div className="space-y-4 p-4" onClick={e => e.stopPropagation()}>
-          <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Achievement Badges</h3>
-          {!badgesLoaded ? (
-            <p className={mutedClass}>Loading...</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.values(ACHIEVEMENTS).map(ach => {
-                const holders = badgeUsers.filter(u => u.achievements.includes(ach.id));
-                const isExpanded = expandedBadge === ach.id;
-                return (
-                  <div key={ach.id} className={`rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                    <button
-                      onClick={() => setExpandedBadge(isExpanded ? null : ach.id)}
-                      className={`w-full text-left p-3 flex items-center justify-between hover:bg-slate-500/10 transition-colors`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{ach.emoji}</span>
-                        <div>
-                          <div className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-slate-900'}`}>{ach.name}</div>
-                          <div className={`text-xs ${mutedClass}`}>{ach.description}</div>
-                        </div>
-                      </div>
-                      <span className={`text-sm font-bold ${holders.length > 0 ? 'text-amber-500' : mutedClass}`}>
-                        {holders.length}
-                      </span>
-                    </button>
-                    {isExpanded && holders.length > 0 && (
-                      <div className={`border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} max-h-64 overflow-y-auto`}>
-                        {holders
-                          .sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0))
-                          .map(u => (
-                          <div key={u.id} className={`px-3 py-2 flex items-center justify-between text-sm ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}>
-                            <div>
-                              <span className={darkMode ? 'text-white' : 'text-slate-900'}>{u.displayName}</span>
-                              {u.isBot && <span className="ml-1 text-xs text-purple-400">(bot)</span>}
-                              <span className={`ml-2 text-xs ${mutedClass}`}>${(u.portfolioValue || 0).toLocaleString()}</span>
-                              {u.achievementDates[ach.id] && (
-                                <span className={`ml-2 text-xs ${mutedClass}`}>
-                                  {new Date(u.achievementDates[ach.id]).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleRemoveAchievement(u.id, ach.id, u.displayName)}
-                              className="text-xs px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-sm"
-                              disabled={loading}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {isExpanded && holders.length === 0 && (
-                      <div className={`p-3 text-sm border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} ${mutedClass}`}>
-                        No holders
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <BadgesTab
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          loading={loading}
+          badgesLoaded={badgesLoaded}
+          badgeUsers={badgeUsers}
+          expandedBadge={expandedBadge}
+          setExpandedBadge={setExpandedBadge}
+          handleRemoveAchievement={handleRemoveAchievement}
+        />
       )}
 
-      {/* MARKET TAB */}
+            {/* MARKET TAB */}
       {activeTab === 'market' && (
-        <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
-          <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Controls</h3>
-
-          {/* Status */}
-          <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-3 h-3 rounded-full ${prices && !marketHaltStatus ? 'bg-emerald-500' : 'bg-red-500'}`} />
-              <span className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                Market Status: {marketHaltStatus ? 'HALTED' : 'OPEN'}
-              </span>
-            </div>
-            {marketHaltStatus && marketHaltReason && (
-              <p className={`text-sm mb-2 ${mutedClass}`}>Reason: {marketHaltReason}</p>
-            )}
-          </div>
-
-          {/* Emergency Halt Controls */}
-          <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-            <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Emergency Halt</h4>
-            <input
-              type="text"
-              value={haltReasonInput}
-              onChange={e => setHaltReasonInput(e.target.value)}
-              placeholder="Halt reason (e.g., Emergency maintenance)"
-              className={`w-full p-2 rounded-sm border text-sm mb-3 ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  if (!haltReasonInput.trim()) {
-                    setMessage({ type: 'error', text: 'Please enter a halt reason.' });
-                    return;
-                  }
-                  setLoading(true);
-                  try {
-                    await updateDoc(doc(db, 'market', 'current'), {
-                      marketHalted: true,
-                      haltReason: haltReasonInput.trim(),
-                      haltedAt: Date.now(),
-                      haltedBy: user.uid
-                    });
-                    setMessage({ type: 'success', text: 'Market halted.' });
-                    setHaltReasonInput('');
-                  } catch (err) {
-                    setMessage({ type: 'error', text: 'Failed to halt market.' });
-                  }
-                  setLoading(false);
-                }}
-                disabled={loading || marketHaltStatus}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-sm hover:bg-red-700 disabled:opacity-50"
-              >
-                Halt Market
-              </button>
-              <button
-                onClick={async () => {
-                  setLoading(true);
-                  try {
-                    await updateDoc(doc(db, 'market', 'current'), {
-                      marketHalted: false,
-                      haltReason: '',
-                      haltedAt: null,
-                      haltedBy: null
-                    });
-                    setMessage({ type: 'success', text: 'Market resumed.' });
-                  } catch (err) {
-                    setMessage({ type: 'error', text: 'Failed to resume market.' });
-                  }
-                  setLoading(false);
-                }}
-                disabled={loading || !marketHaltStatus}
-                className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Resume Market
-              </button>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div className={`p-3 rounded-sm text-xs ${darkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-            Automatic weekly halt (Thu 13:00–21:00 UTC) is always active. This is for emergencies only.
-          </div>
-        </div>
+        <MarketTab
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          loading={loading}
+          setLoading={setLoading}
+          setMessage={setMessage}
+          user={user}
+          prices={prices}
+          marketHaltStatus={marketHaltStatus}
+          marketHaltReason={marketHaltReason}
+          haltReasonInput={haltReasonInput}
+          setHaltReasonInput={setHaltReasonInput}
+          updateMarketHalt={updateMarketHalt}
+        />
       )}
 
-      {/* WATCHLIST TAB */}
+            {/* WATCHLIST TAB */}
       {activeTab === 'watchlist' && (
-        <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
-
-          {/* Add to Watchlist */}
-          <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-red-50'}`}>
-            <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Add User to Watchlist</h3>
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={watchAddUserId}
-                onChange={e => setWatchAddUserId(e.target.value)}
-                placeholder="User ID (from Firestore)"
-                className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-              />
-              <input
-                type="text"
-                value={watchAddReason}
-                onChange={e => setWatchAddReason(e.target.value)}
-                placeholder="Reason (e.g., Doxxing, alt abuse)"
-                className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-              />
-              <div className="flex gap-2 items-center">
-                <label className={`text-xs ${mutedClass}`}>Max accounts per IP:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={watchAddMaxAccounts}
-                  onChange={e => setWatchAddMaxAccounts(Number(e.target.value))}
-                  className={`w-16 px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-                />
-                <button
-                  onClick={handleAddWatchedUser}
-                  disabled={loading || !watchAddUserId.trim()}
-                  className="ml-auto px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Adding...' : 'Add to Watchlist'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Watched Users List */}
-          {watchedUsers.length === 0 && watchlistLoaded && (
-            <div className={`p-3 text-center text-xs ${mutedClass}`}>No watched users.</div>
-          )}
-
-          {watchedUsers.map(wu => (
-            <div key={wu.id} className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <span className={`text-sm font-bold ${textClass}`}>{wu.displayName}</span>
-                  <span className={`text-xs ml-2 ${mutedClass}`}>({wu.id})</span>
-                </div>
-                <button
-                  onClick={() => handleRemoveWatchedUser(wu.id)}
-                  className="text-xs text-red-500 hover:text-red-700 font-semibold"
-                >
-                  Remove
-                </button>
-              </div>
-
-              {wu.reason && (
-                <div className={`text-xs mb-2 ${mutedClass}`}>Reason: {wu.reason}</div>
-              )}
-
-              <div className={`text-xs mb-2 ${mutedClass}`}>
-                Max accounts/IP: <span className="font-bold text-red-400">{wu.maxAccountsPerIP}</span>
-              </div>
-
-              {/* Linked Accounts */}
-              <div className="mb-2">
-                <div className={`text-xs font-semibold mb-1 ${textClass}`}>
-                  Linked Accounts ({wu.linkedAccounts.length}):
-                </div>
-                {wu.linkedAccounts.length === 0 ? (
-                  <div className={`text-xs ${mutedClass}`}>None yet</div>
-                ) : (
-                  <div className="space-y-1">
-                    {wu.linkedAccounts.map((alt, i) => (
-                      <div key={i} className={`text-xs flex gap-2 items-center ${mutedClass}`}>
-                        <span className="font-mono">{alt.displayName || alt.uid}</span>
-                        <span className={`px-1 rounded text-[10px] ${alt.linkedVia === 'ip' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                          {alt.linkedVia}
-                        </span>
-                        {alt.ip && <span className="font-mono text-[10px]">{alt.ip}</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Link Alt button */}
-                {watchLinkTarget === wu.id ? (
-                  <div className="flex gap-1 mt-1">
-                    <input
-                      type="text"
-                      value={watchLinkAltId}
-                      onChange={e => setWatchLinkAltId(e.target.value)}
-                      placeholder="Alt Account UID"
-                      className={`flex-1 px-2 py-1 text-xs border rounded-sm ${inputClass}`}
-                    />
-                    <button
-                      onClick={() => handleLinkAlt(wu.id)}
-                      disabled={loading}
-                      className="px-2 py-1 bg-purple-600 text-white text-xs rounded-sm hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      Link
-                    </button>
-                    <button
-                      onClick={() => { setWatchLinkTarget(null); setWatchLinkAltId(''); }}
-                      className={`px-2 py-1 text-xs ${mutedClass}`}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setWatchLinkTarget(wu.id)}
-                    className="mt-1 text-xs text-purple-400 hover:text-purple-300"
-                  >
-                    + Link Alt Account
-                  </button>
-                )}
-              </div>
-
-              {/* Known IPs */}
-              <div>
-                <div className={`text-xs font-semibold mb-1 ${textClass}`}>
-                  Known IPs ({Object.keys(wu.knownIPs).length}):
-                </div>
-                {Object.keys(wu.knownIPs).length === 0 ? (
-                  <div className={`text-xs ${mutedClass}`}>None tracked</div>
-                ) : (
-                  <div className="space-y-0.5">
-                    {Object.entries(wu.knownIPs).map(([ipId, ipData]) => (
-                      <div key={ipId} className={`text-xs font-mono ${mutedClass}`}>
-                        {ipId.replace(/_/g, '.')}
-                        {ipData.accounts && ipData.accounts.length > 1 && (
-                          <span className="ml-1 text-red-400">({ipData.accounts.length} accounts)</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add IP button */}
-                {watchAddIPTarget === wu.id ? (
-                  <div className="flex gap-1 mt-1">
-                    <input
-                      type="text"
-                      value={watchAddIPValue}
-                      onChange={e => setWatchAddIPValue(e.target.value)}
-                      placeholder="IP address (e.g. 1.2.3.4)"
-                      className={`flex-1 px-2 py-1 text-xs border rounded-sm ${inputClass}`}
-                    />
-                    <button
-                      onClick={() => handleAddWatchedIP(wu.id)}
-                      disabled={loading}
-                      className="px-2 py-1 bg-orange-600 text-white text-xs rounded-sm hover:bg-orange-700 disabled:opacity-50"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => { setWatchAddIPTarget(null); setWatchAddIPValue(''); }}
-                      className={`px-2 py-1 text-xs ${mutedClass}`}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setWatchAddIPTarget(wu.id)}
-                    className="mt-1 text-xs text-orange-400 hover:text-orange-300"
-                  >
-                    + Add IP
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Recent Alerts */}
-          {watchlistAlerts.length > 0 && (
-            <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-yellow-50'}`}>
-              <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Alerts ({watchlistAlerts.length})</h3>
-              <div className="space-y-1 max-h-60 overflow-y-auto">
-                {watchlistAlerts.map(alert => (
-                  <div key={alert.id} className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}>
-                    <span className={`font-semibold ${
-                      alert.type === 'account_blocked' ? 'text-red-400' :
-                      alert.type === 'account_linked' ? 'text-orange-400' :
-                      alert.type === 'new_ip_detected' ? 'text-yellow-400' :
-                      'text-blue-400'
-                    }`}>
-                      {alert.type === 'account_blocked' ? '🚫' :
-                       alert.type === 'account_linked' ? '🔗' :
-                       alert.type === 'new_ip_detected' ? '🌐' :
-                       alert.type === 'user_added' ? '👁️' :
-                       alert.type === 'user_removed' ? '❌' :
-                       alert.type === 'ip_added' ? '📍' : '📋'}
-                    </span>
-                    {' '}{alert.details}
-                    <span className="ml-1 opacity-50">
-                      {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Refresh button */}
-          <button
-            onClick={loadWatchlist}
-            disabled={loading}
-            className={`w-full py-2 text-xs font-semibold rounded-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'} disabled:opacity-50`}
-          >
-            {loading ? 'Loading...' : 'Refresh Watchlist'}
-          </button>
-        </div>
+        <WatchlistTab
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          inputClass={inputClass}
+          loading={loading}
+          watchAddUserId={watchAddUserId}
+          setWatchAddUserId={setWatchAddUserId}
+          watchAddReason={watchAddReason}
+          setWatchAddReason={setWatchAddReason}
+          watchAddMaxAccounts={watchAddMaxAccounts}
+          setWatchAddMaxAccounts={setWatchAddMaxAccounts}
+          handleAddWatchedUser={handleAddWatchedUser}
+          watchedUsers={watchedUsers}
+          watchlistLoaded={watchlistLoaded}
+          handleRemoveWatchedUser={handleRemoveWatchedUser}
+          watchLinkTarget={watchLinkTarget}
+          setWatchLinkTarget={setWatchLinkTarget}
+          watchLinkAltId={watchLinkAltId}
+          setWatchLinkAltId={setWatchLinkAltId}
+          handleLinkAlt={handleLinkAlt}
+          watchAddIPTarget={watchAddIPTarget}
+          setWatchAddIPTarget={setWatchAddIPTarget}
+          watchAddIPValue={watchAddIPValue}
+          setWatchAddIPValue={setWatchAddIPValue}
+          handleAddWatchedIP={handleAddWatchedIP}
+          watchlistAlerts={watchlistAlerts}
+          loadWatchlist={loadWatchlist}
+        />
       )}
 
-      {/* DIAGNOSTIC TAB */}
+            {/* DIAGNOSTIC TAB */}
       {activeTab === 'diagnostic' && (
-        <div className="space-y-4 overflow-x-hidden" onClick={e => e.stopPropagation()}>
-
-          {/* Drop Audit Section */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-            <h3 className={`font-semibold mb-3 ${textClass}`}>🎁 Drop Audit</h3>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className={`text-xs ${mutedClass} block mb-1`}>Username or UID</label>
-                <input
-                  type="text"
-                  value={dropAuditQuery}
-                  onChange={e => setDropAuditQuery(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleDropAudit()}
-                  placeholder="Enter username or UID..."
-                  className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-                />
-              </div>
-              <button
-                onClick={handleDropAudit}
-                disabled={dropAuditRunning || !dropAuditQuery.trim()}
-                className="px-4 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
-              >
-                {dropAuditRunning ? 'Auditing...' : 'Audit'}
-              </button>
-            </div>
-          </div>
-
-          {/* Drop Audit Results */}
-          {dropAuditResult && (
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-              <div className="flex justify-between items-center mb-3">
-                <h4 className={`font-semibold ${textClass}`}>{dropAuditResult.displayName}</h4>
-                <span className={`text-xs ${mutedClass}`}>{dropAuditResult.uid}</span>
-              </div>
-
-              {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {[
-                  { label: 'Total Claims', value: dropAuditResult.totalClaims, color: 'text-blue-400' },
-                  { label: 'Expected (1/day)', value: dropAuditResult.expectedClaims, color: 'text-green-400' },
-                  { label: 'Excess Claims', value: dropAuditResult.excessClaims, color: dropAuditResult.excessClaims > 0 ? 'text-red-400' : 'text-green-400' },
-                  { label: 'First Claim', value: dropAuditResult.firstClaimDate ? new Date(dropAuditResult.firstClaimDate).toLocaleDateString() : 'Never', color: 'text-purple-400' },
-                  { label: 'Total Gift Value', value: `$${dropAuditResult.totalGiftedValue.toFixed(2)}`, color: dropAuditResult.totalGiftedValue > 100 ? 'text-red-400' : 'text-yellow-400' },
-                  { label: 'Current Cash', value: `$${dropAuditResult.cash.toFixed(2)}`, color: 'text-cyan-400' },
-                ].map((card, i) => (
-                  <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'} border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                    <div className={`text-xs ${mutedClass}`}>{card.label}</div>
-                    <div className={`text-sm font-bold ${card.color}`}>{card.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Gifted Shares Breakdown */}
-              {Object.keys(dropAuditResult.giftedSharesByTicker).length > 0 && (
-                <div className="mb-3">
-                  <h5 className={`text-xs font-semibold mb-1 ${mutedClass}`}>Gifted Shares by Ticker</h5>
-                  <div className={`rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'} overflow-hidden`}>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className={darkMode ? 'bg-slate-700' : 'bg-slate-100'}>
-                          <th className={`text-left px-2 py-1 ${mutedClass}`}>Ticker</th>
-                          <th className={`text-right px-2 py-1 ${mutedClass}`}>Gifted</th>
-                          <th className={`text-right px-2 py-1 ${mutedClass}`}>Price</th>
-                          <th className={`text-right px-2 py-1 ${mutedClass}`}>Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(dropAuditResult.giftedSharesByTicker)
-                          .sort((a, b) => b[1].value - a[1].value)
-                          .map(([ticker, info]) => (
-                            <tr key={ticker} className={`border-t ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
-                              <td className={`px-2 py-1 font-semibold ${textClass}`}>{ticker}</td>
-                              <td className="px-2 py-1 text-right text-amber-400">{info.shares}</td>
-                              <td className={`px-2 py-1 text-right ${mutedClass}`}>${info.price.toFixed(2)}</td>
-                              <td className="px-2 py-1 text-right text-red-400 font-semibold">${info.value.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Suspicious Days */}
-              {dropAuditResult.suspiciousDays.length > 0 && (
-                <div className="mb-3">
-                  <h5 className={`text-xs font-semibold mb-1 text-red-400`}>Suspicious Days (4+ claims)</h5>
-                  <div className="flex flex-wrap gap-1">
-                    {dropAuditResult.suspiciousDays.map(({ day, count }) => (
-                      <span key={day} className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded-sm border border-red-500/30">
-                        {day}: {count} claims
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Claims per Day Timeline */}
-              {Object.keys(dropAuditResult.claimsByDay).length > 0 && (
-                <div>
-                  <h5 className={`text-xs font-semibold mb-1 ${mutedClass}`}>Claims Timeline</h5>
-                  <div className={`max-h-40 overflow-y-auto rounded-sm border ${darkMode ? 'border-slate-600 bg-slate-700/30' : 'border-slate-200 bg-slate-50'} p-2`}>
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(dropAuditResult.claimsByDay)
-                        .sort((a, b) => a[0].localeCompare(b[0]))
-                        .map(([day, count]) => (
-                          <span key={day} className={`px-1.5 py-0.5 text-xs rounded-sm ${count > 3 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : count > 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : `${darkMode ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-600'}`}`}>
-                            {day.slice(5)}: {count}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Controls */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-            <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
-            <div className="flex gap-2 items-end flex-wrap">
-              <div>
-                <label className={`text-xs ${mutedClass} block mb-1`}>Ticker</label>
-                <input
-                  type="text"
-                  value={diagTicker}
-                  onChange={e => setDiagTicker(e.target.value.toUpperCase())}
-                  className={`w-24 px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-                />
-              </div>
-              <div>
-                <label className={`text-xs ${mutedClass} block mb-1`}>Start Date (UTC)</label>
-                <input
-                  type="date"
-                  value={diagStartDate}
-                  onChange={e => setDiagStartDate(e.target.value)}
-                  className={`px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
-                />
-              </div>
-              <button
-                onClick={handleRunDiagnostic}
-                disabled={diagRunning || !diagTicker}
-                className="px-4 py-1.5 text-xs bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-sm disabled:opacity-50"
-              >
-                {diagRunning ? 'Running...' : 'Run Diagnostic'}
-              </button>
-            </div>
-          </div>
-
-          {/* Results */}
-          {diagResult && (
-            <>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Price Then', value: `$${diagResult.summary.priceAtStart.toFixed(2)}`, color: 'text-blue-400' },
-                  { label: 'Price Now', value: `$${diagResult.summary.currentPrice.toFixed(2)}`, color: diagResult.summary.priceInflation > 0 ? 'text-red-400' : 'text-green-400', sub: `${diagResult.summary.priceInflation > 0 ? '+' : ''}${diagResult.summary.priceInflation}%` },
-                  { label: 'Total Users', value: diagResult.summary.totalUsers, color: 'text-purple-400' },
-                  { label: 'Total Trades', value: diagResult.summary.totalTrades, color: 'text-yellow-400' },
-                  { label: 'Cash Out (sells)', value: `$${diagResult.summary.totalCashOut.toFixed(2)}`, color: 'text-red-400' },
-                  { label: 'Into Other Stocks', value: `$${diagResult.summary.cashIntoOtherStocks.toFixed(2)}`, color: 'text-orange-400' },
-                ].map((card, i) => (
-                  <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <div className={`text-xs ${mutedClass}`}>{card.label}</div>
-                    <div className={`text-base font-bold ${card.color}`}>
-                      {card.value}
-                      {card.sub && <span className="text-xs ml-1 opacity-75">{card.sub}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Ripple Effects */}
-              {diagResult.rippleByTicker && diagResult.rippleByTicker.length > 0 && (
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                  <h4 className={`font-semibold text-sm mb-1 ${textClass}`}>💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went</h4>
-                  <div className="space-y-1 max-h-24 overflow-y-auto">
-                    {diagResult.rippleByTicker.map(r => (
-                      <div key={r.ticker} className="flex justify-between items-center text-xs">
-                        <span className={`font-semibold ${textClass}`}>{r.ticker}</span>
-                        <span className="text-orange-400 font-semibold">${r.amount.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Per-user breakdown */}
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
-                  <select
-                    value={diagUserSort}
-                    onChange={e => setDiagUserSort(e.target.value)}
-                    className={`text-xs px-2 py-1 border rounded-sm ${inputClass}`}
-                  >
-                    <option value="net">Sort: Net Cash Flow</option>
-                    <option value="bought">Sort: Most Bought</option>
-                    <option value="sold">Sort: Most Sold</option>
-                  </select>
-                </div>
-                <div className="space-y-2 max-h-[160px] overflow-y-auto">
-                  {[...diagResult.users]
-                    .filter(u => !u.isBot && u.totalTrades > 0)
-                    .sort((a, b) => {
-                      if (diagUserSort === 'bought') return b.cashSpent - a.cashSpent;
-                      if (diagUserSort === 'sold') return b.cashReceived - a.cashReceived;
-                      return b.netCashFlow - a.netCashFlow;
-                    })
-                    .map(u => {
-                      const isManipulator = u.netCashFlow > 100;
-                      const isProfiteer = u.netCashFlow > 0 && u.netCashFlow <= 100;
-                      const ripple = diagResult.userRipples?.[u.uid];
-                      return (
-                        <div key={u.uid} className={`p-2.5 rounded-sm ${
-                          isManipulator ? (darkMode ? 'bg-red-900/30 border border-red-800/50' : 'bg-red-50 border border-red-200') :
-                          isProfiteer ? (darkMode ? 'bg-yellow-900/20 border border-yellow-800/50' : 'bg-yellow-50 border border-yellow-200') :
-                          (darkMode ? 'bg-slate-700/50' : 'bg-slate-50')
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <span className={`font-semibold text-sm ${textClass}`}>
-                              {u.displayName}
-                              {isManipulator && <span className="ml-1.5 text-xs text-red-400">⚠️ Big Profiteer</span>}
-                            </span>
-                            <span className={`font-bold text-sm ${u.netCashFlow > 0 ? 'text-green-400' : u.netCashFlow < 0 ? 'text-red-400' : mutedClass}`}>
-                              {u.netCashFlow >= 0 ? '+' : ''}${u.netCashFlow.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-1 sm:grid-cols-2 gap-x-4`}>
-                            <span>Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})</span>
-                            <span>Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})</span>
-                            {u.sharesShorted > 0 && <span>Shorted: {u.sharesShorted} shares (${u.cashFromShorts.toFixed(2)})</span>}
-                            {u.sharesCovered > 0 && <span>Covered: {u.sharesCovered} shares (${u.cashToCover.toFixed(2)})</span>}
-                            <span>Current: {u.currentHoldings} shares</span>
-                            <span>Gifted (drops): ~{u.giftedShares} shares</span>
-                            <span>Cash: ${u.currentCash.toFixed(2)}</span>
-                            <span>Trades: {u.totalTrades}</span>
-                          </div>
-                          {ripple && (
-                            <div className="mt-1.5 pt-1.5 border-t border-orange-500/30">
-                              <div className="text-xs text-orange-400 break-words">
-                                💸 Spent ${ripple.spentOnOtherStocks.toFixed(2)} of ${ripple.shroProfit.toFixed(2)} profit on:
-                                {' '}{Object.entries(ripple.breakdown).map(([t, amt]) => `${t} ($${amt.toFixed(2)})`).join(', ')}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Recovery Tool */}
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
-                <div className="flex gap-2 items-end mb-3">
-                  <div>
-                    <label className={`text-xs ${mutedClass}`}>Roll back price to</label>
-                    <input
-                      type="date"
-                      value={recoveryRollbackDate}
-                      onChange={e => setRecoveryRollbackDate(e.target.value)}
-                      className={`block px-2 py-1 text-sm border rounded-sm ${inputClass}`}
-                    />
-                  </div>
-                  <button
-                    onClick={handleRecoveryPreview}
-                    disabled={recoveryRunning || recoveryExecuting}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-sm hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {recoveryRunning ? 'Running...' : 'Preview Recovery'}
-                  </button>
-                </div>
-
-                {recoveryDone && (
-                  <div className="mb-3 p-2 rounded-sm bg-green-900/30 border border-green-700 text-green-400 text-sm font-semibold">
-                    Recovery executed successfully
-                  </div>
-                )}
-
-                {recoveryPreview && (
-                  <div className="space-y-3">
-                    {/* Price Reset */}
-                    <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                      <div className={`text-xs font-semibold ${textClass} mb-1`}>Price Reset</div>
-                      <div className={`text-sm ${textClass}`}>
-                        ${recoveryPreview.priceReset.from.toFixed(2)} → ${recoveryPreview.priceReset.to.toFixed(2)}
-                      </div>
-                    </div>
-
-                    {/* History Rewrite */}
-                    {recoveryPreview.historyRewrite && (
-                      <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        <div className={`text-xs font-semibold ${textClass} mb-1`}>Price History Rewrite</div>
-                        <div className={`text-sm ${textClass}`}>
-                          Removing {recoveryPreview.historyRewrite.removedEntries} bad entries, keeping {recoveryPreview.historyRewrite.keptEntries} + adding flat line
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Clawback Table */}
-                    {recoveryPreview.clawbacks.length > 0 && (
-                      <div>
-                        <div className={`text-xs font-semibold ${textClass} mb-1`}>
-                          Clawbacks ({recoveryPreview.clawbacks.length} users — ${recoveryPreview.totalClawedBack.toFixed(2)} total)
-                          {recoveryPreview.totalUnrecoverable > 0 && (
-                            <span className="text-red-400 ml-2">${recoveryPreview.totalUnrecoverable.toFixed(2)} unrecoverable</span>
-                          )}
-                        </div>
-                        <div className="max-h-48 overflow-y-auto space-y-1">
-                          {recoveryPreview.clawbacks.map(cb => (
-                            <div key={cb.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? (darkMode ? 'bg-red-900/20' : 'bg-red-50') : (darkMode ? 'bg-slate-700/30' : 'bg-slate-50')}`}>
-                              <span className={textClass}>{cb.displayName}</span>
-                              <div className="text-right">
-                                <span className={mutedClass}>${cb.previousCash.toFixed(2)}</span>
-                                <span className="mx-1">→</span>
-                                <span className="text-red-400 font-semibold">${cb.newCash.toFixed(2)}</span>
-                                <span className={`ml-1 ${mutedClass}`}>(-${cb.actualClawback.toFixed(2)})</span>
-                                {cb.wasFloored && <span className="ml-1 text-red-400">⚠️</span>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Holders Affected */}
-                    {recoveryPreview.holdersAffected.length > 0 && (
-                      <div>
-                        <div className={`text-xs font-semibold ${textClass} mb-1`}>Holders Affected (value drop from price reset)</div>
-                        <div className="max-h-32 overflow-y-auto space-y-1">
-                          {recoveryPreview.holdersAffected.map(h => (
-                            <div key={h.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
-                              <span className={textClass}>{h.displayName} ({h.holdings} shares)</span>
-                              <span className="text-red-400">-${h.valueDrop.toFixed(2)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {recoveryPreview.clawbacks.length === 0 && recoveryPreview.holdersAffected.length === 0 && (
-                      <div className={`text-sm ${mutedClass}`}>No users affected by this recovery.</div>
-                    )}
-
-                    {/* Execute Button */}
-                    {!recoveryDone && (
-                      <button
-                        onClick={handleRecoveryExecute}
-                        disabled={recoveryExecuting}
-                        className="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-sm hover:bg-red-700 disabled:opacity-50 font-semibold"
-                      >
-                        {recoveryExecuting ? 'Executing...' : `Execute Recovery on ${diagTicker}`}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        <DiagnosticTab
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          inputClass={inputClass}
+          dropAuditQuery={dropAuditQuery}
+          setDropAuditQuery={setDropAuditQuery}
+          dropAuditRunning={dropAuditRunning}
+          handleDropAudit={handleDropAudit}
+          dropAuditResult={dropAuditResult}
+          diagTicker={diagTicker}
+          setDiagTicker={setDiagTicker}
+          diagStartDate={diagStartDate}
+          setDiagStartDate={setDiagStartDate}
+          diagRunning={diagRunning}
+          handleRunDiagnostic={handleRunDiagnostic}
+          diagResult={diagResult}
+          diagUserSort={diagUserSort}
+          setDiagUserSort={setDiagUserSort}
+          recoveryRollbackDate={recoveryRollbackDate}
+          setRecoveryRollbackDate={setRecoveryRollbackDate}
+          recoveryRunning={recoveryRunning}
+          recoveryExecuting={recoveryExecuting}
+          handleRecoveryPreview={handleRecoveryPreview}
+          recoveryDone={recoveryDone}
+          recoveryPreview={recoveryPreview}
+          handleRecoveryExecute={handleRecoveryExecute}
+        />
       )}
 
-      {activeTab === 'dividends' && (
-        <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
-          {/* Controls */}
-          <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
-            <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Dividend Controls</h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleRunDividends}
-                disabled={dividendActionLoading}
-                className="px-3 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-              >
-                {dividendActionLoading ? 'Working...' : '▶ Run Dividend Payout Now'}
-              </button>
-              <button
-                onClick={() => handleBackfillCohorts(false)}
-                disabled={dividendActionLoading}
-                className="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-              >
-                Backfill Missing Cohorts
-              </button>
-              <button
-                onClick={() => handleBackfillCohorts(true)}
-                disabled={dividendActionLoading}
-                className="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-              >
-                FORCE Backfill (destructive)
-              </button>
-              <button
-                onClick={loadDividendConfig}
-                disabled={dividendActionLoading}
-                className={`px-3 py-2 text-xs rounded-sm font-semibold border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-600' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
-              >
-                ↻ Refresh
-              </button>
-            </div>
-            {dividendRunResult && (
-              <div className={`mt-3 text-xs ${mutedClass}`}>
-                Last manual run: paid <span className={textClass}>{dividendRunResult.usersPaid}</span> of {dividendRunResult.usersConsidered} users •
-                total <span className={textClass}>${(dividendRunResult.totalPaid || 0).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Rate table */}
-          <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
-            <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Weekly Payout Rates</h3>
-            <div className={`text-xs ${mutedClass} grid grid-cols-4 gap-2`}>
-              <div>⭐ Blue-chip: <span className={textClass}>{(DIVIDEND_RATES['blue-chip'] * 100).toFixed(2)}%</span></div>
-              <div>💵 Dividend: <span className={textClass}>{(DIVIDEND_RATES['dividend'] * 100).toFixed(2)}%</span></div>
-              <div>📊 ETF: <span className={textClass}>{(DIVIDEND_RATES['etf'] * 100).toFixed(2)}%</span></div>
-              <div>📈 Growth: <span className={textClass}>0%</span></div>
-            </div>
-          </div>
-
-          {/* Recent runs */}
-          {dividendLastRuns.length > 0 && (
-            <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
-              <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Runs</h3>
-              <div className="space-y-1">
-                {dividendLastRuns.map(run => (
-                  <div key={run.id} className={`text-xs ${mutedClass} flex gap-3`}>
-                    <span>{run.ranAt?.toDate ? run.ranAt.toDate().toLocaleString() : 'pending'}</span>
-                    <span className="uppercase">{run.source}</span>
-                    <span>{run.usersPaid} paid / {run.usersConsidered} considered</span>
-                    <span className={textClass}>${(run.totalPaid || 0).toFixed(2)}</span>
-                    <span>{run.durationMs}ms</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Per-ticker tier overrides */}
-          <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className={`text-sm font-bold ${textClass}`}>Per-Ticker Tier Overrides</h3>
-              <input
-                type="text"
-                value={dividendSearch}
-                onChange={e => setDividendSearch(e.target.value)}
-                placeholder="Search ticker…"
-                className={`px-2 py-1 text-xs border rounded-sm ${inputClass}`}
-              />
-            </div>
-            {!dividendConfigLoaded ? (
-              <p className={`text-xs ${mutedClass}`}>Click Refresh to load tier config.</p>
-            ) : (
-              <div className="space-y-1 max-h-96 overflow-y-auto">
-                {CHARACTERS
-                  .filter(c => !dividendSearch || c.ticker.toLowerCase().includes(dividendSearch.toLowerCase()) || c.name.toLowerCase().includes(dividendSearch.toLowerCase()))
-                  .map(c => {
-                    const effective = getDividendTier(c.ticker, dividendOverrides);
-                    const defaultTier = c.isETF ? 'etf' : (DEFAULT_DIVIDEND_TIERS[c.ticker] || 'growth');
-                    const isOverride = dividendOverrides[c.ticker];
-                    return (
-                      <div key={c.ticker} className="flex items-center gap-2 text-xs">
-                        <span className="text-orange-500 font-mono w-14">${c.ticker}</span>
-                        <span className={`${mutedClass} flex-1 truncate`}>{c.name}</span>
-                        <span className={`${mutedClass} w-20`}>default: {defaultTier}</span>
-                        <select
-                          value={isOverride || 'default'}
-                          onChange={e => saveDividendTier(c.ticker, e.target.value)}
-                          disabled={c.isETF}
-                          className={`px-2 py-1 text-xs border rounded-sm ${inputClass} ${c.isETF ? 'opacity-50' : ''}`}
-                        >
-                          <option value="default">default ({defaultTier})</option>
-                          <option value="blue-chip">blue-chip</option>
-                          <option value="dividend">dividend</option>
-                          <option value="growth">growth</option>
-                        </select>
-                        <span className={`w-20 text-right ${effective === 'growth' ? mutedClass : textClass}`}>→ {effective}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-        </div>
+            {activeTab === 'dividends' && (
+        <DividendsTab
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          inputClass={inputClass}
+          dividendActionLoading={dividendActionLoading}
+          handleRunDividends={handleRunDividends}
+          handleBackfillCohorts={handleBackfillCohorts}
+          loadDividendConfig={loadDividendConfig}
+          dividendRunResult={dividendRunResult}
+          dividendLastRuns={dividendLastRuns}
+          dividendSearch={dividendSearch}
+          setDividendSearch={setDividendSearch}
+          dividendConfigLoaded={dividendConfigLoaded}
+          dividendOverrides={dividendOverrides}
+          saveDividendTier={saveDividendTier}
+        />
       )}
-    </div>
+
+        </div>
   );
 };
 
