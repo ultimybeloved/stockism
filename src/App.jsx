@@ -59,6 +59,7 @@ const TradeActionModal  = lazy(() => import('./components/modals/TradeActionModa
 const ChartModal        = lazy(() => import('./components/modals/ChartModal'));
 const PortfolioModal    = lazy(() => import('./components/modals/PortfolioModal'));
 const TradeHistoryModal = lazy(() => import('./components/modals/TradeHistoryModal'));
+const StockPage         = lazy(() => import('./pages/StockPage'));
 
 // Import other components
 import CheckInButton from './components/CheckInButton';
@@ -2895,6 +2896,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} />} />
             <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
             <Route path="/u/:username" element={<PublicProfilePage />} />
+            <Route path="/stock/:ticker" element={<StockPage onTrade={requestTrade} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </ErrorBoundary>

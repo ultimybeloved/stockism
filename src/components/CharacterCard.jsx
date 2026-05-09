@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses } from '../utils/theme';
 import SimpleLineChart from './charts/SimpleLineChart';
@@ -276,7 +277,16 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
         </div>
 
         <div className="flex justify-between items-center mb-3">
-          <span className={`text-xs ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+            <Link
+              to={`/stock/${character.ticker}`}
+              onClick={e => e.stopPropagation()}
+              className={`text-[10px] ${mutedClass} hover:text-orange-500`}
+            >
+              Details ↗
+            </Link>
+          </div>
           <div className="flex gap-2">
             {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
             {shorted && (
