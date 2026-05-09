@@ -13,6 +13,7 @@
     "deploy:functions": "node scripts/deploy-functions.cjs"
   },
   "dependencies": {
+    "@sentry/react": "^10.52.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^10.8.0",
     "react": "^18.2.0",

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react';
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { fireTradeConfetti, fireDailyRewardConfetti, fireWeeklyRewardConfetti } from './utils/confetti';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -547,6 +548,7 @@ export default function App() {
       }
 
       setUser(firebaseUser);
+      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email } : null);
       if (firebaseUser) {
         // Check if email is verified (only for email/password providers)
         const isEmailProvider = firebaseUser.providerData.some(p => p.providerId === 'password');
