@@ -2,18 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../firebase';
-import { CHARACTER_MAP, getDividendTier } from '../characters';
+import { CHARACTER_MAP, getDividendTier, CHARACTERS } from '../characters';
 import { CREWS } from '../crews';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses } from '../utils/theme';
-import { DIVIDEND_RATES } from '../constants/economy';
+import { DIVIDEND_RATES, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
 
 const CHART_TYPES = [
   { key: 'area', label: 'Area' },
-  { key: 'line', label: 'Line' },
   { key: 'bar', label: 'Bar' },
 ];
 
@@ -25,6 +24,7 @@ const StockPage = ({ onTrade }) => {
   const [timeRange, setTimeRange] = useState('1d');
   const [chartType, setChartType] = useState('area');
   const [tradeAction, setTradeAction] = useState(null);
+  const [showTradeMenu, setShowTradeMenu] = useState(false);
 
   const character = CHARACTER_MAP[ticker];
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
@@ -33,61 +33,100 @@ const StockPage = ({ onTrade }) => {
   const positionShares = holdings?.[ticker] || 0;
   const shortPosition = shorts?.[ticker];
   const avgCost = costBasis?.[ticker] || 0;
+  const spread = character?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+  const bidPrice = currentPrice * (1 - spread / 2);
+  const askPrice = currentPrice * (1 + spread / 2);
 
   const drip = userData?.drip || {};
   const handleToggleDrip = async () => {
     if (!user) return;
-    const isEnabled = !!drip[ticker];
     await updateDoc(doc(db, 'users', user.uid), {
-      [`drip.${ticker}`]: isEnabled ? deleteField() : true,
+      [`drip.${ticker}`]: drip[ticker] ? deleteField() : true,
     });
   };
 
-  // Price stats from history
   const history = priceHistory[ticker] || [];
+
   const priceStats = useMemo(() => {
     const range = TIME_RANGES.find(r => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
     const filtered = history.filter(p => p.timestamp >= cutoff);
-
-    const ago7d = Date.now() - 7 * 86400000;
     const ago30d = Date.now() - 30 * 86400000;
-    const filtered7d = history.filter(p => p.timestamp >= ago7d);
-    const filtered30d = history.filter(p => p.timestamp >= ago30d);
+    const ago7d = Date.now() - 7 * 86400000;
+    const ago52w = Date.now() - 365 * 86400000;
+    const f30d = history.filter(p => p.timestamp >= ago30d);
+    const f7d = history.filter(p => p.timestamp >= ago7d);
+    const f52w = history.filter(p => p.timestamp >= ago52w);
+
+    const px = (arr) => arr.map(p => p.price);
+    const hi = (arr) => arr.length ? Math.max(...px(arr)) : currentPrice;
+    const lo = (arr) => arr.length ? Math.min(...px(arr)) : currentPrice;
 
     const first = filtered[0]?.price || currentPrice;
-    const allPrices = filtered.map(p => p.price);
-    const high = allPrices.length ? Math.max(...allPrices) : currentPrice;
-    const low = allPrices.length ? Math.min(...allPrices) : currentPrice;
     const change = first > 0 ? ((currentPrice - first) / first) * 100 : 0;
-
-    const price7dAgo = filtered7d[0]?.price || currentPrice;
+    const price7dAgo = f7d[0]?.price || currentPrice;
     const change7d = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
-
-    const price30dAgo = filtered30d[0]?.price || currentPrice;
+    const price30dAgo = f30d[0]?.price || currentPrice;
     const change30d = price30dAgo > 0 ? ((currentPrice - price30dAgo) / price30dAgo) * 100 : 0;
 
-    return { first, high, low, change, change7d, change30d };
+    return {
+      first, change, change7d, change30d,
+      high: hi(filtered), low: lo(filtered),
+      high30d: hi(f30d), low30d: lo(f30d),
+      high52w: hi(f52w), low52w: lo(f52w),
+    };
   }, [history, timeRange, currentPrice]);
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
+  const cc = (pct) => pct >= 0 ? upColor : downColor;
+  const cd = (pct) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
 
-  // Dividend info
   const dividendTier = character ? getDividendTier(ticker) : 'growth';
   const dividendRate = DIVIDEND_RATES[dividendTier] || 0;
   const cohort = userData?.holdingCohorts?.[ticker];
-  const eligibleShares = cohort ? (cohort.eligible || 0) + (cohort.pending || []).filter(p => (p.availableAt || 0) <= Date.now()).reduce((s, p) => s + (p.shares || 0), 0) : 0;
+  const eligibleShares = cohort
+    ? (cohort.eligible || 0) + (cohort.pending || []).filter(p => (p.availableAt || 0) <= Date.now()).reduce((s, p) => s + (p.shares || 0), 0)
+    : 0;
   const weeklyDividend = eligibleShares * currentPrice * dividendRate;
 
-  // Position P&L
   const positionValue = positionShares * currentPrice;
   const positionCost = avgCost * positionShares;
   const positionPL = positionValue - positionCost;
   const positionPLPct = positionCost > 0 ? (positionPL / positionCost) * 100 : 0;
 
   const crew = !character?.isETF ? Object.values(CREWS).find(c => c.members.includes(ticker)) : null;
+  const memberOfETFs = !character?.isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(ticker)) : [];
+
+  const divider = <div className={`border-t ${darkMode ? 'border-zinc-800' : 'border-amber-100'} my-3`} />;
+
+  const stat = (label, value, cls = textClass) => (
+    <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>
+      <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>
+      <div className={`font-semibold text-sm ${cls}`}>{value}</div>
+    </div>
+  );
+
+  const tradeButtons = (
+    <div className="space-y-2 mt-3">
+      <div className="grid grid-cols-2 gap-2">
+        {[['buy', colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'],
+          ['sell', colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'],
+          ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10'],
+          ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10']].map(([action, cls]) => (
+          <button key={action}
+            disabled={action === 'sell' && positionShares === 0 || action === 'cover' && !shortPosition?.shares}
+            onClick={() => { setTradeAction(action); setShowTradeMenu(false); }}
+            className={`py-1.5 text-xs font-semibold uppercase rounded-sm ${cls} text-white disabled:opacity-40`}
+          >
+            {action}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => setShowTradeMenu(false)} className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-500`}>Cancel</button>
+    </div>
+  );
 
   if (!character) {
     return (
@@ -100,25 +139,15 @@ const StockPage = ({ onTrade }) => {
     );
   }
 
-  const statCard = (label, value, valueClass = textClass) => (
-    <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>
-      <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>
-      <div className={`font-semibold ${valueClass}`}>{value}</div>
-    </div>
-  );
-
-  const changeClass = (pct) => pct >= 0 ? upColor : downColor;
-  const changeDisplay = (pct) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
-
   return (
     <div className={`min-h-screen ${bgClass}`}>
       <div className="max-w-4xl mx-auto px-4 py-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate(-1)} className={`${mutedClass} hover:text-orange-500 text-sm`}>← Back</button>
         </div>
 
+        {/* Header */}
         <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
           <div className="flex justify-between items-start">
             <div>
@@ -126,75 +155,76 @@ const StockPage = ({ onTrade }) => {
                 <span className="text-orange-600 font-mono text-xl font-bold">${ticker}</span>
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
                 {crew && (
-                  <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: crew.color }}>
-                    <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />
-                    {crew.name}
+                  <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
+                    style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: crew.color }}>
+                    <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />{crew.name}
                   </span>
                 )}
               </div>
               <p className={`text-sm ${mutedClass} mt-0.5`}>{character.name}</p>
+              {character.description && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.description}</p>}
             </div>
             <div className="text-right">
               <div className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</div>
               <div className={`text-sm font-semibold ${isUp ? upColor : downColor}`}>
                 {isUp ? '▲' : '▼'} {formatChange(Math.abs(priceStats.change))}
-                <span className={`text-xs ml-1 ${mutedClass}`}>({TIME_RANGES.find(r => r.key === timeRange)?.label})</span>
+                <span className={`text-xs ml-1 font-normal ${mutedClass}`}>({TIME_RANGES.find(r => r.key === timeRange)?.label})</span>
               </div>
             </div>
           </div>
           {user && (
-            <button
-              onClick={() => setTradeAction('buy')}
-              className="mt-3 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
-            >
-              Trade
-            </button>
+            !showTradeMenu
+              ? <button onClick={() => setShowTradeMenu(true)} className="mt-3 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm">Trade</button>
+              : tradeButtons
           )}
         </div>
 
         {/* Chart */}
         <div className={`${cardClass} border rounded-sm mb-4 overflow-hidden`}>
-          <div className={`px-4 py-2 border-b flex flex-wrap gap-2 justify-between ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
-            <div className="flex gap-1">
+          <div className={`px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
+            <div className="flex gap-1 flex-wrap">
               {TIME_RANGES.map(r => (
                 <button key={r.key} onClick={() => setTimeRange(r.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${
-                    timeRange === r.key ? 'bg-orange-600 text-white'
-                      : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'
-                  }`}
-                >{r.label}</button>
+                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${timeRange === r.key ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
+                  {r.label}
+                </button>
               ))}
             </div>
             <div className="flex gap-1">
               {CHART_TYPES.map(t => (
                 <button key={t.key} onClick={() => setChartType(t.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${
-                    chartType === t.key ? 'bg-zinc-600 text-white'
-                      : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'
-                  }`}
-                >{t.label}</button>
+                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-zinc-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
+                  {t.label}
+                </button>
               ))}
             </div>
           </div>
           <div className={`p-4 ${bgClass}`}>
             <PriceChart ticker={ticker} basePrice={character.basePrice} currentPrice={currentPrice} timeRange={timeRange} chartType={chartType} />
           </div>
-          <div className={`px-4 pb-3 grid grid-cols-4 gap-3 text-center border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'} pt-3`}>
+          <div className={`px-4 pb-3 pt-3 grid grid-cols-4 gap-3 text-center border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
             {[['Open', formatCurrency(priceStats.first), textClass], ['High', formatCurrency(priceStats.high), upColor], ['Low', formatCurrency(priceStats.low), downColor], ['Current', formatCurrency(currentPrice), textClass]].map(([l, v, c]) => (
               <div key={l}><div className={`text-xs ${mutedClass} uppercase`}>{l}</div><div className={`font-semibold ${c}`}>{v}</div></div>
             ))}
           </div>
         </div>
 
-        {/* Key Stats */}
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          {statCard('7d Change', changeDisplay(priceStats.change7d), changeClass(priceStats.change7d))}
-          {statCard('30d Change', changeDisplay(priceStats.change30d), changeClass(priceStats.change30d))}
-          {statCard('Base Price', formatCurrency(character.basePrice))}
+          {stat('7d Change', cd(priceStats.change7d), cc(priceStats.change7d))}
+          {stat('30d Change', cd(priceStats.change30d), cc(priceStats.change30d))}
+          {stat('30d High', formatCurrency(priceStats.high30d), upColor)}
+          {stat('30d Low', formatCurrency(priceStats.low30d), downColor)}
+          {stat('52-Week High', formatCurrency(priceStats.high52w), upColor)}
+          {stat('52-Week Low', formatCurrency(priceStats.low52w), downColor)}
+          {stat('Ask (Buy)', formatCurrency(askPrice))}
+          {stat('Bid (Sell)', formatCurrency(bidPrice))}
+          {stat('Spread', `${(spread * 100).toFixed(1)}%`)}
+          {stat('Base Price', formatCurrency(character.basePrice))}
           {dividendRate > 0
-            ? statCard('Dividend', `${(dividendRate * 100).toFixed(2)}% / week`, upColor)
-            : statCard('Dividend', 'Growth — none', mutedClass)}
-          {character.isETF && character.constituents && statCard('Holdings', `${character.constituents.length} stocks`)}
+            ? stat('Dividend', `${(dividendRate * 100).toFixed(2)}% / week`, upColor)
+            : stat('Dividend', 'Growth — none', mutedClass)}
+          {character.volatility && stat('Volatility', `${(character.volatility * 100).toFixed(1)}%`)}
         </div>
 
         {/* Your Position */}
@@ -202,37 +232,21 @@ const StockPage = ({ onTrade }) => {
           <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
             <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Your Position</h3>
             {positionShares > 0 && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Shares held</span>
-                  <span className={textClass}>{positionShares}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Avg cost</span>
-                  <span className={textClass}>{formatCurrency(avgCost)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Total P&L</span>
-                  <span className={positionPL >= 0 ? upColor : downColor}>
-                    {positionPL >= 0 ? '+' : ''}{formatCurrency(positionPL)} ({positionPLPct >= 0 ? '+' : ''}{positionPLPct.toFixed(2)}%)
-                  </span>
+              <div className="space-y-2 text-sm">
+                {[['Shares held', positionShares], ['Avg cost', formatCurrency(avgCost)]].map(([l, v]) => (
+                  <div key={l} className="flex justify-between"><span className={mutedClass}>{l}</span><span className={textClass}>{v}</span></div>
+                ))}
+                <div className="flex justify-between"><span className={mutedClass}>Total P&L</span>
+                  <span className={positionPL >= 0 ? upColor : downColor}>{positionPL >= 0 ? '+' : ''}{formatCurrency(positionPL)} ({positionPLPct >= 0 ? '+' : ''}{positionPLPct.toFixed(2)}%)</span>
                 </div>
                 {dividendRate > 0 && weeklyDividend > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className={mutedClass}>Weekly dividend</span>
-                    <span className={upColor}>~{formatCurrency(weeklyDividend)}</span>
-                  </div>
+                  <div className="flex justify-between"><span className={mutedClass}>Weekly dividend</span><span className={upColor}>~{formatCurrency(weeklyDividend)}</span></div>
                 )}
                 {dividendRate > 0 && (
-                  <div className="flex justify-between items-center text-sm">
+                  <div className="flex justify-between items-center">
                     <span className={mutedClass}>DRIP</span>
-                    <button
-                      onClick={handleToggleDrip}
-                      title={drip[ticker] ? 'DRIP on — dividends auto-buy shares. Click to turn off.' : 'DRIP off — dividends pay as cash. Click to reinvest.'}
-                      className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${
-                        drip[ticker] ? 'bg-emerald-600 text-white' : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'
-                      }`}
-                    >
+                    <button onClick={handleToggleDrip} title={drip[ticker] ? 'DRIP on — click to turn off' : 'DRIP off — click to reinvest'}
+                      className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${drip[ticker] ? 'bg-emerald-600 text-white' : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}>
                       {drip[ticker] ? 'ON' : 'OFF'}
                     </button>
                   </div>
@@ -240,24 +254,31 @@ const StockPage = ({ onTrade }) => {
               </div>
             )}
             {shortPosition?.shares > 0 && (
-              <div className={`mt-3 pt-3 ${positionShares > 0 ? `border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}` : ''} space-y-2`}>
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Shares short</span>
-                  <span className="text-orange-500">{shortPosition.shares}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Short entry</span>
-                  <span className={textClass}>{formatCurrency(shortPosition.costBasis || shortPosition.entryPrice || 0)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={mutedClass}>Short P&L</span>
-                  {(() => {
-                    const pl = ((shortPosition.costBasis || shortPosition.entryPrice || 0) - currentPrice) * shortPosition.shares;
-                    return <span className={pl >= 0 ? upColor : downColor}>{pl >= 0 ? '+' : ''}{formatCurrency(pl)}</span>;
-                  })()}
-                </div>
+              <div className={`${positionShares > 0 ? 'mt-3 pt-3 border-t ' + (darkMode ? 'border-zinc-800' : 'border-amber-200') : ''} space-y-2 text-sm`}>
+                {[['Shares short', <span className="text-orange-500">{shortPosition.shares}</span>],
+                  ['Short entry', formatCurrency(shortPosition.costBasis || shortPosition.entryPrice || 0)]].map(([l, v]) => (
+                  <div key={l} className="flex justify-between"><span className={mutedClass}>{l}</span><span className={textClass}>{v}</span></div>
+                ))}
+                {(() => { const pl = ((shortPosition.costBasis || shortPosition.entryPrice || 0) - currentPrice) * shortPosition.shares;
+                  return <div className="flex justify-between"><span className={mutedClass}>Short P&L</span><span className={pl >= 0 ? upColor : downColor}>{pl >= 0 ? '+' : ''}{formatCurrency(pl)}</span></div>; })()}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Part of ETFs */}
+        {memberOfETFs.length > 0 && (
+          <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
+            <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Part of {memberOfETFs.length} ETF{memberOfETFs.length > 1 ? 's' : ''}</h3>
+            <div className="flex flex-wrap gap-2">
+              {memberOfETFs.map(etf => (
+                <button key={etf.ticker} onClick={() => navigate(`/stock/${etf.ticker}`)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+                  <span className="text-orange-600 font-mono text-xs font-bold">${etf.ticker}</span>
+                  <span className={`text-xs ${mutedClass}`}>{etf.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -266,43 +287,31 @@ const StockPage = ({ onTrade }) => {
           <div className={`${cardClass} border rounded-sm p-4`}>
             <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Holdings ({character.constituents.length})</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[...character.constituents]
-                .sort((a, b) => (prices[b] || 0) - (prices[a] || 0))
-                .map(t => {
-                  const tHistory = priceHistory[t] || [];
-                  const ago24h = Date.now() - 86400000;
-                  const filtered = tHistory.filter(p => p.timestamp >= ago24h);
-                  const tFirst = filtered[0]?.price || (prices[t] || 0);
-                  const tChange = tFirst > 0 ? ((prices[t] - tFirst) / tFirst) * 100 : 0;
-                  const tUp = tChange >= 0;
-                  return (
-                    <button key={t} onClick={() => navigate(`/stock/${t}`)}
-                      className={`flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
-                    >
-                      <span className="text-orange-600 font-mono text-xs font-semibold">${t}</span>
-                      <div className="text-right">
-                        <div className={`text-xs font-semibold ${textClass}`}>{formatCurrency(prices[t] || 0)}</div>
-                        <div className={`text-[10px] ${tUp ? upColor : downColor}`}>{tUp ? '▲' : '▼'} {formatChange(Math.abs(tChange))}</div>
-                      </div>
-                    </button>
-                  );
-                })}
+              {[...character.constituents].sort((a, b) => (prices[b] || 0) - (prices[a] || 0)).map(t => {
+                const tHistory = priceHistory[t] || [];
+                const tFiltered = tHistory.filter(p => p.timestamp >= Date.now() - 86400000);
+                const tFirst = tFiltered[0]?.price || (prices[t] || 0);
+                const tChange = tFirst > 0 ? ((prices[t] - tFirst) / tFirst) * 100 : 0;
+                return (
+                  <button key={t} onClick={() => navigate(`/stock/${t}`)}
+                    className={`flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
+                    <span className="text-orange-600 font-mono text-xs font-semibold">${t}</span>
+                    <div className="text-right">
+                      <div className={`text-xs font-semibold ${textClass}`}>{formatCurrency(prices[t] || 0)}</div>
+                      <div className={`text-[10px] ${tChange >= 0 ? upColor : downColor}`}>{tChange >= 0 ? '▲' : '▼'} {formatChange(Math.abs(tChange))}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
       {tradeAction && (
-        <TradeActionModal
-          character={character}
-          action={tradeAction}
-          price={currentPrice}
-          holdings={positionShares}
-          shortPosition={shortPosition}
-          userCash={userData?.cash || 0}
-          onTrade={onTrade}
-          onClose={() => setTradeAction(null)}
-        />
+        <TradeActionModal character={character} action={tradeAction} price={currentPrice}
+          holdings={positionShares} shortPosition={shortPosition} userCash={userData?.cash || 0}
+          onTrade={onTrade} onClose={() => setTradeAction(null)} />
       )}
     </div>
   );
