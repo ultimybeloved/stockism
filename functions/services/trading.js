@@ -5,7 +5,8 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, CREW_MEMBERS,
-  isWeeklyTradingHalt,
+  isWeeklyTradingHalt, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
+  MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
 } = require('../constants');
 const {
   checkBanned,

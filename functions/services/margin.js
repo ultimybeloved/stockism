@@ -7,6 +7,7 @@ const {
   ADMIN_UID, isWeeklyTradingHalt,
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS,
   MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
+  BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
 } = require('../constants');
 const { checkBanned, writeNotification, sendDiscordMessage } = require('../helpers');
 

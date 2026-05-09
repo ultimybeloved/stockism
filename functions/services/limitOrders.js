@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, THIRTY_DAYS_MS } = require('../constants');
+const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, THIRTY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification } = require('../helpers');
 
 exports.createLimitOrder = functions.https.onCall(async (data, context) => {
