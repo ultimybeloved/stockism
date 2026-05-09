@@ -39,7 +39,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
   const now = Date.now();
   const usersSnap = await db.collection('users').get();
 
-  const stats = { usersConsidered: 0, usersPaid: 0, totalPaid: 0, tickerTotals: {} };
+  const stats = { usersConsidered: 0, usersPaid: 0, totalPaid: 0, totalReinvested: 0, tickerTotals: {} };
   const BATCH_SIZE = 400;
   let batch = db.batch();
   let pendingWrites = 0;
@@ -58,10 +58,13 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
     const holdings = data.holdings || {};
     const cohorts = data.holdingCohorts || {};
+    const drip = data.drip || {};
 
     let totalPaid = 0;
     const payoutsByTicker = {};
+    const reinvestedBreakdown = {};
     const cohortUpdates = {};
+    const holdingIncrements = {};
 
     for (const ticker of Object.keys(holdings)) {
       const shares = holdings[ticker] || 0;
@@ -102,9 +105,25 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         if (price > 0) {
           const payout = Math.round(graduated.eligible * price * rate * 100) / 100;
           if (payout > 0) {
-            totalPaid += payout;
-            payoutsByTicker[ticker] = payout;
             stats.tickerTotals[ticker] = (stats.tickerTotals[ticker] || 0) + payout;
+            if (drip[ticker] && price > 0) {
+              // DRIP: buy shares instead of paying cash
+              const sharesToAdd = Math.floor((payout / price) * 100) / 100;
+              const cashRemainder = Math.round((payout - sharesToAdd * price) * 100) / 100;
+              if (sharesToAdd > 0) {
+                holdingIncrements[ticker] = sharesToAdd;
+                graduated.pending.push({ shares: sharesToAdd, availableAt: now + DIVIDEND_HOLD_MS });
+                reinvestedBreakdown[ticker] = { shares: sharesToAdd, value: payout };
+                stats.totalReinvested += payout;
+              }
+              if (cashRemainder > 0) {
+                totalPaid += cashRemainder;
+                payoutsByTicker[ticker] = cashRemainder;
+              }
+            } else {
+              totalPaid += payout;
+              payoutsByTicker[ticker] = payout;
+            }
           }
         }
       }
@@ -113,8 +132,18 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     // Always persist graduated cohorts so pending shares move to eligible over time.
     const updates = { holdingCohorts: cohortUpdates };
 
-    if (totalPaid > 0) {
-      updates.cash = admin.firestore.FieldValue.increment(totalPaid);
+    // Apply DRIP holding increments
+    for (const [ticker, sharesToAdd] of Object.entries(holdingIncrements)) {
+      updates[`holdings.${ticker}`] = admin.firestore.FieldValue.increment(sharesToAdd);
+    }
+
+    const hasCashPayout = totalPaid > 0;
+    const hasDrip = Object.keys(reinvestedBreakdown).length > 0;
+
+    if (hasCashPayout || hasDrip) {
+      if (hasCashPayout) {
+        updates.cash = admin.firestore.FieldValue.increment(totalPaid);
+      }
 
       const totalRounded = Math.round(totalPaid * 100) / 100;
       const txLogEntry = {
@@ -122,6 +151,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         timestamp: now,
         totalAmount: totalRounded,
         breakdown: payoutsByTicker,
+        ...(hasDrip && { reinvestedBreakdown }),
       };
       updates.transactionLog = admin.firestore.FieldValue.arrayUnion(txLogEntry);
 
@@ -136,17 +166,23 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         totalAmount: totalRounded,
         breakdown: payoutsByTicker,
         tickerCount: Object.keys(payoutsByTicker).length,
+        ...(hasDrip && { reinvested: reinvestedBreakdown }),
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         source,
       });
       pendingWrites += 1;
 
-      // Notification — fire-and-forget (we don't want a batched transactional write here).
+      // Notification — fire-and-forget
+      const dripCount = Object.keys(reinvestedBreakdown).length;
+      const cashCount = Object.keys(payoutsByTicker).length;
+      const notifParts = [];
+      if (hasCashPayout) notifParts.push(`$${totalRounded.toFixed(2)} cash`);
+      if (hasDrip) notifParts.push(`${dripCount} DRIP reinvestment${dripCount > 1 ? 's' : ''}`);
       writeNotification(userDoc.id, {
         type: 'dividend',
-        title: `Dividends paid: $${totalPaid.toFixed(2)}`,
-        message: `You earned dividends on ${Object.keys(payoutsByTicker).length} holding(s).`,
-        data: { total: totalRounded, breakdown: payoutsByTicker, source },
+        title: `Dividends paid`,
+        message: notifParts.join(' + ') + ` across ${cashCount + dripCount} holding(s).`,
+        data: { total: totalRounded, breakdown: payoutsByTicker, reinvestedBreakdown, source },
       }).catch(err => console.error('Dividend notification failed for', userDoc.id, err));
     }
 
@@ -167,6 +203,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     usersConsidered: stats.usersConsidered,
     usersPaid: stats.usersPaid,
     totalPaid: Math.round(stats.totalPaid * 100) / 100,
+    totalReinvested: Math.round(stats.totalReinvested * 100) / 100,
     tickerTotals: Object.fromEntries(
       Object.entries(stats.tickerTotals).map(([t, v]) => [t, Math.round(v * 100) / 100])
     ),

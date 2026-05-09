@@ -60,7 +60,7 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {} }) => {
+const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});
@@ -675,22 +675,39 @@ const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLi
                           {/* Dividend info */}
                           {item.tierRate > 0 && (
                             <div className={`mb-3 p-2 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-950' : 'border-amber-200 bg-white'}`}>
-                              <div className={`text-xs ${mutedClass} mb-1`}>
-                                {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier — pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
-                              </div>
-                              <div className={`text-sm ${textClass}`}>
-                                {formatShares(item.eligibleShares)} / {formatShares(item.shares)} shares eligible
-                                {item.weeklyDividend > 0 && (
-                                  <span className={`ml-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
-                                    → ~{formatCurrency(item.weeklyDividend)} / week
-                                  </span>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-xs ${mutedClass} mb-1`}>
+                                    {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier — pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
+                                  </div>
+                                  <div className={`text-sm ${textClass}`}>
+                                    {formatShares(item.eligibleShares)} / {formatShares(item.shares)} shares eligible
+                                    {item.weeklyDividend > 0 && (
+                                      <span className={`ml-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                                        → ~{formatCurrency(item.weeklyDividend)} / week
+                                      </span>
+                                    )}
+                                  </div>
+                                  {item.eligibleShares < item.shares && item.soonestReadyMs && (
+                                    <div className={`text-xs ${mutedClass} mt-1`}>
+                                      Next {formatShares(item.shares - item.eligibleShares)} share(s) become eligible in {Math.ceil((item.soonestReadyMs - Date.now()) / (24 * 60 * 60 * 1000))} day(s)
+                                    </div>
+                                  )}
+                                </div>
+                                {onToggleDrip && (
+                                  <button
+                                    onClick={() => onToggleDrip(item.ticker)}
+                                    title={drip[item.ticker] ? 'DRIP on — dividends auto-buy more shares. Click to turn off.' : 'DRIP off — dividends pay as cash. Click to reinvest automatically.'}
+                                    className={`shrink-0 text-xs px-2 py-1 rounded font-semibold transition-colors ${
+                                      drip[item.ticker]
+                                        ? 'bg-emerald-600 text-white'
+                                        : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'
+                                    }`}
+                                  >
+                                    DRIP {drip[item.ticker] ? 'ON' : 'OFF'}
+                                  </button>
                                 )}
                               </div>
-                              {item.eligibleShares < item.shares && item.soonestReadyMs && (
-                                <div className={`text-xs ${mutedClass} mt-1`}>
-                                  Next {formatShares(item.shares - item.eligibleShares)} share(s) become eligible in {Math.ceil((item.soonestReadyMs - Date.now()) / (24 * 60 * 60 * 1000))} day(s)
-                                </div>
-                              )}
                             </div>
                           )}
 

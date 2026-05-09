@@ -29,7 +29,8 @@ import {
   arrayUnion,
   runTransaction,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  deleteField
 } from 'firebase/firestore';
 import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -2005,6 +2006,14 @@ export default function App() {
     }
   }, [user]);
 
+  // DRIP toggle
+  const handleToggleDrip = useCallback(async (ticker) => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    const isEnabled = !!(userData?.drip?.[ticker]);
+    await updateDoc(userRef, { [`drip.${ticker}`]: isEnabled ? deleteField() : true });
+  }, [user, userData]);
+
   // Logout
   const handleLogout = () => signOut(auth);
 
@@ -3084,6 +3093,8 @@ export default function App() {
           ipoPurchases={userData?.ipoPurchases || {}}
           holdingCohorts={activeUserData.holdingCohorts || {}}
           dividendTierOverrides={dividendTierOverrides}
+          drip={userData?.drip || {}}
+          onToggleDrip={handleToggleDrip}
         />
       )}
       {showTradeHistory && !isGuest && (

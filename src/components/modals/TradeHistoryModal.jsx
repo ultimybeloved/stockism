@@ -274,7 +274,10 @@ const TradeHistoryModal = ({ onClose }) => {
                 // Dividend payouts are a different shape — render separately
                 if (trade.action === 'dividend') {
                   const breakdown = trade.breakdown || {};
-                  const entries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+                  const reinvested = trade.reinvested || {};
+                  const cashEntries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+                  const dripEntries = Object.entries(reinvested).sort((a, b) => b[1].value - a[1].value);
+                  const totalCount = cashEntries.length + dripEntries.length;
                   return (
                     <div key={trade.id} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} ${darkMode ? getActionBg('dividend') : ''}`}>
                       <div className="flex justify-between items-start">
@@ -284,19 +287,32 @@ const TradeHistoryModal = ({ onClose }) => {
                             <span className={`text-xs font-bold uppercase ${getActionColor('dividend')}`}>PAID</span>
                           </div>
                           <p className={`text-xs ${mutedClass}`}>
-                            {trade.tickerCount || entries.length} holding{(trade.tickerCount || entries.length) === 1 ? '' : 's'}
+                            {totalCount} holding{totalCount === 1 ? '' : 's'}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
-                            +{formatCurrency(trade.totalAmount || 0)}
-                          </p>
+                          {(trade.totalAmount || 0) > 0 && (
+                            <p className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                              +{formatCurrency(trade.totalAmount || 0)} cash
+                            </p>
+                          )}
+                          {dripEntries.length > 0 && (
+                            <p className="font-semibold text-sm text-sky-500">
+                              {dripEntries.length} DRIP reinvested
+                            </p>
+                          )}
                         </div>
                       </div>
-                      {entries.length > 0 && (
+                      {cashEntries.length > 0 && (
                         <p className={`text-xs ${mutedClass} mt-1`}>
-                          {entries.slice(0, 4).map(([t, amt]) => `$${t} ${formatCurrency(amt)}`).join(' • ')}
-                          {entries.length > 4 ? ` • +${entries.length - 4} more` : ''}
+                          {cashEntries.slice(0, 4).map(([t, amt]) => `$${t} ${formatCurrency(amt)}`).join(' • ')}
+                          {cashEntries.length > 4 ? ` • +${cashEntries.length - 4} more` : ''}
+                        </p>
+                      )}
+                      {dripEntries.length > 0 && (
+                        <p className="text-xs text-sky-500 mt-1">
+                          ↻ {dripEntries.slice(0, 4).map(([t, d]) => `$${t} +${d.shares}sh`).join(' • ')}
+                          {dripEntries.length > 4 ? ` • +${dripEntries.length - 4} more` : ''}
                         </p>
                       )}
                       <p className={`text-xs ${mutedClass} mt-1`}>{formatTimestamp(trade.timestamp)}</p>
