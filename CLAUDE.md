@@ -47,6 +47,26 @@ You are the **sole developer** of this codebase. The user (Darth YG) is a non-te
 * Do NOT add "Co-Authored-By: Claude" or any co-author attribution to commit messages
 * Keep commit messages short and vague (e.g., "Update portfolio", "Fix bug", "Add feature")
 
+## Before Deploying Backend Functions
+
+Always verify every service file imports everything it uses from `functions/constants.js`. Run this check before any `firebase deploy`:
+
+```bash
+node -e "
+const fs=require('fs');
+const c=Object.keys(require('./functions/constants'));
+fs.readdirSync('functions/services').filter(f=>f.endsWith('.js')).forEach(f=>{
+  const s=fs.readFileSync('functions/services/'+f,'utf8');
+  const m=s.match(/\{([^}]+)\}\s*=\s*require\('\.\.\/constants'\)/);
+  const imp=m?m[1]:'';
+  const miss=c.filter(k=>!imp.includes(k)&&new RegExp('\\b'+k+'\\b').test(s)&&!new RegExp('const '+k+'\\b').test(s));
+  if(miss.length)console.log(f+': MISSING '+miss.join(', '));
+});
+"
+```
+
+If it prints anything, add the missing imports before deploying. Silent output = clean.
+
 \## Cost \& Token Efficiency Rules
 
 \- \*\*Model Choice:\*\* Use Sonnet 4.5 by default for all implementation and terminal tasks. Only switch to or suggest Opus 4.5 for high-complexity architectural changes or "impossible" debugging scenarios.
