@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { writeNotification, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 exports.dailyMarketSummary = functions.pubsub

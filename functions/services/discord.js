@@ -2,11 +2,12 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, STARTING_CASH } = require('../constants');
+const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
 const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 // Discord OAuth Authentication

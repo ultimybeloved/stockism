@@ -2,7 +2,7 @@
   "functions": {
     "source": "functions",
     "runtime": "nodejs22",
-    "predeploy": ["npm run sync:chars"]
+    "predeploy": ["npm run sync:chars", "npm --prefix functions run lint"]
   },
   "firestore": {
     "rules": "firestore.rules",

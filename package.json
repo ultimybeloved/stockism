@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "sync:chars": "node scripts/sync-chars.cjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:functions": "node scripts/deploy-functions.cjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

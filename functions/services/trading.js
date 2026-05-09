@@ -184,7 +184,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       const BASE_IMPACT = 0.012;
       const BASE_LIQUIDITY = 100;
       const MAX_PRICE_CHANGE_PERCENT = 0.05;
-      const spread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+      const spread = CHARACTERS[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
 
       let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(amount / BASE_LIQUIDITY);
       const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
