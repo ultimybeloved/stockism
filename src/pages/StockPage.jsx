@@ -25,6 +25,7 @@ const StockPage = ({ onTrade }) => {
   const [chartType, setChartType] = useState('area');
   const [tradeAction, setTradeAction] = useState(null);
   const [showTradeMenu, setShowTradeMenu] = useState(false);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
 
   const character = CHARACTER_MAP[ticker];
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
@@ -165,11 +166,23 @@ const StockPage = ({ onTrade }) => {
               {character.description && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.description}</p>}
             </div>
             <div className="text-right">
-              <div className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</div>
-              <div className={`text-sm font-semibold ${isUp ? upColor : downColor}`}>
-                {isUp ? '▲' : '▼'} {formatChange(Math.abs(priceStats.change))}
-                <span className={`text-xs ml-1 font-normal ${mutedClass}`}>({TIME_RANGES.find(r => r.key === timeRange)?.label})</span>
+              <div className={`text-2xl font-bold ${textClass}`}>
+                {formatCurrency(hoveredChartPoint ? hoveredChartPoint.price : currentPrice)}
               </div>
+              {hoveredChartPoint ? (() => {
+                const hChange = priceStats.first > 0 ? ((hoveredChartPoint.price - priceStats.first) / priceStats.first) * 100 : 0;
+                return (
+                  <div className={`text-sm font-semibold ${hChange >= 0 ? upColor : downColor}`}>
+                    {hChange >= 0 ? '▲' : '▼'} {formatChange(Math.abs(hChange))}
+                    <span className={`text-xs ml-1 font-normal ${mutedClass}`}>({TIME_RANGES.find(r => r.key === timeRange)?.label})</span>
+                  </div>
+                );
+              })() : (
+                <div className={`text-sm font-semibold ${isUp ? upColor : downColor}`}>
+                  {isUp ? '▲' : '▼'} {formatChange(Math.abs(priceStats.change))}
+                  <span className={`text-xs ml-1 font-normal ${mutedClass}`}>({TIME_RANGES.find(r => r.key === timeRange)?.label})</span>
+                </div>
+              )}
             </div>
           </div>
           {user && (
@@ -200,7 +213,7 @@ const StockPage = ({ onTrade }) => {
             </div>
           </div>
           <div className={`p-4 ${bgClass}`}>
-            <PriceChart ticker={ticker} basePrice={character.basePrice} currentPrice={currentPrice} timeRange={timeRange} chartType={chartType} />
+            <PriceChart ticker={ticker} basePrice={character.basePrice} currentPrice={currentPrice} timeRange={timeRange} chartType={chartType} onHover={setHoveredChartPoint} />
           </div>
           <div className={`px-4 pb-3 pt-3 grid grid-cols-4 gap-3 text-center border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
             {[['Open', formatCurrency(priceStats.first), textClass], ['High', formatCurrency(priceStats.high), upColor], ['Low', formatCurrency(priceStats.low), downColor], ['Current', formatCurrency(currentPrice), textClass]].map(([l, v, c]) => (

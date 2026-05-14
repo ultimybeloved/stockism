@@ -22,7 +22,7 @@ const CHART_H = SVG_H - PAD_Y * 2;
 const getX = (i, total) => PAD_X + (i / Math.max(total - 1, 1)) * CHART_W;
 const getY = (price, min, range) => PAD_Y + CHART_H - ((price - min) / range) * CHART_H;
 
-const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area' }) => {
+const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }) => {
   const { darkMode, userData, priceHistory } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [archivedHistory, setArchivedHistory] = useState([]);
@@ -117,7 +117,11 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       Math.round(((svgX - PAD_X) / CHART_W) * (currentData.length - 1))
     ));
     const p = currentData[idx];
-    if (p) setHoveredPoint({ ...p, x: getX(idx, currentData.length), y: getY(p.price, minPrice, priceRange) });
+    if (p) {
+      const point = { ...p, x: getX(idx, currentData.length), y: getY(p.price, minPrice, priceRange) };
+      setHoveredPoint(point);
+      onHover?.(p);
+    }
   };
 
   return (
@@ -133,10 +137,10 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
         className="w-full cursor-crosshair"
         style={{ touchAction: 'none' }}
         onMouseMove={handleMove}
-        onMouseLeave={() => setHoveredPoint(null)}
+        onMouseLeave={() => { setHoveredPoint(null); onHover?.(null); }}
         onTouchStart={e => { e.preventDefault(); handleMove(e); }}
         onTouchMove={handleMove}
-        onTouchEnd={() => setHoveredPoint(null)}
+        onTouchEnd={() => { setHoveredPoint(null); onHover?.(null); }}
       >
         {/* Grid */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
