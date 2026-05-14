@@ -1403,6 +1403,7 @@ export default function App() {
 
     // Server-side trade execution with atomic transaction
     // Server validates, applies trade limits, handles trailing effects
+    const priceBeforeTrade = prices[ticker]; // capture before async call — prices[ticker] may update via Firestore listener mid-await
     setLoadingKey('trade', true);
     let result;
     try {
@@ -1512,7 +1513,7 @@ export default function App() {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: prices[ticker],
+            priceBefore: priceBeforeTrade,
             priceAfter: tradedTickerPrice,
             tradeType: 'BUY',
             shares: amount
@@ -1565,7 +1566,7 @@ export default function App() {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: prices[ticker],
+            priceBefore: priceBeforeTrade,
             priceAfter: tradedTickerPrice,
             tradeType: 'SELL',
             shares: amount
@@ -1622,7 +1623,7 @@ export default function App() {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: prices[ticker],
+            priceBefore: priceBeforeTrade,
             priceAfter: tradedTickerPrice,
             tradeType: 'SHORT',
             shares: amount
@@ -1687,7 +1688,7 @@ export default function App() {
         try {
           tradeSpikeAlertFunction({
             ticker,
-            priceBefore: prices[ticker],
+            priceBefore: priceBeforeTrade,
             priceAfter: tradedTickerPrice,
             tradeType: 'COVER',
             shares: amount

@@ -9,6 +9,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
   const { darkMode, userData, priceHistory } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
 
   const getColors = (isPositive) => ({
     text: colorBlindMode
@@ -50,10 +51,22 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
                 </Link>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className={`text-2xl font-bold ${textClass}`}>{formatCurrency(currentPrice)}</span>
-                <span className={`text-sm font-semibold ${getColors(isUp).text}`}>
-                  {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({range?.label})
+                <span className={`text-2xl font-bold ${textClass}`}>
+                  {formatCurrency(hoveredChartPoint ? hoveredChartPoint.price : currentPrice)}
                 </span>
+                {hoveredChartPoint ? (() => {
+                  const hChange = firstPrice > 0 ? ((hoveredChartPoint.price - firstPrice) / firstPrice) * 100 : 0;
+                  const hUp = hChange >= 0;
+                  return (
+                    <span className={`text-sm font-semibold ${getColors(hUp).text}`}>
+                      {hUp ? '▲' : '▼'} {formatChange(hChange)} ({range?.label})
+                    </span>
+                  );
+                })() : (
+                  <span className={`text-sm font-semibold ${getColors(isUp).text}`}>
+                    {isUp ? '▲' : '▼'} {formatChange(periodChange)} ({range?.label})
+                  </span>
+                )}
               </div>
             </div>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
@@ -87,6 +100,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
             currentPrice={currentPrice}
             timeRange={timeRange}
             chartType="area"
+            onHover={setHoveredChartPoint}
           />
         </div>
 
