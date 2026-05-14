@@ -187,6 +187,7 @@ export const CHARACTERS = [
   { name: "Youngjin Jin", ticker: "SCHN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:03:00" },
   { name: "Dongchun Bae", ticker: "SIN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:04:00" },
   { name: "Minyong Park", ticker: "DOC2", basePrice: 7.50, volatility: 0.04, dateAdded: "2026-05-01T00:05:00" },
+  { name: "Haeshik Won", ticker: "TONG", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-14T00:00:00" },
 
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
@@ -302,7 +303,7 @@ export const CHARACTERS = [
   {
     name: "Kitae Kim Alliance ETF", ticker: "SHDW", basePrice: 155, volatility: 0.025, dateAdded: "2026-02-20T00:09:00",
     isETF: true, description: "Kitae Kim Alliance ETF",
-    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN"],
+    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN", "TONG"],
     trailingFactors: [
       { ticker: "KTAE", coefficient: 0.047 }, { ticker: "DG", coefficient: 0.047 },
       { ticker: "GNTL", coefficient: 0.047 }, { ticker: "GOO", coefficient: 0.047 },
@@ -312,7 +313,7 @@ export const CHARACTERS = [
       { ticker: "CROW", coefficient: 0.047 }, { ticker: "COP", coefficient: 0.047 },
       { ticker: "RYU", coefficient: 0.047 }, { ticker: "SWMP", coefficient: 0.047 },
       { ticker: "JEON", coefficient: 0.047 }, { ticker: "SCHN", coefficient: 0.047 },
-      { ticker: "SIN", coefficient: 0.047 }
+      { ticker: "SIN", coefficient: 0.047 }, { ticker: "TONG", coefficient: 0.047 }
     ]
   },
   {
