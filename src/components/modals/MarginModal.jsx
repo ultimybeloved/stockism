@@ -175,21 +175,49 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
                     <div
                       className={`h-full rounded-full transition-all ${
-                        marginStatus.equityRatio > 0.35 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
-                        marginStatus.equityRatio > 0.30 ? 'bg-amber-500' :
-                        marginStatus.equityRatio > 0.25 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
+                        marginStatus.equityRatio > 0.65 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
+                        marginStatus.equityRatio > 0.55 ? 'bg-amber-500' :
+                        marginStatus.equityRatio > 0.40 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
                       }`}
                       style={{ width: `${Math.min(100, marginStatus.equityRatio * 100)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>0%</span>
-                    <span className="text-orange-500">25%</span>
-                    <span className="text-amber-500">50%</span>
-                    <span className={mutedClass}>75%</span>
+                    <span className="text-orange-500">40%</span>
+                    <span className="text-amber-500">55%</span>
+                    <span className={mutedClass}>65%</span>
                     <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>100%</span>
                   </div>
                 </div>
+
+                {/* Debt Utilization Bar */}
+                {marginStatus.maxBorrowable > 0 && (() => {
+                  const utilization = Math.min(1, marginStatus.marginUsed / marginStatus.maxBorrowable);
+                  const utilizationPct = (utilization * 100).toFixed(0);
+                  const utilColor = utilization < 0.5 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
+                    : utilization < 0.75 ? 'bg-amber-500'
+                    : utilization < 1 ? 'bg-orange-500'
+                    : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500');
+                  const utilTextColor = utilization < 0.5 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
+                    : utilization < 0.75 ? 'text-amber-500'
+                    : utilization < 1 ? 'text-orange-500'
+                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500');
+                  return (
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className={mutedClass}>Credit Used</span>
+                        <span className={utilTextColor}>
+                          {formatCurrency(marginStatus.marginUsed)} / {formatCurrency(marginStatus.maxBorrowable)} ({utilizationPct}%)
+                        </span>
+                      </div>
+                      <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
+                        <div className={`h-full rounded-full transition-all ${utilColor}`}
+                          style={{ width: `${utilizationPct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>

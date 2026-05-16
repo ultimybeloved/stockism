@@ -43,9 +43,9 @@ export const MARGIN_TIERS = [
   { minPeak: 30000, maxPeak: Infinity, multiplier: 0.75 },
 ];
 export const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
-export const MARGIN_WARNING_THRESHOLD = 0.35; // Warning at 35% equity ratio
-export const MARGIN_CALL_THRESHOLD = 0.30; // Margin call at 30% equity ratio
-export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Auto-liquidate at 25% equity ratio
+export const MARGIN_WARNING_THRESHOLD = 0.65; // Display warning at 65% equity ratio (backend liquidates at 25%)
+export const MARGIN_CALL_THRESHOLD = 0.55; // Display margin call at 55% equity ratio
+export const MARGIN_LIQUIDATION_THRESHOLD = 0.40; // Display liquidation risk at 40% equity ratio (backend fires at 25%)
 export const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
 export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
 

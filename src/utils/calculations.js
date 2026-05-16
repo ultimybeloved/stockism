@@ -194,10 +194,9 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
     }
   });
 
-  // Cash can't go below zero in equity calculation (prevents false liquidations)
-  const grossValue = Math.max(0, cash) + holdingsValue;
+  const grossValue = cash + holdingsValue;
   const portfolioValue = grossValue - marginUsed;
-  const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 1;
+  const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 0;
 
   const maxBorrowable = Math.max(0, cash * tierMultiplier);
   const availableMargin = Math.max(0, maxBorrowable - marginUsed);
