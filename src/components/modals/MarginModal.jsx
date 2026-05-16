@@ -192,8 +192,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                 </div>
 
                 {/* Debt Utilization Bar */}
-                {marginStatus.maxBorrowable > 0 && (() => {
-                  const utilization = Math.min(1, marginStatus.marginUsed / marginStatus.maxBorrowable);
+                {marginStatus.marginUsed > 0 && (() => {
+                  const atLimit = marginStatus.marginUsed >= marginStatus.maxBorrowable || marginStatus.maxBorrowable <= 0;
+                  const utilization = atLimit ? 1 : marginStatus.marginUsed / marginStatus.maxBorrowable;
                   const utilizationPct = (utilization * 100).toFixed(0);
                   const utilColor = utilization < 0.5 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
                     : utilization < 0.75 ? 'bg-amber-500'
@@ -208,7 +209,10 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                       <div className="flex justify-between text-xs mb-1">
                         <span className={mutedClass}>Credit Used</span>
                         <span className={utilTextColor}>
-                          {formatCurrency(marginStatus.marginUsed)} / {formatCurrency(marginStatus.maxBorrowable)} ({utilizationPct}%)
+                          {atLimit
+                            ? `${formatCurrency(marginStatus.marginUsed)} — At limit`
+                            : `${formatCurrency(marginStatus.marginUsed)} / ${formatCurrency(marginStatus.maxBorrowable)} (${utilizationPct}%)`
+                          }
                         </span>
                       </div>
                       <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
@@ -246,7 +250,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                 <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
-                  Your tier determines max borrowable: <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> = {formatCurrency(marginStatus.maxBorrowable)}.
+                  Your tier determines max borrowable: <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> ({(marginStatus.tierMultiplier * 100).toFixed(0)}% of available cash).
                   When you sell stocks, proceeds <span className="text-orange-500 font-semibold">become cash</span> directly.
                 </p>
               </div>
