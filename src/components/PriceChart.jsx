@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { usePriceHistory } from '../hooks/usePriceHistory';
 
 const TIME_RANGES = [
   { key: '1d', label: 'Today', hours: 24 },
@@ -22,40 +21,18 @@ const CHART_H = SVG_H - PAD_Y * 2;
 const getX = (i, total) => PAD_X + (i / Math.max(total - 1, 1)) * CHART_W;
 const getY = (price, min, range) => PAD_Y + CHART_H - ((price - min) / range) * CHART_H;
 
+const LONG_TERM = new Set(['1m', '3m', '1y', 'all']);
+
 const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }) => {
-  const { darkMode, userData, priceHistory } = useAppContext();
+  const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [archivedHistory, setArchivedHistory] = useState([]);
-  const [loadingArchive, setLoadingArchive] = useState(false);
+  const { fullHistory, loading: loadingArchive } = usePriceHistory(ticker);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const chartRef = useRef(null);
-
-  useEffect(() => {
-    const needsArchive = ['1m', '3m', '1y', 'all'].includes(timeRange);
-    if (needsArchive && archivedHistory.length === 0) {
-      setLoadingArchive(true);
-      getDoc(doc(db, 'market', 'current', 'price_history', ticker))
-        .then(snap => { if (snap.exists()) setArchivedHistory(snap.data().history || []); })
-        .catch(() => {})
-        .finally(() => setLoadingArchive(false));
-    }
-  }, [timeRange, ticker, archivedHistory.length]);
 
   const currentData = useMemo(() => {
     const range = TIME_RANGES.find(r => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
-    const mainHistory = priceHistory[ticker] || [];
-    const needsArchive = ['1m', '3m', '1y', 'all'].includes(timeRange);
-
-    let fullHistory;
-    if (needsArchive) {
-      const seen = new Set();
-      fullHistory = [...archivedHistory, ...mainHistory]
-        .filter(p => { if (seen.has(p.timestamp)) return false; seen.add(p.timestamp); return true; })
-        .sort((a, b) => a.timestamp - b.timestamp);
-    } else {
-      fullHistory = [...mainHistory].sort((a, b) => a.timestamp - b.timestamp);
-    }
 
     let data = fullHistory
       .filter(p => p.timestamp >= cutoff)
@@ -81,7 +58,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       ];
     }
     return data;
-  }, [priceHistory, archivedHistory, ticker, basePrice, currentPrice, timeRange]);
+  }, [fullHistory, basePrice, currentPrice, timeRange]);
 
   const prices = currentData.map(d => d.price);
   const minPrice = Math.min(...prices);
@@ -126,7 +103,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
 
   return (
     <div className="relative">
-      {loadingArchive && (
+      {loadingArchive && LONG_TERM.has(timeRange) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
           <span className="text-zinc-400 text-sm">Loading history...</span>
         </div>

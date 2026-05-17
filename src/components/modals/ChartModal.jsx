@@ -4,12 +4,14 @@ import { formatCurrency, formatChange } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import PriceChart, { TIME_RANGES } from '../PriceChart';
+import { usePriceHistory } from '../../hooks/usePriceHistory';
 
 const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }) => {
-  const { darkMode, userData, priceHistory } = useAppContext();
+  const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
   const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
+  const { fullHistory } = usePriceHistory(character.ticker);
 
   const getColors = (isPositive) => ({
     text: colorBlindMode
@@ -17,12 +19,10 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
       : (isPositive ? 'text-green-500' : 'text-red-500')
   });
 
-  // Derive display price/change from priceHistory for the selected range
-  const history = priceHistory[character.ticker] || [];
   const range = TIME_RANGES.find(r => r.key === timeRange);
   const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
-  const filtered = history.filter(p => p.timestamp >= cutoff);
-  const firstPrice = filtered[0]?.price || (history.length > 0 ? history[0].price : currentPrice);
+  const filtered = fullHistory.filter(p => p.timestamp >= cutoff);
+  const firstPrice = filtered[0]?.price || (fullHistory.length > 0 ? fullHistory[0].price : currentPrice);
   const lastPrice = filtered.length > 0 ? filtered[filtered.length - 1].price : currentPrice;
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;

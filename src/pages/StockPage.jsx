@@ -10,6 +10,7 @@ import { getThemeClasses } from '../utils/theme';
 import { DIVIDEND_RATES, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
+import { usePriceHistory } from '../hooks/usePriceHistory';
 
 const CHART_TYPES = [
   { key: 'area', label: 'Area' },
@@ -20,6 +21,7 @@ const StockPage = ({ onTrade }) => {
   const { ticker } = useParams();
   const navigate = useNavigate();
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis } = useAppContext();
+  const { fullHistory } = usePriceHistory(ticker);
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState('1d');
   const [chartType, setChartType] = useState('area');
@@ -46,18 +48,16 @@ const StockPage = ({ onTrade }) => {
     });
   };
 
-  const history = priceHistory[ticker] || [];
-
   const priceStats = useMemo(() => {
     const range = TIME_RANGES.find(r => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
-    const filtered = history.filter(p => p.timestamp >= cutoff);
+    const filtered = fullHistory.filter(p => p.timestamp >= cutoff);
     const ago30d = Date.now() - 30 * 86400000;
     const ago7d = Date.now() - 7 * 86400000;
     const ago52w = Date.now() - 365 * 86400000;
-    const f30d = history.filter(p => p.timestamp >= ago30d);
-    const f7d = history.filter(p => p.timestamp >= ago7d);
-    const f52w = history.filter(p => p.timestamp >= ago52w);
+    const f30d = fullHistory.filter(p => p.timestamp >= ago30d);
+    const f7d = fullHistory.filter(p => p.timestamp >= ago7d);
+    const f52w = fullHistory.filter(p => p.timestamp >= ago52w);
 
     const px = (arr) => arr.map(p => p.price);
     const hi = (arr) => arr.length ? Math.max(...px(arr)) : currentPrice;
@@ -76,7 +76,7 @@ const StockPage = ({ onTrade }) => {
       high30d: hi(f30d), low30d: lo(f30d),
       high52w: hi(f52w), low52w: lo(f52w),
     };
-  }, [history, timeRange, currentPrice]);
+  }, [fullHistory, timeRange, currentPrice]);
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
