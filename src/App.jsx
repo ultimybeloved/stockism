@@ -2520,7 +2520,12 @@ export default function App() {
             </button>
             {showPredictions && (() => {
               const visiblePredictions = predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
-              const colClass = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4'][visiblePredictions.length - 1] || 'grid-cols-1';
+              const colClass = [
+                'grid-cols-1',
+                'grid-cols-1 sm:grid-cols-2',
+                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+              ][visiblePredictions.length - 1] || 'grid-cols-1';
               return (
               <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
                 {visiblePredictions.map(prediction => {
