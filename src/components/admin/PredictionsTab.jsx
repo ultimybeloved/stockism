@@ -32,6 +32,7 @@ const PredictionsTab = ({
   setAllowAdditionalBets,
   handleExtendPrediction,
   handleDeletePrediction,
+  onCancelPrediction,
   loadAllBets,
   betsLoading,
   allBets,
@@ -279,28 +280,42 @@ const PredictionsTab = ({
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold ${p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
-                        {p.resolved ? '✅ Resolved' : '⏳ Active'}
+                      <span className={`text-xs font-semibold ${p.cancelled ? 'text-zinc-400' : p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
+                        {p.cancelled ? '🚫 Cancelled' : p.resolved ? '✅ Resolved' : '⏳ Active'}
                       </span>
                     </div>
                     <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
                     <div className={`text-xs ${mutedClass} mt-1`}>
                       Options: {p.options.join(', ')}
                     </div>
-                    {p.resolved && (
+                    {p.resolved && !p.cancelled && (
                       <div className="text-xs text-green-500 mt-1">Winner: {p.outcome}</div>
+                    )}
+                    {p.cancelled && (
+                      <div className="text-xs text-zinc-400 mt-1">All bettors refunded</div>
                     )}
                     <div className={`text-xs ${mutedClass} mt-1`}>
                       Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeletePrediction(p.id)}
-                    disabled={loading}
-                    className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-col gap-1 ml-2">
+                    {!p.resolved && !p.cancelled && (
+                      <button
+                        onClick={() => onCancelPrediction(p.id)}
+                        disabled={loading}
+                        className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-sm"
+                      >
+                        Cancel & Refund
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeletePrediction(p.id)}
+                      disabled={loading}
+                      className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -2516,6 +2516,48 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
+  const handleCancelPrediction = async (predictionId) => {
+    if (!confirm('Cancel this prediction and refund all bettors their original amounts?')) return;
+
+    setLoading(true);
+    try {
+      // Mark prediction as cancelled
+      const predictionsRef = doc(db, 'predictions', 'current');
+      const snap = await getDoc(predictionsRef);
+      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const updatedList = currentList.map(p =>
+        p.id === predictionId ? { ...p, cancelled: true, cancelledAt: Date.now() } : p
+      );
+      await updateDoc(predictionsRef, { list: updatedList });
+
+      // Refund all unpaid bettors
+      const usersSnap = await getDocs(collection(db, 'users'));
+      let refunded = 0;
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        const bet = userData.bets?.[predictionId];
+        if (!bet || bet.paid) continue;
+        try {
+          await updateDoc(doc(db, 'users', userDoc.id), {
+            cash: (userData.cash || 0) + bet.amount,
+            [`bets.${predictionId}.paid`]: true,
+            [`bets.${predictionId}.payout`]: bet.amount,
+            [`bets.${predictionId}.refunded`]: true,
+          });
+          refunded++;
+        } catch (e) {
+          console.error('Failed to refund', userDoc.id, e);
+        }
+      }
+
+      showMessage('success', `Prediction cancelled — ${refunded} bettor${refunded !== 1 ? 's' : ''} refunded`);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Cancel failed');
+    }
+    setLoading(false);
+  };
+
   // Extend/Reopen prediction deadline
   const handleExtendPrediction = async () => {
     if (!extendPredictionId) {
@@ -3916,6 +3958,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               setAllowAdditionalBets={setAllowAdditionalBets}
               handleExtendPrediction={handleExtendPrediction}
               handleDeletePrediction={handleDeletePrediction}
+              onCancelPrediction={handleCancelPrediction}
               loadAllBets={loadAllBets}
               betsLoading={betsLoading}
               allBets={allBets}
