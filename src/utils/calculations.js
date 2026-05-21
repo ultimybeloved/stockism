@@ -11,6 +11,7 @@ import {
   MAX_PRICE_CHANGE_PERCENT,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
+  MARGIN_DANGER_THRESHOLD,
   MARGIN_CALL_THRESHOLD,
   MARGIN_LIQUIDATION_THRESHOLD
 } from '../constants/economy';
@@ -205,8 +206,10 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   if (marginUsed > 0) {
     if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
       status = 'liquidation';
-    } else if (equityRatio <= MARGIN_CALL_THRESHOLD) {
+    } else if (equityRatio <= MARGIN_CALL_THRESHOLD || userData.marginCallAt) {
       status = 'margin_call';
+    } else if (equityRatio <= MARGIN_DANGER_THRESHOLD) {
+      status = 'danger';
     } else if (equityRatio <= MARGIN_WARNING_THRESHOLD) {
       status = 'warning';
     }

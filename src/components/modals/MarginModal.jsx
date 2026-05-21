@@ -29,7 +29,8 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
     switch (status) {
       case 'safe': return colorBlindMode ? 'text-teal-500' : 'text-green-500';
       case 'warning': return 'text-amber-500';
-      case 'margin_call': return 'text-orange-500';
+      case 'danger': return 'text-orange-500';
+      case 'margin_call': return colorBlindMode ? 'text-purple-500' : 'text-red-500';
       case 'liquidation': return colorBlindMode ? 'text-purple-500' : 'text-red-500';
       default: return mutedClass;
     }
@@ -39,8 +40,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
     switch (status) {
       case 'safe': return '✓ Safe';
       case 'warning': return '⚠️ Warning';
+      case 'danger': return '🔴 Danger Zone';
       case 'margin_call': return '🚨 Margin Call';
-      case 'liquidation': return '💀 Liquidation Risk';
+      case 'liquidation': return '💀 Liquidation Imminent';
       default: return 'Disabled';
     }
   };
@@ -51,7 +53,10 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
         ? (darkMode ? 'bg-teal-900/20 border-teal-800' : 'bg-teal-50 border-teal-200')
         : (darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200');
       case 'warning': return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
-      case 'margin_call': return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
+      case 'danger': return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
+      case 'margin_call': return colorBlindMode
+        ? (darkMode ? 'bg-purple-900/30 border-purple-700' : 'bg-purple-50 border-purple-200')
+        : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200');
       case 'liquidation': return colorBlindMode
         ? (darkMode ? 'bg-purple-900/30 border-purple-700' : 'bg-purple-50 border-purple-200')
         : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200');
@@ -176,16 +181,16 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                     <div
                       className={`h-full rounded-full transition-all ${
                         marginStatus.equityRatio > 0.65 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
-                        marginStatus.equityRatio > 0.55 ? 'bg-amber-500' :
-                        marginStatus.equityRatio > 0.40 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
+                        marginStatus.equityRatio > 0.40 ? 'bg-amber-500' :
+                        marginStatus.equityRatio > 0.30 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
                       }`}
                       style={{ width: `${Math.min(100, marginStatus.equityRatio * 100)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>0%</span>
+                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>30%</span>
                     <span className="text-orange-500">40%</span>
-                    <span className="text-amber-500">55%</span>
                     <span className={mutedClass}>65%</span>
                     <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>100%</span>
                   </div>
