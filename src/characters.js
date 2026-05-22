@@ -182,7 +182,7 @@ export const CHARACTERS = [
 
   // New characters added 2026-05-01
   { name: "Gangnam Landlord", ticker: "LAND", basePrice: 5, volatility: 0.04, dateAdded: "2026-05-01T00:00:00" },
-  { name: "Changyi Seo", ticker: "SWMP", basePrice: 45, volatility: 0.04, dateAdded: "2026-05-01T00:01:00", altNames: ["Swamp Genius"] },
+  { name: "Chang-i Seo", ticker: "SWMP", basePrice: 45, volatility: 0.04, dateAdded: "2026-05-01T00:01:00", altNames: ["Swamp Genius", "Changyi Seo"] },
   { name: "Chilsu Kang", ticker: "JEON", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:02:00" },
   { name: "Youngjin Jin", ticker: "SCHN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:03:00" },
   { name: "Dongchun Bae", ticker: "SIN", basePrice: 35, volatility: 0.04, dateAdded: "2026-05-01T00:04:00" },
