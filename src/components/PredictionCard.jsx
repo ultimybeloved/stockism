@@ -97,7 +97,8 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
           {options.map((option, idx) => {
             const percent = getOptionPercent(option);
             const colors = optionColors[idx % optionColors.length];
-            const isWinner = prediction.resolved && prediction.outcome === option;
+            const winningOutcomes = prediction.outcomes || (prediction.outcome ? [prediction.outcome] : []);
+            const isWinner = prediction.resolved && winningOutcomes.includes(option);
             return (
               <div key={option} className="flex items-center gap-2">
                 <div className={`w-32 sm:w-40 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
@@ -130,8 +131,8 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
             );
           })()}
           {prediction.resolved && (
-            <div className={`text-xs mt-1 ${userBet.option === prediction.outcome ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
-              {userBet.option === prediction.outcome ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!` : '❌ Lost'}
+            <div className={`text-xs mt-1 ${(prediction.outcomes || [prediction.outcome]).includes(userBet.option) ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
+              {(prediction.outcomes || [prediction.outcome]).includes(userBet.option) ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!` : '❌ Lost'}
             </div>
           )}
         </div>
@@ -246,9 +247,9 @@ const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onReque
       )}
 
       {prediction.resolved && (
-        <div className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}>
-          <span className={`font-semibold ${optionColors[options.indexOf(prediction.outcome) % optionColors.length]?.text || 'text-orange-500'}`}>
-            Winner: {prediction.outcome}
+        <div className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}>
+          <span className={`font-semibold ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.text || 'text-orange-500'}`}>
+            {(prediction.outcomes?.length ?? 1) > 1 ? 'Winners' : 'Winner'}: {(prediction.outcomes || [prediction.outcome]).join(' & ')}
           </span>
         </div>
       )}

@@ -10,8 +10,8 @@ const PredictionsTab = ({
   unresolvedPredictions,
   selectedPrediction,
   setSelectedPrediction,
-  selectedOutcome,
-  setSelectedOutcome,
+  selectedOutcomes,
+  setSelectedOutcomes,
   handleResolvePrediction,
   question,
   setQuestion,
@@ -58,7 +58,7 @@ const PredictionsTab = ({
             {unresolvedPredictions.map(p => (
               <button
                 key={p.id}
-                onClick={() => { setSelectedPrediction(p); setSelectedOutcome(''); }}
+                onClick={() => { setSelectedPrediction(p); setSelectedOutcomes([]); }}
                 className={`w-full p-3 text-left rounded-sm border transition-all ${
                   selectedPrediction?.id === p.id
                     ? 'border-teal-500 bg-teal-500/10'
@@ -75,30 +75,35 @@ const PredictionsTab = ({
 
           {selectedPrediction && (
             <>
-              <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner</label>
+              <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner(s) — tap to toggle</label>
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {selectedPrediction.options.map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => setSelectedOutcome(opt)}
-                    className={`p-3 rounded-sm border-2 font-semibold transition-all ${
-                      selectedOutcome === opt
-                        ? 'border-green-500 bg-green-500 text-white'
-                        : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
+                {selectedPrediction.options.map(opt => {
+                  const isSelected = selectedOutcomes.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => setSelectedOutcomes(prev =>
+                        isSelected ? prev.filter(o => o !== opt) : [...prev, opt]
+                      )}
+                      className={`p-3 rounded-sm border-2 font-semibold transition-all ${
+                        isSelected
+                          ? 'border-green-500 bg-green-500 text-white'
+                          : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
+                      }`}
+                    >
+                      {isSelected ? '✓ ' : ''}{opt}
+                    </button>
+                  );
+                })}
               </div>
 
-              {selectedOutcome && (
+              {selectedOutcomes.length > 0 && (
                 <button
                   onClick={handleResolvePrediction}
                   disabled={loading}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
                 >
-                  {loading ? 'Resolving...' : `✅ Confirm Winner: "${selectedOutcome}"`}
+                  {loading ? 'Resolving...' : `✅ Confirm Winner(s): "${selectedOutcomes.join('" & "')}"`}
                 </button>
               )}
             </>

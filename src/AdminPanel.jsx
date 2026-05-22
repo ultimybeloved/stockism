@@ -63,7 +63,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   
   // Resolve prediction state
   const [selectedPrediction, setSelectedPrediction] = useState(null);
-  const [selectedOutcome, setSelectedOutcome] = useState('');
+  const [selectedOutcomes, setSelectedOutcomes] = useState([]);
 
   // Extend/Reopen prediction state
   const [extendPredictionId, setExtendPredictionId] = useState('');
@@ -2459,8 +2459,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   // Resolve prediction
   const handleResolvePrediction = async () => {
-    if (!selectedPrediction || !selectedOutcome) {
-      showMessage('error', 'Please select a prediction and winning option');
+    if (!selectedPrediction || selectedOutcomes.length === 0) {
+      showMessage('error', 'Please select a prediction and at least one winning option');
       return;
     }
 
@@ -2475,7 +2475,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           return {
             ...p,
             resolved: true,
-            outcome: selectedOutcome
+            outcomes: selectedOutcomes,
+            outcome: selectedOutcomes[0]
           };
         }
         return p;
@@ -2483,9 +2484,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       await updateDoc(predictionsRef, { list: updatedList });
 
-      showMessage('success', `Resolved! Winner: "${selectedOutcome}"`);
+      const label = selectedOutcomes.length === 1 ? `"${selectedOutcomes[0]}"` : `"${selectedOutcomes.join('" & "')}"`;
+      showMessage('success', `Resolved! Winner(s): ${label}`);
       setSelectedPrediction(null);
-      setSelectedOutcome('');
+      setSelectedOutcomes([]);
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to resolve prediction');
@@ -3936,8 +3938,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               unresolvedPredictions={unresolvedPredictions}
               selectedPrediction={selectedPrediction}
               setSelectedPrediction={setSelectedPrediction}
-              selectedOutcome={selectedOutcome}
-              setSelectedOutcome={setSelectedOutcome}
+              selectedOutcomes={selectedOutcomes}
+              setSelectedOutcomes={setSelectedOutcomes}
               handleResolvePrediction={handleResolvePrediction}
               question={question}
               setQuestion={setQuestion}

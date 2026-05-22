@@ -147,11 +147,12 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
 
     const updates = {};
 
-    if (userBet.option === prediction.outcome) {
+    const winningOutcomes = prediction.outcomes || (prediction.outcome ? [prediction.outcome] : []);
+    if (winningOutcomes.includes(userBet.option)) {
       // Winner - calculate payout
       const options = prediction.options || ['Yes', 'No'];
       const pools = prediction.pools || {};
-      const winningPool = pools[prediction.outcome] || 0;
+      const winningPool = winningOutcomes.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
       const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
 
       let payout = userBet.amount;
