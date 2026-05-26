@@ -55,6 +55,7 @@ const PinShopModal      = lazy(() => import('./components/modals/PinShopModal'))
 const DailyMissionsModal = lazy(() => import('./components/modals/DailyMissionsModal'));
 const AchievementsModal = lazy(() => import('./components/modals/AchievementsModal'));
 const MarginModal       = lazy(() => import('./components/modals/MarginModal'));
+const MarginTutorialModal = lazy(() => import('./components/modals/MarginTutorialModal'));
 const TradeActionModal  = lazy(() => import('./components/modals/TradeActionModal'));
 const ChartModal        = lazy(() => import('./components/modals/ChartModal'));
 const PortfolioModal    = lazy(() => import('./components/modals/PortfolioModal'));
@@ -380,6 +381,8 @@ export default function App() {
 
   const [tradeAnimation, setTradeAnimation] = useState(null); // { ticker, action, timestamp }
   const [notifications, setNotifications] = useState([]); // Toast notification queue
+  const [showMarginTutorialReview, setShowMarginTutorialReview] = useState(false);
+
   const [showInAppBanner, setShowInAppBanner] = useState(() => {
     const ua = navigator.userAgent || '';
     return /FBAN|FBAV|Instagram|Discord|Twitter|Snapchat|TikTok|Line|WeChat|MicroMessenger|Pinterest/i.test(ua);
@@ -2035,6 +2038,11 @@ export default function App() {
     }
   }, [user, showNotification]);
 
+  const handleMarginTutorialComplete = async () => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { marginTutorialCompleted: true });
+  };
+
   // Enable margin trading
   const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
@@ -2933,7 +2941,13 @@ export default function App() {
             />
           )}
           {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
-          {showLending && !isGuest && (
+          {showLending && !isGuest && !userData?.marginTutorialCompleted && (
+            <MarginTutorialModal
+              onClose={() => setShowLending(false)}
+              onComplete={handleMarginTutorialComplete}
+            />
+          )}
+          {showLending && !isGuest && userData?.marginTutorialCompleted && (
             <MarginModal
               onClose={() => setShowLending(false)}
               onEnableMargin={handleEnableMargin}
@@ -2943,6 +2957,14 @@ export default function App() {
               enableLoading={actionLoading.enableMargin}
               disableLoading={actionLoading.disableMargin}
               repayLoading={actionLoading.repayMargin}
+              onReviewTutorial={() => setShowMarginTutorialReview(true)}
+            />
+          )}
+          {showMarginTutorialReview && (
+            <MarginTutorialModal
+              onClose={() => setShowMarginTutorialReview(false)}
+              onComplete={() => setShowMarginTutorialReview(false)}
+              reviewMode
             />
           )}
           {showCrewSelection && (

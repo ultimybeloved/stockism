@@ -13,7 +13,7 @@ import {
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
-const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading }) => {
+const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading, onReviewTutorial }) => {
   const { darkMode, userData, prices, priceHistory } = useAppContext();
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
@@ -351,6 +351,15 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   } disabled:opacity-50`}
                 >
                   {disableLoading ? 'Disabling...' : 'Disable Margin Trading'}
+                </button>
+              )}
+
+              {onReviewTutorial && (
+                <button
+                  onClick={onReviewTutorial}
+                  className={`w-full py-2 text-xs ${mutedClass} hover:text-orange-500 transition-colors`}
+                >
+                  Review safety guide →
                 </button>
               )}
             </div>
