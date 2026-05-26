@@ -277,7 +277,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                     >
                       <span className="text-red-500 font-mono text-sm font-bold">${ticker}</span>
                       <span className={`text-xs ${mutedClass}`}>{pos.shares} @ {formatCurrency(currentPrice)}</span>
-                      <span className={`text-xs font-semibold ${value > (pos.margin || 0) ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(value)}</span>
+                      <span className={`text-xs font-semibold ${currentPrice > (pos.costBasis || 0) ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(value)}</span>
                     </div>
                   );
                 })}

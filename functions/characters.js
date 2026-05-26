@@ -316,6 +316,7 @@ export const CHARACTERS = [
       { ticker: "SIN", coefficient: 0.047 }, { ticker: "TONG", coefficient: 0.047 }
     ]
   },
+  { name: "James Gong", ticker: "JGNG", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-05-25T00:00:00" },
   {
     name: "Jake Kim Alliance ETF", ticker: "JKAL", basePrice: 137.40, volatility: 0.025, dateAdded: "2026-02-20T00:10:00",
     isETF: true, description: "Jake Kim Alliance ETF",
