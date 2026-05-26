@@ -218,6 +218,26 @@ const PublicProfilePage = () => {
         </div>
       )}
 
+      {/* Short Positions */}
+      {(profile.shortTickers || []).length > 0 && (
+        <div className={`${cardClass} border rounded-sm p-4`}>
+          <h2 className={`font-semibold ${textClass} mb-3`}>Short Positions</h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.shortTickers.map(ticker => (
+              <div
+                key={ticker}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-red-50 border-red-200'}`}
+              >
+                <span className="text-red-500 font-mono text-sm font-bold">${ticker}</span>
+              </div>
+            ))}
+          </div>
+          {profile.totalShortValue > 0 && (
+            <p className={`text-xs ${mutedClass} mt-2`}>Total short exposure: {formatCurrency(profile.totalShortValue)}</p>
+          )}
+        </div>
+      )}
+
       {/* Achievements */}
       {earnedAchievements.length > 0 && (
         <div className={`${cardClass} border rounded-sm p-4`}>

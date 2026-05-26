@@ -111,6 +111,16 @@ export const getReviewChanges = (priceHistory, characters) => {
   return changes;
 };
 
+export const HALT_END_MINUTE = 1260; // 21:00 UTC
+export const GRACE_PERIOD_MINUTES = 30;
+
+export const isMarketOpenGracePeriod = () => {
+  const now = new Date();
+  if (now.getUTCDay() !== 4) return false;
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return utcMins >= HALT_END_MINUTE && utcMins < HALT_END_MINUTE + GRACE_PERIOD_MINUTES;
+};
+
 export const formatCountdown = (ms) => {
   if (ms <= 0) return '0m';
   const hours = Math.floor(ms / (1000 * 60 * 60));

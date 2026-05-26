@@ -1,13 +1,21 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { isWeeklyHalt, getHaltTimeRemaining, getNextHaltStart, formatCountdown } from '../utils/marketHours';
+import { isWeeklyHalt, getHaltTimeRemaining, getNextHaltStart, formatCountdown, isMarketOpenGracePeriod, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
 import { useAppContext } from '../context/AppContext';
 
 const MarketTicker = () => {
   const { prices, priceHistory, marketData, darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [countdown, setCountdown] = useState('');
+  const [gracePeriod, setGracePeriod] = useState(isMarketOpenGracePeriod());
   const halted = isWeeklyHalt() || marketData?.marketHalted;
   const manualHalt = marketData?.marketHalted;
+
+  useEffect(() => {
+    const check = () => setGracePeriod(isMarketOpenGracePeriod());
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Update countdown every 30s during halt
   useEffect(() => {
@@ -69,12 +77,20 @@ const MarketTicker = () => {
   return (
     <div className={`w-full overflow-hidden ${halted
       ? 'bg-red-900/80 border-b border-red-700'
-      : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
+      : gracePeriod
+        ? 'bg-amber-700/80 border-b border-amber-600'
+        : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
     }`} style={{ height: '32px' }}>
       {halted ? (
         <div className="w-full flex items-center justify-center h-full px-2">
           <span className="text-red-200 text-xs font-bold tracking-wide text-center truncate">
             {content}
+          </span>
+        </div>
+      ) : gracePeriod ? (
+        <div className="w-full flex items-center justify-center h-full px-2">
+          <span className="text-amber-100 text-xs font-bold tracking-wide text-center truncate">
+            Market just opened — auto-liquidations paused until {Math.floor((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) / 60)}:{String((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) % 60).padStart(2, '0')} UTC
           </span>
         </div>
       ) : (

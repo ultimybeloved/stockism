@@ -8,6 +8,7 @@ const {
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS,
   MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
+  WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
 } = require('../constants');
 const { checkBanned, writeNotification, sendDiscordMessage } = require('../helpers');
 
@@ -271,6 +272,15 @@ exports.checkShortMarginCalls = functions.pubsub
     if (isWeeklyTradingHalt()) {
       console.log('Skipping short margin calls — weekly trading halt active');
       return null;
+    }
+
+    const now = new Date();
+    if (now.getUTCDay() === 4) {
+      const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+      if (utcMins >= WEEKLY_HALT_END_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES) {
+        console.log(`Market open grace period active — skipping margin calls until ${WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES} UTC min`);
+        return null;
+      }
     }
 
     const startTime = Date.now();

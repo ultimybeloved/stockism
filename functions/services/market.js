@@ -6,7 +6,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 exports.dailyMarketSummary = functions.pubsub
   .schedule('0 21 * * *')
@@ -358,6 +358,8 @@ exports.processMarketOpenOrders = functions.pubsub
         const alreadyFilled = order.filledShares || 0;
         let fillShares = order.shares - alreadyFilled;
         let executedPrice = 0;
+        let feedDisplayName = '';
+        let feedCrew = null;
 
         try {
           await db.runTransaction(async (transaction) => {
@@ -366,6 +368,8 @@ exports.processMarketOpenOrders = functions.pubsub
             const freshMarketSnap = await transaction.get(marketRef);
             if (!userSnap.exists) throw new Error('User not found');
             const userData = userSnap.data();
+            feedDisplayName = userData.displayName || 'Anonymous';
+            feedCrew = userData.crew || null;
             const freshPrice = freshMarketSnap.data().prices?.[order.ticker] || openingPrice;
 
             if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
@@ -441,6 +445,17 @@ exports.processMarketOpenOrders = functions.pubsub
             title: 'Stop Loss Filled',
             message: `Your stop loss for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
             data: { ticker: order.ticker, orderId: orderDoc.id, price: executedPrice }
+          });
+          writeFeedEntry({
+            type: 'trade',
+            userId: order.userId,
+            displayName: feedDisplayName,
+            crew: feedCrew,
+            ticker: order.ticker,
+            action: 'sell',
+            amount: fillShares,
+            price: executedPrice,
+            message: `sold ${fillShares} $${order.ticker} via stop loss`
           });
           console.log(`processMarketOpenOrders: filled stop loss ${orderDoc.id} — ${fillShares} ${order.ticker} @ $${executedPrice}`);
           filled++;

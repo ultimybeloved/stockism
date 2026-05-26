@@ -261,6 +261,30 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
             </div>
           </div>
 
+          {/* Short Positions */}
+          {Object.keys(shorts || {}).filter(t => (shorts[t]?.shares || 0) > 0).length > 0 && (
+            <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-red-50 border-red-200'}`}>
+              <h3 className={`font-semibold ${textClass} mb-3`}>Short Positions</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(shorts).filter(t => (shorts[t]?.shares || 0) > 0).map(ticker => {
+                  const pos = shorts[ticker];
+                  const currentPrice = prices[ticker] || 0;
+                  const value = pos.shares * currentPrice;
+                  return (
+                    <div
+                      key={ticker}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-red-300'}`}
+                    >
+                      <span className="text-red-500 font-mono text-sm font-bold">${ticker}</span>
+                      <span className={`text-xs ${mutedClass}`}>{pos.shares} @ {formatCurrency(currentPrice)}</span>
+                      <span className={`text-xs font-semibold ${value > (pos.margin || 0) ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(value)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Trading Stats */}
           <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
             <h3 className={`font-semibold ${textClass} mb-3`}>📊 Trading Stats</h3>

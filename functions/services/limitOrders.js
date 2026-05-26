@@ -6,7 +6,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, THIRTY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification } = require('../helpers');
+const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
 
 exports.createLimitOrder = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -281,6 +281,8 @@ exports.checkLimitOrders = functions.pubsub
           const remainingShares = totalShares - alreadyFilled;
           let fillShares = remainingShares;
           let executedPrice = 0;
+          let feedDisplayName = '';
+          let feedCrew = null;
 
           try {
             await db.runTransaction(async (transaction) => {
@@ -297,6 +299,8 @@ exports.checkLimitOrders = functions.pubsub
               }
 
               const userData = userSnap.data();
+              feedDisplayName = userData.displayName || 'Anonymous';
+              feedCrew = userData.crew || null;
               const freshPrices = freshMarketSnap.data().prices || {};
               const freshPrice = freshPrices[order.ticker] || currentPrice;
 
@@ -515,6 +519,26 @@ exports.checkLimitOrders = functions.pubsub
             title: `${effectiveType2} Filled`,
             message: `Your ${effectiveType2.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
             data: { ticker: order.ticker, orderId, price: executedPrice }
+          });
+
+          const feedAction = order.type === 'BUY' ? 'buy' : order.type === 'COVER' ? 'cover' : 'sell';
+          const feedMsg = order.type === 'STOP_LOSS'
+            ? `sold ${fillShares} $${order.ticker} via stop loss`
+            : order.type === 'BUY'
+              ? `bought ${fillShares} $${order.ticker} via limit order`
+              : order.type === 'COVER'
+                ? `covered ${fillShares} $${order.ticker} via limit order`
+                : `sold ${fillShares} $${order.ticker} via limit order`;
+          writeFeedEntry({
+            type: 'trade',
+            userId: order.userId,
+            displayName: feedDisplayName,
+            crew: feedCrew,
+            ticker: order.ticker,
+            action: feedAction,
+            amount: fillShares,
+            price: executedPrice,
+            message: feedMsg
           });
 
           executed++;

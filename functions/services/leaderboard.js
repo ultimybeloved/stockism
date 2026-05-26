@@ -211,6 +211,9 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('permission-denied', 'This profile is private');
   }
 
+  const marketSnap = await db.collection('market').doc('current').get();
+  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+
   // Compute global rank
   let rank = null;
   try {
@@ -241,6 +244,16 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     } catch (e) { /* leave null */ }
   }
 
+  // Short positions (tickers only, no share counts)
+  const shortsRaw = userData.shorts || {};
+  const shortTickers = Object.keys(shortsRaw).filter(t => {
+    const pos = shortsRaw[t];
+    return pos && pos.shares > 0;
+  });
+  const totalShortValue = shortTickers.reduce((sum, t) => {
+    return sum + (shortsRaw[t].shares * (prices[t] || 0));
+  }, 0);
+
   // Portfolio history for sparkline (cap at 100 points)
   const portfolioHistory = (userData.portfolioHistory || []).slice(-100);
 
@@ -259,6 +272,8 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     crewRank,
     holdingTickers,
     topHoldings,
+    shortTickers,
+    totalShortValue,
     portfolioHistory,
     achievements: userData.achievements || [],
     stats: {

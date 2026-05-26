@@ -7,7 +7,7 @@ const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, CREW_MEMBERS,
   isWeeklyTradingHalt, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
-  ALL_CREW_TICKERS, ANIMAL_TICKERS,
+  ALL_CREW_TICKERS, ANIMAL_TICKERS, MAX_SHORT_EXPOSURE_RATIO,
 } = require('../constants');
 const {
   checkBanned,
@@ -269,13 +269,16 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         }
       });
 
-      const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
-        sum + (pos && typeof pos === 'object' && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
+      const existingShortValue = Object.entries(shorts).reduce((sum, [t, pos]) => {
+        if (!pos || pos.shares <= 0) return sum;
+        return sum + (pos.shares * (prices[t] || 0));
+      }, 0);
+      const newShortValue = currentPrice * amount;
 
-      if (portfolioEquity <= 0 || existingShortMargin + marginRequired > portfolioEquity) {
+      if (portfolioEquity <= 0 || existingShortValue + newShortValue > portfolioEquity * MAX_SHORT_EXPOSURE_RATIO) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          'Short limit reached. Total short positions cannot exceed your portfolio value.'
+          'Short limit reached. Total short exposure cannot exceed your portfolio value.'
         );
       }
 
