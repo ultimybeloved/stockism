@@ -207,7 +207,8 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
   }
   const userData = userDoc.data();
 
-  if (!userData.isPublic) {
+  const isOwner = context.auth?.uid === uid;
+  if (!userData.isPublic && !isOwner) {
     throw new functions.https.HttpsError('permission-denied', 'This profile is private');
   }
 

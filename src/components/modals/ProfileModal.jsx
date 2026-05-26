@@ -392,7 +392,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${userData?.isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
-              {userData?.isPublic && userData?.displayName && (
+              {userData?.displayName && (
                 <div className={`mt-2 flex items-center gap-2 text-xs ${mutedClass}`}>
                   <span>🔗</span>
                   <a
@@ -401,7 +401,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                     target="_blank"
                     rel="noreferrer"
                   >
-                    stockism.app/u/{userData.displayName.toLowerCase()}
+                    {userData?.isPublic ? `stockism.app/u/${userData.displayName.toLowerCase()}` : 'Preview my profile page'}
                   </a>
                 </div>
               )}
