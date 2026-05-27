@@ -5,7 +5,7 @@ import { DIVIDEND_RATES, DIVIDEND_HOLD_MS } from '../../constants/economy';
 import { formatCurrency, formatChange, formatNumber } from '../../utils/formatters';
 import LimitOrders from '../LimitOrders';
 import { db } from '../../firebase';
-import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp, limit } from 'firebase/firestore';
 import { useAppContext } from '../../context/AppContext';
 
 const DIVIDEND_TIER_META = {
@@ -73,11 +73,7 @@ const getRangeCutoff = (range) => {
   if (!range || (!range.days && !range.months && !range.years)) return 0;
   const d = new Date();
   if (range.years)  d.setFullYear(d.getFullYear() - range.years);
-  if (range.months) {
-    d.setMonth(d.getMonth() - range.months);
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-  }
+  if (range.months) d.setMonth(d.getMonth() - range.months);
   if (range.days)   d.setDate(d.getDate() - range.days);
   return d.getTime();
 };
@@ -314,13 +310,38 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
       try {
         const range = TIME_RANGES.find(r => r.key === timeRange);
         const cutoff = getRangeCutoff(range);
-        const q = query(
+
+        const mainQ = query(
           collection(db, 'users', user.uid, 'portfolioHistory'),
           where('timestamp', '>=', cutoff),
           orderBy('timestamp')
         );
-        const snap = await getDocs(q);
-        if (!cancelled) setPortfolioHistory(snap.docs.map(d => d.data()));
+
+        // Fetch the last known point before the window so the chart starts exactly
+        // at the cutoff date rather than at the first trade inside the window.
+        // Skip for "All" (cutoff = 0) since there's no "before" to anchor from.
+        const anchorQ = cutoff > 0
+          ? query(
+              collection(db, 'users', user.uid, 'portfolioHistory'),
+              where('timestamp', '<', cutoff),
+              orderBy('timestamp', 'desc'),
+              limit(1)
+            )
+          : null;
+
+        const [mainSnap, anchorSnap] = await Promise.all([
+          getDocs(mainQ),
+          anchorQ ? getDocs(anchorQ) : Promise.resolve(null),
+        ]);
+
+        let history = mainSnap.docs.map(d => d.data());
+
+        if (anchorSnap && !anchorSnap.empty) {
+          const anchor = anchorSnap.docs[0].data();
+          history = [{ timestamp: cutoff, value: anchor.value }, ...history];
+        }
+
+        if (!cancelled) setPortfolioHistory(history);
       } catch (err) {
         console.error('Failed to load portfolio history:', err);
       } finally {
