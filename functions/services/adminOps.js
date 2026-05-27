@@ -770,13 +770,14 @@ exports.reconstructPortfolioHistory = functions
       if (!doc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
       userDocs = [doc];
     } else {
-      const FieldPath = admin.firestore.FieldPath;
+      // Order by document ID for stable cursor-based pagination.
+      // Pass startAfterUid as the raw string cursor value (documentId ordering
+      // accepts the ID value directly without needing a snapshot fetch).
       let q = db.collection('users')
-        .orderBy(FieldPath.documentId())
-        .limit(batchLimit + 1); // fetch one extra to detect if more remain
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(batchLimit + 1); // fetch one extra to detect if more pages remain
       if (startAfterUid) {
-        const cursorDoc = await db.collection('users').doc(startAfterUid).get();
-        q = q.startAfter(cursorDoc);
+        q = q.startAfter(startAfterUid);
       }
       const snap = await q.get();
       // Filter bots; if extra doc exists, there are more pages

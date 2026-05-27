@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { DIVIDEND_RATES, DIVIDEND_HOLD_MS } from '../../constants/economy';
@@ -92,6 +92,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [portfolioHistory, setPortfolioHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const svgRef = useRef(null);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -504,6 +505,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
           {showChart && !loadingHistory && (
             <div className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} relative`}>
               <svg
+                ref={svgRef}
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}
                 className="w-full"
               >
@@ -549,7 +551,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
               {/* Smooth hover overlay */}
               <div className="absolute inset-0 cursor-crosshair"
                 onMouseMove={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
+                  const rect = svgRef.current ? svgRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
                   const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
                   if (mouseX < paddingX || mouseX > svgWidth - paddingX) { setHoveredPoint(null); return; }
                   let leftIdx = 0;
