@@ -52,6 +52,10 @@ const RecoveryTab = ({
   setRenameResult,
   showMessage,
   renameTickerFunction,
+  // Portfolio history migration
+  migratingPortfolioHistory,
+  portfolioMigrationResult,
+  handleMigratePortfolioHistory,
   // Trade history & rollback
   tradeFilterTicker,
   setTradeFilterTicker,
@@ -304,6 +308,26 @@ const RecoveryTab = ({
           className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
           {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
+        </button>
+      </div>
+
+      {/* Portfolio History Migration */}
+      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-orange-700' : 'border-orange-300'}`}>
+        <h3 className={`font-semibold mb-2 text-orange-500`}>📦 Migrate Portfolio History</h3>
+        <p className={`text-sm ${mutedClass} mb-3`}>
+          One-time migration: moves all existing portfolioHistory arrays into permanent subcollections. Run once, then the button can be ignored.
+        </p>
+        {portfolioMigrationResult && (
+          <p className={`text-sm mb-3 font-semibold ${portfolioMigrationResult.errors > 0 ? 'text-red-500' : 'text-green-500'}`}>
+            Done — migrated: {portfolioMigrationResult.migrated}, skipped: {portfolioMigrationResult.skipped}, errors: {portfolioMigrationResult.errors}
+          </p>
+        )}
+        <button
+          onClick={handleMigratePortfolioHistory}
+          disabled={migratingPortfolioHistory || !!portfolioMigrationResult}
+          className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
+        >
+          {migratingPortfolioHistory ? 'Migrating... (may take a minute)' : portfolioMigrationResult ? 'Migration complete' : '📦 Run Portfolio History Migration'}
         </button>
       </div>
 

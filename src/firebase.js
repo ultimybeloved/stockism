@@ -121,5 +121,7 @@ export const auditUserDropsFunction = httpsCallable(functions, 'auditUserDrops')
 // Dividends
 export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividendPayoutNow');
 export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfillHoldingCohorts');
+// One-time migrations
+export const migratePortfolioHistoryFunction = httpsCallable(functions, 'migratePortfolioHistory');
 
 export default app;

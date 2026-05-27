@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES } from './constants/economy';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -105,6 +105,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(false);
   const [scanningHistory, setScanningHistory] = useState(false);
+  const [migratingPortfolioHistory, setMigratingPortfolioHistory] = useState(false);
+  const [portfolioMigrationResult, setPortfolioMigrationResult] = useState(null);
 
   // Check-in fraud detection state
   const [fraudUsers, setFraudUsers] = useState([]);
@@ -3631,6 +3633,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
+  const handleMigratePortfolioHistory = async () => {
+    if (!window.confirm('Run the one-time portfolio history migration? This will move all existing portfolioHistory arrays into permanent subcollections.')) return;
+    setMigratingPortfolioHistory(true);
+    try {
+      const result = await migratePortfolioHistoryFunction();
+      setPortfolioMigrationResult(result.data);
+    } catch (error) {
+      setMessage({ type: 'error', text: `Migration failed: ${error.message}` });
+    } finally {
+      setMigratingPortfolioHistory(false);
+    }
+  };
+
   const handleRepairCorruptedAccounts = async () => {
     setLoading(true);
     setMessage(null);
@@ -4113,6 +4128,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               diagnosisResults={diagnosisResults}
               handleDiagnoseUsers={handleDiagnoseUsers}
               handleManualBackup={handleManualBackup}
+              migratingPortfolioHistory={migratingPortfolioHistory}
+              portfolioMigrationResult={portfolioMigrationResult}
+              handleMigratePortfolioHistory={handleMigratePortfolioHistory}
               handleRepairCorruptedAccounts={handleRepairCorruptedAccounts}
               loadingBackups={loadingBackups}
               backups={backups}
