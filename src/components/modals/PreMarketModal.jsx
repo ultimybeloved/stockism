@@ -56,7 +56,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
     const impactDollars = calculatePriceImpactDollars(price, Math.abs(net));
     return net > 0
       ? Math.min(price + impactDollars, price * 1.05)
-      : Math.max(0.01, price - impactDollars);
+      : Math.max(0.01, Math.max(price - impactDollars, price * 0.95));
   };
 
   const indicativePrice = getIndicativePrice();

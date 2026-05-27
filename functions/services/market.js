@@ -380,7 +380,7 @@ exports.processMarketOpenOrders = functions.pubsub
             const impact = calculateMarginalImpact(basePrice, Math.abs(netDemand), 0);
             openingPrice = netDemand > 0
               ? Math.min(basePrice + impact, basePrice * (1 + MAX_PRICE_CHANGE_PERCENT))
-              : Math.max(0.01, basePrice - impact);
+              : Math.max(0.01, Math.max(basePrice - impact, basePrice * (1 - MAX_PRICE_CHANGE_PERCENT)));
           }
           openingPrice = Math.round(openingPrice * 100) / 100;
 
@@ -429,7 +429,7 @@ exports.processMarketOpenOrders = functions.pubsub
               if (order.action === 'buy') {
                 const totalCost = executionPrice * fillShares;
                 if ((ud.cash || 0) < totalCost) {
-                  if (order.allowPartialFills && (ud.cash || 0) > executionPrice) {
+                  if (order.allowPartialFills && (ud.cash || 0) >= executionPrice) {
                     fillShares = Math.round(Math.floor((ud.cash || 0) / executionPrice * 100) / 100 * 100) / 100;
                   } else {
                     throw new Error('Insufficient cash');
