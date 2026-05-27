@@ -1075,21 +1075,6 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                   >
                     My Stats
                   </button>
-                  <button
-                    onClick={() => setShowLadderTutorialReview(true)}
-                    style={{
-                      padding: '6px',
-                      background: '#8a7d6b',
-                      color: '#fff',
-                      border: 'none',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      cursor: 'pointer',
-                      textTransform: 'uppercase'
-                    }}
-                  >
-                    View Guide
-                  </button>
                 </div>
 
                 {/* History */}
@@ -1211,24 +1196,41 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                         ? 'Ladder balance is at the $5,000 limit.'
                         : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (cap: $5,000)`}
                     </p>
-                    <input
-                      type="number"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="Amount"
-                      disabled={ladderFull}
-                      max={Math.min(userStockismCash, maxDeposit)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        marginBottom: '10px',
-                        border: '1px solid #666',
-                        background: bgCardInner,
-                        color: textDark,
-                        opacity: ladderFull ? 0.5 : 1,
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                      <input
+                        type="number"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        placeholder="Amount"
+                        disabled={ladderFull}
+                        max={Math.min(userStockismCash, maxDeposit)}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          border: '1px solid #666',
+                          background: bgCardInner,
+                          color: textDark,
+                          opacity: ladderFull ? 0.5 : 1,
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <button
+                        onClick={() => setDepositAmount(String(Math.min(userStockismCash, maxDeposit)))}
+                        disabled={ladderFull}
+                        style={{
+                          padding: '8px 10px',
+                          background: '#b4ac99',
+                          color: textDark,
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: ladderFull ? 'not-allowed' : 'pointer',
+                          opacity: ladderFull ? 0.5 : 1
+                        }}
+                      >
+                        Max
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleDeposit}
@@ -1286,7 +1288,6 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
             </div>
           );
         })()}
-        )}
 
         {/* Leaderboard Modal */}
         {showLeaderboardModal && (
@@ -1416,20 +1417,20 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => setShowStatsModal(false)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#666',
-                  color: '#fff',
-                  border: 'none',
-                  fontWeight: 700,
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => { setShowStatsModal(false); setShowLadderTutorialReview(true); }}
+                  style={{ flex: 1, padding: '8px', background: '#8a7d6b', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  View Guide
+                </button>
+                <button
+                  onClick={() => setShowStatsModal(false)}
+                  style={{ flex: 1, padding: '8px', background: '#666', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
