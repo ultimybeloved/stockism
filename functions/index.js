@@ -28,3 +28,4 @@ Object.assign(exports, require('./services/archiving'));
 Object.assign(exports, require('./services/margin'));
 Object.assign(exports, require('./services/crew'));
 Object.assign(exports, require('./services/preMarket'));
+Object.assign(exports, require('./services/marketMaker'));
