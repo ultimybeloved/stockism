@@ -2613,22 +2613,8 @@ export default function App() {
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Portfolio Value</p>
             <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</p>
             {(() => {
-              const now = Date.now();
-              const oneDayAgo = now - (24 * 60 * 60 * 1000);
-              const portfolioHistory = activeUserData.portfolioHistory || [];
-
-              // Find portfolio value closest to 24h ago
-              let value24hAgo = null;
-              if (portfolioHistory.length > 0) {
-                // Find the closest record to 24h ago
-                const closest = portfolioHistory.reduce((prev, curr) => {
-                  return Math.abs(curr.timestamp - oneDayAgo) < Math.abs(prev.timestamp - oneDayAgo) ? curr : prev;
-                });
-                // Only use if it's within 26 hours (to account for gaps in data)
-                if (Math.abs(closest.timestamp - oneDayAgo) < 26 * 60 * 60 * 1000) {
-                  value24hAgo = closest.value;
-                }
-              }
+              const snap24h = activeUserData.portfolioSnapshot24h;
+              const value24hAgo = snap24h?.value ?? null;
 
               const change24h = value24hAgo ? portfolioValue - value24hAgo : 0;
               const changePercent24h = value24hAgo && value24hAgo > 0 ? ((change24h / value24hAgo) * 100) : 0;
@@ -3114,7 +3100,6 @@ export default function App() {
       
       {showPortfolio && !isGuest && (
         <PortfolioModal
-          portfolioHistory={userData?.portfolioHistory || []}
           currentValue={portfolioValue}
           onClose={() => setShowPortfolio(false)}
           onTrade={requestTrade}

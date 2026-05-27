@@ -680,10 +680,62 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
   }
 });
 
-// ============================================
-// WATCHLIST FUNCTIONS (Admin-Only)
-// ============================================
-
 /**
- * Add a user to the watchlist
- */
+ * One-time migration: move portfolioHistory arrays to subcollection.
+ * Run once after deploying the subcollection-based syncPortfolio, then remove.
+ */
+exports.migratePortfolioHistory = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onCall(async (data, context) => {
+    if (!context.auth || context.auth.uid !== ADMIN_UID) {
+      throw new functions.https.HttpsError('permission-denied', 'Admin only');
+    }
+
+    const usersSnap = await db.collection('users').get();
+    let migrated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data();
+      const history = userData.portfolioHistory;
+      if (!Array.isArray(history) || history.length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const subcollRef = userDoc.ref.collection('portfolioHistory');
+        const batch = db.batch();
+        for (const entry of history) {
+          if (entry && typeof entry.timestamp === 'number' && typeof entry.value === 'number') {
+            batch.set(subcollRef.doc(), entry);
+          }
+        }
+        await batch.commit();
+
+        // Seed snapshot fields from last entry
+        const last = history[history.length - 1];
+        const updatePayload = {
+          lastPortfolioSnapshot: last,
+          portfolioHistory: admin.firestore.FieldValue.delete(),
+        };
+        // Seed 24h snapshot from first entry that's >= 24h old
+        const oneDay = 24 * 60 * 60 * 1000;
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const snap24h = history.find(e => e.timestamp <= now - oneDay);
+        if (snap24h) updatePayload.portfolioSnapshot24h = snap24h;
+        const snap7d = history.find(e => e.timestamp <= now - oneWeek);
+        if (snap7d) updatePayload.portfolioSnapshot7d = snap7d;
+
+        await userDoc.ref.update(updatePayload);
+        migrated++;
+      } catch (err) {
+        console.error(`Migration failed for ${userDoc.id}:`, err.message);
+        errors++;
+      }
+    }
+
+    return { migrated, skipped, errors };
+  });

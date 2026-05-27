@@ -37,23 +37,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
           if (userData.isBot) return;
 
           const currentValue = userData.portfolioValue || 0;
-          let valueSevenDaysAgo = currentValue; // default if no history
-
-          if (userData.portfolioHistory && Array.isArray(userData.portfolioHistory)) {
-            // Find the entry closest to 7 days ago (first entry >= oneWeekAgo, or last entry before it)
-            let found = false;
-            for (let i = 0; i < userData.portfolioHistory.length; i++) {
-              if (userData.portfolioHistory[i].timestamp >= oneWeekAgo) {
-                valueSevenDaysAgo = userData.portfolioHistory[i].value;
-                found = true;
-                break;
-              }
-            }
-            if (!found && userData.portfolioHistory.length > 0) {
-              // All entries are older than a week, use the most recent one
-              valueSevenDaysAgo = userData.portfolioHistory[userData.portfolioHistory.length - 1].value;
-            }
-          }
+          const valueSevenDaysAgo = userData.portfolioSnapshot7d?.value ?? currentValue;
 
           const weeklyGain = currentValue - valueSevenDaysAgo;
           const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
@@ -256,22 +240,19 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     return sum + (shortsRaw[t].shares * (prices[t] || 0));
   }, 0);
 
-  // Portfolio history for sparkline (full stored history)
-  const portfolioHistory = (userData.portfolioHistory || []).slice(-500);
+  // Portfolio history for sparkline — query permanent subcollection
+  const histSnap = await db.collection('users').doc(uid)
+    .collection('portfolioHistory')
+    .orderBy('timestamp')
+    .get();
+  const portfolioHistory = histSnap.docs.map(d => d.data());
 
   // Admin-only: weekly gain + full financial data
   let adminData = null;
   if (isCallerAdmin) {
-    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const history = userData.portfolioHistory || [];
-    let valueSevenDaysAgo = userData.portfolioValue || 0;
-    for (let i = 0; i < history.length; i++) {
-      if (history[i].timestamp >= oneWeekAgo) {
-        valueSevenDaysAgo = history[i].value;
-        break;
-      }
-    }
-    const weeklyGain = (userData.portfolioValue || 0) - valueSevenDaysAgo;
+    const currentValue = userData.portfolioValue || 0;
+    const valueSevenDaysAgo = userData.portfolioSnapshot7d?.value ?? currentValue;
+    const weeklyGain = currentValue - valueSevenDaysAgo;
     const weeklyGainPercent = valueSevenDaysAgo > 0
       ? Math.round((weeklyGain / valueSevenDaysAgo) * 10000) / 100
       : 0;

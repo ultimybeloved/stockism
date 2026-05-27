@@ -60,7 +60,16 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
   );
 };
 
-const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
+const TIME_RANGES = [
+  { key: '1d', label: '24h', hours: 24 },
+  { key: '7d', label: '7D', hours: 168 },
+  { key: '1m', label: '1M', hours: 720 },
+  { key: '3m', label: '3M', hours: 2160 },
+  { key: '1y', label: '1Y', hours: 8760 },
+  { key: 'all', label: 'All', hours: Infinity },
+];
+
+const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});
@@ -72,6 +81,8 @@ const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLi
   const [expandedShortTicker, setExpandedShortTicker] = useState(null);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [portfolioHistory, setPortfolioHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -280,15 +291,36 @@ const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLi
     setLoadingOrders(false);
   };
 
+  // Load portfolio history from subcollection for current time range
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const fetchHistory = async () => {
+      setLoadingHistory(true);
+      try {
+        const range = TIME_RANGES.find(r => r.key === timeRange);
+        const cutoff = range && range.hours !== Infinity
+          ? Date.now() - range.hours * 60 * 60 * 1000
+          : 0;
+        const q = query(
+          collection(db, 'users', user.uid, 'portfolioHistory'),
+          where('timestamp', '>=', cutoff),
+          orderBy('timestamp')
+        );
+        const snap = await getDocs(q);
+        if (!cancelled) setPortfolioHistory(snap.docs.map(d => d.data()));
+      } catch (err) {
+        console.error('Failed to load portfolio history:', err);
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+    return () => { cancelled = true; };
+  }, [user, timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Chart data processing
-  const timeRanges = [
-    { key: '1d', label: '24h', hours: 24 },
-    { key: '7d', label: '7D', hours: 168 },
-    { key: '1m', label: '1M', hours: 720 },
-    { key: '3m', label: '3M', hours: 2160 },
-    { key: '1y', label: '1Y', hours: 8760 },
-    { key: 'all', label: 'All', hours: Infinity },
-  ];
+  const timeRanges = TIME_RANGES;
 
   const chartData = useMemo(() => {
     if (!portfolioHistory || portfolioHistory.length === 0) {
@@ -446,7 +478,13 @@ const PortfolioModal = ({ portfolioHistory, currentValue, onClose, onTrade, onLi
             )}
           </div>
 
-          {showChart && (
+          {showChart && loadingHistory && (
+            <div className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} h-32 flex items-center justify-center`}>
+              <span className={`text-xs ${mutedClass}`}>Loading...</span>
+            </div>
+          )}
+
+          {showChart && !loadingHistory && (
             <div className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} relative`}>
               <svg
                 viewBox={`0 0 ${svgWidth} ${svgHeight}`}

@@ -589,16 +589,28 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
     updateData.peakPortfolioValue = peakPortfolioValue;
   }
 
-  // Update portfolio history (rate-limited to every 10 minutes)
-  const currentHistory = userData.portfolioHistory || [];
-  const lastRecord = currentHistory[currentHistory.length - 1];
+  // Update portfolio history — permanent subcollection, no cap
+  const lastRecord = userData.lastPortfolioSnapshot || null;
   const tenMinutes = 10 * 60 * 1000;
 
   const valueChanged = lastRecord && lastRecord.value > 0 && Math.abs(portfolioValue - lastRecord.value) / lastRecord.value > 0.01;
   const timeElapsed = !lastRecord || (now - lastRecord.timestamp) > tenMinutes;
 
+  let historyWritten = false;
   if (!lastRecord || timeElapsed || valueChanged) {
-    updateData.portfolioHistory = [...currentHistory, { timestamp: now, value: portfolioValue }].slice(-500);
+    await userRef.collection('portfolioHistory').add({ timestamp: now, value: portfolioValue });
+    updateData.lastPortfolioSnapshot = { timestamp: now, value: portfolioValue };
+    historyWritten = true;
+  }
+
+  // Rolling reference snapshots — used by leaderboard and dashboard
+  const snap24h = userData.portfolioSnapshot24h;
+  if (!snap24h || (now - snap24h.timestamp) >= TWENTY_FOUR_HOURS_MS) {
+    updateData.portfolioSnapshot24h = { timestamp: now, value: portfolioValue };
+  }
+  const snap7d = userData.portfolioSnapshot7d;
+  if (!snap7d || (now - snap7d.timestamp) >= ONE_WEEK_MS) {
+    updateData.portfolioSnapshot7d = { timestamp: now, value: portfolioValue };
   }
 
   // Check achievements
@@ -678,15 +690,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
   }
 
   // Compute and store weekly gain for Profit Champion
-  const portfolioHistory = userData.portfolioHistory || [];
-  const sevenDaysAgo = now - ONE_WEEK_MS;
-  let valueSevenDaysAgo = portfolioValue;
-  for (const entry of portfolioHistory) {
-    if (entry.timestamp >= sevenDaysAgo) {
-      valueSevenDaysAgo = entry.value;
-      break;
-    }
-  }
+  const valueSevenDaysAgo = (userData.portfolioSnapshot7d || updateData.portfolioSnapshot7d)?.value ?? portfolioValue;
   const weeklyGain = Math.round((portfolioValue - valueSevenDaysAgo) * 100) / 100;
   updateData.weeklyGain = weeklyGain;
 
@@ -771,7 +775,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
     peakPortfolioValue,
     newAchievements,
     revokedAchievements,
-    historyUpdated: !!updateData.portfolioHistory
+    historyUpdated: historyWritten
   };
 });
 
