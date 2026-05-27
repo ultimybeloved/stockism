@@ -73,7 +73,11 @@ const getRangeCutoff = (range) => {
   if (!range || (!range.days && !range.months && !range.years)) return 0;
   const d = new Date();
   if (range.years)  d.setFullYear(d.getFullYear() - range.years);
-  if (range.months) d.setMonth(d.getMonth() - range.months);
+  if (range.months) {
+    d.setMonth(d.getMonth() - range.months);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+  }
   if (range.days)   d.setDate(d.getDate() - range.days);
   return d.getTime();
 };
