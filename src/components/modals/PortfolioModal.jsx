@@ -61,13 +61,22 @@ const SimpleLineChart = ({ data, darkMode, colorBlindMode = false }) => {
 };
 
 const TIME_RANGES = [
-  { key: '1d', label: '24h', hours: 24 },
-  { key: '7d', label: '7D', hours: 168 },
-  { key: '1m', label: '1M', hours: 720 },
-  { key: '3m', label: '3M', hours: 2160 },
-  { key: '1y', label: '1Y', hours: 8760 },
-  { key: 'all', label: 'All', hours: Infinity },
+  { key: '1d',  label: '24h', days: 1 },
+  { key: '7d',  label: '7D',  days: 7 },
+  { key: '1m',  label: '1M',  months: 1 },
+  { key: '3m',  label: '3M',  months: 3 },
+  { key: '1y',  label: '1Y',  years: 1 },
+  { key: 'all', label: 'All' },
 ];
+
+const getRangeCutoff = (range) => {
+  if (!range || (!range.days && !range.months && !range.years)) return 0;
+  const d = new Date();
+  if (range.years)  d.setFullYear(d.getFullYear() - range.years);
+  if (range.months) d.setMonth(d.getMonth() - range.months);
+  if (range.days)   d.setDate(d.getDate() - range.days);
+  return d.getTime();
+};
 
 const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
@@ -299,9 +308,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
       setLoadingHistory(true);
       try {
         const range = TIME_RANGES.find(r => r.key === timeRange);
-        const cutoff = range && range.hours !== Infinity
-          ? Date.now() - range.hours * 60 * 60 * 1000
-          : 0;
+        const cutoff = getRangeCutoff(range);
         const q = query(
           collection(db, 'users', user.uid, 'portfolioHistory'),
           where('timestamp', '>=', cutoff),
@@ -333,7 +340,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     }
 
     const range = timeRanges.find(r => r.key === timeRange);
-    const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
+    const cutoff = getRangeCutoff(range);
 
     let data = portfolioHistory
       .filter(point => point.timestamp >= cutoff)
@@ -360,17 +367,27 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
       data = sampled;
     }
 
-    // If only 1 point, add current value as second point to show a line
-    if (data.length === 1) {
+    // Always append current value as the final point so the right edge of the
+    // chart reflects where the portfolio is right now, not the last history write.
+    const now = Date.now();
+    const lastPoint = data[data.length - 1];
+    if (!lastPoint || (now - lastPoint.timestamp) > 60000) {
       data = [
         ...data,
-        { timestamp: Date.now(), value: currentValue, date: 'Now', fullDate: 'Now' }
+        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
       ];
     }
 
-    // If no data in range, show current value as flat line
+    // If still only 1 point, duplicate it so the chart draws a flat line
+    if (data.length === 1) {
+      data = [
+        { timestamp: data[0].timestamp - 60000, value: data[0].value, date: data[0].date, fullDate: data[0].fullDate },
+        ...data,
+      ];
+    }
+
+    // If no data in range at all, show current value as flat line
     if (data.length === 0) {
-      const now = Date.now();
       data = [
         { timestamp: now - 60000, value: currentValue, date: 'Now', fullDate: 'Now' },
         { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
