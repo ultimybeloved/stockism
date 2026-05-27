@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { checkBanned } = require('../helpers');
-const { LADDER_GAME_MAX_BALANCE } = require('../constants');
+const { LADDER_GAME_MAX_BALANCE, LADDER_GAME_MAX_DAILY_DEPOSIT } = require('../constants');
 
 exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -249,13 +249,29 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(LADDER_GAME_MAX_BALANCE - currentBalance).toFixed(2)} more before hitting the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`);
       }
 
+      // Daily deposit cap — resets at UTC midnight
+      const todayUTC = new Date().toISOString().slice(0, 10);
+      const lastDepositDay = ladderData.dailyDepositedAt || '';
+      const dailyDeposited = lastDepositDay === todayUTC ? (ladderData.dailyDeposited || 0) : 0;
+      const remaining = LADDER_GAME_MAX_DAILY_DEPOSIT - dailyDeposited;
+      if (amount > remaining) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          remaining <= 0
+            ? `Daily deposit limit of $${LADDER_GAME_MAX_DAILY_DEPOSIT.toLocaleString()} reached. Resets at midnight UTC.`
+            : `Daily deposit limit: you can only deposit $${remaining.toFixed(2)} more today.`
+        );
+      }
+
       // Deduct from Stockism cash
       transaction.update(mainUserRef, { cash: cash - amount });
 
       transaction.set(ladderUserRef, {
         ...ladderData,
         balance: (ladderData.balance ?? 0) + amount,
-        totalDeposited: (ladderData.totalDeposited || 0) + amount
+        totalDeposited: (ladderData.totalDeposited || 0) + amount,
+        dailyDepositedAt: todayUTC,
+        dailyDeposited: dailyDeposited + amount
       });
 
       return {
