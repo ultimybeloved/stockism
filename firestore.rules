@@ -376,6 +376,15 @@ service cloud.firestore {
     }
 
     // ============================================
+    // PORTFOLIO HISTORY (per-user subcollection)
+    // ============================================
+    match /users/{userId}/portfolioHistory/{entryId} {
+      // Users can read their own history; Cloud Functions write via admin SDK
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // ============================================
     // NOTIFICATIONS (per-user subcollection)
     // ============================================
     match /users/{userId}/notifications/{notificationId} {
