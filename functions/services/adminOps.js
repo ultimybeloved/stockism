@@ -757,16 +757,37 @@ exports.reconstructPortfolioHistory = functions
     }
 
     const targetUid = data && data.uid ? data.uid : null;
+    const batchLimit = (data && data.limit) ? Math.min(data.limit, 100) : 50;
+    const startAfterUid = data && data.startAfterUid ? data.startAfterUid : null;
 
     // 1. Determine which users to process
     let userDocs = [];
+    let nextCursor = null;
+    let done = true;
+
     if (targetUid) {
       const doc = await db.collection('users').doc(targetUid).get();
       if (!doc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
       userDocs = [doc];
     } else {
-      const snap = await db.collection('users').get();
-      userDocs = snap.docs.filter(d => !d.data().isBot);
+      const FieldPath = admin.firestore.FieldPath;
+      let q = db.collection('users')
+        .orderBy(FieldPath.documentId())
+        .limit(batchLimit + 1); // fetch one extra to detect if more remain
+      if (startAfterUid) {
+        const cursorDoc = await db.collection('users').doc(startAfterUid).get();
+        q = q.startAfter(cursorDoc);
+      }
+      const snap = await q.get();
+      // Filter bots; if extra doc exists, there are more pages
+      const allDocs = snap.docs;
+      const hasMore = allDocs.length > batchLimit;
+      const pageDocs = hasMore ? allDocs.slice(0, batchLimit) : allDocs;
+      userDocs = pageDocs.filter(d => !d.data().isBot);
+      if (hasMore) {
+        nextCursor = pageDocs[pageDocs.length - 1].id;
+        done = false;
+      }
     }
 
     // 2. Load full price history for all tickers (recent + archived) — done once
@@ -880,5 +901,5 @@ exports.reconstructPortfolioHistory = functions
       }
     }
 
-    return { usersProcessed, usersSkipped, totalPointsWritten, errors };
+    return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
   });

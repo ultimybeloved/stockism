@@ -351,8 +351,9 @@ const RecoveryTab = ({
           className={`w-full px-3 py-2 mb-3 rounded-sm border text-sm font-mono ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'} focus:outline-none focus:border-blue-500`}
         />
         {reconstructionResult && (
-          <p className={`text-sm mb-3 font-semibold ${reconstructionResult.errors > 0 ? 'text-red-500' : 'text-green-500'}`}>
-            Done — users: {reconstructionResult.usersProcessed}, points written: {reconstructionResult.totalPointsWritten}, skipped: {reconstructionResult.usersSkipped}, errors: {reconstructionResult.errors}
+          <p className={`text-sm mb-3 font-semibold ${reconstructionResult.errors > 0 ? 'text-red-500' : reconstructionResult.running ? 'text-yellow-500' : 'text-green-500'}`}>
+            {reconstructionResult.running ? `Batch ${reconstructionResult.batch} — ` : 'Done — '}
+            users: {reconstructionResult.usersProcessed}, points: {reconstructionResult.totalPointsWritten}, skipped: {reconstructionResult.usersSkipped}, errors: {reconstructionResult.errors}
           </p>
         )}
         <button
@@ -360,7 +361,7 @@ const RecoveryTab = ({
           disabled={reconstructingHistory}
           className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
-          {reconstructingHistory ? 'Reconstructing... (up to 9 min)' : '🔁 Reconstruct from Trades'}
+          {reconstructingHistory ? `Reconstructing... (batch ${reconstructionResult?.batch || 1})` : '🔁 Reconstruct from Trades'}
         </button>
       </div>
 

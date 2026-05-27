@@ -3638,15 +3638,33 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   const handleReconstructPortfolioHistory = async () => {
     const target = reconstructUid.trim() || null;
-    const label = target ? `user ${target}` : 'ALL non-bot users';
-    if (!window.confirm(`Reconstruct portfolio history from trades for ${label}? This may take up to 9 minutes.`)) return;
+    const label = target ? `user ${target}` : 'ALL non-bot users (batched)';
+    if (!window.confirm(`Reconstruct portfolio history from trades for ${label}?`)) return;
     setReconstructingHistory(true);
     setReconstructionResult(null);
+
+    let totals = { usersProcessed: 0, usersSkipped: 0, totalPointsWritten: 0, errors: 0 };
+    let cursor = null;
+    let batchNum = 0;
+
     try {
-      const result = await reconstructPortfolioHistoryFunction({ uid: target || undefined });
-      setReconstructionResult(result.data);
+      do {
+        batchNum++;
+        const payload = { uid: target || undefined, startAfterUid: cursor || undefined };
+        const result = await reconstructPortfolioHistoryFunction(payload);
+        const d = result.data;
+        totals.usersProcessed += d.usersProcessed || 0;
+        totals.usersSkipped += d.usersSkipped || 0;
+        totals.totalPointsWritten += d.totalPointsWritten || 0;
+        totals.errors += d.errors || 0;
+        setReconstructionResult({ ...totals, batch: batchNum, running: !d.done });
+        cursor = d.nextCursor || null;
+        if (d.done || target) break;
+      } while (cursor);
+      setReconstructionResult({ ...totals, batch: batchNum, running: false });
     } catch (error) {
       setMessage({ type: 'error', text: `Reconstruction failed: ${error.message}` });
+      setReconstructionResult({ ...totals, running: false });
     } finally {
       setReconstructingHistory(false);
     }
