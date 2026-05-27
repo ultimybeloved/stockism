@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
 import { LADDER_GAME_MAX_BALANCE } from '../constants/economy';
 import { useAppContext } from '../context/AppContext';
+import LadderTutorialModal from './LadderTutorialModal';
 
 const LadderGame = ({ user, onClose, darkMode, userData }) => {
   const { showNotification } = useAppContext();
@@ -41,6 +42,8 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
   const [depositLoading, setDepositLoading] = useState(false);
 
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [showLadderTutorial, setShowLadderTutorial] = useState(false);
+  const [showLadderTutorialReview, setShowLadderTutorialReview] = useState(false);
 
   const bannerTimeoutRef = useRef(null);
   const tracksRef = useRef(null);
@@ -136,8 +139,19 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
     return id;
   };
 
+  const handleLadderTutorialComplete = async () => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { ladderTutorialCompleted: true });
+    setShowLadderTutorial(false);
+  };
+
   const selectStart = (side) => {
     if (playing) return;
+
+    if (!userData?.ladderTutorialCompleted) {
+      setShowLadderTutorial(true);
+      return;
+    }
 
     // Fade out init banner when selecting
     if (showInitBanner) {
@@ -1061,6 +1075,21 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                   >
                     My Stats
                   </button>
+                  <button
+                    onClick={() => setShowLadderTutorialReview(true)}
+                    style={{
+                      padding: '6px',
+                      background: '#8a7d6b',
+                      color: '#fff',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    View Guide
+                  </button>
                 </div>
 
                 {/* History */}
@@ -1403,6 +1432,20 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
               </button>
             </div>
           </div>
+        )}
+
+        {showLadderTutorial && (
+          <LadderTutorialModal
+            onClose={() => setShowLadderTutorial(false)}
+            onComplete={handleLadderTutorialComplete}
+          />
+        )}
+        {showLadderTutorialReview && (
+          <LadderTutorialModal
+            onClose={() => setShowLadderTutorialReview(false)}
+            onComplete={() => setShowLadderTutorialReview(false)}
+            reviewMode
+          />
         )}
 
         <style>

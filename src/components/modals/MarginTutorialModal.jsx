@@ -83,7 +83,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`flex gap-2 text-sm ${textClass}`}>
                   <span className="text-red-500 shrink-0 font-bold">−</span>
-                  <span>When trades go against you, your losses are amplified — and you still owe the borrowed amount</span>
+                  <span>When trades go against you, your losses are amplified. You still owe the borrowed amount regardless.</span>
                 </div>
                 <div className={`flex gap-2 text-sm ${textClass}`}>
                   <span className="text-red-500 shrink-0 font-bold">−</span>
@@ -92,7 +92,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               </div>
               <div className={`p-3 rounded-sm border ${darkMode ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'}`}>
                 <p className={`text-sm font-semibold ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
-                  Margin is a tool for experienced traders. It requires active monitoring.
+                  Margin amplifies both gains and losses. The borrowed amount always needs to be paid back.
                 </p>
               </div>
             </>
@@ -112,7 +112,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THURSDAY GRACE PERIOD</p>
-                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">21:00 UTC Thursday</span>, auto-liquidations are paused until <span className="font-semibold">21:30 UTC</span> — giving you 30 minutes to react to price changes before the system starts checking again.</p>
+                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">21:00 UTC Thursday</span>, auto-liquidations are paused until <span className="font-semibold">21:30 UTC</span>. You have 30 minutes before checks resume.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>OUTSIDE THE GRACE PERIOD</p>
@@ -149,15 +149,11 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-2">
                 <div className={`flex gap-2 text-sm ${textClass}`}>
                   <span className="text-green-500 shrink-0 font-bold">✓</span>
-                  <span>Spreading across multiple characters reduces your exposure — one bad move can't wipe you out</span>
+                  <span>Spreading across multiple characters reduces your exposure. One bad move is less likely to wipe everything out.</span>
                 </div>
                 <div className={`flex gap-2 text-sm ${textClass}`}>
                   <span className="text-green-500 shrink-0 font-bold">✓</span>
-                  <span>Never invest more than you're willing to lose entirely</span>
-                </div>
-                <div className={`flex gap-2 text-sm ${textClass}`}>
-                  <span className="text-green-500 shrink-0 font-bold">✓</span>
-                  <span>Keep some cash as a buffer — it gives you room to repay margin before a liquidation hits</span>
+                  <span>Never put in more than you can afford to lose entirely.</span>
                 </div>
               </div>
             </>
@@ -171,7 +167,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-3">
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>HOW SHORTS LOSE MONEY</p>
-                  <p className={`text-sm ${textClass}`}>If you short a stock and its price goes <span className="font-semibold">up</span>, you lose money. There is no ceiling on how high a price can go — meaning a short position technically has unlimited downside.</p>
+                  <p className={`text-sm ${textClass}`}>If you short a stock and its price goes <span className="font-semibold">up</span>, you lose money. There is no ceiling on how high a price can go. A short position can lose more than you put in.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>COORDINATED SHORTING</p>
@@ -191,11 +187,11 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-2">
                 {[
                   ['Margin interest rate', '0.5% per day on borrowed amount'],
-                  ['Margin call threshold', '25% equity ratio — below this, auto-liquidation triggers'],
+                  ['Margin call threshold', '25% equity ratio. Below this, auto-liquidation triggers.'],
                   ['Max short exposure', '100% of your portfolio value (1:1 cap)'],
-                  ['Grace period', '21:00–21:30 UTC Thursday — no liquidations during this window'],
+                  ['Grace period', '21:00 to 21:30 UTC Thursday. No liquidations during this window.'],
                   ['Liquidation check', 'Every 5 minutes outside the grace period'],
-                  ['After margin call', 'Your cash can go negative — this means bankruptcy'],
+                  ['After margin call', 'Your cash can go negative. This means bankruptcy.'],
                 ].map(([label, value]) => (
                   <div key={label} className={`p-3 rounded-sm flex justify-between gap-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                     <span className={`text-sm font-semibold ${textClass} shrink-0`}>{label}</span>
