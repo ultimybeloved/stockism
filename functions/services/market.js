@@ -326,8 +326,8 @@ exports.chapterReviewRecap = functions.pubsub
 
 /**
  * Fill pending stop loss orders at market open after chapter review.
+ * Also runs the opening auction for pre-market orders placed during 20:30-21:00 UTC.
  * Runs at exactly 21:00 UTC Thursday — same moment the halt ends.
- * Executes fills before circuit breakers or community trading can move prices.
  */
 exports.processMarketOpenOrders = functions.pubsub
   .schedule('0 21 * * 4')
@@ -335,8 +335,193 @@ exports.processMarketOpenOrders = functions.pubsub
   .onRun(async () => {
     try {
       const marketRef = db.collection('market').doc('current');
-      const marketSnap = await marketRef.get();
+      let marketSnap = await marketRef.get();
       if (!marketSnap.exists) return null;
+
+      // ─── Pre-market opening auction ────────────────────────────────────────
+      // Collect all PENDING pre-market orders placed today (after 20:30 UTC)
+      const now = new Date();
+      const preMarketStart = new Date(now);
+      preMarketStart.setUTCHours(20, 30, 0, 0);
+
+      const preMarketSnap = await db.collection('preMarketOrders')
+        .where('status', '==', 'PENDING')
+        .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(preMarketStart))
+        .get();
+
+      console.log(`processMarketOpenOrders: ${preMarketSnap.size} pre-market orders in opening auction`);
+
+      if (!preMarketSnap.empty) {
+        const currentPrices = marketSnap.data().prices || {};
+
+        // Group by ticker to compute a single opening price per ticker
+        const byTicker = {};
+        for (const doc of preMarketSnap.docs) {
+          const o = doc.data();
+          if (!byTicker[o.ticker]) byTicker[o.ticker] = { buys: [], sells: [] };
+          byTicker[o.ticker][o.action === 'buy' ? 'buys' : 'sells'].push({ doc, order: o });
+        }
+
+        // Compute opening price for each ticker (net aggregate impact — one move, not per-order)
+        const auctionPrices = {}; // ticker -> { openingPrice, openingAsk, openingBid }
+        for (const [ticker, { buys, sells }] of Object.entries(byTicker)) {
+          const basePrice = currentPrices[ticker];
+          if (!basePrice) continue;
+
+          const totalBuy = buys.reduce((s, { order: o }) => s + o.shares, 0);
+          const totalSell = sells.reduce((s, { order: o }) => s + o.shares, 0);
+          const netDemand = totalBuy - totalSell;
+
+          const orderChar = CHARACTERS.find(c => c.ticker === ticker);
+          const spread = orderChar?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+
+          let openingPrice = basePrice;
+          if (Math.abs(netDemand) >= 0.01) {
+            const impact = calculateMarginalImpact(basePrice, Math.abs(netDemand), 0);
+            openingPrice = netDemand > 0
+              ? Math.min(basePrice + impact, basePrice * (1 + MAX_PRICE_CHANGE_PERCENT))
+              : Math.max(0.01, basePrice - impact);
+          }
+          openingPrice = Math.round(openingPrice * 100) / 100;
+
+          auctionPrices[ticker] = {
+            openingPrice,
+            openingAsk: Math.round(openingPrice * (1 + spread / 2) * 100) / 100,
+            openingBid: Math.round(openingPrice * (1 - spread / 2) * 100) / 100
+          };
+
+          // Write the new opening price to the market once per ticker
+          await marketRef.update({
+            [`prices.${ticker}`]: openingPrice,
+            [`priceHistory.${ticker}`]: admin.firestore.FieldValue.arrayUnion({
+              timestamp: Date.now(),
+              price: openingPrice,
+              source: 'pre_market_auction'
+            })
+          });
+        }
+
+        // Execute each pre-market order at the pre-computed opening price
+        let pmFilled = 0, pmFailed = 0;
+        for (const { doc, order } of Object.values(byTicker).flatMap(g => [...g.buys, ...g.sells])) {
+          const prices = auctionPrices[order.ticker];
+          if (!prices) {
+            await doc.ref.update({ status: 'FAILED', failReason: 'No market price', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+            pmFailed++;
+            continue;
+          }
+
+          const executionPrice = order.action === 'buy' ? prices.openingAsk : prices.openingBid;
+          const userRef = db.collection('users').doc(order.userId);
+          let fillShares = order.shares;
+          let feedDisplayName = '';
+          let feedCrew = null;
+
+          try {
+            await db.runTransaction(async (transaction) => {
+              const userSnap = await transaction.get(userRef);
+              if (!userSnap.exists) throw new Error('User not found');
+              const ud = userSnap.data();
+              feedDisplayName = ud.displayName || 'Anonymous';
+              feedCrew = ud.crew || null;
+              if (ud.isBankrupt) throw new Error('User is bankrupt');
+
+              if (order.action === 'buy') {
+                const totalCost = executionPrice * fillShares;
+                if ((ud.cash || 0) < totalCost) {
+                  if (order.allowPartialFills && (ud.cash || 0) > executionPrice) {
+                    fillShares = Math.round(Math.floor((ud.cash || 0) / executionPrice * 100) / 100 * 100) / 100;
+                  } else {
+                    throw new Error('Insufficient cash');
+                  }
+                }
+                const currentHoldings = ud.holdings?.[order.ticker] || 0;
+                const currentCostBasis = ud.costBasis?.[order.ticker] || 0;
+                const newHoldings = Math.round((currentHoldings + fillShares) * 10000) / 10000;
+                const newCostBasis = currentHoldings > 0
+                  ? Math.round(((currentCostBasis * currentHoldings) + (executionPrice * fillShares)) / newHoldings * 100) / 100
+                  : executionPrice;
+                transaction.update(userRef, {
+                  cash: admin.firestore.FieldValue.increment(-executionPrice * fillShares),
+                  [`holdings.${order.ticker}`]: newHoldings,
+                  [`costBasis.${order.ticker}`]: newCostBasis,
+                  lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+                  totalTrades: admin.firestore.FieldValue.increment(1)
+                });
+              } else {
+                const userShares = ud.holdings?.[order.ticker] || 0;
+                if (userShares < fillShares) {
+                  if (order.allowPartialFills && userShares > 0) {
+                    fillShares = userShares;
+                  } else {
+                    throw new Error('Insufficient shares');
+                  }
+                }
+                const newHoldings = Math.round((userShares - fillShares) * 10000) / 10000;
+                const updates = {
+                  cash: admin.firestore.FieldValue.increment(executionPrice * fillShares),
+                  lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+                  totalTrades: admin.firestore.FieldValue.increment(1)
+                };
+                if (newHoldings <= 0) {
+                  updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                  updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                  updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+                } else {
+                  updates[`holdings.${order.ticker}`] = newHoldings;
+                }
+                transaction.update(userRef, updates);
+              }
+            });
+
+            const isPartial = order.allowPartialFills && fillShares < order.shares;
+            await doc.ref.update({
+              status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
+              filledShares: fillShares,
+              executedPrice: executionPrice,
+              executedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            writeNotification(order.userId, {
+              type: 'trade',
+              title: 'Market Open Order Filled',
+              message: `Your ${order.action} of ${fillShares} $${order.ticker} executed at $${executionPrice.toFixed(2)} in the opening auction`,
+              data: { ticker: order.ticker, orderId: doc.id, price: executionPrice }
+            });
+            writeFeedEntry({
+              type: 'trade',
+              userId: order.userId,
+              displayName: feedDisplayName,
+              crew: feedCrew,
+              ticker: order.ticker,
+              action: order.action,
+              amount: fillShares,
+              price: executionPrice,
+              message: `${order.action === 'buy' ? 'bought' : 'sold'} ${fillShares} $${order.ticker} via market open auction at $${executionPrice.toFixed(2)}`
+            });
+            pmFilled++;
+          } catch (err) {
+            await doc.ref.update({
+              status: 'FAILED',
+              failReason: err.message,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            writeNotification(order.userId, {
+              type: 'trade',
+              title: 'Market Open Order Failed',
+              message: `Your ${order.action} of ${order.shares} $${order.ticker} could not be filled: ${err.message}`,
+              data: { ticker: order.ticker, orderId: doc.id }
+            });
+            pmFailed++;
+          }
+        }
+
+        console.log(`Opening auction complete: ${pmFilled} filled, ${pmFailed} failed`);
+
+        // Re-fetch market snapshot so stop-loss checks use post-auction prices
+        marketSnap = await marketRef.get();
+      }
+
       const openingPrices = marketSnap.data().prices || {};
 
       const ordersSnapshot = await db.collection('limitOrders')

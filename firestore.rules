@@ -319,6 +319,17 @@ service cloud.firestore {
     }
 
     // ============================================
+    // PRE-MARKET ORDERS
+    // ============================================
+
+    match /preMarketOrders/{orderId} {
+      // All authenticated users can read — needed to compute the live indicative opening price
+      allow read: if isAuthenticated();
+      // All writes go through Cloud Functions (Admin SDK bypasses rules)
+      allow create, update, delete: if false;
+    }
+
+    // ============================================
     // TRADES COLLECTION (audit log)
     // ============================================
 

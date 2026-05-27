@@ -112,7 +112,22 @@ export const getReviewChanges = (priceHistory, characters) => {
 };
 
 export const HALT_END_MINUTE = 1260; // 21:00 UTC
+export const PRE_MARKET_START_MINUTE = 1230; // 20:30 UTC
 export const GRACE_PERIOD_MINUTES = 30;
+
+export const isPreMarketWindow = () => {
+  const now = new Date();
+  if (now.getUTCDay() !== 4) return false;
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return utcMins >= PRE_MARKET_START_MINUTE && utcMins < HALT_END_MINUTE;
+};
+
+export const getPreMarketTimeRemaining = () => {
+  const now = new Date();
+  const open = new Date(now);
+  open.setUTCHours(21, 0, 0, 0);
+  return Math.max(0, open.getTime() - now.getTime());
+};
 
 export const isMarketOpenGracePeriod = () => {
   const now = new Date();

@@ -4,15 +4,19 @@ import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses } from '../utils/theme';
 import SimpleLineChart from './charts/SimpleLineChart';
 import TradeActionModal from './modals/TradeActionModal';
+import PreMarketModal from './modals/PreMarketModal';
 import { CREWS } from '../crews';
 import { CHARACTERS } from '../characters';
 import { useAppContext } from '../context/AppContext';
+import { isPreMarketWindow } from '../utils/marketHours';
 
 const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
   const { darkMode, user, userData, prices, priceHistory } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
+  const [showPreMarket, setShowPreMarket] = useState(false);
+  const [preMarketAction, setPreMarketAction] = useState('buy');
   const [etfExpanded, setEtfExpanded] = useState(false);
 
   // Check if this card should open in limit order or stop loss mode
@@ -307,20 +311,28 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
                 : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
             }`}
           >
-            {isHalted ? 'Trading Halted' : 'Trade'}
+            {isHalted ? 'Trading Halted' : isPreMarketWindow() ? 'Pre-Market Queue' : 'Trade'}
           </button>
         ) : (
           <div className="space-y-2" onClick={e => e.stopPropagation()}>
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => { setTradeAction('buy'); setShowTradeMenu(false); }}
+                onClick={() => {
+                  setShowTradeMenu(false);
+                  if (isPreMarketWindow()) { setPreMarketAction('buy'); setShowPreMarket(true); }
+                  else setTradeAction('buy');
+                }}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(true).bg} ${getBuySellColors(true).bgHover} text-white`}
               >
                 Buy
               </button>
               <button
-                onClick={() => { setTradeAction('sell'); setShowTradeMenu(false); }}
+                onClick={() => {
+                  setShowTradeMenu(false);
+                  if (isPreMarketWindow()) { setPreMarketAction('sell'); setShowPreMarket(true); }
+                  else setTradeAction('sell');
+                }}
                 disabled={holdings === 0}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(false).bg} ${getBuySellColors(false).bgHover} text-white disabled:opacity-50`}
               >
@@ -363,6 +375,18 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           onClose={() => { setTradeAction(null); setShouldOpenAsLimit(false); }}
           defaultToLimitOrder={shouldOpenAsLimit}
           haltInfo={haltInfo}
+        />
+      )}
+
+      {/* Pre-Market Opening Auction Modal */}
+      {showPreMarket && (
+        <PreMarketModal
+          character={character}
+          price={price}
+          holdings={holdings}
+          userCash={userCash}
+          initialAction={preMarketAction}
+          onClose={() => setShowPreMarket(false)}
         />
       )}
     </>
