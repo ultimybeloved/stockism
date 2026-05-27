@@ -4,7 +4,7 @@
 
 // General
 export const ITEMS_PER_PAGE = 15;
-export const STARTING_CASH = 1000;
+export const STARTING_CASH = 3000;
 export const DAILY_BONUS = 300;
 export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
@@ -25,7 +25,7 @@ export const MIN_PRICE = 0.01; // Minimum price floor
 export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)
-export const SHORT_MARGIN_REQUIREMENT = 0.5; // 50% margin required (can short up to 2x cash)
+export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
 export const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
 export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker

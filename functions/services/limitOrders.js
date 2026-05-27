@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, THIRTY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
+const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
 
 exports.createLimitOrder = functions.https.onCall(async (data, context) => {
@@ -124,7 +124,7 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
   }
 
   // Create the order
-  const expiresAt = Date.now() + THIRTY_DAYS_MS; // 30 days
+  const expiresAt = Date.now() + NINETY_DAYS_MS; // 90 days
   const orderRef = await db.collection('limitOrders').add({
     userId: uid,
     ticker,

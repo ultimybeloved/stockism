@@ -8,6 +8,7 @@ const {
   isWeeklyTradingHalt, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS, ANIMAL_TICKERS, MAX_SHORT_EXPOSURE_RATIO,
+  SHORT_MARGIN_RATIO,
 } = require('../constants');
 const {
   checkBanned,
@@ -235,7 +236,14 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
       }
 
     } else if (action === 'short') {
-      // Validate shorting eligibility
+      // Validate shorting eligibility — requires margin account
+      if (!userData.marginEnabled) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'A margin account is required to open short positions. Enable margin in your profile settings.'
+        );
+      }
+
       if (cash < 0) {
         throw new functions.https.HttpsError(
           'failed-precondition',
@@ -243,7 +251,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         );
       }
 
-      const marginRequired = currentPrice * amount * 0.5; // 50% margin
+      const marginRequired = currentPrice * amount * SHORT_MARGIN_RATIO; // 100% collateral
       const prices = marketData.prices || {};
 
       // v2: Must have enough cash for the margin deposit
@@ -279,6 +287,14 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError(
           'failed-precondition',
           'Short limit reached. Total short exposure cannot exceed your portfolio value.'
+        );
+      }
+
+      // Per-ticker concentration cap: single-ticker short can't exceed 50% of portfolio equity
+      if (portfolioEquity > 0 && newShortValue > portfolioEquity * 0.5) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Concentration limit: a single short position cannot exceed 50% of your portfolio value ($${(portfolioEquity * 0.5).toFixed(2)} max for $${ticker}).`
         );
       }
 
@@ -883,7 +899,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
         }
 
-        const marginRequired = currentPrice * amount * 0.5; // 50% margin
+        const marginRequired = currentPrice * amount * SHORT_MARGIN_RATIO; // 100% collateral
 
         // v2: Must have enough cash for the margin deposit
         if (cash < marginRequired) {
@@ -1561,7 +1577,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         ticker,
         action,
         amount,
-        price: result.executionPrice || 0
+        price: result.executionPrice || 0,
+        // Delay large block trades 30 min to prevent real-time targeting
+        displayAfter: amount >= 50 ? Date.now() + 30 * 60 * 1000 : null
       });
 
       // Notify on new achievements

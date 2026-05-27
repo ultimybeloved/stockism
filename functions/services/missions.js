@@ -34,16 +34,16 @@ const DAILY_MISSION_CHECKS = {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
     const total = CREW_MEMBERS[crew].reduce((s, t) => s + ((userData.holdings || {})[t] || 0), 0);
-    return total >= 10;
+    return total >= 20;
   },
-  MAKE_TRADES: (dp) => (dp.tradesCount || 0) >= 3,
+  MAKE_TRADES: (dp) => (dp.tradesCount || 0) >= 5,
   BUY_ANY_STOCK: (dp) => !!dp.boughtAny,
   SELL_ANY_STOCK: (dp) => !!dp.soldAny,
   HOLD_LARGE_POSITION: (dp, userData) => {
     const vals = Object.values(userData.holdings || {});
-    return vals.length > 0 && Math.max(...vals) >= 25;
+    return vals.length > 0 && Math.max(...vals) >= 50;
   },
-  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= 10,
+  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= 500,
   CREW_MAJORITY: (dp, userData) => {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
@@ -69,7 +69,7 @@ const DAILY_MISSION_CHECKS = {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
     const maxHolding = Math.max(0, ...CREW_MEMBERS[crew].map(t => ((userData.holdings || {})[t] || 0)));
-    return maxHolding >= 20;
+    return maxHolding >= 35;
   },
   RIVAL_TRADER: (dp) => !!dp.boughtRival,
   SPY_GAME: (dp, userData) => {
@@ -96,13 +96,13 @@ const DAILY_MISSION_CHECKS = {
     const qualifying = CREW_MEMBERS[crew].filter(t => ((userData.holdings || {})[t] || 0) >= 5).length;
     return qualifying >= 2;
   },
-  CREW_ACCUMULATOR: (dp) => (dp.crewSharesBought || 0) >= 10
+  CREW_ACCUMULATOR: (dp) => (dp.crewSharesBought || 0) >= 20
 };
 
 const WEEKLY_MISSION_CHECKS = {
-  MARKET_WHALE: (wp) => (wp.tradeValue || 0) >= 10000,
-  VOLUME_KING: (wp) => (wp.tradeVolume || 0) >= 100,
-  TRADING_MACHINE: (wp) => (wp.tradeCount || 0) >= 25,
+  MARKET_WHALE: (wp) => (wp.tradeValue || 0) >= 20000,
+  VOLUME_KING: (wp) => (wp.tradeVolume || 0) >= 200,
+  TRADING_MACHINE: (wp) => (wp.tradeCount || 0) >= 40,
   TRADING_STREAK: (wp) => Object.keys(wp.tradingDays || {}).length >= 5,
   DAILY_GRINDER: (wp) => Object.keys(wp.checkinDays || {}).length >= 7,
   CREW_MAXIMALIST: (wp, userData, prices) => {
@@ -119,13 +119,13 @@ const WEEKLY_MISSION_CHECKS = {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
     const total = CREW_MEMBERS[crew].reduce((s, t) => s + ((userData.holdings || {})[t] || 0), 0);
-    return total >= 50;
+    return total >= 75;
   },
   FULL_CREW_OWNERSHIP: (wp, userData) => {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
     const members = CREW_MEMBERS[crew];
-    return members.length > 0 && members.every(t => ((userData.holdings || {})[t] || 0) >= 5);
+    return members.length > 0 && members.every(t => ((userData.holdings || {})[t] || 0) >= 8);
   },
   DIVERSIFICATION_MASTER: (wp, userData) => {
     const holdings = userData.holdings || {};
@@ -141,20 +141,20 @@ const WEEKLY_MISSION_CHECKS = {
   },
   PORTFOLIO_BUILDER: (wp, userData) => {
     const startValue = wp.startPortfolioValue || 0;
-    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 2000;
+    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 3500;
   },
-  SHARE_MOGUL: (wp) => (wp.tradeVolume || 0) >= 250,
-  TRADE_MASTER: (wp) => (wp.tradeCount || 0) >= 50,
+  SHARE_MOGUL: (wp) => (wp.tradeVolume || 0) >= 400,
+  TRADE_MASTER: (wp) => (wp.tradeCount || 0) >= 75,
   HEAVY_BAGS: (wp, userData) => {
     const total = Object.values(userData.holdings || {}).reduce((s, v) => s + (v > 0 ? v : 0), 0);
-    return total >= 200;
+    return total >= 300;
   },
   PENNY_COLLECTOR: (wp, userData, prices) => {
     let pennyShares = 0;
     Object.entries(userData.holdings || {}).forEach(([t, s]) => {
       if (s > 0 && ((prices || {})[t] || 0) < 25) pennyShares += s;
     });
-    return pennyShares >= 50;
+    return pennyShares >= 80;
   },
   BLUE_CHIP_INVESTOR: (wp, userData, prices) => {
     let count = 0;
@@ -169,7 +169,7 @@ const WEEKLY_MISSION_CHECKS = {
   },
   PORTFOLIO_MOONSHOT: (wp, userData) => {
     const startValue = wp.startPortfolioValue || 0;
-    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 5000;
+    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 8000;
   }
 };
 

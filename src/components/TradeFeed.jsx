@@ -94,7 +94,10 @@ export default function TradeFeed({ darkMode, user, userCrew }) {
       limit(50)
     );
     const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const now = Date.now();
+      const items = snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((item) => !item.displayAfter || item.displayAfter <= now);
       setCrewItems(items);
       if (!open) {
         const newCount = items.filter((item) => {
@@ -115,7 +118,10 @@ export default function TradeFeed({ darkMode, user, userCrew }) {
       limit(50)
     );
     const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const now = Date.now();
+      const items = snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((item) => !item.displayAfter || item.displayAfter <= now);
       setGlobalItems(items);
       if (!open) {
         const newCount = items.filter((item) => {

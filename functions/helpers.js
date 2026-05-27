@@ -117,7 +117,7 @@ const writeNotification = async (uid, { type, title, message, data = {} }) => {
 };
 
 // Writes a feed doc to the global feed collection (fire-and-forget)
-const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker, action, amount, price, achievementId }) => {
+const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker, action, amount, price, achievementId, displayAfter }) => {
   try {
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 day TTL
     await db.collection('feed').add({
@@ -132,7 +132,8 @@ const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker
       achievementId: achievementId || null,
       message,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt
+      expiresAt,
+      displayAfter: displayAfter || null
     });
   } catch (err) {
     console.error('Failed to write feed entry:', err.message);

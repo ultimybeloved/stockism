@@ -18,6 +18,7 @@ const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per roll
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
+const NINETY_DAYS_MS        = 90 * 24 * 60 * 60 * 1000;
 
 // ============================================
 // WEEKLY TRADING HALT (Thursday 13:00–21:00 UTC)
@@ -37,8 +38,9 @@ const isWeeklyTradingHalt = () => {
 // ============================================
 // ECONOMY
 // ============================================
-const STARTING_CASH = 1000;
-const BAILOUT_CASH = 500;
+const STARTING_CASH = 3000;
+const BAILOUT_CASH = 1500;
+const SHORT_MARGIN_RATIO = 1.0; // 100% collateral — deposit dollar-for-dollar
 const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
 
 // ============================================
@@ -92,6 +94,8 @@ module.exports = {
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,
+  NINETY_DAYS_MS,
+  SHORT_MARGIN_RATIO,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_START_MINUTE,
