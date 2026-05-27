@@ -738,4 +738,147 @@ exports.migratePortfolioHistory = functions
     }
 
     return { migrated, skipped, errors };
+  });
+
+/**
+ * Reconstruct portfolio history from permanent trades + price history archives.
+ * For each user's trades (sorted ascending), rebuild holdings state and calculate
+ * portfolio value = cashAfter + sum(longShares * historicalPrice).
+ * Writes reconstructed points to users/{uid}/portfolioHistory subcollection,
+ * skipping timestamps that already have entries.
+ *
+ * data.uid — optional; if provided, runs for that user only. Otherwise all non-bot users.
+ */
+exports.reconstructPortfolioHistory = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onCall(async (data, context) => {
+    if (!context.auth || context.auth.uid !== ADMIN_UID) {
+      throw new functions.https.HttpsError('permission-denied', 'Admin only');
+    }
+
+    const targetUid = data && data.uid ? data.uid : null;
+
+    // 1. Determine which users to process
+    let userDocs = [];
+    if (targetUid) {
+      const doc = await db.collection('users').doc(targetUid).get();
+      if (!doc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
+      userDocs = [doc];
+    } else {
+      const snap = await db.collection('users').get();
+      userDocs = snap.docs.filter(d => !d.data().isBot);
+    }
+
+    // 2. Load full price history for all tickers (recent + archived) — done once
+    const marketDoc = await db.collection('market').doc('current').get();
+    const recentPriceHistory = (marketDoc.data() || {}).priceHistory || {};
+
+    const archivedSnaps = await db.collection('market').doc('current')
+      .collection('price_history').get();
+
+    // Merge: archived (older) + recent (newer), sorted ascending by timestamp
+    const fullPriceHistory = {};
+    for (const [ticker, entries] of Object.entries(recentPriceHistory)) {
+      fullPriceHistory[ticker] = Array.isArray(entries) ? [...entries] : [];
+    }
+    for (const archDoc of archivedSnaps.docs) {
+      const ticker = archDoc.id;
+      const archived = archDoc.data().history || [];
+      const existing = fullPriceHistory[ticker] || [];
+      const merged = [...archived, ...existing];
+      merged.sort((a, b) => a.timestamp - b.timestamp);
+      fullPriceHistory[ticker] = merged;
+    }
+
+    // Helper: binary-search closest price for a ticker at a timestamp
+    const getPriceAt = (ticker, ts) => {
+      const hist = fullPriceHistory[ticker];
+      if (!hist || hist.length === 0) return 0;
+      let lo = 0, hi = hist.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (hist[mid].timestamp < ts) lo = mid + 1;
+        else hi = mid;
+      }
+      if (lo > 0 && Math.abs(hist[lo - 1].timestamp - ts) < Math.abs(hist[lo].timestamp - ts)) {
+        return hist[lo - 1].price || 0;
+      }
+      return hist[lo].price || 0;
+    };
+
+    const toMs = (ts) => (ts && ts.toMillis) ? ts.toMillis() : (ts || 0);
+
+    // 3. Process each user
+    let totalPointsWritten = 0;
+    let usersProcessed = 0;
+    let usersSkipped = 0;
+    let errors = 0;
+
+    for (const userDoc of userDocs) {
+      const uid = userDoc.id;
+      try {
+        // Load trades sorted by timestamp ascending
+        const tradesSnap = await db.collection('trades')
+          .where('uid', '==', uid)
+          .orderBy('timestamp', 'asc')
+          .get();
+
+        if (tradesSnap.empty) { usersSkipped++; continue; }
+
+        // Load existing subcollection timestamps to avoid duplicates
+        const existingSnap = await db.collection('users').doc(uid)
+          .collection('portfolioHistory').select('timestamp').get();
+        const existingTs = new Set(existingSnap.docs.map(d => d.data().timestamp));
+
+        // Walk trades forward, maintaining long holdings state
+        const longHoldings = {}; // ticker -> shares
+        const points = [];
+
+        for (const tradeDoc of tradesSnap.docs) {
+          const t = tradeDoc.data();
+          const ts = toMs(t.timestamp);
+          const { ticker, action, amount, cashAfter } = t;
+
+          if (typeof cashAfter !== 'number' || !ticker || !action) continue;
+
+          // Update long holdings
+          if (action === 'buy') {
+            longHoldings[ticker] = (longHoldings[ticker] || 0) + (amount || 0);
+          } else if (action === 'sell') {
+            longHoldings[ticker] = Math.max(0, (longHoldings[ticker] || 0) - (amount || 0));
+          }
+          // short/cover: cashAfter already captures margin effects on cash;
+          // unrealized short P&L is omitted (approximation).
+
+          const holdingsValue = Object.entries(longHoldings).reduce((sum, [t2, shares]) => {
+            return shares > 0 ? sum + shares * getPriceAt(t2, ts) : sum;
+          }, 0);
+
+          const value = Math.round((cashAfter + holdingsValue) * 100) / 100;
+
+          if (!existingTs.has(ts) && value > 0) {
+            points.push({ timestamp: ts, value });
+            existingTs.add(ts); // dedupe within this run
+          }
+        }
+
+        // Write in batches of 400
+        const histRef = db.collection('users').doc(uid).collection('portfolioHistory');
+        for (let i = 0; i < points.length; i += 400) {
+          const batch = db.batch();
+          for (const point of points.slice(i, i + 400)) {
+            batch.set(histRef.doc(), point);
+          }
+          await batch.commit();
+        }
+
+        totalPointsWritten += points.length;
+        usersProcessed++;
+      } catch (err) {
+        console.error(`Reconstruction failed for ${uid}:`, err.message);
+        errors++;
+      }
+    }
+
+    return { usersProcessed, usersSkipped, totalPointsWritten, errors };
   });

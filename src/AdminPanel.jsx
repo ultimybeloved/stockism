@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES } from './constants/economy';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -107,6 +107,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [scanningHistory, setScanningHistory] = useState(false);
   const [migratingPortfolioHistory, setMigratingPortfolioHistory] = useState(false);
   const [portfolioMigrationResult, setPortfolioMigrationResult] = useState(null);
+  const [reconstructingHistory, setReconstructingHistory] = useState(false);
+  const [reconstructionResult, setReconstructionResult] = useState(null);
+  const [reconstructUid, setReconstructUid] = useState('');
 
   // Check-in fraud detection state
   const [fraudUsers, setFraudUsers] = useState([]);
@@ -3633,6 +3636,22 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
+  const handleReconstructPortfolioHistory = async () => {
+    const target = reconstructUid.trim() || null;
+    const label = target ? `user ${target}` : 'ALL non-bot users';
+    if (!window.confirm(`Reconstruct portfolio history from trades for ${label}? This may take up to 9 minutes.`)) return;
+    setReconstructingHistory(true);
+    setReconstructionResult(null);
+    try {
+      const result = await reconstructPortfolioHistoryFunction({ uid: target || undefined });
+      setReconstructionResult(result.data);
+    } catch (error) {
+      setMessage({ type: 'error', text: `Reconstruction failed: ${error.message}` });
+    } finally {
+      setReconstructingHistory(false);
+    }
+  };
+
   const handleMigratePortfolioHistory = async () => {
     if (!window.confirm('Run the one-time portfolio history migration? This will move all existing portfolioHistory arrays into permanent subcollections.')) return;
     setMigratingPortfolioHistory(true);
@@ -4131,6 +4150,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               migratingPortfolioHistory={migratingPortfolioHistory}
               portfolioMigrationResult={portfolioMigrationResult}
               handleMigratePortfolioHistory={handleMigratePortfolioHistory}
+              reconstructingHistory={reconstructingHistory}
+              reconstructionResult={reconstructionResult}
+              reconstructUid={reconstructUid}
+              setReconstructUid={setReconstructUid}
+              handleReconstructPortfolioHistory={handleReconstructPortfolioHistory}
               handleRepairCorruptedAccounts={handleRepairCorruptedAccounts}
               loadingBackups={loadingBackups}
               backups={backups}

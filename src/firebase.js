@@ -123,5 +123,6 @@ export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividen
 export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfillHoldingCohorts');
 // One-time migrations
 export const migratePortfolioHistoryFunction = httpsCallable(functions, 'migratePortfolioHistory');
+export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
 
 export default app;

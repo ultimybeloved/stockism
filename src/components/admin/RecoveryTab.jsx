@@ -56,6 +56,12 @@ const RecoveryTab = ({
   migratingPortfolioHistory,
   portfolioMigrationResult,
   handleMigratePortfolioHistory,
+  // Portfolio history reconstruction from trades
+  reconstructingHistory,
+  reconstructionResult,
+  reconstructUid,
+  setReconstructUid,
+  handleReconstructPortfolioHistory,
   // Trade history & rollback
   tradeFilterTicker,
   setTradeFilterTicker,
@@ -328,6 +334,33 @@ const RecoveryTab = ({
           className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
           {migratingPortfolioHistory ? 'Migrating... (may take a minute)' : portfolioMigrationResult ? 'Migration complete' : '📦 Run Portfolio History Migration'}
+        </button>
+      </div>
+
+      {/* Portfolio History Reconstruction */}
+      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-blue-700' : 'border-blue-300'}`}>
+        <h3 className={`font-semibold mb-2 text-blue-500`}>🔁 Reconstruct Portfolio History</h3>
+        <p className={`text-sm ${mutedClass} mb-3`}>
+          Rebuilds historical portfolio values from the permanent trades collection and price archives. Leave the UID field blank to run for all non-bot users. Runs up to 9 minutes.
+        </p>
+        <input
+          type="text"
+          value={reconstructUid}
+          onChange={e => setReconstructUid(e.target.value)}
+          placeholder="User UID (leave blank for all users)"
+          className={`w-full px-3 py-2 mb-3 rounded-sm border text-sm font-mono ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'} focus:outline-none focus:border-blue-500`}
+        />
+        {reconstructionResult && (
+          <p className={`text-sm mb-3 font-semibold ${reconstructionResult.errors > 0 ? 'text-red-500' : 'text-green-500'}`}>
+            Done — users: {reconstructionResult.usersProcessed}, points written: {reconstructionResult.totalPointsWritten}, skipped: {reconstructionResult.usersSkipped}, errors: {reconstructionResult.errors}
+          </p>
+        )}
+        <button
+          onClick={handleReconstructPortfolioHistory}
+          disabled={reconstructingHistory}
+          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
+        >
+          {reconstructingHistory ? 'Reconstructing... (up to 9 min)' : '🔁 Reconstruct from Trades'}
         </button>
       </div>
 
