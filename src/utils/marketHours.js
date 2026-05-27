@@ -122,6 +122,14 @@ export const isPreMarketWindow = () => {
   return utcMins >= PRE_MARKET_START_MINUTE && utcMins < HALT_END_MINUTE;
 };
 
+// Final 5 minutes before open — orders are committed, no cancellations allowed
+export const isPreMarketLockout = () => {
+  const now = new Date();
+  if (now.getUTCDay() !== 4) return false;
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return utcMins >= 1255 && utcMins < HALT_END_MINUTE;
+};
+
 export const getPreMarketTimeRemaining = () => {
   const now = new Date();
   const open = new Date(now);

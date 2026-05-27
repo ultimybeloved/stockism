@@ -4,7 +4,7 @@ import { db, createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices } from '../../utils/calculations';
-import { getPreMarketTimeRemaining, formatCountdown } from '../../utils/marketHours';
+import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 
 const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 'buy', onClose }) => {
@@ -61,6 +61,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
 
   const indicativePrice = getIndicativePrice();
   const { bid, ask } = getBidAskPrices(indicativePrice, character.isETF);
+  const locked = isPreMarketLockout();
   const myOrders = allOrders.filter(o => o.userId === user?.uid);
   const myActionOrder = myOrders.find(o => o.action === action);
   const maxShares = action === 'buy'
@@ -106,7 +107,12 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
 
         <div className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}>
           All queued orders execute at the same price when the market opens. Submitting early gives no advantage.
-          <span className="block mt-1 font-semibold">Market opens in {countdown}</span>
+          <span className="block mt-1 font-semibold">
+            {locked ? 'Orders locked — market opens in ' : 'Market opens in '}{countdown}
+          </span>
+          {locked && (
+            <span className="block mt-0.5 text-yellow-400 font-semibold">Cancellations are closed. All queued orders will execute.</span>
+          )}
         </div>
 
         <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
@@ -194,10 +200,14 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
                   </span>
                   {' '}{o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.
                 </span>
-                <button onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}
-                  className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'} disabled:opacity-50`}>
-                  {cancelling === o.id ? '…' : 'Cancel'}
-                </button>
+                {locked ? (
+                  <span className={`text-xs px-2 py-1 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Locked</span>
+                ) : (
+                  <button onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}
+                    className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'} disabled:opacity-50`}>
+                    {cancelling === o.id ? '…' : 'Cancel'}
+                  </button>
+                )}
               </div>
             ))}
           </div>

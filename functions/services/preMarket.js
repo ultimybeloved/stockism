@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { PRE_MARKET_START_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../constants');
+const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../constants');
 
 const isPreMarketWindow = () => {
   const now = new Date();
@@ -137,6 +137,18 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
 exports.cancelPreMarketOrder = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  // Orders lock 5 minutes before open — prevents spoofing via late cancellations
+  const now = new Date();
+  if (now.getUTCDay() === 4) {
+    const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    if (utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Orders are locked in the final 5 minutes before market open. Your order will execute at 21:00 UTC.'
+      );
+    }
   }
 
   const uid = context.auth.uid;

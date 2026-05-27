@@ -25,6 +25,7 @@ const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
 const WEEKLY_HALT_START_MINUTE = 780;  // 13 * 60
 const WEEKLY_HALT_END_MINUTE   = 1260; // 21 * 60
 const PRE_MARKET_START_MINUTE  = 1230; // 20:30 UTC
+const PRE_MARKET_LOCK_MINUTE   = 1255; // 20:55 UTC — no cancellations after this
 
 const isWeeklyTradingHalt = () => {
   const now = new Date();
@@ -94,6 +95,7 @@ module.exports = {
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_START_MINUTE,
+  PRE_MARKET_LOCK_MINUTE,
   isWeeklyTradingHalt,
   STARTING_CASH,
   BAILOUT_CASH,
