@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL } = require('../constants');
+const { LEADERBOARD_CACHE_TTL, ADMIN_UID } = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -208,7 +208,8 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
   const userData = userDoc.data();
 
   const isOwner = context.auth?.uid === uid;
-  if (!userData.isPublic && !isOwner) {
+  const isCallerAdmin = context.auth?.uid === ADMIN_UID;
+  if (!userData.isPublic && !isOwner && !isCallerAdmin) {
     throw new functions.https.HttpsError('permission-denied', 'This profile is private');
   }
 
@@ -255,8 +256,40 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     return sum + (shortsRaw[t].shares * (prices[t] || 0));
   }, 0);
 
-  // Portfolio history for sparkline (cap at 100 points)
-  const portfolioHistory = (userData.portfolioHistory || []).slice(-100);
+  // Portfolio history for sparkline (full stored history)
+  const portfolioHistory = (userData.portfolioHistory || []).slice(-500);
+
+  // Admin-only: weekly gain + full financial data
+  let adminData = null;
+  if (isCallerAdmin) {
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const history = userData.portfolioHistory || [];
+    let valueSevenDaysAgo = userData.portfolioValue || 0;
+    for (let i = 0; i < history.length; i++) {
+      if (history[i].timestamp >= oneWeekAgo) {
+        valueSevenDaysAgo = history[i].value;
+        break;
+      }
+    }
+    const weeklyGain = (userData.portfolioValue || 0) - valueSevenDaysAgo;
+    const weeklyGainPercent = valueSevenDaysAgo > 0
+      ? Math.round((weeklyGain / valueSevenDaysAgo) * 10000) / 100
+      : 0;
+
+    adminData = {
+      uid,
+      cash: userData.cash || 0,
+      marginUsed: userData.marginUsed || 0,
+      marginEnabled: userData.marginEnabled || false,
+      netEquity: (userData.portfolioValue || 0) - (userData.marginUsed || 0),
+      weeklyGain,
+      weeklyGainPercent,
+      holdings: userData.holdings || {},
+      shorts: userData.shorts || {},
+      isBanned: userData.isBanned || false,
+      isBot: userData.isBot || false,
+    };
+  }
 
   return {
     displayName: userData.displayName || 'Anonymous',
@@ -276,6 +309,7 @@ exports.getPublicProfile = functions.https.onCall(async (data, context) => {
     shortTickers,
     totalShortValue,
     portfolioHistory,
+    adminData,
     achievements: userData.achievements || [],
     stats: {
       totalTrades: userData.totalTrades || 0,
