@@ -119,6 +119,13 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
     };
   }, []);
 
+  // Show tutorial on mount for any user who hasn't completed v2
+  useEffect(() => {
+    if (!userData?.ladderTutorial2Completed) {
+      setShowLadderTutorial(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Update instruction text
   useEffect(() => {
     if (playing) {
@@ -141,14 +148,14 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
 
   const handleLadderTutorialComplete = async () => {
     if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), { ladderTutorialCompleted: true });
+    await updateDoc(doc(db, 'users', user.uid), { ladderTutorial2Completed: true });
     setShowLadderTutorial(false);
   };
 
   const selectStart = (side) => {
     if (playing) return;
 
-    if (!userData?.ladderTutorialCompleted) {
+    if (!userData?.ladderTutorial2Completed) {
       setShowLadderTutorial(true);
       return;
     }
