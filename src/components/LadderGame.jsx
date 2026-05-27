@@ -507,7 +507,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
   };
 
   const handleDeposit = async () => {
-    const amount = parseFloat(depositAmount);
+    const amount = Math.ceil(parseFloat(depositAmount));
     if (isNaN(amount) || amount <= 0) {
       showNotification('error', 'Invalid amount');
       return;
@@ -1206,6 +1206,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                       <input
                         type="number"
+                        step="1"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
                         placeholder="Amount"

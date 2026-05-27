@@ -91,8 +91,8 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const oddPct = Math.max(25, Math.min(75, randomBase + variance));
       const evenPct = 100 - oddPct;
 
-      // Update user stats
-      userData.balance = userData.balance - amount + payout;
+      // Update user stats — ceil to keep balance a clean integer
+      userData.balance = Math.ceil(userData.balance - amount + payout);
       userData.gamesPlayed += 1;
       if (amount >= 50) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {
@@ -200,7 +200,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { amount } = data;
+  const amount = Math.ceil(data.amount);
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
