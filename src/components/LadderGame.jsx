@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db, playLadderGameFunction, depositToLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
+import { db, playLadderGameFunction, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
+import { LADDER_GAME_MAX_BALANCE } from '../constants/economy';
 import { useAppContext } from '../context/AppContext';
 
 const LadderGame = ({ user, onClose, darkMode, userData }) => {
@@ -30,12 +31,15 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
   const [frozenHistory, setFrozenHistory] = useState(null); // Freeze history during gameplay
 
   // Modals
-  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTab, setTransferTab] = useState('deposit');
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [depositLoading, setDepositLoading] = useState(false);
+
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
 
   const bannerTimeoutRef = useRef(null);
@@ -496,13 +500,29 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
     try {
       await depositToLadderGameFunction({ amount });
       setDepositAmount('');
-      setShowDepositModal(false);
+      setShowTransferModal(false);
       showNotification('success', `Successfully deposited $${amount}`);
     } catch (error) {
       console.error('Deposit error:', error);
       showNotification('error', error.message || 'Deposit failed');
     } finally {
       setDepositLoading(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const balance = userLadderData?.balance || 0;
+    if (balance <= 0) return;
+    setWithdrawLoading(true);
+    try {
+      await withdrawFromLadderGameFunction({ amount: balance });
+      setShowTransferModal(false);
+      showNotification('success', `Withdrew $${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ladder game`);
+    } catch (error) {
+      console.error('Withdrawal error:', error);
+      showNotification('error', error.message || 'Withdrawal failed');
+    } finally {
+      setWithdrawLoading(false);
     }
   };
 
@@ -997,7 +1017,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                 {/* Buttons */}
                 <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <button
-                    onClick={() => setShowDepositModal(true)}
+                    onClick={() => { setTransferTab('deposit'); setShowTransferModal(true); }}
                     style={{
                       padding: '6px',
                       background: '#af905b',
@@ -1009,7 +1029,7 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
                       textTransform: 'uppercase'
                     }}
                   >
-                    Deposit
+                    Transfer
                   </button>
                   <button
                     onClick={() => setShowLeaderboardModal(true)}
@@ -1098,80 +1118,145 @@ const LadderGame = ({ user, onClose, darkMode, userData }) => {
           </div>
         </div>
 
-        {/* Deposit Modal */}
-        {showDepositModal && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.8)',
-              zIndex: 10000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onClick={() => setShowDepositModal(false)}
-          >
+        {/* Transfer Modal */}
+        {showTransferModal && (() => {
+          const ladderBalance = userLadderData?.balance || 0;
+          const maxDeposit = Math.max(0, LADDER_GAME_MAX_BALANCE - ladderBalance);
+          const ladderFull = ladderBalance >= LADDER_GAME_MAX_BALANCE;
+          return (
             <div
               style={{
-                background: bgCard,
-                padding: '20px',
-                borderRadius: '4px',
-                minWidth: '300px'
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.8)',
+                zIndex: 10000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={() => setShowTransferModal(false)}
             >
-              <h3 style={{ color: textDark, marginBottom: '10px' }}>Deposit to Ladder Game</h3>
-              <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '10px' }}>
-                Stockism Cash: ${userStockismCash.toLocaleString()}
-              </p>
-              <input
-                type="number"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                placeholder="Amount"
+              <div
                 style={{
-                  width: '100%',
-                  padding: '8px',
-                  marginBottom: '10px',
-                  border: '1px solid #666',
-                  background: bgCardInner,
-                  color: textDark
+                  background: bgCard,
+                  padding: '20px',
+                  borderRadius: '4px',
+                  minWidth: '300px'
                 }}
-              />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={handleDeposit}
-                  disabled={depositLoading}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    background: '#d4af37',
-                    color: '#000',
-                    border: 'none',
-                    fontWeight: 700,
-                    cursor: depositLoading ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {depositLoading ? 'Depositing...' : 'Deposit'}
-                </button>
-                <button
-                  onClick={() => setShowDepositModal(false)}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    background: '#666',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 style={{ color: textDark, marginBottom: '12px' }}>Transfer</h3>
+
+                {/* Tabs */}
+                <div style={{ display: 'flex', marginBottom: '14px', borderBottom: '1px solid #444' }}>
+                  {['deposit', 'withdraw'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setTransferTab(tab)}
+                      style={{
+                        flex: 1,
+                        padding: '6px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: transferTab === tab ? '2px solid #d4af37' : '2px solid transparent',
+                        color: transferTab === tab ? '#d4af37' : textLight,
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        marginBottom: '-1px'
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {transferTab === 'deposit' ? (
+                  <>
+                    <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '4px' }}>
+                      Available: ${userStockismCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: ladderFull ? '#e57373' : textLight, marginBottom: '10px' }}>
+                      {ladderFull
+                        ? 'Ladder balance is at the $5,000 limit.'
+                        : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (cap: $5,000)`}
+                    </p>
+                    <input
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="Amount"
+                      disabled={ladderFull}
+                      max={Math.min(userStockismCash, maxDeposit)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        marginBottom: '10px',
+                        border: '1px solid #666',
+                        background: bgCardInner,
+                        color: textDark,
+                        opacity: ladderFull ? 0.5 : 1,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={handleDeposit}
+                        disabled={depositLoading || ladderFull}
+                        style={{
+                          flex: 1, padding: '8px', background: '#d4af37', color: '#000',
+                          border: 'none', fontWeight: 700,
+                          cursor: depositLoading || ladderFull ? 'not-allowed' : 'pointer',
+                          opacity: ladderFull ? 0.5 : 1
+                        }}
+                      >
+                        {depositLoading ? 'Depositing...' : 'Deposit'}
+                      </button>
+                      <button
+                        onClick={() => setShowTransferModal(false)}
+                        style={{ flex: 1, padding: '8px', background: '#666', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '4px' }}>
+                      Ladder balance: ${ladderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: textLight, marginBottom: '14px' }}>
+                      {ladderBalance > 0
+                        ? 'This will withdraw your entire ladder balance back to your main cash.'
+                        : 'No balance to withdraw.'}
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={handleWithdraw}
+                        disabled={withdrawLoading || ladderBalance <= 0}
+                        style={{
+                          flex: 1, padding: '8px', background: '#af905b', color: '#fff',
+                          border: 'none', fontWeight: 700,
+                          cursor: withdrawLoading || ladderBalance <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: ladderBalance <= 0 ? 0.5 : 1
+                        }}
+                      >
+                        {withdrawLoading ? 'Withdrawing...' : 'Withdraw All'}
+                      </button>
+                      <button
+                        onClick={() => setShowTransferModal(false)}
+                        style={{ flex: 1, padding: '8px', background: '#666', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
+          );
+        })()}
         )}
 
         {/* Leaderboard Modal */}

@@ -59,6 +59,7 @@ export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
 // Ladder game
 export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
 export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');
+export const withdrawFromLadderGameFunction = httpsCallable(functions, 'withdrawFromLadderGame');
 export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderLeaderboard');
 export const triggerDailyMarketSummaryFunction = httpsCallable(functions, 'triggerDailyMarketSummary');
 // Leaderboard

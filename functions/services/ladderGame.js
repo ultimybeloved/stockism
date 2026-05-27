@@ -3,6 +3,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { checkBanned } = require('../helpers');
+const { LADDER_GAME_MAX_BALANCE } = require('../constants');
 
 exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -227,12 +228,6 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient Stockism cash.');
       }
 
-      // Deduct from Stockism cash
-      transaction.update(mainUserRef, {
-        cash: cash - amount
-      });
-
-      // Add to ladder balance
       const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
         balance: 0,
         totalDeposited: 0,
@@ -245,6 +240,17 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
         bestStreak: 0,
         lastPlayed: null
       };
+
+      const currentBalance = ladderData.balance ?? 0;
+      if (currentBalance >= LADDER_GAME_MAX_BALANCE) {
+        throw new functions.https.HttpsError('failed-precondition', `Ladder balance is already at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} limit.`);
+      }
+      if (currentBalance + amount > LADDER_GAME_MAX_BALANCE) {
+        throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(LADDER_GAME_MAX_BALANCE - currentBalance).toFixed(2)} more before hitting the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`);
+      }
+
+      // Deduct from Stockism cash
+      transaction.update(mainUserRef, { cash: cash - amount });
 
       transaction.set(ladderUserRef, {
         ...ladderData,
@@ -264,6 +270,64 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
     }
     console.error('Deposit error:', error);
     throw new functions.https.HttpsError('internal', 'Deposit failed: ' + error.message);
+  }
+});
+
+/**
+ * Withdraw full ladder game balance back to Stockism cash
+ */
+exports.withdrawFromLadderGame = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { amount } = data;
+
+  if (!amount || !Number.isFinite(amount) || amount <= 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
+  }
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const mainUserRef = db.collection('users').doc(uid);
+      const ladderUserRef = db.collection('ladderGameUsers').doc(uid);
+
+      const [mainUserDoc, ladderUserDoc] = await Promise.all([
+        transaction.get(mainUserRef),
+        transaction.get(ladderUserRef)
+      ]);
+
+      if (!mainUserDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+      if (!ladderUserDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'No ladder game account found.');
+      }
+
+      const mainUser = mainUserDoc.data();
+      checkBanned(mainUser);
+
+      const ladderData = ladderUserDoc.data();
+      const balance = ladderData.balance ?? 0;
+
+      if (amount > balance) {
+        throw new functions.https.HttpsError('failed-precondition', 'Withdrawal amount exceeds ladder balance.');
+      }
+
+      transaction.update(ladderUserRef, { balance: balance - amount });
+      transaction.update(mainUserRef, { cash: (mainUser.cash || 0) + amount });
+
+      return {
+        success: true,
+        newLadderBalance: balance - amount,
+        newStockismCash: (mainUser.cash || 0) + amount
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
+    console.error('Withdrawal error:', error);
+    throw new functions.https.HttpsError('internal', 'Withdrawal failed: ' + error.message);
   }
 });
 

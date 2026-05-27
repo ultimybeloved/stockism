@@ -46,6 +46,7 @@ const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
 const CREW_SWITCH_PENALTY  = 0.15;   // 15% of portfolio value lost on crew switch
 const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
+const LADDER_GAME_MAX_BALANCE = 5000; // max cash held in ladder minigame at once
 
 // ============================================
 // IPO
@@ -99,6 +100,7 @@ module.exports = {
   CREW_SWITCH_PENALTY,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  LADDER_GAME_MAX_BALANCE,
   IPO_PRICE_JUMP,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
