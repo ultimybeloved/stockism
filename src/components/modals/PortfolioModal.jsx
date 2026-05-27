@@ -329,16 +329,21 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
             )
           : null;
 
-        const [mainSnap, anchorSnap] = await Promise.all([
-          getDocs(mainQ),
-          anchorQ ? getDocs(anchorQ) : Promise.resolve(null),
-        ]);
-
+        const mainSnap = await getDocs(mainQ);
         let history = mainSnap.docs.map(d => d.data());
 
-        if (anchorSnap && !anchorSnap.empty) {
-          const anchor = anchorSnap.docs[0].data();
-          history = [{ timestamp: cutoff, value: anchor.value }, ...history];
+        // Prepend a synthetic starting point pinned to the cutoff timestamp so the
+        // chart always begins exactly at the window edge (e.g. Feb 27 for 3M), not
+        // at the first trade inside the window (e.g. March 8).
+        if (anchorQ && history.length > 0) {
+          let anchorValue = history[0].value; // fallback: first in-window value
+          try {
+            const anchorSnap = await getDocs(anchorQ);
+            if (!anchorSnap.empty) {
+              anchorValue = anchorSnap.docs[0].data().value;
+            }
+          } catch (_) { /* use fallback */ }
+          history = [{ timestamp: cutoff, value: anchorValue }, ...history];
         }
 
         if (!cancelled) setPortfolioHistory(history);
@@ -365,11 +370,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
       ];
     }
 
-    const range = timeRanges.find(r => r.key === timeRange);
-    const cutoff = getRangeCutoff(range);
-
     let data = portfolioHistory
-      .filter(point => point.timestamp >= cutoff)
       .map(point => ({
         ...point,
         date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
