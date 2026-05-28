@@ -36,8 +36,10 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
           const userData = doc.data();
           if (userData.isBot) return;
 
+          if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < oneWeekAgo) return;
+
           const currentValue = userData.portfolioValue || 0;
-          const valueSevenDaysAgo = userData.portfolioSnapshot7d?.value ?? currentValue;
+          const valueSevenDaysAgo = userData.portfolioSnapshot7d.value;
 
           const weeklyGain = currentValue - valueSevenDaysAgo;
           const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
