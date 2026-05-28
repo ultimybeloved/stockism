@@ -29,14 +29,14 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
         query = query.orderBy('portfolioValue', 'desc').limit(200);
 
         const snapshot = await query.get();
-        const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
 
         const allUsers = [];
         snapshot.forEach(doc => {
           const userData = doc.data();
           if (userData.isBot) return;
 
-          if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < oneWeekAgo) return;
+          if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < twoWeeksAgo) return;
 
           const currentValue = userData.portfolioValue || 0;
           const valueSevenDaysAgo = userData.portfolioSnapshot7d.value;
