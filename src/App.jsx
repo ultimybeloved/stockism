@@ -66,7 +66,6 @@ const StockPage         = lazy(() => import('./pages/StockPage'));
 import CheckInButton from './components/CheckInButton';
 import CharacterCard from './components/CharacterCard';
 import { ToastNotification, ToastContainer } from './components/ToastNotification';
-import TradeFeed from './components/TradeFeed';
 import NotificationPanel from './components/NotificationPanel';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import PriceAlertModal from './components/modals/PriceAlertModal';
@@ -2994,15 +2993,6 @@ export default function App() {
         />
       )}
       
-      {/* Trade Feed */}
-      {!isGuest && user && (
-        <TradeFeed
-          darkMode={darkMode}
-          user={user}
-          userCrew={userData?.crew}
-        />
-      )}
-
       {/* Notification Panel */}
       {showNotificationPanel && user && (
         <NotificationPanel
