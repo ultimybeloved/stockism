@@ -187,18 +187,18 @@ export const DAILY_MISSIONS = {
   HOLD_CREW_SHARES: {
     id: 'HOLD_CREW_SHARES',
     name: 'Loyal Holder',
-    description: 'Hold 10+ shares of crew members',
+    description: 'Hold 20+ shares of crew members',
     reward: 75,
     checkType: 'HOLD_CREW',
-    requirement: 10
+    requirement: 20
   },
   MAKE_TRADES: {
     id: 'MAKE_TRADES',
     name: 'Active Trader',
-    description: 'Make 3 trades today',
+    description: 'Make 5 trades today',
     reward: 100,
     checkType: 'TRADE_COUNT',
-    requirement: 3
+    requirement: 5
   },
   
   // ============================================
@@ -221,18 +221,18 @@ export const DAILY_MISSIONS = {
   HOLD_LARGE_POSITION: {
     id: 'HOLD_LARGE_POSITION',
     name: 'Big Believer',
-    description: 'Hold 25+ shares of any single character',
+    description: 'Hold 50+ shares of any single character',
     reward: 125,
     checkType: 'HOLD_LARGE',
-    requirement: 25
+    requirement: 50
   },
   TRADE_VOLUME: {
     id: 'TRADE_VOLUME',
     name: 'Volume Trader',
-    description: 'Trade 10+ total shares today',
+    description: 'Trade 500+ total shares today',
     reward: 100,
     checkType: 'TRADE_VOLUME',
-    requirement: 10
+    requirement: 500
   },
   
   // ============================================
@@ -264,9 +264,10 @@ export const DAILY_MISSIONS = {
   CREW_LEADER: {
     id: 'CREW_LEADER',
     name: 'Crew Leader',
-    description: 'Be the top holder of any crew member stock',
+    description: 'Hold 35+ shares of any crew member stock',
     reward: 150,
-    checkType: 'CREW_LEADER'
+    checkType: 'CREW_LEADER',
+    requirement: 35
   },
   
   // ============================================
@@ -320,10 +321,10 @@ export const DAILY_MISSIONS = {
   CREW_ACCUMULATOR: {
     id: 'CREW_ACCUMULATOR',
     name: 'Crew Accumulator',
-    description: 'Buy 10+ total shares of crew members today',
+    description: 'Buy 20+ total shares of crew members today',
     reward: 150,
     checkType: 'CREW_ACCUMULATOR',
-    requirement: 10
+    requirement: 20
   }
 };
 
@@ -339,26 +340,26 @@ export const WEEKLY_MISSIONS = {
   MARKET_WHALE: {
     id: 'MARKET_WHALE',
     name: 'Market Whale',
-    description: 'Accumulate $10,000+ in total trade value this week',
+    description: 'Accumulate $20,000+ in total trade value this week',
     reward: 750,
     checkType: 'WEEKLY_TRADE_VALUE',
-    requirement: 10000
+    requirement: 20000
   },
   VOLUME_KING: {
     id: 'VOLUME_KING',
     name: 'Volume King',
-    description: 'Trade 100+ total shares this week',
+    description: 'Trade 200+ total shares this week',
     reward: 500,
     checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 100
+    requirement: 200
   },
   TRADING_MACHINE: {
     id: 'TRADING_MACHINE',
     name: 'Trading Machine',
-    description: 'Make 25+ trades this week',
+    description: 'Make 40+ trades this week',
     reward: 400,
     checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 25
+    requirement: 40
   },
 
   // ============================================
@@ -395,18 +396,18 @@ export const WEEKLY_MISSIONS = {
   CREW_HOARDER: {
     id: 'CREW_HOARDER',
     name: 'Crew Hoarder',
-    description: 'Accumulate 50+ total shares of crew members',
+    description: 'Accumulate 75+ total shares of crew members',
     reward: 500,
     checkType: 'WEEKLY_CREW_SHARES',
-    requirement: 50
+    requirement: 75
   },
   FULL_CREW_OWNERSHIP: {
     id: 'FULL_CREW_OWNERSHIP',
     name: 'Full Crew Ownership',
-    description: 'Own 5+ shares of EVERY crew member',
+    description: 'Own 8+ shares of EVERY crew member',
     reward: 1000,
     checkType: 'WEEKLY_FULL_CREW',
-    requirement: 5
+    requirement: 8
   },
 
   // ============================================
@@ -423,10 +424,10 @@ export const WEEKLY_MISSIONS = {
   PORTFOLIO_BUILDER: {
     id: 'PORTFOLIO_BUILDER',
     name: 'Portfolio Builder',
-    description: 'Grow your portfolio value by $2000+ this week',
+    description: 'Grow your portfolio value by $3,500+ this week',
     reward: 750,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
-    requirement: 2000
+    requirement: 3500
   },
 
   // ============================================
@@ -435,18 +436,18 @@ export const WEEKLY_MISSIONS = {
   SHARE_MOGUL: {
     id: 'SHARE_MOGUL',
     name: 'Share Mogul',
-    description: 'Trade 250+ total shares this week',
+    description: 'Trade 400+ total shares this week',
     reward: 700,
     checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 250
+    requirement: 400
   },
   TRADE_MASTER: {
     id: 'TRADE_MASTER',
     name: 'Trade Master',
-    description: 'Make 50+ trades this week',
+    description: 'Make 75+ trades this week',
     reward: 600,
     checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 50
+    requirement: 75
   },
 
   // ============================================
@@ -455,18 +456,18 @@ export const WEEKLY_MISSIONS = {
   HEAVY_BAGS: {
     id: 'HEAVY_BAGS',
     name: 'Heavy Bags',
-    description: 'Hold 200+ total shares across all positions',
+    description: 'Hold 300+ total shares across all positions',
     reward: 600,
     checkType: 'WEEKLY_TOTAL_SHARES',
-    requirement: 200
+    requirement: 300
   },
   PENNY_COLLECTOR: {
     id: 'PENNY_COLLECTOR',
     name: 'Penny Collector',
-    description: 'Own 50+ shares of stocks priced under $25',
+    description: 'Own 80+ shares of stocks priced under $25',
     reward: 500,
     checkType: 'WEEKLY_PENNY_SHARES',
-    requirement: 50
+    requirement: 80
   },
   BLUE_CHIP_INVESTOR: {
     id: 'BLUE_CHIP_INVESTOR',
@@ -491,10 +492,10 @@ export const WEEKLY_MISSIONS = {
   PORTFOLIO_MOONSHOT: {
     id: 'PORTFOLIO_MOONSHOT',
     name: 'Portfolio Moonshot',
-    description: 'Grow your portfolio value by $5,000+ this week',
+    description: 'Grow your portfolio value by $8,000+ this week',
     reward: 1000,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
-    requirement: 5000
+    requirement: 8000
   }
 };
 
