@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db, changeDisplayNameFunction } from '../firebase';
 import { COSMETIC_MAP } from '../constants/cosmetics';
 import { useAppContext } from '../context/AppContext';
@@ -23,6 +23,17 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const [chartTimeRange, setChartTimeRange] = useState('1m');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [discordLinkStatus, setDiscordLinkStatus] = useState(null);
+  const [portfolioHistory, setPortfolioHistory] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const q = query(collection(db, 'users', user.uid, 'portfolioHistory'), orderBy('timestamp'));
+    getDocs(q).then(snap => {
+      if (!cancelled) setPortfolioHistory(snap.docs.map(d => d.data()));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -113,7 +124,6 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const portfolioValue = (userData?.cash || 0) + holdingsValue + shortsValue;
 
   // Portfolio chart
-  const portfolioHistory = userData?.portfolioHistory || [];
   const timeRanges = [
     { key: '1d', label: '24h', hours: 24 },
     { key: '7d', label: '7D', hours: 168 },
@@ -531,7 +541,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
             shorts={shorts}
             prices={prices}
             costBasis={costBasis}
-            portfolioHistory={userData?.portfolioHistory || []}
+            portfolioHistory={portfolioHistory}
             portfolioValue={portfolioValue}
             userData={userData}
             user={user}
