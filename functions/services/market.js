@@ -125,7 +125,7 @@ exports.dailyMarketSummary = functions.pubsub
       if (topTraders.length > 0) {
         embed.fields.push({
           name: '⚡ Most Active Traders',
-          value: topTraders.map((_, i) => `#${i + 1}: ${topTraders[i][1]} trades`).join('\n'),
+          value: topTraders.map(([, count], i) => `#${i + 1}: ${count} trades`).join('\n'),
           inline: false
         });
       }

@@ -9,6 +9,8 @@ const {
   MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
+  LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
 } = require('../constants');
 const { checkBanned, writeNotification, sendDiscordMessage } = require('../helpers');
 
@@ -309,8 +311,6 @@ exports.checkShortMarginCalls = functions.pubsub
       let liquidatedCount = 0;
       let checkedCount = 0;
       let throttledCount = 0;
-      const MARGIN_CALL_THRESHOLD = 0.25; // 25% equity ratio
-      const DAMPENING_FACTOR = 0.5; // 50% reduced price impact for forced liquidations
       const COVERS_PER_TICKER_PER_CYCLE = 3; // Max forced covers per ticker per 5-min cycle
       const tickerCoverCount = {};
 
@@ -343,7 +343,7 @@ exports.checkShortMarginCalls = functions.pubsub
           const positionValue = currentPrice * position.shares;
           const equityRatio = positionValue > 0 ? equity / positionValue : 0;
 
-          if (equityRatio < MARGIN_CALL_THRESHOLD) {
+          if (equityRatio < SHORT_MARGIN_CALL_THRESHOLD) {
             // Force-cover this position
             try {
               await db.runTransaction(async (transaction) => {
@@ -371,11 +371,11 @@ exports.checkShortMarginCalls = functions.pubsub
                 const freshPositionValue = freshPrice * freshPosition.shares;
                 const freshEquityRatio = freshPositionValue > 0 ? freshEquity / freshPositionValue : 0;
 
-                if (freshEquityRatio >= MARGIN_CALL_THRESHOLD) return; // No longer underwater
+                if (freshEquityRatio >= SHORT_MARGIN_CALL_THRESHOLD) return; // No longer underwater
 
                 // Calculate dampened price impact for forced cover (50% reduced)
                 const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / BASE_LIQUIDITY);
-                const dampenedImpact = priceImpact * DAMPENING_FACTOR;
+                const dampenedImpact = priceImpact * SHORT_MARGIN_DAMPENING_FACTOR;
                 const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
                 const cappedImpact = Math.min(dampenedImpact, maxImpact);
                 const newPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
@@ -820,8 +820,6 @@ exports.checkMarginLending = functions.pubsub
       let marginCallCount = 0;
       let checkedCount = 0;
 
-      const MARGIN_CALL_THRESHOLD = 0.30;
-      const MARGIN_LIQUIDATION_THRESHOLD = 0.25;
       const MARGIN_CALL_GRACE_PERIOD = TWENTY_FOUR_HOURS_MS;
 
       for (const userDoc of usersSnap.docs) {
@@ -847,7 +845,7 @@ exports.checkMarginLending = functions.pubsub
 
         const now = Date.now();
 
-        if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
+        if (equityRatio <= LONG_MARGIN_LIQUIDATION_THRESHOLD) {
           // AUTO-LIQUIDATION
           try {
             await db.runTransaction(async (transaction) => {
@@ -921,7 +919,7 @@ exports.checkMarginLending = functions.pubsub
             console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
           }
 
-        } else if (equityRatio <= MARGIN_CALL_THRESHOLD) {
+        } else if (equityRatio <= LONG_MARGIN_CALL_THRESHOLD) {
           // MARGIN CALL
           const marginCallAt = userData.marginCallAt || 0;
 

@@ -293,7 +293,7 @@ module.exports = {
         const allTickers = Object.keys(prices);
 
         // Check if it's Thursday (chapter release day)
-        const isThursday = now.getDay() === 4;
+        const isThursday = now.getUTCDay() === 4;
 
         // Fewer bots per round, more spread out
         const numBotsToTrade = isThursday

@@ -52,8 +52,17 @@ const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 ca
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
 const LADDER_GAME_MAX_BALANCE = 5000; // max cash held in ladder minigame at once
 const LADDER_GAME_MAX_DAILY_DEPOSIT = 5000; // max cash deposited into ladder per calendar day (UTC)
-const CREW_BUY_THRESHOLD = 1500;  // shares crew must buy to complete CREW_BUY_500 mission
-const CREW_SELL_THRESHOLD = 1500; // shares crew must sell to complete CREW_SELL_500 mission
+const CREW_BUY_THRESHOLD = 1500;    // shares crew must buy to complete CREW_BUY_500 mission
+const CREW_SELL_THRESHOLD = 1500;   // shares crew must sell to complete CREW_SELL_500 mission
+const CREW_VOLUME_THRESHOLD = 20000; // $ trade volume crew must hit to complete CREW_VOLUME mission
+
+// ============================================
+// MARGIN THRESHOLDS
+// ============================================
+const SHORT_MARGIN_CALL_THRESHOLD    = 0.25; // short equity ratio below which force-cover triggers
+const SHORT_MARGIN_DAMPENING_FACTOR  = 0.50; // reduced price impact for forced short covers
+const LONG_MARGIN_CALL_THRESHOLD     = 0.30; // long margin equity ratio at which margin call is issued
+const LONG_MARGIN_LIQUIDATION_THRESHOLD = 0.25; // long margin equity ratio at which auto-liquidation triggers
 
 // ============================================
 // IPO
@@ -115,6 +124,11 @@ module.exports = {
   LADDER_GAME_MAX_DAILY_DEPOSIT,
   CREW_BUY_THRESHOLD,
   CREW_SELL_THRESHOLD,
+  CREW_VOLUME_THRESHOLD,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  SHORT_MARGIN_DAMPENING_FACTOR,
+  LONG_MARGIN_CALL_THRESHOLD,
+  LONG_MARGIN_LIQUIDATION_THRESHOLD,
   IPO_PRICE_JUMP,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,

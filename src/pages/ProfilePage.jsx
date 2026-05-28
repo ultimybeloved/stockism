@@ -39,13 +39,11 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
     const params = new URLSearchParams(window.location.search);
     const linkResult = params.get('discord_link');
     const linkReason = params.get('reason');
-    if (linkResult) {
-      setDiscordLinkStatus(linkReason ? `${linkResult}:${linkReason}` : linkResult);
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-      // Auto-dismiss after 5s
-      setTimeout(() => setDiscordLinkStatus(null), 5000);
-    }
+    if (!linkResult) return;
+    setDiscordLinkStatus(linkReason ? `${linkResult}:${linkReason}` : linkResult);
+    window.history.replaceState({}, '', window.location.pathname);
+    const id = setTimeout(() => setDiscordLinkStatus(null), 5000);
+    return () => clearTimeout(id);
   }, []);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);

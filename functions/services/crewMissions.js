@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CREW_MEMBERS, CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD } = require('../constants');
+const { CREW_MEMBERS, CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD, CREW_VOLUME_THRESHOLD } = require('../constants');
 const { checkBanned, writeNotification } = require('../helpers');
 
 const CREW_MISSION_REWARDS = {
@@ -38,8 +38,6 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
     const ref = db.collection('crewMissions').doc(`${crew}_${weekId}`);
 
     const update = {
-      crew,
-      weekId,
       tradeVolume: admin.firestore.FieldValue.increment(totalCost),
       [`contributorsVolume.${uid}`]: true,
     };
@@ -56,7 +54,8 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
       update[`contributorsSell.${uid}`] = true;
     }
 
-    await ref.set(update, { merge: true });
+    await ref.set({ crew, weekId }, { merge: true });
+    await ref.update(update);
   } catch (err) {
     console.error('updateCrewMissionProgress error:', err.message);
   }
@@ -105,11 +104,11 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
       };
     }
     case 'CREW_VOLUME': {
-      const complete = (missionData.tradeVolume || 0) >= 20000;
+      const complete = (missionData.tradeVolume || 0) >= CREW_VOLUME_THRESHOLD;
       return {
         complete,
         contributed: !!missionData.contributorsVolume?.[uid],
-        reason: complete ? null : 'Crew needs $20,000 in total trade volume this week.',
+        reason: complete ? null : `Crew needs $${CREW_VOLUME_THRESHOLD.toLocaleString()} in total trade volume this week.`,
       };
     }
     case 'CREW_RECRUIT': {
