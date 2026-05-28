@@ -14,15 +14,27 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
     if (!user) return;
     const preMarketStart = new Date();
     preMarketStart.setUTCHours(20, 30, 0, 0);
-    const q = query(
+    const ts = Timestamp.fromDate(preMarketStart);
+    let buys = [], sells = [];
+    const merge = () => setOrders([...buys, ...sells]);
+
+    const qBuy = query(
       collection(db, 'preMarketOrders'),
       where('userId', '==', user.uid),
+      where('action', '==', 'buy'),
       where('status', '==', 'PENDING'),
-      where('createdAt', '>=', Timestamp.fromDate(preMarketStart))
+      where('createdAt', '>=', ts)
     );
-    return onSnapshot(q, snap =>
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    const qSell = query(
+      collection(db, 'preMarketOrders'),
+      where('userId', '==', user.uid),
+      where('action', '==', 'sell'),
+      where('status', '==', 'PENDING'),
+      where('createdAt', '>=', ts)
     );
+    const unsubBuy = onSnapshot(qBuy, snap => { buys = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); });
+    const unsubSell = onSnapshot(qSell, snap => { sells = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); });
+    return () => { unsubBuy(); unsubSell(); };
   }, [user]);
 
   const handleCancel = async (orderId) => {
