@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CREW_MEMBERS } = require('../constants');
+const { CREW_MEMBERS, CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD } = require('../constants');
 const { checkBanned, writeNotification } = require('../helpers');
 
 const CREW_MISSION_REWARDS = {
@@ -89,19 +89,19 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
 
   switch (missionId) {
     case 'CREW_BUY_500': {
-      const complete = (missionData.buyCount || 0) >= 500;
+      const complete = (missionData.buyCount || 0) >= CREW_BUY_THRESHOLD;
       return {
         complete,
         contributed: !!missionData.contributorsBuy?.[uid],
-        reason: complete ? null : 'Crew needs to buy 500 shares total this week.',
+        reason: complete ? null : `Crew needs to buy ${CREW_BUY_THRESHOLD} shares total this week.`,
       };
     }
     case 'CREW_SELL_500': {
-      const complete = (missionData.sellCount || 0) >= 500;
+      const complete = (missionData.sellCount || 0) >= CREW_SELL_THRESHOLD;
       return {
         complete,
         contributed: !!missionData.contributorsSell?.[uid],
-        reason: complete ? null : 'Crew needs to sell 500 shares total this week.',
+        reason: complete ? null : `Crew needs to sell ${CREW_SELL_THRESHOLD} shares total this week.`,
       };
     }
     case 'CREW_VOLUME': {
@@ -207,7 +207,11 @@ exports.claimCrewMission = functions.https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Already claimed.');
     }
     tx.update(userRef, { cash: admin.firestore.FieldValue.increment(reward) });
-    tx.set(missionRef, { [`claimed.${uid}.${missionId}`]: true }, { merge: true });
+    if (freshMission.exists) {
+      tx.update(missionRef, { [`claimed.${uid}.${missionId}`]: true });
+    } else {
+      tx.set(missionRef, { crew, weekId, claimed: { [uid]: { [missionId]: true } } });
+    }
   });
 
   writeNotification(uid, {

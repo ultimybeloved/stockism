@@ -52,6 +52,8 @@ const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 ca
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
 const LADDER_GAME_MAX_BALANCE = 5000; // max cash held in ladder minigame at once
 const LADDER_GAME_MAX_DAILY_DEPOSIT = 5000; // max cash deposited into ladder per calendar day (UTC)
+const CREW_BUY_THRESHOLD = 1500;  // shares crew must buy to complete CREW_BUY_500 mission
+const CREW_SELL_THRESHOLD = 1500; // shares crew must sell to complete CREW_SELL_500 mission
 
 // ============================================
 // IPO
@@ -111,6 +113,8 @@ module.exports = {
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DAILY_DEPOSIT,
+  CREW_BUY_THRESHOLD,
+  CREW_SELL_THRESHOLD,
   IPO_PRICE_JUMP,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
