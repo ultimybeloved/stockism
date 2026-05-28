@@ -331,8 +331,6 @@ exports.priceThresholdAlert = functions.pubsub
 
       const now = Date.now();
       const dayAgo = now - (24 * 60 * 60 * 1000);
-      const thresholds = [3, 10];
-
       const newAlerts = [];
       const updatedAlertedThresholds = { ...alertedThresholds };
 
@@ -350,27 +348,21 @@ exports.priceThresholdAlert = functions.pubsub
 
         const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
         const absChange = Math.abs(change);
+        const alertKey = `${ticker}_10_${change > 0 ? 'up' : 'down'}`;
+        const lastAlerted = alertedThresholds[alertKey] || 0;
+        const hoursSinceAlert = (now - lastAlerted) / (60 * 60 * 1000);
 
-        thresholds.forEach(threshold => {
-          const alertKey = `${ticker}_${threshold}_${change > 0 ? 'up' : 'down'}`;
-          const lastAlerted = alertedThresholds[alertKey] || 0;
-          const hoursSinceAlert = (now - lastAlerted) / (60 * 60 * 1000);
-
-          if (absChange >= threshold && hoursSinceAlert > 12) {
-            newAlerts.push({ ticker, price: currentPrice, price24hAgo, change, threshold, alertKey });
-            updatedAlertedThresholds[alertKey] = now;
-          }
-        });
+        if (absChange >= 10 && hoursSinceAlert > 12) {
+          newAlerts.push({ ticker, price: currentPrice, price24hAgo, change, alertKey });
+          updatedAlertedThresholds[alertKey] = now;
+        }
       });
 
       if (newAlerts.length === 0) return null;
 
       await marketRef.update({ alertedThresholds: updatedAlertedThresholds });
 
-      const majorAlerts = newAlerts.filter(a => a.threshold >= 10);
-      const minorAlerts = newAlerts.filter(a => a.threshold < 10);
-
-      for (const alert of majorAlerts) {
+      for (const alert of newAlerts) {
         const emoji = alert.change > 0 ? '🚀' : '💥';
         const direction = alert.change > 0 ? 'surged' : 'crashed';
         const embed = {
@@ -384,35 +376,6 @@ exports.priceThresholdAlert = functions.pubsub
           ],
           timestamp: new Date().toISOString()
         };
-        await sendDiscordMessage(null, [embed]);
-      }
-
-      if (minorAlerts.length > 0) {
-        const gainers = minorAlerts.filter(a => a.change > 0);
-        const losers = minorAlerts.filter(a => a.change < 0);
-
-        const embed = {
-          title: '📊 24h Price Alerts',
-          color: 0xFFA500,
-          fields: [],
-          timestamp: new Date().toISOString()
-        };
-
-        if (gainers.length > 0) {
-          embed.fields.push({
-            name: '📈 Up 3%+',
-            value: gainers.map(a => `**${a.ticker}** +${a.change.toFixed(1)}%`).join('\n'),
-            inline: true
-          });
-        }
-        if (losers.length > 0) {
-          embed.fields.push({
-            name: '📉 Down 3%+',
-            value: losers.map(a => `**${a.ticker}** ${a.change.toFixed(1)}%`).join('\n'),
-            inline: true
-          });
-        }
-
         await sendDiscordMessage(null, [embed]);
       }
 
