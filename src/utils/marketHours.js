@@ -47,8 +47,8 @@ export const getMostRecentHaltWindow = () => {
   // Start from today and walk backwards to find the most recent Thursday
   const d = new Date(now);
 
-  if (day === 4 && utcMins >= 780 && utcMins < 1260) {
-    // It's Thursday and the halt has started (or is ongoing) — use today
+  if (day === 4 && utcMins >= 780) {
+    // It's Thursday after halt start (including after market reopen) — use today
   } else {
     // Walk back to last Thursday
     const daysBack = (day - 4 + 7) % 7 || 7;
