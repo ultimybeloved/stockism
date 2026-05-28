@@ -88,11 +88,31 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
   const currentPrice = marketSnap.data()?.prices?.[ticker] || 0;
 
   if (action === 'buy') {
+    // Sum up cash already committed to other pending buy orders this session
+    const pendingBuys = await db.collection('preMarketOrders')
+      .where('userId', '==', uid)
+      .where('action', '==', 'buy')
+      .where('status', '==', 'PENDING')
+      .where('createdAt', '>=', preMarketStart)
+      .get();
+
+    const allPrices = marketSnap.data()?.prices || {};
+    const reservedCash = Math.round(
+      pendingBuys.docs.reduce((sum, doc) => {
+        const o = doc.data();
+        return sum + o.shares * (allPrices[o.ticker] || 0);
+      }, 0) * 100
+    ) / 100;
+
     const estimatedCost = Math.round(shares * currentPrice * 100) / 100;
-    if (estimatedCost > (userData.cash || 0)) {
+    const availableCash = Math.round(((userData.cash || 0) - reservedCash) * 100) / 100;
+
+    if (estimatedCost > availableCash) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Insufficient cash. Estimated cost: $${estimatedCost.toFixed(2)}, available: $${(userData.cash || 0).toFixed(2)}.`
+        reservedCash > 0
+          ? `Insufficient cash. Estimated cost: $${estimatedCost.toFixed(2)}, reserved by other orders: $${reservedCash.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
+          : `Insufficient cash. Estimated cost: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
       );
     }
   } else {
