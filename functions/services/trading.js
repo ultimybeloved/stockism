@@ -19,6 +19,7 @@ const {
   writeNotification,
   writeFeedEntry,
 } = require('../helpers');
+const { updateCrewMissionProgress } = require('./crewMissions');
 
 // ============================================
 // TRADE VALIDATION & ANTI-EXPLOIT
@@ -1600,6 +1601,11 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
             achievementId: achId
           });
         }
+      }
+
+      // Update crew mission progress counters (buy/sell only)
+      if (uData.crew && (action === 'buy' || action === 'sell')) {
+        updateCrewMissionProgress(uData.crew, uid, action, amount, ticker, result.totalCost || 0);
       }
     } catch (feedErr) {
       console.error('Feed/notification write after trade failed:', feedErr.message);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CrewMissionsTab from '../missions/CrewMissionsTab';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, CREW_MAP, CREWS } from '../../crews';
 import { getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
 import { db } from '../../firebase';
@@ -457,7 +458,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         </div>
 
         {/* Tabs */}
-        <div className={`grid grid-cols-2 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`grid grid-cols-3 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <button
             onClick={() => setActiveTab('daily')}
             className={`py-2.5 text-sm font-semibold transition-colors ${
@@ -478,10 +479,20 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
           >
             Weekly {weeklyClaimableRewards > 0 && <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>}
           </button>
+          <button
+            onClick={() => setActiveTab('crew')}
+            className={`py-2.5 text-sm font-semibold transition-colors ${
+              activeTab === 'crew'
+                ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10'
+                : `${mutedClass} hover:bg-slate-500/10`
+            }`}
+          >
+            Crew
+          </button>
         </div>
 
         {/* Subheader */}
-        {!isGuest && !noCrew && (
+        {!isGuest && !noCrew && activeTab !== 'crew' && (
           <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} flex items-center justify-between`}>
             {activeTab === 'daily' ? (
               <p className={`text-xs ${mutedClass}`}>
@@ -515,7 +526,9 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         )}
 
         <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-          {isGuest ? (
+          {activeTab === 'crew' ? (
+            <CrewMissionsTab />
+          ) : isGuest ? (
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
               <p className={`text-amber-500 mb-2`}>Sign in to access missions!</p>
               <p className={`text-xs ${mutedClass}`}>Complete missions to earn bonus cash rewards.</p>

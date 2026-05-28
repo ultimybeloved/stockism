@@ -432,6 +432,14 @@ service cloud.firestore {
     }
 
     // ============================================
+    // CREW MISSIONS (shared weekly goals)
+    // ============================================
+    match /crewMissions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================
     // CIRCUIT BREAKER LOG
     // ============================================
     match /circuitBreakerLog/{logId} {

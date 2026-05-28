@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CREW_MEMBERS, CREW_SWITCH_PENALTY, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { checkBanned } = require('../helpers');
+const { updateCrewMissionNewMember } = require('./crewMissions');
 
 
 /**
@@ -29,7 +30,7 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
   const userRef = db.collection('users').doc(uid);
 
   try {
-    return await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
 
       if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
@@ -99,6 +100,11 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
 
       return { success: true, totalTaken, isSwitch: !!(isSwitch && userData.crew) };
     });
+
+    // Fire-and-forget: count new crew member for crew missions (outside transaction to avoid retry double-counts)
+    updateCrewMissionNewMember(crewId);
+
+    return result;
 
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
