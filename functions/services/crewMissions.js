@@ -8,8 +8,8 @@ const { CREW_MEMBERS } = require('../constants');
 const { checkBanned, writeNotification } = require('../helpers');
 
 const CREW_MISSION_REWARDS = {
-  CREW_BUY_100:    500,
-  CREW_SELL_100:   400,
+  CREW_BUY_500:    500,
+  CREW_SELL_500:   400,
   CREW_FULL_ROSTER: 750,
   CREW_RECRUIT:    300,
   CREW_PUMP:       600,
@@ -88,20 +88,20 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
   const crewTickers = CREW_MEMBERS[crew] || [];
 
   switch (missionId) {
-    case 'CREW_BUY_100': {
-      const complete = (missionData.buyCount || 0) >= 100;
+    case 'CREW_BUY_500': {
+      const complete = (missionData.buyCount || 0) >= 500;
       return {
         complete,
         contributed: !!missionData.contributorsBuy?.[uid],
-        reason: complete ? null : 'Crew needs to buy 100 shares total this week.',
+        reason: complete ? null : 'Crew needs to buy 500 shares total this week.',
       };
     }
-    case 'CREW_SELL_100': {
-      const complete = (missionData.sellCount || 0) >= 100;
+    case 'CREW_SELL_500': {
+      const complete = (missionData.sellCount || 0) >= 500;
       return {
         complete,
         contributed: !!missionData.contributorsSell?.[uid],
-        reason: complete ? null : 'Crew needs to sell 100 shares total this week.',
+        reason: complete ? null : 'Crew needs to sell 500 shares total this week.',
       };
     }
     case 'CREW_VOLUME': {

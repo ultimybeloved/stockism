@@ -10,21 +10,21 @@ import { useAppContext } from '../../context/AppContext';
 
 const CREW_MISSIONS = [
   {
-    id: 'CREW_BUY_100',
+    id: 'CREW_BUY_500',
     name: 'Buying Spree',
-    description: 'Your crew buys 100 shares total this week.',
+    description: 'Your crew buys 500 shares total this week.',
     reward: 500,
     color: 'blue',
-    getProgress: (d) => ({ value: d.buyCount || 0, target: 100 }),
+    getProgress: (d) => ({ value: d.buyCount || 0, target: 500 }),
     contributed: (d, uid) => !!d.contributorsBuy?.[uid],
   },
   {
-    id: 'CREW_SELL_100',
+    id: 'CREW_SELL_500',
     name: 'Liquidation Day',
-    description: 'Your crew sells 100 shares total this week.',
+    description: 'Your crew sells 500 shares total this week.',
     reward: 400,
     color: 'blue',
-    getProgress: (d) => ({ value: d.sellCount || 0, target: 100 }),
+    getProgress: (d) => ({ value: d.sellCount || 0, target: 500 }),
     contributed: (d, uid) => !!d.contributorsSell?.[uid],
   },
   {
