@@ -5,6 +5,8 @@ import { auth } from '../../firebase';
 import { ADMIN_UIDS } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
+import { isPreMarketWindow } from '../../utils/marketHours';
+import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -30,6 +32,13 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [showNewCharsPopout, setShowNewCharsPopout] = useState(false);
+  const [showPreMarketOrders, setShowPreMarketOrders] = useState(false);
+  const [inPreMarket, setInPreMarket] = useState(isPreMarketWindow());
+
+  useEffect(() => {
+    const interval = setInterval(() => setInPreMarket(isPreMarketWindow()), 10000);
+    return () => clearInterval(interval);
+  }, []);
   const newCharsRef = useRef(null);
 
   useEffect(() => {
@@ -72,6 +81,8 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
   ];
 
   return (
+    <>
+    {showPreMarketOrders && <MyPreMarketOrdersModal onClose={() => setShowPreMarketOrders(false)} />}
     <header className={`sticky top-0 z-40 border-b shadow-sm ${
       darkMode
         ? 'bg-zinc-900 border-zinc-800'
@@ -142,6 +153,21 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
+
+            {/* Pre-Market Orders Button */}
+            {user && !isGuest && inPreMarket && (
+              <button
+                onClick={() => setShowPreMarketOrders(true)}
+                className={`px-2 py-1 text-xs font-semibold rounded-sm border transition-colors ${
+                  darkMode
+                    ? 'border-orange-500 text-orange-400 hover:bg-orange-500/20'
+                    : 'border-orange-500 text-orange-600 hover:bg-orange-50'
+                }`}
+                title="My pre-market orders"
+              >
+                📋 My Orders
+              </button>
+            )}
 
             {/* Notification Bell */}
             {user && !isGuest && (
@@ -289,6 +315,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
         </div>
       </div>
     </header>
+    </>
   );
 };
 
