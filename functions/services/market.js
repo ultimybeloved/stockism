@@ -413,12 +413,19 @@ exports.processMarketOpenOrders = functions.pubsub
 
           const executionPrice = order.action === 'buy' ? prices.openingAsk : prices.openingBid;
           const userRef = db.collection('users').doc(order.userId);
-          let fillShares = order.shares;
+          let fillShares = order.shares; // will be overwritten by the committed transaction result
           let feedDisplayName = '';
           let feedCrew = null;
 
           try {
             await db.runTransaction(async (transaction) => {
+              // Re-read the order doc inside the transaction so we can mark it FILLED atomically.
+              // This prevents double-fills if Cloud Scheduler delivers the cron event twice.
+              const freshOrderSnap = await transaction.get(doc.ref);
+              if (!freshOrderSnap.exists || freshOrderSnap.data().status !== 'PENDING') {
+                throw new Error('Order already processed');
+              }
+
               const userSnap = await transaction.get(userRef);
               if (!userSnap.exists) throw new Error('User not found');
               const ud = userSnap.data();
@@ -426,23 +433,26 @@ exports.processMarketOpenOrders = functions.pubsub
               feedCrew = ud.crew || null;
               if (ud.isBankrupt) throw new Error('User is bankrupt');
 
+              // Use a local variable that resets correctly on each transaction retry.
+              let localFillShares = order.shares;
+
               if (order.action === 'buy') {
-                const totalCost = executionPrice * fillShares;
+                const totalCost = executionPrice * localFillShares;
                 if ((ud.cash || 0) < totalCost) {
                   if (order.allowPartialFills && (ud.cash || 0) >= executionPrice) {
-                    fillShares = Math.round(Math.floor((ud.cash || 0) / executionPrice * 100) / 100 * 100) / 100;
+                    localFillShares = Math.round(Math.floor((ud.cash || 0) / executionPrice * 100) / 100 * 100) / 100;
                   } else {
                     throw new Error('Insufficient cash');
                   }
                 }
                 const currentHoldings = ud.holdings?.[order.ticker] || 0;
                 const currentCostBasis = ud.costBasis?.[order.ticker] || 0;
-                const newHoldings = Math.round((currentHoldings + fillShares) * 10000) / 10000;
+                const newHoldings = Math.round((currentHoldings + localFillShares) * 10000) / 10000;
                 const newCostBasis = currentHoldings > 0
-                  ? Math.round(((currentCostBasis * currentHoldings) + (executionPrice * fillShares)) / newHoldings * 100) / 100
+                  ? Math.round(((currentCostBasis * currentHoldings) + (executionPrice * localFillShares)) / newHoldings * 100) / 100
                   : executionPrice;
                 transaction.update(userRef, {
-                  cash: admin.firestore.FieldValue.increment(-executionPrice * fillShares),
+                  cash: admin.firestore.FieldValue.increment(-executionPrice * localFillShares),
                   [`holdings.${order.ticker}`]: newHoldings,
                   [`costBasis.${order.ticker}`]: newCostBasis,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -450,16 +460,16 @@ exports.processMarketOpenOrders = functions.pubsub
                 });
               } else {
                 const userShares = ud.holdings?.[order.ticker] || 0;
-                if (userShares < fillShares) {
+                if (userShares < localFillShares) {
                   if (order.allowPartialFills && userShares > 0) {
-                    fillShares = userShares;
+                    localFillShares = userShares;
                   } else {
                     throw new Error('Insufficient shares');
                   }
                 }
-                const newHoldings = Math.round((userShares - fillShares) * 10000) / 10000;
+                const newHoldings = Math.round((userShares - localFillShares) * 10000) / 10000;
                 const updates = {
-                  cash: admin.firestore.FieldValue.increment(executionPrice * fillShares),
+                  cash: admin.firestore.FieldValue.increment(executionPrice * localFillShares),
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
                   totalTrades: admin.firestore.FieldValue.increment(1)
                 };
@@ -472,16 +482,21 @@ exports.processMarketOpenOrders = functions.pubsub
                 }
                 transaction.update(userRef, updates);
               }
+
+              // Mark the order FILLED atomically with the user update — prevents double-fill on retry.
+              const isPartialLocal = order.allowPartialFills && localFillShares < order.shares;
+              transaction.update(doc.ref, {
+                status: isPartialLocal ? 'PARTIALLY_FILLED' : 'FILLED',
+                filledShares: localFillShares,
+                executedPrice: executionPrice,
+                executedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+
+              // Capture result for post-transaction notifications (safe: only written on commit).
+              fillShares = localFillShares;
             });
 
-            const isPartial = order.allowPartialFills && fillShares < order.shares;
-            await doc.ref.update({
-              status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
-              filledShares: fillShares,
-              executedPrice: executionPrice,
-              executedAt: admin.firestore.FieldValue.serverTimestamp(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
             writeNotification(order.userId, {
               type: 'trade',
               title: 'Market Open Order Filled',
@@ -501,18 +516,20 @@ exports.processMarketOpenOrders = functions.pubsub
             });
             pmFilled++;
           } catch (err) {
-            await doc.ref.update({
-              status: 'FAILED',
-              failReason: err.message,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            writeNotification(order.userId, {
-              type: 'trade',
-              title: 'Market Open Order Failed',
-              message: `Your ${order.action} of ${order.shares} $${order.ticker} could not be filled: ${err.message}`,
-              data: { ticker: order.ticker, orderId: doc.id }
-            });
-            pmFailed++;
+            if (err.message !== 'Order already processed') {
+              await doc.ref.update({
+                status: 'FAILED',
+                failReason: err.message,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              writeNotification(order.userId, {
+                type: 'trade',
+                title: 'Market Open Order Failed',
+                message: `Your ${order.action} of ${order.shares} $${order.ticker} could not be filled: ${err.message}`,
+                data: { ticker: order.ticker, orderId: doc.id }
+              });
+              pmFailed++;
+            }
           }
         }
 
