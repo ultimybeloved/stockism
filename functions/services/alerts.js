@@ -331,7 +331,7 @@ exports.priceThresholdAlert = functions.pubsub
 
       const now = Date.now();
       const dayAgo = now - (24 * 60 * 60 * 1000);
-      const thresholds = [3, 5, 10];
+      const thresholds = [3, 10];
 
       const newAlerts = [];
       const updatedAlertedThresholds = { ...alertedThresholds };
@@ -367,8 +367,8 @@ exports.priceThresholdAlert = functions.pubsub
 
       await marketRef.update({ alertedThresholds: updatedAlertedThresholds });
 
-      const majorAlerts = newAlerts.filter(a => a.threshold >= 5);
-      const minorAlerts = newAlerts.filter(a => a.threshold < 5);
+      const majorAlerts = newAlerts.filter(a => a.threshold >= 10);
+      const minorAlerts = newAlerts.filter(a => a.threshold < 10);
 
       for (const alert of majorAlerts) {
         const emoji = alert.change > 0 ? '🚀' : '💥';
@@ -422,51 +422,6 @@ exports.priceThresholdAlert = functions.pubsub
       return null;
     }
   });
-
-/**
- * Trade Spike Alert - Called when a single trade moves price significantly (1%+)
- */
-exports.tradeSpikeAlert = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { ticker, priceBefore, priceAfter, tradeType, shares } = data;
-
-  if (!ticker || typeof priceBefore !== 'number' || typeof priceAfter !== 'number' ||
-      priceBefore <= 0 || priceAfter <= 0 || !Number.isFinite(priceBefore) || !Number.isFinite(priceAfter)) {
-    return { success: true, alerted: false };
-  }
-
-  const VALID_TRADE_TYPES = ['BUY', 'SELL', 'SHORT', 'COVER'];
-  if (!tradeType || !VALID_TRADE_TYPES.includes(tradeType)) {
-    return { success: true, alerted: false };
-  }
-
-  const change = priceBefore > 0 ? ((priceAfter - priceBefore) / priceBefore) * 100 : 0;
-  const absChange = Math.abs(change);
-
-  if (absChange < 1) return { success: true, alerted: false };
-
-  const emoji = change > 0 ? '⚡' : '💨';
-  const direction = change > 0 ? 'spiked' : 'dropped';
-  const tradeAction = tradeType === 'BUY' ? 'buy' : tradeType === 'SHORT' ? 'short' : 'sell';
-
-  const embed = {
-    title: `${emoji} Price Spike`,
-    description: `**${ticker}** just ${direction} ${absChange.toFixed(1)}% from a single ${tradeAction}`,
-    color: change > 0 ? 0x00FF00 : 0xFF4444,
-    fields: [
-      { name: 'Before', value: `$${priceBefore.toFixed(2)}`, inline: true },
-      { name: 'After', value: `$${priceAfter.toFixed(2)}`, inline: true },
-      { name: 'Impact', value: `${change > 0 ? '+' : ''}${change.toFixed(2)}%`, inline: true }
-    ],
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true, alerted: true };
-});
 
 /**
  * Achievement Alert - Called when someone unlocks an achievement

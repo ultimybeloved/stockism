@@ -32,7 +32,7 @@ import {
   deleteDoc,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, tradeSpikeAlertFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
+import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
@@ -1511,19 +1511,6 @@ export default function App() {
         showNotification('success', message);
       }
 
-      // Send trade spike alert if price moved 1%+
-      if (Math.abs(parseFloat(impactPercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker,
-            priceBefore: priceBeforeTrade,
-            priceAfter: tradedTickerPrice,
-            tradeType: 'BUY',
-            shares: amount
-          }).catch(() => {});
-        } catch {}
-      }
-
     } else if (action === 'sell') {
       // Server already handled: validation, price updates, trailing effects, cash/holdings updates
       // Server handles: missions, cost basis, lowestWhileHolding
@@ -1563,18 +1550,6 @@ export default function App() {
       } else {
         let message = `Sold ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitText}, ${impactPercent}% impact)`;
         showNotification('success', message);
-      }
-
-      if (Math.abs(parseFloat(impactPercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker,
-            priceBefore: priceBeforeTrade,
-            priceAfter: tradedTickerPrice,
-            tradeType: 'SELL',
-            shares: amount
-          }).catch(() => {});
-        } catch {}
       }
 
     } else if (action === 'short') {
@@ -1620,18 +1595,6 @@ export default function App() {
         if (shortWarning) {
           setTimeout(() => showNotification('warning', shortWarning), 1500);
         }
-      }
-
-      if (Math.abs(parseFloat(impactPercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker,
-            priceBefore: priceBeforeTrade,
-            priceAfter: tradedTickerPrice,
-            tradeType: 'SHORT',
-            shares: amount
-          }).catch(() => {});
-        } catch {}
       }
 
     } else if (action === 'cover') {
@@ -1686,19 +1649,6 @@ export default function App() {
         let message = `Covered ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitMsg}, ${impactPercent}% impact)`;
         showNotification(profit >= 0 ? 'success' : 'error', message);
       }
-
-      if (Math.abs(parseFloat(impactPercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker,
-            priceBefore: priceBeforeTrade,
-            priceAfter: tradedTickerPrice,
-            tradeType: 'COVER',
-            shares: amount
-          }).catch(() => {});
-        } catch {}
-      }
-
 
     }
 

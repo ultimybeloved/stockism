@@ -179,7 +179,7 @@ exports.savePreHaltPrices = functions.pubsub
  * Compares pre-halt prices to current prices after admin adjustments
  */
 exports.chapterReviewRecap = functions.pubsub
-  .schedule('5 21 * * 4')
+  .schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
@@ -1073,88 +1073,6 @@ exports.weeklyCrewRankings = functions.pubsub
       return null;
     } catch (error) {
       console.error('Error in weekly crew rankings:', error);
-      return null;
-    }
-  });
-
-/**
- * Hourly Market Movers - Runs every 2 hours
- * Shows top gainers and losers over the past few hours
- */
-exports.hourlyMovers = functions.pubsub
-  .schedule('0 */2 * * *')
-  .timeZone('UTC')
-  .onRun(async (context) => {
-    try {
-      const marketRef = db.collection('market').doc('current');
-      const marketSnap = await marketRef.get();
-
-      if (!marketSnap.exists) return null;
-
-      const marketData = marketSnap.data();
-      const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
-
-      const now = Date.now();
-      const hoursAgo = now - (2 * 60 * 60 * 1000); // 2 hours
-
-      const movers = [];
-
-      Object.entries(prices).forEach(([ticker, currentPrice]) => {
-        const history = priceHistory[ticker] || [];
-        if (history.length === 0) return;
-
-        // Find price 2 hours ago
-        let priceAtStart = currentPrice;
-        for (let i = history.length - 1; i >= 0; i--) {
-          if (history[i].timestamp <= hoursAgo) {
-            priceAtStart = history[i].price;
-            break;
-          }
-        }
-
-        const change = priceAtStart > 0 ? ((currentPrice - priceAtStart) / priceAtStart) * 100 : 0;
-        if (Math.abs(change) >= 0.5) { // Only include if moved 0.5%+
-          movers.push({ ticker, price: currentPrice, change, priceAtStart });
-        }
-      });
-
-      if (movers.length === 0) return null; // No significant movement
-
-      movers.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-      const gainers = movers.filter(m => m.change > 0).slice(0, 3);
-      const losers = movers.filter(m => m.change < 0).slice(0, 3);
-
-      if (gainers.length === 0 && losers.length === 0) return null;
-
-      const embed = {
-        title: '📊 Market Update',
-        description: `Movement over the last 2 hours`,
-        color: 0x3498DB,
-        fields: [],
-        timestamp: new Date().toISOString()
-      };
-
-      if (gainers.length > 0) {
-        embed.fields.push({
-          name: '📈 Rising',
-          value: gainers.map(s => `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`).join('\n'),
-          inline: true
-        });
-      }
-
-      if (losers.length > 0) {
-        embed.fields.push({
-          name: '📉 Falling',
-          value: losers.map(s => `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`).join('\n'),
-          inline: true
-        });
-      }
-
-      await sendDiscordMessage(null, [embed]);
-      return null;
-    } catch (error) {
-      console.error('Error in hourlyMovers:', error);
       return null;
     }
   });

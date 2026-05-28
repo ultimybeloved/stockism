@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, tradeSpikeAlertFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES } from './constants/economy';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -779,18 +779,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       showMessage('success', `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`);
 
-      // Send spike alert to Discord if 1%+ change
-      if (Math.abs(parseFloat(changePercent)) >= 1) {
-        try {
-          tradeSpikeAlertFunction({
-            ticker: character.ticker,
-            priceBefore: currentPrice,
-            priceAfter: targetPrice,
-            tradeType: 'ADJUSTMENT',
-            shares: 0
-          }).catch(() => {});
-        } catch {}
-      }
+
 
       // Reset modal
       setPriceAdjustPercent('');
