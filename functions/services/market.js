@@ -565,7 +565,12 @@ exports.processMarketOpenOrders = functions.pubsub
 
         try {
           await db.runTransaction(async (transaction) => {
-            fillShares = order.shares - alreadyFilled;
+            const freshOrderSnap = await transaction.get(orderDoc.ref);
+            if (!freshOrderSnap.exists || !['PENDING', 'PARTIALLY_FILLED'].includes(freshOrderSnap.data().status)) {
+              throw new Error('Order already processed');
+            }
+            const freshAlreadyFilled = freshOrderSnap.data().filledShares || 0;
+            fillShares = order.shares - freshAlreadyFilled;
             const userSnap = await transaction.get(userRef);
             const freshMarketSnap = await transaction.get(marketRef);
             if (!userSnap.exists) throw new Error('User not found');
@@ -631,16 +636,15 @@ exports.processMarketOpenOrders = functions.pubsub
                 })
               });
             }
-          });
-
-          const newFilledTotal = alreadyFilled + fillShares;
-          const isPartial = order.allowPartialFills && newFilledTotal < order.shares;
-          await db.collection('limitOrders').doc(orderDoc.id).update({
-            status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
-            filledShares: newFilledTotal,
-            executedPrice,
-            executedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            const newFilledTotal = freshAlreadyFilled + fillShares;
+            const isPartial = order.allowPartialFills && newFilledTotal < order.shares;
+            transaction.update(orderDoc.ref, {
+              status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
+              filledShares: newFilledTotal,
+              executedPrice,
+              executedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
           });
           writeNotification(order.userId, {
             type: 'trade',
