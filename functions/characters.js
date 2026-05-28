@@ -191,6 +191,7 @@ export const CHARACTERS = [
 
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
+  { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
