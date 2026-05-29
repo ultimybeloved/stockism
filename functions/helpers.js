@@ -76,6 +76,8 @@ const {
   BASE_LIQUIDITY,
   MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
 } = require('./constants');
 
 const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) => {
@@ -85,6 +87,21 @@ const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore
   );
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   return Math.min(rawMarginal, maxImpact);
+};
+
+// Anti-manipulation: brand-new accounts move the market less, ramping from
+// NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
+// ramp window. Mirrors getAccountAgeImpactFactor in src/App.jsx — keep in sync.
+const getAccountAgeImpactFactor = (userData) => {
+  if (!userData || !userData.createdAt) return 1;
+  const createdAt = userData.createdAt;
+  const createdMs = typeof createdAt.toMillis === 'function'
+    ? createdAt.toMillis()
+    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  if (!createdMs || isNaN(createdMs)) return 1;
+  const ageDays = (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
+  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
+  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
 };
 
 // Prune entries older than 24h, return summary
@@ -313,6 +330,7 @@ module.exports = {
   decrementCohort,
   graduateCohort,
   calculateMarginalImpact,
+  getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
   writeNotification,
   writeFeedEntry,

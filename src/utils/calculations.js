@@ -8,7 +8,6 @@ import {
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
-  MAX_PRICE_CHANGE_PERCENT,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -30,26 +29,6 @@ export const getCurrentPrice = (ticker, priceHistory, prices) => {
     return history[history.length - 1].price;
   }
   return prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
-};
-
-/**
- * Calculate price impact based on trade size and character volatility
- * Uses sqrt to make large trades proportionally less impactful
- * @param {number} amount - Number of shares traded
- * @param {number} currentPrice - Current price of the asset
- * @param {number} volatility - Character's volatility multiplier (default 1)
- * @returns {number} Price impact as a decimal (e.g., 0.05 = 5%)
- */
-export const calculatePriceImpact = (amount, currentPrice, volatility = 1, cumulativeVolume = 0) => {
-  // Marginal impact: makes splitting trades give same total impact as bulk buying
-  // impact = BASE_IMPACT * (sqrt((cumBefore + new) / BASE_LIQUIDITY) - sqrt(cumBefore / BASE_LIQUIDITY))
-  const liquidityFactor = Math.max(1, currentPrice / 50); // Stocks over $50 have more liquidity
-  const rawImpact = (BASE_IMPACT * volatility *
-    (Math.sqrt((cumulativeVolume + amount) / BASE_LIQUIDITY) - Math.sqrt(cumulativeVolume / BASE_LIQUIDITY))
-  ) / liquidityFactor;
-
-  // Cap at max price change
-  return Math.min(rawImpact, MAX_PRICE_CHANGE_PERCENT);
 };
 
 /**
@@ -80,21 +59,6 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
   return currentPrice * BASE_IMPACT * (
     Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
   );
-};
-
-/**
- * Calculate new price after a trade
- * @param {number} currentPrice - Current price
- * @param {number} amount - Shares traded
- * @param {boolean} isBuy - True if buying, false if selling
- * @param {number} volatility - Character's volatility multiplier
- * @returns {number} New mid price after impact
- */
-export const calculateNewPrice = (currentPrice, amount, isBuy, volatility = 1) => {
-  const impact = calculatePriceImpact(amount, currentPrice, volatility);
-  const direction = isBuy ? 1 : -1;
-  const newPrice = currentPrice * (1 + (impact * direction));
-  return Math.max(MIN_PRICE, Math.round(newPrice * 100) / 100);
 };
 
 /**

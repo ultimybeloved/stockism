@@ -1,48 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calculatePriceImpact,
   getBidAskPrices,
-  calculateNewPrice,
   calculatePortfolioValue,
   calculateMarginStatus,
 } from './calculations';
-
-// ─── calculatePriceImpact ──────────────────────────────────────────────────────
-
-describe('calculatePriceImpact', () => {
-  it('returns positive impact for any trade', () => {
-    expect(calculatePriceImpact(10, 100)).toBeGreaterThan(0);
-  });
-
-  it('larger trades have larger impact', () => {
-    const small = calculatePriceImpact(10, 100);
-    const large = calculatePriceImpact(100, 100);
-    expect(large).toBeGreaterThan(small);
-  });
-
-  it('impact is capped at MAX_PRICE_CHANGE_PERCENT (0.05)', () => {
-    // Very large trade should hit the cap
-    expect(calculatePriceImpact(100000, 100)).toBeLessThanOrEqual(0.05);
-  });
-
-  it('cumulative volume reduces marginal impact', () => {
-    const fresh = calculatePriceImpact(10, 100, 1, 0);
-    const afterBig = calculatePriceImpact(10, 100, 1, 500);
-    expect(afterBig).toBeLessThan(fresh);
-  });
-
-  it('higher volatility multiplier increases impact', () => {
-    const base = calculatePriceImpact(10, 100, 1);
-    const hot = calculatePriceImpact(10, 100, 2);
-    expect(hot).toBeGreaterThan(base);
-  });
-
-  it('higher priced stocks (>$50) have higher liquidity → lower impact', () => {
-    const cheap = calculatePriceImpact(10, 10);
-    const expensive = calculatePriceImpact(10, 200);
-    expect(expensive).toBeLessThan(cheap);
-  });
-});
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
 
@@ -67,31 +28,6 @@ describe('getBidAskPrices', () => {
   it('bid does not go below MIN_PRICE for tiny prices', () => {
     const { bid } = getBidAskPrices(0.001);
     expect(bid).toBeGreaterThanOrEqual(0.01);
-  });
-});
-
-// ─── calculateNewPrice ────────────────────────────────────────────────────────
-
-describe('calculateNewPrice', () => {
-  it('buy raises the price', () => {
-    const newPrice = calculateNewPrice(100, 10, true);
-    expect(newPrice).toBeGreaterThan(100);
-  });
-
-  it('sell lowers the price', () => {
-    const newPrice = calculateNewPrice(100, 10, false);
-    expect(newPrice).toBeLessThan(100);
-  });
-
-  it('result is rounded to 2 decimal places', () => {
-    const newPrice = calculateNewPrice(100, 7, true);
-    expect(newPrice).toBe(Math.round(newPrice * 100) / 100);
-  });
-
-  it('price never goes below MIN_PRICE (0.01)', () => {
-    // Sell a huge amount of a penny stock
-    const newPrice = calculateNewPrice(0.01, 100000, false);
-    expect(newPrice).toBeGreaterThanOrEqual(0.01);
   });
 });
 

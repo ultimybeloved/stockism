@@ -15,6 +15,11 @@ const MAX_PRICE_CHANGE_PERCENT = 0.05;
 const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
+// Anti-manipulation: reduced price impact for brand-new accounts.
+// Mirrors src/constants/economy.js — keep both in sync.
+const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;  // ramps over the first 3 days
+const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0 → 100% at day 3
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
@@ -164,6 +169,8 @@ module.exports = {
   MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,

@@ -612,24 +612,21 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
       );
     }
 
-    // Use a batch to atomically delete both documents
-    const batch = db.batch();
-
-    // Delete user document
-    batch.delete(userRef);
-
-    // Mark username as deleted (but keep reserved) if it exists
+    // Mark username as deleted (but keep reserved) first, so the name stays
+    // claimed even if a later step fails.
     if (displayNameLower) {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
-      batch.set(usernameRef, {
+      await usernameRef.set({
         deleted: true,
         deletedAt: admin.firestore.FieldValue.serverTimestamp(),
         deletedUid: uid
       }, { merge: true });
     }
 
-    // Commit the batch
-    await batch.commit();
+    // Recursively delete the user document AND its subcollections
+    // (notifications, portfolioHistory, etc.). Firestore does not cascade, so a
+    // plain doc delete would orphan that data forever.
+    await db.recursiveDelete(userRef);
 
     // Delete the Firebase Auth account
     await admin.auth().deleteUser(uid);

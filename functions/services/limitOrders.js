@@ -472,6 +472,19 @@ exports.checkLimitOrders = functions.pubsub
 
                 console.log(`Executed ${order.type}: ${fillShares} ${order.ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               }
+
+              // Mark the order filled inside the same transaction as the balance
+              // change, so a crash here can't leave it PENDING and double-fill it
+              // on the next 2-minute cycle.
+              const newFilledTotal = alreadyFilled + fillShares;
+              const isPartialFill = order.allowPartialFills && newFilledTotal < totalShares;
+              transaction.update(db.collection('limitOrders').doc(orderId), {
+                status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
+                filledShares: newFilledTotal,
+                executedPrice: executedPrice,
+                executedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
             });
           } catch (transactionError) {
             const msg = transactionError.message || '';
@@ -499,18 +512,6 @@ exports.checkLimitOrders = functions.pubsub
 
           // Track per-ticker execution count for throttling
           tickerExecutionCount[order.ticker] = (tickerExecutionCount[order.ticker] || 0) + 1;
-
-          // Update order status
-          const newFilledTotal = alreadyFilled + fillShares;
-          const isPartialFill = order.allowPartialFills && newFilledTotal < totalShares;
-
-          await db.collection('limitOrders').doc(orderId).update({
-            status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
-            filledShares: newFilledTotal,
-            executedPrice: executedPrice,
-            executedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          });
 
           // Notify user that their limit order filled
           const effectiveType2 = order.type === 'STOP_LOSS' ? 'Stop loss' : `${order.type} limit order`;

@@ -36,7 +36,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const [partialShares, setPartialShares] = useState(false);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);
   const [isStopLoss, setIsStopLoss] = useState(defaultToLimitOrder === 'stopLoss');
-  const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
+  const [limitPrice, setLimitPrice] = useState((price || 0).toFixed(2));
   const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 

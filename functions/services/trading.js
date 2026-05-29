@@ -13,6 +13,7 @@ const {
 const {
   checkBanned,
   calculateMarginalImpact,
+  getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
   addPendingShares,
   decrementCohort,
@@ -803,6 +804,9 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
       let newMarginUsed = marginUsed;
       const effectiveSpread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+      // New accounts move the market less (anti-manipulation). Enforced here so
+      // it actually applies — the frontend preview mirrors this factor.
+      const ageImpactFactor = getAccountAgeImpactFactor(userData);
 
       // BUY LOGIC
       if (action === 'buy') {
@@ -813,14 +817,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate marginal price impact (cumulative volume-based)
-        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
         const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
         hitMaxImpact = priceImpact >= maxImpact;
 
         // Check daily 10% impact cap
         const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
-        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT && effectiveDailyImpact >= MAX_DAILY_IMPACT) {
+        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           throw new functions.https.HttpsError('failed-precondition',
             `Daily trading limit reached for ${ticker}. No more buys today.`);
         }
@@ -884,7 +888,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate marginal price impact (cumulative sell volume-based)
-        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
@@ -958,12 +962,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate marginal price impact (cumulative volume-based)
-        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
         // Check daily 10% impact cap
         const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
         const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
-        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT && effectiveDailyImpact >= MAX_DAILY_IMPACT) {
+        if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
           throw new functions.https.HttpsError('failed-precondition',
             `Daily trading limit reached for ${ticker}. No more shorts today.`);
         }
@@ -1028,7 +1032,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         }
 
         // Calculate marginal price impact (cumulative cover volume-based)
-        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume);
+        priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
