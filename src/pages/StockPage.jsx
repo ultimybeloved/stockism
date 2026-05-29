@@ -268,7 +268,7 @@ const StockPage = ({ onTrade }) => {
             )}
             {shortPosition?.shares > 0 && (
               <div className={`${positionShares > 0 ? 'mt-3 pt-3 border-t ' + (darkMode ? 'border-zinc-800' : 'border-amber-200') : ''} space-y-2 text-sm`}>
-                {[['Shares short', <span className="text-orange-500">{shortPosition.shares}</span>],
+                {[['Shares short', <span key="ss" className="text-orange-500">{shortPosition.shares}</span>],
                   ['Short entry', formatCurrency(shortPosition.costBasis || shortPosition.entryPrice || 0)]].map(([l, v]) => (
                   <div key={l} className="flex justify-between"><span className={mutedClass}>{l}</span><span className={textClass}>{v}</span></div>
                 ))}

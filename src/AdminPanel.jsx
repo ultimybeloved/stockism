@@ -619,7 +619,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   };
 
   const handleRepairSpikeVictim = async (victim) => {
-    if (!confirm(`Repair ${victim.displayName}?\nCash: $${victim.currentCash.toFixed(2)} → $${victim.correctedCash.toFixed(2)}${victim.tookBailout ? '\nWill restore ' + victim.holdingsCount + ' stock holdings' : ''}`)) return;
+    if (!confirm(`Repair ${victim.displayName}?\nCash: $${(victim.currentCash || 0).toFixed(2)} → $${(victim.correctedCash || 0).toFixed(2)}${victim.tookBailout ? '\nWill restore ' + victim.holdingsCount + ' stock holdings' : ''}`)) return;
     setRepairingSpike(true);
     try {
       await repairSpikeVictimsFunction({ mode: 'repair', userId: victim.userId, victims: victim });
@@ -3708,7 +3708,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           }
           if (holdingsCorrupted) {
             for (const [ticker, shares] of Object.entries(data.holdings)) {
-              if (!fixedHoldings.hasOwnProperty(ticker)) fixedHoldings[ticker] = shares;
+              if (!Object.prototype.hasOwnProperty.call(fixedHoldings, ticker)) fixedHoldings[ticker] = shares;
             }
             fixes.holdings = fixedHoldings;
           }
@@ -3736,7 +3736,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           }
           if (shortsCorrupted) {
             for (const [ticker, pos] of Object.entries(data.shorts)) {
-              if (!fixedShorts.hasOwnProperty(ticker)) fixedShorts[ticker] = pos;
+              if (!Object.prototype.hasOwnProperty.call(fixedShorts, ticker)) fixedShorts[ticker] = pos;
             }
             fixes.shorts = fixedShorts;
           }
@@ -3753,7 +3753,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           }
           if (cbCorrupted) {
             for (const [ticker, cost] of Object.entries(data.costBasis)) {
-              if (!fixedCostBasis.hasOwnProperty(ticker)) fixedCostBasis[ticker] = cost;
+              if (!Object.prototype.hasOwnProperty.call(fixedCostBasis, ticker)) fixedCostBasis[ticker] = cost;
             }
             fixes.costBasis = fixedCostBasis;
           }
