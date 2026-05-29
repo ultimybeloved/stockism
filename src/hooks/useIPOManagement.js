@@ -40,10 +40,8 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
       await buyIPOSharesFunction({ ticker, quantity });
       setUserData(prev => {
         if (!prev) return prev;
-        const existing = prev.holdings?.[ticker] || { quantity: 0, avgCost: 0 };
-        const newQty = existing.quantity + quantity;
-        const newAvg = ((existing.avgCost * existing.quantity) + totalCost) / newQty;
-        return { ...prev, cash: (prev.cash || 0) - totalCost, holdings: { ...prev.holdings, [ticker]: { quantity: newQty, avgCost: newAvg } } };
+        const currentShares = typeof prev.holdings?.[ticker] === 'number' ? prev.holdings[ticker] : 0;
+        return { ...prev, cash: (prev.cash || 0) - totalCost, holdings: { ...prev.holdings, [ticker]: currentShares + quantity } };
       });
       const character = CHARACTER_MAP[ticker];
       showNotification('success', `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`);
