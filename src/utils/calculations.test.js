@@ -3,6 +3,11 @@ import {
   getBidAskPrices,
   calculatePortfolioValue,
   calculateMarginStatus,
+  calculatePriceImpactDollars,
+  getCurrentPrice,
+  getMarginTierMultiplier,
+  getMarginTierName,
+  checkMarginEligibility,
 } from './calculations';
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
@@ -136,5 +141,82 @@ describe('calculateMarginStatus', () => {
     const bronze = calculateMarginStatus({ ...base, peakPortfolioValue: 0 }, {});
     const platinum = calculateMarginStatus({ ...base, peakPortfolioValue: 50000 }, {});
     expect(platinum.availableMargin).toBeGreaterThan(bronze.availableMargin);
+  });
+});
+
+// ─── calculatePriceImpactDollars (the live trade-preview impact) ────────────────
+
+describe('calculatePriceImpactDollars', () => {
+  it('returns a positive dollar impact for any trade', () => {
+    expect(calculatePriceImpactDollars(100, 10)).toBeGreaterThan(0);
+  });
+
+  it('larger trades move the price more', () => {
+    const small = calculatePriceImpactDollars(100, 10);
+    const large = calculatePriceImpactDollars(100, 100);
+    expect(large).toBeGreaterThan(small);
+  });
+
+  it('prior cumulative volume reduces the marginal impact of the next trade', () => {
+    const fresh = calculatePriceImpactDollars(100, 10, 100, 0);
+    const afterBig = calculatePriceImpactDollars(100, 10, 100, 500);
+    expect(afterBig).toBeLessThan(fresh);
+  });
+});
+
+// ─── getCurrentPrice ────────────────────────────────────────────────────────────
+
+describe('getCurrentPrice', () => {
+  it('prefers the latest price-history entry', () => {
+    const history = { JAKE: [{ price: 10, ts: 1 }, { price: 12, ts: 2 }] };
+    expect(getCurrentPrice('JAKE', history, {})).toBe(12);
+  });
+
+  it('falls back to the prices map when there is no history', () => {
+    expect(getCurrentPrice('JAKE', {}, { JAKE: 7 })).toBe(7);
+  });
+
+  it('returns 0 for an unknown ticker with no data', () => {
+    expect(getCurrentPrice('ZZZ_NOT_A_TICKER', {}, {})).toBe(0);
+  });
+});
+
+// ─── margin tiers ───────────────────────────────────────────────────────────────
+
+describe('getMarginTierMultiplier / getMarginTierName', () => {
+  it('maps peak portfolio value to the right multiplier', () => {
+    expect(getMarginTierMultiplier(0)).toBe(0.25);
+    expect(getMarginTierMultiplier(8000)).toBe(0.35);
+    expect(getMarginTierMultiplier(20000)).toBe(0.50);
+    expect(getMarginTierMultiplier(50000)).toBe(0.75);
+  });
+
+  it('names the tiers consistently', () => {
+    expect(getMarginTierName(0)).toBe('Bronze (0.25x)');
+    expect(getMarginTierName(50000)).toBe('Platinum (0.75x)');
+  });
+});
+
+// ─── checkMarginEligibility ─────────────────────────────────────────────────────
+
+describe('checkMarginEligibility', () => {
+  it('returns not-eligible with no requirements for null user', () => {
+    const result = checkMarginEligibility(null);
+    expect(result.eligible).toBe(false);
+    expect(result.requirements).toEqual([]);
+  });
+
+  it('always eligible for admins', () => {
+    expect(checkMarginEligibility({}, true).eligible).toBe(true);
+  });
+
+  it('eligible when all three thresholds are met', () => {
+    const user = { totalCheckins: 10, totalTrades: 35, peakPortfolioValue: 7500 };
+    expect(checkMarginEligibility(user).eligible).toBe(true);
+  });
+
+  it('not eligible when any threshold is missed', () => {
+    const user = { totalCheckins: 10, totalTrades: 34, peakPortfolioValue: 7500 };
+    expect(checkMarginEligibility(user).eligible).toBe(false);
   });
 });
