@@ -10,6 +10,43 @@ const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
 const { writeNotification, sendDiscordMessage } = require('../helpers');
 
+function weightedRandom(values, weights) {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < values.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return values[i];
+  }
+  return values[values.length - 1];
+}
+
+async function rollDailyStock() {
+  const JACKPOT_CHANCE = 0.03;
+  const isJackpot = Math.random() < JACKPOT_CHANCE;
+  let totalShares, varietyCount;
+  if (isJackpot) {
+    totalShares = Math.floor(Math.random() * 5) + 6;
+    varietyCount = Math.floor(Math.random() * 3) + 3;
+  } else {
+    totalShares = weightedRandom([1, 2, 3, 4, 5], [35, 30, 20, 10, 5]);
+    varietyCount = weightedRandom([1, 2, 3], [70, 25, 5]);
+  }
+  varietyCount = Math.min(varietyCount, totalShares);
+  const marketDoc = await db.collection('market').doc('current').get();
+  const prices = marketDoc.data()?.prices || {};
+  const launchedTickers = marketDoc.data()?.launchedTickers || [];
+  const tradeableChars = CHARACTERS.filter(c =>
+    !c.ipoRequired || launchedTickers.includes(c.ticker)
+  ).filter(c => prices[c.ticker] != null);
+  if (tradeableChars.length === 0) return { picks: [], isJackpot: false };
+  const shuffled = [...tradeableChars].sort(() => Math.random() - 0.5);
+  const selectedStocks = shuffled.slice(0, Math.min(varietyCount, shuffled.length));
+  const picks = selectedStocks.map(stock => ({
+    ticker: stock.ticker, name: stock.name, shares: 0, currentPrice: prices[stock.ticker] || stock.basePrice
+  }));
+  for (let i = 0; i < totalShares; i++) picks[i % picks.length].shares += 1;
+  return { picks, isJackpot };
+}
 
 exports.discordInteractions = functions.https.onRequest(async (req, res) => {
   // Only accept POST
