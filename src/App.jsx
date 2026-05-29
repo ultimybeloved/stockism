@@ -106,6 +106,8 @@ import {
   STARTING_CASH,
   IPO_TOTAL_SHARES,
   MIN_PRICE,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
 } from './constants';
 import {
   getCurrentPrice,
