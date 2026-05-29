@@ -1,11 +1,8 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { placeBetFunction } from '../firebase';
 import { formatCurrency } from '../utils/formatters';
 
-export function usePredictionManagement({ setUserData, setLoadingKey }) {
-  const { user, userData, predictions, showNotification } = useAppContext();
-
+export function usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey }) {
   const handleBet = useCallback(async (predictionId, option, amount) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to place bets!');
@@ -63,7 +60,7 @@ export function usePredictionManagement({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('placeBet', false);
     }
-  }, [user, userData, predictions, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, predictions, showNotification, setUserData, setLoadingKey]);
 
   return { handleBet };
 }

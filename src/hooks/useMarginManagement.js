@@ -1,13 +1,10 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { toggleMarginFunction, repayMarginFunction } from '../firebase';
 import { checkMarginEligibility } from '../utils/calculations';
 import { ADMIN_UIDS } from '../constants';
 import { formatCurrency } from '../utils/formatters';
 
-export function useMarginManagement({ setUserData, setLoadingKey, setShowLending }) {
-  const { user, userData, showNotification } = useAppContext();
-
+export function useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending }) {
   const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
     const isAdmin = ADMIN_UIDS.includes(user.uid);
@@ -26,7 +23,7 @@ export function useMarginManagement({ setUserData, setLoadingKey, setShowLending
     } finally {
       setLoadingKey('enableMargin', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleDisableMargin = useCallback(async () => {
     if (!user || !userData) return;
@@ -45,7 +42,7 @@ export function useMarginManagement({ setUserData, setLoadingKey, setShowLending
     } finally {
       setLoadingKey('disableMargin', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, setShowLending, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey, setShowLending]);
 
   const handleRepayMargin = useCallback(async (amount) => {
     if (!user || !userData) return;
@@ -73,7 +70,7 @@ export function useMarginManagement({ setUserData, setLoadingKey, setShowLending
     } finally {
       setLoadingKey('repayMargin', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   return { handleEnableMargin, handleDisableMargin, handleRepayMargin };
 }

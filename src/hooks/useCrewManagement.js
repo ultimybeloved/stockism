@@ -1,12 +1,9 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { switchCrewFunction, leaveCrewFunction } from '../firebase';
 import { CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 
-export function useCrewManagement({ setUserData, setLoadingKey }) {
-  const { user, userData, showNotification } = useAppContext();
-
+export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
     if (!user || !userData) return;
     try {
@@ -26,7 +23,7 @@ export function useCrewManagement({ setUserData, setLoadingKey }) {
       console.error('Failed to select crew:', err);
       showNotification('error', err?.message || err?.details || 'Failed to join crew');
     }
-  }, [user, userData, setUserData, showNotification]);
+  }, [user, userData, showNotification, setUserData]);
 
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;
@@ -47,7 +44,7 @@ export function useCrewManagement({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('leaveCrew', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   return { handleCrewSelect, handleCrewLeave };
 }

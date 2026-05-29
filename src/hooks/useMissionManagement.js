@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { claimMissionRewardFunction, rerollMissionsFunction } from '../firebase';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../utils/confetti';
 import { ACHIEVEMENTS } from '../constants/achievements';
@@ -7,9 +6,7 @@ import { getWeekId } from '../crews';
 import { getTodayDateString } from '../utils/date';
 import { formatCurrency } from '../utils/formatters';
 
-export function useMissionManagement({ setUserData, setLoadingKey }) {
-  const { user, userData, showNotification } = useAppContext();
-
+export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
     setLoadingKey('claimMission', true);
@@ -49,7 +46,7 @@ export function useMissionManagement({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('claimMission', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleRerollMissions = useCallback(async () => {
     if (!user || !userData) return;
@@ -73,7 +70,7 @@ export function useMissionManagement({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('rerollMissions', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
     if (!user || !userData) return;
@@ -108,7 +105,7 @@ export function useMissionManagement({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('claimWeeklyMission', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   return { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward };
 }

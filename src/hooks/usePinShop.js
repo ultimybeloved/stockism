@@ -1,12 +1,9 @@
 import { useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { useAppContext } from '../context/AppContext';
 import { purchasePinFunction, purchaseCosmeticFunction, db } from '../firebase';
 import { SHOP_PINS } from '../crews';
 
-export function usePinShop({ setUserData, setLoadingKey }) {
-  const { user, userData, showNotification } = useAppContext();
-
+export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handlePinAction = useCallback(async (action, payload, cost) => {
     if (!user || !userData) return;
     if (action === 'buyPin' || action === 'buySlot') setLoadingKey('pinAction', true);
@@ -39,7 +36,7 @@ export function usePinShop({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('pinAction', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handlePurchaseCosmetic = useCallback(async (cosmeticId) => {
     if (!user || !userData) return;
@@ -50,7 +47,7 @@ export function usePinShop({ setUserData, setLoadingKey }) {
     } catch (err) {
       showNotification('error', err.message || 'Purchase failed');
     }
-  }, [user, userData, setUserData, showNotification]);
+  }, [user, userData, showNotification, setUserData]);
 
   const handleEquipCosmetic = useCallback(async (type, cosmeticId) => {
     if (!user) return;

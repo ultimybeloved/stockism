@@ -310,16 +310,6 @@ export default function App() {
   const [notifications, setNotifications] = useState([]); // Toast notification queue
   const [showMarginTutorialReview, setShowMarginTutorialReview] = useState(false);
 
-  // Business-logic hooks — each owns one feature domain
-  const { handleTrade } = useTradeManagement({ setLoadingKey, setTradeAnimation });
-  const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ setUserData, setLoadingKey });
-  const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ setUserData, setLoadingKey, setShowLending });
-  const { handleCrewSelect, handleCrewLeave } = useCrewManagement({ setUserData, setLoadingKey });
-  const { handleBet } = usePredictionManagement({ setUserData, setLoadingKey });
-  const { handleBuyIPO } = useIPOManagement({ setUserData, setLoadingKey });
-  const { handleDailyCheckin, handleBailout } = useDailyOperations({ setUserData, setLoadingKey });
-  const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({ setUserData, setLoadingKey });
-
   const [showInAppBanner, setShowInAppBanner] = useState(() => {
     const ua = navigator.userAgent || '';
     return /FBAN|FBAV|Instagram|Discord|Twitter|Snapchat|TikTok|Line|WeChat|MicroMessenger|Pinterest/i.test(ua);
@@ -391,6 +381,17 @@ export default function App() {
   const dismissNotification = useCallback((id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
+
+  // Business-logic hooks — called here, after showNotification + all state are defined
+  // These receive state directly because App.jsx IS the context provider (can't consume its own context)
+  const { handleTrade } = useTradeManagement({ user, userData, prices, marketData, showNotification, setLoadingKey, setTradeAnimation });
+  const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey });
+  const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending });
+  const { handleCrewSelect, handleCrewLeave } = useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey });
+  const { handleBet } = usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey });
+  const { handleBuyIPO } = useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey });
+  const { handleDailyCheckin, handleBailout } = useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey });
+  const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({ user, userData, showNotification, setUserData, setLoadingKey });
 
   // Notification handlers
   const handleMarkNotificationRead = useCallback(async (notificationId) => {

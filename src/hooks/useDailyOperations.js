@@ -1,14 +1,11 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { dailyCheckinFunction, bailoutFunction } from '../firebase';
 import { fireDailyRewardConfetti } from '../utils/confetti';
 import { CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import { getTodayDateString, toUTCDateString } from '../utils/date';
 
-export function useDailyOperations({ setUserData, setLoadingKey }) {
-  const { user, userData, showNotification } = useAppContext();
-
+export function useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleDailyCheckin = useCallback(async () => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to claim your daily bonus!');
@@ -39,7 +36,7 @@ export function useDailyOperations({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('checkin', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleBailout = useCallback(async () => {
     if (!user || !userData) return;
@@ -70,7 +67,7 @@ export function useDailyOperations({ setUserData, setLoadingKey }) {
     } finally {
       setLoadingKey('bailout', false);
     }
-  }, [user, userData, setUserData, setLoadingKey, showNotification]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   return { handleDailyCheckin, handleBailout };
 }

@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
 import { executeTradeFunction, achievementAlertFunction, syncPortfolioFunction } from '../firebase';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { isWeeklyHalt } from '../utils/marketHours';
@@ -16,9 +15,7 @@ async function checkAndAwardAchievements() {
   }
 }
 
-export function useTradeManagement({ setLoadingKey, setTradeAnimation }) {
-  const { user, userData, prices, marketData, showNotification } = useAppContext();
-
+export function useTradeManagement({ user, userData, prices, marketData, showNotification, setLoadingKey, setTradeAnimation }) {
   const handleTrade = useCallback(async (ticker, action, amount) => {
     console.log(`[TRADE START] ticker=${ticker}, action=${action}, amount=${amount}`);
     if (!user || !userData) {
@@ -76,7 +73,6 @@ export function useTradeManagement({ setLoadingKey, setTradeAnimation }) {
       } = result.data;
 
       const earnedAchievements = await checkAndAwardAchievements();
-
       const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
 
       if (action === 'buy') {
@@ -145,7 +141,7 @@ export function useTradeManagement({ setLoadingKey, setTradeAnimation }) {
     } finally {
       setLoadingKey('trade', false);
     }
-  }, [user, userData, prices, marketData, setLoadingKey, setTradeAnimation, showNotification]);
+  }, [user, userData, prices, marketData, showNotification, setLoadingKey, setTradeAnimation]);
 
   return { handleTrade };
 }
