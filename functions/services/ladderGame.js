@@ -2,7 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned } = require('../helpers');
+const { checkBanned, getTotalInvested } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DAILY_DEPOSIT,
@@ -235,6 +235,13 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient Stockism cash.');
       }
 
+      // Cap: ladder balance can't exceed what the user has invested in stocks
+      // (cost basis of holdings + open short margin). Mirrors the prediction market.
+      const totalInvested = getTotalInvested(mainUser);
+      if (totalInvested <= 0) {
+        throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before depositing to the ladder game.');
+      }
+
       const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
         balance: 0,
         totalDeposited: 0,
@@ -254,6 +261,15 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
       }
       if (currentBalance + amount > LADDER_GAME_MAX_BALANCE) {
         throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(LADDER_GAME_MAX_BALANCE - currentBalance).toFixed(2)} more before hitting the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`);
+      }
+
+      // Enforce the invested-in-stocks cap on the ladder balance.
+      if (currentBalance + amount > totalInvested) {
+        const room = Math.max(0, totalInvested - currentBalance);
+        throw new functions.https.HttpsError('failed-precondition',
+          room <= 0
+            ? `Your ladder balance is at your invested amount ($${totalInvested.toFixed(2)}). Invest more in stocks to deposit more.`
+            : `You can only deposit $${room.toFixed(2)} more — the ladder game is capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`);
       }
 
       // Daily deposit cap — resets at UTC midnight

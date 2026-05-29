@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
 import { LADDER_GAME_MAX_BALANCE } from '../constants/economy';
+import { getTotalInvested } from '../utils/calculations';
 import { useAppContext } from '../context/AppContext';
 import LadderTutorialModal from './LadderTutorialModal';
 
@@ -1142,7 +1143,10 @@ const LadderGame = ({ onClose }) => {
         {/* Transfer Modal */}
         {showTransferModal && (() => {
           const ladderBalance = userLadderData?.balance || 0;
-          const maxDeposit = Math.max(0, LADDER_GAME_MAX_BALANCE - ladderBalance);
+          const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
+          const noInvestment = totalInvested <= 0;
+          // Can't hold more in the ladder game than invested in stocks (and the $5k cap).
+          const maxDeposit = Math.max(0, Math.min(LADDER_GAME_MAX_BALANCE, totalInvested) - ladderBalance);
           const ladderFull = ladderBalance >= LADDER_GAME_MAX_BALANCE;
           return (
             <div
@@ -1198,10 +1202,12 @@ const LadderGame = ({ onClose }) => {
                     <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '4px' }}>
                       Available: ${userStockismCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p style={{ fontSize: '0.8rem', color: ladderFull ? '#e57373' : textLight, marginBottom: '10px' }}>
-                      {ladderFull
-                        ? 'Ladder balance is at the $5,000 limit.'
-                        : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (cap: $5,000)`}
+                    <p style={{ fontSize: '0.8rem', color: (ladderFull || noInvestment) ? '#e57373' : textLight, marginBottom: '10px' }}>
+                      {noInvestment
+                        ? 'Invest in stocks first — the ladder game is capped at what you have invested.'
+                        : ladderFull
+                          ? 'Ladder balance is at the $5,000 limit.'
+                          : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (capped at your $${totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} invested)`}
                     </p>
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                       <input
@@ -1242,12 +1248,12 @@ const LadderGame = ({ onClose }) => {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleDeposit}
-                        disabled={depositLoading || ladderFull}
+                        disabled={depositLoading || ladderFull || noInvestment || maxDeposit <= 0}
                         style={{
                           flex: 1, padding: '8px', background: '#d4af37', color: '#000',
                           border: 'none', fontWeight: 700,
-                          cursor: depositLoading || ladderFull ? 'not-allowed' : 'pointer',
-                          opacity: ladderFull ? 0.5 : 1
+                          cursor: (depositLoading || ladderFull || noInvestment || maxDeposit <= 0) ? 'not-allowed' : 'pointer',
+                          opacity: (ladderFull || noInvestment || maxDeposit <= 0) ? 0.5 : 1
                         }}
                       >
                         {depositLoading ? 'Depositing...' : 'Deposit'}

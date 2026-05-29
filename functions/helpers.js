@@ -104,6 +104,21 @@ const getAccountAgeImpactFactor = (userData) => {
   return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
 };
 
+// Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
+// open short positions. Used to cap prediction bets and ladder-game deposits.
+const getTotalInvested = (userData) => {
+  if (!userData) return 0;
+  const holdings = userData.holdings || {};
+  const costBasis = userData.costBasis || {};
+  const holdingsValue = Object.entries(holdings).reduce(
+    (sum, [ticker, shares]) => sum + ((costBasis[ticker] || 0) * (shares || 0)), 0
+  );
+  const shortMargin = Object.values(userData.shorts || {}).reduce(
+    (sum, s) => sum + (s && s.shares > 0 ? (s.margin || 0) : 0), 0
+  );
+  return holdingsValue + shortMargin;
+};
+
 // Prune entries older than 24h, return summary
 const pruneAndSumTradeHistory = (entries, now) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
@@ -331,6 +346,7 @@ module.exports = {
   graduateCohort,
   calculateMarginalImpact,
   getAccountAgeImpactFactor,
+  getTotalInvested,
   pruneAndSumTradeHistory,
   writeNotification,
   writeFeedEntry,

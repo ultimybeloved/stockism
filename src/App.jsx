@@ -116,6 +116,7 @@ import {
   calculateMarginStatus,
   calculatePortfolioValue,
   calculatePriceImpactDollars,
+  getTotalInvested,
 } from './utils/calculations';
 import { formatCurrency, formatChange } from './utils/formatters';
 import { toMillis } from './utils/date';
@@ -1679,12 +1680,7 @@ export default function App() {
               return (
               <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
                 {visiblePredictions.map(prediction => {
-                  const totalSpentOnStocks = Object.entries(userData?.holdings || {}).reduce((sum, [ticker, shares]) => {
-                    const costBasis = userData?.costBasis?.[ticker] || 0;
-                    return sum + (costBasis * shares);
-                  }, 0);
-                  const totalShortMargin = Object.values(userData?.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
-                  const totalInvested = totalSpentOnStocks + totalShortMargin;
+                  const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
                   const betLimit = Math.min(totalInvested, userData?.cash || 0);
 
                   return (

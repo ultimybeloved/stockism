@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { placeBetFunction } from '../firebase';
 import { formatCurrency } from '../utils/formatters';
+import { getTotalInvested } from '../utils/calculations';
 
 export function usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey }) {
   const handleBet = useCallback(async (predictionId, option, amount) => {
@@ -12,14 +13,7 @@ export function usePredictionManagement({ user, userData, predictions, showNotif
       showNotification('error', 'Insufficient funds!');
       return;
     }
-    const totalSpentOnStocks = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
-      const costBasis = userData.costBasis?.[ticker] || 0;
-      return sum + (costBasis * shares);
-    }, 0);
-    const totalShortMargin = Object.values(userData.shorts || {}).filter(short => short).reduce((sum, short) => {
-      return sum + (short.margin || 0);
-    }, 0);
-    const totalInvested = totalSpentOnStocks + totalShortMargin;
+    const totalInvested = getTotalInvested(userData.holdings, userData.costBasis, userData.shorts);
     if (totalInvested <= 0) {
       showNotification('error', 'You must invest in the market before placing bets!');
       return;

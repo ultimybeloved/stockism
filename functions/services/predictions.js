@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
-const { checkBanned, sendDiscordMessage } = require('../helpers');
+const { checkBanned, sendDiscordMessage, getTotalInvested } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -50,15 +50,7 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
     }
 
     // Check bet limit (can't bet more than total invested value)
-    const holdings = userData.holdings || {};
-    const costBasisData = userData.costBasis || {};
-    const totalHoldingsValue = Object.entries(holdings).reduce((sum, [t, shares]) => {
-      return sum + ((costBasisData[t] || 0) * shares);
-    }, 0);
-    const totalShortMargin = Object.values(userData.shorts || {})
-      .filter(s => s && s.shares > 0)
-      .reduce((sum, s) => sum + (s.margin || 0), 0);
-    const totalInvested = totalHoldingsValue + totalShortMargin;
+    const totalInvested = getTotalInvested(userData);
 
     if (totalInvested <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Must invest in stocks before betting.');

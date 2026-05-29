@@ -231,3 +231,17 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
     requirements
   };
 };
+
+/**
+ * Total a user has "invested" in stocks: cost basis of holdings + open short margin.
+ * Used to cap prediction bets and ladder-game deposits. Mirrors functions/helpers.js.
+ */
+export const getTotalInvested = (holdings = {}, costBasis = {}, shorts = {}) => {
+  const holdingsValue = Object.entries(holdings || {}).reduce(
+    (sum, [ticker, shares]) => sum + ((costBasis?.[ticker] || 0) * (shares || 0)), 0
+  );
+  const shortMargin = Object.values(shorts || {}).reduce(
+    (sum, s) => sum + (s && s.shares > 0 ? (s.margin || 0) : 0), 0
+  );
+  return holdingsValue + shortMargin;
+};
