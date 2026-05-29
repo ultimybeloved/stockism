@@ -2,10 +2,10 @@
 require('./sentry');
 
 const admin = require('firebase-admin');
-const { botTrader } = require('./botTrader');
 
 admin.initializeApp();
 
+const { botTrader } = require('./botTrader');
 exports.botTrader = botTrader;
 
 Object.assign(exports, require('./services/trading'));
