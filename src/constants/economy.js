@@ -5,6 +5,7 @@
 // General
 export const ITEMS_PER_PAGE = 15;
 export const STARTING_CASH = 3000;
+export const UNVERIFIED_STARTING_CASH = 1000; // before Discord verification (anti-alt) — keep in sync with functions/constants.js
 export const DAILY_BONUS = 300;
 export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute

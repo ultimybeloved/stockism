@@ -7,7 +7,7 @@ const { verifyKey, InteractionType, InteractionResponseType } = require('discord
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
+const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
 const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 
@@ -106,7 +106,8 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
           costBasis: {},
           lendingUnlocked: false,
           isBankrupt: false,
-          onboardingComplete: false
+          onboardingComplete: false,
+          startingCashUnlocked: true
         });
       }
     } else {
@@ -211,6 +212,14 @@ exports.discordLink = functions.https.onRequest(async (req, res) => {
       discordId: discordId,
       discordUsername: discordUsername
     };
+
+    // One-time: unlock full starting cash on first Discord verification (anti-alt gate).
+    // Guarded by startingCashUnlocked so unlink/relink can't farm it, and one Discord can
+    // only link to one account, so it can't be recycled across alts.
+    if (userDoc.data().startingCashUnlocked !== true) {
+      linkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
+      linkUpdate.startingCashUnlocked = true;
+    }
 
     // Award DISCORD_LINKED achievement if not already earned
     const currentAchievements = userDoc.data().achievements || [];

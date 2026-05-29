@@ -20,6 +20,12 @@ const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per roll
 const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;  // ramps over the first 3 days
 const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0 → 100% at day 3
 
+// Anti-alt: hard cap on accounts per IP, enforced at signup AND trade.
+// ADMIN_UID is always exempt. Flip IP_ACCOUNT_CAP_ENABLED to false to disable the
+// hard block instantly (e.g. if client IPs turn out unreliable) without a code change.
+const MAX_ACCOUNTS_PER_IP = 2;
+const IP_ACCOUNT_CAP_ENABLED = true;
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
@@ -43,7 +49,8 @@ const isWeeklyTradingHalt = () => {
 // ============================================
 // ECONOMY
 // ============================================
-const STARTING_CASH = 3000;
+const STARTING_CASH = 3000;            // full starting cash once verified (Discord linked)
+const UNVERIFIED_STARTING_CASH = 1000; // starting cash before Discord verification (anti-alt)
 const BAILOUT_CASH = 1500;
 const SHORT_MARGIN_RATIO = 1.0; // 100% collateral — deposit dollar-for-dollar
 const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
@@ -171,6 +178,8 @@ module.exports = {
   MAX_TRADES_PER_TICKER_24H,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+  MAX_ACCOUNTS_PER_IP,
+  IP_ACCOUNT_CAP_ENABLED,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,
@@ -182,6 +191,7 @@ module.exports = {
   PRE_MARKET_LOCK_MINUTE,
   isWeeklyTradingHalt,
   STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,

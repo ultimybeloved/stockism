@@ -1,6 +1,7 @@
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
+import { STARTING_CASH } from '../../constants/economy';
 
 // Profile settings card: color-blind mode, public profile toggle, Discord link.
 const ProfileSettings = ({ userData, user, darkMode }) => {
@@ -83,7 +84,9 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
           <p className={`text-xs ${mutedClass}`}>
             {userData?.discordId
               ? `Linked${userData?.discordUsername ? ` as ${userData.discordUsername}` : ''}`
-              : 'Link to claim daily free stocks in Discord'}
+              : (userData?.startingCashUnlocked
+                  ? 'Link to claim daily free stocks in Discord'
+                  : `Link Discord to unlock your full $${STARTING_CASH.toLocaleString()} starting balance`)}
           </p>
         </div>
         {userData?.discordId ? (

@@ -104,6 +104,7 @@ import {
   ADMIN_UIDS,
   ITEMS_PER_PAGE,
   STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
   IPO_TOTAL_SHARES,
   MIN_PRICE,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
@@ -1759,6 +1760,8 @@ export default function App() {
               const changePercent24h = value24hAgo && value24hAgo > 0 ? ((change24h / value24hAgo) * 100) : 0;
 
               const colors24h = getColorBlindColors(change24h >= 0);
+              // Unverified accounts start at the reduced amount; full once Discord-linked.
+              const startBaseline = (isGuest || userData?.startingCashUnlocked) ? STARTING_CASH : UNVERIFIED_STARTING_CASH;
 
               return (
                 <>
@@ -1768,7 +1771,7 @@ export default function App() {
                     </p>
                   )}
                   <p className={`text-xs ${mutedClass}`}>
-                    {portfolioValue >= STARTING_CASH ? '▲' : '▼'} {(STARTING_CASH > 0 ? ((portfolioValue - STARTING_CASH) / STARTING_CASH * 100) : 0).toFixed(2)}% from start
+                    {portfolioValue >= startBaseline ? '▲' : '▼'} {(startBaseline > 0 ? ((portfolioValue - startBaseline) / startBaseline * 100) : 0).toFixed(2)}% from start
                     {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
                   </p>
                 </>

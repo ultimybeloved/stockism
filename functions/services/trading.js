@@ -8,7 +8,7 @@ const {
   isWeeklyTradingHalt, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS, ANIMAL_TICKERS, MAX_SHORT_EXPOSURE_RATIO,
-  SHORT_MARGIN_RATIO,
+  SHORT_MARGIN_RATIO, ADMIN_UID, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED,
 } = require('../constants');
 const {
   checkBanned,
@@ -690,6 +690,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       let ipTrackingRef = null;
       let sanitizedIp = null;
       let ipTickerTradeHistory = {};
+      let ipRecentTraders = {};
 
       if (ip !== 'unknown') {
         sanitizedIp = ip.replace(/[.:/]/g, '_');
@@ -698,11 +699,33 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         if (ipDoc.exists) {
           const ipData = ipDoc.data();
           ipTickerTradeHistory = ipData.tickerTradeHistory || {};
+          ipRecentTraders = ipData.recentTraders || {};
           const ipAllActions = ipTickerTradeHistory[ticker] || {};
           for (const act of ['buy', 'sell', 'short', 'cover']) {
             const { totalImpact } = pruneAndSumTradeHistory(ipAllActions[act] || [], now);
             ipCumulativeDailyImpact += totalImpact;
           }
+        }
+      }
+
+      // Hard per-IP cap: at most MAX_ACCOUNTS_PER_IP distinct accounts may buy/short from
+      // one IP per hour (admin exempt; sell/cover always allowed so users can exit).
+      if (
+        IP_ACCOUNT_CAP_ENABLED && ip !== 'unknown' && uid !== ADMIN_UID &&
+        (action === 'buy' || action === 'short')
+      ) {
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const recentTraderUids = new Set(
+          Object.entries(ipRecentTraders)
+            .filter(([, ts]) => now - (typeof ts === 'number' ? ts : 0) < ONE_HOUR_MS)
+            .map(([u]) => u)
+        );
+        recentTraderUids.add(uid);
+        if (recentTraderUids.size > MAX_ACCOUNTS_PER_IP) {
+          throw new functions.https.HttpsError(
+            'permission-denied',
+            'Too many accounts trading from this network. Trading is limited per network.'
+          );
         }
       }
 
@@ -1384,7 +1407,16 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
           if (!updatedIpHistory[trailingTicker][trailingAction]) updatedIpHistory[trailingTicker][trailingAction] = [];
           updatedIpHistory[trailingTicker][trailingAction].push(entry);
         }
-        transaction.set(ipTrackingRef, { tickerTradeHistory: updatedIpHistory }, { merge: true });
+        // Record this account as a recent trader from the IP (rolling 1h) for the
+        // per-IP multi-account cap; prune entries older than 1h.
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const updatedRecentTraders = {};
+        for (const [u, ts] of Object.entries(ipRecentTraders)) {
+          if (now - (typeof ts === 'number' ? ts : 0) < ONE_HOUR_MS) updatedRecentTraders[u] = ts;
+        }
+        // Only buy/short consume a per-IP slot (sell/cover never blocked, so don't count them).
+        if (action === 'buy' || action === 'short') updatedRecentTraders[uid] = now;
+        transaction.set(ipTrackingRef, { tickerTradeHistory: updatedIpHistory, recentTraders: updatedRecentTraders }, { merge: true });
       }
 
       // Compute achievement context inside transaction (we have the data here)

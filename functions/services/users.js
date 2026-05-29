@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { ADMIN_UID, STARTING_CASH } = require('../constants');
+const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED } = require('../constants');
 const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned } = require('../helpers');
 
 /**
@@ -82,8 +82,35 @@ exports.createUser = functions.https.onCall(async (data, context) => {
   // Watched IP check — block alt accounts from watched IPs
   let autoLinkData = null;
   const signupIp = context.rawRequest?.ip || 'unknown';
+  const sanitizedSignupIp = signupIp !== 'unknown' ? signupIp.replace(/[.:/]/g, '_') : null;
+
+  // Hard per-IP signup cap (admin exempt): at most MAX_ACCOUNTS_PER_IP accounts may
+  // ever be created from one IP. Counts existing (non-deleted) accounts on the IP.
+  if (IP_ACCOUNT_CAP_ENABLED && uid !== ADMIN_UID && sanitizedSignupIp) {
+    try {
+      const ipTrackDoc = await db.collection('ipTracking').doc(sanitizedSignupIp).get();
+      const existingAccounts = ipTrackDoc.exists ? Object.keys(ipTrackDoc.data().accounts || {}) : [];
+      if (existingAccounts.length >= MAX_ACCOUNTS_PER_IP) {
+        await db.collection('watchlist_alerts').add({
+          type: 'signup_blocked',
+          relatedUID: uid,
+          ip: signupIp,
+          action: 'blocked',
+          details: `Blocked signup "${trimmed}" — network already has ${existingAccounts.length} account(s) (cap ${MAX_ACCOUNTS_PER_IP})`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          `Account creation is limited to ${MAX_ACCOUNTS_PER_IP} accounts per network.`
+        );
+      }
+    } catch (capErr) {
+      if (capErr instanceof functions.https.HttpsError) throw capErr;
+      console.error('Signup IP cap check error:', capErr);
+    }
+  }
+
   if (signupIp !== 'unknown') {
-    const sanitizedSignupIp = signupIp.replace(/[.:/]/g, '_');
     try {
       const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedSignupIp).get();
       if (watchedIpDoc.exists) {
@@ -169,21 +196,23 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       transaction.set(userRef, {
         displayName: trimmed,
         displayNameLower: displayNameLower,
-        cash: STARTING_CASH,
+        cash: UNVERIFIED_STARTING_CASH,
         holdings: {},
-        portfolioValue: STARTING_CASH,
-        portfolioHistory: [{ timestamp: Date.now(), value: STARTING_CASH }],
+        portfolioValue: UNVERIFIED_STARTING_CASH,
+        portfolioHistory: [{ timestamp: Date.now(), value: UNVERIFIED_STARTING_CASH }],
         lastCheckin: null,
         createdAt: now,
         achievements: [],
         totalCheckins: 0,
         totalTrades: 0,
-        peakPortfolioValue: STARTING_CASH,
+        peakPortfolioValue: UNVERIFIED_STARTING_CASH,
         predictionWins: 0,
         costBasis: {},
         lendingUnlocked: false,
         isBankrupt: false,
-        onboardingComplete: false
+        onboardingComplete: false,
+        startingCashUnlocked: false,
+        signupIp: sanitizedSignupIp || null
       });
     });
 
@@ -247,7 +276,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
           },
           {
             name: 'Starting Cash',
-            value: `$${STARTING_CASH.toLocaleString()}`,
+            value: `$${UNVERIFIED_STARTING_CASH.toLocaleString()}`,
             inline: true
           }
         ],
@@ -627,6 +656,15 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
     // (notifications, portfolioHistory, etc.). Firestore does not cascade, so a
     // plain doc delete would orphan that data forever.
     await db.recursiveDelete(userRef);
+
+    // Free this account's per-IP slot so the network can register again.
+    if (userData.signupIp) {
+      try {
+        await db.collection('ipTracking').doc(userData.signupIp).update({
+          [`accounts.${uid}`]: admin.firestore.FieldValue.delete()
+        });
+      } catch (e) { /* IP tracking doc may not exist */ }
+    }
 
     // Delete the Firebase Auth account
     await admin.auth().deleteUser(uid);

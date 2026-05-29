@@ -113,7 +113,9 @@ service cloud.firestore {
         (!('pins' in newData) || newData.pins == oldData.pins) &&
         (!('badges' in newData) || newData.badges == oldData.badges) &&
         (!('crewIcon' in newData) || newData.crewIcon == oldData.crewIcon) &&
-        (!('lendingUnlocked' in newData) || newData.lendingUnlocked == oldData.lendingUnlocked)
+        (!('lendingUnlocked' in newData) || newData.lendingUnlocked == oldData.lendingUnlocked) &&
+        // Block starting-cash unlock flag (set server-side on Discord link)
+        (!('startingCashUnlocked' in newData) || newData.startingCashUnlocked == oldData.startingCashUnlocked)
       );
     }
     
