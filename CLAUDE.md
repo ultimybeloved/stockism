@@ -153,7 +153,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 ### Backend: Where Code Lives
 
 **Service files** (`functions/services/`)
-- Each file owns one domain: trading, users, market, leaderboard, dividends, alerts, discord, admin, adminOps, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, crew
+- Each file owns one domain: trading, users, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminOps, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, crew
 - Adding a new Cloud Function: find the right service file and append to it. If none fits, create `functions/services/<newdomain>.js` and add `Object.assign(exports, require('./services/<newdomain>'))` to `functions/index.js`
 - Never add Cloud Function logic directly to `functions/index.js`
 
@@ -222,6 +222,14 @@ Quick reference so you know where to look and where to add things.
 | `src/hooks/useMarket.js` | Market/price subscriptions |
 | `src/hooks/useModalManager.js` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
 | `src/hooks/useNotifications.js` | Notification bell state |
+| `src/hooks/useTradeManagement.js` | handleTrade — trade execution, retry logic, achievement checks |
+| `src/hooks/useMissionManagement.js` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
+| `src/hooks/useMarginManagement.js` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
+| `src/hooks/useCrewManagement.js` | handleCrewSelect, handleCrewLeave |
+| `src/hooks/usePredictionManagement.js` | handleBet |
+| `src/hooks/useIPOManagement.js` | handleBuyIPO |
+| `src/hooks/useDailyOperations.js` | handleDailyCheckin, handleBailout |
+| `src/hooks/usePinShop.js` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
 | `src/utils/calculations.js` | All price/portfolio math — canonical, do not duplicate |
 | `src/utils/theme.js` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
 | `src/utils/formatters.js` | Currency, number, percentage formatting |
@@ -238,7 +246,8 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `functions/index.js` | Re-exports only — 25 lines, never add logic here |
+| `functions/index.js` | Re-exports only — ≤40 lines, never add logic here |
+| `functions/sentry.js` | Sentry error monitoring init — required by index.js at startup |
 | `functions/constants.js` | All backend economy constants — add new ones here |
 | `functions/helpers.js` | Shared utility functions used by multiple services |
 | `functions/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
@@ -249,7 +258,9 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/leaderboard.js` | Rankings, leaderboard computation |
 | `functions/services/dividends.js` | Dividend payouts |
 | `functions/services/alerts.js` | Price alerts |
-| `functions/services/discord.js` | Discord OAuth, linking, interactions |
+| `functions/services/discord.js` | Discord OAuth and account linking (≤352 lines) |
+| `functions/services/discordInteractions.js` | Discord slash command webhook handler |
+| `functions/services/discordAdmin.js` | Discord-triggered admin diagnostics and recovery tools |
 | `functions/services/admin.js` | Ban/reinstate/cash operations |
 | `functions/services/adminOps.js` | Repair/recovery/diagnostic tools |
 | `functions/services/margin.js` | Margin lending, short margin calls, bailout |
@@ -260,6 +271,9 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/ladderGame.js` | Ladder game mechanics and leaderboard |
 | `functions/services/watchlist.js` | IP watchlist, fraud detection |
 | `functions/services/archiving.js` | Data archiving and cleanup |
+| `functions/services/market.js` | Daily price snapshots, pre-halt saves, chapter recap (≤470 lines) |
+| `functions/services/marketOrders.js` | processMarketOpenOrders (limit/pre-market auction at halt end) + manual trigger |
+| `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 
 ---
 
@@ -285,6 +299,8 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
 - **`executeTrade` refactor** (`functions/services/trading.js`, ~1,600 lines): The function is a single Firestore transaction. Splitting it risks breaking atomicity with no integration tests to catch it. Leave it unless a specific bug requires touching it.
+- **`AdminPanel.jsx` split** (`src/AdminPanel.jsx`, ~4,400 lines): The admin panel contains complex interleaved state for every admin operation. The 13 tab components in `src/components/admin/` exist but the main file still carries most of the logic. Splitting it without integration tests risks breaking admin workflows. Admin usage is rare and by one person. Leave it unless actively broken.
+- **`LadderGame.jsx` split** (`src/components/LadderGame.jsx`, ~1,510 lines): Contains game animation state, transfer modal, leaderboard modal, and Firebase logic all inline. Works correctly; splitting without a hook extraction plan risks subtle animation/timing bugs. Add a `useLadderGame.js` hook when new ladder features are needed.
 - **End-to-end trade tests**: Would require Firebase Emulator setup. ROI is low unless trade logic is being actively changed.
 - **TypeScript migration**: The codebase is plain JS. Don't start adding `.ts` files — a half-migrated codebase is worse than none.
 
@@ -305,5 +321,5 @@ Manual halts can also be triggered by an admin via the admin panel, which sets `
 - **`activeUserData` vs `userData`** in App.jsx: `userData` is the logged-in user's Firestore doc. `activeUserData` is derived from it with fallbacks. Always use `activeUserData` when reading holdings/shorts/cohorts, not `userData` directly.
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
-- **Price impact**: Every trade moves the price. The calculation lives in `calculatePriceImpact` in `src/utils/calculations.js` and is mirrored backend-side. If you change the formula, change it in both places and re-run `npm test`.
+- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.js`. The backend uses `calculateMarginalImpact` in `functions/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
 - **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF tickers are identified by the `type: 'etf'` field in `src/characters.js`.

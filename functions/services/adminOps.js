@@ -2,7 +2,13 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { ADMIN_UID, STARTING_CASH } = require('../constants');
+const {
+  ADMIN_UID,
+  STARTING_CASH,
+  REINSTATE_CASH_DEFAULT,
+  TWENTY_FOUR_HOURS_MS,
+  ONE_WEEK_MS,
+} = require('../constants');
 
 exports.removeAchievement = functions.https.onCall(async (data, context) => {
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
@@ -49,7 +55,7 @@ exports.reinstateUser = functions.https.onCall(async (data, context) => {
   }
 
   const userData = userSnap.data();
-  const cashBoost = Math.max(0, 1000 - (userData.cash || 0));
+  const cashBoost = Math.max(0, REINSTATE_CASH_DEFAULT - (userData.cash || 0));
 
   await userRef.update({
     isBankrupt: false,
@@ -721,12 +727,10 @@ exports.migratePortfolioHistory = functions
           portfolioHistory: admin.firestore.FieldValue.delete(),
         };
         // Seed 24h snapshot from first entry that's >= 24h old
-        const oneDay = 24 * 60 * 60 * 1000;
-        const oneWeek = 7 * 24 * 60 * 60 * 1000;
         const now = Date.now();
-        const snap24h = history.find(e => e.timestamp <= now - oneDay);
+        const snap24h = history.find(e => e.timestamp <= now - TWENTY_FOUR_HOURS_MS);
         if (snap24h) updatePayload.portfolioSnapshot24h = snap24h;
-        const snap7d = history.find(e => e.timestamp <= now - oneWeek);
+        const snap7d = history.find(e => e.timestamp <= now - ONE_WEEK_MS);
         if (snap7d) updatePayload.portfolioSnapshot7d = snap7d;
 
         await userDoc.ref.update(updatePayload);

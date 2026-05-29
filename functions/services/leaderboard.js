@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL, ADMIN_UID } = require('../constants');
+const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS } = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -29,7 +29,7 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
         query = query.orderBy('portfolioValue', 'desc').limit(200);
 
         const snapshot = await query.get();
-        const twoWeeksAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
+        const twoWeeksAgo = Date.now() - FOURTEEN_DAYS_MS;
 
         const allUsers = [];
         snapshot.forEach(doc => {

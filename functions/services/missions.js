@@ -4,27 +4,8 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CREW_MEMBERS } = require('../constants');
+const { CREW_MEMBERS, MISSION_REWARDS } = require('../constants');
 const { writeNotification, writeFeedEntry, checkBanned } = require('../helpers');
-
-// Server-side mission reward lookup (prevents client reward inflation)
-const MISSION_REWARDS = {
-  // Daily missions
-  BUY_CREW_MEMBER: 150, HOLD_CREW_SHARES: 75, MAKE_TRADES: 100,
-  BUY_ANY_STOCK: 75, SELL_ANY_STOCK: 75, HOLD_LARGE_POSITION: 125, TRADE_VOLUME: 100,
-  CREW_MAJORITY: 125, CREW_COLLECTOR: 100, FULL_ROSTER: 200, CREW_LEADER: 150,
-  RIVAL_TRADER: 75, SPY_GAME: 100,
-  TOP_DOG: 100, UNDERDOG_INVESTOR: 75,
-  BALANCED_CREW: 100, CREW_ACCUMULATOR: 150,
-  // Weekly missions
-  MARKET_WHALE: 750, VOLUME_KING: 500, TRADING_MACHINE: 400,
-  TRADING_STREAK: 600, DAILY_GRINDER: 500,
-  CREW_MAXIMALIST: 600, CREW_HOARDER: 500, FULL_CREW_OWNERSHIP: 1000,
-  DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750,
-  SHARE_MOGUL: 700, TRADE_MASTER: 600, HEAVY_BAGS: 600,
-  PENNY_COLLECTOR: 500, BLUE_CHIP_INVESTOR: 600, SHORT_KING: 700,
-  PORTFOLIO_MOONSHOT: 1000
-};
 
 // Server-side mission completion verification
 // Maps mission IDs to their completion check logic

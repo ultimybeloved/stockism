@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useAppContext } from '../context/AppContext';
 
 const STEPS = [
   {
@@ -40,7 +41,8 @@ const STEPS = [
   },
 ];
 
-export default function OnboardingTutorial({ onComplete, darkMode }) {
+export default function OnboardingTutorial({ onComplete }) {
+  const { darkMode } = useAppContext();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [animating, setAnimating] = useState(false);

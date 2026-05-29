@@ -89,6 +89,67 @@ const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
 const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
 
 // ============================================
+// LEADERBOARD
+// ============================================
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+// ============================================
+// LADDER GAME
+// ============================================
+const LADDER_GAME_INITIAL_BALANCE    = 500;   // starting balance for new ladder game users
+const LADDER_HIGH_BET_THRESHOLD      = 50;    // bets at or above this count toward ADDICTED achievement
+const LADDER_ACHIEVEMENT_PROFIT      = 2500;  // net profit needed for COMPULSIVE_GAMBLER achievement
+const LADDER_ACHIEVEMENT_HIGH_BETS   = 100;   // high-bet games needed for ADDICTED achievement
+
+// ============================================
+// DISCORD ALERTS
+// ============================================
+const WHALE_ALERT_SHARES_SOFT   = 50;   // shares threshold (combined with price check) for whale alert
+const WHALE_ALERT_PRICE_SOFT    = 35;   // price threshold (combined with shares check) for whale alert
+const WHALE_ALERT_SHARES_HARD   = 100;  // shares threshold alone triggers whale alert regardless of price
+const CREW_MILESTONE_THRESHOLDS = [5, 10, 25, 50, 100]; // crew member counts that trigger Discord alerts
+
+// ============================================
+// ADMIN OPS
+// ============================================
+const REINSTATE_CASH_DEFAULT = 1000; // cash given when admin reinstates a bankrupt user
+
+// ============================================
+// CREW PUMP THRESHOLD
+// ============================================
+const CREW_PUMP_THRESHOLD = 1.10; // a stock must reach 110% of its week-start price to satisfy CREW_PUMP
+
+// ============================================
+// MISSION REWARDS
+// ============================================
+const MISSION_REWARDS = {
+  // Daily missions
+  BUY_CREW_MEMBER: 150, HOLD_CREW_SHARES: 75, MAKE_TRADES: 100,
+  BUY_ANY_STOCK: 75, SELL_ANY_STOCK: 75, HOLD_LARGE_POSITION: 125, TRADE_VOLUME: 100,
+  CREW_MAJORITY: 125, CREW_COLLECTOR: 100, FULL_ROSTER: 200, CREW_LEADER: 150,
+  RIVAL_TRADER: 75, SPY_GAME: 100,
+  TOP_DOG: 100, UNDERDOG_INVESTOR: 75,
+  BALANCED_CREW: 100, CREW_ACCUMULATOR: 150,
+  // Weekly missions
+  MARKET_WHALE: 750, VOLUME_KING: 500, TRADING_MACHINE: 400,
+  TRADING_STREAK: 600, DAILY_GRINDER: 500,
+  CREW_MAXIMALIST: 600, CREW_HOARDER: 500, FULL_CREW_OWNERSHIP: 1000,
+  DIVERSIFICATION_MASTER: 500, PORTFOLIO_BUILDER: 750,
+  SHARE_MOGUL: 700, TRADE_MASTER: 600, HEAVY_BAGS: 600,
+  PENNY_COLLECTOR: 500, BLUE_CHIP_INVESTOR: 600, SHORT_KING: 700,
+  PORTFOLIO_MOONSHOT: 1000
+};
+
+const CREW_MISSION_REWARDS = {
+  CREW_BUY_500:    500,
+  CREW_SELL_500:   400,
+  CREW_FULL_ROSTER: 750,
+  CREW_RECRUIT:    300,
+  CREW_PUMP:       600,
+  CREW_VOLUME:     500,
+};
+
+// ============================================
 // ADMIN
 // ============================================
 // Set via functions/.env in production; fallback for local dev only
@@ -133,5 +194,18 @@ module.exports = {
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
+  FOURTEEN_DAYS_MS,
+  LADDER_GAME_INITIAL_BALANCE,
+  LADDER_HIGH_BET_THRESHOLD,
+  LADDER_ACHIEVEMENT_PROFIT,
+  LADDER_ACHIEVEMENT_HIGH_BETS,
+  WHALE_ALERT_SHARES_SOFT,
+  WHALE_ALERT_PRICE_SOFT,
+  WHALE_ALERT_SHARES_HARD,
+  CREW_MILESTONE_THRESHOLDS,
+  REINSTATE_CASH_DEFAULT,
+  CREW_PUMP_THRESHOLD,
+  MISSION_REWARDS,
+  CREW_MISSION_REWARDS,
   ADMIN_UID,
 };

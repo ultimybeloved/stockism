@@ -5,8 +5,8 @@ import { LADDER_GAME_MAX_BALANCE } from '../constants/economy';
 import { useAppContext } from '../context/AppContext';
 import LadderTutorialModal from './LadderTutorialModal';
 
-const LadderGame = ({ user, onClose, darkMode, userData }) => {
-  const { showNotification } = useAppContext();
+const LadderGame = ({ onClose }) => {
+  const { user, userData, darkMode, showNotification } = useAppContext();
   const [userLadderData, setUserLadderData] = useState(null);
   const [globalHistory, setGlobalHistory] = useState([]);
   const [userStockismCash, setUserStockismCash] = useState(0);

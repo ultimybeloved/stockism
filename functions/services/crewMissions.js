@@ -4,17 +4,12 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CREW_MEMBERS, CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD, CREW_VOLUME_THRESHOLD } = require('../constants');
+const {
+  CREW_MEMBERS,
+  CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD, CREW_VOLUME_THRESHOLD,
+  CREW_MISSION_REWARDS, CREW_PUMP_THRESHOLD,
+} = require('../constants');
 const { checkBanned, writeNotification } = require('../helpers');
-
-const CREW_MISSION_REWARDS = {
-  CREW_BUY_500:    500,
-  CREW_SELL_500:   400,
-  CREW_FULL_ROSTER: 750,
-  CREW_RECRUIT:    300,
-  CREW_PUMP:       600,
-  CREW_VOLUME:     500,
-};
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 
@@ -136,7 +131,7 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
           if (ts <= weekStartTs && ts > closestTs) { closestTs = ts; weekStartPrice = entry.price; }
         }
         if (!weekStartPrice) continue;
-        if (currentPrice >= weekStartPrice * 1.10) { anyTickerUp = true; break; }
+        if (currentPrice >= weekStartPrice * CREW_PUMP_THRESHOLD) { anyTickerUp = true; break; }
       }
 
       if (!anyTickerUp) return { complete: false, contributed: false, reason: 'No crew stock has risen 10% this week.' };

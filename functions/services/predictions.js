@@ -386,7 +386,8 @@ exports.processIPOPriceJumps = functions.pubsub
 
       for (let i = 0; i < ipos.length; i++) {
         const ipo = ipos[i];
-        if (now >= ipo.ipoEndsAt && !ipo.priceJumped) {
+        const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
+        if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
           // IPO ended - apply 15% price jump
           const marketRef = db.collection('market').doc('current');
           const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;

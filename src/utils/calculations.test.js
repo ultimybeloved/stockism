@@ -165,16 +165,17 @@ describe('calculateMarginStatus', () => {
 
   it('returns warning when equity ratio drops to warning threshold', () => {
     // equityRatio = (cash - marginUsed) / cash
-    // Warning threshold = 0.35 → need (cash - marginUsed) / cash ≈ 0.34
+    // Warning threshold = 0.65, Danger threshold = 0.40
+    // Use marginUsed = 4000 → equityRatio = 6000/10000 = 0.60 → falls in warning zone
     const user = {
       marginEnabled: true,
       cash: 10000,
       holdings: {},
-      marginUsed: 6700,   // equity = 3300/10000 = 0.33 → below warning (0.35)
+      marginUsed: 4000,
       peakPortfolioValue: 0,
     };
     const status = calculateMarginStatus(user, {});
-    expect(['warning', 'margin_call', 'liquidation']).toContain(status.status);
+    expect(status.status).toBe('warning');
   });
 
   it('available margin is zero when max borrowable is already used', () => {

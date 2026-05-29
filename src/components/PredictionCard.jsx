@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
+import { useAppContext } from '../context/AppContext';
 
-const PredictionCard = ({ prediction, userBet, onBet, darkMode, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide, userData }) => {
+const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
+  const { darkMode, userData } = useAppContext();
   const [betAmount, setBetAmount] = useState(50);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);

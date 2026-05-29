@@ -10,6 +10,7 @@ const {
   BASE_LIQUIDITY,
   MAX_PRICE_CHANGE_PERCENT,
   MIN_PRICE,
+  ONE_WEEK_MS,
   isWeeklyTradingHalt,
 } = require('../constants');
 const { calculateMarginalImpact } = require('../helpers');
@@ -19,7 +20,7 @@ const DEVIATION_THRESHOLD = 0.12;
 // Intervention size: 6 shares per cycle
 const INTERVENTION_SHARES = 6;
 // Only look back 7 days for the rolling average
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = ONE_WEEK_MS;
 
 // Non-ETF tickers eligible for market maker stabilization
 const NON_ETF_TICKERS = new Set(

@@ -138,7 +138,9 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
     }
   }
 
-  await db.collection('preMarketOrders').add({
+  const sessionDate = new Date().toISOString().slice(0, 10);
+  const orderId = `${uid}_${sessionDate}_${ticker}_${action}`;
+  await db.collection('preMarketOrders').doc(orderId).set({
     userId: uid,
     ticker,
     action,

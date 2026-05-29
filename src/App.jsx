@@ -1,6 +1,5 @@
 import * as Sentry from '@sentry/react';
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { fireTradeConfetti, fireDailyRewardConfetti, fireWeeklyRewardConfetti } from './utils/confetti';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   signInWithPopup,
@@ -32,9 +31,9 @@ import {
   deleteDoc,
   deleteField
 } from 'firebase/firestore';
-import { auth, googleProvider, twitterProvider, db, createUserFunction, deleteAccountFunction, validateTradeFunction, executeTradeFunction, recordTradeFunction, achievementAlertFunction, leaderboardChangeAlertFunction, marginLiquidationAlertFunction, ipoClosingAlertFunction, bankruptcyAlertFunction, comebackAlertFunction, getLeaderboardFunction, dailyCheckinFunction, claimMissionRewardFunction, rerollMissionsFunction, purchasePinFunction, purchaseCosmeticFunction, placeBetFunction, claimPredictionPayoutFunction, buyIPOSharesFunction, repayMarginFunction, bailoutFunction, leaveCrewFunction, switchCrewFunction, toggleMarginFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
+import { auth, db, deleteAccountFunction, claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
-import { CREWS, CREW_MAP, SHOP_PINS, DAILY_MISSIONS, WEEKLY_MISSIONS, PIN_SLOT_COSTS, CREW_DIVIDEND_RATE, getWeekId, getCrewWeeklyMissions } from './crews';
+import { CREWS, CREW_MAP, getWeekId } from './crews';
 import { containsProfanity, getProfanityMessage } from './utils/profanity';
 import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
 import LimitOrders from './components/LimitOrders';
@@ -76,6 +75,14 @@ import PredictionCard from './components/PredictionCard';
 import IPOHypeCard from './components/IPOHypeCard';
 import IPOActiveCard from './components/IPOActiveCard';
 import { useModalManager } from './hooks/useModalManager';
+import { useTradeManagement } from './hooks/useTradeManagement';
+import { useMissionManagement } from './hooks/useMissionManagement';
+import { useMarginManagement } from './hooks/useMarginManagement';
+import { useCrewManagement } from './hooks/useCrewManagement';
+import { usePredictionManagement } from './hooks/usePredictionManagement';
+import { useIPOManagement } from './hooks/useIPOManagement';
+import { useDailyOperations } from './hooks/useDailyOperations';
+import { usePinShop } from './hooks/usePinShop';
 
 // Layout is always needed — eagerly loaded
 import Layout from './components/layout/Layout';
@@ -96,102 +103,23 @@ import {
   ADMIN_UIDS,
   ITEMS_PER_PAGE,
   STARTING_CASH,
-  DAILY_BONUS,
-  PRICE_UPDATE_INTERVAL,
-  HISTORY_RECORD_INTERVAL,
-  IPO_HYPE_DURATION,
-  IPO_WINDOW_DURATION,
   IPO_TOTAL_SHARES,
-  IPO_MAX_PER_USER,
-  IPO_PRICE_JUMP,
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
-  BID_ASK_SPREAD,
-  ETF_BID_ASK_SPREAD,
   MIN_PRICE,
-  MAX_PRICE_CHANGE_PERCENT,
-  SHORT_MARGIN_REQUIREMENT,
-  SHORT_INTEREST_RATE,
-  SHORT_RATE_LIMIT_HOURS,
-  MAX_SHORTS_BEFORE_COOLDOWN,
-  MARGIN_INTEREST_RATE,
-  MARGIN_CALL_GRACE_PERIOD,
-  MAX_DAILY_IMPACT_PER_USER,
-  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
-  NEW_ACCOUNT_MIN_IMPACT_FACTOR
 } from './constants';
 import {
   getCurrentPrice,
   getBidAskPrices,
   calculateMarginStatus,
-  checkMarginEligibility
+  calculatePortfolioValue,
+  calculatePriceImpactDollars,
 } from './utils/calculations';
-import { ACHIEVEMENTS } from './constants/achievements';
-import {
-  formatCurrency,
-  formatChange,
-  formatNumber,
-  formatTimeRemaining,
-  round2
-} from './utils/formatters';
-import { getTodayDateString, isToday, toMillis, toDateString, toUTCDateString } from './utils/date';
+import { formatCurrency, formatChange } from './utils/formatters';
+import { toMillis } from './utils/date';
 
-
-// Triggers server-side achievement check via syncPortfolio
-const checkAndAwardAchievements = async () => {
-  try {
-    const result = await syncPortfolioFunction();
-    return result.data?.newAchievements || [];
-  } catch (error) {
-    console.error('[ACHIEVEMENT CHECK ERROR]', error);
-    return [];
-  }
-};
 
 // ============================================
 // MARKET MECHANICS HELPERS
 // ============================================
-
-// Calculate price impact using square root model (used by real quant funds)
-// This models real market microstructure where impact scales with sqrt of order size
-const calculatePriceImpact = (currentPrice, shares, liquidity = BASE_LIQUIDITY, userDailyImpact = 0, velocityMultiplier = 1.0) => {
-  // Square root model: impact = price * base_impact * sqrt(shares / liquidity)
-  // This means: 4x the shares = 2x the impact (not 4x)
-  let impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
-
-  // Apply velocity-based multiplier (anti-manipulation)
-  // Increases price impact for users who repeatedly trade the same stock
-  impact *= velocityMultiplier;
-
-  // Cap the impact at MAX_PRICE_CHANGE_PERCENT per trade to prevent manipulation
-  const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-  impact = Math.min(impact, maxImpact);
-
-  // Anti-manipulation: Check daily impact limit per user per ticker
-  const impactPercent = currentPrice > 0 ? impact / currentPrice : 0;
-  const remainingAllowance = MAX_DAILY_IMPACT_PER_USER - userDailyImpact;
-
-  if (remainingAllowance <= 0) {
-    console.log(`[IMPACT LIMIT] User maxed out daily impact on this ticker (${(userDailyImpact * 100).toFixed(2)}%)`);
-    return 0; // User maxed out, no impact allowed
-  }
-
-  if (impactPercent > remainingAllowance) {
-    // Cap at remaining allowance
-    console.log(`[IMPACT LIMIT] Capping impact from ${(impactPercent * 100).toFixed(2)}% to ${(remainingAllowance * 100).toFixed(2)}%`);
-    return currentPrice * remainingAllowance;
-  }
-
-  return impact;
-};
-
-// Get effective liquidity for a character (can be customized per character later)
-const getCharacterLiquidity = (ticker, tradingVolume = 0) => {
-  // Base liquidity + bonus from trading volume
-  // More actively traded = more liquid = harder to move
-  const volumeBonus = Math.sqrt(tradingVolume) * 0.5;
-  return BASE_LIQUIDITY + volumeBonus;
-};
 
 // Calculate reduced price impact for new accounts (anti-manipulation)
 const getAccountAgeImpactFactor = (userData) => {
@@ -382,6 +310,16 @@ export default function App() {
   const [notifications, setNotifications] = useState([]); // Toast notification queue
   const [showMarginTutorialReview, setShowMarginTutorialReview] = useState(false);
 
+  // Business-logic hooks — each owns one feature domain
+  const { handleTrade } = useTradeManagement({ setLoadingKey, setTradeAnimation });
+  const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ setUserData, setLoadingKey });
+  const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ setUserData, setLoadingKey, setShowLending });
+  const { handleCrewSelect, handleCrewLeave } = useCrewManagement({ setUserData, setLoadingKey });
+  const { handleBet } = usePredictionManagement({ setUserData, setLoadingKey });
+  const { handleBuyIPO } = useIPOManagement({ setUserData, setLoadingKey });
+  const { handleDailyCheckin, handleBailout } = useDailyOperations({ setUserData, setLoadingKey });
+  const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({ setUserData, setLoadingKey });
+
   const [showInAppBanner, setShowInAppBanner] = useState(() => {
     const ua = navigator.userAgent || '';
     return /FBAN|FBAV|Instagram|Discord|Twitter|Snapchat|TikTok|Line|WeChat|MicroMessenger|Pinterest/i.test(ua);
@@ -453,9 +391,6 @@ export default function App() {
   const dismissNotification = useCallback((id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
-
-  // addActivity is now a no-op since we use persistent TradeFeed from Firestore
-  const addActivity = useCallback(() => {}, []);
 
   // Notification handlers
   const handleMarkNotificationRead = useCallback(async (notificationId) => {
@@ -1054,247 +989,6 @@ export default function App() {
   }, [priceHistory, prices]);
 
 
-  // Handle crew selection (uses Cloud Function for switching to apply 15% penalty server-side)
-  const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
-    if (!user || !userData) return;
-
-    try {
-      if (isSwitch && userData.crew) {
-        // Switching crews — penalty handled server-side
-        const result = await switchCrewFunction({ crewId, isSwitch: true });
-        const { totalTaken } = result.data;
-        setUserData(prev => prev ? { ...prev, crew: crewId, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
-        const crew = CREW_MAP[crewId];
-        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (15% penalty)`);
-      } else {
-        // First time joining — no penalty, use Cloud Function
-        const result = await switchCrewFunction({ crewId, isSwitch: false });
-        setUserData(prev => prev ? { ...prev, crew: crewId } : prev);
-        const crew = CREW_MAP[crewId];
-        showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
-      }
-    } catch (err) {
-      console.error('Failed to select crew:', err);
-      const message = err?.message || err?.details || 'Failed to join crew';
-      showNotification('error', message);
-    }
-  }, [user, userData, showNotification]);
-
-  // Handle leaving crew
-  const handleCrewLeave = useCallback(async () => {
-    if (!user || !userData || !userData.crew) return;
-
-    if ((userData.cash || 0) < 0) {
-      showNotification('error', 'You cannot leave your crew while in debt.');
-      return;
-    }
-
-    setLoadingKey('leaveCrew', true);
-    try {
-      const oldCrew = CREW_MAP[userData.crew];
-      const result = await leaveCrewFunction({});
-      const totalTaken = result.data.totalTaken;
-
-      setUserData(prev => prev ? { ...prev, crew: null, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
-      showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty). You cannot join a new crew for 24 hours.`);
-    } catch (err) {
-      console.error('Failed to leave crew:', err);
-      showNotification('error', 'Failed to leave crew');
-    } finally {
-      setLoadingKey('leaveCrew', false);
-    }
-  }, [user, userData, showNotification]);
-
-  // Handle pin shop purchases and updates
-  const handlePinAction = useCallback(async (action, payload, cost) => {
-    if (!user || !userData) return;
-
-    if (action === 'buyPin' || action === 'buySlot') setLoadingKey('pinAction', true);
-    try {
-      const userRef = doc(db, 'users', user.uid);
-
-      if (action === 'buyPin') {
-        const currentOwned = userData.ownedShopPins || [];
-        if (currentOwned.includes(payload)) return;
-
-        await purchasePinFunction({ action: 'buyPin', pinId: payload });
-
-        setUserData(prev => prev ? { ...prev, ownedShopPins: [...(prev.ownedShopPins || []), payload], cash: (prev.cash || 0) - (cost || 0) } : prev);
-        const pin = SHOP_PINS[payload];
-        showNotification('success', `Purchased ${pin.name}!`, `/pins/${pin.image}`);
-
-      } else if (action === 'setShopPins') {
-        await updateDoc(userRef, { displayedShopPins: payload });
-
-      } else if (action === 'setAchievementPins') {
-        await updateDoc(userRef, { displayedAchievementPins: payload });
-
-      } else if (action === 'toggleCrewPin') {
-        if (!userData.isCrewHead) {
-          await updateDoc(userRef, { displayCrewPin: payload });
-        }
-
-      } else if (action === 'buySlot') {
-        await purchasePinFunction({ action: 'buySlot', slotType: payload });
-        const slotKey = payload === 'shop' ? 'shopPinSlots' : 'achievementPinSlots';
-        setUserData(prev => prev ? { ...prev, [slotKey]: (prev[slotKey] || 3) + 1, cash: (prev.cash || 0) - (cost || 0) } : prev);
-        showNotification('success', `Unlocked extra ${payload} pin slot!`);
-      }
-    } catch (err) {
-      console.error('Pin action failed:', err);
-      showNotification('error', 'Action failed');
-    } finally {
-      setLoadingKey('pinAction', false);
-    }
-  }, [user, userData, showNotification]);
-
-  const handlePurchaseCosmetic = useCallback(async (cosmeticId) => {
-    if (!user || !userData) return;
-    try {
-      await purchaseCosmeticFunction({ cosmeticId });
-      setUserData(prev => prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev);
-      showNotification('success', 'Cosmetic purchased!');
-    } catch (err) {
-      showNotification('error', err.message || 'Purchase failed');
-    }
-  }, [user, userData, showNotification]);
-
-  const handleEquipCosmetic = useCallback(async (type, cosmeticId) => {
-    if (!user) return;
-    const userRef = doc(db, 'users', user.uid);
-    const update = { [`activeCosmetics.${type}`]: cosmeticId };
-    await updateDoc(userRef, update);
-    setUserData(prev => prev ? {
-      ...prev,
-      activeCosmetics: { ...(prev.activeCosmetics || {}), [type]: cosmeticId }
-    } : prev);
-  }, [user]);
-
-  // Handle claiming daily mission rewards
-  const handleClaimMissionReward = useCallback(async (missionId, reward) => {
-    if (!user || !userData) return;
-
-    setLoadingKey('claimMission', true);
-    try {
-      const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
-
-      // Optimistic update so button disappears immediately
-      const today = getTodayDateString();
-      setUserData(prev => prev ? ({
-        ...prev,
-        cash: (prev.cash || 0) + reward,
-        dailyMissions: {
-          ...prev.dailyMissions,
-          [today]: {
-            ...(prev.dailyMissions?.[today] || {}),
-            claimed: { ...(prev.dailyMissions?.[today]?.claimed || {}), [missionId]: true }
-          }
-        }
-      }) : prev);
-
-      addActivity('mission', `📋 Mission complete! +${formatCurrency(reward)}`);
-      fireDailyRewardConfetti();
-
-      const newTotal = result.data.newTotal;
-      const achievements = userData.achievements || [];
-      let earnedAchievement = null;
-      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
-
-      if (earnedAchievement) {
-        addActivity('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-      } else {
-        showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
-      }
-    } catch (err) {
-      console.error('Failed to claim reward:', err);
-      if (err?.code === 'failed-precondition') {
-        showNotification('error', 'Mission not completed yet - progress may need to update');
-      } else {
-        showNotification('error', err.message || 'Failed to claim reward');
-      }
-    } finally {
-      setLoadingKey('claimMission', false);
-    }
-  }, [user, userData, addActivity, showNotification]);
-
-  // Handle rerolling missions
-  const handleRerollMissions = useCallback(async () => {
-    if (!user || !userData) return;
-    setLoadingKey('rerollMissions', true);
-    try {
-      const result = await rerollMissionsFunction();
-      const { rerollSeed } = result.data;
-      const weekId = getWeekId();
-      setUserData(prev => prev ? {
-        ...prev,
-        cash: (prev.cash || 0) - 50,
-        weeklyMissions: {
-          ...prev.weeklyMissions,
-          [weekId]: {
-            ...(prev.weeklyMissions?.[weekId] || {}),
-            rerolled: true,
-            rerollSeed
-          }
-        }
-      } : prev);
-      showNotification('success', 'Missions rerolled!');
-    } catch (err) {
-      console.error('Failed to reroll missions:', err);
-      showNotification('error', err.message || 'Failed to reroll missions');
-    } finally {
-      setLoadingKey('rerollMissions', false);
-    }
-  }, [user, userData, showNotification]);
-
-  // Handle claiming weekly mission rewards
-  const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
-    if (!user || !userData) return;
-
-    setLoadingKey('claimWeeklyMission', true);
-    try {
-      const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
-
-      // Optimistic update so claim button disappears immediately
-      const weekId = getWeekId();
-      setUserData(prev => prev ? {
-        ...prev,
-        cash: (prev.cash || 0) + reward,
-        weeklyMissions: { ...prev.weeklyMissions, [weekId]: { ...(prev.weeklyMissions?.[weekId] || {}), claimed: { ...(prev.weeklyMissions?.[weekId]?.claimed || {}), [missionId]: true } } }
-      } : prev);
-
-      addActivity('mission', `📋 Weekly mission complete! +${formatCurrency(reward)}`);
-      fireWeeklyRewardConfetti();
-
-      const newTotal = result.data.newTotal;
-      const achievements = userData.achievements || [];
-      let earnedAchievement = null;
-      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
-
-      if (earnedAchievement) {
-        addActivity('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-      } else {
-        showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
-      }
-    } catch (err) {
-      console.error('Failed to claim weekly reward:', err);
-      // If server says mission isn't complete, mark it as claimed to hide the button
-      // (prevents repeated failed attempts when client/server disagree on completion)
-      if (err?.code === 'failed-precondition') {
-        showNotification('error', 'Mission not completed yet - progress may need to update');
-      } else {
-        showNotification('error', err.message || 'Failed to claim reward');
-      }
-    } finally {
-      setLoadingKey('claimWeeklyMission', false);
-    }
-  }, [user, userData, addActivity, showNotification]);
-
   // Request trade confirmation
   const requestTrade = useCallback((ticker, action, amount) => {
     if (!user || !userData) {
@@ -1328,19 +1022,19 @@ export default function App() {
     const ageFactor = getAccountAgeImpactFactor(userData);
     let total = price * amount;
     if (action === 'buy') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
       const { ask } = getBidAskPrices(price + priceImpact, etfFlag);
       total = ask * amount;
     } else if (action === 'sell') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
       const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), etfFlag);
       total = bid * amount;
     } else if (action === 'short') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
       const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), etfFlag);
       total = bid * amount * 0.5; // margin cost only
     } else if (action === 'cover') {
-      const priceImpact = calculatePriceImpact(price, amount, getCharacterLiquidity(ticker)) * ageFactor;
+      const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
       const { ask } = getBidAskPrices(price + priceImpact, etfFlag);
       const shortPos = userData.shorts?.[ticker];
       if (shortPos?.system === 'v2') {
@@ -1381,288 +1075,6 @@ export default function App() {
     setShowPortfolio(false); // Close portfolio modal
   }, [user, userData, showNotification]);
 
-  // Handle trade (executes after confirmation)
-  const handleTrade = useCallback(async (ticker, action, amount) => {
-    console.log(`[TRADE START] ticker=${ticker}, action=${action}, amount=${amount}`);
-    if (!user || !userData) {
-      showNotification('info', 'Sign in to start trading!');
-      return;
-    }
-
-    // Block trades during weekly halt or emergency halt
-    if (isWeeklyHalt() || marketData?.marketHalted) {
-      showNotification('error', marketData?.marketHalted
-        ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
-        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
-      return;
-    }
-
-    // Block buying/shorting if user is in debt (selling/covering allowed)
-    if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {
-      showNotification('error', 'You cannot open new positions while in debt. Request a bailout to start fresh.');
-      return;
-    }
-
-    // Server-side trade execution with atomic transaction
-    // Server validates, applies trade limits, handles trailing effects
-    const priceBeforeTrade = prices[ticker]; // capture before async call — prices[ticker] may update via Firestore listener mid-await
-    setLoadingKey('trade', true);
-    let result;
-    try {
-      result = await executeTradeFunction({ ticker, action, amount });
-      console.log('[TRADE EXECUTED]', result.data);
-    } catch (firstError) {
-      const firstMsg = firstError.message || 'Trade execution failed';
-      const isContention = firstMsg.includes('busy') || firstMsg.includes('try again') || firstMsg.includes('contention');
-
-      // Auto-retry once on contention before showing error
-      if (isContention) {
-        try {
-          await new Promise(r => setTimeout(r, 500));
-          result = await executeTradeFunction({ ticker, action, amount });
-          console.log('[TRADE EXECUTED ON RETRY]', result.data);
-        } catch (retryError) {
-          console.error('[TRADE RETRY FAILED]', retryError);
-          showNotification('warning', 'Market was busy — please try again.');
-          setLoadingKey('trade', false);
-          return;
-        }
-      } else {
-        console.error('[TRADE EXECUTION ERROR]', firstError);
-        const isInfraError = firstMsg.includes('INTERNAL') || firstMsg.includes('DEADLINE_EXCEEDED') ||
-                             firstMsg.includes('UNAVAILABLE') || firstMsg.includes('PERMISSION_DENIED');
-        if (isInfraError) {
-          showNotification('error', 'Cannot execute trade at this time. Please try again.');
-        } else {
-          showNotification('error', firstMsg);
-        }
-        setLoadingKey('trade', false);
-        return;
-      }
-    }
-
-    // Wrap post-execution processing so setLoadingKey always runs
-    try {
-    // Extract execution results from server
-    const {
-      executionPrice,
-      newPrice: tradedTickerPrice,
-      priceImpact,
-      totalCost,
-      newCash,
-      newHoldings,
-      newShorts,
-      newMarginUsed,
-      priceUpdates, // All affected tickers (including trailing effects)
-      remainingDailyImpact,
-      isLastTrade,
-      dailyImpactPercent,
-      shortWarning
-    } = result.data;
-
-    const userRef = doc(db, 'users', user.uid);
-    const now = Date.now();
-    const today = getTodayDateString();
-    const weekId = getWeekId();
-
-    if (action === 'buy') {
-      // Server handles: price updates, trailing effects, cash/holdings/margin, missions, cost basis
-      // Client handles: achievements, activity feed
-
-      // Record portfolio history
-      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
-        const price = priceUpdates[t] || prices[t] || 0;
-        return sum + price * shares;
-      }, 0);
-
-      // Check achievements (context-based ones handled server-side in executeTrade)
-      const earnedAchievements = await checkAndAwardAchievements();
-
-      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
-
-      // Add to activity feed
-      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `Bought ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)}`);
-
-      if (earnedAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`);
-        try {
-          achievementAlertFunction({
-            achievementId: earnedAchievements[0],
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {});
-        } catch {}
-      } else {
-        let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
-
-        // Show remaining daily impact warnings
-        if (isLastTrade) {
-          message += ` • This was your last trade on ${ticker} today`;
-        } else if (remainingDailyImpact <= 0) {
-          message += ` • 1 trade remaining on ${ticker} today`;
-        } else if (remainingDailyImpact < 0.03) {
-          message += ` • Approaching daily limit (${(remainingDailyImpact * 100).toFixed(1)}% remaining)`;
-        }
-
-        showNotification('success', message);
-      }
-
-    } else if (action === 'sell') {
-      // Server already handled: validation, price updates, trailing effects, cash/holdings updates
-      // Server handles: missions, cost basis, lowestWhileHolding
-      // Client handles: achievements, activity feed
-
-      // Calculate profit metrics for achievements
-      const costBasis = userData.costBasis?.[ticker] || 0;
-      const profitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
-
-      // Record portfolio history
-      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
-        const price = priceUpdates[t] || prices[t] || 0;
-        return sum + price * shares;
-      }, 0);
-
-
-
-      // Check achievements (context-based ones handled server-side in executeTrade)
-      const earnedAchievements = await checkAndAwardAchievements();
-
-      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
-      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
-      addActivity('trade', `Sold ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitText})`);
-
-      if (earnedAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        try {
-          achievementAlertFunction({
-            achievementId: earnedAchievements[0],
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {});
-        } catch {}
-      } else {
-        let message = `Sold ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitText}, ${impactPercent}% impact)`;
-        showNotification('success', message);
-      }
-
-    } else if (action === 'short') {
-      // Server handles: validation, price updates, trailing effects, cash/holdings/shorts, missions
-      // Client handles: achievements, activity feed
-
-      // Record portfolio history
-      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
-        const price = priceUpdates[t] || prices[t] || 0;
-        return sum + price * shares;
-      }, 0);
-
-      // Check achievements (context-based ones handled server-side in executeTrade)
-      const earnedAchievements = await checkAndAwardAchievements();
-
-      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
-      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `Shorted ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)}`);
-
-      if (earnedAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        try {
-          achievementAlertFunction({
-            achievementId: earnedAchievements[0],
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {});
-        } catch {}
-      } else {
-        let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
-
-        // Show remaining daily impact warnings
-        if (isLastTrade) {
-          message += ` • This was your last trade on ${ticker} today`;
-        } else if (remainingDailyImpact <= 0) {
-          message += ` • 1 trade remaining on ${ticker} today`;
-        } else if (remainingDailyImpact < 0.03) {
-          message += ` • Approaching daily limit (${(remainingDailyImpact * 100).toFixed(1)}% remaining)`;
-        }
-        showNotification('success', message);
-        if (shortWarning) {
-          setTimeout(() => showNotification('warning', shortWarning), 1500);
-        }
-      }
-
-    } else if (action === 'cover') {
-      // Server handles: validation, price updates, trailing effects, cash/shorts, missions
-      // Client handles: achievements, activity feed
-
-      // Calculate profit for notifications (with NaN guards)
-      const shortPosition = userData.shorts?.[ticker] || {};
-      const costBasis = Number(shortPosition.costBasis || shortPosition.entryPrice) || 0;
-      const profit = (costBasis - executionPrice) * amount;
-      const profitPercent = costBasis > 0 ? ((costBasis - executionPrice) / costBasis) * 100 : 0;
-      const safeProfitMsg = isNaN(profit) ? '$0.00' : (profit >= 0 ? `+${formatCurrency(profit)}` : `-${formatCurrency(Math.abs(profit))}`);
-      const profitMsg = safeProfitMsg;
-
-      // Record portfolio history
-      const newPortfolioValue = newCash + Object.entries(newHoldings).reduce((sum, [t, shares]) => {
-        const price = priceUpdates[t] || prices[t] || 0;
-        return sum + price * shares;
-      }, 0);
-
-      // Check achievements (context-based ones handled server-side in executeTrade)
-      const isColdBlooded = profit > 0;
-      const earnedAchievements = await checkAndAwardAchievements();
-
-      const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker] * 100) : 0).toFixed(2);
-      const charName = CHARACTERS.find(c => c.ticker === ticker)?.name || ticker;
-      addActivity('trade', `Covered ${amount} $${ticker} (${charName}) @ ${formatCurrency(executionPrice)} (${profitMsg})`);
-
-      if (isColdBlooded && earnedAchievements.includes('COLD_BLOODED')) {
-        const achievement = ACHIEVEMENTS['COLD_BLOODED'];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        try {
-          achievementAlertFunction({
-            achievementId: 'COLD_BLOODED',
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {});
-        } catch {}
-      } else if (earnedAchievements.length > 0) {
-        const achievement = ACHIEVEMENTS[earnedAchievements[0]];
-        addActivity('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-        try {
-          achievementAlertFunction({
-            achievementId: earnedAchievements[0],
-            achievementName: achievement.name,
-            achievementDescription: achievement.description
-          }).catch(() => {});
-        } catch {}
-      } else {
-        let message = `Covered ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitMsg}, ${impactPercent}% impact)`;
-        showNotification(profit >= 0 ? 'success' : 'error', message);
-      }
-
-    }
-
-    // Trigger trade animation on the card
-    const totalValue = Math.abs(totalCost || executionPrice * amount);
-    setTradeAnimation({ ticker, action, big: totalValue >= 1000, timestamp: Date.now() });
-    setTimeout(() => setTradeAnimation(null), 1200);
-
-    // Confetti celebration
-    fireTradeConfetti(totalValue, action);
-
-    } finally {
-      setLoadingKey('trade', false);
-    }
-  }, [user, userData, prices, marketData, addActivity]);
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules)
@@ -1722,223 +1134,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user, userData?.cash]);
 
-  // Daily checkin (server-side for security)
-  const handleDailyCheckin = useCallback(async () => {
-    if (!user || !userData) {
-      showNotification('info', 'Sign in to claim your daily bonus!');
-      return;
-    }
-
-    const today = getTodayDateString(); // UTC YYYY-MM-DD, matches server
-    const lastCheckinStr = toUTCDateString(userData.lastCheckin);
-    if (lastCheckinStr === today) {
-      showNotification('error', 'Already checked in today!');
-      return;
-    }
-
-    setLoadingKey('checkin', true);
-    try {
-      // Call Cloud Function (ladder top-up handled server-side)
-      const result = await dailyCheckinFunction({});
-      const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
-
-      // Optimistic update so check-in button switches immediately
-      setUserData(prev => prev ? { ...prev, lastCheckin: new Date().toISOString(), cash: (prev.cash || 0) + reward, checkinStreak: newStreak, totalCheckins } : prev);
-
-      // Add to activity feed
-      let activityMsg = `Daily check-in: +${formatCurrency(reward)}!`;
-      if (ladderTopUpAmount > 0) {
-        activityMsg += ` | Ladder Game topped up to $100`;
-      }
-      addActivity('checkin', `${activityMsg} (Day ${totalCheckins})`);
-
-      let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
-      if (ladderTopUpAmount > 0) {
-        notificationMsg += ` | Ladder Game topped up to $100`;
-      }
-      showNotification('success', notificationMsg);
-    } catch (error) {
-      console.error('[CHECKIN ERROR]', error);
-      if (error.code === 'failed-precondition' && error.message.includes('Already checked in')) {
-        showNotification('error', 'Already checked in today!');
-      } else {
-        showNotification('error', 'Failed to check in. Please try again.');
-      }
-    } finally {
-      setLoadingKey('checkin', false);
-    }
-  }, [user, userData, addActivity]);
-
-  // Handle IPO purchase
-  const handleBuyIPO = useCallback(async (ticker, quantity) => {
-    if (!user || !userData) {
-      showNotification('info', 'Sign in to participate in IPO!');
-      return;
-    }
-
-    if (isWeeklyHalt() || marketData?.marketHalted) {
-      showNotification('error', marketData?.marketHalted
-        ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
-        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
-      return;
-    }
-
-    const ipoRef = doc(db, 'market', 'ipos');
-    const ipoSnap = await getDoc(ipoRef);
-    if (!ipoSnap.exists()) {
-      showNotification('error', 'IPO not found');
-      return;
-    }
-
-    const ipoData = ipoSnap.data();
-    const ipo = ipoData.list?.find(i => i.ticker === ticker);
-    
-    if (!ipo) {
-      showNotification('error', 'IPO not found');
-      return;
-    }
-
-    const now = Date.now();
-    if (now < ipo.ipoStartsAt) {
-      showNotification('error', 'IPO has not started yet!');
-      return;
-    }
-    
-    if (now >= ipo.ipoEndsAt) {
-      showNotification('error', 'IPO has ended!');
-      return;
-    }
-
-    const sharesRemaining = ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES);
-    if (sharesRemaining <= 0) {
-      showNotification('error', 'IPO sold out!');
-      return;
-    }
-
-    const ipoMaxPerUser = ipo.maxPerUser || IPO_MAX_PER_USER;
-    const userIPOPurchases = userData.ipoPurchases?.[ticker] || 0;
-    if (userIPOPurchases + quantity > ipoMaxPerUser) {
-      showNotification('error', `Max ${ipoMaxPerUser} shares per person!`);
-      return;
-    }
-
-    if (quantity > sharesRemaining) {
-      showNotification('error', `Only ${sharesRemaining} shares left!`);
-      return;
-    }
-
-    const totalCost = ipo.basePrice * quantity;
-    if (userData.cash < totalCost) {
-      showNotification('error', 'Insufficient funds!');
-      return;
-    }
-
-    setLoadingKey('buyIPO', true);
-    try {
-      await buyIPOSharesFunction({ ticker, quantity });
-
-      const totalCostIPO = ipo.basePrice * quantity;
-      setUserData(prev => {
-        if (!prev) return prev;
-        const existing = prev.holdings?.[ticker] || { quantity: 0, avgCost: 0 };
-        const newQty = existing.quantity + quantity;
-        const newAvg = ((existing.avgCost * existing.quantity) + totalCostIPO) / newQty;
-        return { ...prev, cash: (prev.cash || 0) - totalCostIPO, holdings: { ...prev.holdings, [ticker]: { quantity: newQty, avgCost: newAvg } } };
-      });
-
-      const character = CHARACTER_MAP[ticker];
-      addActivity('trade', `🚀 IPO: Bought ${quantity} $${ticker} (${character?.name || ticker}) @ ${formatCurrency(ipo.basePrice)}`);
-      showNotification('success', `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`);
-    } catch (err) {
-      console.error('IPO purchase failed:', err);
-      const msg = err?.message || 'IPO purchase failed!';
-      showNotification('error', msg);
-    } finally {
-      setLoadingKey('buyIPO', false);
-    }
-  }, [user, userData, marketData, addActivity]);
-
-  // Handle prediction bet
-  const handleBet = useCallback(async (predictionId, option, amount) => {
-    if (!user || !userData) {
-      showNotification('info', 'Sign in to place bets!');
-      return;
-    }
-
-    if (userData.cash < amount) {
-      showNotification('error', 'Insufficient funds!');
-      return;
-    }
-
-    // Calculate total $ user has spent buying/shorting stocks
-    // costBasis tracks the actual money spent on each stock
-    const totalSpentOnStocks = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
-      const costBasis = userData.costBasis?.[ticker] || 0;
-      return sum + (costBasis * shares);
-    }, 0);
-
-    // Also count margin used for shorts
-    const totalShortMargin = Object.values(userData.shorts || {}).filter(short => short).reduce((sum, short) => {
-      return sum + (short.margin || 0);
-    }, 0);
-
-    // Bet limit = total spent on market (buys + short margin)
-    const totalInvested = totalSpentOnStocks + totalShortMargin;
-    
-    // If user has never invested, they can't bet
-    if (totalInvested <= 0) {
-      showNotification('error', 'You must invest in the market before placing bets!');
-      return;
-    }
-    
-    // Bet limit is capped by both investment and available cash
-    const betLimit = Math.min(totalInvested, userData.cash);
-    
-    // Check if this bet exceeds the limit
-    if (amount > betLimit) {
-      if (totalInvested > userData.cash) {
-        showNotification('error', `Insufficient funds! You have ${formatCurrency(userData.cash)}`);
-      } else {
-        showNotification('error', `Bet limit: ${formatCurrency(totalInvested)} (total you've invested in stocks)`);
-      }
-      return;
-    }
-
-    const prediction = predictions.find(p => p.id === predictionId);
-    if (!prediction || prediction.resolved || prediction.endsAt < Date.now()) {
-      showNotification('error', 'Betting has ended!');
-      return;
-    }
-
-    // Check if user already bet on a different option
-    const existingBet = userData.bets?.[predictionId];
-    if (existingBet && existingBet.option !== option) {
-      showNotification('error', `You already bet on "${existingBet.option}"!`);
-      return;
-    }
-
-    setLoadingKey('placeBet', true);
-    try {
-      await placeBetFunction({ predictionId, option, amount });
-
-      setUserData(prev => {
-        if (!prev) return prev;
-        const existingBet = prev.bets?.[predictionId];
-        const newAmount = (existingBet?.amount || 0) + amount;
-        return { ...prev, cash: (prev.cash || 0) - amount, bets: { ...prev.bets, [predictionId]: { option, amount: newAmount, paid: false } } };
-      });
-
-      addActivity('bet', `🔮 Bet ${formatCurrency(amount)} on "${option}"`);
-      showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
-    } catch (error) {
-      console.error('Bet placement failed:', error);
-      const msg = error?.message || 'Bet failed';
-      showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
-    } finally {
-      setLoadingKey('placeBet', false);
-    }
-  }, [user, userData, predictions, addActivity, showNotification]);
-
   // Hide prediction from feed (admin only)
   const handleHidePrediction = useCallback(async (predictionId) => {
     if (!user || !ADMIN_UIDS.includes(user.uid)) return;
@@ -1992,121 +1187,6 @@ export default function App() {
     await updateDoc(doc(db, 'users', user.uid), { marginTutorialCompleted: true });
   };
 
-  // Enable margin trading
-  const handleEnableMargin = useCallback(async () => {
-    if (!user || !userData) return;
-
-    const isAdmin = ADMIN_UIDS.includes(user.uid);
-    const eligibility = checkMarginEligibility(userData, isAdmin);
-    if (!eligibility.eligible) {
-      showNotification('error', 'Not eligible for margin trading!');
-      return;
-    }
-
-    setLoadingKey('enableMargin', true);
-    try {
-      await toggleMarginFunction({ enable: true });
-      setUserData(prev => prev ? { ...prev, marginEnabled: true } : prev);
-      showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
-    } catch (err) {
-      showNotification('error', err?.message || 'Failed to enable margin');
-    } finally {
-      setLoadingKey('enableMargin', false);
-    }
-  }, [user, userData, showNotification]);
-
-  // Disable margin trading
-  const handleDisableMargin = useCallback(async () => {
-    if (!user || !userData) return;
-
-    if ((userData.marginUsed || 0) >= 0.01) {
-      showNotification('error', 'Repay all margin debt before disabling!');
-      return;
-    }
-
-    setLoadingKey('disableMargin', true);
-    try {
-      await toggleMarginFunction({ enable: false });
-      setUserData(prev => prev ? { ...prev, marginEnabled: false } : prev);
-      showNotification('success', 'Margin trading disabled.');
-      setShowLending(false);
-    } catch (err) {
-      showNotification('error', err?.message || 'Failed to disable margin');
-    } finally {
-      setLoadingKey('disableMargin', false);
-    }
-  }, [user, userData, showNotification]);
-
-  // Repay margin
-  const handleRepayMargin = useCallback(async (amount) => {
-    if (!user || !userData) return;
-
-    const marginUsed = userData.marginUsed || 0;
-    if (marginUsed <= 0) {
-      showNotification('error', 'No margin debt to repay!');
-      return;
-    }
-
-    if (amount > userData.cash) {
-      showNotification('error', 'Insufficient funds!');
-      return;
-    }
-
-    setLoadingKey('repayMargin', true);
-    try {
-      const result = await repayMarginFunction({ amount });
-      const { repaid, remaining } = result.data;
-
-      setUserData(prev => prev ? { ...prev, cash: (prev.cash || 0) - repaid, marginUsed: remaining } : prev);
-
-      if (remaining === 0) {
-        showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repaid)}`);
-      } else {
-        showNotification('success', `Repaid ${formatCurrency(repaid)}. Remaining debt: ${formatCurrency(remaining)}`);
-      }
-    } catch (err) {
-      showNotification('error', err?.message || 'Failed to repay margin');
-    } finally {
-      setLoadingKey('repayMargin', false);
-    }
-  }, [user, userData, showNotification]);
-
-  // Bankruptcy bailout - reset to $500 but exile from all past crews
-  const handleBailout = useCallback(async () => {
-    if (!user || !userData) return;
-
-    const cash = userData.cash || 0;
-    if (cash >= 0) {
-      showNotification('error', 'You are not in debt.');
-      return;
-    }
-
-    setLoadingKey('bailout', true);
-    try {
-      const currentCrew = userData.crew;
-      const result = await bailoutFunction({});
-
-      setUserData(prev => {
-        if (!prev) return prev;
-        const exiled = [...(prev.exiledCrews || [])];
-        if (currentCrew && !exiled.includes(currentCrew)) exiled.push(currentCrew);
-        return { ...prev, cash: 500, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, exiledCrews: exiled };
-      });
-
-      if (result.data.hadCrew) {
-        const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
-        showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with $500.`);
-      } else {
-        showNotification('success', 'Bailout accepted. Starting fresh with $500.');
-      }
-    } catch (err) {
-      console.error('Bailout failed:', err);
-      showNotification('error', 'Bailout failed. Please try again.');
-    } finally {
-      setLoadingKey('bailout', false);
-    }
-  }, [user, userData, showNotification]);
-
   // Guest data
   const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: STARTING_CASH };
   const activeUserData = userData || guestData;
@@ -2115,30 +1195,7 @@ export default function App() {
   // Get user's bet for a prediction
   const getUserBet = (predictionId) => activeUserData.bets?.[predictionId] || null;
 
-  // Portfolio calculations
-  const holdingsValue = Object.entries(activeUserData.holdings || {})
-    .reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
-  
-  const shortsValue = Object.entries(activeUserData.shorts || {})
-    .reduce((sum, [ticker, position]) => {
-      if (!position || typeof position !== 'object') return sum;
-      const shares = Number(position.shares) || 0;
-      if (shares <= 0) return sum;
-      const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
-      const currentPrice = prices[ticker] || entryPrice;
-      const collateral = Number(position.margin) || 0;
-      let value;
-      if (position.system === 'v2') {
-        // v2: margin + unrealized P&L (no proceeds in cash)
-        value = collateral + (entryPrice - currentPrice) * shares;
-      } else {
-        // Legacy: margin collateral - cost to buy back shares
-        value = collateral - (currentPrice * shares);
-      }
-      return sum + (isNaN(value) ? 0 : value);
-    }, 0);
-  
-  const portfolioValue = activeUserData.cash + holdingsValue + shortsValue;
+  const portfolioValue = calculatePortfolioValue(activeUserData, prices);
 
   // Helper to calculate 24h price change
   const get24hChange = useCallback((ticker) => {
@@ -2435,16 +1492,12 @@ export default function App() {
                 const inHypePhase = now < ipo.ipoStartsAt;
                 
                 return inHypePhase ? (
-                  <IPOHypeCard key={ipo.ticker} ipo={ipo} darkMode={darkMode} colorBlindMode={userData?.colorBlindMode || false} />
+                  <IPOHypeCard key={ipo.ticker} ipo={ipo} />
                 ) : (
                   <IPOActiveCard
                     key={ipo.ticker}
                     ipo={ipo}
-                    userData={userData}
                     onBuyIPO={handleBuyIPO}
-                    darkMode={darkMode}
-                    isGuest={isGuest}
-                    colorBlindMode={userData?.colorBlindMode || false}
                   />
                 );
               })}
@@ -2501,12 +1554,10 @@ export default function App() {
                       userBet={getUserBet(prediction.id)}
                       onBet={handleBet}
                       onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
-                      darkMode={darkMode}
                       isGuest={isGuest}
                       betLimit={betLimit}
                       isAdmin={user && ADMIN_UIDS.includes(user.uid)}
                       onHide={handleHidePrediction}
-                      userData={userData}
                     />
                   );
                 })}
@@ -3009,7 +2060,6 @@ export default function App() {
       {user && userData && !userData.onboardingComplete && (
         <OnboardingTutorial
           onComplete={handleOnboardingComplete}
-          darkMode={darkMode}
         />
       )}
 

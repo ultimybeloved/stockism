@@ -1,23 +1,12 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
   MIN_PRICE,
-  MAX_PRICE_CHANGE_PERCENT,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
 } = require('./constants');
-
-/**
- * Calculate price impact using square root model
- */
-function calculatePriceImpact(currentPrice, shares, liquidity = BASE_LIQUIDITY) {
-  let impact = currentPrice * BASE_IMPACT * Math.sqrt(shares / liquidity);
-  const maxChange = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-  if (impact > maxChange) impact = maxChange;
-  return impact;
-}
+const { CHARACTER_MAP } = require('./characters');
+const { calculateMarginalImpact } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -290,7 +279,11 @@ module.exports = {
         }
 
         const prices = marketData.prices || {};
-        const allTickers = Object.keys(prices);
+        const launchedTickers = marketData.launchedTickers || [];
+        const allTickers = Object.keys(prices).filter(t => {
+          const meta = CHARACTER_MAP[t];
+          return !meta?.ipoRequired || launchedTickers.includes(t);
+        });
 
         // Check if it's Thursday (chapter release day)
         const isThursday = now.getUTCDay() === 4;
@@ -329,7 +322,7 @@ module.exports = {
               const totalCost = currentPrice * decision.shares;
               if (botData.cash < totalCost) return; // Not enough cash
 
-              const priceImpact = calculatePriceImpact(currentPrice, decision.shares);
+              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0);
               const newPrice = Math.max(MIN_PRICE, currentPrice + priceImpact);
 
               // Update bot
@@ -392,7 +385,7 @@ module.exports = {
 
               if (currentShares < decision.shares) return; // Not enough shares
 
-              const priceImpact = calculatePriceImpact(currentPrice, decision.shares);
+              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0);
               const newPrice = Math.max(MIN_PRICE, currentPrice - priceImpact);
               const totalRevenue = newPrice * decision.shares;
 

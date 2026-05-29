@@ -33,7 +33,19 @@
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" diff --stat)",
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" log --oneline -5)",
       "Bash(npx firebase deploy:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(sed -n '1989,2919p' functions/index.js)",
+      "Read(//tmp/**)",
+      "Bash(sed -n '1990,2010p' functions/index.js)",
+      "Bash(sed -n '2100,2115p' functions/index.js)",
+      "Bash(sed -n '1990,2102p' functions/index.js)",
+      "Bash(sed -n '2103,2191p' functions/index.js)",
+      "Bash(sed -n '650,660p' functions/index.js)",
+      "Bash(sed -n '1750,1760p' functions/index.js)",
+      "Bash(sed -n '1893,1902p' functions/index.js)",
+      "Bash(sed -n '1968,1978p' functions/index.js)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)"
     ]
   },
   "hooks": {

@@ -3,7 +3,14 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { checkBanned } = require('../helpers');
-const { LADDER_GAME_MAX_BALANCE, LADDER_GAME_MAX_DAILY_DEPOSIT } = require('../constants');
+const {
+  LADDER_GAME_MAX_BALANCE,
+  LADDER_GAME_MAX_DAILY_DEPOSIT,
+  LADDER_GAME_INITIAL_BALANCE,
+  LADDER_HIGH_BET_THRESHOLD,
+  LADDER_ACHIEVEMENT_PROFIT,
+  LADDER_ACHIEVEMENT_HIGH_BETS,
+} = require('../constants');
 
 exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -38,7 +45,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
 
       // Get or create ladder game user
       let userData = userDoc.exists ? userDoc.data() : {
-        balance: 500,
+        balance: LADDER_GAME_INITIAL_BALANCE,
         totalDeposited: 0,
         totalWon: 0,
         totalLost: 0,
@@ -94,7 +101,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       // Update user stats — ceil to keep balance a clean integer
       userData.balance = Math.ceil(userData.balance - amount + payout);
       userData.gamesPlayed += 1;
-      if (amount >= 50) userData.highBetGames = (userData.highBetGames || 0) + 1;
+      if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {
         userData.wins += 1;
         userData.totalWon += payout - amount;
@@ -135,8 +142,8 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const currentAchievements = mainUser?.achievements || [];
       const ladderNewAchievements = [];
       const netProfit = userData.totalWon - userData.totalLost;
-      if (netProfit >= 2500 && !currentAchievements.includes('COMPULSIVE_GAMBLER')) ladderNewAchievements.push('COMPULSIVE_GAMBLER');
-      if ((userData.highBetGames || 0) >= 100 && !currentAchievements.includes('ADDICTED')) ladderNewAchievements.push('ADDICTED');
+      if (netProfit >= LADDER_ACHIEVEMENT_PROFIT && !currentAchievements.includes('COMPULSIVE_GAMBLER')) ladderNewAchievements.push('COMPULSIVE_GAMBLER');
+      if ((userData.highBetGames || 0) >= LADDER_ACHIEVEMENT_HIGH_BETS && !currentAchievements.includes('ADDICTED')) ladderNewAchievements.push('ADDICTED');
       if ((userData.balance || 0) <= 0 && !currentAchievements.includes('JIHOISM')) ladderNewAchievements.push('JIHOISM');
 
       if (ladderNewAchievements.length > 0) {

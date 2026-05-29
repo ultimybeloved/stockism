@@ -5,7 +5,11 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { isWeeklyTradingHalt } = require('../constants');
+const {
+  isWeeklyTradingHalt,
+  WHALE_ALERT_SHARES_SOFT, WHALE_ALERT_PRICE_SOFT, WHALE_ALERT_SHARES_HARD,
+  CREW_MILESTONE_THRESHOLDS,
+} = require('../constants');
 const { sendDiscordMessage, writeNotification } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
@@ -31,7 +35,7 @@ exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
 
   const { ticker, shares, price, totalValue, type } = data;
 
-  if ((shares >= 50 && price >= 35) || shares >= 100) {
+  if ((shares >= WHALE_ALERT_SHARES_SOFT && price >= WHALE_ALERT_PRICE_SOFT) || shares >= WHALE_ALERT_SHARES_HARD) {
     const embed = {
       title: '🐋 Whale Alert',
       description: `A significant ${type.toLowerCase()} order was executed`,
@@ -59,8 +63,7 @@ exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
   }
 
   const { crewName, memberCount } = data;
-  const milestones = [5, 10, 25, 50, 100];
-  if (milestones.includes(memberCount)) {
+  if (CREW_MILESTONE_THRESHOLDS.includes(memberCount)) {
     const embed = {
       title: '🎉 Crew Milestone!',
       description: `**${crewName}** has reached **${memberCount} members**!`,

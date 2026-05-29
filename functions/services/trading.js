@@ -2,7 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, CREW_MEMBERS,
   isWeeklyTradingHalt, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
@@ -82,6 +82,16 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
 
     if (!currentPrice) {
       throw new functions.https.HttpsError('not-found', `Price for ${ticker} not found.`);
+    }
+
+    // Block normal trades on IPO-only tickers that haven't launched yet
+    const launchedTickers = marketData.launchedTickers || [];
+    const charMeta = CHARACTER_MAP[ticker];
+    if (charMeta?.ipoRequired && !launchedTickers.includes(ticker)) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+      );
     }
 
     // CRITICAL: Enforce 3-second cooldown using server timestamp

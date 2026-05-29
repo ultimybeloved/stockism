@@ -3,8 +3,11 @@ import { CHARACTER_MAP } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../constants';
+import { useAppContext } from '../context/AppContext';
 
-const IPOHypeCard = ({ ipo, darkMode, colorBlindMode }) => {
+const IPOHypeCard = ({ ipo }) => {
+  const { darkMode, userData } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const timeRemaining = ipo.ipoStartsAt - Date.now();
