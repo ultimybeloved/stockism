@@ -8,10 +8,10 @@ import PreMarketModal from './modals/PreMarketModal';
 import { CREWS } from '../crews';
 import { CHARACTERS } from '../characters';
 import { useAppContext } from '../context/AppContext';
-import { isPreMarketWindow } from '../utils/marketHours';
+import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
 
 const CharacterCard = ({ character, price, priceChange, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
-  const { darkMode, user, userData, prices, priceHistory } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, marketData } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
@@ -37,6 +37,8 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+  const marketState = getMarketClosedState(marketData);
+  const marketClosed = marketState.closed; // weekly review or admin halt (market-wide, not per-ticker)
 
   const characterCrew = !isETF ? Object.values(CREWS).find(c => c.members.includes(character.ticker)) : null;
   const characterEtfs = !isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(character.ticker)) : [];
@@ -303,15 +305,15 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
 
         {!showTradeMenu ? (
           <button
-            onClick={(e) => { e.stopPropagation(); if (!isHalted) setShowTradeMenu(true); }}
-            disabled={isHalted}
+            onClick={(e) => { e.stopPropagation(); if (!isHalted && !marketClosed) setShowTradeMenu(true); }}
+            disabled={isHalted || marketClosed}
             className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
-              isHalted
+              isHalted || marketClosed
                 ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed'
                 : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
             }`}
           >
-            {isHalted ? 'Trading Halted' : isPreMarketWindow() ? 'Pre-Market Queue' : 'Trade'}
+            {isHalted ? 'Trading Halted' : marketState.label}
           </button>
         ) : (
           <div className="space-y-2" onClick={e => e.stopPropagation()}>

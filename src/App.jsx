@@ -1066,8 +1066,8 @@ export default function App() {
           const { won, payout } = result.data;
 
           if (won) {
+            // Win surfaces as a persistent bell notification (written server-side), not a toast
             console.log(`[Payout] Processed winning bet for prediction ${prediction.id}: +${payout}`);
-            showNotification('success', `🎉 Prediction payout: +${formatCurrency(payout)}!`);
           } else {
             console.log(`[Payout] Processed losing bet for prediction ${prediction.id}`);
           }

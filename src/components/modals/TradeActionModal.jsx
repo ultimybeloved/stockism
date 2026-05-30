@@ -15,7 +15,7 @@ import {
   calculateMarginStatus
 } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
-import { isWeeklyHalt } from '../../utils/marketHours';
+import { isWeeklyHalt, getMarketClosedState } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 
 // Helper: cumulative marginal price impact
@@ -30,7 +30,7 @@ const pruneAndSumTradeHistory = (entries, now) => {
 
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, onTrade, onClose, defaultToLimitOrder = false, haltInfo }) => {
-  const { darkMode, user, userData, prices, priceHistory, showNotification } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [amount, setAmount] = useState(1);
   const [partialShares, setPartialShares] = useState(false);
@@ -261,6 +261,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const config = getActionConfig();
 
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+  const marketClosed = getMarketClosedState(marketData).closed;
 
   const handleSubmit = async () => {
     const minAmount = (partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1;
@@ -558,14 +559,14 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={config.disabled || amount < ((partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1) || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
+            disabled={marketClosed || config.disabled || amount < ((partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1) || amount > maxShares || submitting || ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))}
             className={`flex-1 py-3 text-sm font-semibold uppercase rounded-sm ${
               config.buttonStyle === 'outline'
                 ? `border-2 ${config.colors.border} ${config.colors.text} ${config.colors.bg}`
                 : `${config.colors.bg} ${config.colors.bgHover} text-white`
             } disabled:opacity-50`}
           >
-            {submitting ? 'Creating...' : isStopLoss ? 'Create Stop Loss' : isLimitOrder ? `Create Limit ${config.title}` : config.title}
+            {marketClosed ? 'Market Closed' : submitting ? 'Creating...' : isStopLoss ? 'Create Stop Loss' : isLimitOrder ? `Create Limit ${config.title}` : config.title}
           </button>
           <button
             onClick={onClose}

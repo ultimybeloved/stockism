@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES } from './constants/economy';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -3791,12 +3791,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'market', 'current'), {
-        marketHalted: halted,
-        haltReason: halted ? reason.trim() : '',
-        haltedAt: halted ? Date.now() : null,
-        haltedBy: halted ? user.uid : null
-      });
+      // Cloud Function sets the flag AND posts the Discord market-status alert in one step
+      await setMarketHaltFunction({ halted, reason: reason.trim() });
       setMessage({ type: 'success', text: halted ? 'Market halted.' : 'Market resumed.' });
       if (halted) setHaltReasonInput('');
     } catch (err) {

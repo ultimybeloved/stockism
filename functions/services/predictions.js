@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
-const { checkBanned, sendDiscordMessage, getTotalInvested } = require('../helpers');
+const { checkBanned, sendDiscordMessage, getTotalInvested, writeNotification } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -115,7 +115,8 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
   const userRef = db.collection('users').doc(uid);
   const predictionsRef = db.collection('predictions').doc('current');
 
-  return db.runTransaction(async (transaction) => {
+  let predictionLabel = 'your prediction';
+  const result = await db.runTransaction(async (transaction) => {
     const [userDoc, predictionsDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(predictionsRef)
@@ -132,6 +133,7 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
     const prediction = predictionsList.find(p => p.id === predictionId);
     if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
     if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
+    predictionLabel = prediction.question || prediction.title || predictionLabel;
 
     const userBet = userData.bets?.[predictionId];
     if (!userBet) throw new functions.https.HttpsError('not-found', 'No bet found.');
@@ -188,6 +190,18 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
       return { success: true, won: false, payout: 0 };
     }
   });
+
+  // Persistent bell notification for winners (stays until manually cleared)
+  if (result.won) {
+    await writeNotification(uid, {
+      type: 'system',
+      title: 'Prediction Payout',
+      message: `You won $${Math.round(result.payout).toLocaleString()} on "${predictionLabel}".`,
+      data: { predictionId }
+    });
+  }
+
+  return result;
 });
 
 /**

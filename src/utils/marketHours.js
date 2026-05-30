@@ -144,6 +144,19 @@ export const isMarketOpenGracePeriod = () => {
   return utcMins >= HALT_END_MINUTE && utcMins < HALT_END_MINUTE + GRACE_PERIOD_MINUTES;
 };
 
+/**
+ * Market-wide trade availability for button labels.
+ * Per-ticker circuit-breaker halts (haltInfo) are handled separately by callers
+ * and take priority over this market-wide state.
+ * Returns { closed, preMarket, label }.
+ */
+export const getMarketClosedState = (marketData) => {
+  if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
+  if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
+  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
+  return { closed: false, preMarket: false, label: 'Trade' };
+};
+
 export const formatCountdown = (ms) => {
   if (ms <= 0) return '0m';
   const hours = Math.floor(ms / (1000 * 60 * 60));

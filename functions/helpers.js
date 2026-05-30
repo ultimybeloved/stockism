@@ -337,6 +337,32 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
   }
 }
 
+/**
+ * Send a market status announcement to Discord.
+ * @param {string} kind - 'closed' | 'premarket' | 'open' | 'halted' | 'resumed'
+ * @param {string} reason - optional reason text (used for manual halts)
+ */
+async function sendMarketStatusAlert(kind, reason = '') {
+  const presets = {
+    closed:    { color: 0xE74C3C, title: '🔴 Market Closed', description: 'Trading is paused for chapter review. Pre-market orders open at 20:30 UTC. Trading resumes at 21:00 UTC.' },
+    premarket: { color: 0xF1C40F, title: '🟡 Pre-Market Queue Open', description: 'You can now place pre-market orders. They fill when trading resumes at 21:00 UTC.' },
+    open:      { color: 0x2ECC71, title: '🟢 Market Open', description: 'Trading has resumed.' },
+    halted:    { color: 0xE74C3C, title: '🔴 Trading Halted', description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.' },
+    resumed:   { color: 0x2ECC71, title: '🟢 Trading Resumed', description: 'Trading has resumed.' },
+  };
+  const preset = presets[kind];
+  if (!preset) {
+    console.error(`sendMarketStatusAlert: unknown kind "${kind}"`);
+    return;
+  }
+  await sendDiscordMessage(null, [{
+    color: preset.color,
+    title: preset.title,
+    description: preset.description,
+    timestamp: new Date().toISOString()
+  }]);
+}
+
 module.exports = {
   DIVIDEND_HOLD_DAYS,
   DIVIDEND_HOLD_MS,
@@ -357,4 +383,5 @@ module.exports = {
   isBannedUsername,
   checkBanned,
   sendDiscordMessage,
+  sendMarketStatusAlert,
 };

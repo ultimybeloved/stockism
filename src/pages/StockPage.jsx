@@ -11,6 +11,7 @@ import { DIVIDEND_RATES, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
 import { usePriceHistory } from '../hooks/usePriceHistory';
+import { getMarketClosedState } from '../utils/marketHours';
 
 const CHART_TYPES = [
   { key: 'area', label: 'Area' },
@@ -20,9 +21,10 @@ const CHART_TYPES = [
 const StockPage = ({ onTrade }) => {
   const { ticker } = useParams();
   const navigate = useNavigate();
-  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData } = useAppContext();
   const { fullHistory } = usePriceHistory(ticker);
   const colorBlindMode = userData?.colorBlindMode || false;
+  const marketClosed = getMarketClosedState(marketData).closed;
   const [timeRange, setTimeRange] = useState('1d');
   const [chartType, setChartType] = useState('area');
   const [tradeAction, setTradeAction] = useState(null);
@@ -186,9 +188,11 @@ const StockPage = ({ onTrade }) => {
             </div>
           </div>
           {user && (
-            !showTradeMenu
-              ? <button onClick={() => setShowTradeMenu(true)} className="mt-3 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm">Trade</button>
-              : tradeButtons
+            marketClosed
+              ? <button disabled className="mt-3 px-4 py-1.5 border border-red-500/30 text-red-400 opacity-60 text-sm font-semibold uppercase rounded-sm cursor-not-allowed">Market Closed</button>
+              : !showTradeMenu
+                ? <button onClick={() => setShowTradeMenu(true)} className="mt-3 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm">Trade</button>
+                : tradeButtons
           )}
         </div>
 

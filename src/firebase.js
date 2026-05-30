@@ -104,6 +104,7 @@ export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data
 export const renameTickerFunction = httpsCallable(functions, 'renameTicker');
+export const setMarketHaltFunction = httpsCallable(functions, 'setMarketHalt');
 // Admin: watchlist management
 export const addWatchedUserFunction = httpsCallable(functions, 'addWatchedUser');
 export const removeWatchedUserFunction = httpsCallable(functions, 'removeWatchedUser');

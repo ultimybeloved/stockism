@@ -18,8 +18,11 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const ipoMaxPerUser = ipo.maxPerUser || IPO_MAX_PER_USER;
   const sharesRemaining = ipo.sharesRemaining || ipoTotalShares;
   const userIPOPurchases = userData?.ipoPurchases?.[ipo.ticker] || 0;
-  const maxCanBuy = Math.min(ipoMaxPerUser - userIPOPurchases, sharesRemaining);
-  const totalCost = quantity * ipo.basePrice;
+  const affordableShares = ipo.basePrice > 0 ? Math.floor((userData?.cash || 0) / ipo.basePrice) : 0;
+  const maxCanBuy = Math.max(0, Math.min(ipoMaxPerUser - userIPOPurchases, sharesRemaining, affordableShares));
+  // quantity can be '' while the user is mid-edit — use a numeric fallback for math
+  const qtyNum = quantity === '' ? 0 : quantity;
+  const totalCost = qtyNum * ipo.basePrice;
   const canAfford = (userData?.cash || 0) >= totalCost;
 
   const soldOut = sharesRemaining <= 0;
@@ -88,7 +91,7 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
           <label className={`block text-sm font-semibold mb-1 ${textClass}`}>Shares</label>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              onClick={() => setQuantity(Math.max(1, qtyNum - 1))}
               className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
             >
               -
@@ -100,14 +103,17 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
               value={quantity}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val === '') return;
+                if (val === '') { setQuantity(''); return; }
                 const num = parseInt(val);
-                if (!isNaN(num)) setQuantity(Math.min(maxCanBuy, Math.max(1, num)));
+                if (!isNaN(num)) setQuantity(Math.min(maxCanBuy, Math.max(0, num)));
+              }}
+              onBlur={() => {
+                if (quantity === '' || quantity < 1) setQuantity(maxCanBuy >= 1 ? 1 : 0);
               }}
               className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
             />
             <button
-              onClick={() => setQuantity(Math.min(maxCanBuy, quantity + 1))}
+              onClick={() => setQuantity(Math.min(maxCanBuy, qtyNum + 1))}
               className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
             >
               +
@@ -124,11 +130,11 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
           </p>
 
           <button
-            onClick={() => onBuyIPO(ipo.ticker, quantity)}
-            disabled={!canAfford || quantity > maxCanBuy}
+            onClick={() => onBuyIPO(ipo.ticker, qtyNum)}
+            disabled={!canAfford || qtyNum < 1 || qtyNum > maxCanBuy}
             className={`w-full py-2 text-sm font-bold uppercase ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {!canAfford ? 'Insufficient Funds' : `Buy ${quantity} Share${quantity > 1 ? 's' : ''}`}
+            {!canAfford ? 'Insufficient Funds' : `Buy ${qtyNum} Share${qtyNum > 1 ? 's' : ''}`}
           </button>
         </div>
       )}

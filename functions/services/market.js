@@ -6,7 +6,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 
 exports.dailyMarketSummary = functions.pubsub
@@ -207,19 +207,26 @@ exports.chapterReviewRecap = functions.pubsub
       // Build ETF ticker set from CHARACTERS
       const etfTickers = new Set(CHARACTERS.filter(c => c.isETF).map(c => c.ticker));
 
-      // Compute changes per ticker (excluding ETFs)
+      // Compute changes per ticker (stocks split into gainers/losers, ETFs tracked separately)
       const gainers = [];
       const losers = [];
+      const etfMovements = [];
       let unchangedCount = 0;
 
       for (const [ticker, afterPrice] of Object.entries(afterPrices)) {
-        if (etfTickers.has(ticker)) continue;
         const beforePrice = beforePrices[ticker];
         if (beforePrice == null) continue;
 
         const pctChange = beforePrice > 0
           ? ((afterPrice - beforePrice) / beforePrice) * 100
           : 0;
+
+        if (etfTickers.has(ticker)) {
+          if (Math.abs(pctChange) >= 0.01) {
+            etfMovements.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
+          }
+          continue;
+        }
 
         if (Math.abs(pctChange) < 0.01) {
           unchangedCount++;
@@ -293,6 +300,18 @@ exports.chapterReviewRecap = functions.pubsub
         fields.push({
           name: '➖ Unchanged',
           value: `${unchangedCount} stock${unchangedCount !== 1 ? 's' : ''}`,
+          inline: false
+        });
+      }
+
+      if (etfMovements.length > 0) {
+        fields.push({
+          name: '🧺 ETF Movements',
+          value: etfMovements
+            .sort((a, b) => b.change - a.change)
+            .slice(0, 15)
+            .map(formatLine)
+            .join('\n'),
           inline: false
         });
       }
@@ -468,3 +487,65 @@ exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context)
 /**
  * Weekly Market Summary - Runs Mondays at 00:00 UTC
  */
+
+// ============================================
+// MARKET STATUS ALERTS (Discord)
+// ============================================
+
+// Weekly halt begins — Thursday 13:00 UTC
+exports.marketClosedAlert = functions.pubsub
+  .schedule('0 13 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    await sendMarketStatusAlert('closed');
+    return null;
+  });
+
+// Pre-market queue opens — Thursday 20:30 UTC
+exports.preMarketOpenAlert = functions.pubsub
+  .schedule('30 20 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    await sendMarketStatusAlert('premarket');
+    return null;
+  });
+
+// Trading resumes — Thursday 21:00 UTC
+exports.marketOpenAlert = functions.pubsub
+  .schedule('0 21 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    await sendMarketStatusAlert('open');
+    return null;
+  });
+
+/**
+ * Admin: manually halt or resume the market. Sets the flag and announces it on Discord.
+ */
+exports.setMarketHalt = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can halt the market.');
+  }
+
+  const halted = !!data.halted;
+  const reason = typeof data.reason === 'string' ? data.reason.trim() : '';
+
+  if (halted && !reason) {
+    throw new functions.https.HttpsError('invalid-argument', 'A halt reason is required.');
+  }
+
+  await db.collection('market').doc('current').update({
+    marketHalted: halted,
+    haltReason: halted ? reason : '',
+    haltedAt: halted ? Date.now() : null,
+    haltedBy: halted ? context.auth.uid : null
+  });
+
+  try {
+    await sendMarketStatusAlert(halted ? 'halted' : 'resumed', reason);
+  } catch (err) {
+    console.error('Failed to send market status alert:', err);
+  }
+
+  return { success: true, halted };
+});
