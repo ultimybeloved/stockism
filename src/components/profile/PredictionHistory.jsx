@@ -1,9 +1,13 @@
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import { useAppContext } from '../../context/AppContext';
+import { lmsrPrices } from '../../utils/calculations';
+import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
 
-// Active bets + resolved prediction history.
-const PredictionHistory = ({ userBetHistory, userData, darkMode }) => {
+// Active bets + resolved prediction history (weekly), plus long-term event positions.
+const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { predictions } = useAppContext();
 
   // Calculate potential payout for active bets
   const calculatePotentialPayout = (bet) => {
@@ -22,8 +26,51 @@ const PredictionHistory = ({ userBetHistory, userData, darkMode }) => {
   const activeBets = userBetHistory.filter(b => b.prediction && !b.prediction.resolved);
   const pastBets = userBetHistory.filter(b => b.prediction?.resolved || b.paid !== undefined);
 
+  // Long-term event-share positions
+  const eventPositions = userData?.eventPositions || {};
+  const eventEntries = Object.entries(eventPositions).map(([marketId, pos]) => {
+    const market = predictions?.find(p => p.id === marketId && p.type === 'event');
+    return { marketId, ...pos, market };
+  }).filter(e => e.market && e.shares && Object.values(e.shares).some(s => s > 0))
+    .sort((a, b) => (a.market?.resolved ? 1 : 0) - (b.market?.resolved ? 1 : 0));
+
   return (
     <>
+      {/* Long-Term Positions */}
+      {eventEntries.length > 0 && (
+        <div>
+          <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Long-Term Positions</h3>
+          <div className="space-y-2">
+            {eventEntries.map((entry) => {
+              const { marketId, market, shares, payout } = entry;
+              const outcomes = market.outcomes || [];
+              const b = market.b || EVENT_AMM_LIQUIDITY;
+              const q = (Array.isArray(market.q) && market.q.length === outcomes.length) ? market.q : outcomes.map(() => 0);
+              const prices = lmsrPrices(q, b);
+              const liveValue = outcomes.reduce((s, o, i) => s + ((shares[o] || 0) * prices[i]), 0);
+              const owned = outcomes.map((o) => ({ o, qty: shares[o] || 0 })).filter(x => x.qty > 0);
+              const resolved = market.resolved;
+              const won = resolved && payout > 0;
+              return (
+                <div key={marketId} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                  <p className={`text-sm font-semibold ${textClass}`}>{market.question}</p>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className={`text-xs ${mutedClass}`}>{owned.map(x => `${x.qty} ${x.o}`).join(', ')}</span>
+                    {resolved ? (
+                      <span className={`text-xs font-semibold ${won ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400')}`}>
+                        {won ? `Won ${formatCurrency(payout)}` : 'Expired'}
+                      </span>
+                    ) : (
+                      <span className={`text-xs ${mutedClass}`}>Value {formatCurrency(liveValue)}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Active Bets */}
       {activeBets.length > 0 && (
         <div>

@@ -245,3 +245,30 @@ export const getTotalInvested = (holdings = {}, costBasis = {}, shorts = {}) => 
   );
   return holdingsValue + shortMargin;
 };
+
+// ── LMSR event-market pricing ────────────────────────────────────────────────
+// Logarithmic Market Scoring Rule for long-term event share markets.
+// `q` = array of shares outstanding per outcome, `b` = liquidity parameter.
+// Prices always sum to 1 and stay in (0,1). Mirror of functions/helpers.js — keep in sync.
+const _lse = (xs) => {
+  const m = Math.max(...xs);
+  return m + Math.log(xs.reduce((s, x) => s + Math.exp(x - m), 0));
+};
+export const lmsrCost = (q, b) => b * _lse(q.map((x) => x / b));
+export const lmsrPrices = (q, b) => {
+  const xs = q.map((x) => x / b);
+  const m = Math.max(...xs);
+  const ex = xs.map((x) => Math.exp(x - m));
+  const sum = ex.reduce((a, c) => a + c, 0);
+  return ex.map((e) => e / sum);
+};
+export const lmsrBuyCost = (q, b, idx, shares) => {
+  const after = q.slice();
+  after[idx] += shares;
+  return lmsrCost(after, b) - lmsrCost(q, b);
+};
+export const lmsrSellRefund = (q, b, idx, shares) => {
+  const after = q.slice();
+  after[idx] -= shares;
+  return lmsrCost(q, b) - lmsrCost(after, b);
+};

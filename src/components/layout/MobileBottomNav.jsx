@@ -62,6 +62,7 @@ const MobileBottomNav = () => {
       label: 'Home'
     },
     { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
+    { path: '/predictions', icon: '🔮', label: 'Predict' },
     { path: '/ladder', icon: <LadderIcon />, label: 'Ladder' },
     { path: '/achievements', icon: '🏅', label: 'Achievements' },
     ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : [])

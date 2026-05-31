@@ -26,6 +26,7 @@ Object.assign(exports, require('./services/ladderGame'));
 Object.assign(exports, require('./services/limitOrders'));
 Object.assign(exports, require('./services/missions'));
 Object.assign(exports, require('./services/predictions'));
+Object.assign(exports, require('./services/eventMarket'));
 Object.assign(exports, require('./services/archiving'));
 Object.assign(exports, require('./services/margin'));
 Object.assign(exports, require('./services/crew'));

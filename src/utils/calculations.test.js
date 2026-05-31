@@ -8,6 +8,9 @@ import {
   getMarginTierMultiplier,
   getMarginTierName,
   checkMarginEligibility,
+  lmsrPrices,
+  lmsrBuyCost,
+  lmsrSellRefund,
 } from './calculations';
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
@@ -218,5 +221,41 @@ describe('checkMarginEligibility', () => {
   it('not eligible when any threshold is missed', () => {
     const user = { totalCheckins: 10, totalTrades: 34, peakPortfolioValue: 7500 };
     expect(checkMarginEligibility(user).eligible).toBe(false);
+  });
+});
+
+// ─── LMSR event-market pricing ────────────────────────────────────────────────
+
+describe('LMSR event-market pricing', () => {
+  const b = 1000;
+
+  it('starts at even odds summing to 1', () => {
+    const p = lmsrPrices([0, 0], b);
+    expect(p[0]).toBeCloseTo(0.5, 6);
+    expect(p[0] + p[1]).toBeCloseTo(1, 9);
+  });
+
+  it('keeps multi-outcome prices summing to 1', () => {
+    const p = lmsrPrices([300, 100, 50], b);
+    expect(p.reduce((a, c) => a + c, 0)).toBeCloseTo(1, 9);
+  });
+
+  it('raises an outcome price when it is bought', () => {
+    const before = lmsrPrices([0, 0], b)[0];
+    const after = lmsrPrices([100, 0], b)[0];
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it('is lossless on an immediate buy then sell', () => {
+    const cost = lmsrBuyCost([0, 0], b, 0, 100);
+    const refund = lmsrSellRefund([100, 0], b, 0, 100);
+    expect(refund).toBeCloseTo(cost, 9);
+  });
+
+  it('bounds the house loss at b*ln(n)', () => {
+    const shares = 5000; // redeem value if this outcome wins
+    const collected = lmsrBuyCost([0, 0], b, 0, shares);
+    const houseLoss = shares - collected; // payout minus what the AMM took in
+    expect(houseLoss).toBeLessThanOrEqual(b * Math.log(2) + 1e-6);
   });
 });

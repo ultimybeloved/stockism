@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
-import { DIVIDEND_RATES } from './constants/economy';
+import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY } from './constants/economy';
+import { triggerEventSettlementsFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -64,6 +65,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // Resolve prediction state
   const [selectedPrediction, setSelectedPrediction] = useState(null);
   const [selectedOutcomes, setSelectedOutcomes] = useState([]);
+  const [predictionType, setPredictionType] = useState('weekly'); // 'weekly' (cash) | 'event' (long-term AMM)
+  const [seedLiquidity, setSeedLiquidity] = useState(EVENT_AMM_LIQUIDITY);
 
   // Extend/Reopen prediction state
   const [extendPredictionId, setExtendPredictionId] = useState('');
@@ -1068,6 +1071,32 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
       const currentList = snap.exists() ? (snap.data().list || []) : [];
+
+      if (predictionType === 'event') {
+        const cleanOptions = validOptions.map(o => o.trim());
+        const b = Number(seedLiquidity) || EVENT_AMM_LIQUIDITY;
+        const eventMarket = {
+          id: `evt_${Date.now()}`,
+          type: 'event',
+          question: question.trim(),
+          outcomes: cleanOptions,
+          options: cleanOptions, // mirror so the admin list/resolve UI works unchanged
+          q: cleanOptions.map(() => 0),
+          b,
+          seededLiquidity: b,
+          volume: 0,
+          createdAt: Date.now(),
+          resolved: false,
+          outcome: null,
+          settled: false,
+        };
+        await updateDoc(predictionsRef, { list: [...currentList, eventMarket] });
+        showMessage('success', `Created long-term market: "${question.trim()}"`);
+        setQuestion('');
+        setOptions(['Yes', 'No', '', '', '', '']);
+        setLoading(false);
+        return;
+      }
 
       // Generate unique ID using timestamp
       const newId = `pred_${Date.now()}`;
@@ -2480,6 +2509,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       const label = selectedOutcomes.length === 1 ? `"${selectedOutcomes[0]}"` : `"${selectedOutcomes.join('" & "')}"`;
       showMessage('success', `Resolved! Winner(s): ${label}`);
+      if (selectedPrediction?.type === 'event') {
+        try { await triggerEventSettlementsFunction(); } catch (e) { console.error('Settlement trigger failed', e); }
+      }
       setSelectedPrediction(null);
       setSelectedOutcomes([]);
     } catch (err) {
@@ -3989,6 +4021,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               endDate={endDate}
               getEndTime={getEndTime}
               handleCreatePrediction={handleCreatePrediction}
+              predictionType={predictionType}
+              setPredictionType={setPredictionType}
+              seedLiquidity={seedLiquidity}
+              setSeedLiquidity={setSeedLiquidity}
               extendPredictionId={extendPredictionId}
               setExtendPredictionId={setExtendPredictionId}
               extendDays={extendDays}

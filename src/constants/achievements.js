@@ -129,6 +129,13 @@ export const ACHIEVEMENTS = {
     description: 'Win 10 prediction bets',
     hint: 'Your foresight is legendary'
   },
+  TRUE_BELIEVER: {
+    id: 'TRUE_BELIEVER',
+    name: 'True Believer',
+    emoji: '🔭',
+    description: 'Hold a long-term prediction position until it resolves',
+    hint: 'Conviction pays off'
+  },
 
   // Dedication milestones
   DEDICATED_7: {

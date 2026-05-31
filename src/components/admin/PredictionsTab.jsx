@@ -24,6 +24,10 @@ const PredictionsTab = ({
   endDate,
   getEndTime,
   handleCreatePrediction,
+  predictionType,
+  setPredictionType,
+  seedLiquidity,
+  setSeedLiquidity,
   extendPredictionId,
   setExtendPredictionId,
   extendDays,
@@ -116,6 +120,25 @@ const PredictionsTab = ({
         <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
         <div className="space-y-3">
           <div>
+            <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPredictionType('weekly')}
+                className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'weekly' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+              >
+                Weekly (cash)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPredictionType('event')}
+                className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'event' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+              >
+                Long-Term (shares)
+              </button>
+            </div>
+          </div>
+          <div>
             <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
             <input
               type="text"
@@ -146,43 +169,61 @@ const PredictionsTab = ({
             </div>
           </div>
 
-          <div>
-            <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="1"
-                max="14"
-                value={daysUntilEnd}
-                onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
-                className="flex-1"
-              />
-              <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
-            </div>
-            <p className={`text-xs ${mutedClass} mt-1`}>
-              Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
-            </p>
-          </div>
+          {predictionType !== 'event' ? (
+            <>
+              <div>
+                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="1"
+                    max="14"
+                    value={daysUntilEnd}
+                    onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
+                </div>
+                <p className={`text-xs ${mutedClass} mt-1`}>
+                  Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="mayExtend"
-              checked={mayExtend}
-              onChange={e => setMayExtend(e.target.checked)}
-              className="w-4 h-4 cursor-pointer"
-            />
-            <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
-              ⏳ Result may need an extra week to confirm
-            </label>
-          </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="mayExtend"
+                  checked={mayExtend}
+                  onChange={e => setMayExtend(e.target.checked)}
+                  className="w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
+                  ⏳ Result may need an extra week to confirm
+                </label>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>House Liquidity (seed)</label>
+              <input
+                type="number"
+                min="100"
+                value={seedLiquidity}
+                onChange={e => setSeedLiquidity(e.target.value === '' ? '' : parseInt(e.target.value))}
+                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+              />
+              <p className={`text-xs ${mutedClass} mt-1`}>
+                Higher = steadier prices. No end date; resolve it when canon confirms the outcome.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={handleCreatePrediction}
             disabled={loading}
             className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
           >
-            {loading ? 'Creating...' : '➕ Create Prediction'}
+            {loading ? 'Creating...' : (predictionType === 'event' ? '➕ Create Long-Term Market' : '➕ Create Prediction')}
           </button>
         </div>
       </div>

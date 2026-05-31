@@ -86,6 +86,10 @@ export const createLimitOrderFunction = httpsCallable(functions, 'createLimitOrd
 export const createPreMarketOrderFunction = httpsCallable(functions, 'createPreMarketOrder');
 export const cancelPreMarketOrderFunction = httpsCallable(functions, 'cancelPreMarketOrder');
 export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
+// Event prediction markets (long-term, AMM-priced)
+export const buyEventSharesFunction = httpsCallable(functions, 'buyEventShares');
+export const sellEventSharesFunction = httpsCallable(functions, 'sellEventShares');
+export const triggerEventSettlementsFunction = httpsCallable(functions, 'triggerEventSettlements');
 export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
 export const bailoutFunction = httpsCallable(functions, 'bailout');
 export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');

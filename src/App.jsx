@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -94,6 +94,7 @@ const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
 const LadderPage       = lazy(() => import('./pages/LadderPage'));
 const ProfilePage      = lazy(() => import('./pages/ProfilePage'));
 const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage'));
+const PredictionsPage  = lazy(() => import('./pages/PredictionsPage'));
 
 // Import AppContext
 import { AppProvider } from './context/AppContext';
@@ -403,7 +404,7 @@ export default function App() {
   const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey });
   const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending });
   const { handleCrewSelect, handleCrewLeave } = useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey });
-  const { handleBet } = usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey });
+  const { handleBet, handleBuyEventShares, handleSellEventShares } = usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey });
   const { handleBuyIPO } = useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey });
   const { handleDailyCheckin, handleBailout } = useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey });
   const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({ user, userData, showNotification, setUserData, setLoadingKey });
@@ -1647,7 +1648,7 @@ export default function App() {
         )}
 
         {/* Weekly Predictions */}
-        {predictions.length > 0 && (
+        {predictions.some(p => p.type !== 'event') && (
           <div className="mb-4">
             <button
               onClick={() => setShowPredictions(!showPredictions)}
@@ -1670,7 +1671,7 @@ export default function App() {
               </svg>
             </button>
             {showPredictions && (() => {
-              const visiblePredictions = predictions.filter(p => !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
+              const visiblePredictions = predictions.filter(p => p.type !== 'event' && !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
               const colClass = [
                 'grid-cols-1',
                 'grid-cols-1 sm:grid-cols-2',
@@ -1700,6 +1701,11 @@ export default function App() {
               </div>
               );
             })()}
+            <div className="mt-3 text-center">
+              <Link to="/predictions" className="text-sm font-semibold text-orange-500 hover:underline">
+                See all predictions &amp; long-term markets →
+              </Link>
+            </div>
           </div>
         )}
 
@@ -2031,6 +2037,18 @@ export default function App() {
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/ladder" element={<LadderPage />} />
+            <Route path="/predictions" element={
+              <PredictionsPage
+                predictions={predictions}
+                isGuest={isGuest}
+                isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+                onBet={handleBet}
+                onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
+                onHidePrediction={handleHidePrediction}
+                onBuyEventShares={handleBuyEventShares}
+                onSellEventShares={handleSellEventShares}
+              />
+            } />
             <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} />} />
             <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
             <Route path="/u/:username" element={<PublicProfilePage />} />

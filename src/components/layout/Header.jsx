@@ -76,6 +76,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
 
   const navLinks = [
     { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+    { path: '/predictions', label: 'Predictions', icon: '🔮' },
     { path: '/ladder', label: 'Ladder', icon: <LadderIcon /> },
     { path: '/achievements', label: 'Achievements', icon: '🏅' }
   ];

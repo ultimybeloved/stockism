@@ -82,6 +82,15 @@ const LONG_MARGIN_LIQUIDATION_THRESHOLD = 0.25; // long margin equity ratio at w
 const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
 
 // ============================================
+// EVENT PREDICTION MARKETS (long-term, AMM-priced)
+// ============================================
+// LMSR liquidity parameter (b). Bigger = steadier prices and a larger bounded
+// house subsidy. Max the house can ever lose on a market is b * ln(numOutcomes).
+// Seeded generously on purpose: stable prices and generous payouts build trust.
+const EVENT_AMM_LIQUIDITY = 1000;
+const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy (avoids dust)
+
+// ============================================
 // CREW MEMBER MAPPINGS
 // ============================================
 const CREW_MEMBERS = {
@@ -208,6 +217,8 @@ module.exports = {
   LONG_MARGIN_CALL_THRESHOLD,
   LONG_MARGIN_LIQUIDATION_THRESHOLD,
   IPO_PRICE_JUMP,
+  EVENT_AMM_LIQUIDITY,
+  EVENT_MIN_BUYIN,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,

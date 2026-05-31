@@ -17,6 +17,10 @@ export const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
 export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
 export const IPO_PRICE_JUMP = 0.15; // 15% price jump after IPO ends
 
+// Event prediction markets (long-term, AMM-priced) — keep in sync with functions/constants.js
+export const EVENT_AMM_LIQUIDITY = 1000; // LMSR liquidity param (b); house max loss per market = b * ln(numOutcomes)
+export const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy
+
 // Economy balancing constants - Realistic Market Model
 export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement
 export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
