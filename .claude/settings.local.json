@@ -45,7 +45,8 @@
       "Bash(sed -n '1893,1902p' functions/index.js)",
       "Bash(sed -n '1968,1978p' functions/index.js)",
       "Bash(npm install *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(npm run *)"
     ]
   },
   "hooks": {
