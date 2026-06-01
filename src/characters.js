@@ -189,6 +189,15 @@ export const CHARACTERS = [
   { name: "Minyong Park", ticker: "DOC2", basePrice: 7.50, volatility: 0.04, dateAdded: "2026-05-01T00:05:00" },
   { name: "Haeshik Won", ticker: "TONG", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-14T00:00:00" },
 
+  // New characters added 2026-06-01
+  { name: "Chunhui Oh", ticker: "CHUN", basePrice: 7.50, volatility: 0.04, dateAdded: "2026-06-01T00:00:00" },
+  { name: "Isu Jo", ticker: "ISU", basePrice: 10, volatility: 0.04, dateAdded: "2026-06-01T00:01:00" },
+  { name: "Steve Hong", ticker: "HONG", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-06-01T00:02:00" },
+  { name: "Bakgu Noh", ticker: "TAXI", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-06-01T00:03:00" },
+  { name: "Tae-Oh Jang", ticker: "TAEJ", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-06-01T00:04:00" },
+  { name: "Hwasu Park", ticker: "HPRK", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-06-01T00:05:00" },
+  { name: "Myeongho Choi", ticker: "SNGH", basePrice: 15, volatility: 0.04, dateAdded: "2026-06-01T00:06:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
@@ -219,13 +228,14 @@ export const CHARACTERS = [
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, volatility: 0.025, dateAdded: "2026-02-20T00:02:00",
     isETF: true, description: "Fist Gang ETF",
-    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH"],
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI"],
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.08 }, { ticker: "ELIT", coefficient: 0.08 },
-      { ticker: "JYNG", coefficient: 0.08 }, { ticker: "TOM", coefficient: 0.08 },
-      { ticker: "KWON", coefficient: 0.08 }, { ticker: "DNCE", coefficient: 0.08 },
-      { ticker: "GNTL", coefficient: 0.08 }, { ticker: "MMA", coefficient: 0.08 },
-      { ticker: "LIAR", coefficient: 0.08 }, { ticker: "NOH", coefficient: 0.08 }
+      { ticker: "GAP", coefficient: 0.073 }, { ticker: "ELIT", coefficient: 0.073 },
+      { ticker: "JYNG", coefficient: 0.073 }, { ticker: "TOM", coefficient: 0.073 },
+      { ticker: "KWON", coefficient: 0.073 }, { ticker: "DNCE", coefficient: 0.073 },
+      { ticker: "GNTL", coefficient: 0.073 }, { ticker: "MMA", coefficient: 0.073 },
+      { ticker: "LIAR", coefficient: 0.073 }, { ticker: "NOH", coefficient: 0.073 },
+      { ticker: "TAXI", coefficient: 0.073 }
     ]
   },
   {
@@ -263,16 +273,18 @@ export const CHARACTERS = [
   {
     name: "Workers Fund", ticker: "VVIP", basePrice: 94.1, volatility: 0.025, dateAdded: "2026-02-20T00:06:00",
     isETF: true, description: "Workers ETF",
-    constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1", "DOC2"],
+    constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1", "DOC2", "TAEJ", "HPRK", "SNGH"],
     trailingFactors: [
-      { ticker: "WRKR", coefficient: 0.050 }, { ticker: "BANG", coefficient: 0.050 },
-      { ticker: "CAPG", coefficient: 0.050 }, { ticker: "JYNG", coefficient: 0.050 },
-      { ticker: "NOMN", coefficient: 0.050 }, { ticker: "NEKO", coefficient: 0.050 },
-      { ticker: "DOOR", coefficient: 0.050 }, { ticker: "JINJ", coefficient: 0.050 },
-      { ticker: "DRMA", coefficient: 0.050 }, { ticker: "HYOT", coefficient: 0.050 },
-      { ticker: "OLDF", coefficient: 0.050 }, { ticker: "SHKO", coefficient: 0.050 },
-      { ticker: "HIKO", coefficient: 0.050 }, { ticker: "DOC", coefficient: 0.050 },
-      { ticker: "NO1", coefficient: 0.050 }, { ticker: "DOC2", coefficient: 0.050 }
+      { ticker: "WRKR", coefficient: 0.042 }, { ticker: "BANG", coefficient: 0.042 },
+      { ticker: "CAPG", coefficient: 0.042 }, { ticker: "JYNG", coefficient: 0.042 },
+      { ticker: "NOMN", coefficient: 0.042 }, { ticker: "NEKO", coefficient: 0.042 },
+      { ticker: "DOOR", coefficient: 0.042 }, { ticker: "JINJ", coefficient: 0.042 },
+      { ticker: "DRMA", coefficient: 0.042 }, { ticker: "HYOT", coefficient: 0.042 },
+      { ticker: "OLDF", coefficient: 0.042 }, { ticker: "SHKO", coefficient: 0.042 },
+      { ticker: "HIKO", coefficient: 0.042 }, { ticker: "DOC", coefficient: 0.042 },
+      { ticker: "NO1", coefficient: 0.042 }, { ticker: "DOC2", coefficient: 0.042 },
+      { ticker: "TAEJ", coefficient: 0.042 }, { ticker: "HPRK", coefficient: 0.042 },
+      { ticker: "SNGH", coefficient: 0.042 }
     ]
   },
   {
@@ -304,17 +316,18 @@ export const CHARACTERS = [
   {
     name: "Kitae Kim Alliance ETF", ticker: "SHDW", basePrice: 155, volatility: 0.025, dateAdded: "2026-02-20T00:09:00",
     isETF: true, description: "Kitae Kim Alliance ETF",
-    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN", "TONG"],
+    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN", "TONG", "ISU"],
     trailingFactors: [
-      { ticker: "KTAE", coefficient: 0.047 }, { ticker: "DG", coefficient: 0.047 },
-      { ticker: "GNTL", coefficient: 0.047 }, { ticker: "GOO", coefficient: 0.047 },
-      { ticker: "SAM", coefficient: 0.047 }, { ticker: "SHMN", coefficient: 0.047 },
-      { ticker: "SAMC", coefficient: 0.047 }, { ticker: "YONG", coefficient: 0.047 },
-      { ticker: "PAJU", coefficient: 0.047 }, { ticker: "PHNG", coefficient: 0.047 },
-      { ticker: "CROW", coefficient: 0.047 }, { ticker: "COP", coefficient: 0.047 },
-      { ticker: "RYU", coefficient: 0.047 }, { ticker: "SWMP", coefficient: 0.047 },
-      { ticker: "JEON", coefficient: 0.047 }, { ticker: "SCHN", coefficient: 0.047 },
-      { ticker: "SIN", coefficient: 0.047 }, { ticker: "TONG", coefficient: 0.047 }
+      { ticker: "KTAE", coefficient: 0.042 }, { ticker: "DG", coefficient: 0.042 },
+      { ticker: "GNTL", coefficient: 0.042 }, { ticker: "GOO", coefficient: 0.042 },
+      { ticker: "SAM", coefficient: 0.042 }, { ticker: "SHMN", coefficient: 0.042 },
+      { ticker: "SAMC", coefficient: 0.042 }, { ticker: "YONG", coefficient: 0.042 },
+      { ticker: "PAJU", coefficient: 0.042 }, { ticker: "PHNG", coefficient: 0.042 },
+      { ticker: "CROW", coefficient: 0.042 }, { ticker: "COP", coefficient: 0.042 },
+      { ticker: "RYU", coefficient: 0.042 }, { ticker: "SWMP", coefficient: 0.042 },
+      { ticker: "JEON", coefficient: 0.042 }, { ticker: "SCHN", coefficient: 0.042 },
+      { ticker: "SIN", coefficient: 0.042 }, { ticker: "TONG", coefficient: 0.042 },
+      { ticker: "ISU", coefficient: 0.042 }
     ]
   },
   { name: "James Gong", ticker: "JGNG", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-05-25T00:00:00" },

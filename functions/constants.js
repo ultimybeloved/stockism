@@ -96,12 +96,12 @@ const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy (avoids dust)
 const CREW_MEMBERS = {
   ALLIED:          ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
   BIG_DEAL:        ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
-  FIST_GANG:       ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH'],
+  FIST_GANG:       ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH', 'TAXI'],
   GOD_DOG:         ['GDOG', 'MIRO', 'EDEN'],
   SECRET_FRIENDS:  ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
   HOSTEL:          ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
   WTJC:            ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
-  WORKERS:         ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1'],
+  WORKERS:         ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1', 'DOC2', 'TAEJ', 'HPRK', 'SNGH'],
   YAMAZAKI:        ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI']
 };
 
