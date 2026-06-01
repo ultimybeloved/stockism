@@ -8,6 +8,7 @@
 // settlement run here on the server.
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const {
   isWeeklyTradingHalt,
@@ -258,7 +259,7 @@ async function settleResolvedEventMarkets() {
         }
 
         if (newAch.length) {
-          updates.achievements = admin.firestore.FieldValue.arrayUnion(...newAch);
+          updates.achievements = FieldValue.arrayUnion(...newAch);
           for (const a of newAch) updates[`achievementDates.${a}`] = Date.now();
         }
 

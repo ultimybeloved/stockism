@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, TwitterAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth, GoogleAuthProvider, TwitterAuthProvider, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
@@ -16,19 +16,28 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Local dev: bypass App Check using a fixed debug token from .env.local.
-// Register the same UUID under Firebase Console → App Check → Apps → Manage
-// debug tokens. Pinning a fixed token (instead of `true`) prevents the SDK
-// from regenerating a new unregistered token on every reload.
-if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
-  // eslint-disable-next-line no-undef
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
-}
+// Sandbox mode: when running against the local Firebase emulators (started via
+// `npm run dev:emulator`), point all services at localhost and skip App Check —
+// reCAPTCHA can't validate localhost, and the emulator doesn't enforce it anyway.
+// Off by default, so a plain `npm run dev` and all production builds keep using
+// the real backend exactly as before.
+const USE_EMULATOR = import.meta.env.VITE_USE_EMULATOR === 'true';
 
-const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
-  isTokenAutoRefreshEnabled: true
-});
+if (!USE_EMULATOR) {
+  // Local dev: bypass App Check using a fixed debug token from .env.local.
+  // Register the same UUID under Firebase Console → App Check → Apps → Manage
+  // debug tokens. Pinning a fixed token (instead of `true`) prevents the SDK
+  // from regenerating a new unregistered token on every reload.
+  if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+    // eslint-disable-next-line no-undef
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+  }
+
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+    isTokenAutoRefreshEnabled: true
+  });
+}
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -37,6 +46,14 @@ googleProvider.addScope('profile');
 export const twitterProvider = new TwitterAuthProvider();
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
+
+if (USE_EMULATOR) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+  // eslint-disable-next-line no-console
+  console.warn('🧪 SANDBOX MODE — connected to local Firebase emulators, not production.');
+}
 
 // Cloud Functions
 export const createUserFunction = httpsCallable(functions, 'createUser');

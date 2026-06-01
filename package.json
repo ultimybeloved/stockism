@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulator": "vite --mode emulator",
+    "emulators": "firebase emulators:start --only auth,firestore,functions",
+    "seed:emulator": "node scripts/seed-emulator.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "sync:chars": "node scripts/sync-chars.cjs",

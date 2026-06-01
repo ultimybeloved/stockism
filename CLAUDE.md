@@ -12,6 +12,22 @@ Run the app locally before pushing changes:
 
 Local dev runs against the **production** Firebase backend, so any trades or writes hit live data — test with the user's own account, not a fresh one.
 
+### Sandbox mode (local emulators — safe to test anything)
+
+A `npm run dev` always hits production. To test risky changes against a fake, resettable backend instead, use the Firebase emulator sandbox. Nothing in the sandbox can touch live players.
+
+**Requires Java 21+** (the Firebase CLI emulators need it; check with `java -version`).
+
+Three terminals (or run the first in the background):
+
+1. `npm run emulators` — starts the auth/firestore/functions emulators + UI at http://localhost:4000
+2. `npm run seed:emulator` — writes a starting market doc into the emulator (prices show immediately). The market doc is admin-only by Firestore rules, so the client can't self-init it; this seeds it via the Admin SDK.
+3. `npm run dev:emulator` — runs the app in sandbox mode (Vite `--mode emulator` loads `.env.emulator`, which sets `VITE_USE_EMULATOR=true`). The app connects to the local emulators and skips App Check. A "🧪 SANDBOX MODE" warning prints in the browser console.
+
+Sign up a fresh account in the sandbox — it's a clean database, so the production anti-alt / live-data warning above does not apply here. Restarting the emulators wipes everything back to zero.
+
+The flag is off by default: plain `npm run dev` and all Vercel/production builds are unaffected and keep using the real backend.
+
 ## Project Context
 
 You are the **sole developer** of this codebase. The user (Darth YG) is a non-technical manager who:
