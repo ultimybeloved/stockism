@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';
 import { lmsrPrices, lmsrBuyCost, lmsrSellRefund } from '../utils/calculations';
+import { formatCountdown } from '../utils/marketHours';
 import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 
 // Long-term event-share market card. Each outcome is a share that pays $1 if it
@@ -41,6 +42,15 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const [shares, setShares] = useState(10);
   const [showTrade, setShowTrade] = useState(false);
 
+  // Announced-but-locked window: visible with a countdown, no trading until opensAt.
+  const [nowTs, setNowTs] = useState(Date.now());
+  const notYetOpen = !resolved && !!market.opensAt && nowTs < market.opensAt;
+  useEffect(() => {
+    if (!notYetOpen) return undefined;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [notYetOpen]);
+
   const ownedFor = (o) => (position?.shares?.[o]) || 0;
   const positionValue = outcomes.reduce((sum, o, i) => sum + ownedFor(o) * prices[i], 0);
   const hasPosition = outcomes.some(o => ownedFor(o) > 0);
@@ -66,8 +76,8 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">🔮</span>
-          <span className={`text-xs font-semibold uppercase ${resolved ? 'text-amber-500' : isHalted ? 'text-red-500' : 'text-orange-500'}`}>
-            {resolved ? 'Resolved' : isHalted ? 'Closed' : 'Long-Term'}
+          <span className={`text-xs font-semibold uppercase ${resolved ? 'text-amber-500' : notYetOpen ? 'text-blue-500' : isHalted ? 'text-red-500' : 'text-orange-500'}`}>
+            {resolved ? 'Resolved' : notYetOpen ? 'Coming Soon' : isHalted ? 'Closed' : 'Long-Term'}
           </span>
         </div>
         {!resolved && (
@@ -78,6 +88,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
       <h3 className={`font-semibold mb-3 ${textClass}`}>{market.question}</h3>
 
       {/* Outcome prices */}
+      {!notYetOpen && (
       <div className="space-y-2 mb-3">
         {outcomes.map((o, i) => {
           const colors = outcomeColors[i % outcomeColors.length];
@@ -95,9 +106,10 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
           );
         })}
       </div>
+      )}
 
       {/* Your position */}
-      {hasPosition && (
+      {!notYetOpen && hasPosition && (
         <div className={`mb-3 p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
           <div className={`text-xs ${mutedClass} mb-1`}>Your shares</div>
           {outcomes.map((o, i) => ownedFor(o) > 0 && (
@@ -126,17 +138,23 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
       )}
 
       {/* Trade panel */}
-      {!resolved && isHalted && (
+      {!resolved && notYetOpen && (
+        <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
+          🔒 Opens in {formatCountdown(market.opensAt - nowTs)}
+        </div>
+      )}
+
+      {!resolved && !notYetOpen && isHalted && (
         <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
           🔒 Closed for chapter review. Trading reopens at 21:00 UTC.
         </div>
       )}
 
-      {!resolved && !isHalted && isGuest && (
+      {!resolved && !notYetOpen && !isHalted && isGuest && (
         <div className={`text-center text-sm ${mutedClass}`}>Sign in to trade</div>
       )}
 
-      {!resolved && !isHalted && !isGuest && !showTrade && (
+      {!resolved && !notYetOpen && !isHalted && !isGuest && !showTrade && (
         <button
           onClick={() => setShowTrade(true)}
           className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm"
@@ -145,7 +163,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
         </button>
       )}
 
-      {!resolved && !isHalted && !isGuest && showTrade && (
+      {!resolved && !notYetOpen && !isHalted && !isGuest && showTrade && (
         <div className="space-y-3">
           {/* Outcome selector */}
           <div className="grid grid-cols-2 gap-2">

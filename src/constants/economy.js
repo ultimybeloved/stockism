@@ -18,8 +18,11 @@ export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
 export const IPO_PRICE_JUMP = 0.15; // 15% price jump after IPO ends
 
 // Event prediction markets (long-term, AMM-priced) — keep in sync with functions/constants.js
-export const EVENT_AMM_LIQUIDITY = 1000; // LMSR liquidity param (b); house max loss per market = b * ln(numOutcomes)
+export const EVENT_AMM_LIQUIDITY = 5000; // LMSR liquidity param (b); house max loss per market = b * ln(numOutcomes)
 export const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy
+export const MS_PER_HOUR = 60 * 60 * 1000;
+// Announce-before-open delay presets (hours) offered when creating a long-term market. 0 = open immediately.
+export const EVENT_OPEN_DELAY_PRESETS_HOURS = [0, 1, 6, 12, 24];
 
 // Economy balancing constants - Realistic Market Model
 export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement

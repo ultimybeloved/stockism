@@ -98,11 +98,36 @@ async function main() {
   pSell[0] < pBuy[0] ? pass(`sell 50 Yes → Yes eased to ${(pSell[0] * 100).toFixed(1)}¢ (refund $${sellRes.refund})`) : fail('price did not ease after sell');
   (userAfterSell.eventPositions?.[marketId]?.shares?.Yes === 50) ? pass('position now 50 Yes shares') : fail('position not decremented');
 
+  // 3b) Announce-before-open gate: a market with opensAt in the future rejects
+  //     buys; once opensAt has passed, buying is allowed. (tester1 still signed in)
+  const timerId = `evt_timer_${Date.now()}`;
+  const baseList = (await predRef.get()).data().list;
+  await predRef.set({ list: [...baseList, {
+    id: timerId, type: 'event', question: 'TEST - announced market?',
+    outcomes: ['Yes', 'No'], options: ['Yes', 'No'],
+    q: [0, 0], b: EVENT_AMM_LIQUIDITY, seededLiquidity: EVENT_AMM_LIQUIDITY,
+    volume: 0, createdAt: Date.now(), resolved: false, outcome: null, settled: false,
+    opensAt: Date.now() + 60 * 60 * 1000, // opens in 1h
+  }] }, { merge: true });
+  let blocked = false;
+  try { await buy({ marketId: timerId, outcome: 'Yes', shares: 10 }); }
+  catch (e) { blocked = /not open/i.test(e.message); }
+  blocked ? pass('buy rejected while market is announced but not yet open') : fail('buy was NOT blocked before open');
+
+  const openedList = (await predRef.get()).data().list.map(m =>
+    m.id === timerId ? { ...m, opensAt: Date.now() - 1000 } : m);
+  await predRef.set({ list: openedList }, { merge: true });
+  let openedOk = false;
+  try { openedOk = (await buy({ marketId: timerId, outcome: 'Yes', shares: 10 })).data.success === true; }
+  catch (e) { openedOk = false; }
+  openedOk ? pass('buy allowed once opensAt has passed') : fail('buy still blocked after open time');
+
   // 4) Admin resolves Yes, then settles. Winners redeem at $1/share.
   const list = (await predRef.get()).data().list.map(m => m.id === marketId ? { ...m, resolved: true, outcomes: ['Yes'], outcome: 'Yes' } : m);
   await predRef.set({ list }, { merge: true });
   await auth.signOut();
   await signInWithEmailAndPassword(auth, 'admin@test.local', 'test123456');
+  const cashBeforeSettle = (await adb.collection('users').doc('tester1').get()).data().cash;
   const settle = httpsCallable(fns, 'triggerEventSettlements');
   const settleRes = (await settle({})).data;
   settleRes.settled >= 1 ? pass(`settlement ran (${settleRes.settled} market settled)`) : fail('settlement did not run');
@@ -112,7 +137,7 @@ async function main() {
   const pos = finalUser.eventPositions?.[marketId];
   Math.abs((pos?.payout || 0) - expectedPayout) < 0.01 ? pass(`paid out $${pos.payout} for 50 winning shares`) : fail(`payout wrong: ${pos?.payout}`);
   pos?.settled === true ? pass('position marked settled') : fail('position not settled');
-  Math.abs(finalUser.cash - r2(userAfterSell.cash + expectedPayout)) < 0.02 ? pass(`final cash credited to $${finalUser.cash}`) : fail(`final cash mismatch: ${finalUser.cash}`);
+  Math.abs(finalUser.cash - r2(cashBeforeSettle + expectedPayout)) < 0.02 ? pass(`final cash credited to $${finalUser.cash}`) : fail(`final cash mismatch: ${finalUser.cash}`);
   (finalUser.achievements || []).includes('TRUE_BELIEVER') ? pass('True Believer achievement awarded') : fail('achievement not awarded');
   finalUser.predictionWins === 1 ? pass('predictionWins incremented (feeds Oracle/Prophet)') : fail(`predictionWins = ${finalUser.predictionWins}`);
 

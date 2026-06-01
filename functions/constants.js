@@ -85,9 +85,11 @@ const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
 // EVENT PREDICTION MARKETS (long-term, AMM-priced)
 // ============================================
 // LMSR liquidity parameter (b). Bigger = steadier prices and a larger bounded
-// house subsidy. Max the house can ever lose on a market is b * ln(numOutcomes).
-// Seeded generously on purpose: stable prices and generous payouts build trust.
-const EVENT_AMM_LIQUIDITY = 1000;
+// house subsidy. Max the house can ever lose on a market is b * ln(numOutcomes)
+// (~$3,466 for a yes/no market at b=5000). Seeded generously on purpose: stable
+// prices and generous payouts build trust, and a deep book stops one big early
+// bet from yanking the line.
+const EVENT_AMM_LIQUIDITY = 5000;
 const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy (avoids dust)
 
 // ============================================

@@ -1,4 +1,5 @@
 import React from 'react';
+import EventMarketFields from './EventMarketFields';
 
 const PredictionsTab = ({
   darkMode,
@@ -28,6 +29,8 @@ const PredictionsTab = ({
   setPredictionType,
   seedLiquidity,
   setSeedLiquidity,
+  openDelayHours,
+  setOpenDelayHours,
   extendPredictionId,
   setExtendPredictionId,
   extendDays,
@@ -203,19 +206,15 @@ const PredictionsTab = ({
               </div>
             </>
           ) : (
-            <div>
-              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>House Liquidity (seed)</label>
-              <input
-                type="number"
-                min="100"
-                value={seedLiquidity}
-                onChange={e => setSeedLiquidity(e.target.value === '' ? '' : parseInt(e.target.value))}
-                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-              />
-              <p className={`text-xs ${mutedClass} mt-1`}>
-                Higher = steadier prices. No end date; resolve it when canon confirms the outcome.
-              </p>
-            </div>
+            <EventMarketFields
+              darkMode={darkMode}
+              mutedClass={mutedClass}
+              inputClass={inputClass}
+              seedLiquidity={seedLiquidity}
+              setSeedLiquidity={setSeedLiquidity}
+              openDelayHours={openDelayHours}
+              setOpenDelayHours={setOpenDelayHours}
+            />
           )}
 
           <button

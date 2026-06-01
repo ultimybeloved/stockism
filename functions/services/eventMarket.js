@@ -75,6 +75,9 @@ exports.buyEventShares = functions.https.onCall(async (data, context) => {
 
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
+    if (market.opensAt && Date.now() < market.opensAt) {
+      throw new functions.https.HttpsError('failed-precondition', 'This market is not open for betting yet.');
+    }
 
     const outcomes = market.outcomes || [];
     const oi = outcomes.indexOf(outcome);

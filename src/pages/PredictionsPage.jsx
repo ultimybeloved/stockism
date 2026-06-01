@@ -24,8 +24,9 @@ const PredictionsPage = ({
 
   const isHalted = isWeeklyHalt() || !!marketData?.marketHalted;
 
-  // Open markets first, resolved ones last.
-  const byStatus = (arr) => [...arr].sort((a, b) => (a.resolved ? 1 : 0) - (b.resolved ? 1 : 0));
+  // Coming-soon (announced, not yet open) first, then open, resolved last.
+  const rank = (m) => (m.resolved ? 2 : (m.opensAt && Date.now() < m.opensAt ? 0 : 1));
+  const byStatus = (arr) => [...arr].sort((a, b) => rank(a) - rank(b));
 
   const eventMarkets = byStatus(predictions.filter(p => p.type === 'event'));
   const weekly = byStatus(

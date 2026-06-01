@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
-import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY } from './constants/economy';
+import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
@@ -67,6 +67,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [selectedOutcomes, setSelectedOutcomes] = useState([]);
   const [predictionType, setPredictionType] = useState('weekly'); // 'weekly' (cash) | 'event' (long-term AMM)
   const [seedLiquidity, setSeedLiquidity] = useState(EVENT_AMM_LIQUIDITY);
+  const [openDelayHours, setOpenDelayHours] = useState(0); // announce-before-open delay; 0 = open immediately
 
   // Extend/Reopen prediction state
   const [extendPredictionId, setExtendPredictionId] = useState('');
@@ -1075,6 +1076,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       if (predictionType === 'event') {
         const cleanOptions = validOptions.map(o => o.trim());
         const b = Number(seedLiquidity) || EVENT_AMM_LIQUIDITY;
+        const delay = Number(openDelayHours) || 0;
+        const opensAt = delay > 0 ? Date.now() + Math.round(delay * MS_PER_HOUR) : null;
         const eventMarket = {
           id: `evt_${Date.now()}`,
           type: 'event',
@@ -1089,11 +1092,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           resolved: false,
           outcome: null,
           settled: false,
+          ...(opensAt && { opensAt }), // announced-but-locked until this time
         };
         await updateDoc(predictionsRef, { list: [...currentList, eventMarket] });
-        showMessage('success', `Created long-term market: "${question.trim()}"`);
+        showMessage('success', opensAt
+          ? `Created long-term market: "${question.trim()}" — opens ${new Date(opensAt).toLocaleString()}`
+          : `Created long-term market: "${question.trim()}"`);
         setQuestion('');
         setOptions(['Yes', 'No', '', '', '', '']);
+        setOpenDelayHours(0);
         setLoading(false);
         return;
       }
@@ -4025,6 +4032,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               setPredictionType={setPredictionType}
               seedLiquidity={seedLiquidity}
               setSeedLiquidity={setSeedLiquidity}
+              openDelayHours={openDelayHours}
+              setOpenDelayHours={setOpenDelayHours}
               extendPredictionId={extendPredictionId}
               setExtendPredictionId={setExtendPredictionId}
               extendDays={extendDays}
