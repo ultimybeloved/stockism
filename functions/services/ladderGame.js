@@ -213,10 +213,12 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const amount = Math.ceil(data.amount);
+  // Whole-dollar deposits only: floor decimals away. The remainder stays in the
+  // user's main cash (nothing is destroyed), and the ladder balance stays integer.
+  const amount = Math.floor(Number(data.amount));
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
+    throw new functions.https.HttpsError('invalid-argument', 'Deposit must be a whole dollar amount of at least $1.');
   }
 
   try {

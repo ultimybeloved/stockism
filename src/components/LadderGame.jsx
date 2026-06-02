@@ -508,9 +508,9 @@ const LadderGame = ({ onClose }) => {
   };
 
   const handleDeposit = async () => {
-    const amount = Math.ceil(parseFloat(depositAmount));
+    const amount = Math.floor(parseFloat(depositAmount));
     if (isNaN(amount) || amount <= 0) {
-      showNotification('error', 'Invalid amount');
+      showNotification('error', 'Enter a whole dollar amount of at least $1');
       return;
     }
     if (amount > userStockismCash) {
@@ -1215,6 +1215,7 @@ const LadderGame = ({ onClose }) => {
                       <input
                         type="number"
                         step="1"
+                        min="1"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
                         placeholder="Amount"
