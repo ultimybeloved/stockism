@@ -121,6 +121,8 @@ export const removeAchievementFunction = httpsCallable(functions, 'removeAchieve
 export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
 // Admin: directly set user cash (for account repairs)
 export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
+// Admin: force-transfer cash <-> ladder game balance
+export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTransferToLadder');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction } from './firebase';
@@ -531,6 +531,28 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const result = await adminSetCashFunction({ userId, cash });
       showMessage('success', `Cash set to $${cash.toFixed(2)} (was $${result.data.previousCash})`);
       setSelectedUser(prev => prev ? { ...prev, cash } : prev);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const handleTransferToLadder = async (userId, displayName) => {
+    const input = prompt(`Transfer cash to ${displayName}'s ladder game balance.\nEnter an amount (use a negative number to pull balance back to their cash):`);
+    if (input === null) return;
+    const amount = parseFloat(input);
+    if (isNaN(amount) || amount === 0) {
+      showMessage('error', 'Enter a non-zero amount');
+      return;
+    }
+    const verb = amount > 0 ? `move $${amount.toFixed(2)} into` : `pull $${Math.abs(amount).toFixed(2)} out of`;
+    if (!confirm(`${verb} ${displayName}'s ladder balance?`)) return;
+    setLoading(true);
+    try {
+      const result = await adminTransferToLadderFunction({ userId, amount });
+      showMessage('success', `Done. Cash: $${result.data.newCash.toFixed(2)} • Ladder: $${result.data.newLadderBalance.toFixed(2)}`);
+      setSelectedUser(prev => prev ? { ...prev, cash: result.data.newCash } : prev);
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -4105,6 +4127,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               calculateLivePortfolioValue={calculateLivePortfolioValue}
               handleSyncSingleUser={handleSyncSingleUser}
               handleSetCash={handleSetCash}
+              handleTransferToLadder={handleTransferToLadder}
               handleReinstateUser={handleReinstateUser}
               handleChangeDisplayName={handleChangeDisplayName}
               newDisplayName={newDisplayName}

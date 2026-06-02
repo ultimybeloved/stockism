@@ -29,6 +29,7 @@ const UsersTab = ({
   calculateLivePortfolioValue,
   handleSyncSingleUser,
   handleSetCash,
+  handleTransferToLadder,
   handleReinstateUser,
   handleChangeDisplayName,
   newDisplayName,
@@ -208,11 +209,19 @@ const UsersTab = ({
             <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
               <div className="flex items-center justify-between">
                 <div className={`text-xs ${mutedClass}`}>Cash</div>
-                <button
-                  onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username)}
-                  disabled={loading}
-                  className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
-                >Set</button>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username)}
+                    disabled={loading}
+                    className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
+                  >Set</button>
+                  <button
+                    onClick={() => handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username)}
+                    disabled={loading}
+                    title="Transfer cash to/from this user's ladder game balance"
+                    className="text-[10px] px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50"
+                  >→ Ladder</button>
+                </div>
               </div>
               <div className={`font-bold ${isNaN(selectedUser.cash) ? 'text-red-500' : 'text-green-500'}`}>
                 {isNaN(selectedUser.cash) ? '$NaN' : `$${selectedUser.cash.toFixed(2)}`}

@@ -10,6 +10,7 @@ const {
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
   LADDER_ACHIEVEMENT_HIGH_BETS,
+  ADMIN_UID,
 } = require('../constants');
 
 exports.playLadderGame = functions.https.onCall(async (data, context) => {
@@ -367,6 +368,92 @@ exports.withdrawFromLadderGame = functions.https.onCall(async (data, context) =>
     if (error instanceof functions.https.HttpsError) throw error;
     console.error('Withdrawal error:', error);
     throw new functions.https.HttpsError('internal', 'Withdrawal failed: ' + error.message);
+  }
+});
+
+/**
+ * Admin-only: force-transfer cash between a user's main account and their
+ * ladder game balance. Bypasses every normal deposit cap (max balance, daily
+ * limit, invested-in-stocks cap). A positive amount moves cash -> ladder; a
+ * negative amount moves balance back ladder -> cash. Creates the ladder doc
+ * if the user has never played.
+ */
+exports.adminTransferToLadder = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId } = data;
+  const amount = Math.round(Number(data.amount) * 100) / 100;
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId required');
+  }
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'amount must be a non-zero number');
+  }
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const mainUserRef = db.collection('users').doc(userId);
+      const ladderUserRef = db.collection('ladderGameUsers').doc(userId);
+
+      const [mainUserDoc, ladderUserDoc] = await Promise.all([
+        transaction.get(mainUserRef),
+        transaction.get(ladderUserRef)
+      ]);
+
+      if (!mainUserDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+
+      const mainUser = mainUserDoc.data();
+      const cash = mainUser.cash || 0;
+
+      const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
+        balance: 0,
+        totalDeposited: 0,
+        totalWon: 0,
+        totalLost: 0,
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        lastPlayed: null
+      };
+      const ladderBalance = ladderData.balance ?? 0;
+
+      // Positive: pull from cash. Negative: pull from ladder balance.
+      if (amount > 0 && cash < amount) {
+        throw new functions.https.HttpsError('failed-precondition', `User only has $${cash.toFixed(2)} cash to transfer.`);
+      }
+      if (amount < 0 && ladderBalance < -amount) {
+        throw new functions.https.HttpsError('failed-precondition', `User only has $${ladderBalance.toFixed(2)} in the ladder game to pull back.`);
+      }
+
+      const newCash = Math.round((cash - amount) * 100) / 100;
+      const newLadderBalance = Math.round((ladderBalance + amount) * 100) / 100;
+
+      transaction.update(mainUserRef, { cash: newCash });
+      transaction.set(ladderUserRef, {
+        ...ladderData,
+        balance: newLadderBalance,
+        totalDeposited: (ladderData.totalDeposited || 0) + Math.max(0, amount)
+      }, { merge: true });
+
+      return {
+        success: true,
+        amount,
+        previousCash: cash,
+        previousLadderBalance: ladderBalance,
+        newCash,
+        newLadderBalance
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
+    console.error('Admin ladder transfer error:', error);
+    throw new functions.https.HttpsError('internal', 'Transfer failed: ' + error.message);
   }
 });
 
