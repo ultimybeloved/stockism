@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED } = require('../constants');
+const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
 const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned } = require('../helpers');
 
 /**
@@ -89,14 +89,21 @@ exports.createUser = functions.https.onCall(async (data, context) => {
   if (IP_ACCOUNT_CAP_ENABLED && uid !== ADMIN_UID && sanitizedSignupIp) {
     try {
       const ipTrackDoc = await db.collection('ipTracking').doc(sanitizedSignupIp).get();
-      const existingAccounts = ipTrackDoc.exists ? Object.keys(ipTrackDoc.data().accounts || {}) : [];
-      if (existingAccounts.length >= MAX_ACCOUNTS_PER_IP) {
+      const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
+      // Count live accounts plus recently-deleted ones: a deleted account holds its
+      // slot for IP_SLOT_RELEASE_MS so it can't be deleted-and-remade to dodge the cap.
+      const liveAccounts = Object.keys(ipTrackData.accounts || {}).length;
+      const capNow = Date.now();
+      const recentlyDeleted = Object.values(ipTrackData.deletedAccounts || {})
+        .filter(deletedAt => capNow - deletedAt < IP_SLOT_RELEASE_MS).length;
+      const effectiveAccounts = liveAccounts + recentlyDeleted;
+      if (effectiveAccounts >= MAX_ACCOUNTS_PER_IP) {
         await db.collection('watchlist_alerts').add({
           type: 'signup_blocked',
           relatedUID: uid,
           ip: signupIp,
           action: 'blocked',
-          details: `Blocked signup "${trimmed}" — network already has ${existingAccounts.length} account(s) (cap ${MAX_ACCOUNTS_PER_IP})`,
+          details: `Blocked signup "${trimmed}" — network already has ${effectiveAccounts} account(s) (${liveAccounts} active, ${recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
           timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
         throw new functions.https.HttpsError(
@@ -657,11 +664,16 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
     // plain doc delete would orphan that data forever.
     await db.recursiveDelete(userRef);
 
-    // Free this account's per-IP slot so the network can register again.
+    // Release this account's per-IP slot, but only after IP_SLOT_RELEASE_MS. We drop
+    // it from the live `accounts` map and tombstone it in `deletedAccounts` with the
+    // deletion time; the signup cap counts recent tombstones, so the slot stays held
+    // for ~a month. This kills the pump → delete → remake loop without permanently
+    // locking out genuine deleters.
     if (userData.signupIp) {
       try {
         await db.collection('ipTracking').doc(userData.signupIp).update({
-          [`accounts.${uid}`]: admin.firestore.FieldValue.delete()
+          [`accounts.${uid}`]: admin.firestore.FieldValue.delete(),
+          [`deletedAccounts.${uid}`]: Date.now()
         });
       } catch (e) { /* IP tracking doc may not exist */ }
     }

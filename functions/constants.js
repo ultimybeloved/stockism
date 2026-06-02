@@ -25,6 +25,10 @@ const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0 → 100% at da
 // hard block instantly (e.g. if client IPs turn out unreliable) without a code change.
 const MAX_ACCOUNTS_PER_IP = 2;
 const IP_ACCOUNT_CAP_ENABLED = true;
+// A deleted account keeps holding its per-IP slot for this long, then the slot
+// frees up. Stops the pump → delete → remake loop (a month's wait per cycle makes
+// it worthless) while still letting genuine deleters rejoin later.
+const IP_SLOT_RELEASE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
@@ -120,6 +124,7 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 // LADDER GAME
 // ============================================
 const LADDER_GAME_INITIAL_BALANCE    = 500;   // starting balance for new ladder game users
+const LADDER_MIN_BET                 = 0.01;  // minimum bet; bets must be whole cents (blocks sub-cent rounding exploits)
 const LADDER_HIGH_BET_THRESHOLD      = 50;    // bets at or above this count toward ADDICTED achievement
 const LADDER_ACHIEVEMENT_PROFIT      = 2500;  // net profit needed for COMPULSIVE_GAMBLER achievement
 const LADDER_ACHIEVEMENT_HIGH_BETS   = 100;   // high-bet games needed for ADDICTED achievement
@@ -191,6 +196,7 @@ module.exports = {
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MAX_ACCOUNTS_PER_IP,
   IP_ACCOUNT_CAP_ENABLED,
+  IP_SLOT_RELEASE_MS,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,
@@ -226,6 +232,7 @@ module.exports = {
   ANIMAL_TICKERS,
   FOURTEEN_DAYS_MS,
   LADDER_GAME_INITIAL_BALANCE,
+  LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
   LADDER_ACHIEVEMENT_HIGH_BETS,

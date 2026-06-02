@@ -7,6 +7,7 @@ const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DAILY_DEPOSIT,
   LADDER_GAME_INITIAL_BALANCE,
+  LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
   LADDER_ACHIEVEMENT_HIGH_BETS,
@@ -28,8 +29,10 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!['odd', 'even'].includes(bet)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet.');
   }
-  if (!amount || !Number.isFinite(amount) || amount <= 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');
+  // Bet must be a positive amount in whole cents (>= $0.01). Blocks the sub-cent
+  // rounding exploit where tiny bets could never lose but occasionally win.
+  if (!amount || !Number.isFinite(amount) || amount < LADDER_MIN_BET || Math.round(amount * 100) / 100 !== amount) {
+    throw new functions.https.HttpsError('invalid-argument', 'Bet must be at least $0.01 and in whole cents.');
   }
 
   try {
@@ -99,8 +102,9 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const oddPct = Math.max(25, Math.min(75, randomBase + variance));
       const evenPct = 100 - oddPct;
 
-      // Update user stats — ceil to keep balance a clean integer
-      userData.balance = Math.ceil(userData.balance - amount + payout);
+      // Update user stats — round to the nearest cent (NOT ceil). With whole-cent
+      // bets this is exact, so the game can never create or destroy money.
+      userData.balance = Math.round((userData.balance - amount + payout) * 100) / 100;
       userData.gamesPlayed += 1;
       if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {
