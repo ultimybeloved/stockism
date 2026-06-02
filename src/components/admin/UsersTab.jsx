@@ -30,6 +30,7 @@ const UsersTab = ({
   handleSyncSingleUser,
   handleSetCash,
   handleTransferToLadder,
+  handleToggleDiscordWall,
   handleReinstateUser,
   handleChangeDisplayName,
   newDisplayName,
@@ -589,6 +590,28 @@ const UsersTab = ({
                     }`}
                   >
                     Update
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`text-xs ${mutedClass} block mb-1`}>Discord Verification Wall:</label>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${selectedUser.requiresDiscordLink ? 'text-orange-400' : mutedClass}`}>
+                    {selectedUser.requiresDiscordLink
+                      ? (selectedUser.discordId ? 'Flagged (already linked — wall inactive)' : 'Flagged — must link Discord')
+                      : 'Not flagged'}
+                  </span>
+                  <button
+                    onClick={() => handleToggleDiscordWall(selectedUser.id, selectedUser.displayName || selectedUser.username, !!selectedUser.requiresDiscordLink)}
+                    disabled={loading}
+                    className={`ml-auto px-3 py-1 text-xs font-semibold rounded disabled:opacity-50 ${
+                      selectedUser.requiresDiscordLink
+                        ? 'bg-slate-500 text-white hover:bg-slate-600'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
+                    }`}
+                  >
+                    {selectedUser.requiresDiscordLink ? 'Clear wall' : 'Require Discord'}
                   </button>
                 </div>
               </div>

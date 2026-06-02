@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
-const { checkBanned, sendDiscordMessage, getTotalInvested, writeNotification } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -32,6 +32,7 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
 
@@ -127,6 +128,7 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
 
@@ -248,6 +250,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const ipoData = ipoDoc.data();
     const ipoList = ipoData.list || [];
 

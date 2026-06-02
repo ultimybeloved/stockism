@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CREW_MEMBERS, CREW_SWITCH_PENALTY, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { checkBanned } = require('../helpers');
+const { checkBanned, checkDiscordWall } = require('../helpers');
 const { updateCrewMissionNewMember } = require('./crewMissions');
 
 
@@ -37,6 +37,7 @@ exports.switchCrew = functions.https.onCall(async (data, context) => {
 
       const userData = userDoc.data();
       checkBanned(userData);
+      checkDiscordWall(userData);
 
       // Block if in debt
       if ((userData.cash || 0) < 0) {

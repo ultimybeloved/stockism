@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned } = require('../helpers');
+const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
 
 /**
  * Creates a new user with case-insensitive unique username.
@@ -84,9 +84,11 @@ exports.createUser = functions.https.onCall(async (data, context) => {
   const signupIp = context.rawRequest?.ip || 'unknown';
   const sanitizedSignupIp = signupIp !== 'unknown' ? signupIp.replace(/[.:/]/g, '_') : null;
 
-  // Hard per-IP signup cap (admin exempt): at most MAX_ACCOUNTS_PER_IP accounts may
-  // ever be created from one IP. Counts existing (non-deleted) accounts on the IP.
-  if (IP_ACCOUNT_CAP_ENABLED && uid !== ADMIN_UID && sanitizedSignupIp) {
+  // Per-IP signup controls (admin exempt). One read of the IP's account history drives
+  // two things: (1) a hard cap block when the network is full, and (2) flagging this
+  // account for Discord verification when the network already has another account.
+  let requiresDiscordLink = false;
+  if (uid !== ADMIN_UID && sanitizedSignupIp) {
     try {
       const ipTrackDoc = await db.collection('ipTracking').doc(sanitizedSignupIp).get();
       const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
@@ -97,7 +99,13 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       const recentlyDeleted = Object.values(ipTrackData.deletedAccounts || {})
         .filter(deletedAt => capNow - deletedAt < IP_SLOT_RELEASE_MS).length;
       const effectiveAccounts = liveAccounts + recentlyDeleted;
-      if (effectiveAccounts >= MAX_ACCOUNTS_PER_IP) {
+
+      // (2) Suspected alt: another live account already exists on this network, so make
+      // this one link Discord before it can do anything. The flag lifts once linked.
+      if (liveAccounts >= 1) requiresDiscordLink = true;
+
+      // (1) Hard cap block (when enabled).
+      if (IP_ACCOUNT_CAP_ENABLED && effectiveAccounts >= MAX_ACCOUNTS_PER_IP) {
         await db.collection('watchlist_alerts').add({
           type: 'signup_blocked',
           relatedUID: uid,
@@ -113,7 +121,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       }
     } catch (capErr) {
       if (capErr instanceof functions.https.HttpsError) throw capErr;
-      console.error('Signup IP cap check error:', capErr);
+      console.error('Signup IP check error:', capErr);
     }
   }
 
@@ -219,7 +227,8 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         isBankrupt: false,
         onboardingComplete: false,
         startingCashUnlocked: false,
-        signupIp: sanitizedSignupIp || null
+        signupIp: sanitizedSignupIp || null,
+        requiresDiscordLink
       });
     });
 
@@ -715,6 +724,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
 
       const userData = userDoc.data();
       checkBanned(userData);
+      checkDiscordWall(userData);
       const now = new Date();
       const today = now.toISOString().split('T')[0];
 

@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CREW_MEMBERS, MISSION_REWARDS } = require('../constants');
-const { writeNotification, writeFeedEntry, checkBanned } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall } = require('../helpers');
 
 // Server-side mission completion verification
 // Maps mission IDs to their completion check logic
@@ -179,6 +179,7 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
 
     // Get today's date and week ID
@@ -281,6 +282,7 @@ exports.rerollMissions = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
 
     // Must have a crew
     if (!userData.crew) {
@@ -350,6 +352,7 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
 
     if (action === 'buyPin') {
       const PIN_CATALOG = {

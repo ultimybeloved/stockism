@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction } from './firebase';
@@ -553,6 +553,23 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const result = await adminTransferToLadderFunction({ userId, amount });
       showMessage('success', `Done. Cash: $${result.data.newCash.toFixed(2)} • Ladder: $${result.data.newLadderBalance.toFixed(2)}`);
       setSelectedUser(prev => prev ? { ...prev, cash: result.data.newCash } : prev);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const handleToggleDiscordWall = async (userId, displayName, currentValue) => {
+    const turningOn = !currentValue;
+    const verb = turningOn ? 'require a Discord link from' : 'clear the Discord wall on';
+    if (!confirm(`${turningOn ? 'Require Discord verification for' : 'Clear the Discord wall on'} ${displayName}?`)) return;
+    setLoading(true);
+    try {
+      const result = await adminSetDiscordWallFunction({ userId, value: turningOn });
+      const note = turningOn && result.data.alreadyLinked ? ' (they are already linked, so the wall stays inactive)' : '';
+      showMessage('success', `${turningOn ? 'Flagged' : 'Cleared'} ${displayName}${note}`);
+      setSelectedUser(prev => prev ? { ...prev, requiresDiscordLink: turningOn } : prev);
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -4128,6 +4145,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               handleSyncSingleUser={handleSyncSingleUser}
               handleSetCash={handleSetCash}
               handleTransferToLadder={handleTransferToLadder}
+              handleToggleDiscordWall={handleToggleDiscordWall}
               handleReinstateUser={handleReinstateUser}
               handleChangeDisplayName={handleChangeDisplayName}
               newDisplayName={newDisplayName}

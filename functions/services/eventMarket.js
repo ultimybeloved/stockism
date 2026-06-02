@@ -18,6 +18,7 @@ const {
 } = require('../constants');
 const {
   checkBanned,
+  checkDiscordWall,
   writeNotification,
   lmsrCost,
   lmsrBuyCost,
@@ -65,6 +66,7 @@ exports.buyEventShares = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     if (marketDoc.exists && marketDoc.data().marketHalted) {
       throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
     }
@@ -152,6 +154,7 @@ exports.sellEventShares = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     if (marketDoc.exists && marketDoc.data().marketHalted) {
       throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
     }

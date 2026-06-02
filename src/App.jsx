@@ -44,6 +44,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Eagerly-loaded modals (shown immediately / on critical auth flows)
 import LoginModal from './components/modals/LoginModal';
+import DiscordWallModal from './components/modals/DiscordWallModal';
 import UsernameModal from './components/modals/UsernameModal';
 import EmailVerificationModal from './components/modals/EmailVerificationModal';
 
@@ -1534,6 +1535,7 @@ export default function App() {
 
   return (
     <AppProvider value={contextValue}>
+      <DiscordWallModal />
       <Layout
         setDarkMode={handleToggleDarkMode}
         onShowAdminPanel={() => setShowAdmin(true)}

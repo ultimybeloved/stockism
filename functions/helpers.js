@@ -317,6 +317,21 @@ function checkBanned(userData) {
 }
 
 /**
+ * Blocks value-moving actions for accounts flagged as a suspected alt (a same-IP
+ * signup, or an admin manual flag) until they link a Discord account. Linking sets
+ * `discordId`, which lifts the wall automatically. Mirrors checkBanned — call it
+ * right after checkBanned in any function that moves money or affects the market.
+ */
+function checkDiscordWall(userData) {
+  if (userData?.requiresDiscordLink && !userData?.discordId) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Link your Discord account to continue. This is a one-time verification step.'
+    );
+  }
+}
+
+/**
  * Helper function to send messages to Discord
  * @param {string} content - Message content (can be null if using embeds)
  * @param {Array} embeds - Array of Discord embed objects
@@ -414,6 +429,7 @@ module.exports = {
   containsProfanity,
   isBannedUsername,
   checkBanned,
+  checkDiscordWall,
   sendDiscordMessage,
   sendMarketStatusAlert,
 };

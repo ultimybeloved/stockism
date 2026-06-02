@@ -12,6 +12,7 @@ const {
 } = require('../constants');
 const {
   checkBanned,
+  checkDiscordWall,
   calculateMarginalImpact,
   getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
@@ -77,6 +78,7 @@ exports.validateTrade = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const marketData = marketDoc.data();
     const prices = marketData.prices || {};
     const currentPrice = prices[ticker];
@@ -614,6 +616,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
       const userData = userDoc.data();
       checkBanned(userData);
+      checkDiscordWall(userData);
       const marketData = marketDoc.data();
 
       // Check emergency admin halt

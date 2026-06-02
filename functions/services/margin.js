@@ -12,7 +12,7 @@ const {
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
 } = require('../constants');
-const { checkBanned, writeNotification, sendDiscordMessage } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage } = require('../helpers');
 
 exports.repayMargin = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -34,6 +34,7 @@ exports.repayMargin = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     const marginUsed = userData.marginUsed || 0;
 
     if (marginUsed <= 0) {
@@ -73,6 +74,7 @@ exports.bailout = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     if ((userData.cash || 0) >= 0 && !userData.isBankrupt) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
     }
@@ -135,6 +137,7 @@ exports.leaveCrew = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
     if (!userData.crew) {
       throw new functions.https.HttpsError('failed-precondition', 'Not in a crew.');
     }
@@ -196,6 +199,7 @@ exports.toggleMargin = functions.https.onCall(async (data, context) => {
 
     const userData = userDoc.data();
     checkBanned(userData);
+    checkDiscordWall(userData);
 
     if (enable) {
       // Check eligibility: $2000 min cash
@@ -500,6 +504,7 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
 
   const userData = userDoc.data();
   checkBanned(userData);
+  checkDiscordWall(userData);
   const prices = marketDoc.data().prices || {};
   const now = Date.now();
 

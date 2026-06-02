@@ -9,7 +9,7 @@ const {
   CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD, CREW_VOLUME_THRESHOLD,
   CREW_MISSION_REWARDS, CREW_PUMP_THRESHOLD,
 } = require('../constants');
-const { checkBanned, writeNotification } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification } = require('../helpers');
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 
@@ -173,6 +173,7 @@ exports.claimCrewMission = functions.https.onCall(async (data, context) => {
   if (!userSnap.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
   const userData = userSnap.data();
   checkBanned(userData);
+  checkDiscordWall(userData);
 
   const crew = userData.crew;
   if (!crew) throw new functions.https.HttpsError('failed-precondition', 'You must be in a crew to claim crew missions.');

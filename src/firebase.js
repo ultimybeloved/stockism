@@ -123,6 +123,8 @@ export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
 export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
 // Admin: force-transfer cash <-> ladder game balance
 export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTransferToLadder');
+// Admin: flag/clear the Discord-link wall on a user
+export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDiscordWall');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data

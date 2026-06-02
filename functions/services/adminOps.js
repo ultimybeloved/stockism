@@ -90,6 +90,31 @@ exports.adminSetCash = functions.https.onCall(async (data, context) => {
 });
 
 /**
+ * Admin-only: flag or clear the Discord-link wall on a user. When set, the user
+ * must link a Discord account before they can trade/bet/play (unless already linked).
+ */
+exports.adminSetDiscordWall = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId, value } = data;
+  if (!userId || typeof value !== 'boolean') {
+    throw new functions.https.HttpsError('invalid-argument', 'userId and boolean value required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+
+  await userRef.update({ requiresDiscordLink: value });
+
+  return { success: true, userId, requiresDiscordLink: value, alreadyLinked: !!userSnap.data().discordId };
+});
+
+/**
  * Repair accounts damaged by the Jiho/Doo price spike.
  * Modes: scan (find victims), repair (fix one user), repairAll (fix all)
  */

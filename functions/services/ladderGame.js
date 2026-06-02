@@ -2,7 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, getTotalInvested } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DAILY_DEPOSIT,
@@ -65,6 +65,7 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
 
       const mainUser = mainUserDoc.data();
       checkBanned(mainUser);
+      checkDiscordWall(mainUser);
       const username = mainUser?.displayName || 'Anonymous';
 
       // Check balance
@@ -237,6 +238,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
 
       const mainUser = mainUserDoc.data();
       checkBanned(mainUser);
+      checkDiscordWall(mainUser);
       const cash = mainUser.cash || 0;
 
       if (cash < amount) {
@@ -354,6 +356,7 @@ exports.withdrawFromLadderGame = functions.https.onCall(async (data, context) =>
 
       const mainUser = mainUserDoc.data();
       checkBanned(mainUser);
+      checkDiscordWall(mainUser);
 
       const ladderData = ladderUserDoc.data();
       const balance = ladderData.balance ?? 0;
