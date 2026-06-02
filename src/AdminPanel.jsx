@@ -3906,7 +3906,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     );
   }
 
-  const unresolvedPredictions = predictions.filter(p => !p.resolved);
+  const unresolvedPredictions = predictions.filter(p => !p.resolved && !p.cancelled);
 
   // Sort characters by name for the dropdown
   const sortedCharacters = [...CHARACTERS].sort((a, b) => a.name.localeCompare(b.name));

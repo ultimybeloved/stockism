@@ -14,7 +14,7 @@ const eventStaked = (p) => {
   const q = Array.isArray(p.q) && p.q.length === outcomes.length ? p.q : outcomes.map(() => 0);
   return Math.max(0, lmsrCost(q, b) - lmsrCost(outcomes.map(() => 0), b));
 };
-const marketValue = (p) => (p.type === 'event' ? eventStaked(p) : sumPool(p));
+const marketValue = (p) => (p.cancelled ? 0 : p.type === 'event' ? eventStaked(p) : sumPool(p));
 const valueLabel = (p) => (p.type === 'event' ? 'Staked' : 'Pool');
 
 const PredictionsTab = ({

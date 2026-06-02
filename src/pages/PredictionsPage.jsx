@@ -28,10 +28,10 @@ const PredictionsPage = ({
   const rank = (m) => (m.resolved ? 2 : (m.opensAt && Date.now() < m.opensAt ? 0 : 1));
   const byStatus = (arr) => [...arr].sort((a, b) => rank(a) - rank(b));
 
-  const eventMarkets = byStatus(predictions.filter(p => p.type === 'event'));
+  const eventMarkets = byStatus(predictions.filter(p => p.type === 'event' && !p.cancelled));
   const weekly = byStatus(
     predictions.filter(p =>
-      p.type !== 'event' && !p.hidden &&
+      p.type !== 'event' && !p.hidden && !p.cancelled &&
       (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)
     )
   );

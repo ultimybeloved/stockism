@@ -1673,7 +1673,7 @@ export default function App() {
               </svg>
             </button>
             {showPredictions && (() => {
-              const visiblePredictions = predictions.filter(p => p.type !== 'event' && !p.hidden && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
+              const visiblePredictions = predictions.filter(p => p.type !== 'event' && !p.hidden && !p.cancelled && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
               const colClass = [
                 'grid-cols-1',
                 'grid-cols-1 sm:grid-cols-2',
