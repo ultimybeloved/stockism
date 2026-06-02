@@ -20,7 +20,10 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { startSide, bet, amount } = data;
+  const { startSide, bet } = data;
+  // Whole-dollar bets only: silently floor any decimals away. With no decimals in
+  // play there is nothing to round, so the old rounding exploit can't exist.
+  const amount = Math.floor(Number(data.amount));
 
   // Validate inputs
   if (!['left', 'right'].includes(startSide)) {
@@ -29,10 +32,8 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   if (!['odd', 'even'].includes(bet)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet.');
   }
-  // Bet must be a positive amount in whole cents (>= $0.01). Blocks the sub-cent
-  // rounding exploit where tiny bets could never lose but occasionally win.
-  if (!amount || !Number.isFinite(amount) || amount < LADDER_MIN_BET || Math.round(amount * 100) / 100 !== amount) {
-    throw new functions.https.HttpsError('invalid-argument', 'Bet must be at least $0.01 and in whole cents.');
+  if (!amount || !Number.isFinite(amount) || amount < LADDER_MIN_BET) {
+    throw new functions.https.HttpsError('invalid-argument', `Minimum bet is $${LADDER_MIN_BET} (whole dollars only).`);
   }
 
   try {
@@ -102,9 +103,9 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
       const oddPct = Math.max(25, Math.min(75, randomBase + variance));
       const evenPct = 100 - oddPct;
 
-      // Update user stats — round to the nearest cent (NOT ceil). With whole-cent
-      // bets this is exact, so the game can never create or destroy money.
-      userData.balance = Math.round((userData.balance - amount + payout) * 100) / 100;
+      // Whole-dollar bets keep the balance an integer; floor here clears any stray
+      // cents left over from before (those cents just disappear, by design).
+      userData.balance = Math.floor(userData.balance - amount + payout);
       userData.gamesPlayed += 1;
       if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {

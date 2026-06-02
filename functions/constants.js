@@ -124,7 +124,7 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 // LADDER GAME
 // ============================================
 const LADDER_GAME_INITIAL_BALANCE    = 500;   // starting balance for new ladder game users
-const LADDER_MIN_BET                 = 0.01;  // minimum bet; bets must be whole cents (blocks sub-cent rounding exploits)
+const LADDER_MIN_BET                 = 1;     // ladder bets are whole dollars only; decimals are floored away (no decimals = no rounding exploit)
 const LADDER_HIGH_BET_THRESHOLD      = 50;    // bets at or above this count toward ADDICTED achievement
 const LADDER_ACHIEVEMENT_PROFIT      = 2500;  // net profit needed for COMPULSIVE_GAMBLER achievement
 const LADDER_ACHIEVEMENT_HIGH_BETS   = 100;   // high-bet games needed for ADDICTED achievement

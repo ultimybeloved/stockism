@@ -1014,12 +1014,14 @@ const LadderGame = ({ onClose }) => {
                 <div style={{ display: 'flex', padding: '10px 8px', gap: '6px', justifyContent: 'center' }}>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: textDark }}>
-                      ${(displayBalance ?? userLadderData?.balance ?? 500).toLocaleString()}
+                      ${Math.floor(displayBalance ?? userLadderData?.balance ?? 500).toLocaleString()}
                     </div>
                   </div>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input
                       type="number"
+                      step="1"
+                      min="1"
                       value={betAmount}
                       onChange={(e) => setBetAmount(e.target.value)}
                       style={{
