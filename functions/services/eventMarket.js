@@ -77,6 +77,7 @@ exports.buyEventShares = functions.https.onCall(async (data, context) => {
 
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
+    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been cancelled.');
     if (market.opensAt && Date.now() < market.opensAt) {
       throw new functions.https.HttpsError('failed-precondition', 'This market is not open for betting yet.');
     }
@@ -165,6 +166,7 @@ exports.sellEventShares = functions.https.onCall(async (data, context) => {
 
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
+    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been cancelled.');
 
     const outcomes = market.outcomes || [];
     const oi = outcomes.indexOf(outcome);
@@ -327,4 +329,95 @@ exports.triggerEventSettlements = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
   return await settleResolvedEventMarkets();
+});
+
+/**
+ * Admin: cancel an unresolved event market and refund every holder their net
+ * stake (cash put in minus anything already pulled out by selling), floored at
+ * $0 so a cancellation never deducts from a user. Marks the market cancelled
+ * (which blocks further trading) and settled (so the settlement cron ignores
+ * it). Safe to retry: positions already marked settled are skipped.
+ */
+exports.cancelEventMarket = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+  const marketId = data && data.marketId;
+  if (!marketId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing market ID.');
+  }
+
+  const predictionsRef = db.collection('predictions').doc('current');
+
+  // 1. Mark the market cancelled first so the trade guards block any new buy/sell
+  //    while we refund. Reject if it is missing, already resolved, or already cancelled.
+  const market = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(predictionsRef);
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Markets not found.');
+    const list = (snap.data().list || []).slice();
+    const idx = list.findIndex((m) => m.id === marketId && m.type === 'event');
+    if (idx === -1) throw new functions.https.HttpsError('not-found', 'Market not found.');
+    const m = list[idx];
+    if (m.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market already resolved.');
+    if (m.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market already cancelled.');
+    list[idx] = { ...m, cancelled: true, cancelledAt: Date.now() };
+    tx.update(predictionsRef, { list });
+    return list[idx];
+  });
+
+  // 2. Refund every holder their net stake, one transaction per user so a
+  //    concurrent write cannot clobber cash. Full scan only happens on cancel (rare).
+  const usersSnap = await db.collection('users').get();
+  let refundedCount = 0;
+  let refundedTotal = 0;
+
+  for (const userDoc of usersSnap.docs) {
+    const snapPos = userDoc.data().eventPositions?.[marketId];
+    if (!snapPos || snapPos.settled) continue;
+
+    const refund = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(userDoc.ref);
+      if (!fresh.exists) return 0;
+      const ud = fresh.data();
+      const pos = ud.eventPositions?.[marketId];
+      if (!pos || pos.settled) return 0;
+
+      const amount = Math.max(0, round2(pos.costBasis || 0));
+      tx.update(userDoc.ref, {
+        cash: round2((ud.cash || 0) + amount),
+        [`eventPositions.${marketId}`]: {
+          shares: {},
+          costBasis: 0,
+          settled: true,
+          refunded: true,
+          payout: amount,
+        },
+      });
+      return amount;
+    });
+
+    if (refund > 0) {
+      refundedCount++;
+      refundedTotal = round2(refundedTotal + refund);
+      await writeNotification(userDoc.id, {
+        type: 'system',
+        title: 'Market Cancelled',
+        message: `"${market.question}" was cancelled. $${Math.round(refund).toLocaleString()} refunded to your cash.`,
+        data: { marketId },
+      });
+    }
+  }
+
+  // 3. Mark settled so processEventSettlements (resolved && !settled) never touches it.
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(predictionsRef);
+    const list = (snap.data().list || []).slice();
+    const idx = list.findIndex((m) => m.id === marketId);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], settled: true, settledAt: Date.now(), refundedTotal };
+      tx.update(predictionsRef, { list });
+    }
+  });
+
+  return { success: true, refunded: refundedCount, total: refundedTotal };
 });

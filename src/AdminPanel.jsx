@@ -3,7 +3,7 @@ import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTran
 import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
-import { triggerEventSettlementsFunction } from './firebase';
+import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
@@ -2591,14 +2591,27 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   };
 
   const handleCancelPrediction = async (predictionId) => {
-    if (!confirm('Cancel this prediction and refund all bettors their original amounts?')) return;
+    if (!confirm('Cancel this market and refund everyone their stake?')) return;
 
     setLoading(true);
     try {
-      // Mark prediction as cancelled
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
       const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const prediction = currentList.find(p => p.id === predictionId);
+
+      // Long-term (event) markets hold money in eventPositions, not bets — refund
+      // server-side where the full user scan and per-user transactions live.
+      if (prediction?.type === 'event') {
+        const res = await cancelEventMarketFunction({ marketId: predictionId });
+        const { refunded = 0, total = 0 } = res?.data || {};
+        showMessage('success', `Market cancelled — ${refunded} holder${refunded !== 1 ? 's' : ''} refunded ($${Math.round(total).toLocaleString()})`);
+        setSelectedPrediction(null);
+        setLoading(false);
+        return;
+      }
+
+      // Weekly predictions: mark cancelled and refund bets from the client.
       const updatedList = currentList.map(p =>
         p.id === predictionId ? { ...p, cancelled: true, cancelledAt: Date.now() } : p
       );

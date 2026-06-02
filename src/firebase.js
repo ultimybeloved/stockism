@@ -107,6 +107,7 @@ export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
 export const buyEventSharesFunction = httpsCallable(functions, 'buyEventShares');
 export const sellEventSharesFunction = httpsCallable(functions, 'sellEventShares');
 export const triggerEventSettlementsFunction = httpsCallable(functions, 'triggerEventSettlements');
+export const cancelEventMarketFunction = httpsCallable(functions, 'cancelEventMarket');
 export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
 export const bailoutFunction = httpsCallable(functions, 'bailout');
 export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
