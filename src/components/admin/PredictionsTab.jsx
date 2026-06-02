@@ -1,5 +1,21 @@
 import React from 'react';
 import EventMarketFields from './EventMarketFields';
+import { lmsrCost } from '../../utils/calculations';
+import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
+
+// Weekly predictions track cash in a `pools` map; long-term (event) markets have
+// no pool — the money staked equals what the LMSR AMM has taken in net, which is
+// cost(q) - cost(all-zeros). marketValue picks the right one per market type.
+const sumPool = (p) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0);
+const eventStaked = (p) => {
+  const outcomes = p.outcomes || [];
+  const b = p.b || EVENT_AMM_LIQUIDITY;
+  if (!outcomes.length || !b) return 0;
+  const q = Array.isArray(p.q) && p.q.length === outcomes.length ? p.q : outcomes.map(() => 0);
+  return Math.max(0, lmsrCost(q, b) - lmsrCost(outcomes.map(() => 0), b));
+};
+const marketValue = (p) => (p.type === 'event' ? eventStaked(p) : sumPool(p));
+const valueLabel = (p) => (p.type === 'event' ? 'Staked' : 'Pool');
 
 const PredictionsTab = ({
   darkMode,
@@ -74,7 +90,7 @@ const PredictionsTab = ({
               >
                 <div className={`font-semibold ${textClass}`}>{p.question}</div>
                 <div className={`text-xs ${mutedClass} mt-1`}>
-                  {p.options.join(' • ')} | Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
+                  {p.options.join(' • ')} | {valueLabel(p)}: ${marketValue(p).toFixed(0)}
                 </div>
               </button>
             ))}
@@ -113,6 +129,14 @@ const PredictionsTab = ({
                   {loading ? 'Resolving...' : `✅ Confirm Winner(s): "${selectedOutcomes.join('" & "')}"`}
                 </button>
               )}
+
+              <button
+                onClick={() => onCancelPrediction(selectedPrediction.id)}
+                disabled={loading}
+                className="w-full mt-2 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
+              >
+                🚫 Cancel & Refund Everyone
+              </button>
             </>
           )}
         </div>
@@ -340,7 +364,7 @@ const PredictionsTab = ({
                       <div className="text-xs text-zinc-400 mt-1">All bettors refunded</div>
                     )}
                     <div className={`text-xs ${mutedClass} mt-1`}>
-                      Pool: ${Object.values(p.pools || {}).reduce((a, b) => a + b, 0).toFixed(0)}
+                      {valueLabel(p)}: ${marketValue(p).toFixed(0)}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 ml-2">
