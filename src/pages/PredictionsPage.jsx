@@ -28,7 +28,7 @@ const PredictionsPage = ({
   const rank = (m) => (m.resolved ? 2 : (m.opensAt && Date.now() < m.opensAt ? 0 : 1));
   const byStatus = (arr) => [...arr].sort((a, b) => rank(a) - rank(b));
 
-  const eventMarkets = byStatus(predictions.filter(p => p.type === 'event' && !p.cancelled));
+  const eventMarkets = byStatus(predictions.filter(p => p.type === 'event' && !p.cancelled && !p.hidden));
   const weekly = byStatus(
     predictions.filter(p =>
       p.type !== 'event' && !p.hidden && !p.cancelled &&
@@ -74,6 +74,8 @@ const PredictionsPage = ({
                   onSell={onSellEventShares}
                   isGuest={isGuest}
                   isHalted={isHalted}
+                  isAdmin={isAdmin}
+                  onHide={onHidePrediction}
                 />
               ))}
             </div>

@@ -9,7 +9,7 @@ import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 // Long-term event-share market card. Each outcome is a share that pays $1 if it
 // is the confirmed result. Prices come from the house AMM (LMSR) and players can
 // buy or sell any time, except when the market is frozen during chapter review.
-const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = false }) => {
+const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = false, isAdmin = false, onHide }) => {
   const { darkMode, userData } = useAppContext();
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -250,6 +250,15 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
             </button>
           </div>
         </div>
+      )}
+
+      {isAdmin && resolved && onHide && (
+        <button
+          onClick={() => onHide(market.id)}
+          className={`w-full mt-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+        >
+          Hide from feed
+        </button>
       )}
     </div>
   );
