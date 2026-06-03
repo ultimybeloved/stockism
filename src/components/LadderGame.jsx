@@ -38,6 +38,7 @@ const LadderGame = ({ onClose }) => {
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -534,12 +535,21 @@ const LadderGame = ({ onClose }) => {
 
   const handleWithdraw = async () => {
     const balance = userLadderData?.balance || 0;
-    if (balance <= 0) return;
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showNotification('error', 'Enter an amount greater than $0');
+      return;
+    }
+    if (amount > balance) {
+      showNotification('error', 'Amount exceeds your ladder balance');
+      return;
+    }
     setWithdrawLoading(true);
     try {
-      await withdrawFromLadderGameFunction({ amount: balance });
+      await withdrawFromLadderGameFunction({ amount });
+      setWithdrawAmount('');
       setShowTransferModal(false);
-      showNotification('success', `Withdrew $${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ladder game`);
+      showNotification('success', `Withdrew $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ladder game`);
     } catch (error) {
       console.error('Withdrawal error:', error);
       showNotification('error', error.message || 'Withdrawal failed');
@@ -1147,9 +1157,14 @@ const LadderGame = ({ onClose }) => {
           const ladderBalance = userLadderData?.balance || 0;
           const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
           const noInvestment = totalInvested <= 0;
-          // Can't hold more in the ladder game than invested in stocks (and the $5k cap).
-          const maxDeposit = Math.max(0, Math.min(LADDER_GAME_MAX_BALANCE, totalInvested) - ladderBalance);
-          const ladderFull = ladderBalance >= LADDER_GAME_MAX_BALANCE;
+          // Deposits can't push the balance past the $10k cap or past what you've invested,
+          // whichever is lower. capIsInvested tells us which limit is actually binding so the
+          // message names the real reason instead of always blaming the invested amount.
+          const balanceCap = Math.min(LADDER_GAME_MAX_BALANCE, totalInvested);
+          const maxDeposit = Math.max(0, balanceCap - ladderBalance);
+          const ladderFull = !noInvestment && maxDeposit <= 0;
+          const capIsInvested = totalInvested < LADDER_GAME_MAX_BALANCE;
+          const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           return (
             <div
               style={{
@@ -1179,7 +1194,10 @@ const LadderGame = ({ onClose }) => {
                   {['deposit', 'withdraw'].map(tab => (
                     <button
                       key={tab}
-                      onClick={() => setTransferTab(tab)}
+                      onClick={() => {
+                        setTransferTab(tab);
+                        if (tab === 'withdraw') setWithdrawAmount(String(userLadderData?.balance || 0));
+                      }}
                       style={{
                         flex: 1,
                         padding: '6px',
@@ -1206,10 +1224,14 @@ const LadderGame = ({ onClose }) => {
                     </p>
                     <p style={{ fontSize: '0.8rem', color: (ladderFull || noInvestment) ? '#e57373' : textLight, marginBottom: '10px' }}>
                       {noInvestment
-                        ? 'Invest in stocks first — the ladder game is capped at what you have invested.'
+                        ? 'Invest in stocks first. The ladder game is capped at what you have invested.'
                         : ladderFull
-                          ? `Ladder balance is at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} limit.`
-                          : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (capped at your $${totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} invested)`}
+                          ? (capIsInvested
+                              ? `Your deposits are maxed out at your $${fmt(totalInvested)} invested.`
+                              : `Your deposits are maxed out at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`)
+                          : (capIsInvested
+                              ? `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at your $${fmt(totalInvested)} invested.`
+                              : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${LADDER_GAME_MAX_BALANCE.toLocaleString()}.`)}
                     </p>
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                       <input
@@ -1274,11 +1296,40 @@ const LadderGame = ({ onClose }) => {
                     <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '4px' }}>
                       Ladder balance: ${ladderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
-                    <p style={{ fontSize: '0.8rem', color: textLight, marginBottom: '14px' }}>
+                    <p style={{ fontSize: '0.8rem', color: textLight, marginBottom: '10px' }}>
                       {ladderBalance > 0
-                        ? 'This will withdraw your entire ladder balance back to your main cash.'
+                        ? 'Move some or all of your ladder balance back to your main cash.'
                         : 'No balance to withdraw.'}
                     </p>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        placeholder="Amount"
+                        disabled={ladderBalance <= 0}
+                        max={ladderBalance}
+                        style={{
+                          flex: 1, padding: '8px', border: '1px solid #666',
+                          background: bgCardInner, color: textDark,
+                          opacity: ladderBalance <= 0 ? 0.5 : 1, boxSizing: 'border-box'
+                        }}
+                      />
+                      <button
+                        onClick={() => setWithdrawAmount(String(ladderBalance))}
+                        disabled={ladderBalance <= 0}
+                        style={{
+                          padding: '8px 10px', background: '#b4ac99', color: textDark,
+                          border: 'none', fontWeight: 700, fontSize: '0.75rem',
+                          cursor: ladderBalance <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: ladderBalance <= 0 ? 0.5 : 1
+                        }}
+                      >
+                        Max
+                      </button>
+                    </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleWithdraw}
@@ -1290,7 +1341,7 @@ const LadderGame = ({ onClose }) => {
                           opacity: ladderBalance <= 0 ? 0.5 : 1
                         }}
                       >
-                        {withdrawLoading ? 'Withdrawing...' : 'Withdraw All'}
+                        {withdrawLoading ? 'Withdrawing...' : 'Withdraw'}
                       </button>
                       <button
                         onClick={() => setShowTransferModal(false)}

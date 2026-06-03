@@ -129,7 +129,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WITHDRAWALS</p>
-                  <p className={`text-sm ${textClass}`}>You can withdraw your full balance back to your main cash at any time using the Transfer button.</p>
+                  <p className={`text-sm ${textClass}`}>You can withdraw any amount back to your main cash at any time using the Transfer button.</p>
                 </div>
               </div>
             </>
