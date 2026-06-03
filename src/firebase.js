@@ -150,6 +150,7 @@ export const auditUserDropsFunction = httpsCallable(functions, 'auditUserDrops')
 export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividendPayoutNow');
 export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfillHoldingCohorts');
 // One-time migrations
+export const auditUsernamesFunction = httpsCallable(functions, 'migrateUsernames');
 export const migratePortfolioHistoryFunction = httpsCallable(functions, 'migratePortfolioHistory');
 export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
 

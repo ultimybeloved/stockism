@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
@@ -346,6 +346,21 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       showMessage('error', 'Failed to load watchlist: ' + (err.message || 'Unknown error'));
     }
     setLoading(false);
+  };
+
+  const handleAuditUsernames = async () => {
+    if (!confirm('Reserve a unique name for every account and flag any duplicates? Safe to run anytime.')) return;
+    setLoading(true);
+    try {
+      const result = await auditUsernamesFunction({});
+      const r = result.data;
+      showMessage('success', `${r.reservationsWritten} reserved, ${r.usersUpdated} fixed, ${r.conflicts.length} duplicate(s) flagged.`);
+      await loadWatchlist();
+    } catch (err) {
+      showMessage('error', 'Username audit failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddWatchedUser = async () => {
@@ -4486,6 +4501,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           watchAddMaxAccounts={watchAddMaxAccounts}
           setWatchAddMaxAccounts={setWatchAddMaxAccounts}
           handleAddWatchedUser={handleAddWatchedUser}
+          handleAuditUsernames={handleAuditUsernames}
           watchedUsers={watchedUsers}
           watchlistLoaded={watchlistLoaded}
           handleRemoveWatchedUser={handleRemoveWatchedUser}

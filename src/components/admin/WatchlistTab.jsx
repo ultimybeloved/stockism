@@ -13,6 +13,7 @@ const WatchlistTab = ({
   watchAddMaxAccounts,
   setWatchAddMaxAccounts,
   handleAddWatchedUser,
+  handleAuditUsernames,
   watchedUsers,
   watchlistLoaded,
   handleRemoveWatchedUser,
@@ -69,6 +70,21 @@ const WatchlistTab = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Username Integrity */}
+      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-blue-50'}`}>
+        <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Username Integrity</h3>
+        <p className={`text-xs mb-2 ${mutedClass}`}>
+          Reserves a unique name for every account and flags duplicates (same name, different capitalization). Any duplicates show up in the alerts below. Safe to run anytime.
+        </p>
+        <button
+          onClick={handleAuditUsernames}
+          disabled={loading}
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-sm disabled:opacity-50"
+        >
+          {loading ? 'Working...' : 'Reserve & Audit Usernames'}
+        </button>
       </div>
 
       {/* Watched Users List */}
@@ -221,11 +237,13 @@ const WatchlistTab = ({
                   alert.type === 'account_blocked' ? 'text-red-400' :
                   alert.type === 'account_linked' ? 'text-orange-400' :
                   alert.type === 'new_ip_detected' ? 'text-yellow-400' :
+                  alert.type === 'duplicate_username' ? 'text-pink-400' :
                   'text-blue-400'
                 }`}>
                   {alert.type === 'account_blocked' ? '🚫' :
                    alert.type === 'account_linked' ? '🔗' :
                    alert.type === 'new_ip_detected' ? '🌐' :
+                   alert.type === 'duplicate_username' ? '📛' :
                    alert.type === 'user_added' ? '👁️' :
                    alert.type === 'user_removed' ? '❌' :
                    alert.type === 'ip_added' ? '📍' : '📋'}

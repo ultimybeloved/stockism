@@ -199,6 +199,21 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         );
       }
 
+      // Fallback for legacy accounts that predate the reservation system and have no
+      // doc in `usernames`: also scan the users collection for the same lowercase name,
+      // so a different-case duplicate (e.g. "SandyGnow" vs "sandygnow") is still blocked
+      // even when no reservation doc exists. Relies on displayNameLower being set on old
+      // docs, which the username backfill (migrateUsernames) populates.
+      const dupSnap = await transaction.get(
+        db.collection('users').where('displayNameLower', '==', displayNameLower).limit(1)
+      );
+      if (!dupSnap.empty && dupSnap.docs[0].id !== uid) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          'This username is already taken.'
+        );
+      }
+
       const now = admin.firestore.FieldValue.serverTimestamp();
 
       // Reserve the username
@@ -343,110 +358,124 @@ exports.createUser = functions.https.onCall(async (data, context) => {
  * @returns {Object} - { migrated: number, conflicts: Array, errors: Array }
  */
 exports.migrateUsernames = functions.https.onCall(async (data, context) => {
-  // Verify admin
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can run migrations.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can run this.');
   }
 
-  const results = {
-    migrated: 0,
-    conflicts: [],
-    errors: []
-  };
+  const dryRun = data && data.dryRun === true;
+  const results = { scanned: 0, usersUpdated: 0, reservationsWritten: 0, conflicts: [], errors: [], dryRun };
 
   try {
-    // Get all users
     const usersSnapshot = await db.collection('users').get();
+    results.scanned = usersSnapshot.size;
 
-    // Track lowercase names to detect conflicts
-    const seenNames = new Map(); // lowercase -> { uid, displayName }
-
-    // First pass: detect conflicts
-    usersSnapshot.forEach((doc) => {
-      const userData = doc.data();
-      const displayName = userData.displayName;
-
-      if (!displayName) {
-        results.errors.push({
-          uid: doc.id,
-          error: 'No displayName found'
-        });
+    // Group every account by the lowercase form of its display name.
+    const groups = new Map(); // lower -> [{ uid, displayName, currentLower, createdAtMs, portfolioValue, isBot }]
+    usersSnapshot.forEach((docSnap) => {
+      const u = docSnap.data();
+      if (!u.displayName || typeof u.displayName !== 'string') {
+        results.errors.push({ uid: docSnap.id, error: 'No displayName' });
         return;
       }
+      const lower = u.displayName.toLowerCase();
 
-      const lower = displayName.toLowerCase();
-
-      if (seenNames.has(lower)) {
-        // Conflict detected
-        const existing = seenNames.get(lower);
-        results.conflicts.push({
-          username: lower,
-          users: [
-            { uid: existing.uid, displayName: existing.displayName },
-            { uid: doc.id, displayName: displayName }
-          ]
-        });
-      } else {
-        seenNames.set(lower, { uid: doc.id, displayName });
+      // Normalize createdAt to millis so the oldest account wins the name.
+      let createdAtMs = Infinity;
+      const c = u.createdAt;
+      if (c) {
+        if (typeof c.toMillis === 'function') createdAtMs = c.toMillis();
+        else if (typeof c === 'number') createdAtMs = c;
+        else if (typeof c._seconds === 'number') createdAtMs = c._seconds * 1000;
       }
+
+      if (!groups.has(lower)) groups.set(lower, []);
+      groups.get(lower).push({
+        uid: docSnap.id,
+        displayName: u.displayName,
+        currentLower: u.displayNameLower || null,
+        createdAtMs,
+        portfolioValue: u.portfolioValue || 0,
+        isBot: !!u.isBot,
+      });
     });
 
-    // If there are conflicts, don't migrate - return conflicts for manual resolution
-    if (results.conflicts.length > 0) {
-      return {
-        ...results,
-        message: 'Conflicts detected. Please resolve manually before migrating.',
-        migrated: 0
-      };
-    }
+    // Build all writes, committing in chunks well under Firestore's 500/batch cap.
+    let batch = db.batch();
+    let ops = 0;
+    const flush = async (force) => {
+      if (ops === 0) return;
+      if (force || ops >= 450) {
+        if (!dryRun) await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
+    };
 
-    // Second pass: migrate non-conflicting usernames
-    const batch = db.batch();
-    let batchCount = 0;
-    const MAX_BATCH_SIZE = 500;
+    for (const [lower, entries] of groups) {
+      // Rightful owner: prefer a real account over a bot, then the oldest, then uid.
+      entries.sort((a, b) =>
+        (a.isBot - b.isBot) || (a.createdAtMs - b.createdAtMs) || a.uid.localeCompare(b.uid)
+      );
+      const keeper = entries[0];
 
-    for (const [lower, { uid, displayName }] of seenNames) {
-      const usernameRef = db.collection('usernames').doc(lower);
-      const userRef = db.collection('users').doc(uid);
-
-      batch.set(usernameRef, {
-        uid: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      // Reserve (or repoint) the name to the keeper. A clean set, not a merge, so a
+      // reservation a newer duplicate grabbed gets handed back to the rightful owner.
+      batch.set(db.collection('usernames').doc(lower), {
+        uid: keeper.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        backfilled: true,
       });
+      ops++; results.reservationsWritten++;
+      await flush(false);
 
-      // Also update user doc with displayNameLower for consistency
-      batch.update(userRef, {
-        displayNameLower: lower
-      });
+      // Make sure displayNameLower is set/correct on every account in the group, so the
+      // signup fallback query can see them.
+      for (const e of entries) {
+        if (e.currentLower !== lower) {
+          batch.update(db.collection('users').doc(e.uid), { displayNameLower: lower });
+          ops++; results.usersUpdated++;
+          await flush(false);
+        }
+      }
 
-      batchCount++;
-      results.migrated++;
-
-      // Commit batch if at limit
-      if (batchCount >= MAX_BATCH_SIZE) {
-        await batch.commit();
-        batchCount = 0;
+      // Two or more live accounts sharing one name is a collision to resolve by hand.
+      if (entries.length > 1) {
+        results.conflicts.push({
+          username: lower,
+          keep: { uid: keeper.uid, displayName: keeper.displayName, portfolioValue: keeper.portfolioValue },
+          rename: entries.slice(1).map(e => ({
+            uid: e.uid, displayName: e.displayName, portfolioValue: e.portfolioValue, isBot: e.isBot,
+          })),
+        });
       }
     }
+    await flush(true);
 
-    // Commit remaining
-    if (batchCount > 0) {
-      await batch.commit();
+    // Surface each collision in the existing Watchlist alerts feed for cleanup.
+    if (!dryRun) {
+      for (const conf of results.conflicts) {
+        const renameList = conf.rename
+          .map(r => `${r.displayName} (${r.uid}, $${Math.round(r.portfolioValue)})`)
+          .join(', ');
+        await db.collection('watchlist_alerts').add({
+          type: 'duplicate_username',
+          action: 'flagged',
+          relatedUID: conf.keep.uid,
+          details: `Duplicate name "${conf.username}": keep ${conf.keep.displayName} (${conf.keep.uid}, oldest). Rename: ${renameList}`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     }
 
     return {
       ...results,
-      message: `Successfully migrated ${results.migrated} usernames.`
+      message: dryRun
+        ? `Dry run: scanned ${results.scanned}, found ${results.conflicts.length} collision(s). No writes.`
+        : `Reserved ${results.reservationsWritten} name(s), fixed ${results.usersUpdated} user doc(s), flagged ${results.conflicts.length} collision(s).`,
     };
   } catch (error) {
-    console.error('Migration error:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Migration failed: ' + error.message
-    );
+    console.error('Username backfill error:', error);
+    throw new functions.https.HttpsError('internal', 'Backfill failed: ' + error.message);
   }
 });
 
@@ -548,6 +577,10 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
   const existingDoc = await db.collection('usernames').doc(newNameLower).get();
   if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
 
+  // Fallback for legacy accounts with no reservation doc: scan users by lowercase name.
+  const dupSnap = await db.collection('users').where('displayNameLower', '==', newNameLower).limit(1).get();
+  if (!dupSnap.empty && dupSnap.docs[0].id !== uid) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
+
   const batch = db.batch();
   batch.delete(db.collection('usernames').doc(oldNameLower));
   batch.set(db.collection('usernames').doc(newNameLower), { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -569,12 +602,28 @@ const COSMETIC_CATALOG = {
   name_emerald:      { type: 'nameColor',   price: 5000  },
   name_sapphire:     { type: 'nameColor',   price: 5000  },
   name_violet:       { type: 'nameColor',   price: 5000  },
+  name_rose:         { type: 'nameColor',   price: 5000  },
+  name_cyan:         { type: 'nameColor',   price: 5000  },
+  name_silver:       { type: 'nameColor',   price: 5000  },
+  name_tangerine:    { type: 'nameColor',   price: 5000  },
   glow_gold:         { type: 'rowGlow',     price: 15000 },
   glow_crimson:      { type: 'rowGlow',     price: 15000 },
   glow_neon:         { type: 'rowGlow',     price: 15000 },
+  glow_pink:         { type: 'rowGlow',     price: 15000 },
+  glow_sapphire:     { type: 'rowGlow',     price: 15000 },
+  glow_violet:       { type: 'rowGlow',     price: 15000 },
+  glow_cyan:         { type: 'rowGlow',     price: 15000 },
+  glow_orange:       { type: 'rowGlow',     price: 15000 },
+  glow_silver:       { type: 'rowGlow',     price: 15000 },
   backdrop_royal:    { type: 'rowBackdrop', price: 25000 },
   backdrop_inferno:  { type: 'rowBackdrop', price: 25000 },
   backdrop_frost:    { type: 'rowBackdrop', price: 25000 },
+  backdrop_blush:    { type: 'rowBackdrop', price: 25000 },
+  backdrop_verdant:  { type: 'rowBackdrop', price: 25000 },
+  backdrop_gilded:   { type: 'rowBackdrop', price: 25000 },
+  backdrop_midnight: { type: 'rowBackdrop', price: 25000 },
+  backdrop_onyx:     { type: 'rowBackdrop', price: 25000 },
+  backdrop_lagoon:   { type: 'rowBackdrop', price: 25000 },
 };
 
 exports.purchaseCosmetic = functions.https.onCall(async (data, context) => {
