@@ -66,8 +66,9 @@ const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
 const CREW_SWITCH_PENALTY  = 0.15;   // 15% of portfolio value lost on crew switch
 const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
-const LADDER_GAME_MAX_BALANCE = 5000; // max cash held in ladder minigame at once
-const LADDER_GAME_MAX_DAILY_DEPOSIT = 5000; // max cash deposited into ladder per calendar day (UTC)
+const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
+const LADDER_GAME_MAX_DEPOSIT_PER_WINDOW = 10000; // max cash deposited into ladder within the rolling window
+const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window for the deposit cap
 const CREW_BUY_THRESHOLD = 1500;    // shares crew must buy to complete CREW_BUY_500 mission
 const CREW_SELL_THRESHOLD = 1500;   // shares crew must sell to complete CREW_SELL_500 mission
 const CREW_VOLUME_THRESHOLD = 20000; // $ trade volume crew must hit to complete CREW_VOLUME mission
@@ -216,7 +217,8 @@ module.exports = {
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
   LADDER_GAME_MAX_BALANCE,
-  LADDER_GAME_MAX_DAILY_DEPOSIT,
+  LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
+  LADDER_DEPOSIT_WINDOW_MS,
   CREW_BUY_THRESHOLD,
   CREW_SELL_THRESHOLD,
   CREW_VOLUME_THRESHOLD,

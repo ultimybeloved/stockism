@@ -121,11 +121,11 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-3">
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>DEPOSITS</p>
-                  <p className={`text-sm ${textClass}`}>You move money in using the Transfer button. You can deposit up to $5,000 total into the ladder game.</p>
+                  <p className={`text-sm ${textClass}`}>You move money in using the Transfer button. You can deposit up to $10,000 total into the ladder game.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WINNINGS</p>
-                  <p className={`text-sm ${textClass}`}>Your balance can grow beyond $5,000 through winnings. The deposit cap only applies to transfers in, not to your total balance.</p>
+                  <p className={`text-sm ${textClass}`}>Your balance can grow beyond $10,000 through winnings. The deposit cap only applies to transfers in, not to your total balance.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WITHDRAWALS</p>

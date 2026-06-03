@@ -5,7 +5,8 @@ const db = admin.firestore();
 const { checkBanned, checkDiscordWall, getTotalInvested } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
-  LADDER_GAME_MAX_DAILY_DEPOSIT,
+  LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
+  LADDER_DEPOSIT_WINDOW_MS,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,
@@ -282,19 +283,28 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
             : `You can only deposit $${room.toFixed(2)} more — the ladder game is capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`);
       }
 
-      // Daily deposit cap — resets at UTC midnight
-      const todayUTC = new Date().toISOString().slice(0, 10);
-      const lastDepositDay = ladderData.dailyDepositedAt || '';
-      const dailyDeposited = lastDepositDay === todayUTC ? (ladderData.dailyDeposited || 0) : 0;
-      const remaining = LADDER_GAME_MAX_DAILY_DEPOSIT - dailyDeposited;
+      // Rolling deposit cap: at most LADDER_GAME_MAX_DEPOSIT_PER_WINDOW within the trailing window
+      const now = Date.now();
+      const recent = (ladderData.recentDeposits || []).filter(d => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
+      const windowTotal = recent.reduce((sum, d) => sum + d.amount, 0);
+      const remaining = LADDER_GAME_MAX_DEPOSIT_PER_WINDOW - windowTotal;
       if (amount > remaining) {
+        // soonest relief = when the oldest in-window deposit ages out
+        const oldest = recent.length ? Math.min(...recent.map(d => d.ts)) : now;
+        const freesAt = new Date(oldest + LADDER_DEPOSIT_WINDOW_MS).toISOString().slice(11, 16);
         throw new functions.https.HttpsError(
           'failed-precondition',
           remaining <= 0
-            ? `Daily deposit limit of $${LADDER_GAME_MAX_DAILY_DEPOSIT.toLocaleString()} reached. Resets at midnight UTC.`
-            : `Daily deposit limit: you can only deposit $${remaining.toFixed(2)} more today.`
+            ? `Deposit limit reached: max $${LADDER_GAME_MAX_DEPOSIT_PER_WINDOW.toLocaleString()} per 12 hours. More frees up at ${freesAt} UTC.`
+            : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.`
         );
       }
+
+      // Record this deposit, coalescing into the current minute to bound the array size
+      const minuteTs = Math.floor(now / 60000) * 60000;
+      const last = recent[recent.length - 1];
+      if (last && last.ts === minuteTs) last.amount += amount;
+      else recent.push({ ts: minuteTs, amount });
 
       // Deduct from Stockism cash
       transaction.update(mainUserRef, { cash: cash - amount });
@@ -303,8 +313,7 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
         ...ladderData,
         balance: (ladderData.balance ?? 0) + amount,
         totalDeposited: (ladderData.totalDeposited || 0) + amount,
-        dailyDepositedAt: todayUTC,
-        dailyDeposited: dailyDeposited + amount
+        recentDeposits: recent
       });
 
       return {

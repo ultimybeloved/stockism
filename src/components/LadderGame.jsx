@@ -1208,7 +1208,7 @@ const LadderGame = ({ onClose }) => {
                       {noInvestment
                         ? 'Invest in stocks first — the ladder game is capped at what you have invested.'
                         : ladderFull
-                          ? 'Ladder balance is at the $5,000 limit.'
+                          ? `Ladder balance is at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} limit.`
                           : `Can deposit up to $${maxDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} more (capped at your $${totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} invested)`}
                     </p>
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
