@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
@@ -49,7 +49,7 @@ exports.processMarketOpenOrders = functions.pubsub
         // Compute opening price for each ticker (net aggregate impact — one move, not per-order)
         const auctionPrices = {}; // ticker -> { openingPrice, openingAsk, openingBid }
         for (const [ticker, { buys, sells }] of Object.entries(byTicker)) {
-          const basePrice = currentPrices[ticker];
+          const basePrice = currentPrices[ticker] || CHARACTER_MAP[ticker]?.basePrice;
           if (!basePrice) continue;
 
           const totalBuy = buys.reduce((s, { order: o }) => s + o.shares, 0);

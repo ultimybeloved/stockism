@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../constants');
 
 const isPreMarketWindow = () => {
@@ -85,7 +85,7 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
   }
 
   const marketSnap = await db.collection('market').doc('current').get();
-  const currentPrice = marketSnap.data()?.prices?.[ticker] || 0;
+  const currentPrice = marketSnap.data()?.prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
 
   if (action === 'buy') {
     // Sum up cash already committed to other pending buy orders this session
@@ -100,7 +100,7 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
     const reservedCash = Math.round(
       pendingBuys.docs.reduce((sum, doc) => {
         const o = doc.data();
-        return sum + o.shares * (allPrices[o.ticker] || 0);
+        return sum + o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0);
       }, 0) * 100
     ) / 100;
 
