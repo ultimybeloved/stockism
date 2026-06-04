@@ -2,6 +2,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
   ADMIN_UID,
   STARTING_CASH,
@@ -932,4 +933,46 @@ exports.reconstructPortfolioHistory = functions
     }
 
     return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
-  });
+  });
+
+/**
+ * Initialize prices for any character in characters.js that doesn't have a
+ * live price in Firestore yet. Skips IPO characters. Safe to run multiple
+ * times — only writes missing entries.
+ */
+exports.initNewCharacterPrices = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
+  if (!marketSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Market document not found');
+  }
+
+  const prices = marketSnap.data().prices || {};
+  const now = Date.now();
+  const updates = {};
+  const initialized = [];
+
+  for (const c of CHARACTERS) {
+    if (c.ipoRequired || c.isETF) continue;
+    if (prices[c.ticker]) continue;
+
+    updates[`prices.${c.ticker}`] = c.basePrice;
+    updates[`priceHistory.${c.ticker}`] = admin.firestore.FieldValue.arrayUnion({
+      timestamp: now,
+      price: c.basePrice
+    });
+    initialized.push({ ticker: c.ticker, price: c.basePrice });
+  }
+
+  if (initialized.length === 0) {
+    return { message: 'All characters already have prices', initialized: [] };
+  }
+
+  await marketRef.update(updates);
+  console.log(`Initialized prices for ${initialized.length} characters:`, initialized.map(i => i.ticker).join(', '));
+  return { message: `Initialized ${initialized.length} character prices`, initialized };
+});
