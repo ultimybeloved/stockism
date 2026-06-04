@@ -1107,11 +1107,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       }
 
       // Apply trailing effects to related characters
-      const CHARACTER_MAP = CHARACTERS.reduce((map, char) => {
-        map[char.ticker] = char;
-        return map;
-      }, {});
-
+      // (CHARACTER_MAP is imported at the top of this file)
       const applyTrailingEffects = (sourceTicker, sourceOldPrice, sourceNewPrice, priceUpdates, depth = 0, visited = new Set()) => {
         if (depth > 3 || visited.has(sourceTicker)) {
           return; // Max 3 levels deep, prevent cycles
