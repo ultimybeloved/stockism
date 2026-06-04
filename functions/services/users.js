@@ -6,7 +6,7 @@ const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS } = require('../constants');
-const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
+const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
 
 /**
  * Creates a new user with case-insensitive unique username.
@@ -16,7 +16,7 @@ const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned, ch
  * 2. Reserves the username in usernames collection
  * 3. Creates the user document
  *
- * @param {string} displayName - The desired display name (1-20 chars, alphanumeric + underscore)
+ * @param {string} displayName - The desired display name (3-20 chars, at least 3 letters/numbers, up to 2 non-repeating underscores not at the ends)
  * @returns {Object} - { success: true } or throws error
  */
 exports.createUser = functions.https.onCall(async (data, context) => {
@@ -41,26 +41,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
 
   const trimmed = displayName.trim();
 
-  if (trimmed.length < 3) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Username must be at least 3 characters.'
-    );
-  }
-
-  if (trimmed.length > 20) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Username must be 20 characters or less.'
-    );
-  }
-
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Username can only contain letters, numbers, and underscores.'
-    );
-  }
+  validateUsernameFormat(trimmed);
 
   const displayNameLower = trimmed.toLowerCase();
 
@@ -537,9 +518,7 @@ exports.changeDisplayName = functions.https.onCall(async (data, context) => {
 
   const trimmed = newDisplayName.trim();
 
-  if (trimmed.length < 3) throw new functions.https.HttpsError('invalid-argument', 'Username must be at least 3 characters.');
-  if (trimmed.length > 20) throw new functions.https.HttpsError('invalid-argument', 'Username must be 20 characters or less.');
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username can only contain letters, numbers, and underscores.');
+  validateUsernameFormat(trimmed);
 
   const newNameLower = trimmed.toLowerCase();
 

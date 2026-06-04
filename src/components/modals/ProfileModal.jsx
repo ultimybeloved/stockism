@@ -5,6 +5,7 @@ import { db, changeDisplayNameFunction } from '../../firebase';
 import { COSMETIC_MAP } from '../../constants/cosmetics';
 import { updateDoc, doc } from 'firebase/firestore';
 import { formatCurrency } from '../../utils/formatters';
+import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
 const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection, user, onDeleteAccount, prices, holdings, shorts, costBasis }) => {
@@ -112,6 +113,11 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
 
   const handleNameSave = async () => {
     setNameError('');
+    const formatError = validateUsername(newName.trim());
+    if (formatError) {
+      setNameError(formatError);
+      return;
+    }
     setNameSaving(true);
     try {
       await changeDisplayNameFunction({ displayName: newName });
@@ -186,7 +192,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   Cancel
                 </button>
               </div>
-              <p className={`text-xs ${mutedClass}`}>3–20 chars, letters/numbers/underscores. Once every 2 weeks.</p>
+              <p className={`text-xs ${mutedClass}`}>3-20 chars, at least 3 letters/numbers, up to 2 underscores. Once every 2 weeks.</p>
             </div>
           )}
         </div>

@@ -307,6 +307,32 @@ function isBannedUsername(username) {
 }
 
 /**
+ * Validates username format (shared by createUser and changeDisplayName).
+ * Throws an HttpsError with a user-facing message on the first failed rule.
+ * Caller passes the already-trimmed name. Does NOT check uniqueness, bans, or
+ * profanity — those stay at the call sites.
+ * Mirror of validateUsername in src/utils/username.js — keep both in sync.
+ * @param {string} name - Trimmed display name
+ */
+function validateUsernameFormat(name) {
+  if (name.length < 3) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username must be at least 3 characters.');
+  }
+  if (name.length > 20) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username must be 20 characters or less.');
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username can only contain letters, numbers, and underscores.');
+  }
+  if ((name.match(/[a-zA-Z0-9]/g) || []).length < 3) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username must include at least 3 letters or numbers.');
+  }
+  if ((name.match(/_/g) || []).length > 2 || name.includes('__') || name.startsWith('_') || name.endsWith('_')) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username can have at most 2 underscores, not repeated or at the start or end.');
+  }
+}
+
+/**
  * Reusable ban check — throws if user is banned.
  * Call right after fetching userData in any user-facing function.
  */
@@ -428,6 +454,7 @@ module.exports = {
   normalizeProfanity,
   containsProfanity,
   isBannedUsername,
+  validateUsernameFormat,
   checkBanned,
   checkDiscordWall,
   sendDiscordMessage,

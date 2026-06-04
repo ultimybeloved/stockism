@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createUserFunction } from '../../firebase';
 import { containsProfanity, getProfanityMessage } from '../../utils/profanity';
+import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
 const UsernameModal = ({ user, onComplete, darkMode }) => {
@@ -17,16 +18,9 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
       setError('Please enter a username');
       return;
     }
-    if (trimmed.length < 3) {
-      setError('Username must be at least 3 characters');
-      return;
-    }
-    if (trimmed.length > 20) {
-      setError('Username must be 20 characters or less');
-      return;
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
-      setError('Username can only contain letters, numbers, and underscores');
+    const formatError = validateUsername(trimmed);
+    if (formatError) {
+      setError(formatError);
       return;
     }
     if (containsProfanity(trimmed)) {
@@ -82,7 +76,7 @@ const UsernameModal = ({ user, onComplete, darkMode }) => {
               maxLength={20}
             />
             <p className={`text-xs ${mutedClass} mt-1`}>
-              3-20 characters, letters, numbers, and underscores only
+              3-20 characters. At least 3 letters or numbers. Up to 2 underscores, not at the start or end.
             </p>
           </div>
 
