@@ -72,7 +72,7 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, dar
   } else if (claimStreak === 1) {
     statusLine = 'Check in to start your streak.';
   } else {
-    statusLine = `Day ${claimStreak} of ${CAP_DAY}. Keep it going.`;
+    statusLine = `Day ${claimStreak} of ${CAP_DAY}.`;
   }
 
   return (
