@@ -179,7 +179,8 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-1">Can I lose all my money?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Yes, through bad trades or losing prediction bets. But you can always earn more
-                  through the daily check-in bonus ($300/day). You can never go below $0.
+                  through the daily check-in bonus. It starts at $300 and climbs each day you check
+                  in, up to $500 a day. Miss a day and it resets. You can never go below $0.
                 </p>
               </div>
 

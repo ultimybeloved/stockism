@@ -1748,6 +1748,7 @@ export default function App() {
             <CheckInButton
               isGuest={isGuest}
               lastCheckin={userData?.lastCheckin}
+              checkinStreak={userData?.checkinStreak || 0}
               onCheckin={handleDailyCheckin}
               darkMode={darkMode}
               loading={actionLoading.checkin}

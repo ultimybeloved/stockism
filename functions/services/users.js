@@ -2,9 +2,10 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
+const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS } = require('../constants');
 const { isBannedUsername, containsProfanity, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
 
 /**
@@ -810,8 +811,9 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
       const maxCheckinStreak = Math.max(userData.maxCheckinStreak || 0, newStreak);
 
-      // Flat $300 daily check-in reward
-      const checkinReward = 300;
+      // Streak-based reward: escalates with the consecutive-day streak, then caps.
+      const rewardIndex = Math.min(newStreak - 1, CHECKIN_STREAK_REWARDS.length - 1);
+      const checkinReward = CHECKIN_STREAK_REWARDS[rewardIndex];
 
       // Compute week ID for weekly missions
       const weekStartDate = new Date(now);
@@ -822,7 +824,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
       // Update user document
       const updates = {
         cash: (userData.cash || 0) + checkinReward,
-        lastCheckin: admin.firestore.Timestamp.now(),
+        lastCheckin: Timestamp.now(),
         checkinStreak: newStreak,
         maxCheckinStreak,
         totalCheckins: (userData.totalCheckins || 0) + 1,
@@ -853,7 +855,7 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
           currentStreak: 0,
           bestStreak: 0,
           lastPlayed: null,
-          createdAt: admin.firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp()
         });
       } else {
         // Existing player — top up to $100 if below

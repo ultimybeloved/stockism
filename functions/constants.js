@@ -56,6 +56,13 @@ const isWeeklyTradingHalt = () => {
 const STARTING_CASH = 3000;            // full starting cash once verified (Discord linked)
 const UNVERIFIED_STARTING_CASH = 1000; // starting cash before Discord verification (anti-alt)
 const BAILOUT_CASH = 1500;
+
+// Daily check-in streak rewards. Index 0 = day 1. The reward escalates with the
+// consecutive-day check-in streak, then caps at the last value forever (as long
+// as the streak isn't broken). The streak itself is already tracked as
+// checkinStreak. Day 1 stays at the old flat $300, so the curve is strictly an
+// upgrade for everyone. Keep in sync with src/constants/economy.js.
+const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
 const SHORT_MARGIN_RATIO = 1.0; // 100% collateral — deposit dollar-for-dollar
 const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
 
@@ -211,6 +218,7 @@ module.exports = {
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,
+  CHECKIN_STREAK_REWARDS,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,
   CREW_SWITCH_PENALTY,
