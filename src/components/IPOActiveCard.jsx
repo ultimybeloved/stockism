@@ -16,7 +16,7 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const timeRemaining = ipo.ipoEndsAt - Date.now();
   const ipoTotalShares = ipo.totalShares || IPO_TOTAL_SHARES;
   const ipoMaxPerUser = ipo.maxPerUser || IPO_MAX_PER_USER;
-  const sharesRemaining = ipo.sharesRemaining || ipoTotalShares;
+  const sharesRemaining = ipo.sharesRemaining ?? ipoTotalShares;
   const userIPOPurchases = userData?.ipoPurchases?.[ipo.ticker] || 0;
   const affordableShares = ipo.basePrice > 0 ? Math.floor((userData?.cash || 0) / ipo.basePrice) : 0;
   const maxCanBuy = Math.max(0, Math.min(ipoMaxPerUser - userIPOPurchases, sharesRemaining, affordableShares));

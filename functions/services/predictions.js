@@ -382,59 +382,74 @@ exports.processIPOPriceJumps = functions.pubsub
       }
 
       const ipoRef = db.collection('market').doc('ipos');
-      const ipoSnap = await ipoRef.get();
-
-      if (!ipoSnap.exists) return null;
-
-      const ipoData = ipoSnap.data();
-      const ipos = ipoData.list || [];
+      const marketRef = db.collection('market').doc('current');
       const now = Date.now();
 
-      let processedCount = 0;
-      let updatedList = [...ipos];
+      // Use a transaction to prevent double-firing if the scheduler runs twice
+      const { processedCount, discordNotifications } = await db.runTransaction(async (transaction) => {
+        const ipoSnap = await transaction.get(ipoRef);
+        if (!ipoSnap.exists) return { processedCount: 0, discordNotifications: [] };
 
-      for (let i = 0; i < ipos.length; i++) {
-        const ipo = ipos[i];
-        const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
-        if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
-          // IPO ended - apply 15% price jump
-          const marketRef = db.collection('market').doc('current');
-          const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+        const ipoData = ipoSnap.data();
+        const ipos = ipoData.list || [];
+        const mktSnap = await transaction.get(marketRef);
+        const mktData = mktSnap.exists ? mktSnap.data() : {};
 
-          await marketRef.update({
-            [`prices.${ipo.ticker}`]: newPrice,
-            [`priceHistory.${ipo.ticker}`]: admin.firestore.FieldValue.arrayUnion({
+        let count = 0;
+        const updatedList = [...ipos];
+        const notifications = [];
+        const priceUpdates = {};
+        const historyUpdates = {};
+        const tickersToLaunch = [];
+
+        for (let i = 0; i < ipos.length; i++) {
+          const ipo = ipos[i];
+          const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
+          if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
+            const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+            priceUpdates[`prices.${ipo.ticker}`] = newPrice;
+            historyUpdates[`priceHistory.${ipo.ticker}`] = admin.firestore.FieldValue.arrayUnion({
               timestamp: now,
               price: newPrice
-            }),
-            launchedTickers: admin.firestore.FieldValue.arrayUnion(ipo.ticker)
-          });
+            });
+            tickersToLaunch.push(ipo.ticker);
+            updatedList[i] = { ...ipo, priceJumped: true };
+            count++;
+            console.log(`IPO price jump applied for ${ipo.ticker}: $${newPrice}`);
 
-          updatedList[i] = { ...ipo, priceJumped: true };
-          processedCount++;
-          console.log(`IPO price jump applied for ${ipo.ticker}: $${newPrice}`);
-
-          // Send Discord notification
-          try {
             const ipoTotalShares = ipo.totalShares || 150;
             const sharesSold = ipoTotalShares - (ipo.sharesRemaining || 0);
-            await sendDiscordMessage(null, [{
-              title: '🎉 IPO Closed',
-              description: `**${ipo.ticker}** IPO has ended! Price jumped to $${newPrice.toFixed(2)}`,
-              color: 0x00FF00,
-              fields: [
-                { name: 'Shares Sold', value: `${sharesSold}/${ipoTotalShares}`, inline: true },
-                { name: 'New Price', value: `$${newPrice.toFixed(2)}`, inline: true }
-              ],
-              timestamp: new Date().toISOString()
-            }]);
-          } catch (e) {}
+            notifications.push({ ticker: ipo.ticker, newPrice, sharesSold, ipoTotalShares });
+          }
         }
-      }
 
-      if (processedCount > 0) {
-        await ipoRef.update({ list: updatedList });
-        console.log(`Processed ${processedCount} IPO price jumps`);
+        if (count > 0) {
+          transaction.update(marketRef, {
+            ...priceUpdates,
+            ...historyUpdates,
+            launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch)
+          });
+          transaction.update(ipoRef, { list: updatedList });
+          console.log(`Processed ${count} IPO price jumps`);
+        }
+
+        return { processedCount: count, discordNotifications: notifications };
+      });
+
+      // Send Discord notifications outside transaction (non-critical)
+      for (const n of discordNotifications) {
+        try {
+          await sendDiscordMessage(null, [{
+            title: '🎉 IPO Closed',
+            description: `**${n.ticker}** IPO has ended! Price jumped to $${n.newPrice.toFixed(2)}`,
+            color: 0x00FF00,
+            fields: [
+              { name: 'Shares Sold', value: `${n.sharesSold}/${n.ipoTotalShares}`, inline: true },
+              { name: 'New Price', value: `$${n.newPrice.toFixed(2)}`, inline: true }
+            ],
+            timestamp: new Date().toISOString()
+          }]);
+        } catch (e) {}
       }
 
       return { processed: processedCount };

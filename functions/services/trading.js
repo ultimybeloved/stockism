@@ -617,7 +617,18 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       const userData = userDoc.data();
       checkBanned(userData);
       checkDiscordWall(userData);
+
       const marketData = marketDoc.data();
+
+      // Block normal trades on IPO-only tickers that haven't launched yet
+      const launchedTickers = marketData.launchedTickers || [];
+      const charMeta = CHARACTER_MAP[ticker];
+      if (charMeta?.ipoRequired && !launchedTickers.includes(ticker)) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+        );
+      }
 
       // Check emergency admin halt
       if (marketData.marketHalted) {
