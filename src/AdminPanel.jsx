@@ -4067,6 +4067,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               activeIPOs={activeIPOs}
               handleCreateIPO={handleCreateIPO}
               handleCancelIPO={handleCancelIPO}
+              setMessage={setMessage}
             />
           )}
           {/* PREDICTIONS TAB (Consolidated: Create + Resolve + View All + Bets) */}

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CHARACTERS } from '../../characters';
+import { initNewCharacterPricesFunction } from '../../firebase';
 
 const IpoTab = ({
   darkMode,
@@ -21,7 +22,27 @@ const IpoTab = ({
   activeIPOs,
   handleCreateIPO,
   handleCancelIPO,
+  setMessage,
 }) => {
+  const [initingPrices, setInitingPrices] = useState(false);
+
+  const handleInitPrices = async () => {
+    setInitingPrices(true);
+    try {
+      const result = await initNewCharacterPricesFunction();
+      const { initialized, message } = result.data;
+      if (initialized.length === 0) {
+        setMessage({ type: 'info', text: 'All characters already have prices' });
+      } else {
+        setMessage({ type: 'success', text: `${message}: ${initialized.map(i => `$${i.ticker}`).join(', ')}` });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Failed to initialize prices' });
+    } finally {
+      setInitingPrices(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
@@ -31,6 +52,23 @@ const IpoTab = ({
           <br />• IPO Window (24h default): configurable shares and per-user limits
           <br />• After IPO: Price jumps 15%, normal trading begins
         </p>
+      </div>
+
+      {/* Initialize prices for newly added characters */}
+      <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className={`text-sm font-semibold ${textClass}`}>New Character Prices</h4>
+            <p className={`text-xs ${mutedClass}`}>Sets base prices for any new characters missing from the market. Run after adding characters.</p>
+          </div>
+          <button
+            onClick={handleInitPrices}
+            disabled={initingPrices}
+            className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
+          >
+            {initingPrices ? 'Initializing...' : 'Init Prices'}
+          </button>
+        </div>
       </div>
 
       {/* Create IPO Form */}
