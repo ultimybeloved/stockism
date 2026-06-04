@@ -198,9 +198,16 @@ export const CHARACTERS = [
   { name: "Hwasu Park", ticker: "HPRK", basePrice: 12.50, volatility: 0.04, dateAdded: "2026-06-01T00:05:00" },
   { name: "Myeongho Choi", ticker: "SNGH", basePrice: 15, volatility: 0.04, dateAdded: "2026-06-01T00:06:00" },
 
+  // New characters added 2026-06-04
+  { name: "Taeguk Han", ticker: "HANT", basePrice: 15, volatility: 0.04, dateAdded: "2026-06-04T00:00:00" },
+  { name: "Gon Kwon", ticker: "GWON", basePrice: 15, volatility: 0.04, dateAdded: "2026-06-04T00:01:00" },
+  { name: "Minsik Choi", ticker: "MNSK", basePrice: 10, volatility: 0.04, dateAdded: "2026-06-04T00:02:00" },
+  { name: "Yuri Park", ticker: "AUNT", basePrice: 10, volatility: 0.04, dateAdded: "2026-06-04T00:03:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
+  { name: "Bangho Lee", ticker: "MONO", basePrice: 80, volatility: 0.04, dateAdded: "2026-06-04T00:04:00", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -228,14 +235,15 @@ export const CHARACTERS = [
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, volatility: 0.025, dateAdded: "2026-02-20T00:02:00",
     isETF: true, description: "Fist Gang ETF",
-    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI"],
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON"],
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.073 }, { ticker: "ELIT", coefficient: 0.073 },
-      { ticker: "JYNG", coefficient: 0.073 }, { ticker: "TOM", coefficient: 0.073 },
-      { ticker: "KWON", coefficient: 0.073 }, { ticker: "DNCE", coefficient: 0.073 },
-      { ticker: "GNTL", coefficient: 0.073 }, { ticker: "MMA", coefficient: 0.073 },
-      { ticker: "LIAR", coefficient: 0.073 }, { ticker: "NOH", coefficient: 0.073 },
-      { ticker: "TAXI", coefficient: 0.073 }
+      { ticker: "GAP", coefficient: 0.062 }, { ticker: "ELIT", coefficient: 0.062 },
+      { ticker: "JYNG", coefficient: 0.062 }, { ticker: "TOM", coefficient: 0.062 },
+      { ticker: "KWON", coefficient: 0.062 }, { ticker: "DNCE", coefficient: 0.062 },
+      { ticker: "GNTL", coefficient: 0.062 }, { ticker: "MMA", coefficient: 0.062 },
+      { ticker: "LIAR", coefficient: 0.062 }, { ticker: "NOH", coefficient: 0.062 },
+      { ticker: "TAXI", coefficient: 0.062 }, { ticker: "HANT", coefficient: 0.062 },
+      { ticker: "GWON", coefficient: 0.062 }
     ]
   },
   {
