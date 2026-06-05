@@ -4,9 +4,10 @@ const {
   MIN_PRICE,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
+  ADMIN_PRICE_PROTECTION_MS,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact } = require('./helpers');
+const { calculateMarginalImpact, isPriceProtected } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -304,6 +305,12 @@ module.exports = {
 
           if (decision.action === 'HOLD') {
             console.log(`${bot.displayName} decided to HOLD`);
+            continue;
+          }
+
+          // Respect admin price protection — don't undo a manual price set
+          if (isPriceProtected(marketData.priceHistory, decision.ticker, ADMIN_PRICE_PROTECTION_MS)) {
+            console.log(`${bot.displayName}: skipping ${decision.action} ${decision.ticker} — admin price protected`);
             continue;
           }
 

@@ -15,6 +15,11 @@ const MAX_PRICE_CHANGE_PERCENT = 0.05;
 const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
+// Admin price protection: after an admin manually sets a price, automated
+// price movers (bot trader, market maker) leave that ticker alone for this
+// long so they can't claw the adjustment back. Resets each time admin re-sets.
+const ADMIN_PRICE_PROTECTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 // Anti-manipulation: reduced price impact for brand-new accounts.
 // Mirrors src/constants/economy.js — keep both in sync.
 const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;  // ramps over the first 3 days
@@ -200,6 +205,7 @@ module.exports = {
   MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
+  ADMIN_PRICE_PROTECTION_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MAX_ACCOUNTS_PER_IP,

@@ -89,6 +89,22 @@ const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore
   return Math.min(rawMarginal, maxImpact);
 };
 
+// Admin price protection: true if this ticker was manually set by an admin
+// (a priceHistory point tagged source 'admin_adjust') within `windowMs`.
+// Automated price movers (bots, market maker) use this to skip protected
+// tickers so they can't undo an admin adjustment. Assumes priceHistory is
+// in chronological order (it is — entries are appended).
+const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
+  const hist = (priceHistory && priceHistory[ticker]) || [];
+  const cutoff = now - windowMs;
+  for (let i = hist.length - 1; i >= 0; i--) {
+    const entry = hist[i];
+    if (!entry || entry.timestamp < cutoff) break; // older than window — stop scanning
+    if (entry.source === 'admin_adjust') return true;
+  }
+  return false;
+};
+
 // Anti-manipulation: brand-new accounts move the market less, ramping from
 // NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
 // ramp window. Mirrors getAccountAgeImpactFactor in src/App.jsx — keep in sync.
@@ -440,6 +456,7 @@ module.exports = {
   decrementCohort,
   graduateCohort,
   calculateMarginalImpact,
+  isPriceProtected,
   getAccountAgeImpactFactor,
   getTotalInvested,
   lmsrCost,

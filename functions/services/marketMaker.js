@@ -11,9 +11,10 @@ const {
   MAX_PRICE_CHANGE_PERCENT,
   MIN_PRICE,
   ONE_WEEK_MS,
+  ADMIN_PRICE_PROTECTION_MS,
   isWeeklyTradingHalt,
 } = require('../constants');
-const { calculateMarginalImpact } = require('../helpers');
+const { calculateMarginalImpact, isPriceProtected } = require('../helpers');
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
@@ -70,6 +71,11 @@ exports.marketMakerCycle = functions.pubsub
       for (const ticker of NON_ETF_TICKERS) {
         const currentPrice = prices[ticker];
         if (!currentPrice || currentPrice <= 0) continue;
+
+        // Don't claw back a recent admin price adjustment
+        if (isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS, now)) {
+          continue;
+        }
 
         const history = (priceHistory[ticker] || []).filter(
           (h) => h.timestamp >= cutoff
