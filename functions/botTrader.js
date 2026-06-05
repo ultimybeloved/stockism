@@ -5,6 +5,7 @@ const {
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   ADMIN_PRICE_PROTECTION_MS,
+  MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
 const { calculateMarginalImpact, isPriceProtected } = require('./helpers');
@@ -286,6 +287,17 @@ module.exports = {
           return !meta?.ipoRequired || launchedTickers.includes(t);
         });
 
+        // Per-ticker daily cap on bot-driven price movement — the same 10%/day
+        // ceiling (MAX_DAILY_IMPACT) humans get. Stops bots from cratering or
+        // pumping any single stock. Resets each UTC day.
+        const today = new Date().toISOString().slice(0, 10);
+        const botImpactToday = marketData.botImpactDate === today
+          ? { ...(marketData.botImpact || {}) }
+          : {};
+        if (marketData.botImpactDate !== today) {
+          await marketRef.update({ botImpact: {}, botImpactDate: today });
+        }
+
         // Check if it's Thursday (chapter release day)
         const isThursday = now.getUTCDay() === 4;
 
@@ -314,9 +326,16 @@ module.exports = {
             continue;
           }
 
+          // Daily cap: bots can't move one ticker more than MAX_DAILY_IMPACT per day
+          if ((botImpactToday[decision.ticker] || 0) >= MAX_DAILY_IMPACT) {
+            console.log(`${bot.displayName}: skipping ${decision.ticker} — bots hit daily price-move cap`);
+            continue;
+          }
+
           console.log(`${bot.displayName} (${bot.botPersonality}): ${decision.action} ${decision.shares} ${decision.ticker}`);
 
           // Execute trade in transaction
+          let appliedFrac = 0;
           await db.runTransaction(async (transaction) => {
             const botRef = usersRef.doc(bot.id);
             const botSnap = await transaction.get(botRef);
@@ -380,9 +399,12 @@ module.exports = {
                 price: newPrice
               });
 
+              appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
               transaction.update(marketRef, {
                 prices: newPrices,
-                priceHistory: newHistory
+                priceHistory: newHistory,
+                [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
+                botImpactDate: today
               });
 
             } else if (decision.action === 'SELL') {
@@ -436,12 +458,19 @@ module.exports = {
                 price: newPrice
               });
 
+              appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
               transaction.update(marketRef, {
                 prices: newPrices,
-                priceHistory: newHistory
+                priceHistory: newHistory,
+                [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
+                botImpactDate: today
               });
             }
           });
+
+          if (appliedFrac > 0) {
+            botImpactToday[decision.ticker] = (botImpactToday[decision.ticker] || 0) + appliedFrac;
+          }
 
           // Random delay between bot trades (5-45 seconds) to avoid simultaneous trades
           const tradeDelay = Math.floor(Math.random() * 40000) + 5000;
