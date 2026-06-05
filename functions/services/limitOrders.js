@@ -515,7 +515,7 @@ exports.checkLimitOrders = functions.pubsub
 
           // Notify user that their limit order filled
           const effectiveType2 = order.type === 'STOP_LOSS' ? 'Stop loss' : `${order.type} limit order`;
-          writeNotification(order.userId, {
+          await writeNotification(order.userId, {
             type: 'trade',
             title: `${effectiveType2} Filled`,
             message: `Your ${effectiveType2.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,

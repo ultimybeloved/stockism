@@ -209,7 +209,7 @@ exports.claimCrewMission = functions.https.onCall(async (data, context) => {
     }
   });
 
-  writeNotification(uid, {
+  await writeNotification(uid, {
     type: 'achievement',
     title: 'Crew Mission Complete',
     message: `You earned $${reward} from your crew's mission.`,

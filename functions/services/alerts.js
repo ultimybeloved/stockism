@@ -639,7 +639,7 @@ exports.checkPriceAlerts = functions.pubsub
 
           if (shouldTrigger) {
             await alertDoc.ref.update({ triggered: true });
-            writeNotification(userDoc.id, {
+            await writeNotification(userDoc.id, {
               type: 'alert',
               title: `Price Alert: $${alert.ticker}`,
               message: `$${alert.ticker} is now $${currentPrice.toFixed(2)} (${alert.direction === 'above' ? 'above' : 'below'} your target of $${alert.targetPrice.toFixed(2)})`,

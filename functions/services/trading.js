@@ -1535,14 +1535,14 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     // Trade limit notifications (fire-and-forget, after transaction)
     const tradesUsed = MAX_TRADES_PER_TICKER_24H - (result.remainingTrades || 0);
     if (tradesUsed >= 7 && tradesUsed < MAX_TRADES_PER_TICKER_24H) {
-      writeNotification(uid, {
+      await writeNotification(uid, {
         type: 'system',
         title: 'Trade Limit Warning',
         message: `You have ${tradesUsed}/${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker} in the last 24h.`,
         data: { ticker }
       });
     } else if (tradesUsed >= MAX_TRADES_PER_TICKER_24H) {
-      writeNotification(uid, {
+      await writeNotification(uid, {
         type: 'system',
         title: 'Trade Limit Reached',
         message: `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker}. This resets on a rolling 24h basis.`,
@@ -1642,7 +1642,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       // Notify on new achievements
       if (result.newAchievements && result.newAchievements.length > 0) {
         for (const achId of result.newAchievements) {
-          writeNotification(uid, {
+          await writeNotification(uid, {
             type: 'achievement',
             title: 'Achievement Unlocked!',
             message: `You earned: ${achId}`,

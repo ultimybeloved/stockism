@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -354,7 +354,7 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
         ],
         timestamp: new Date().toISOString()
       }]);
-    } catch (e) {}
+    } catch (e) { reportError(e, { where: 'IPO sold-out alert' }); }
   }
 
   return result;
@@ -449,7 +449,7 @@ exports.processIPOPriceJumps = functions.pubsub
             ],
             timestamp: new Date().toISOString()
           }]);
-        } catch (e) {}
+        } catch (e) { reportError(e, { where: 'IPO closed alert' }); }
       }
 
       return { processed: processedCount };

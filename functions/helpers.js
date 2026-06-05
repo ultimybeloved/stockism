@@ -3,6 +3,7 @@
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
 const axios = require('axios');
+const { reportError } = require('./sentry');
 const db = admin.firestore();
 
 // ============================================
@@ -418,7 +419,7 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
     );
     console.log(`Discord message sent successfully to channel ${channelId} (${channelType})`);
   } catch (error) {
-    console.error('Error sending Discord message:', error.response?.data || error.message);
+    reportError(error, { where: 'sendDiscordMessage', channelId, channelType, response: error.response?.data });
   }
 }
 
@@ -476,4 +477,5 @@ module.exports = {
   checkDiscordWall,
   sendDiscordMessage,
   sendMarketStatusAlert,
+  reportError,
 };

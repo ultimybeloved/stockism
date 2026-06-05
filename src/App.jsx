@@ -474,7 +474,7 @@ export default function App() {
         if (earnedAchievements.length > 0) {
           const achievement = ACHIEVEMENTS[earnedAchievements[0]];
           showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`);
-          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch(() => {}); } catch {}
+          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e)); } catch (e) { Sentry.captureException(e); }
         } else {
           let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
           if (isLastTrade) message += ` • This was your last trade on ${ticker} today`;
@@ -489,7 +489,7 @@ export default function App() {
         if (earnedAchievements.length > 0) {
           const achievement = ACHIEVEMENTS[earnedAchievements[0]];
           showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch(() => {}); } catch {}
+          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e)); } catch (e) { Sentry.captureException(e); }
         } else {
           showNotification('success', `Sold ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${profitText}, ${impactPercent}% impact)`);
         }
@@ -497,7 +497,7 @@ export default function App() {
         if (earnedAchievements.length > 0) {
           const achievement = ACHIEVEMENTS[earnedAchievements[0]];
           showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch(() => {}); } catch {}
+          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e)); } catch (e) { Sentry.captureException(e); }
         } else {
           let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
           if (isLastTrade) message += ` • This was your last trade on ${ticker} today`;
@@ -515,11 +515,11 @@ export default function App() {
         if (isColdBlooded && earnedAchievements.includes('COLD_BLOODED')) {
           const achievement = ACHIEVEMENTS['COLD_BLOODED'];
           showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-          try { achievementAlertFunction({ achievementId: 'COLD_BLOODED', achievementName: achievement.name, achievementDescription: achievement.description }).catch(() => {}); } catch {}
+          try { achievementAlertFunction({ achievementId: 'COLD_BLOODED', achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e)); } catch (e) { Sentry.captureException(e); }
         } else if (earnedAchievements.length > 0) {
           const achievement = ACHIEVEMENTS[earnedAchievements[0]];
           showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch(() => {}); } catch {}
+          try { achievementAlertFunction({ achievementId: earnedAchievements[0], achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e)); } catch (e) { Sentry.captureException(e); }
         } else {
           showNotification(profit >= 0 ? 'success' : 'error', `Covered ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${safeProfitMsg}, ${impactPercent}% impact)`);
         }

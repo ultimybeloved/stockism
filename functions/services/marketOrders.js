@@ -184,7 +184,7 @@ exports.processMarketOpenOrders = functions.pubsub
               fillShares = localFillShares;
             });
 
-            writeNotification(order.userId, {
+            await writeNotification(order.userId, {
               type: 'trade',
               title: 'Market Open Order Filled',
               message: `Your ${order.action} of ${fillShares} $${order.ticker} executed at $${executionPrice.toFixed(2)} in the opening auction`,
@@ -209,7 +209,7 @@ exports.processMarketOpenOrders = functions.pubsub
                 failReason: err.message,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
               });
-              writeNotification(order.userId, {
+              await writeNotification(order.userId, {
                 type: 'trade',
                 title: 'Market Open Order Failed',
                 message: `Your ${order.action} of ${order.shares} $${order.ticker} could not be filled: ${err.message}`,
@@ -333,7 +333,7 @@ exports.processMarketOpenOrders = functions.pubsub
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
           });
-          writeNotification(order.userId, {
+          await writeNotification(order.userId, {
             type: 'trade',
             title: 'Stop Loss Filled',
             message: `Your stop loss for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,

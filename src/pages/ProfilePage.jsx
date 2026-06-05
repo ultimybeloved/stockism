@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
+import * as Sentry from '@sentry/react';
 import { CREW_MAP } from '../crews';
 import PortfolioAnalytics from '../components/PortfolioAnalytics';
 import { getThemeClasses } from '../utils/theme';
@@ -24,7 +25,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
     const q = query(collection(db, 'users', user.uid, 'portfolioHistory'), orderBy('timestamp'));
     getDocs(q).then(snap => {
       if (!cancelled) setPortfolioHistory(snap.docs.map(d => d.data()));
-    }).catch(() => {});
+    }).catch((e) => Sentry.captureException(e));
     return () => { cancelled = true; };
   }, [user]);
 

@@ -12,7 +12,7 @@ const {
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
 } = require('../constants');
-const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError } = require('../helpers');
 
 exports.repayMargin = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -456,7 +456,7 @@ exports.checkShortMarginCalls = functions.pubsub
               tickerCoverCount[ticker] = (tickerCoverCount[ticker] || 0) + 1;
 
               // Notify user about margin call liquidation
-              writeNotification(userDoc.id, {
+              await writeNotification(userDoc.id, {
                 type: 'margin',
                 title: 'Margin Call - Position Liquidated',
                 message: `Your short on $${ticker} (${position.shares} shares) was force-covered due to low equity.`,
@@ -918,7 +918,7 @@ exports.checkMarginLending = functions.pubsub
                 color: 0xFF0000,
                 timestamp: new Date().toISOString()
               }]);
-            } catch (e) {}
+            } catch (e) { reportError(e, { where: 'margin liquidation alert' }); }
 
           } catch (error) {
             console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
