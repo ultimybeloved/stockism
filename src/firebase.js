@@ -14,6 +14,19 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Fail loudly if required build-time settings are missing, so a misconfigured Vercel
+// build throws a clear error instead of silently shipping a broken app to real users.
+const REQUIRED_ENV = {
+  VITE_FIREBASE_API_KEY: firebaseConfig.apiKey,
+  VITE_FIREBASE_AUTH_DOMAIN: firebaseConfig.authDomain,
+  VITE_FIREBASE_PROJECT_ID: firebaseConfig.projectId,
+  VITE_FIREBASE_APP_ID: firebaseConfig.appId,
+};
+const missingEnv = Object.entries(REQUIRED_ENV).filter(([, v]) => !v).map(([k]) => k);
+if (missingEnv.length > 0) {
+  throw new Error(`Missing required env vars: ${missingEnv.join(', ')}. Set them in the Vercel project settings.`);
+}
+
 const app = initializeApp(firebaseConfig);
 
 // Sandbox mode: when running against the local Firebase emulators (started via
@@ -33,6 +46,9 @@ if (!USE_EMULATOR) {
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
   }
 
+  if (!import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+    throw new Error('Missing VITE_RECAPTCHA_SITE_KEY — App Check cannot initialize. Set it in the Vercel project settings.');
+  }
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
     isTokenAutoRefreshEnabled: true

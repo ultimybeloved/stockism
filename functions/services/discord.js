@@ -7,7 +7,7 @@ const { verifyKey, InteractionType, InteractionResponseType } = require('discord
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
+const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
 const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 
@@ -25,6 +25,10 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
   try {
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    // NOTE: this redirect URI and the stockism.app domain (CORS above) are hardcoded and
+    // must exactly match the redirect URIs registered in the Discord Developer Portal
+    // (Stockism login app). If the domain, region, or project ID changes, update both
+    // places here AND the portal, or Discord login breaks.
     const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth';
 
     // Exchange code for access token
@@ -280,7 +284,7 @@ exports.dailyFreeStock = functions.pubsub
       }
     ];
 
-    await sendDiscordMessage(null, [embed], '1483767343581761658', components);
+    await sendDiscordMessage(null, [embed], DISCORD_DAILY_DROP_CHANNEL, components);
     console.log('Daily free stock claim message posted to channel 1483767343581761658');
     return null;
   });

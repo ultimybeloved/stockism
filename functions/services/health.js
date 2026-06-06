@@ -3,10 +3,7 @@
 const functions = require('firebase-functions');
 const axios = require('axios');
 const { sendDiscordMessage, reportError } = require('../helpers');
-
-// Channels the Updates bot must be able to reach. The daily-drop channel is hardcoded
-// in discord.js (dailyFreeStock); keep this in sync until both move to a shared constant.
-const DAILY_DROP_CHANNEL = '1483767343581761658';
+const { DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
 
 async function getDiscord(path, token) {
   return axios.get(`https://discord.com/api/v10${path}`, {
@@ -48,7 +45,7 @@ exports.discordHealthCheck = functions.pubsub
 
     // 2. Can the bot reach each channel it needs to post to?
     const channelIds = [...new Set([
-      DAILY_DROP_CHANNEL,
+      DISCORD_DAILY_DROP_CHANNEL,
       process.env.DISCORD_CHANNEL_ID,
       process.env.DISCORD_SIGNUP_CHANNEL_ID,
     ].filter(Boolean))];

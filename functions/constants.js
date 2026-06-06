@@ -193,8 +193,16 @@ const CREW_MISSION_REWARDS = {
 // ============================================
 // ADMIN
 // ============================================
-// Set via functions/.env in production; fallback for local dev only
+// Set via functions/.env in production; fallback for local dev only.
+// This is the admin account's Firebase UID — every admin-only function checks against it.
 const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
+
+// ============================================
+// DISCORD CHANNELS
+// ============================================
+// Channel the daily free-stock drop posts to. Used by discord.js (dailyFreeStock) and
+// health.js (discordHealthCheck) — single source of truth so the two can't drift.
+const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 
 module.exports = {
   BASE_IMPACT,
@@ -261,4 +269,5 @@ module.exports = {
   MISSION_REWARDS,
   CREW_MISSION_REWARDS,
   ADMIN_UID,
+  DISCORD_DAILY_DROP_CHANNEL,
 };
