@@ -1683,7 +1683,7 @@ export default function App() {
               return (
               <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
                 {visiblePredictions.map(prediction => {
-                  const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
+                  const totalInvested = getTotalInvested(activeUserData.holdings, activeUserData.costBasis, activeUserData.shorts);
                   const betLimit = Math.min(totalInvested, userData?.cash || 0);
 
                   return (

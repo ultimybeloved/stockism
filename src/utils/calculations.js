@@ -8,6 +8,7 @@ import {
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
+  MAX_PRICE_CHANGE_PERCENT,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -56,9 +57,12 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
  */
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
-  return currentPrice * BASE_IMPACT * (
+  const rawImpact = currentPrice * BASE_IMPACT * (
     Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
   );
+  // Match the backend (calculateMarginalImpact): a single trade moves the price by at
+  // most MAX_PRICE_CHANGE_PERCENT, so the preview can't overstate large trades.
+  return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
 };
 
 /**

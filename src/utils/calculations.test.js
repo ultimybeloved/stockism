@@ -165,6 +165,13 @@ describe('calculatePriceImpactDollars', () => {
     const afterBig = calculatePriceImpactDollars(100, 10, 100, 500);
     expect(afterBig).toBeLessThan(fresh);
   });
+
+  it('caps a single trade at 5% of price, matching the backend', () => {
+    // A massive trade would blow past 5% without the cap; the preview must not
+    // quote more impact than the backend actually applies.
+    const huge = calculatePriceImpactDollars(100, 1000000);
+    expect(huge).toBeCloseTo(100 * 0.05, 5);
+  });
 });
 
 // ─── getCurrentPrice ────────────────────────────────────────────────────────────
