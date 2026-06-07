@@ -75,8 +75,8 @@ exports.bailout = functions.https.onCall(async (data, context) => {
     const userData = userDoc.data();
     checkBanned(userData);
     checkDiscordWall(userData);
-    if ((userData.cash || 0) >= 0 && !userData.isBankrupt) {
-      throw new functions.https.HttpsError('failed-precondition', 'Not in debt.');
+    if (!userData.isBankrupt) {
+      throw new functions.https.HttpsError('failed-precondition', 'You can still recover. Sell or close a position to clear your debt. A bailout is only for a fully wiped out account.');
     }
 
     // Enforce 24-hour cooldown between bailouts

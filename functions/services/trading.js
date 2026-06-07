@@ -1369,7 +1369,7 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
       } else if (action === 'short') {
         txLogEntry.type = 'SHORT_OPEN';
         txLogEntry.entryPrice = executionPrice;
-        txLogEntry.marginRequired = currentPrice * amount * 0.5;
+        txLogEntry.marginRequired = currentPrice * amount * SHORT_MARGIN_RATIO;
       } else if (action === 'cover') {
         txLogEntry.type = 'SHORT_CLOSE';
         const shortCostBasis = shorts[ticker]?.costBasis || shorts[ticker]?.entryPrice || 0;

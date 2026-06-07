@@ -4,6 +4,7 @@ import { fireDailyRewardConfetti } from '../utils/confetti';
 import { CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import { getTodayDateString, toUTCDateString } from '../utils/date';
+import { BAILOUT_CASH } from '../constants';
 
 export function useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleDailyCheckin = useCallback(async () => {
@@ -40,9 +41,8 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
 
   const handleBailout = useCallback(async () => {
     if (!user || !userData) return;
-    const cash = userData.cash || 0;
-    if (cash >= 0) {
-      showNotification('error', 'You are not in debt.');
+    if (!userData.isBankrupt) {
+      showNotification('error', 'You can recover by selling or closing a position.');
       return;
     }
     setLoadingKey('bailout', true);
@@ -53,13 +53,13 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
         if (!prev) return prev;
         const exiled = [...(prev.exiledCrews || [])];
         if (currentCrew && !exiled.includes(currentCrew)) exiled.push(currentCrew);
-        return { ...prev, cash: 500, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, exiledCrews: exiled };
+        return { ...prev, cash: BAILOUT_CASH, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, exiledCrews: exiled };
       });
       if (result.data.hadCrew) {
         const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
-        showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with $500.`);
+        showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       } else {
-        showNotification('success', 'Bailout accepted. Starting fresh with $500.');
+        showNotification('success', `Bailout accepted. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       }
     } catch (err) {
       console.error('Bailout failed:', err);

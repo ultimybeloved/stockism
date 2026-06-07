@@ -107,6 +107,7 @@ import {
   ITEMS_PER_PAGE,
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
+  BAILOUT_CASH,
   IPO_TOTAL_SHARES,
   MIN_PRICE,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
@@ -1261,11 +1262,15 @@ export default function App() {
     if (!user || !userData) return;
 
     const cash = userData.cash || 0;
-    if (cash >= 0) return; // Not in debt
+    if (cash >= 0) return; // cash is fine
 
     const showBankruptcyReminder = () => {
       const debtAmount = Math.abs(cash);
-      showNotification('warning', `💸 You are ${formatCurrency(debtAmount)} in debt. Accept a bailout to reset to $500, but you'll be exiled from your crew forever.`);
+      if (userData.isBankrupt) {
+        showNotification('warning', `💸 You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`);
+      } else {
+        showNotification('warning', `💸 You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`);
+      }
     };
 
     // Show immediately on login/becoming bankrupt
@@ -1718,12 +1723,17 @@ export default function App() {
             <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : textClass}`}>
               {(activeUserData.cash || 0) < 0 ? '-' : ''}{formatCurrency(Math.abs(activeUserData.cash || 0))}
             </p>
-            {(activeUserData.cash || 0) < 0 && (
+            {(activeUserData.cash || 0) < 0 && !activeUserData.isBankrupt && (
+              <p className="mt-2 text-xs text-amber-500">
+                Sell or close a position to clear this.
+              </p>
+            )}
+            {activeUserData.isBankrupt && (
               <button
                 onClick={() => setShowBailout(true)}
                 className={`mt-2 w-full py-1.5 text-xs font-semibold rounded-sm text-white ${userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'}`}
               >
-                💸 In Debt - Request Bailout
+                💸 Wiped Out - Request Bailout
               </button>
             )}
             {(activeUserData.cash || 0) >= 0 && activeUserData.marginEnabled && (() => {
@@ -2143,7 +2153,7 @@ export default function App() {
           rerollLoading={actionLoading.rerollMissions}
         />
       )}
-      {showBailout && !isGuest && (userData?.cash || 0) < 0 && (
+      {showBailout && !isGuest && userData?.isBankrupt && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowBailout(false)}>
           <div
             className={`w-full max-w-md ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'} border rounded-sm shadow-xl p-6`}
@@ -2161,7 +2171,7 @@ export default function App() {
             </div>
 
             <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-slate-600'} mb-4 space-y-2`}>
-              <p>Accept a bailout to clear your debt and restart with <strong className={userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}>$500</strong>.</p>
+              <p>Accept a bailout to clear your debt and restart with <strong className={userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}>{formatCurrency(BAILOUT_CASH)}</strong>.</p>
               <p className="text-amber-500 font-semibold">⚠️ Consequences:</p>
               <ul className="list-disc ml-5 space-y-1">
                 <li>You will be <strong>permanently exiled</strong> from your current crew</li>
@@ -2184,7 +2194,7 @@ export default function App() {
                   setShowBailout(false);
                 }}
                 disabled={actionLoading.bailout}
-                className={`flex-1 py-2 rounded-sm text-white font-semibold ${userData?.colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} disabled:opacity-50`}
+                className={`flex-1 py-2 rounded-sm text-white font-semibold ${userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'} disabled:opacity-50`}
               >
                 {actionLoading.bailout ? 'Processing...' : 'Accept Bailout'}
               </button>
