@@ -1,6 +1,7 @@
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { formatShares } from './shared';
+import { SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_WARNING_THRESHOLD } from '../../constants/economy';
 
 // A single short-position row in the portfolio modal (collapsed summary + expanded
 // stats / equity ratio / cover controls).
@@ -15,7 +16,9 @@ const ShortRow = ({
   colorBlindMode,
 }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
-  const isAtRisk = item.equityRatio < 0.35; // Warning when below 35%
+  const isAtRisk = item.equityRatio < SHORT_MARGIN_WARNING_THRESHOLD;
+  const liqPrice = item.liquidationPrice;
+  const pctToLiq = liqPrice && item.currentPrice > 0 ? ((liqPrice - item.currentPrice) / item.currentPrice) * 100 : null;
 
   return (
     <div className={`rounded-sm border ${
@@ -42,6 +45,11 @@ const ShortRow = ({
               {formatShares(item.shares)} shares shorted
               {isAtRisk && <span className="text-orange-500 ml-2">⚠️ Margin Warning</span>}
             </div>
+            {liqPrice && (
+              <div className={`text-xs mt-0.5 ${isAtRisk ? 'text-orange-500 font-semibold' : mutedClass}`}>
+                Force-cover if it hits {formatCurrency(liqPrice)}{pctToLiq != null && pctToLiq > 0 ? ` (${pctToLiq.toFixed(0)}% above current)` : ''}
+              </div>
+            )}
           </div>
           <div className="text-right">
             <div className={`font-semibold ${item.totalPL >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
@@ -84,14 +92,14 @@ const ShortRow = ({
             <div className={`text-xs ${mutedClass} mb-1 flex justify-between`}>
               <span>Equity Ratio: {(item.equityRatio * 100).toFixed(1)}%</span>
               <span className={isAtRisk ? 'text-orange-500' : (colorBlindMode ? 'text-teal-500' : 'text-green-500')}>
-                {isAtRisk ? 'Liquidation at 25%' : 'Healthy'}
+                {liqPrice ? `Force-cover at ${formatCurrency(liqPrice)}` : 'Healthy'}
               </span>
             </div>
             <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
               <div
                 className={`h-full rounded-full ${
-                  item.equityRatio < 0.25 ? (colorBlindMode ? 'bg-purple-500' : 'bg-red-500') :
-                  item.equityRatio < 0.35 ? 'bg-orange-500' : (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
+                  item.equityRatio < SHORT_MARGIN_CALL_THRESHOLD ? (colorBlindMode ? 'bg-purple-500' : 'bg-red-500') :
+                  item.equityRatio < SHORT_MARGIN_WARNING_THRESHOLD ? 'bg-orange-500' : (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
                 }`}
                 style={{ width: `${Math.min(100, Math.max(0, item.equityRatio * 100))}%` }}
               />

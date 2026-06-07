@@ -13,7 +13,9 @@ import {
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
   MARGIN_CALL_THRESHOLD,
-  MARGIN_LIQUIDATION_THRESHOLD
+  MARGIN_LIQUIDATION_THRESHOLD,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  SHORT_MARGIN_WARNING_THRESHOLD
 } from '../constants/economy';
 import { CHARACTER_MAP } from '../characters';
 
@@ -63,6 +65,43 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
   // Match the backend (calculateMarginalImpact): a single trade moves the price by at
   // most MAX_PRICE_CHANGE_PERCENT, so the preview can't overstate large trades.
   return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
+};
+
+/**
+ * Price at which a short gets auto force-covered (its equity ratio hits
+ * SHORT_MARGIN_CALL_THRESHOLD). This is the price the ticker has to RISE to.
+ * Mirrors checkShortMarginCalls in functions/services/margin.js.
+ * @param {number} margin - collateral posted on the short
+ * @param {number} entryPrice - average short entry / cost basis
+ * @param {number} shares - shares shorted
+ * @returns {number|null} force-cover price, or null for an empty position
+ */
+export const getShortLiquidationPrice = (margin, entryPrice, shares) => {
+  if (!shares || shares <= 0) return null;
+  return (margin + entryPrice * shares) / (shares * (1 + SHORT_MARGIN_CALL_THRESHOLD));
+};
+
+/**
+ * Risk snapshot for an open short at the current price. Mirrors the equity-ratio
+ * check in checkShortMarginCalls (functions/services/margin.js).
+ * @param {Object} position - short position ({ shares, margin, costBasis/entryPrice })
+ * @param {number} currentPrice
+ * @returns {{equityRatio:number, liquidationPrice:number|null, isAtRisk:boolean, isCritical:boolean}|null}
+ */
+export const getShortRisk = (position, currentPrice) => {
+  if (!position || !(Number(position.shares) > 0)) return null;
+  const shares = Number(position.shares) || 0;
+  const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
+  const margin = Number(position.margin) || 0;
+  const equity = margin + (entryPrice - currentPrice) * shares;
+  const positionValue = currentPrice * shares;
+  const equityRatio = positionValue > 0 ? equity / positionValue : 1;
+  return {
+    equityRatio,
+    liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
+    isAtRisk: equityRatio < SHORT_MARGIN_WARNING_THRESHOLD,
+    isCritical: equityRatio < SHORT_MARGIN_CALL_THRESHOLD,
+  };
 };
 
 /**

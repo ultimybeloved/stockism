@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { DIVIDEND_RATES } from '../../constants/economy';
+import { getShortLiquidationPrice } from '../../utils/calculations';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
 import PortfolioChart from '../portfolio/PortfolioChart';
@@ -142,6 +143,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
           equity: safeEquity,
           equityRatio: isNaN(equityRatio) ? 1 : equityRatio,
           positionValue,
+          liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
           openedAt: position.openedAt
         };
       })

@@ -67,6 +67,7 @@ const StockPage         = lazy(() => import('./pages/StockPage'));
 // Import other components
 import CheckInButton from './components/CheckInButton';
 import CharacterCard from './components/CharacterCard';
+import ShortRiskAlert from './components/ShortRiskAlert';
 import { ToastNotification, ToastContainer } from './components/ToastNotification';
 import NotificationPanel from './components/NotificationPanel';
 import OnboardingTutorial from './components/OnboardingTutorial';
@@ -1996,6 +1997,8 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        <ShortRiskAlert onOpenPortfolio={() => setShowPortfolio(true)} />
 
         {/* Character Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

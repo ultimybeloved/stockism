@@ -4,6 +4,7 @@ import {
   calculatePortfolioValue,
   calculateMarginStatus,
   calculatePriceImpactDollars,
+  getShortLiquidationPrice,
   getCurrentPrice,
   getMarginTierMultiplier,
   getMarginTierName,
@@ -171,6 +172,20 @@ describe('calculatePriceImpactDollars', () => {
     // quote more impact than the backend actually applies.
     const huge = calculatePriceImpactDollars(100, 1000000);
     expect(huge).toBeCloseTo(100 * 0.05, 5);
+  });
+});
+
+// ─── getShortLiquidationPrice (the short force-cover price) ──────────────────────
+
+describe('getShortLiquidationPrice', () => {
+  it('returns null for an empty position', () => {
+    expect(getShortLiquidationPrice(0, 100, 0)).toBe(null);
+  });
+
+  it('force-covers ~60% above entry with 100% collateral', () => {
+    // margin = entryPrice * shares (dollar-for-dollar collateral)
+    const liq = getShortLiquidationPrice(1000, 100, 10);
+    expect(liq).toBeCloseTo(160, 5); // 1.6x the $100 entry
   });
 });
 

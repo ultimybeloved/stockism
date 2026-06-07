@@ -41,6 +41,7 @@ export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single 
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
 export const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
 export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
+export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
 export const MAX_SHORTS_BEFORE_COOLDOWN = 3; // Number of shorts allowed before cooldown kicks in
 

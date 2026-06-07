@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses } from '../utils/theme';
 import SimpleLineChart from './charts/SimpleLineChart';
+import ShortRiskTag from './ShortRiskTag';
 import TradeActionModal from './modals/TradeActionModal';
 import PreMarketModal from './modals/PreMarketModal';
 import { CREWS } from '../crews';
@@ -171,9 +172,6 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
   const isUp = chartChange >= 0;
   const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
-  // Calculate short P/L if shorted
-  const shortPL = shorted ? ((shortPosition.costBasis || shortPosition.entryPrice || 0) - price) * shortPosition.shares : 0;
-
   // Card rarity tier based on price (ETFs excluded)
   const getRarityClass = () => {
     if (isETF) return '';
@@ -295,11 +293,7 @@ const CharacterCard = ({ character, price, priceChange, sentiment, holdings, sho
           </div>
           <div className="flex gap-2">
             {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
-            {shorted && (
-              <span className={`text-xs font-semibold ${shortPL >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
-                {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}{formatCurrency(shortPL)})
-              </span>
-            )}
+            <ShortRiskTag shortPosition={shortPosition} ticker={character.ticker} price={price} colorBlindMode={colorBlindMode} />
           </div>
         </div>
 
