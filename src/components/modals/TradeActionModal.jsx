@@ -25,7 +25,10 @@ const pruneAndSumTradeHistory = (entries, now) => {
   const recent = (entries || []).filter(e => e.ts > cutoff);
   const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
   const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
-  return { recent, totalShares, totalImpact, count: recent.length };
+  // count = real trades only. Synthetic ETF trailing entries (shares: 0) feed the
+  // impact cap but must NOT count toward the 10-trades-per-ticker cap.
+  const realCount = recent.reduce((n, e) => n + ((e.shares || 0) > 0 ? 1 : 0), 0);
+  return { recent, totalShares, totalImpact, count: realCount };
 };
 
 
