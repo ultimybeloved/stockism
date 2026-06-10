@@ -2,39 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
-import { CREW_MAP } from '../../crews';
-import { getWeekId } from '../../crews';
+import { CREW_MAP, getWeekId, CREW_MISSION_REWARDS, CREW_CONTRIB } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+
+// Contribution fields stored booleans before June 2026; treat those as
+// qualifying until the Monday reset clears them (matches the backend).
+const meetsContribution = (value, threshold) =>
+  value === true || (typeof value === 'number' && value >= threshold);
 
 const CREW_MISSIONS = [
   {
     id: 'CREW_BUY_500',
     name: 'Buying Spree',
-    description: 'Your crew buys 1500 shares total this week.',
-    reward: 500,
+    description: `Your crew buys 1500 shares total this week. You must buy ${CREW_CONTRIB.BUY_SHARES}+ of them.`,
+    reward: CREW_MISSION_REWARDS.CREW_BUY_500,
     color: 'blue',
     getProgress: (d) => ({ value: d.buyCount || 0, target: 1500 }),
-    contributed: (d, uid) => !!d.contributorsBuy?.[uid],
+    contributed: (d, uid) => meetsContribution(d.contributorsBuy?.[uid], CREW_CONTRIB.BUY_SHARES),
   },
   {
     id: 'CREW_SELL_500',
     name: 'Liquidation Day',
-    description: 'Your crew sells 1500 shares total this week.',
-    reward: 400,
+    description: `Your crew sells 1500 shares total this week. You must sell ${CREW_CONTRIB.SELL_SHARES}+ of them.`,
+    reward: CREW_MISSION_REWARDS.CREW_SELL_500,
     color: 'blue',
     getProgress: (d) => ({ value: d.sellCount || 0, target: 1500 }),
-    contributed: (d, uid) => !!d.contributorsSell?.[uid],
+    contributed: (d, uid) => meetsContribution(d.contributorsSell?.[uid], CREW_CONTRIB.SELL_SHARES),
   },
   {
     id: 'CREW_VOLUME',
     name: 'High Volume',
-    description: 'Your crew reaches $20,000 in total trade volume this week.',
-    reward: 500,
+    description: `Your crew reaches $20,000 in total trade volume this week. You must trade $${CREW_CONTRIB.VOLUME}+ of it.`,
+    reward: CREW_MISSION_REWARDS.CREW_VOLUME,
     color: 'blue',
     getProgress: (d) => ({ value: d.tradeVolume || 0, target: 20000 }),
-    contributed: (d, uid) => !!d.contributorsVolume?.[uid],
+    contributed: (d, uid) => meetsContribution(d.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
     formatProgress: (v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`,
     formatTarget: () => '$20k',
   },
@@ -42,7 +46,7 @@ const CREW_MISSIONS = [
     id: 'CREW_RECRUIT',
     name: 'Open Recruitment',
     description: 'A new member joins your crew this week. Must have been in the crew before they joined.',
-    reward: 300,
+    reward: CREW_MISSION_REWARDS.CREW_RECRUIT,
     color: 'blue',
     getProgress: (d) => ({ value: Math.min(d.newMemberCount || 0, 1), target: 1 }),
     contributed: (d, uid, userData) => {
@@ -53,17 +57,19 @@ const CREW_MISSIONS = [
   {
     id: 'CREW_PUMP',
     name: 'Pump It Up',
-    description: 'Any crew stock rises 10% from its Monday price. Must have bought a crew stock this week.',
-    reward: 600,
+    description: 'Any crew stock rises 10% from its Monday price. You must have bought that stock this week.',
+    reward: CREW_MISSION_REWARDS.CREW_PUMP,
     color: 'blue',
     getProgress: () => ({ value: 0, target: 1, serverSide: true }),
+    // Which stock pumped is only known server-side; any pump buy shows the
+    // claim button and the server verifies the exact ticker.
     contributed: (d, uid) => !!d.contributorsPump?.[uid],
   },
   {
     id: 'CREW_FULL_ROSTER',
     name: 'Full Roster',
-    description: 'Every crew member stock is held by at least one person in your crew. Must hold a crew stock.',
-    reward: 750,
+    description: `Every crew member stock is held by at least one person in your crew. You must hold ${CREW_CONTRIB.ROSTER_HOLD}+ crew shares.`,
+    reward: CREW_MISSION_REWARDS.CREW_FULL_ROSTER,
     color: 'blue',
     getProgress: () => ({ value: 0, target: 1, serverSide: true }),
     contributed: (d, uid, userData) => {
@@ -71,7 +77,8 @@ const CREW_MISSIONS = [
       const crewInfo = crew ? CREW_MAP[crew] : null;
       const members = crewInfo?.members || [];
       const holdings = userData?.holdings || {};
-      return members.some(t => (holdings[t] || 0) > 0);
+      const heldCrewShares = members.reduce((s, t) => s + (holdings[t] || 0), 0);
+      return heldCrewShares >= CREW_CONTRIB.ROSTER_HOLD;
     },
   },
 ];

@@ -4,7 +4,8 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CREW_MEMBERS, MISSION_REWARDS } = require('../constants');
+const { CREW_MEMBERS } = require('../constants');
+const { getDailyMissions, getCrewWeeklyMissions, DAILY_MISSIONS, WEEKLY_MISSIONS } = require('../crews');
 const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall } = require('../helpers');
 
 // Server-side mission completion verification
@@ -24,7 +25,7 @@ const DAILY_MISSION_CHECKS = {
     const vals = Object.values(userData.holdings || {});
     return vals.length > 0 && Math.max(...vals) >= 50;
   },
-  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= 500,
+  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= DAILY_MISSIONS.TRADE_VOLUME.requirement,
   CREW_MAJORITY: (dp, userData) => {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
@@ -120,9 +121,13 @@ const WEEKLY_MISSION_CHECKS = {
     });
     return crewsOwned.size >= 5;
   },
+  // Growth is percentage-based so big accounts can't auto-complete on free
+  // cash income and small accounts aren't locked out by flat dollar targets
   PORTFOLIO_BUILDER: (wp, userData) => {
     const startValue = wp.startPortfolioValue || 0;
-    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 3500;
+    if (startValue <= 0) return false;
+    const growthPct = (((userData.portfolioValue || 0) - startValue) / startValue) * 100;
+    return growthPct >= WEEKLY_MISSIONS.PORTFOLIO_BUILDER.requirement;
   },
   SHARE_MOGUL: (wp) => (wp.tradeVolume || 0) >= 400,
   TRADE_MASTER: (wp) => (wp.tradeCount || 0) >= 75,
@@ -150,7 +155,9 @@ const WEEKLY_MISSION_CHECKS = {
   },
   PORTFOLIO_MOONSHOT: (wp, userData) => {
     const startValue = wp.startPortfolioValue || 0;
-    return startValue > 0 && (userData.portfolioValue || 0) - startValue >= 8000;
+    if (startValue <= 0) return false;
+    const growthPct = (((userData.portfolioValue || 0) - startValue) / startValue) * 100;
+    return growthPct >= WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT.requirement;
   }
 };
 
@@ -199,12 +206,24 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
       if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
     }
 
-    // Use server-defined reward amount (ignoring client-provided reward entirely)
-    const definedReward = MISSION_REWARDS[missionId];
-    if (!definedReward) {
-      throw new functions.https.HttpsError('invalid-argument', 'Unknown mission.');
+    // The mission must actually be assigned to this user today/this week.
+    // The client only shows assigned missions; without this check a direct
+    // call could claim every mission in the catalog each day.
+    if (!userData.crew) {
+      throw new functions.https.HttpsError('failed-precondition', 'Must be in a crew.');
     }
-    const reward = definedReward;
+    const rerollSeed = userData.weeklyMissions?.[weekId]?.rerollSeed || 0;
+    const assignedMissions = type === 'daily'
+      ? getDailyMissions(today, userData.crew, rerollSeed)
+      : getCrewWeeklyMissions(userData.crew, weekId, rerollSeed);
+    const assignedMission = assignedMissions.find((m) => m.id === missionId);
+    if (!assignedMission) {
+      throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
+    }
+
+    // Server-defined reward (ignoring client-provided values entirely).
+    // FULL_CREW_OWNERSHIP arrives pre-scaled by roster size.
+    const reward = assignedMission.reward;
 
     // Verify mission is actually completed server-side
     if (type === 'daily') {

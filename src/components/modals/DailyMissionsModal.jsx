@@ -131,13 +131,11 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         };
       }
       case 'CREW_LEADER': {
-        // This would require checking against all users - simplified to high holding
-        // For now, check if user owns 20+ of any crew member
         const maxCrewHolding = Math.max(0, ...crewMembers.map(ticker => holdings[ticker] || 0));
         return {
-          complete: maxCrewHolding >= 20,
+          complete: maxCrewHolding >= mission.requirement,
           progress: maxCrewHolding,
-          target: 20
+          target: mission.requirement
         };
       }
 
@@ -365,11 +363,12 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         };
       }
       case 'WEEKLY_PORTFOLIO_GROWTH': {
+        // requirement is percent growth from the week's starting value
         const startValue = wp.startPortfolioValue || portfolioValue;
-        const growth = portfolioValue - startValue;
+        const growthPct = startValue > 0 ? ((portfolioValue - startValue) / startValue) * 100 : 0;
         return {
-          complete: growth >= mission.requirement,
-          progress: Math.max(0, Math.floor(growth)),
+          complete: growthPct >= mission.requirement,
+          progress: Math.max(0, Math.floor(growthPct)),
           target: mission.requirement
         };
       }

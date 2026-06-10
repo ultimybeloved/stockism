@@ -181,10 +181,11 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Utility functions used by multiple service files go here
 - Never copy-paste a helper from one service file to another — move it to helpers.js
 
-**Characters** (`src/characters.js` and `functions/characters.js`)
-- `src/characters.js` is the **only file you ever edit**. Never touch `functions/characters.js` directly.
-- After editing `src/characters.js`, run `npm run sync:chars` — this overwrites `functions/characters.js` automatically.
-- Commit both files together, then deploy functions. If you forget the sync, all users get "Invalid ticker" errors for the new character.
+**Characters & crews** (`src/characters.js` + `src/crews.js` and their `functions/` copies)
+- `src/characters.js` and `src/crews.js` are the **only files you ever edit**. Never touch `functions/characters.js` or `functions/crews.js` directly — both are generated.
+- After editing either source file, run `npm run sync:chars` — it overwrites both `functions/` copies automatically.
+- Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
+- Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.js`; `functions/constants.js` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
 
 ### The Anti-Patterns That Created the Original Mess
 
