@@ -260,30 +260,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    function validateLimitOrder() {
-      let data = request.resource.data;
-      return (
-        // Required fields exist
-        'userId' in data &&
-        'ticker' in data &&
-        'type' in data &&
-        'shares' in data &&
-        'limitPrice' in data &&
-        'status' in data &&
-        'createdAt' in data &&
-
-        // Field types are correct
-        data.shares is int &&
-        data.shares > 0 &&
-        data.shares <= 10000 &&
-        data.limitPrice is number &&
-        data.limitPrice > 0 &&
-        data.limitPrice <= 10000 &&
-        data.type in ['BUY', 'SELL', 'SHORT', 'COVER'] &&
-        data.status == 'PENDING'
-      );
-    }
-
     // Limit order updates: users can only change status to CANCELED
     function validateLimitOrderUpdate() {
       let oldData = resource.data;
