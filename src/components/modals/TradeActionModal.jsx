@@ -15,6 +15,7 @@ import {
   calculateMarginStatus
 } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
+import MarginImpactPreview from '../trading/MarginImpactPreview';
 import { isWeeklyHalt, getMarketClosedState } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 
@@ -534,6 +535,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
               </span>
             </div>
           </div>
+        )}
+
+        {/* Margin usage preview (immediate buys that dip into borrowed money) */}
+        {action === 'buy' && !isLimitOrder && !isStopLoss && (
+          <MarginImpactPreview cost={config.total} userCash={userCash} />
         )}
 
         {/* Daily impact cap warnings (buy/short only) */}
