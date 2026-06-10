@@ -67,56 +67,37 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Validate that user updates don't touch trading-critical fields
+    // Allowlist: a non-admin user may only change this fixed set of harmless
+    // preference / UI fields on their own document. Everything else — cash,
+    // holdings, shorts, margin, missions, prediction (eventPositions), check-in
+    // state, display name, etc. — is managed server-side via Cloud Functions
+    // (the Admin SDK bypasses these rules).
+    //
+    // This is an allowlist on purpose. The previous version was a denylist that
+    // had to name every protected field, and it kept drifting out of sync with
+    // the schema — money fields like eventPositions, lastCheckin, and
+    // checkinStreak were left writable and became cash-printing exploits. With
+    // an allowlist, any new server-managed field is locked by default and a new
+    // client-writable preference is the only thing that ever needs adding here.
+    //
+    // Every entry below corresponds to a real client-side write to the user's
+    // own doc. If you add a new preference the client writes directly, add its
+    // top-level key here too.
     function validateSafeUserUpdate() {
-      let oldData = resource.data;
-      let newData = request.resource.data;
-
-      // Block updates to critical trading fields
-      // These must only be modified via executeTrade Cloud Function
-      return (
-        (!('cash' in newData) || newData.cash == oldData.cash) &&
-        (!('holdings' in newData) || newData.holdings == oldData.holdings) &&
-        (!('shorts' in newData) || newData.shorts == oldData.shorts) &&
-        (!('marginUsed' in newData) || newData.marginUsed == oldData.marginUsed) &&
-        (!('tickerTradeHistory' in newData) || newData.tickerTradeHistory == oldData.tickerTradeHistory) &&
-        (!('lastTradeTime' in newData) || newData.lastTradeTime == oldData.lastTradeTime) &&
-        (!('lastBuyTime' in newData) || newData.lastBuyTime == oldData.lastBuyTime) &&
-        // Block leaderboard/portfolio manipulation
-        (!('portfolioValue' in newData) || newData.portfolioValue == oldData.portfolioValue) &&
-        (!('peakPortfolioValue' in newData) || newData.peakPortfolioValue == oldData.peakPortfolioValue) &&
-        (!('portfolioHistory' in newData) || newData.portfolioHistory == oldData.portfolioHistory) &&
-        // Block achievement manipulation (awarded server-side via syncPortfolio)
-        (!('achievements' in newData) || newData.achievements == oldData.achievements) &&
-        // Block crew role manipulation (crew selection is allowed, role changes are not)
-        (!('crewRole' in newData) || newData.crewRole == oldData.crewRole) &&
-        // Block bankruptcy flag manipulation
-        (!('isBankrupt' in newData) || newData.isBankrupt == oldData.isBankrupt) &&
-        // Block bet manipulation
-        (!('bets' in newData) || newData.bets == oldData.bets) &&
-        // Block mission progress manipulation (tracked server-side in executeTrade)
-        (!('dailyMissions' in newData) || newData.dailyMissions == oldData.dailyMissions) &&
-        (!('weeklyMissions' in newData) || newData.weeklyMissions == oldData.weeklyMissions) &&
-        (!('totalTrades' in newData) || newData.totalTrades == oldData.totalTrades) &&
-        (!('totalMissionsCompleted' in newData) || newData.totalMissionsCompleted == oldData.totalMissionsCompleted) &&
-        // Block cost basis manipulation (tracked server-side)
-        (!('costBasis' in newData) || newData.costBasis == oldData.costBasis) &&
-        (!('lowestWhileHolding' in newData) || newData.lowestWhileHolding == oldData.lowestWhileHolding) &&
-        // Block dividend cohort manipulation (maintained server-side by executeTrade/payDividends)
-        (!('holdingCohorts' in newData) || newData.holdingCohorts == oldData.holdingCohorts) &&
-        // Block transaction log manipulation (logged server-side in trades collection)
-        (!('transactionLog' in newData) || newData.transactionLog == oldData.transactionLog) &&
-        // Block checkin/prediction/pin/badge manipulation (awarded server-side)
-        (!('totalCheckins' in newData) || newData.totalCheckins == oldData.totalCheckins) &&
-        (!('predictionWins' in newData) || newData.predictionWins == oldData.predictionWins) &&
-        (!('predictionStreak' in newData) || newData.predictionStreak == oldData.predictionStreak) &&
-        (!('pins' in newData) || newData.pins == oldData.pins) &&
-        (!('badges' in newData) || newData.badges == oldData.badges) &&
-        (!('crewIcon' in newData) || newData.crewIcon == oldData.crewIcon) &&
-        (!('lendingUnlocked' in newData) || newData.lendingUnlocked == oldData.lendingUnlocked) &&
-        // Block starting-cash unlock flag (set server-side on Discord link)
-        (!('startingCashUnlocked' in newData) || newData.startingCashUnlocked == oldData.startingCashUnlocked)
-      );
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'darkMode',                  // theme toggle (App.jsx)
+        'colorBlindMode',            // accessibility toggle (ProfileSettings/ProfileModal)
+        'isPublic',                  // public profile toggle (ProfileSettings/ProfileModal)
+        'onboardingComplete',        // first-run tutorial flag (App.jsx)
+        'marginTutorialCompleted',   // margin tutorial flag (App.jsx)
+        'ladderTutorial2Completed',  // ladder tutorial flag (LadderGame)
+        'watchlist',                 // personal watchlist (App.jsx)
+        'drip',                      // per-ticker dividend reinvest toggles (App.jsx/StockPage)
+        'displayedShopPins',         // pin display order (usePinShop)
+        'displayedAchievementPins',  // pin display order (usePinShop)
+        'displayCrewPin',            // crew pin display toggle (usePinShop)
+        'activeCosmetics'            // equipped cosmetics (usePinShop)
+      ]);
     }
     
     // ============================================

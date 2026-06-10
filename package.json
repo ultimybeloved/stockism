@@ -13,6 +13,7 @@
     "sync:chars": "node scripts/sync-chars.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"node scripts/test-rules-emulator.mjs\"",
     "lint": "eslint src --ext .js,.jsx",
     "deploy:functions": "node scripts/deploy-functions.cjs"
   },
