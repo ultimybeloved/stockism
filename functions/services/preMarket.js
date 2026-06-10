@@ -5,13 +5,15 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
-const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../constants');
+const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER } = require('../constants');
 
+// Placement closes at the lock (20:55), not at market open — the auction
+// settles opening prices at 20:56 while the market is still halted.
 const isPreMarketWindow = () => {
   const now = new Date();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return utcMins >= PRE_MARKET_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE;
+  return utcMins >= PRE_MARKET_START_MINUTE && utcMins < PRE_MARKET_LOCK_MINUTE;
 };
 
 const getThisWeeksPreMarketStart = () => {
@@ -29,7 +31,7 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
   if (!isPreMarketWindow()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Pre-market orders can only be placed between 20:30 and 21:00 UTC on Thursdays.'
+      'Pre-market orders can only be placed between 20:30 and 20:55 UTC on Thursdays.'
     );
   }
 
@@ -87,6 +89,24 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
   const marketSnap = await db.collection('market').doc('current').get();
   const currentPrice = marketSnap.data()?.prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
 
+  // Block orders on IPO-phase tickers that haven't launched — queued orders
+  // would otherwise bypass the IPO's per-user and supply limits entirely.
+  const launchedTickers = marketSnap.data()?.launchedTickers || [];
+  if (CHARACTER_MAP[ticker]?.ipoRequired && !launchedTickers.includes(ticker)) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+    );
+  }
+
+  // Anti-manipulation: no sell orders on a ticker you're short on (same rule as limit orders)
+  if (action === 'sell' && (userData.shorts?.[ticker]?.shares || 0) > 0) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Cannot place a sell order while you have an active short on this stock.'
+    );
+  }
+
   if (action === 'buy') {
     // Sum up cash already committed to other pending buy orders this session
     const pendingBuys = await db.collection('preMarketOrders')
@@ -96,23 +116,25 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
       .where('createdAt', '>=', preMarketStart)
       .get();
 
+    // Cost estimates include headroom for auction impact + spread, so a
+    // passing order can't become unaffordable at the opening ask.
     const allPrices = marketSnap.data()?.prices || {};
     const reservedCash = Math.round(
       pendingBuys.docs.reduce((sum, doc) => {
         const o = doc.data();
-        return sum + o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0);
+        return sum + o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0) * PRE_MARKET_MAX_BUY_BUFFER;
       }, 0) * 100
     ) / 100;
 
-    const estimatedCost = Math.round(shares * currentPrice * 100) / 100;
+    const estimatedCost = Math.round(shares * currentPrice * PRE_MARKET_MAX_BUY_BUFFER * 100) / 100;
     const availableCash = Math.round(((userData.cash || 0) - reservedCash) * 100) / 100;
 
     if (estimatedCost > availableCash) {
       throw new functions.https.HttpsError(
         'failed-precondition',
         reservedCash > 0
-          ? `Insufficient cash. Estimated cost: $${estimatedCost.toFixed(2)}, reserved by other orders: $${reservedCash.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
-          : `Insufficient cash. Estimated cost: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
+          ? `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, reserved by other orders: $${reservedCash.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
+          : `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
       );
     }
   } else {

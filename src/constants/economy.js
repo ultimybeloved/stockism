@@ -15,6 +15,11 @@ export const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
 export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
 
+// Pre-market max-buy headroom: the opening ask can sit up to ~5% (auction
+// impact cap) + spread above the queue-time price. Keep in sync with
+// functions/constants.js (PRE_MARKET_MAX_BUY_BUFFER).
+export const PRE_MARKET_MAX_BUY_BUFFER = 1.06;
+
 // IPO System Constants
 export const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
 export const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window

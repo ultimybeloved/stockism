@@ -260,4 +260,78 @@ exports.getWatchlist = functions.https.onCall(async (data, context) => {
 // Auto circuit breakers removed — organic price surges are expected behavior.
 // Use the manual market halt in the admin panel for genuine emergencies.
 
-// ============================================
+// ============================================
+// ============================================
+// TRADE-TIME WATCHED-IP TRACKING
+// ============================================
+// Called fire-and-forget from executeTrade after a successful buy/short.
+// If the trade came from a watched IP, auto-link unknown accounts to the
+// watched user and keep knownIPs fresh. (This used to live in the unused
+// validateTrade callable, where it never actually ran.)
+const trackWatchedIpTrade = async (uid, displayName, ip) => {
+  if (!ip || ip === 'unknown') return;
+  try {
+    const sanitizedIp = ip.replace(/[.:/]/g, '_');
+    const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedIp).get();
+    if (!watchedIpDoc.exists) return;
+
+    const { watchedUserId } = watchedIpDoc.data();
+    const watchedUserDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
+    if (!watchedUserDoc.exists || !watchedUserDoc.data().isActive) return;
+
+    const watchedData = watchedUserDoc.data();
+    const knownUIDs = (watchedData.linkedAccounts || []).map(a => a.uid);
+    knownUIDs.push(watchedUserId);
+
+    if (!knownUIDs.includes(uid)) {
+      // Unknown account trading from a watched IP — auto-link it
+      await db.collection('watchedUsers').doc(watchedUserId).update({
+        linkedAccounts: admin.firestore.FieldValue.arrayUnion({
+          uid,
+          displayName: displayName || uid,
+          linkedVia: 'ip',
+          ip,
+          linkedAt: Date.now()
+        }),
+        [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+        [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
+      });
+      await db.collection('watchlist_alerts').add({
+        type: 'account_linked',
+        watchedUID: watchedUserId,
+        relatedUID: uid,
+        ip,
+        action: 'linked',
+        details: `Auto-linked "${displayName || uid}" — traded from watched IP`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+      return;
+    }
+
+    // Known watched account — track IP freshness, flag genuinely new IPs
+    const knownIPs = watchedData.knownIPs || {};
+    if (!knownIPs[sanitizedIp]) {
+      await db.collection('watchedUsers').doc(watchedUserId).update({
+        [`knownIPs.${sanitizedIp}`]: { firstSeen: Date.now(), lastSeen: Date.now(), accounts: [uid] }
+      });
+      await db.collection('watchlist_alerts').add({
+        type: 'new_ip_detected',
+        watchedUID: watchedUserId,
+        relatedUID: uid,
+        ip,
+        action: 'flagged',
+        details: `Known watched account "${displayName || uid}" seen on new IP`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection('watchedUsers').doc(watchedUserId).update({
+        [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+        [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
+      });
+    }
+  } catch (err) {
+    console.error('trackWatchedIpTrade error:', err.message);
+  }
+};
+
+exports.trackWatchedIpTrade = trackWatchedIpTrade;

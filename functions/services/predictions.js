@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps } = require('../helpers');
 
 exports.placeBet = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -381,60 +381,12 @@ exports.processIPOPriceJumps = functions.pubsub
         return null;
       }
 
-      const ipoRef = db.collection('market').doc('ipos');
-      const marketRef = db.collection('market').doc('current');
-      const now = Date.now();
-
-      // Use a transaction to prevent double-firing if the scheduler runs twice
-      const { processedCount, discordNotifications } = await db.runTransaction(async (transaction) => {
-        const ipoSnap = await transaction.get(ipoRef);
-        if (!ipoSnap.exists) return { processedCount: 0, discordNotifications: [] };
-
-        const ipoData = ipoSnap.data();
-        const ipos = ipoData.list || [];
-        const mktSnap = await transaction.get(marketRef);
-        const mktData = mktSnap.exists ? mktSnap.data() : {};
-
-        let count = 0;
-        const updatedList = [...ipos];
-        const notifications = [];
-        const priceUpdates = {};
-        const historyUpdates = {};
-        const tickersToLaunch = [];
-
-        for (let i = 0; i < ipos.length; i++) {
-          const ipo = ipos[i];
-          const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
-          if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
-            const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
-            priceUpdates[`prices.${ipo.ticker}`] = newPrice;
-            historyUpdates[`priceHistory.${ipo.ticker}`] = admin.firestore.FieldValue.arrayUnion({
-              timestamp: now,
-              price: newPrice
-            });
-            tickersToLaunch.push(ipo.ticker);
-            updatedList[i] = { ...ipo, priceJumped: true };
-            count++;
-            console.log(`IPO price jump applied for ${ipo.ticker}: $${newPrice}`);
-
-            const ipoTotalShares = ipo.totalShares || 150;
-            const sharesSold = ipoTotalShares - (ipo.sharesRemaining || 0);
-            notifications.push({ ticker: ipo.ticker, newPrice, sharesSold, ipoTotalShares });
-          }
-        }
-
-        if (count > 0) {
-          transaction.update(marketRef, {
-            ...priceUpdates,
-            ...historyUpdates,
-            launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch)
-          });
-          transaction.update(ipoRef, { list: updatedList });
-          console.log(`Processed ${count} IPO price jumps`);
-        }
-
-        return { processedCount: count, discordNotifications: notifications };
-      });
+      // Shared jump logic (helpers.applyDueIPOJumps) — also run by the
+      // pre-market auction at 20:56 Thursday so jumps land before opening prices.
+      const discordNotifications = await applyDueIPOJumps();
+      if (discordNotifications.length > 0) {
+        console.log(`Processed ${discordNotifications.length} IPO price jumps`);
+      }
 
       // Send Discord notifications outside transaction (non-critical)
       for (const n of discordNotifications) {
@@ -452,9 +404,9 @@ exports.processIPOPriceJumps = functions.pubsub
         } catch (e) { reportError(e, { where: 'IPO closed alert' }); }
       }
 
-      return { processed: processedCount };
+      return { processed: discordNotifications.length };
     } catch (error) {
-      console.error('IPO price jump check failed:', error);
+      reportError(error, { where: 'processIPOPriceJumps' });
       return null;
     }
   });

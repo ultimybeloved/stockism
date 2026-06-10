@@ -50,7 +50,14 @@ const NINETY_DAYS_MS        = 90 * 24 * 60 * 60 * 1000;
 const WEEKLY_HALT_START_MINUTE = 780;  // 13 * 60
 const WEEKLY_HALT_END_MINUTE   = 1260; // 21 * 60
 const PRE_MARKET_START_MINUTE  = 1230; // 20:30 UTC
-const PRE_MARKET_LOCK_MINUTE   = 1255; // 20:55 UTC — no cancellations after this
+const PRE_MARKET_LOCK_MINUTE   = 1255; // 20:55 UTC — no placements or cancellations after this; auction settles 20:56
+// Max-buy headroom for pre-market orders: opening ask can sit up to ~5%
+// (auction impact cap) + spread above the queue-time price, so placement
+// validates against price * this buffer. Keep in sync with src/constants/economy.js.
+const PRE_MARKET_MAX_BUY_BUFFER = 1.06;
+// A single ticker's total short value (existing + new) can't exceed this
+// fraction of portfolio equity.
+const SHORT_CONCENTRATION_CAP = 0.5;
 
 const isWeeklyTradingHalt = () => {
   const now = new Date();
@@ -204,6 +211,8 @@ module.exports = {
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_START_MINUTE,
   PRE_MARKET_LOCK_MINUTE,
+  PRE_MARKET_MAX_BUY_BUFFER,
+  SHORT_CONCENTRATION_CAP,
   isWeeklyTradingHalt,
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,

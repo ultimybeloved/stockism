@@ -79,7 +79,63 @@ const {
   TWENTY_FOUR_HOURS_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+  IPO_PRICE_JUMP,
 } = require('./constants');
+
+// Apply the +15% price jump + launch for any IPO that has ended (or sold out)
+// but hasn't jumped yet. Shared by the 5-minute scheduler (predictions.js) and
+// the pre-market auction (marketOrders.js) — the auction runs it FIRST so the
+// jump and the auction's opening prices can never fight over the same ticker.
+// Returns [{ ticker, newPrice, sharesSold, ipoTotalShares }] for callers to announce.
+const applyDueIPOJumps = async () => {
+  const ipoRef = db.collection('market').doc('ipos');
+  const marketRef = db.collection('market').doc('current');
+  const now = Date.now();
+
+  return db.runTransaction(async (transaction) => {
+    const ipoSnap = await transaction.get(ipoRef);
+    if (!ipoSnap.exists) return [];
+
+    const ipos = ipoSnap.data().list || [];
+    const updatedList = [...ipos];
+    const notifications = [];
+    const marketUpdates = {};
+    const tickersToLaunch = [];
+
+    for (let i = 0; i < ipos.length; i++) {
+      const ipo = ipos[i];
+      const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
+      if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
+        const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+        marketUpdates[`prices.${ipo.ticker}`] = newPrice;
+        marketUpdates[`priceHistory.${ipo.ticker}`] = admin.firestore.FieldValue.arrayUnion({
+          timestamp: now,
+          price: newPrice
+        });
+        tickersToLaunch.push(ipo.ticker);
+        updatedList[i] = { ...ipo, priceJumped: true };
+
+        const ipoTotalShares = ipo.totalShares || 150;
+        notifications.push({
+          ticker: ipo.ticker,
+          newPrice,
+          sharesSold: ipoTotalShares - (ipo.sharesRemaining || 0),
+          ipoTotalShares
+        });
+      }
+    }
+
+    if (tickersToLaunch.length > 0) {
+      transaction.update(marketRef, {
+        ...marketUpdates,
+        launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch)
+      });
+      transaction.update(ipoRef, { list: updatedList });
+    }
+
+    return notifications;
+  });
+};
 
 const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) => {
   const rawMarginal = currentPrice * BASE_IMPACT * (
@@ -460,6 +516,7 @@ module.exports = {
   decrementCohort,
   graduateCohort,
   calculateMarginalImpact,
+  applyDueIPOJumps,
   isPriceProtected,
   getAccountAgeImpactFactor,
   getTotalInvested,

@@ -289,7 +289,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/watchlist.js` | IP watchlist, fraud detection |
 | `functions/services/archiving.js` | Data archiving and cleanup |
 | `functions/services/market.js` | Daily price snapshots, pre-halt saves, chapter recap (≤470 lines) |
-| `functions/services/marketOrders.js` | processMarketOpenOrders (limit/pre-market auction at halt end) + manual trigger |
+| `functions/services/marketOrders.js` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
+| `functions/services/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 
 ---
@@ -330,6 +331,8 @@ The market halts every **Thursday 13:00–21:00 UTC** for chapter review. This i
 - Backend: `functions/constants.js` (`WEEKLY_HALT_DAY`, `WEEKLY_HALT_START_HOUR`, `WEEKLY_HALT_END_HOUR`)
 
 Manual halts can also be triggered by an admin via the admin panel, which sets `marketData.marketHalted` in Firestore. Both halt types block all trades.
+
+Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`preMarket.js`), the lock hits at 20:55 (no new orders or cancellations), the opening auction + stop-loss sweep runs at 20:56 (`marketOrders.js`, applies any deferred IPO jumps first), and the market reopens clean at 21:00. If the auction run fails, the admin-only `triggerMarketOpenOrders` callable re-runs it idempotently.
 
 ---
 

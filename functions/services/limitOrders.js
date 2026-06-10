@@ -4,7 +4,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
 const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
 
@@ -65,10 +65,25 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while in debt.');
   }
 
-  // Fetch pending orders early (needed for validation checks below)
+  // Block orders on IPO-phase tickers that haven't launched — queued orders
+  // would otherwise bypass the IPO's per-user and supply limits entirely.
+  if (CHARACTER_MAP[ticker]?.ipoRequired) {
+    const marketSnap = await db.collection('market').doc('current').get();
+    const launchedTickers = marketSnap.data()?.launchedTickers || [];
+    if (!launchedTickers.includes(ticker)) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+      );
+    }
+  }
+
+  // Fetch active orders early (needed for validation checks below).
+  // PARTIALLY_FILLED orders are still live, so they count toward the cap,
+  // reserved shares, and the duplicate check just like PENDING ones.
   const pendingOrders = await db.collection('limitOrders')
     .where('userId', '==', uid)
-    .where('status', '==', 'PENDING')
+    .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
     .get();
 
   if (pendingOrders.size >= 20) {
@@ -86,7 +101,10 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
         const o = doc.data();
         return o.ticker === ticker && (o.type === 'SELL' || o.type === 'STOP_LOSS');
       })
-      .reduce((sum, doc) => sum + doc.data().shares, 0);
+      .reduce((sum, doc) => {
+        const o = doc.data();
+        return sum + (o.shares - (o.filledShares || 0)); // only the unfilled remainder is still reserved
+      }, 0);
     if (currentHoldings < shares + pendingSellShares) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings (some shares reserved by pending orders).');
     }
@@ -179,6 +197,7 @@ exports.checkLimitOrders = functions.pubsub
 
       const prices = marketData.prices || {};
       const haltedTickersMap = marketData.haltedTickers || {};
+      const launchedTickers = marketData.launchedTickers || [];
 
       // Get all pending limit orders
       const ordersSnapshot = await db.collection('limitOrders')
@@ -206,6 +225,17 @@ exports.checkLimitOrders = functions.pubsub
             await db.collection('limitOrders').doc(orderId).update({
               status: 'CANCELED',
               cancelReason: 'SHORT/COVER limit orders not supported',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            canceled++;
+            continue;
+          }
+
+          // Auto-cancel orders on tickers still in IPO phase (would bypass IPO limits)
+          if (CHARACTER_MAP[order.ticker]?.ipoRequired && !launchedTickers.includes(order.ticker)) {
+            await db.collection('limitOrders').doc(orderId).update({
+              status: 'CANCELED',
+              cancelReason: 'Stock is still in IPO phase',
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             canceled++;
@@ -381,6 +411,14 @@ exports.checkLimitOrders = functions.pubsub
                 const newMarketPrice = Math.round((freshPrice + effectiveImpact) * 100) / 100;
                 const askPrice = newMarketPrice * (1 + limitSpread / 2);
                 executedPrice = Math.round(askPrice * 100) / 100;
+
+                // Limit semantics: never fill above the user's limit price.
+                // The trigger checks the mid price, but execution pays the ask
+                // after impact — defer until the ask itself is within the limit.
+                if (executedPrice > order.limitPrice) {
+                  throw new Error('Ask price exceeds limit after impact and spread');
+                }
+
                 const totalCost = askPrice * fillShares;
 
                 // Re-validate with actual cost
@@ -430,6 +468,14 @@ exports.checkLimitOrders = functions.pubsub
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
                 const bidPrice = newMarketPrice * (1 - limitSpread / 2);
                 executedPrice = Math.round(bidPrice * 100) / 100;
+
+                // Limit semantics for SELL only: never fill below the user's
+                // limit price. Stop losses are exempt — they sell on the way
+                // down by design.
+                if (order.type === 'SELL' && executedPrice < order.limitPrice) {
+                  throw new Error('Bid price below limit after impact and spread');
+                }
+
                 const totalRevenue = bidPrice * fillShares;
 
                 const currentHoldings = userData.holdings?.[order.ticker] || 0;

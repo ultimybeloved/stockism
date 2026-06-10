@@ -82,8 +82,7 @@ export const fixBasePriceCliffsFunction = httpsCallable(functions, 'fixBasePrice
 export const triggerManualBackupFunction = httpsCallable(functions, 'triggerManualBackup');
 export const listBackupsFunction = httpsCallable(functions, 'listBackups');
 export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
-// Trade validation & anti-exploit
-export const validateTradeFunction = httpsCallable(functions, 'validateTrade');
+// Trade execution & anti-exploit
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
 export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
 export const banUserFunction = httpsCallable(functions, 'banUser');

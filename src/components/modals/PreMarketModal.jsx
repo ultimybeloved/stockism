@@ -5,13 +5,13 @@ import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices } from '../../utils/calculations';
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../utils/marketHours';
+import { PRE_MARKET_MAX_BUY_BUFFER } from '../../constants/economy';
 import { useAppContext } from '../../context/AppContext';
 
 const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 'buy', onClose }) => {
   const { darkMode, user, showNotification } = useAppContext();
   const [action, setAction] = useState(initialAction);
   const [shares, setShares] = useState(1);
-  const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(null);
   const [allOrders, setAllOrders] = useState([]);
@@ -64,15 +64,17 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   const locked = isPreMarketLockout();
   const myOrders = allOrders.filter(o => o.userId === user?.uid);
   const myActionOrder = myOrders.find(o => o.action === action);
+  // Buys leave headroom for the opening price to move up (impact cap + spread),
+  // so a max order can't become unaffordable at the opening ask.
   const maxShares = action === 'buy'
-    ? (price > 0 ? Math.round(Math.floor(userCash / price * 100) / 100 * 100) / 100 : 0)
+    ? (price > 0 ? Math.floor(userCash / (price * PRE_MARKET_MAX_BUY_BUFFER) * 100) / 100 : 0)
     : (holdings || 0);
 
   const handleSubmit = async () => {
     if (submitting || shares <= 0 || shares > maxShares) return;
     setSubmitting(true);
     try {
-      await createPreMarketOrderFunction({ ticker: character.ticker, action, shares, allowPartialFills });
+      await createPreMarketOrderFunction({ ticker: character.ticker, action, shares, allowPartialFills: true });
       showNotification('success', `${action === 'buy' ? 'Buy' : 'Sell'} order queued for the opening auction!`);
     } catch (err) {
       showNotification('error', err.message || 'Failed to queue order');
@@ -106,12 +108,13 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
         </div>
 
         <div className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}>
-          All queued orders execute at the same price when the market opens. Submitting early gives no advantage.
+          All queued orders execute at the same opening price. Submitting early gives no advantage.
+          Buys fill as many shares as your cash allows at that price.
           <span className="block mt-1 font-semibold">
-            {locked ? 'Orders locked — market opens in ' : 'Market opens in '}{countdown}
+            {locked ? 'Orders locked. Market opens in ' : 'Market opens in '}{countdown}
           </span>
           {locked && (
-            <span className="block mt-0.5 text-yellow-400 font-semibold">Cancellations are closed. All queued orders will execute.</span>
+            <span className="block mt-0.5 text-yellow-400 font-semibold">The queue is closed. Queued orders will execute before the open.</span>
           )}
         </div>
 
@@ -150,6 +153,10 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
           <div className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}>
             You already have a {action} order queued ({myActionOrder.shares} shares). Cancel it below to replace it.
           </div>
+        ) : locked ? (
+          <div className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}>
+            New orders are closed for this open. The queue reopens next Thursday at 20:30 UTC.
+          </div>
         ) : (
           <>
             <div className="mb-3">
@@ -175,11 +182,6 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
                 <p className="text-xs text-red-500 mt-1">{action === 'sell' ? 'No shares owned' : 'Insufficient funds'}</p>
               )}
             </div>
-
-            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-              <input type="checkbox" checked={allowPartialFills} onChange={e => setAllowPartialFills(e.target.checked)} className="w-4 h-4" />
-              <span className={`text-sm ${mutedClass}`}>Allow partial fill if opening price shifts</span>
-            </label>
 
             <button onClick={handleSubmit}
               disabled={submitting || shares <= 0 || shares > maxShares || maxShares === 0}
