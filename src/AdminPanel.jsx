@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
@@ -127,6 +127,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [watchedUsers, setWatchedUsers] = useState([]);
   const [watchlistAlerts, setWatchlistAlerts] = useState([]);
   const [watchlistLoaded, setWatchlistLoaded] = useState(false);
+  const [signupReport, setSignupReport] = useState(null);
+  const [signupHours, setSignupHours] = useState(48);
   const [watchAddUserId, setWatchAddUserId] = useState('');
   const [watchAddReason, setWatchAddReason] = useState('');
   const [watchAddMaxAccounts, setWatchAddMaxAccounts] = useState(1);
@@ -344,6 +346,43 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       setWatchlistLoaded(true);
     } catch (err) {
       showMessage('error', 'Failed to load watchlist: ' + (err.message || 'Unknown error'));
+    }
+    setLoading(false);
+  };
+
+  const loadRecentSignups = async () => {
+    setLoading(true);
+    try {
+      const result = await getRecentSignupReportFunction({ hoursBack: signupHours });
+      setSignupReport(result.data);
+    } catch (err) {
+      showMessage('error', 'Failed to pull signup report: ' + (err.message || 'Unknown error'));
+    }
+    setLoading(false);
+  };
+
+  const handleBanFromReport = async (userId, displayName) => {
+    if (!confirm(`Ban "${displayName}"? Their cash resets to $1,000 and they can no longer trade.`)) return;
+    setLoading(true);
+    try {
+      await banUserFunction({ userId, reason: 'Alt-ring signup (recent signup report)' });
+      showMessage('success', `Banned ${displayName}.`);
+      await loadRecentSignups();
+    } catch (err) {
+      showMessage('error', 'Ban failed: ' + (err.message || 'Unknown error'));
+      setLoading(false);
+    }
+  };
+
+  const handleWatchFromReport = async (userId, displayName) => {
+    if (!confirm(`Add "${displayName}" to the watchlist as the ring's reference account?`)) return;
+    setLoading(true);
+    try {
+      await addWatchedUserFunction({ userId, reason: 'Alt-ring (recent signup report)', maxAccountsPerIP: 1 });
+      showMessage('success', `Added ${displayName} to watchlist.`);
+      await loadWatchlist();
+    } catch (err) {
+      showMessage('error', 'Add to watchlist failed: ' + (err.message || 'Unknown error'));
     }
     setLoading(false);
   };
@@ -4503,6 +4542,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           setWatchAddMaxAccounts={setWatchAddMaxAccounts}
           handleAddWatchedUser={handleAddWatchedUser}
           handleAuditUsernames={handleAuditUsernames}
+          signupReport={signupReport}
+          signupHours={signupHours}
+          setSignupHours={setSignupHours}
+          loadRecentSignups={loadRecentSignups}
+          handleBanFromReport={handleBanFromReport}
+          handleWatchFromReport={handleWatchFromReport}
           watchedUsers={watchedUsers}
           watchlistLoaded={watchlistLoaded}
           handleRemoveWatchedUser={handleRemoveWatchedUser}

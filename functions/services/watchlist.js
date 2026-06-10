@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID } = require('../constants');
+const { normalizeEmail, clusterBy } = require('../signupCluster');
 
 exports.addWatchedUser = functions.https.onCall(async (data, context) => {
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
@@ -249,6 +250,89 @@ exports.getWatchlist = functions.https.onCall(async (data, context) => {
   }));
 
   return { watchedUsers, alerts };
+});
+
+/**
+ * Recent-signup alt-ring report (admin, read-only).
+ *
+ * Pulls accounts created in the last `hoursBack` hours, joins each to its
+ * Firebase Auth email (emails are not stored in Firestore) and the signupIp on
+ * its user doc, and clusters them by shared signup IP, email domain, and
+ * normalized gmail identity. This is how a VPN + temp-mail ring gets surfaced:
+ * rotated exit IPs and disposable domains repeat across a burst, and gmail
+ * dot/plus aliases collapse to one underlying account. Writes nothing.
+ */
+exports.getRecentSignupReport = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const hoursBack = Math.min(168, Math.max(1, Number(data && data.hoursBack) || 48));
+  const cutoff = Date.now() - hoursBack * 60 * 60 * 1000;
+
+  // Newest signups first; the window is applied in code. createdAt is a
+  // serverTimestamp set at creation, so the single-field index is automatic.
+  const snap = await db.collection('users')
+    .orderBy('createdAt', 'desc')
+    .limit(500)
+    .get();
+
+  const recent = [];
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const createdMs = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : null;
+    if (createdMs === null) continue;
+    if (createdMs < cutoff) break; // ordered desc — the rest are older
+    recent.push({ uid: doc.id, data: d, createdMs });
+  }
+
+  // Batch-fetch auth records (email, provider) in chunks of 100 (getUsers cap).
+  // Deleted auth users come back in notFound and are simply left without email.
+  const authByUid = new Map();
+  for (let i = 0; i < recent.length; i += 100) {
+    const chunk = recent.slice(i, i + 100).map(r => ({ uid: r.uid }));
+    try {
+      const res = await admin.auth().getUsers(chunk);
+      for (const u of res.users) authByUid.set(u.uid, u);
+    } catch (err) {
+      console.error('getRecentSignupReport getUsers chunk failed:', err.message);
+    }
+  }
+
+  const accounts = recent.map(({ uid, data: d, createdMs }) => {
+    const authRec = authByUid.get(uid);
+    const email = (authRec && authRec.email) || null;
+    const emailDomain = email && email.includes('@')
+      ? email.slice(email.lastIndexOf('@') + 1).toLowerCase()
+      : null;
+    const provider = (authRec && authRec.providerData && authRec.providerData[0] &&
+      authRec.providerData[0].providerId) || 'unknown';
+    return {
+      uid,
+      displayName: d.displayName || '(no name)',
+      // signupIp is stored sanitized (./:/ → _); un-sanitize for display. The
+      // value is consistent per network, so clustering on it stays correct.
+      signupIp: d.signupIp ? d.signupIp.replace(/_/g, '.') : null,
+      email,
+      emailDomain,
+      normalizedEmail: normalizeEmail(email),
+      provider,
+      createdAt: createdMs,
+      requiresDiscordLink: !!d.requiresDiscordLink,
+      hasDiscord: !!d.discordId,
+      isBanned: !!d.isBanned
+    };
+  });
+
+  return {
+    windowHours: hoursBack,
+    generatedAt: Date.now(),
+    totalSignups: accounts.length,
+    accounts,
+    clustersByIp: clusterBy(accounts, a => a.signupIp),
+    clustersByDomain: clusterBy(accounts, a => a.emailDomain),
+    clustersByGmail: clusterBy(accounts, a => a.normalizedEmail)
+  };
 });
 
 // ============================================

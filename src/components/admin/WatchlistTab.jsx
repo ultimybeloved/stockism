@@ -1,4 +1,5 @@
 import React from 'react';
+import RecentSignups from './watchlist/RecentSignups';
 
 const WatchlistTab = ({
   darkMode,
@@ -6,6 +7,12 @@ const WatchlistTab = ({
   mutedClass,
   inputClass,
   loading,
+  signupReport,
+  signupHours,
+  setSignupHours,
+  loadRecentSignups,
+  handleBanFromReport,
+  handleWatchFromReport,
   watchAddUserId,
   setWatchAddUserId,
   watchAddReason,
@@ -32,6 +39,21 @@ const WatchlistTab = ({
 }) => {
   return (
     <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
+
+      {/* Recent Signups / Alt Ring report */}
+      <RecentSignups
+        darkMode={darkMode}
+        textClass={textClass}
+        mutedClass={mutedClass}
+        inputClass={inputClass}
+        loading={loading}
+        signupReport={signupReport}
+        signupHours={signupHours}
+        setSignupHours={setSignupHours}
+        loadRecentSignups={loadRecentSignups}
+        onBan={handleBanFromReport}
+        onWatch={handleWatchFromReport}
+      />
 
       {/* Add to Watchlist */}
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-red-50'}`}>
