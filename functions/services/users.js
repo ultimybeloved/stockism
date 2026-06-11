@@ -7,6 +7,21 @@ const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS } = require('../constants');
 const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
+const { isDisposableEmail } = require('../disposableEmail');
+const { countIpAccounts } = require('../ipCap');
+
+// Deletes the orphaned Firebase Auth account left behind when a signup is hard-
+// blocked (disposable email, IP cap, watched IP). The browser creates the auth
+// login before calling createUser, so without this a blocked signup keeps a
+// usable login that can sit around and retry. Best-effort — never masks the
+// original block error. Never called for retryable failures (e.g. name taken).
+async function cleanupBlockedAuthUser(uid) {
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (e) {
+    console.error(`Failed to delete blocked auth user ${uid}:`, e.message);
+  }
+}
 
 /**
  * Creates a new user with case-insensitive unique username.
@@ -61,51 +76,42 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     );
   }
 
+  // Block disposable / temp-mail signups outright. The email comes from the
+  // verified auth token, so it can't be spoofed. This is the main defense
+  // against the throwaway-email alt ring — a rotating VPN beats the per-IP cap,
+  // but the temp-mail domain is the same vector every time.
+  const signupEmail = (context.auth.token && context.auth.token.email) || null;
+  if (isDisposableEmail(signupEmail)) {
+    const emailDomain = signupEmail.slice(signupEmail.lastIndexOf('@') + 1).toLowerCase();
+    await db.collection('watchlist_alerts').add({
+      type: 'signup_blocked',
+      relatedUID: uid,
+      ip: context.rawRequest?.ip || null,
+      action: 'blocked',
+      details: `Blocked signup "${trimmed}" — disposable email domain (${emailDomain})`,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+    await cleanupBlockedAuthUser(uid);
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Disposable email addresses are not allowed. Please sign up with a permanent email.'
+    );
+  }
+
   // Watched IP check — block alt accounts from watched IPs
   let autoLinkData = null;
   const signupIp = context.rawRequest?.ip || 'unknown';
   const sanitizedSignupIp = signupIp !== 'unknown' ? signupIp.replace(/[.:/]/g, '_') : null;
 
-  // Per-IP signup controls (admin exempt). One read of the IP's account history drives
-  // two things: (1) a hard cap block when the network is full, and (2) flagging this
-  // account for Discord verification when the network already has another account.
+  // Per-IP signup controls (admin exempt) are enforced INSIDE the create
+  // transaction below, not here. The old version read the IP count before the
+  // transaction and only recorded the new account afterward, so a burst of
+  // signups from one VPN exit IP all read the same stale count and all slipped
+  // past the cap. Doing the count-and-reserve inside the transaction makes it
+  // atomic: concurrent signups on the same IP serialize, so the 3rd correctly
+  // sees 2 and is rejected. `requiresDiscordLink` is set there too.
   let requiresDiscordLink = false;
-  if (uid !== ADMIN_UID && sanitizedSignupIp) {
-    try {
-      const ipTrackDoc = await db.collection('ipTracking').doc(sanitizedSignupIp).get();
-      const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
-      // Count live accounts plus recently-deleted ones: a deleted account holds its
-      // slot for IP_SLOT_RELEASE_MS so it can't be deleted-and-remade to dodge the cap.
-      const liveAccounts = Object.keys(ipTrackData.accounts || {}).length;
-      const capNow = Date.now();
-      const recentlyDeleted = Object.values(ipTrackData.deletedAccounts || {})
-        .filter(deletedAt => capNow - deletedAt < IP_SLOT_RELEASE_MS).length;
-      const effectiveAccounts = liveAccounts + recentlyDeleted;
-
-      // (2) Suspected alt: another live account already exists on this network, so make
-      // this one link Discord before it can do anything. The flag lifts once linked.
-      if (liveAccounts >= 1) requiresDiscordLink = true;
-
-      // (1) Hard cap block (when enabled).
-      if (IP_ACCOUNT_CAP_ENABLED && effectiveAccounts >= MAX_ACCOUNTS_PER_IP) {
-        await db.collection('watchlist_alerts').add({
-          type: 'signup_blocked',
-          relatedUID: uid,
-          ip: signupIp,
-          action: 'blocked',
-          details: `Blocked signup "${trimmed}" — network already has ${effectiveAccounts} account(s) (${liveAccounts} active, ${recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-        throw new functions.https.HttpsError(
-          'permission-denied',
-          `Account creation is limited to ${MAX_ACCOUNTS_PER_IP} accounts per network.`
-        );
-      }
-    } catch (capErr) {
-      if (capErr instanceof functions.https.HttpsError) throw capErr;
-      console.error('Signup IP check error:', capErr);
-    }
-  }
+  let capBlockInfo = null; // set by the transaction when the IP cap rejects this signup
 
   if (signupIp !== 'unknown') {
     try {
@@ -134,6 +140,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
               timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
 
+            await cleanupBlockedAuthUser(uid);
             throw new functions.https.HttpsError(
               'permission-denied',
               'Account creation temporarily restricted from this network.'
@@ -196,6 +203,31 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         );
       }
 
+      // IP cap (atomic). Read the IP's account history inside the transaction so
+      // the count-and-reserve can't race. Reserving this account's slot below is
+      // part of the same transaction as the user doc, so concurrent burst
+      // signups on one IP serialize and the cap holds exactly.
+      const ipTrackingRef = (uid !== ADMIN_UID && sanitizedSignupIp)
+        ? db.collection('ipTracking').doc(sanitizedSignupIp)
+        : null;
+      if (ipTrackingRef) {
+        const ipTrackDoc = await transaction.get(ipTrackingRef);
+        const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
+        const { liveAccounts, recentlyDeleted, effectiveAccounts } =
+          countIpAccounts(ipTrackData, uid, Date.now(), IP_SLOT_RELEASE_MS);
+
+        // Another live account already on this network → require Discord link.
+        if (liveAccounts >= 1) requiresDiscordLink = true;
+
+        if (IP_ACCOUNT_CAP_ENABLED && effectiveAccounts >= MAX_ACCOUNTS_PER_IP) {
+          capBlockInfo = { effectiveAccounts, liveAccounts, recentlyDeleted };
+          throw new functions.https.HttpsError(
+            'permission-denied',
+            `Account creation is limited to ${MAX_ACCOUNTS_PER_IP} accounts per network.`
+          );
+        }
+      }
+
       const now = admin.firestore.FieldValue.serverTimestamp();
 
       // Reserve the username
@@ -227,6 +259,16 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         signupIp: sanitizedSignupIp || null,
         requiresDiscordLink
       });
+
+      // Reserve this account's per-IP slot in the SAME transaction, so the cap
+      // count above and this write commit together (replaces the old post-commit
+      // ipTracking write that allowed the race).
+      if (ipTrackingRef) {
+        transaction.set(ipTrackingRef, {
+          accounts: { [uid]: Date.now() },
+          lastUpdated: Date.now()
+        }, { merge: true });
+      }
     });
 
     // Auto-link to watched user after successful account creation
@@ -305,21 +347,28 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       // Don't fail user creation if Discord notification fails
     }
 
-    // Record signup IP in ipTracking
-    if (signupIp !== 'unknown') {
-      try {
-        const sanitizedIp = signupIp.replace(/[.:/]/g, '_');
-        await db.collection('ipTracking').doc(sanitizedIp).set({
-          accounts: { [uid]: Date.now() },
-          lastUpdated: Date.now()
-        }, { merge: true });
-      } catch (e) {
-        console.error('Failed to record signup IP:', e);
-      }
-    }
+    // (signup IP is recorded inside the create transaction above — see "Reserve
+    // this account's per-IP slot")
 
     return { success: true };
   } catch (error) {
+    // IP cap rejected this signup: log the block alert and remove the orphaned
+    // auth login (done here, outside the transaction, so it runs exactly once).
+    if (capBlockInfo) {
+      try {
+        await db.collection('watchlist_alerts').add({
+          type: 'signup_blocked',
+          relatedUID: uid,
+          ip: signupIp !== 'unknown' ? signupIp : null,
+          action: 'blocked',
+          details: `Blocked signup "${trimmed}" — network already has ${capBlockInfo.effectiveAccounts} account(s) (${capBlockInfo.liveAccounts} active, ${capBlockInfo.recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (alertErr) {
+        console.error('Failed to write cap-block alert:', alertErr.message);
+      }
+      await cleanupBlockedAuthUser(uid);
+    }
     // Re-throw HttpsErrors as-is
     if (error instanceof functions.https.HttpsError) {
       throw error;
