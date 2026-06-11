@@ -5,8 +5,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { calculateMarginalImpact, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
+const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
 
 exports.createLimitOrder = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -396,7 +396,19 @@ exports.checkLimitOrders = functions.pubsub
                 throw new Error(`Trade limit reached: ${MAX_TRADES_PER_TICKER_24H} ${limitAction}s on ${order.ticker} in 24h`);
               }
 
-              const effectiveImpact = calculateMarginalImpact(freshPrice, fillShares, limitCumVolume);
+              // Daily 10% impact cap (same rule as executeTrade): the fill still
+              // executes, but stops moving the price once the user's daily impact
+              // allowance on this ticker is used up. New accounts move less.
+              let limitDailyImpact = 0;
+              for (const act of ['buy', 'sell', 'short', 'cover']) {
+                const { totalImpact } = pruneAndSumTradeHistory(limitTradeHistory[order.ticker]?.[act] || [], now);
+                limitDailyImpact += totalImpact;
+              }
+              const remainingLimitImpact = Math.max(0, MAX_DAILY_IMPACT - limitDailyImpact);
+              const effectiveImpact = Math.min(
+                calculateMarginalImpact(freshPrice, fillShares, limitCumVolume) * getAccountAgeImpactFactor(userData),
+                freshPrice * remainingLimitImpact
+              );
               const limitImpactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;
 
               // Execute the trade

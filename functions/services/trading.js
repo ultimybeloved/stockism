@@ -412,6 +412,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
         // Calculate marginal price impact (cumulative sell volume-based)
         priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
+        // Daily 10% impact cap: sells always execute (players must be able to
+        // exit), but once the cap is hit the trade stops moving the price.
+        const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
+        const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
+        priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
+
         newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
         executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
         totalCost = executionPrice * amount;
@@ -565,6 +571,12 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
 
         // Calculate marginal price impact (cumulative cover volume-based)
         priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+
+        // Daily 10% impact cap: covers always execute (players must be able to
+        // exit), but once the cap is hit the trade stops moving the price.
+        const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
+        const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
+        priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
 
         newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
         executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
@@ -1188,8 +1200,3 @@ exports.executeTrade = functions.https.onCall(async (data, context) => {
     );
   }
 });
-
-/**
- * Daily Checkin - Server-side cash reward with streak tracking
- * Prevents direct cash manipulation via security rules
- */

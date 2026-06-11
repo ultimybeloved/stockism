@@ -5,8 +5,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, pruneAndSumTradeHistory, applyDueIPOJumps, reportError } = require('../helpers');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -344,7 +344,19 @@ const runMarketOpenProcessing = async (trigger) => {
         const { totalShares: cumVol, count: tradeCount } = pruneAndSumTradeHistory(limitActionHistory, now);
         if (tradeCount >= MAX_TRADES_PER_TICKER_24H) throw new Error('Trade limit reached');
 
-        const effectiveImpact = calculateMarginalImpact(freshPrice, fillShares, cumVol);
+        // Daily 10% impact cap (same rule as executeTrade): the stop loss still
+        // fills, but stops moving the price once the user's daily impact
+        // allowance on this ticker is used up. New accounts move less.
+        let sweepDailyImpact = 0;
+        for (const act of ['buy', 'sell', 'short', 'cover']) {
+          const { totalImpact } = pruneAndSumTradeHistory(limitTradeHistory[order.ticker]?.[act] || [], now);
+          sweepDailyImpact += totalImpact;
+        }
+        const remainingSweepImpact = Math.max(0, MAX_DAILY_IMPACT - sweepDailyImpact);
+        const effectiveImpact = Math.min(
+          calculateMarginalImpact(freshPrice, fillShares, cumVol) * getAccountAgeImpactFactor(userData),
+          freshPrice * remainingSweepImpact
+        );
         const spread = getSpread(order.ticker);
         const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
         const bidPrice = newMarketPrice * (1 - spread / 2);
