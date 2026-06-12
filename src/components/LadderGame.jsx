@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
-import { LADDER_GAME_MAX_BALANCE } from '../constants/economy';
+import { LADDER_GAME_MAX_BALANCE, LADDER_DEPOSIT_WINDOW_MS } from '../constants/economy';
 import { getTotalInvested } from '../utils/calculations';
+import { calculateLadderWithdrawTax } from '../utils/ladderTax';
 import { useAppContext } from '../context/AppContext';
 import LadderTutorialModal from './LadderTutorialModal';
 
@@ -546,10 +547,12 @@ const LadderGame = ({ onClose }) => {
     }
     setWithdrawLoading(true);
     try {
-      await withdrawFromLadderGameFunction({ amount });
+      const result = await withdrawFromLadderGameFunction({ amount });
+      const { grossAmount, totalTax, netReceived } = result.data || {};
       setWithdrawAmount('');
       setShowTransferModal(false);
-      showNotification('success', `Withdrew $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ladder game`);
+      const money = (n) => (n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      showNotification('success', `Withdrew $${money(grossAmount ?? amount)}. Tax was $${money(totalTax)}. You received $${money(netReceived)}.`);
     } catch (error) {
       console.error('Withdrawal error:', error);
       showNotification('error', error.message || 'Withdrawal failed');
@@ -1165,6 +1168,18 @@ const LadderGame = ({ onClose }) => {
           const ladderFull = !noInvestment && maxDeposit <= 0;
           const capIsInvested = totalInvested < LADDER_GAME_MAX_BALANCE;
           const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          // Withdrawal tax preview. Mirrors the server math exactly; the server result is authoritative.
+          const withdrawAmt = parseFloat(withdrawAmount);
+          const hasRecentDeposit = (userLadderData?.recentDeposits || []).some(d => Date.now() - d.ts < LADDER_DEPOSIT_WINDOW_MS);
+          const taxPreview = (!isNaN(withdrawAmt) && withdrawAmt > 0 && withdrawAmt <= ladderBalance)
+            ? calculateLadderWithdrawTax({
+                amount: withdrawAmt,
+                totalDeposited: userLadderData?.totalDeposited || 0,
+                principalWithdrawn: userLadderData?.principalWithdrawn || 0,
+                profitWithdrawn: userLadderData?.profitWithdrawn || 0,
+                hasRecentDeposit,
+              })
+            : null;
           return (
             <div
               style={{
@@ -1298,9 +1313,14 @@ const LadderGame = ({ onClose }) => {
                     </p>
                     <p style={{ fontSize: '0.8rem', color: textLight, marginBottom: '10px' }}>
                       {ladderBalance > 0
-                        ? 'Move some or all of your ladder balance back to your main cash.'
+                        ? 'Move some or all of your ladder balance back to your main cash. Withdrawals are taxed.'
                         : 'No balance to withdraw.'}
                     </p>
+                    {hasRecentDeposit && ladderBalance > 0 && (
+                      <p style={{ fontSize: '0.8rem', color: '#e57373', marginBottom: '10px' }}>
+                        You deposited in the last 12 hours. A 15% rush fee applies to any withdrawal right now.
+                      </p>
+                    )}
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                       <input
                         type="number"
@@ -1330,6 +1350,20 @@ const LadderGame = ({ onClose }) => {
                         Max
                       </button>
                     </div>
+                    {taxPreview && (
+                      <div style={{ background: bgCardInner, border: '1px solid #666', padding: '8px 10px', marginBottom: '10px', fontSize: '0.8rem', color: textLight }}>
+                        {taxPreview.principalFee > 0 && (
+                          <p style={{ margin: '0 0 4px' }}>Fee on your own money back (5%): -${fmt(taxPreview.principalFee)}</p>
+                        )}
+                        {taxPreview.profitTax > 0 && (
+                          <p style={{ margin: '0 0 4px' }}>Tax on winnings: -${fmt(taxPreview.profitTax)}</p>
+                        )}
+                        {taxPreview.rushSurcharge > 0 && (
+                          <p style={{ margin: '0 0 4px' }}>Rush fee (deposited in the last 12 hours, 15%): -${fmt(taxPreview.rushSurcharge)}</p>
+                        )}
+                        <p style={{ margin: 0, fontWeight: 700, color: textDark }}>You receive ${fmt(taxPreview.netReceived)}</p>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleWithdraw}

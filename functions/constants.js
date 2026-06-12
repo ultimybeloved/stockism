@@ -147,6 +147,18 @@ const LADDER_HIGH_BET_THRESHOLD      = 50;    // bets at or above this count tow
 const LADDER_ACHIEVEMENT_PROFIT      = 2500;  // net profit needed for COMPULSIVE_GAMBLER achievement
 const LADDER_ACHIEVEMENT_HIGH_BETS   = 100;   // high-bet games needed for ADDICTED achievement
 
+// Withdrawal tax — keep in sync with src/constants/economy.js
+const LADDER_WITHDRAW_PRINCIPAL_FEE_RATE = 0.05; // flat 5% on the portion that is deposited principal coming back
+const LADDER_WITHDRAW_RUSH_RATE          = 0.15; // +15% of the whole withdrawal if any deposit landed within LADDER_DEPOSIT_WINDOW_MS
+// Lifetime-progressive brackets over cumulative profit withdrawn (not per-withdrawal,
+// so splitting withdrawals can't dodge a bracket). upTo = upper bound of cumulative
+// profit withdrawn that the rate applies to.
+const LADDER_WITHDRAW_PROFIT_BRACKETS = [
+  { upTo: 1000,     rate: 0.15 },
+  { upTo: 5000,     rate: 0.30 },
+  { upTo: Infinity, rate: 0.45 },
+];
+
 // ============================================
 // DISCORD ALERTS
 // ============================================
@@ -245,6 +257,9 @@ module.exports = {
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
   LADDER_ACHIEVEMENT_HIGH_BETS,
+  LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
+  LADDER_WITHDRAW_RUSH_RATE,
+  LADDER_WITHDRAW_PROFIT_BRACKETS,
   WHALE_ALERT_SHARES_SOFT,
   WHALE_ALERT_PRICE_SOFT,
   WHALE_ALERT_SHARES_HARD,

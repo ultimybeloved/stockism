@@ -23,6 +23,7 @@ Object.assign(exports, require('./services/discordAdmin'));
 Object.assign(exports, require('./services/dividends'));
 Object.assign(exports, require('./services/watchlist'));
 Object.assign(exports, require('./services/ladderGame'));
+Object.assign(exports, require('./services/ladderTransfers'));
 Object.assign(exports, require('./services/limitOrders'));
 Object.assign(exports, require('./services/missions'));
 Object.assign(exports, require('./services/predictions'));

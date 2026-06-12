@@ -73,6 +73,17 @@ export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for
 export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per user per ticker per day
 export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
+export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window (deposit cap + rush fee) — keep in sync with functions/constants.js
+
+// Ladder withdrawal tax — keep in sync with functions/constants.js
+export const LADDER_WITHDRAW_PRINCIPAL_FEE_RATE = 0.05; // flat 5% on the portion that is deposited principal coming back
+export const LADDER_WITHDRAW_RUSH_RATE = 0.15; // +15% of the whole withdrawal if any deposit landed within LADDER_DEPOSIT_WINDOW_MS
+// Lifetime-progressive brackets over cumulative profit withdrawn (not per-withdrawal).
+export const LADDER_WITHDRAW_PROFIT_BRACKETS = [
+  { upTo: 1000, rate: 0.15 },
+  { upTo: 5000, rate: 0.30 },
+  { upTo: Infinity, rate: 0.45 },
+];
 
 // Anti-manipulation: New Account Impact Reduction
 export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days
