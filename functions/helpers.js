@@ -280,7 +280,10 @@ const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker
 const BANNED_NAMES = [
   'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
   'official', 'system', 'root', 'owner', 'founder', 'manager',
-  'stockism', 'darthyg', 'darth_yg', 'darth', 'null', 'undefined',
+  // 'yg' blocks any name containing those letters adjacently (admin
+  // impersonation); underscores are stripped before matching, so y_g
+  // is caught too. Subsumes the old 'darthyg' / 'darth_yg' entries.
+  'stockism', 'yg', 'darth', 'null', 'undefined',
   'ricky'
 ];
 
