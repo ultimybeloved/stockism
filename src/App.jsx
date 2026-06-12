@@ -1337,7 +1337,7 @@ export default function App() {
   };
 
   // Guest data
-  const guestData = { cash: STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: STARTING_CASH };
+  const guestData = { cash: UNVERIFIED_STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: UNVERIFIED_STARTING_CASH };
   const activeUserData = userData || guestData;
   const isGuest = !user;
 
@@ -1777,7 +1777,7 @@ export default function App() {
 
               const colors24h = getColorBlindColors(change24h >= 0);
               // Unverified accounts start at the reduced amount; full once Discord-linked.
-              const startBaseline = (isGuest || userData?.startingCashUnlocked) ? STARTING_CASH : UNVERIFIED_STARTING_CASH;
+              const startBaseline = userData?.startingCashUnlocked ? STARTING_CASH : UNVERIFIED_STARTING_CASH;
 
               return (
                 <>
