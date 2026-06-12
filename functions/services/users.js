@@ -311,43 +311,8 @@ exports.createUser = functions.https.onCall(async (data, context) => {
       }
     }
 
-    // Send Discord notification for new user signup
-    try {
-      const authProvider = context.auth.token.firebase?.sign_in_provider || 'unknown';
-      const providerEmoji = {
-        'google.com': '🔵',
-        'twitter.com': '🐦',
-        'password': '📧',
-        'unknown': '🔑'
-      };
-
-      const embed = {
-        color: 0x00ff00, // Green
-        title: '🎉 New User Joined!',
-        description: `**${trimmed}** just joined Stockism`,
-        fields: [
-          {
-            name: 'Sign-up Method',
-            value: `${providerEmoji[authProvider] || '🔑'} ${authProvider === 'google.com' ? 'Google' : authProvider === 'twitter.com' ? 'Twitter' : authProvider === 'password' ? 'Email' : 'Other'}`,
-            inline: true
-          },
-          {
-            name: 'Starting Cash',
-            value: `$${UNVERIFIED_STARTING_CASH.toLocaleString()}`,
-            inline: true
-          }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: 'Stockism - Where Lookism characters become investments'
-        }
-      };
-
-      await sendDiscordMessage(null, [embed], 'signups');
-    } catch (discordError) {
-      console.error('Failed to send Discord signup notification:', discordError);
-      // Don't fail user creation if Discord notification fails
-    }
+    // Signup announcements to Discord were removed on purpose (June 2026):
+    // broadcasting new usernames was the troll-signup payoff. Don't add them back.
 
     // (signup IP is recorded inside the create transaction above — see "Reserve
     // this account's per-IP slot")
