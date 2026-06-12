@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS } = require('../constants');
 const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
-const { isDisposableEmail } = require('../disposableEmail');
+const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
 // Deletes the orphaned Firebase Auth account left behind when a signup is hard-
@@ -79,9 +79,11 @@ exports.createUser = functions.https.onCall(async (data, context) => {
   // Block disposable / temp-mail signups outright. The email comes from the
   // verified auth token, so it can't be spoofed. This is the main defense
   // against the throwaway-email alt ring — a rotating VPN beats the per-IP cap,
-  // but the temp-mail domain is the same vector every time.
+  // but the temp-mail domain is the same vector every time. The live check
+  // includes a daily-updated community list, so fresh rotating domains get
+  // blocked without a deploy; on network failure it degrades to bundled lists.
   const signupEmail = (context.auth.token && context.auth.token.email) || null;
-  if (isDisposableEmail(signupEmail)) {
+  if (await isDisposableEmailLive(signupEmail)) {
     const emailDomain = signupEmail.slice(signupEmail.lastIndexOf('@') + 1).toLowerCase();
     await db.collection('watchlist_alerts').add({
       type: 'signup_blocked',
