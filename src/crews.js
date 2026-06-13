@@ -91,7 +91,7 @@ export const PIN_COLLECTIONS = {
   alpha_rewards: {
     id: 'alpha_rewards',
     name: 'Alpha Tester Rewards',
-    active: true,
+    active: false, // retired from shop — kept so existing owners still display the badge
     limited: true,
     expiresAt: null,
     pins: ['alpha_tester']

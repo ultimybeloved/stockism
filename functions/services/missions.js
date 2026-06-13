@@ -375,7 +375,6 @@ exports.purchasePin = functions.https.onCall(async (data, context) => {
 
     if (action === 'buyPin') {
       const PIN_CATALOG = {
-        alpha_tester: { price: 1 },
         jay_j_high: { price: 750 },
         jace_j_high: { price: 750 },
         vasco_j_high: { price: 2000, requiredCheckinStreak: 5 },
