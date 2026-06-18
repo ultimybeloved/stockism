@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { checkBanned, checkDiscordWall } = require('../helpers');
@@ -14,7 +15,8 @@ const {
 // Deposits, withdrawals (incl. the withdrawal tax), and admin transfers live in
 // ./ladderTransfers.js.
 
-exports.playLadderGame = functions.https.onCall(async (data, context) => {
+exports.playLadderGame = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -205,7 +207,8 @@ exports.playLadderGame = functions.https.onCall(async (data, context) => {
   }
 });
 
-exports.getLadderLeaderboard = functions.https.onCall(async (data, context) => {
+exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   try {
     const ladderUsersSnap = await db.collection('ladderGameUsers')
       .orderBy('balance', 'desc')

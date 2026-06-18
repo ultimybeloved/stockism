@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { cf } = require('./fnConfig');
 const admin = require('firebase-admin');
 const {
   MIN_PRICE,
@@ -232,10 +232,9 @@ module.exports = {
    * Bot Trader - Runs every 3 minutes
    * Picks 3-6 random bots to make trades (5-10 on Thursdays)
    */
-  botTrader: functions
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  botTrader: cf({ timeoutSeconds: 540, memory: '512MB' })
     .pubsub
-    .schedule('every 3 minutes')
+    .schedule('every 30 minutes')
     .onRun(async (context) => {
       try {
         // Weekly trading halt: Thursday 13:00–21:00 UTC

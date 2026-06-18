@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -457,7 +458,7 @@ const runMarketOpenProcessing = async (trigger) => {
   return summary;
 };
 
-exports.processMarketOpenOrders = functions.pubsub
+exports.processMarketOpenOrders = cf().pubsub
   .schedule('56 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -474,7 +475,8 @@ exports.runMarketOpenProcessing = runMarketOpenProcessing;
 
 // Admin-only recovery: re-runs the same processing (idempotent — filled orders
 // are skipped) if the scheduled run failed or was missed.
-exports.triggerMarketOpenOrders = functions.https.onCall(async (data, context) => {
+exports.triggerMarketOpenOrders = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }

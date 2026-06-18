@@ -1,12 +1,14 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
 const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps } = require('../helpers');
 
-exports.placeBet = functions.https.onCall(async (data, context) => {
+exports.placeBet = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -101,7 +103,8 @@ exports.placeBet = functions.https.onCall(async (data, context) => {
 /**
  * Claim prediction payout (winning or losing)
  */
-exports.claimPredictionPayout = functions.https.onCall(async (data, context) => {
+exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -209,7 +212,8 @@ exports.claimPredictionPayout = functions.https.onCall(async (data, context) => 
 /**
  * Buy IPO shares
  */
-exports.buyIPOShares = functions.https.onCall(async (data, context) => {
+exports.buyIPOShares = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -364,8 +368,8 @@ exports.buyIPOShares = functions.https.onCall(async (data, context) => {
  * Process IPO Price Jumps - Scheduled every 5 minutes
  * Checks for ended IPOs that haven't had their price jump applied
  */
-exports.processIPOPriceJumps = functions.pubsub
-  .schedule('every 5 minutes')
+exports.processIPOPriceJumps = cf().pubsub
+  .schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {

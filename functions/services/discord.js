@@ -1,6 +1,6 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
@@ -12,7 +12,7 @@ const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 
 // Discord OAuth Authentication
-exports.discordAuth = functions.https.onRequest(async (req, res) => {
+exports.discordAuth = cf().https.onRequest(async (req, res) => {
   // Enable CORS
   res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
@@ -158,7 +158,7 @@ exports.discordAuth = functions.https.onRequest(async (req, res) => {
 });
 
 // Discord Link — links Discord to an existing Stockism account (no new account created)
-exports.discordLink = functions.https.onRequest(async (req, res) => {
+exports.discordLink = cf().https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
   const code = req.query.code;
@@ -248,7 +248,7 @@ exports.discordLink = functions.https.onRequest(async (req, res) => {
  * Daily scheduled function — posts the claim button to Discord.
  * Runs at 10 AM Eastern (14:00 UTC) every day.
  */
-exports.dailyFreeStock = functions.pubsub
+exports.dailyFreeStock = cf().pubsub
   .schedule('0 14 * * *')
   .timeZone('UTC')
   .onRun(async () => {

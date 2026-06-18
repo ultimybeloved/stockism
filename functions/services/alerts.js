@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -28,7 +29,8 @@ function censorUsername(username) {
  * Big Trade Alert - Triggered when large trades occur
  * Called from client after trade execution
  */
-exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
+exports.bigTradeAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -57,7 +59,8 @@ exports.bigTradeAlert = functions.https.onCall(async (data, context) => {
 /**
  * Crew Milestone Alert - Called when crew reaches member milestone
  */
-exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
+exports.crewMilestoneAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -79,7 +82,8 @@ exports.crewMilestoneAlert = functions.https.onCall(async (data, context) => {
 /**
  * Prediction Result Alert - Called when prediction is resolved
  */
-exports.predictionResultAlert = functions.https.onCall(async (data, context) => {
+exports.predictionResultAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -106,7 +110,8 @@ exports.predictionResultAlert = functions.https.onCall(async (data, context) => 
 /**
  * All-Time High Alert - Called when stock hits new ATH
  */
-exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
+exports.allTimeHighAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -132,7 +137,8 @@ exports.allTimeHighAlert = functions.https.onCall(async (data, context) => {
 /**
  * Portfolio Milestone Alert - Called when user hits major portfolio milestone
  */
-exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) => {
+exports.portfolioMilestoneAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -162,7 +168,8 @@ exports.portfolioMilestoneAlert = functions.https.onCall(async (data, context) =
 /**
  * IPO Announcement - Called when a new IPO is created
  */
-exports.ipoAnnouncementAlert = functions.https.onCall(async (data, context) => {
+exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -195,7 +202,8 @@ exports.ipoAnnouncementAlert = functions.https.onCall(async (data, context) => {
 /**
  * IPO Closing Results - Called when an IPO closes
  */
-exports.ipoClosingAlert = functions.https.onCall(async (data, context) => {
+exports.ipoClosingAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -222,7 +230,8 @@ exports.ipoClosingAlert = functions.https.onCall(async (data, context) => {
 /**
  * Bankruptcy Alert - Called when a user goes bankrupt (censored name)
  */
-exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
+exports.bankruptcyAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -260,7 +269,8 @@ exports.bankruptcyAlert = functions.https.onCall(async (data, context) => {
 /**
  * Comeback Story Alert - Called when someone recovers from near-bankruptcy (censored name)
  */
-exports.comebackAlert = functions.https.onCall(async (data, context) => {
+exports.comebackAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -308,8 +318,8 @@ exports.comebackAlert = functions.https.onCall(async (data, context) => {
  * Price Threshold Alert - Runs every 30 minutes
  * Alerts when stocks cross significant 24h thresholds (3%, 5%, 10%)
  */
-exports.priceThresholdAlert = functions.pubsub
-  .schedule('*/30 * * * *')
+exports.priceThresholdAlert = cf().pubsub
+  .schedule('0 */6 * * *')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {
@@ -392,7 +402,8 @@ exports.priceThresholdAlert = functions.pubsub
 /**
  * Achievement Alert - Called when someone unlocks an achievement
  */
-exports.achievementAlert = functions.https.onCall(async (data, context) => {
+exports.achievementAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -438,7 +449,8 @@ exports.achievementAlert = functions.https.onCall(async (data, context) => {
 /**
  * Leaderboard Change Alert - Called when someone enters/exits top 10
  */
-exports.leaderboardChangeAlert = functions.https.onCall(async (data, context) => {
+exports.leaderboardChangeAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -502,7 +514,8 @@ exports.leaderboardChangeAlert = functions.https.onCall(async (data, context) =>
 /**
  * Margin Liquidation Alert - Called when someone gets liquidated
  */
-exports.marginLiquidationAlert = functions.https.onCall(async (data, context) => {
+exports.marginLiquidationAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -545,7 +558,8 @@ exports.marginLiquidationAlert = functions.https.onCall(async (data, context) =>
  * Create a price alert for a ticker
  * Max 10 active alerts per user
  */
-exports.createPriceAlert = functions.https.onCall(async (data, context) => {
+exports.createPriceAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -590,7 +604,8 @@ exports.createPriceAlert = functions.https.onCall(async (data, context) => {
 /**
  * Delete a price alert
  */
-exports.deletePriceAlert = functions.https.onCall(async (data, context) => {
+exports.deletePriceAlert = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -609,8 +624,8 @@ exports.deletePriceAlert = functions.https.onCall(async (data, context) => {
 /**
  * Check price alerts - runs on same schedule as limit orders (every 2 min)
  */
-exports.checkPriceAlerts = functions.pubsub
-  .schedule('every 2 minutes')
+exports.checkPriceAlerts = cf().pubsub
+  .schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
     try {

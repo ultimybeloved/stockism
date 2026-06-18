@@ -7,6 +7,7 @@
 // the admin panel (same pattern as weekly predictions); buying, selling, and
 // settlement run here on the server.
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
@@ -35,7 +36,8 @@ const HALT_MSG = 'Market closed for chapter review. Trading resumes at 21:00 UTC
 /**
  * Buy event shares of one outcome at the current AMM price.
  */
-exports.buyEventShares = functions.https.onCall(async (data, context) => {
+exports.buyEventShares = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -124,7 +126,8 @@ exports.buyEventShares = functions.https.onCall(async (data, context) => {
 /**
  * Sell event shares of one outcome back to the AMM at the current price.
  */
-exports.sellEventShares = functions.https.onCall(async (data, context) => {
+exports.sellEventShares = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -309,8 +312,8 @@ async function settleResolvedEventMarkets() {
   return { settled: marketsSettled };
 }
 
-exports.processEventSettlements = functions.pubsub
-  .schedule('every 5 minutes')
+exports.processEventSettlements = cf().pubsub
+  .schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
     try {
@@ -324,7 +327,8 @@ exports.processEventSettlements = functions.pubsub
 /**
  * Admin: settle resolved markets immediately instead of waiting for the cron.
  */
-exports.triggerEventSettlements = functions.https.onCall(async (data, context) => {
+exports.triggerEventSettlements = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -338,7 +342,8 @@ exports.triggerEventSettlements = functions.https.onCall(async (data, context) =
  * (which blocks further trading) and settled (so the settlement cron ignores
  * it). Safe to retry: positions already marked settled are skipped.
  */
-exports.cancelEventMarket = functions.https.onCall(async (data, context) => {
+exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }

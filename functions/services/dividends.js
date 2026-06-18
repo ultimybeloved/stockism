@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -221,8 +222,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
  * Pays holders of 'blue-chip' / 'dividend' / ETF stocks whose shares have
  * cleared the 10-day holding period.
  */
-exports.payDividends = functions
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+exports.payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
   .pubsub
   .schedule('58 12 * * 4')
   .timeZone('UTC')
@@ -240,9 +240,9 @@ exports.payDividends = functions
  * Admin-only manual trigger for dividend payouts. Useful for testing, or to
  * re-run if the scheduled function failed.
  */
-exports.runDividendPayoutNow = functions
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+exports.runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' })
   .https.onCall(async (data, context) => {
+    requireAppCheck(context);
     if (!context.auth || context.auth.uid !== ADMIN_UID) {
       throw new functions.https.HttpsError('permission-denied', 'Admin only.');
     }
@@ -255,9 +255,9 @@ exports.runDividendPayoutNow = functions
  * Safe to re-run — users who already have a non-empty `holdingCohorts` are
  * skipped unless `force: true` is passed.
  */
-exports.backfillHoldingCohorts = functions
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+exports.backfillHoldingCohorts = cf({ timeoutSeconds: 540, memory: '512MB' })
   .https.onCall(async (data, context) => {
+    requireAppCheck(context);
     if (!context.auth || context.auth.uid !== ADMIN_UID) {
       throw new functions.https.HttpsError('permission-denied', 'Admin only.');
     }

@@ -1,13 +1,15 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID } = require('../constants');
 const { normalizeEmail, clusterBy } = require('../signupCluster');
 
-exports.addWatchedUser = functions.https.onCall(async (data, context) => {
+exports.addWatchedUser = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -73,7 +75,8 @@ exports.addWatchedUser = functions.https.onCall(async (data, context) => {
 /**
  * Remove (deactivate) a user from the watchlist
  */
-exports.removeWatchedUser = functions.https.onCall(async (data, context) => {
+exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -113,7 +116,8 @@ exports.removeWatchedUser = functions.https.onCall(async (data, context) => {
 /**
  * Manually link an alt account to a watched user
  */
-exports.linkAltAccount = functions.https.onCall(async (data, context) => {
+exports.linkAltAccount = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -165,7 +169,8 @@ exports.linkAltAccount = functions.https.onCall(async (data, context) => {
 /**
  * Add an IP address to a watched user
  */
-exports.addWatchedIP = functions.https.onCall(async (data, context) => {
+exports.addWatchedIP = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -215,7 +220,8 @@ exports.addWatchedIP = functions.https.onCall(async (data, context) => {
 /**
  * Get all active watched users (admin panel)
  */
-exports.getWatchlist = functions.https.onCall(async (data, context) => {
+exports.getWatchlist = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -262,7 +268,8 @@ exports.getWatchlist = functions.https.onCall(async (data, context) => {
  * rotated exit IPs and disposable domains repeat across a burst, and gmail
  * dot/plus aliases collapse to one underlying account. Writes nothing.
  */
-exports.getRecentSignupReport = functions.https.onCall(async (data, context) => {
+exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }

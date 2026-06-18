@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
@@ -29,7 +30,8 @@ const { trackWatchedIpTrade } = require('./watchlist');
  * Executes trades atomically in a Firestore transaction
  * Prevents price manipulation by enforcing 10% daily impact limit
  */
-exports.executeTrade = functions.https.onCall(async (data, context) => {
+exports.executeTrade = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(

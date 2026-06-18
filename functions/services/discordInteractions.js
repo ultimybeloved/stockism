@@ -1,6 +1,6 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
@@ -48,7 +48,7 @@ async function rollDailyStock() {
   return { picks, isJackpot };
 }
 
-exports.discordInteractions = functions.https.onRequest(async (req, res) => {
+exports.discordInteractions = cf().https.onRequest(async (req, res) => {
   // Only accept POST
   if (req.method !== 'POST') {
     return res.status(405).send('Method not allowed');

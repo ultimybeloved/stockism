@@ -1,6 +1,6 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -34,8 +34,8 @@ const NON_ETF_TICKERS = new Set(
  * than 12% in either direction. Uses the same marginal-impact formula as real
  * trades so the correction is proportionate and can't overshoot.
  */
-exports.marketMakerCycle = functions.pubsub
-  .schedule('*/15 * * * *')
+exports.marketMakerCycle = cf().pubsub
+  .schedule('0 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     // Never run during the weekly Thursday halt (13:00–21:00 UTC)

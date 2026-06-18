@@ -9,6 +9,7 @@
     "lint": "eslint services/ helpers.js constants.js"
   },
   "dependencies": {
+    "@google-cloud/billing": "^5.1.2",
     "@sentry/node": "^10.52.0",
     "axios": "^1.7.9",
     "discord-interactions": "^4.4.0",

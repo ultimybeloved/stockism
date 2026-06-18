@@ -35,3 +35,4 @@ Object.assign(exports, require('./services/preMarket'));
 Object.assign(exports, require('./services/marketMaker'));
 Object.assign(exports, require('./services/crewMissions'));
 Object.assign(exports, require('./services/health'));
+Object.assign(exports, require('./services/billing'));

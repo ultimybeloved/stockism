@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { checkBanned, checkDiscordWall, getTotalInvested } = require('../helpers');
@@ -52,7 +53,8 @@ const calculateLadderWithdrawTax = ({ amount, totalDeposited, principalWithdrawn
 /**
  * Deposit from Stockism cash to ladder game balance (one-way)
  */
-exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
+exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -179,7 +181,8 @@ exports.depositToLadderGame = functions.https.onCall(async (data, context) => {
  * Principal back pays a flat fee, profit pays lifetime bracket rates, and a
  * rush surcharge applies if any deposit landed within the last 12 hours.
  */
-exports.withdrawFromLadderGame = functions.https.onCall(async (data, context) => {
+exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -268,7 +271,8 @@ exports.withdrawFromLadderGame = functions.https.onCall(async (data, context) =>
  * moves cash -> ladder; a negative amount moves balance back ladder -> cash.
  * Creates the ladder doc if the user has never played.
  */
-exports.adminTransferToLadder = functions.https.onCall(async (data, context) => {
+exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }

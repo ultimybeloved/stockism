@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
@@ -14,7 +15,8 @@ const {
 } = require('../constants');
 const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError } = require('../helpers');
 
-exports.repayMargin = functions.https.onCall(async (data, context) => {
+exports.repayMargin = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -60,7 +62,8 @@ exports.repayMargin = functions.https.onCall(async (data, context) => {
 /**
  * Bankruptcy bailout - reset to $500
  */
-exports.bailout = functions.https.onCall(async (data, context) => {
+exports.bailout = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -118,7 +121,8 @@ exports.bailout = functions.https.onCall(async (data, context) => {
 /**
  * Leave crew with 15% penalty
  */
-exports.leaveCrew = functions.https.onCall(async (data, context) => {
+exports.leaveCrew = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -184,7 +188,8 @@ exports.leaveCrew = functions.https.onCall(async (data, context) => {
 /**
  * Toggle margin trading (enable/disable)
  */
-exports.toggleMargin = functions.https.onCall(async (data, context) => {
+exports.toggleMargin = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -230,7 +235,8 @@ exports.toggleMargin = functions.https.onCall(async (data, context) => {
 /**
  * Charge daily margin interest
  */
-exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
+exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -271,8 +277,8 @@ exports.chargeMarginInterest = functions.https.onCall(async (data, context) => {
  * If equity ratio drops below 25%, force-covers the position
  * Uses 50% dampened price impact to prevent cascading short squeezes
  */
-exports.checkShortMarginCalls = functions.pubsub
-  .schedule('every 5 minutes')
+exports.checkShortMarginCalls = cf().pubsub
+  .schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {
@@ -484,7 +490,8 @@ exports.checkShortMarginCalls = functions.pubsub
  * Updates portfolioValue, portfolioHistory, peakPortfolioValue, and achievements
  * Called by clients instead of writing these fields directly (blocked by security rules)
  */
-exports.syncPortfolio = functions.https.onCall(async (data, context) => {
+exports.syncPortfolio = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -788,8 +795,8 @@ exports.syncPortfolio = functions.https.onCall(async (data, context) => {
  * Check Margin Lending - Scheduled every 5 minutes
  * Monitors users with margin debt and auto-liquidates if equity drops too low
  */
-exports.checkMarginLending = functions.pubsub
-  .schedule('every 5 minutes')
+exports.checkMarginLending = cf().pubsub
+  .schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {

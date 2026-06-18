@@ -199,6 +199,23 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 // health.js (discordHealthCheck) — single source of truth so the two can't drift.
 const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 
+// ============================================
+// CLOUD FUNCTION SAFETY CAPS (cost / abuse blast radius)
+// ============================================
+// Hard ceiling on how many copies of any one function can run at the same time.
+// Bounds how fast cost can pile up if a function is flooded (deliberate abuse or a
+// bug) without affecting normal play. Lower = safer on cost; too low could throttle
+// trades at a busy market open. Applied to every function via functions/fnConfig.js.
+const MAX_FN_INSTANCES = 10;
+
+// App Check enforcement on callable functions. When true, callables reject any
+// request that didn't come from our real app (no valid App Check token), which
+// blocks outside scripts from hammering the backend. OFF by default on purpose:
+// turn it on ONLY after confirming in Firebase Console → App Check that real
+// traffic is ~100% verified, or legitimate players could be locked out. Flip back
+// to false to disable instantly without a code change (mirrors IP_ACCOUNT_CAP_ENABLED).
+const APP_CHECK_ENFORCED = false;
+
 module.exports = {
   BASE_IMPACT,
   BASE_LIQUIDITY,
@@ -271,4 +288,6 @@ module.exports = {
   getFullCrewReward,
   ADMIN_UID,
   DISCORD_DAILY_DROP_CHANNEL,
+  MAX_FN_INSTANCES,
+  APP_CHECK_ENFORCED,
 };

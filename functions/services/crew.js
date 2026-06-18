@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CREW_MEMBERS, CREW_SWITCH_PENALTY, TWENTY_FOUR_HOURS_MS } = require('../constants');
@@ -11,7 +12,8 @@ const { updateCrewMissionNewMember } = require('./crewMissions');
  * Switch Crew - Callable function
  * Handles crew joining/switching with 15% penalty for switches
  */
-exports.switchCrew = functions.https.onCall(async (data, context) => {
+exports.switchCrew = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }

@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
@@ -34,7 +35,8 @@ async function cleanupBlockedAuthUser(uid) {
  * @param {string} displayName - The desired display name (3-20 chars, at least 3 letters/numbers, up to 2 non-repeating underscores not at the ends)
  * @returns {Object} - { success: true } or throws error
  */
-exports.createUser = functions.https.onCall(async (data, context) => {
+exports.createUser = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -355,7 +357,8 @@ exports.createUser = functions.https.onCall(async (data, context) => {
  *
  * @returns {Object} - { migrated: number, conflicts: Array, errors: Array }
  */
-exports.migrateUsernames = functions.https.onCall(async (data, context) => {
+exports.migrateUsernames = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Only admin can run this.');
   }
@@ -484,7 +487,8 @@ exports.migrateUsernames = functions.https.onCall(async (data, context) => {
  * @param {string} displayName - The username to check
  * @returns {Object} - { available: boolean }
  */
-exports.checkUsername = functions.https.onCall(async (data, context) => {
+exports.checkUsername = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   const displayName = data.displayName;
 
   if (!displayName || typeof displayName !== 'string') {
@@ -520,7 +524,8 @@ exports.checkUsername = functions.https.onCall(async (data, context) => {
   };
 });
 
-exports.changeDisplayName = functions.https.onCall(async (data, context) => {
+exports.changeDisplayName = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -622,7 +627,8 @@ const COSMETIC_CATALOG = {
   backdrop_lagoon:   { type: 'rowBackdrop', price: 25000 },
 };
 
-exports.purchaseCosmetic = functions.https.onCall(async (data, context) => {
+exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
   const { cosmeticId } = data || {};
@@ -658,7 +664,8 @@ exports.purchaseCosmetic = functions.https.onCall(async (data, context) => {
  * @param {string} confirmUsername - Must match the user's display name to confirm deletion
  * @returns {Object} - { success: true } or throws error
  */
-exports.deleteAccount = functions.https.onCall(async (data, context) => {
+exports.deleteAccount = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -750,7 +757,8 @@ exports.deleteAccount = functions.https.onCall(async (data, context) => {
   }
 });
 
-exports.dailyCheckin = functions.https.onCall(async (data, context) => {
+exports.dailyCheckin = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -895,7 +903,8 @@ exports.dailyCheckin = functions.https.onCall(async (data, context) => {
  * Records and validates a completed trade (legacy - may be unused)
  * Logs for auditing, detects suspicious patterns
  */
-exports.recordTrade = functions.https.onCall(async (data, context) => {
+exports.recordTrade = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(

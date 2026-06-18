@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -170,7 +171,8 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
   }
 }
 
-exports.claimCrewMission = functions.https.onCall(async (data, context) => {
+exports.claimCrewMission = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }

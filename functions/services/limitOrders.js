@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -8,7 +9,8 @@ const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
 const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
 
-exports.createLimitOrder = functions.https.onCall(async (data, context) => {
+exports.createLimitOrder = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -164,8 +166,8 @@ exports.createLimitOrder = functions.https.onCall(async (data, context) => {
  * Check and Execute Limit Orders
  * Runs every 2 minutes to check if any pending limit orders should execute
  */
-exports.checkLimitOrders = functions.pubsub
-  .schedule('every 2 minutes')
+exports.checkLimitOrders = cf().pubsub
+  .schedule('every 15 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     // Skip during weekly halt — don't execute pending orders

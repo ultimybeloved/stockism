@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -9,7 +10,8 @@ const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS } = require('../const
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
 
-exports.getLeaderboard = functions.https.onCall(async (data, context) => {
+exports.getLeaderboard = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   try {
     const { crew, sortBy = 'value' } = data || {};
     const cacheKey = crew ? (sortBy === 'weeklyGain' ? `weeklyGain_${crew}` : crew) : (sortBy === 'weeklyGain' ? 'weeklyGain' : 'global');
@@ -165,7 +167,8 @@ exports.getLeaderboard = functions.https.onCall(async (data, context) => {
 /**
  * Get public profile by username
  */
-exports.getPublicProfile = functions.https.onCall(async (data, context) => {
+exports.getPublicProfile = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   const { username } = data || {};
   if (!username || typeof username !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Username required');

@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -13,7 +14,8 @@ const { sendDiscordMessage } = require('../helpers');
  * @param {number} rollbackCash - Cash amount to reset to (default: 1000)
  * @param {string} reason - Reason for ban
  */
-exports.banUser = functions.https.onCall(async (data, context) => {
+exports.banUser = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify admin
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(
@@ -101,8 +103,8 @@ exports.banUser = functions.https.onCall(async (data, context) => {
  * Automated Backup System
  * Runs every 12 hours to backup critical market data
  */
-exports.backupMarketData = functions.pubsub
-  .schedule('every 12 hours')
+exports.backupMarketData = cf().pubsub
+  .schedule('every 24 hours')
   .onRun(async (context) => {
     try {
       const bucket = admin.storage().bucket();
@@ -212,7 +214,8 @@ exports.backupMarketData = functions.pubsub
 /**
  * Manual Backup - Admin can trigger this from Admin Panel
  */
-exports.triggerManualBackup = functions.https.onCall(async (data, context) => {
+exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(
@@ -277,7 +280,8 @@ exports.triggerManualBackup = functions.https.onCall(async (data, context) => {
 /**
  * List Available Backups - Admin can see all available backups
  */
-exports.listBackups = functions.https.onCall(async (data, context) => {
+exports.listBackups = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(
@@ -321,7 +325,8 @@ exports.listBackups = functions.https.onCall(async (data, context) => {
   }
 });
 
-exports.restoreBackup = functions.https.onCall(async (data, context) => {
+exports.restoreBackup = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(
@@ -379,7 +384,8 @@ exports.restoreBackup = functions.https.onCall(async (data, context) => {
  * Fix Base Price Cliffs - Removes first data point if >2% jump to second
  * Admin only - fixes chart artifacts from data loss
  */
-exports.fixBasePriceCliffs = functions.https.onCall(async (data, context) => {
+exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(
@@ -464,7 +470,7 @@ exports.fixBasePriceCliffs = functions.https.onCall(async (data, context) => {
  * Runs at midnight UTC on the 1st of every month
  * Keeps one permanent snapshot per month for historical records
  */
-exports.monthlyPermanentBackup = functions.pubsub
+exports.monthlyPermanentBackup = cf().pubsub
   .schedule('0 0 1 * *')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -566,7 +572,8 @@ exports.monthlyPermanentBackup = functions.pubsub
   });
 
 // ============================================
-exports.createBots = functions.https.onCall(async (data, context) => {
+exports.createBots = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Verify admin
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError(

@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
@@ -12,7 +13,8 @@ const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
-exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) => {
+exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -238,7 +240,8 @@ exports.diagnoseTickerRollback = functions.https.onCall(async (data, context) =>
 });
 
 // ─── TICKER RECOVERY ────────────────────────────────────────────────────────
-exports.recoverTicker = functions.https.onCall(async (data, context) => {
+exports.recoverTicker = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -462,7 +465,8 @@ exports.recoverTicker = functions.https.onCall(async (data, context) => {
 });
 
 // ─── DROP AUDIT ─────────────────────────────────────────────────────────────
-exports.auditUserDrops = functions.https.onCall(async (data, context) => {
+exports.auditUserDrops = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }

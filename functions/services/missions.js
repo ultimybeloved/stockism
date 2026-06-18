@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -161,7 +162,8 @@ const WEEKLY_MISSION_CHECKS = {
   }
 };
 
-exports.claimMissionReward = functions.https.onCall(async (data, context) => {
+exports.claimMissionReward = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -287,7 +289,8 @@ exports.claimMissionReward = functions.https.onCall(async (data, context) => {
  * Reroll all missions (daily + weekly) for the current week
  * Costs $50, once per week, locked if any rewards claimed
  */
-exports.rerollMissions = functions.https.onCall(async (data, context) => {
+exports.rerollMissions = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -355,7 +358,8 @@ exports.rerollMissions = functions.https.onCall(async (data, context) => {
 /**
  * Purchase a pin or extra pin slot from the shop
  */
-exports.purchasePin = functions.https.onCall(async (data, context) => {
+exports.purchasePin = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }

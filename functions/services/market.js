@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -9,7 +10,7 @@ const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRI
 const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 
-exports.dailyMarketSummary = functions.pubsub
+exports.dailyMarketSummary = cf().pubsub
   .schedule('0 21 * * *')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -148,7 +149,7 @@ exports.dailyMarketSummary = functions.pubsub
 /**
  * Save pre-halt prices snapshot every Thursday at 12:55 UTC (5 min before halt)
  */
-exports.savePreHaltPrices = functions.pubsub
+exports.savePreHaltPrices = cf().pubsub
   .schedule('55 12 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -179,7 +180,7 @@ exports.savePreHaltPrices = functions.pubsub
  * Chapter review recap - posts Discord alert every Thursday at 21:05 UTC
  * Compares pre-halt prices to current prices after admin adjustments
  */
-exports.chapterReviewRecap = functions.pubsub
+exports.chapterReviewRecap = cf().pubsub
   .schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -353,7 +354,8 @@ exports.chapterReviewRecap = functions.pubsub
 /**
  * Manual trigger for daily market summary (admin only)
  */
-exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context) => {
+exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Admin check
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
@@ -493,7 +495,7 @@ exports.triggerDailyMarketSummary = functions.https.onCall(async (data, context)
 // ============================================
 
 // Weekly halt begins — Thursday 13:00 UTC
-exports.marketClosedAlert = functions.pubsub
+exports.marketClosedAlert = cf().pubsub
   .schedule('0 13 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -502,7 +504,7 @@ exports.marketClosedAlert = functions.pubsub
   });
 
 // Pre-market queue opens — Thursday 20:30 UTC
-exports.preMarketOpenAlert = functions.pubsub
+exports.preMarketOpenAlert = cf().pubsub
   .schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -511,7 +513,7 @@ exports.preMarketOpenAlert = functions.pubsub
   });
 
 // Trading resumes — Thursday 21:00 UTC
-exports.marketOpenAlert = functions.pubsub
+exports.marketOpenAlert = cf().pubsub
   .schedule('0 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -522,7 +524,8 @@ exports.marketOpenAlert = functions.pubsub
 /**
  * Admin: manually halt or resume the market. Sets the flag and announces it on Discord.
  */
-exports.setMarketHalt = functions.https.onCall(async (data, context) => {
+exports.setMarketHalt = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Only admin can halt the market.');
   }

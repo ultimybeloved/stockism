@@ -1,6 +1,6 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -9,7 +9,7 @@ const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRI
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 
-exports.weeklyMarketSummary = functions.pubsub
+exports.weeklyMarketSummary = cf().pubsub
   .schedule('0 0 * * 1')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -118,7 +118,7 @@ exports.weeklyMarketSummary = functions.pubsub
 /**
  * Weekly Leaderboard - Runs Mondays at 01:00 UTC
  */
-exports.weeklyLeaderboard = functions.pubsub
+exports.weeklyLeaderboard = cf().pubsub
   .schedule('0 1 * * 1')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -172,7 +172,7 @@ exports.weeklyLeaderboard = functions.pubsub
 /**
  * Weekly Crew Rankings - Runs Mondays at 01:30 UTC
  */
-exports.weeklyCrewRankings = functions.pubsub
+exports.weeklyCrewRankings = cf().pubsub
   .schedule('30 1 * * 1')
   .timeZone('UTC')
   .onRun(async (context) => {

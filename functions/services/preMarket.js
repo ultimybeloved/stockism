@@ -1,6 +1,7 @@
 'use strict';
 
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
@@ -23,7 +24,8 @@ const getThisWeeksPreMarketStart = () => {
   return admin.firestore.Timestamp.fromDate(d);
 };
 
-exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
+exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -178,7 +180,8 @@ exports.createPreMarketOrder = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-exports.cancelPreMarketOrder = functions.https.onCall(async (data, context) => {
+exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }

@@ -1,6 +1,6 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { cf } = require('../fnConfig');
 const axios = require('axios');
 const { sendDiscordMessage, reportError } = require('../helpers');
 const { DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
@@ -21,8 +21,8 @@ async function getDiscord(path, token) {
  * This is the guard that would have caught the wrong-bot-token outage on its own: a token
  * that belongs to the wrong bot passes the /users/@me check but 403s on every channel.
  */
-exports.discordHealthCheck = functions.pubsub
-  .schedule('every 6 hours')
+exports.discordHealthCheck = cf().pubsub
+  .schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async () => {
     const token = process.env.DISCORD_BOT_TOKEN;

@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE } = require('../constants');
@@ -80,7 +81,8 @@ async function doCleanupAlertedThresholds() {
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
+exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Admin-only: prevents unauthorized users from modifying market data
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
@@ -95,7 +97,8 @@ exports.archivePriceHistory = functions.https.onCall(async (data, context) => {
 });
 
 // Clean up old alertedThresholds (Discord alert cooldowns don't need long-term storage)
-exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) => {
+exports.cleanupAlertedThresholds = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   // Admin-only: prevents unauthorized cleanup of alert state
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
@@ -110,8 +113,8 @@ exports.cleanupAlertedThresholds = functions.https.onCall(async (data, context) 
 });
 
 // Scheduled function: Auto-archive every 6 hours
-exports.scheduledArchiving = functions.pubsub
-  .schedule('every 6 hours')
+exports.scheduledArchiving = cf().pubsub
+  .schedule('every 24 hours')
   .timeZone('America/New_York')
   .onRun(async (context) => {
     console.log('Running scheduled archiving...');
@@ -138,8 +141,8 @@ exports.scheduledArchiving = functions.pubsub
  * Runs every 6 hours to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
-exports.syncAllPortfolios = functions.pubsub
-  .schedule('every 6 hours')
+exports.syncAllPortfolios = cf().pubsub
+  .schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {

@@ -1,5 +1,6 @@
 'use strict';
 const functions = require('firebase-functions');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
@@ -11,7 +12,8 @@ const {
   ONE_WEEK_MS,
 } = require('../constants');
 
-exports.removeAchievement = functions.https.onCall(async (data, context) => {
+exports.removeAchievement = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -39,7 +41,8 @@ exports.removeAchievement = functions.https.onCall(async (data, context) => {
 /**
  * Admin reinstate a bankrupt user - gives them $1000 cash without wiping crew/holdings
  */
-exports.reinstateUser = functions.https.onCall(async (data, context) => {
+exports.reinstateUser = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -68,7 +71,8 @@ exports.reinstateUser = functions.https.onCall(async (data, context) => {
   return { success: true, userId, cashAdded: cashBoost };
 });
 
-exports.adminSetCash = functions.https.onCall(async (data, context) => {
+exports.adminSetCash = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -94,7 +98,8 @@ exports.adminSetCash = functions.https.onCall(async (data, context) => {
  * Admin-only: flag or clear the Discord-link wall on a user. When set, the user
  * must link a Discord account before they can trade/bet/play (unless already linked).
  */
-exports.adminSetDiscordWall = functions.https.onCall(async (data, context) => {
+exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -119,7 +124,8 @@ exports.adminSetDiscordWall = functions.https.onCall(async (data, context) => {
  * Repair accounts damaged by the Jiho/Doo price spike.
  * Modes: scan (find victims), repair (fix one user), repairAll (fix all)
  */
-exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
+exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -460,7 +466,8 @@ exports.repairSpikeVictims = functions.https.onCall(async (data, context) => {
  * Rename a ticker across all Firestore data.
  * Modes: dryRun (preview changes), execute (apply changes)
  */
-exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -716,9 +723,9 @@ exports.renameTicker = functions.runWith({ timeoutSeconds: 540, memory: '1GB' })
  * One-time migration: move portfolioHistory arrays to subcollection.
  * Run once after deploying the subcollection-based syncPortfolio, then remove.
  */
-exports.migratePortfolioHistory = functions
-  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+exports.migratePortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' })
   .https.onCall(async (data, context) => {
+    requireAppCheck(context);
     if (!context.auth || context.auth.uid !== ADMIN_UID) {
       throw new functions.https.HttpsError('permission-denied', 'Admin only');
     }
@@ -779,9 +786,9 @@ exports.migratePortfolioHistory = functions
  *
  * data.uid — optional; if provided, runs for that user only. Otherwise all non-bot users.
  */
-exports.reconstructPortfolioHistory = functions
-  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+exports.reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' })
   .https.onCall(async (data, context) => {
+    requireAppCheck(context);
     if (!context.auth || context.auth.uid !== ADMIN_UID) {
       throw new functions.https.HttpsError('permission-denied', 'Admin only');
     }
@@ -940,7 +947,8 @@ exports.reconstructPortfolioHistory = functions
  * live price in Firestore yet. Skips IPO characters. Safe to run multiple
  * times — only writes missing entries.
  */
-exports.initNewCharacterPrices = functions.https.onCall(async (data, context) => {
+exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
