@@ -110,6 +110,18 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     if (currentHoldings < shares + pendingSellShares) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings (some shares reserved by pending orders).');
     }
+
+    // IPO lockup: can't queue a sell / stop-loss against still-locked IPO shares
+    // (otherwise a queued order would dodge the lockup and flip the launch pop).
+    const ipoLock = userData.ipoLockup?.[ticker];
+    if (ipoLock && Date.now() < (ipoLock.until || 0)) {
+      const freeShares = Math.max(0, currentHoldings - (ipoLock.shares || 0));
+      if (shares > freeShares) {
+        const unlockDate = new Date(ipoLock.until).toISOString().split('T')[0];
+        throw new functions.https.HttpsError('failed-precondition',
+          `${ipoLock.shares} of your $${ticker} shares are IPO-locked until ${unlockDate}. You can place a sell for up to ${freeShares} now.`);
+      }
+    }
   }
 
   // Validate short positions for COVER orders

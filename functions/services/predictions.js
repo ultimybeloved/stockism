@@ -4,7 +4,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const { isWeeklyTradingHalt, IPO_PRICE_JUMP } = require('../constants');
+const { isWeeklyTradingHalt, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
 const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
@@ -300,12 +300,23 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
       ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (ipo.basePrice * quantity)) / newHoldings : ipo.basePrice)
       : ipo.basePrice;
 
+    // IPO sell lockup: lock these shares from selling until the IPO ends plus a
+    // buffer, so the guaranteed launch pop can't be flipped risk-free. Accumulate
+    // across multiple IPO buys; reset the locked count if a prior lockup expired.
+    const existingLock = userData.ipoLockup?.[ticker];
+    const lockStillActive = existingLock && now < (existingLock.until || 0);
+    const lockedShares = Math.round(
+      ((lockStillActive ? existingLock.shares : 0) + quantity) * 100
+    ) / 100;
+    const lockUntil = Math.max(existingLock?.until || 0, ipo.ipoEndsAt + IPO_SELL_LOCKUP_MS);
+
     // Update user
     transaction.update(userRef, {
       cash: (userData.cash || 0) - totalCost,
       [`holdings.${ticker}`]: newHoldings,
       [`costBasis.${ticker}`]: Math.round(newCostBasis * 100) / 100,
       [`ipoPurchases.${ticker}`]: userIPOPurchases + quantity,
+      [`ipoLockup.${ticker}`]: { shares: lockedShares, until: lockUntil },
       [`lastBuyTime.${ticker}`]: now,
       totalTrades: (userData.totalTrades || 0) + 1
     });

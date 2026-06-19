@@ -108,6 +108,12 @@ const LONG_MARGIN_LIQUIDATION_THRESHOLD = 0.25; // long margin equity ratio at w
 // IPO
 // ============================================
 const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
+// IPO-bought shares are locked from selling until ipoEndsAt + this buffer, so the
+// guaranteed +15% launch pop can't be flipped for a risk-free profit. Measured
+// from ipoEndsAt because shares already can't trade before launch: a last-second
+// buyer (who triggers an early sellout) still has to hold through the float window,
+// and an early buyer holds through the IPO they opted into.
+const IPO_SELL_LOCKUP_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ============================================
 // EVENT PREDICTION MARKETS (long-term, AMM-priced)
@@ -263,6 +269,7 @@ module.exports = {
   LONG_MARGIN_CALL_THRESHOLD,
   LONG_MARGIN_LIQUIDATION_THRESHOLD,
   IPO_PRICE_JUMP,
+  IPO_SELL_LOCKUP_MS,
   EVENT_AMM_LIQUIDITY,
   EVENT_MIN_BUYIN,
   CREW_MEMBERS,

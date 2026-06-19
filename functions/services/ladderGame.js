@@ -53,6 +53,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       // Get or create ladder game user
       let userData = userDoc.exists ? userDoc.data() : {
         balance: LADDER_GAME_INITIAL_BALANCE,
+        nonWithdrawable: LADDER_GAME_INITIAL_BALANCE,
         totalDeposited: 0,
         totalWon: 0,
         totalLost: 0,
@@ -109,6 +110,9 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       // Whole-dollar bets keep the balance an integer; floor here clears any stray
       // cents left over from before (those cents just disappear, by design).
       userData.balance = Math.floor(userData.balance - amount + payout);
+      // Non-withdrawable "house chips" can never exceed the current balance: a
+      // loss burns chips first, winnings on top are always withdrawable.
+      userData.nonWithdrawable = Math.min(userData.nonWithdrawable || 0, userData.balance);
       userData.gamesPlayed += 1;
       if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {

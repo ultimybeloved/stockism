@@ -395,6 +395,18 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', 'Insufficient shares to sell.');
         }
 
+        // IPO lockup: shares bought in an IPO can't be sold until the lockup
+        // clears, so the guaranteed launch pop can't be flipped risk-free.
+        const ipoLock = userData.ipoLockup?.[ticker];
+        if (ipoLock && now < (ipoLock.until || 0)) {
+          const sellable = Math.max(0, currentHoldings - (ipoLock.shares || 0));
+          if (amount > sellable) {
+            const unlockDate = new Date(ipoLock.until).toISOString().split('T')[0];
+            throw new functions.https.HttpsError('failed-precondition',
+              `${ipoLock.shares} of your $${ticker} shares are IPO-locked until ${unlockDate}. You can sell ${sellable} now.`);
+          }
+        }
+
         // Enforce 45-second hold period
         const lastBuyTime = userData.lastBuyTime?.[ticker];
         if (lastBuyTime) {
@@ -842,6 +854,11 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         if (totalHoldings <= 0) {
           updates[`costBasis.${ticker}`] = 0;
           updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+        }
+        // Drop an IPO lockup once it has expired or the position is fully closed.
+        const sellLock = userData.ipoLockup?.[ticker];
+        if (sellLock && (now >= (sellLock.until || 0) || totalHoldings <= 0)) {
+          updates[`ipoLockup.${ticker}`] = admin.firestore.FieldValue.delete();
         }
 
         // Dividend cohort: consume eligible first, then oldest pending. Delete

@@ -218,8 +218,17 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       const ladderData = ladderUserDoc.data();
       const balance = ladderData.balance ?? 0;
 
-      if (amount > balance) {
-        throw new functions.https.HttpsError('failed-precondition', 'Withdrawal amount exceeds ladder balance.');
+      // Non-withdrawable "house chips" (check-in grants / welcome stake) can be
+      // played but never cashed out — only deposits and winnings are withdrawable.
+      const nonWithdrawable = ladderData.nonWithdrawable || 0;
+      const withdrawable = Math.max(0, balance - nonWithdrawable);
+      if (amount > withdrawable) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          nonWithdrawable > 0
+            ? `You can cash out up to $${withdrawable.toFixed(2)}. Bonus chips from check-ins and the welcome stake can be played but not withdrawn.`
+            : 'Withdrawal amount exceeds ladder balance.'
+        );
       }
 
       const principalWithdrawn = ladderData.principalWithdrawn || 0;

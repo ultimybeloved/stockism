@@ -547,54 +547,61 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
   if (containsProfanity(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username contains inappropriate language.');
 
   const userRef = db.collection('users').doc(uid);
-  const userDoc = await userRef.get();
+  const newUsernameRef = db.collection('usernames').doc(newNameLower);
 
-  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-
-  const userData = userDoc.data();
-  if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
-
-  // Cooldown: 14 days between changes
-  if (userData.nameChangedAt) {
-    const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
-    const cooldownMs = 14 * 24 * 60 * 60 * 1000;
-    if (msSinceChange < cooldownMs) {
-      const daysLeft = Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000));
-      throw new functions.https.HttpsError('failed-precondition', `You can change your name again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
-    }
-  }
-
-  const oldDisplayName = userData.displayName;
-  const oldNameLower = userData.displayNameLower;
-
-  if (newNameLower === oldNameLower) throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
-
-  const NAME_CHANGE_COST = 10000;
-  if ((userData.cash || 0) < NAME_CHANGE_COST) {
-    throw new functions.https.HttpsError('failed-precondition', `Name change costs $${NAME_CHANGE_COST.toLocaleString()}. You don't have enough cash.`);
-  }
-
-  // Check uniqueness
-  const existingDoc = await db.collection('usernames').doc(newNameLower).get();
-  if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
-
-  // Fallback for legacy accounts with no reservation doc: scan users by lowercase name.
+  // Fallback for legacy accounts with no reservation doc: scan users by lowercase
+  // name. Best-effort pre-check; the reservation doc read inside the transaction
+  // is the authoritative uniqueness guard.
   const dupSnap = await db.collection('users').where('displayNameLower', '==', newNameLower).limit(1).get();
   if (!dupSnap.empty && dupSnap.docs[0].id !== uid) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
 
-  const batch = db.batch();
-  batch.delete(db.collection('usernames').doc(oldNameLower));
-  batch.set(db.collection('usernames').doc(newNameLower), { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
-  batch.update(userRef, {
-    displayName: trimmed,
-    displayNameLower: newNameLower,
-    previousDisplayName: oldDisplayName,
-    nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
-    cash: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
-  });
-  await batch.commit();
+  // Single transaction so the $10k cost, the cooldown, and the username
+  // reservation all commit together — two concurrent changes can't double-spend.
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, existingDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(newUsernameRef),
+    ]);
 
-  return { success: true };
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data();
+    if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
+
+    // Cooldown: 14 days between changes
+    if (userData.nameChangedAt) {
+      const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
+      const cooldownMs = 14 * 24 * 60 * 60 * 1000;
+      if (msSinceChange < cooldownMs) {
+        const daysLeft = Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000));
+        throw new functions.https.HttpsError('failed-precondition', `You can change your name again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
+      }
+    }
+
+    const oldDisplayName = userData.displayName;
+    const oldNameLower = userData.displayNameLower;
+
+    if (newNameLower === oldNameLower) throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
+
+    const NAME_CHANGE_COST = 10000;
+    if ((userData.cash || 0) < NAME_CHANGE_COST) {
+      throw new functions.https.HttpsError('failed-precondition', `Name change costs $${NAME_CHANGE_COST.toLocaleString()}. You don't have enough cash.`);
+    }
+
+    if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
+
+    if (oldNameLower) transaction.delete(db.collection('usernames').doc(oldNameLower));
+    transaction.set(newUsernameRef, { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    transaction.update(userRef, {
+      displayName: trimmed,
+      displayNameLower: newNameLower,
+      previousDisplayName: oldDisplayName,
+      nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
+      cash: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
+    });
+
+    return { success: true };
+  });
 });
 
 const COSMETIC_CATALOG = {
@@ -637,20 +644,25 @@ exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   const userRef = db.collection('users').doc(uid);
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-  const userData = userDoc.data();
-  if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
-  if ((userData.ownedCosmetics || []).includes(cosmeticId)) throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
-  if ((userData.cash || 0) < cosmetic.price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+  // Transaction so two concurrent purchases can't both pass the cash check and
+  // overspend the same balance into the negative.
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-  await userRef.update({
-    ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId),
-    cash: admin.firestore.FieldValue.increment(-cosmetic.price),
+    const userData = userDoc.data();
+    if (userData.isBot || userData.isBanned) throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
+    if ((userData.ownedCosmetics || []).includes(cosmeticId)) throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
+    if ((userData.cash || 0) < cosmetic.price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+
+    transaction.update(userRef, {
+      ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId),
+      cash: admin.firestore.FieldValue.increment(-cosmetic.price),
+    });
+
+    return { success: true };
   });
-
-  return { success: true };
 });
 
 /**
@@ -842,13 +854,16 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       let ladderTopUpAmount = 0;
 
       if (!ladderDoc.exists) {
-        // New player — initialize with $500
+        // New player — initialize with $500. The whole grant is non-withdrawable
+        // "house chips": it can be played but not cashed out to main cash, so the
+        // check-in stake can't be looped into free spendable cash via the ladder.
         ladderTopUpAmount = 500;
         updates.ladderGameInitialized = true;
         transaction.set(ladderRef, {
           uid,
           displayName: userData.displayName || 'Anonymous',
           balance: 500,
+          nonWithdrawable: 500,
           totalDeposited: 0,
           totalWon: 0,
           totalLost: 0,
@@ -861,11 +876,15 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
           createdAt: FieldValue.serverTimestamp()
         });
       } else {
-        // Existing player — top up to $100 if below
+        // Existing player — top up to $100 if below. The topped-up amount is also
+        // non-withdrawable so it can fund play but never be cashed out.
         const ladderBalance = ladderDoc.data().balance || 0;
         if (ladderBalance < 100) {
           ladderTopUpAmount = 100 - ladderBalance;
-          transaction.update(ladderRef, { balance: 100 });
+          transaction.update(ladderRef, {
+            balance: 100,
+            nonWithdrawable: FieldValue.increment(ladderTopUpAmount)
+          });
         }
       }
 
