@@ -751,6 +751,19 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
       } catch (e) { /* IP tracking doc may not exist */ }
     }
 
+    // Tombstone the linked Discord account so it can't immediately verify a fresh
+    // account and re-claim the $3k starting cash (the create → gamble → delete →
+    // remake loop). The slot frees up after DISCORD_RELINK_COOLDOWN_MS; deleting
+    // again later just resets the clock (merge overwrites deletedAt).
+    if (userData.discordId) {
+      try {
+        await db.collection('discordTombstones').doc(String(userData.discordId)).set({
+          deletedAt: Date.now(),
+          lastUid: uid
+        }, { merge: true });
+      } catch (e) { /* best-effort — never block deletion on this */ }
+    }
+
     // Delete the Firebase Auth account
     await admin.auth().deleteUser(uid);
 

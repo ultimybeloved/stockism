@@ -38,6 +38,13 @@ const IP_ACCOUNT_CAP_ENABLED = true;
 // frees up. Stops the pump → delete → remake loop (a month's wait per cycle makes
 // it worthless) while still letting genuine deleters rejoin later.
 const IP_SLOT_RELEASE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// A Discord account linked to a now-deleted Stockism account is blocked from
+// linking or creating a new one for this long. Mirrors IP_SLOT_RELEASE_MS: it
+// kills the create → grab the verified $3k starting cash → gamble → delete →
+// remake loop (and one aged Discord spawning troll accounts) by making each cycle
+// cost a month's wait. The $3k bonus is one-time per live account, so within this
+// window it can never be re-granted either.
+const DISCORD_RELINK_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
@@ -237,6 +244,7 @@ module.exports = {
   MAX_ACCOUNTS_PER_IP,
   IP_ACCOUNT_CAP_ENABLED,
   IP_SLOT_RELEASE_MS,
+  DISCORD_RELINK_COOLDOWN_MS,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,

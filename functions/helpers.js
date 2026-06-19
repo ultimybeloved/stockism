@@ -80,6 +80,7 @@ const {
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   IPO_PRICE_JUMP,
+  DISCORD_RELINK_COOLDOWN_MS,
 } = require('./constants');
 
 // Apply the +15% price jump + launch for any IPO that has ended (or sold out)
@@ -437,6 +438,23 @@ function checkDiscordWall(userData) {
 }
 
 /**
+ * True if this Discord ID was linked to a Stockism account that was deleted
+ * within the relink cooldown. Shared by discordAuth and discordLink so the two
+ * can't drift. Blocks the create → grab the verified $3k → gamble → delete →
+ * remake loop: deleteAccount tombstones the Discord ID, and this keeps it locked
+ * for DISCORD_RELINK_COOLDOWN_MS before it can verify a fresh account again.
+ * @param {string} discordId
+ * @returns {Promise<boolean>}
+ */
+async function isDiscordRelinkBlocked(discordId) {
+  if (!discordId) return false;
+  const snap = await db.collection('discordTombstones').doc(String(discordId)).get();
+  if (!snap.exists) return false;
+  const deletedAt = snap.data().deletedAt || 0;
+  return Date.now() - deletedAt < DISCORD_RELINK_COOLDOWN_MS;
+}
+
+/**
  * Helper function to send messages to Discord
  * @param {string} content - Message content (can be null if using embeds)
  * @param {Array} embeds - Array of Discord embed objects
@@ -538,6 +556,7 @@ module.exports = {
   validateUsernameFormat,
   checkBanned,
   checkDiscordWall,
+  isDiscordRelinkBlocked,
   sendDiscordMessage,
   sendMarketStatusAlert,
   reportError,

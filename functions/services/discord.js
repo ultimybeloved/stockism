@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
-const { writeNotification, sendDiscordMessage } = require('../helpers');
+const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked } = require('../helpers');
 
 
 // Discord OAuth Authentication
@@ -72,6 +72,10 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     if (!discordSnap.empty) {
       // Existing user found by discordId
       firebaseUid = discordSnap.docs[0].id;
+    } else if (await isDiscordRelinkBlocked(discordId)) {
+      // No live account for this Discord, and it was on a recently-deleted one.
+      // Block creating a fresh account (anti recycle / troll-account loop).
+      return res.redirect('https://stockism.app/?discord_error=recently_deleted');
     } else if (email) {
       // Try to find by email
       try {
@@ -209,6 +213,13 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
 
     if (!existingSnap.empty && existingSnap.docs[0].id !== state) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
+    }
+
+    // Block linking a Discord that was on a recently-deleted account — otherwise
+    // the create → grab the verified $3k → gamble → delete → remake loop works by
+    // re-linking the same Discord to each fresh account. Frees up after the cooldown.
+    if (await isDiscordRelinkBlocked(discordId)) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=recently_deleted');
     }
 
     // Link Discord to the existing account

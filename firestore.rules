@@ -310,6 +310,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Discord re-link tombstones — blocks a deleted account's Discord from
+    // immediately verifying a new one (Cloud Functions only).
+    match /discordTombstones/{discordId} {
+      allow read, write: if false;
+    }
+
     match /admin/{document} {
       allow read, write: if isAdmin();
     }
