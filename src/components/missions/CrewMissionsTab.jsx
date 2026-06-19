@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
-import { CREW_MAP, getWeekId, CREW_MISSION_REWARDS, CREW_CONTRIB } from '../../crews';
+import {
+  CREW_MAP, getWeekId, CREW_MISSION_REWARDS, CREW_CONTRIB,
+  getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
+} from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
@@ -16,31 +19,31 @@ const CREW_MISSIONS = [
   {
     id: 'CREW_BUY_500',
     name: 'Buying Spree',
-    description: `Your crew buys 1500 shares total this week. You must buy ${CREW_CONTRIB.BUY_SHARES}+ of them.`,
+    description: `Buy shares of your own crew's stocks this week. You must buy ${CREW_CONTRIB.BUY_SHARES}+ of them yourself. (Target scales with crew size.)`,
     reward: CREW_MISSION_REWARDS.CREW_BUY_500,
     color: 'blue',
-    getProgress: (d) => ({ value: d.buyCount || 0, target: 1500 }),
+    getProgress: (d, memberCount) => ({ value: d.buyCount || 0, target: getCrewBuyTarget(memberCount) }),
     contributed: (d, uid) => meetsContribution(d.contributorsBuy?.[uid], CREW_CONTRIB.BUY_SHARES),
   },
   {
     id: 'CREW_SELL_500',
     name: 'Liquidation Day',
-    description: `Your crew sells 1500 shares total this week. You must sell ${CREW_CONTRIB.SELL_SHARES}+ of them.`,
+    description: `Sell shares of your own crew's stocks this week. You must sell ${CREW_CONTRIB.SELL_SHARES}+ of them yourself. (Target scales with crew size.)`,
     reward: CREW_MISSION_REWARDS.CREW_SELL_500,
     color: 'blue',
-    getProgress: (d) => ({ value: d.sellCount || 0, target: 1500 }),
+    getProgress: (d, memberCount) => ({ value: d.sellCount || 0, target: getCrewSellTarget(memberCount) }),
     contributed: (d, uid) => meetsContribution(d.contributorsSell?.[uid], CREW_CONTRIB.SELL_SHARES),
   },
   {
     id: 'CREW_VOLUME',
     name: 'High Volume',
-    description: `Your crew reaches $20,000 in total trade volume this week. You must trade $${CREW_CONTRIB.VOLUME}+ of it.`,
+    description: `Trade your own crew's stocks this week. You must trade $${CREW_CONTRIB.VOLUME}+ of it yourself. (Target scales with crew size.)`,
     reward: CREW_MISSION_REWARDS.CREW_VOLUME,
     color: 'blue',
-    getProgress: (d) => ({ value: d.tradeVolume || 0, target: 20000 }),
+    getProgress: (d, memberCount) => ({ value: d.tradeVolume || 0, target: getCrewVolumeTarget(memberCount) }),
     contributed: (d, uid) => meetsContribution(d.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
     formatProgress: (v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`,
-    formatTarget: () => '$20k',
+    formatTarget: (t) => t >= 1000 ? `$${(t / 1000).toFixed(t % 1000 === 0 ? 0 : 1)}k` : `$${t}`,
   },
   {
     id: 'CREW_RECRUIT',
@@ -53,17 +56,6 @@ const CREW_MISSIONS = [
       const weekStartTs = new Date(getWeekId() + 'T00:00:00Z').getTime();
       return (userData?.crewJoinedAt || 0) < weekStartTs;
     },
-  },
-  {
-    id: 'CREW_PUMP',
-    name: 'Pump It Up',
-    description: 'Any crew stock rises 10% from its Monday price. You must have bought that stock this week.',
-    reward: CREW_MISSION_REWARDS.CREW_PUMP,
-    color: 'blue',
-    getProgress: () => ({ value: 0, target: 1, serverSide: true }),
-    // Which stock pumped is only known server-side; any pump buy shows the
-    // claim button and the server verifies the exact ticker.
-    contributed: (d, uid) => !!d.contributorsPump?.[uid],
   },
   {
     id: 'CREW_FULL_ROSTER',
@@ -147,7 +139,8 @@ export default function CrewMissionsTab() {
       )}
 
       {CREW_MISSIONS.map((mission) => {
-        const { value, target, serverSide } = mission.getProgress(data);
+        const memberCount = (crewInfo?.members || []).length;
+        const { value, target, serverSide } = mission.getProgress(data, memberCount);
         const isClaimed = !!data.claimed?.[uid]?.[mission.id];
         const hasContributed = mission.contributed(data, uid, userData);
         const goalMet = serverSide ? false : value >= target;
@@ -155,7 +148,7 @@ export default function CrewMissionsTab() {
 
         const pct = serverSide ? 0 : Math.min(100, target > 0 ? (value / target) * 100 : 0);
         const progressLabel = mission.formatProgress ? mission.formatProgress(value) : String(value);
-        const targetLabel = mission.formatTarget ? mission.formatTarget() : String(target);
+        const targetLabel = mission.formatTarget ? mission.formatTarget(target) : String(target);
 
         return (
           <div

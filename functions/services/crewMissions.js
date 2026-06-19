@@ -7,8 +7,8 @@ const db = admin.firestore();
 
 const {
   CREW_MEMBERS,
-  CREW_BUY_THRESHOLD, CREW_SELL_THRESHOLD, CREW_VOLUME_THRESHOLD,
-  CREW_MISSION_REWARDS, CREW_PUMP_THRESHOLD, CREW_CONTRIB,
+  getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
+  CREW_MISSION_REWARDS, CREW_CONTRIB,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, writeNotification } = require('../helpers');
 
@@ -36,11 +36,16 @@ const getWeekId = (now = new Date()) => {
 const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, totalCost) => {
   if (!crew) return;
   try {
+    // The buy/sell/volume crew goals only count trades of the crew's OWN
+    // roster stocks. Trading anyone else's stock no longer moves these.
+    const crewTickers = CREW_MEMBERS[crew] || [];
+    if (!crewTickers.includes(ticker)) return;
+
     const weekId = getWeekId();
     const ref = db.collection('crewMissions').doc(`${crew}_${weekId}`);
 
     // Per-user counters (not booleans) so claims can require a real personal
-    // contribution. Pump contributions are tracked per ticker bought.
+    // contribution.
     const update = {
       tradeVolume: admin.firestore.FieldValue.increment(totalCost),
       [`contributorsVolume.${uid}`]: admin.firestore.FieldValue.increment(totalCost),
@@ -49,10 +54,6 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
     if (action === 'buy') {
       update.buyCount = admin.firestore.FieldValue.increment(amount);
       update[`contributorsBuy.${uid}`] = admin.firestore.FieldValue.increment(amount);
-      const crewTickers = CREW_MEMBERS[crew] || [];
-      if (crewTickers.includes(ticker)) {
-        update[`contributorsPump.${uid}.${ticker}`] = true;
-      }
     } else if (action === 'sell') {
       update.sellCount = admin.firestore.FieldValue.increment(amount);
       update[`contributorsSell.${uid}`] = admin.firestore.FieldValue.increment(amount);
@@ -89,30 +90,34 @@ const updateCrewMissionNewMember = async (crew) => {
  */
 async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId) {
   const crewTickers = CREW_MEMBERS[crew] || [];
+  const memberCount = crewTickers.length;
 
   switch (missionId) {
     case 'CREW_BUY_500': {
-      const complete = (missionData.buyCount || 0) >= CREW_BUY_THRESHOLD;
+      const target = getCrewBuyTarget(memberCount);
+      const complete = (missionData.buyCount || 0) >= target;
       return {
         complete,
         contributed: meetsContribution(missionData.contributorsBuy?.[uid], CREW_CONTRIB.BUY_SHARES),
-        reason: complete ? null : `Crew needs to buy ${CREW_BUY_THRESHOLD} shares total this week.`,
+        reason: complete ? null : `Crew needs to buy ${target} shares of its own stocks this week.`,
       };
     }
     case 'CREW_SELL_500': {
-      const complete = (missionData.sellCount || 0) >= CREW_SELL_THRESHOLD;
+      const target = getCrewSellTarget(memberCount);
+      const complete = (missionData.sellCount || 0) >= target;
       return {
         complete,
         contributed: meetsContribution(missionData.contributorsSell?.[uid], CREW_CONTRIB.SELL_SHARES),
-        reason: complete ? null : `Crew needs to sell ${CREW_SELL_THRESHOLD} shares total this week.`,
+        reason: complete ? null : `Crew needs to sell ${target} shares of its own stocks this week.`,
       };
     }
     case 'CREW_VOLUME': {
-      const complete = (missionData.tradeVolume || 0) >= CREW_VOLUME_THRESHOLD;
+      const target = getCrewVolumeTarget(memberCount);
+      const complete = (missionData.tradeVolume || 0) >= target;
       return {
         complete,
         contributed: meetsContribution(missionData.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
-        reason: complete ? null : `Crew needs $${CREW_VOLUME_THRESHOLD.toLocaleString()} in total trade volume this week.`,
+        reason: complete ? null : `Crew needs $${target.toLocaleString()} in crew-stock trade volume this week.`,
       };
     }
     case 'CREW_RECRUIT': {
@@ -121,34 +126,6 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
       const weekStartTs = new Date(weekId + 'T00:00:00Z').getTime();
       const contributed = (userData.crewJoinedAt || 0) < weekStartTs;
       return { complete: true, contributed, reason: null };
-    }
-    case 'CREW_PUMP': {
-      const marketSnap = await db.collection('market').doc('current').get();
-      if (!marketSnap.exists) return { complete: false, contributed: false, reason: 'Market data unavailable.' };
-      const { prices = {}, priceHistory = {} } = marketSnap.data();
-      const weekStartTs = new Date(weekId + 'T00:00:00Z').getTime();
-
-      const pumpedTickers = [];
-      for (const ticker of crewTickers) {
-        const currentPrice = prices[ticker];
-        if (!currentPrice) continue;
-        const history = priceHistory[ticker] || [];
-        let weekStartPrice = null;
-        let closestTs = -Infinity;
-        for (const entry of history) {
-          const ts = typeof entry.timestamp === 'number' ? entry.timestamp : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000 : 0);
-          if (ts <= weekStartTs && ts > closestTs) { closestTs = ts; weekStartPrice = entry.price; }
-        }
-        if (!weekStartPrice) continue;
-        if (currentPrice >= weekStartPrice * CREW_PUMP_THRESHOLD) pumpedTickers.push(ticker);
-      }
-
-      if (pumpedTickers.length === 0) return { complete: false, contributed: false, reason: 'No crew stock has risen 10% this week.' };
-      // Must have bought the stock that actually pumped, not just any crew
-      // stock (legacy boolean from before per-ticker tracking still counts)
-      const pumpEntry = missionData.contributorsPump?.[uid];
-      const contributed = pumpEntry === true || pumpedTickers.some((t) => !!pumpEntry?.[t]);
-      return { complete: true, contributed };
     }
     case 'CREW_FULL_ROSTER': {
       const usersSnap = await db.collection('users').where('crew', '==', crew).get();

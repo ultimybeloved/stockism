@@ -512,18 +512,35 @@ export const CREW_MISSION_REWARDS = {
   CREW_SELL_500: 400,
   CREW_FULL_ROSTER: 750,
   CREW_RECRUIT: 300,
-  CREW_PUMP: 600,
   CREW_VOLUME: 500
 };
 
 // Minimum personal contribution required to claim a crew mission payout.
 // The crew goal stays collective; these stop one-share freeloading.
 export const CREW_CONTRIB = {
-  BUY_SHARES: 50,   // shares you personally bought toward the crew buy goal
-  SELL_SHARES: 50,  // shares you personally sold toward the crew sell goal
-  VOLUME: 500,      // dollars of trade volume you personally generated
+  BUY_SHARES: 50,   // shares of your crew's stocks you personally bought
+  SELL_SHARES: 50,  // shares of your crew's stocks you personally sold
+  VOLUME: 500,      // dollars of crew-stock trade volume you personally generated
   ROSTER_HOLD: 10   // total crew shares you must hold for crew Full Roster
 };
+
+// The buy / sell / volume crew goals only count trades of the crew's OWN
+// roster stocks, so the target scales with roster size. Otherwise a 3-member
+// crew (God Dog) and a 19-member crew (Workers) would chase the same number
+// using very different amounts of stock and manpower.
+export const CREW_BUY_PER_MEMBER = 100;
+export const CREW_SELL_PER_MEMBER = 100;
+export const CREW_VOLUME_PER_MEMBER = 2000;
+export const CREW_BUY_MIN = 300;
+export const CREW_SELL_MIN = 300;
+export const CREW_VOLUME_MIN = 6000;
+
+export const getCrewBuyTarget = (memberCount) =>
+  Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
+export const getCrewSellTarget = (memberCount) =>
+  Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
+export const getCrewVolumeTarget = (memberCount) =>
+  Math.max(CREW_VOLUME_MIN, CREW_VOLUME_PER_MEMBER * (memberCount || 0));
 
 // Full Crew Ownership pays per roster member so big crews (more shares
 // needed) earn more than small ones.
