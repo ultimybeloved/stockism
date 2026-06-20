@@ -378,13 +378,9 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
     checkDiscordWall(userData);
 
     if (action === 'buyPin') {
-      const PIN_CATALOG = {
-        jay_j_high: { price: 750 },
-        jace_j_high: { price: 750 },
-        vasco_j_high: { price: 2000, requiredCheckinStreak: 5 },
-        zack_j_high: { price: 2000, requiredCheckinStreak: 5 },
-        daniel_j_high: { price: 5000, requiredCheckinStreak: 7 }
-      };
+      // J High pins were pulled (ripped official art). No purchasable shop pins
+      // currently exist; any buy attempt is rejected below as an invalid pin.
+      const PIN_CATALOG = {};
       const pinInfo = PIN_CATALOG[pinId];
       if (!pinInfo) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');

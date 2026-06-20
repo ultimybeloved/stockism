@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction, refundJHighPinsFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
@@ -111,6 +111,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [scanningHistory, setScanningHistory] = useState(false);
   const [migratingPortfolioHistory, setMigratingPortfolioHistory] = useState(false);
   const [portfolioMigrationResult, setPortfolioMigrationResult] = useState(null);
+  const [refundingJHighPins, setRefundingJHighPins] = useState(false);
+  const [jHighRefundResult, setJHighRefundResult] = useState(null);
   const [reconstructingHistory, setReconstructingHistory] = useState(false);
   const [reconstructionResult, setReconstructionResult] = useState(null);
   const [reconstructUid, setReconstructUid] = useState('');
@@ -3817,6 +3819,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
+  const handleRefundJHighPins = async () => {
+    if (!window.confirm('Refund and remove all J High pins? Every owner gets their cash back plus 50% extra, and the pins are stripped from their profile. Safe to run once.')) return;
+    setRefundingJHighPins(true);
+    try {
+      const result = await refundJHighPinsFunction();
+      setJHighRefundResult(result.data);
+    } catch (error) {
+      setMessage({ type: 'error', text: `J High refund failed: ${error.message}` });
+    } finally {
+      setRefundingJHighPins(false);
+    }
+  };
+
   const handleRepairCorruptedAccounts = async () => {
     setLoading(true);
     setMessage(null);
@@ -4307,6 +4322,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               migratingPortfolioHistory={migratingPortfolioHistory}
               portfolioMigrationResult={portfolioMigrationResult}
               handleMigratePortfolioHistory={handleMigratePortfolioHistory}
+              refundingJHighPins={refundingJHighPins}
+              jHighRefundResult={jHighRefundResult}
+              handleRefundJHighPins={handleRefundJHighPins}
               reconstructingHistory={reconstructingHistory}
               reconstructionResult={reconstructionResult}
               reconstructUid={reconstructUid}

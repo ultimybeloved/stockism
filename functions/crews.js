@@ -95,15 +95,9 @@ export const PIN_COLLECTIONS = {
     limited: true,
     expiresAt: null,
     pins: ['alpha_tester']
-  },
-  j_high_og5: {
-    id: 'j_high_og5',
-    name: 'J High Original 5',
-    active: true,
-    limited: true,
-    expiresAt: null,
-    pins: ['jay_j_high', 'jace_j_high', 'vasco_j_high', 'zack_j_high', 'daniel_j_high']
   }
+  // j_high_og5 collection removed — it used ripped official collab art. Owners
+  // were refunded (base price + 50%) via the one-time refundJHighPins admin op.
 };
 
 export const SHOP_PINS = {
@@ -114,50 +108,8 @@ export const SHOP_PINS = {
     description: 'Exclusive badge for early supporters',
     price: 1,
     collection: 'alpha_rewards'
-  },
-  jay_j_high: {
-    id: 'jay_j_high',
-    name: 'Jay',
-    image: 'j-high/jay j high.png',
-    description: 'Jay Hong — J High',
-    price: 750,
-    collection: 'j_high_og5'
-  },
-  jace_j_high: {
-    id: 'jace_j_high',
-    name: 'Jace',
-    image: 'j-high/jace j high.png',
-    description: 'Jace Park — J High',
-    price: 750,
-    collection: 'j_high_og5'
-  },
-  vasco_j_high: {
-    id: 'vasco_j_high',
-    name: 'Vasco',
-    image: 'j-high/vasco j high.png',
-    description: 'Euntae Lee — J High',
-    price: 2000,
-    requiredCheckinStreak: 5,
-    collection: 'j_high_og5'
-  },
-  zack_j_high: {
-    id: 'zack_j_high',
-    name: 'Zack',
-    image: 'j-high/zack j high.png',
-    description: 'Zack Lee — J High',
-    price: 2000,
-    requiredCheckinStreak: 5,
-    collection: 'j_high_og5'
-  },
-  daniel_j_high: {
-    id: 'daniel_j_high',
-    name: 'Daniel',
-    image: 'j-high/daniel j high.png',
-    description: 'Daniel Park — J High',
-    price: 5000,
-    requiredCheckinStreak: 7,
-    collection: 'j_high_og5'
   }
+  // J High pins (jay/jace/vasco/zack/daniel) removed — ripped official art.
 };
 
 export const getActiveShopPins = () => {

@@ -27,6 +27,10 @@ const RecoveryTab = ({
   handleDiagnoseUsers,
   // Manual backup
   handleManualBackup,
+  // J High pin refund (one-time)
+  refundingJHighPins,
+  jHighRefundResult,
+  handleRefundJHighPins,
   // NaN repair
   handleRepairCorruptedAccounts,
   // Restore from backup
@@ -314,6 +318,26 @@ const RecoveryTab = ({
           className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
           {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
+        </button>
+      </div>
+
+      {/* J High Pin Refund (one-time) */}
+      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-orange-700' : 'border-orange-300'}`}>
+        <h3 className={`font-semibold mb-2 text-orange-500`}>📌 Remove & Refund J High Pins</h3>
+        <p className={`text-sm ${mutedClass} mb-3`}>
+          One-time: refunds every owner of a J High pin their cash back plus 50% extra, and strips the pins from inventories and profiles. Each owner gets a notification. Safe to run more than once (it skips anyone already refunded).
+        </p>
+        {jHighRefundResult && (
+          <p className={`text-sm mb-3 font-semibold text-green-500`}>
+            Done — refunded {jHighRefundResult.usersRefunded} user(s), ${Number(jHighRefundResult.totalRefunded || 0).toLocaleString()} total.
+          </p>
+        )}
+        <button
+          onClick={handleRefundJHighPins}
+          disabled={refundingJHighPins}
+          className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
+        >
+          {refundingJHighPins ? 'Refunding...' : '📌 Refund & Remove J High Pins'}
         </button>
       </div>
 

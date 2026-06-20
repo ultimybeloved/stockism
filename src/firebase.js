@@ -86,6 +86,7 @@ export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
 export const recordTradeFunction = httpsCallable(functions, 'recordTrade');
 export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
 export const banUserFunction = httpsCallable(functions, 'banUser');
+export const refundJHighPinsFunction = httpsCallable(functions, 'refundJHighPins');
 // Daily checkin
 export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
 // Ladder game

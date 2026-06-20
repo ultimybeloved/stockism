@@ -11,6 +11,65 @@ const {
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
 } = require('../constants');
+const { writeNotification } = require('../helpers');
+
+// One-time cleanup: the J High pin collection used ripped official collab art,
+// so it was pulled from the game. Refund every owner what they paid PLUS 50%
+// extra (some pins required a hard-to-track daily check-in streak), and strip
+// the pins from their inventory + profile. Idempotent: it removes the pins as
+// it refunds, so a re-run finds nobody and refunds no one twice.
+const J_HIGH_PIN_PRICES = {
+  jay_j_high: 750,
+  jace_j_high: 750,
+  vasco_j_high: 2000,
+  zack_j_high: 2000,
+  daniel_j_high: 5000,
+};
+const J_HIGH_PIN_IDS = Object.keys(J_HIGH_PIN_PRICES);
+const J_HIGH_REFUND_MULTIPLIER = 1.5; // base price + 50% extra
+
+exports.refundJHighPins = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const snap = await db.collection('users')
+    .where('ownedShopPins', 'array-contains-any', J_HIGH_PIN_IDS)
+    .get();
+
+  let usersRefunded = 0;
+  let totalRefunded = 0;
+
+  for (const docSnap of snap.docs) {
+    const u = docSnap.data();
+    const ownedJHigh = (u.ownedShopPins || []).filter((id) => J_HIGH_PIN_IDS.includes(id));
+    if (ownedJHigh.length === 0) continue;
+
+    const refund = Math.round(
+      ownedJHigh.reduce((sum, id) => sum + J_HIGH_PIN_PRICES[id] * J_HIGH_REFUND_MULTIPLIER, 0)
+    );
+
+    await docSnap.ref.update({
+      cash: admin.firestore.FieldValue.increment(refund),
+      portfolioValue: admin.firestore.FieldValue.increment(refund),
+      ownedShopPins: admin.firestore.FieldValue.arrayRemove(...ownedJHigh),
+      displayedShopPins: admin.firestore.FieldValue.arrayRemove(...ownedJHigh),
+    });
+
+    await writeNotification(docSnap.id, {
+      type: 'system',
+      title: 'J High pins removed',
+      message: `We had to pull the J High pins. You've been refunded $${refund.toLocaleString()} (what you paid plus 50% extra) for the ${ownedJHigh.length} pin${ownedJHigh.length > 1 ? 's' : ''} you owned.`,
+      data: {},
+    });
+
+    usersRefunded++;
+    totalRefunded += refund;
+  }
+
+  return { success: true, usersRefunded, totalRefunded };
+});
 
 exports.removeAchievement = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
