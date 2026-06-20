@@ -28,6 +28,15 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
+  // Long/short tab — open on whichever side the user actually has positions in.
+  const [positionTab, setPositionTab] = useState(
+    () => (Object.values(holdings || {}).some((s) => s > 0) ? 'long' : 'short')
+  );
+
+  const switchPositionTab = (tab) => {
+    setPositionTab(tab);
+    setSearch(''); // a search for a long stock won't match shorts, so clear it
+  };
 
   // Clicking the active sort flips direction; switching sort resets to a
   // sensible default (Z→A feels wrong for names, so Name defaults to A→Z).
@@ -164,12 +173,19 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
           equity: safeEquity,
           equityRatio: isNaN(equityRatio) ? 1 : equityRatio,
           positionValue,
+          value: positionValue, // alias so sortHoldings('value') works on shorts too
           liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
           openedAt: position.openedAt
         };
       })
       .sort((a, b) => b.positionValue - a.positionValue);
   }, [shorts, prices]);
+
+  // Same search + sort treatment for shorts as the long-positions list.
+  const visibleShorts = useMemo(
+    () => sortHoldings(filterHoldings(shortItems, search), sortKey, sortDir),
+    [shortItems, search, sortKey, sortDir]
+  );
 
   // IPO holdings — only show active IPOs where user has purchases
   const ipoItems = useMemo(() => {
@@ -266,20 +282,28 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
               {/* IPO Holdings */}
               <IpoHoldingsList items={ipoItems} darkMode={darkMode} />
 
-              {/* Holdings List */}
-              {portfolioItems.length > 0 && (
+              {/* Long / Short positions — tabbed */}
+              {(portfolioItems.length > 0 || shortItems.length > 0) && (
                 <>
-                  <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
-                    <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>📈</span> Long Positions
-                    <span className={`text-xs font-normal ${mutedClass}`}>
-                      ({search.trim() ? `${visibleItems.length} of ${portfolioItems.length}` : portfolioItems.length})
-                    </span>
-                    {totalWeeklyDividends > 0 && (
-                      <span className={`ml-auto text-xs font-normal ${mutedClass}`}>
-                        ~{formatCurrency(totalWeeklyDividends)} / week in dividends
-                      </span>
-                    )}
-                  </h3>
+                  <div className="flex gap-1 mb-3">
+                    {[
+                      { key: 'long', label: '📈 Long', count: portfolioItems.length },
+                      { key: 'short', label: '📉 Short', count: shortItems.length },
+                    ].map(t => (
+                      <button
+                        key={t.key}
+                        onClick={() => switchPositionTab(t.key)}
+                        className={`flex-1 py-1.5 text-sm font-semibold rounded-sm transition-colors ${
+                          positionTab === t.key
+                            ? 'bg-orange-600 text-white'
+                            : darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-amber-50 text-slate-500 hover:bg-amber-100'
+                        }`}
+                      >
+                        {t.label} <span className="text-xs font-normal">({t.count})</span>
+                      </button>
+                    ))}
+                  </div>
+
                   <HoldingsControls
                     darkMode={darkMode}
                     search={search}
@@ -288,55 +312,64 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                     sortDir={sortDir}
                     onSortChange={handleSortChange}
                   />
-                  {visibleItems.length === 0 ? (
-                    <p className={`text-sm text-center py-4 ${mutedClass}`}>No holdings match your search.</p>
+
+                  {positionTab === 'long' ? (
+                    portfolioItems.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${mutedClass}`}>No long positions.</p>
+                    ) : visibleItems.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${mutedClass}`}>No holdings match your search.</p>
+                    ) : (
+                      <>
+                        {totalWeeklyDividends > 0 && (
+                          <p className={`text-xs ${mutedClass} mb-2 text-right`}>
+                            ~{formatCurrency(totalWeeklyDividends)} / week in dividends
+                          </p>
+                        )}
+                        <div className="space-y-2">
+                          {visibleItems.map(item => (
+                            <HoldingRow
+                              key={item.ticker}
+                              item={item}
+                              isExpanded={expandedTicker === item.ticker}
+                              onToggle={toggleExpand}
+                              totalValue={totalValue}
+                              sellAmounts={sellAmounts}
+                              setSellAmounts={setSellAmounts}
+                              onSell={handleSell}
+                              onLimitSell={onLimitSell}
+                              drip={drip}
+                              onToggleDrip={onToggleDrip}
+                              darkMode={darkMode}
+                              colorBlindMode={colorBlindMode}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )
                   ) : (
-                  <div className="space-y-2">
-                    {visibleItems.map(item => (
-                      <HoldingRow
-                        key={item.ticker}
-                        item={item}
-                        isExpanded={expandedTicker === item.ticker}
-                        onToggle={toggleExpand}
-                        totalValue={totalValue}
-                        sellAmounts={sellAmounts}
-                        setSellAmounts={setSellAmounts}
-                        onSell={handleSell}
-                        onLimitSell={onLimitSell}
-                        drip={drip}
-                        onToggleDrip={onToggleDrip}
-                        darkMode={darkMode}
-                        colorBlindMode={colorBlindMode}
-                      />
-                    ))}
-                  </div>
+                    shortItems.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${mutedClass}`}>No short positions.</p>
+                    ) : visibleShorts.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${mutedClass}`}>No shorts match your search.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {visibleShorts.map(item => (
+                          <ShortRow
+                            key={`short-${item.ticker}`}
+                            item={item}
+                            isExpanded={expandedShortTicker === item.ticker}
+                            onToggle={toggleShortExpand}
+                            coverAmounts={coverAmounts}
+                            setCoverAmounts={setCoverAmounts}
+                            onCover={handleCover}
+                            darkMode={darkMode}
+                            colorBlindMode={colorBlindMode}
+                          />
+                        ))}
+                      </div>
+                    )
                   )}
                 </>
-              )}
-
-              {/* Short Positions Section */}
-              {shortItems.length > 0 && (
-                <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-300'}`}>
-                  <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
-                    <span className="text-orange-500">📉</span> Short Positions
-                    <span className={`text-xs font-normal ${mutedClass}`}>({shortItems.length})</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {shortItems.map(item => (
-                      <ShortRow
-                        key={`short-${item.ticker}`}
-                        item={item}
-                        isExpanded={expandedShortTicker === item.ticker}
-                        onToggle={toggleShortExpand}
-                        coverAmounts={coverAmounts}
-                        setCoverAmounts={setCoverAmounts}
-                        onCover={handleCover}
-                        darkMode={darkMode}
-                        colorBlindMode={colorBlindMode}
-                      />
-                    ))}
-                  </div>
-                </div>
               )}
 
               {/* Pending Limit Orders Section */}

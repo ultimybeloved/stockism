@@ -44,7 +44,7 @@ const noop = () => {};
 afterEach(cleanup);
 
 describe('PortfolioModal', () => {
-  it('renders the header, portfolio value, and long + short positions', async () => {
+  it('renders the header, value, and long/short tabs (short behind its tab)', async () => {
     h.ctx = baseCtx();
     render(<PortfolioModal currentValue={1000} onClose={noop} onTrade={noop} />);
 
@@ -55,12 +55,12 @@ describe('PortfolioModal', () => {
     expect(screen.getByText(/Hide Chart/)).toBeInTheDocument();
     expect(screen.getByText('24h')).toBeInTheDocument();
 
-    // Long position
-    expect(screen.getByText(/Long Positions/)).toBeInTheDocument();
+    // Long tab is the default — its holding shows, the short does not yet
     expect(screen.getByText('$JAKE')).toBeInTheDocument();
+    expect(screen.queryByText('$GAP')).not.toBeInTheDocument();
 
-    // Short position
-    expect(screen.getByText(/Short Positions/)).toBeInTheDocument();
+    // Switching to the Short tab reveals the short position
+    fireEvent.click(screen.getByRole('button', { name: /Short/ }));
     expect(screen.getByText('$GAP')).toBeInTheDocument();
     expect(screen.getByText('SHORT')).toBeInTheDocument();
   });
@@ -79,7 +79,8 @@ describe('PortfolioModal', () => {
     h.ctx = baseCtx();
     render(<PortfolioModal currentValue={1000} onClose={noop} onTrade={noop} />);
 
-    fireEvent.click(await screen.findByText('$GAP'));
+    fireEvent.click(await screen.findByRole('button', { name: /Short/ }));
+    fireEvent.click(screen.getByText('$GAP'));
     expect(screen.getByText('Entry Price')).toBeInTheDocument();
     expect(screen.getByText('Margin Posted')).toBeInTheDocument();
     expect(screen.getByText('Cover All')).toBeInTheDocument();
