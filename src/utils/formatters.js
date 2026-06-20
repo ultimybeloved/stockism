@@ -55,6 +55,28 @@ export const formatTimeRemaining = (ms) => {
 };
 
 /**
+ * Format a past timestamp as relative "time ago" (e.g. "5m ago", "2h ago").
+ * Accepts a Firestore Timestamp, a {seconds} object, a Date, or epoch ms.
+ * @param {*} ts - The timestamp to format
+ * @returns {string} Human-readable relative time
+ */
+export const formatTimeAgo = (ts) => {
+  if (!ts) return '';
+  const date = ts.toDate ? ts.toDate() : ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+  const diff = Date.now() - date.getTime();
+  if (diff < 0) return 'just now';
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (seconds < 60) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+};
+
+/**
  * Round a number to 2 decimal places
  * @param {number} value - The value to round
  * @returns {number} Rounded value

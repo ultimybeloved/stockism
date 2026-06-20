@@ -572,6 +572,15 @@ export default function App() {
     }
   }, [user, userNotifications]);
 
+  const handleDeleteNotification = useCallback(async (notificationId) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'notifications', notificationId));
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  }, [user]);
+
   const handleCreatePriceAlert = useCallback(async ({ ticker, targetPrice, direction }) => {
     try {
       await createPriceAlertFunction({ ticker, targetPrice, direction });
@@ -2225,6 +2234,7 @@ export default function App() {
           onMarkRead={handleMarkNotificationRead}
           onMarkAllRead={handleMarkAllNotificationsRead}
           onClearAll={handleClearAllNotifications}
+          onDelete={handleDeleteNotification}
         />
       )}
 

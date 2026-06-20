@@ -1,32 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getThemeClasses } from '../utils/theme';
-
-const TYPE_ICONS = {
-  trade: '📈',
-  alert: '🔔',
-  achievement: '🏆',
-  margin: '⚠️',
-  system: '📢',
-};
-
-function formatTimeAgo(ts) {
-  if (!ts) return '';
-  // Handle Firestore Timestamp objects
-  const date = ts.toDate ? ts.toDate() : ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
-  const now = Date.now();
-  const diff = now - date.getTime();
-  if (diff < 0) return 'just now';
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (seconds < 60) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
-}
+import {
+  FILTER_TABS,
+  getNotificationCategory,
+  getNotificationRoute,
+  hasExpandableDetail,
+} from '../utils/notifications';
+import NotificationRow from './notifications/NotificationRow';
 
 export default function NotificationPanel({
   darkMode,
@@ -35,14 +16,30 @@ export default function NotificationPanel({
   onMarkRead,
   onMarkAllRead,
   onClearAll,
+  onDelete,
 }) {
-  const handleNotificationClick = (notification) => {
-    if (!notification.read) {
-      onMarkRead(notification.id);
-    }
-  };
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState('All');
+  const [expandedId, setExpandedId] = useState(null);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+
+  const all = notifications || [];
+  const unreadCount = all.filter((n) => !n.read).length;
+  const visible = filter === 'All' ? all : all.filter((n) => getNotificationCategory(n) === filter);
+
+  const handleRowClick = (notification) => {
+    if (!notification.read) onMarkRead(notification.id);
+    const route = getNotificationRoute(notification);
+    if (route) {
+      navigate(route);
+      onClose();
+      return;
+    }
+    if (hasExpandableDetail(notification)) {
+      setExpandedId((cur) => (cur === notification.id ? null : notification.id));
+    }
+  };
 
   return (
     <>
@@ -53,7 +50,9 @@ export default function NotificationPanel({
       <div className={`fixed top-16 right-4 w-80 rounded-sm shadow-xl border z-50 flex flex-col max-h-[70vh] ${cardClass}`}>
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
-          <h3 className={`font-semibold text-sm ${textClass}`}>Notifications</h3>
+          <h3 className={`font-semibold text-sm ${textClass}`}>
+            Notifications{unreadCount > 0 && <span className="text-orange-600"> ({unreadCount})</span>}
+          </h3>
           <div className="flex items-center gap-2">
             <button
               onClick={onMarkAllRead}
@@ -70,46 +69,42 @@ export default function NotificationPanel({
           </div>
         </div>
 
+        {/* Filter tabs */}
+        <div className={`flex items-center gap-1 px-2 py-2 border-b overflow-x-auto ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors ${
+                filter === tab
+                  ? 'bg-orange-600 text-white'
+                  : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-slate-500 hover:bg-zinc-100'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
         {/* Notification list */}
         <div className="flex-1 overflow-y-auto">
-          {(!notifications || notifications.length === 0) ? (
+          {visible.length === 0 ? (
             <div className={`px-4 py-8 text-center text-sm ${mutedClass}`}>
-              No notifications yet
+              {all.length === 0 ? 'No notifications yet' : `No ${filter.toLowerCase()} notifications`}
             </div>
           ) : (
-            notifications.map((notification) => (
-              <button
+            visible.map((notification) => (
+              <NotificationRow
                 key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`w-full text-left px-4 py-3 transition-colors border-l-2 ${
-                  !notification.read
-                    ? darkMode
-                      ? 'border-l-orange-600 bg-zinc-800/50 hover:bg-zinc-800'
-                      : 'border-l-orange-600 bg-orange-50/50 hover:bg-orange-50'
-                    : darkMode
-                      ? 'border-l-transparent hover:bg-zinc-800/50'
-                      : 'border-l-transparent hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-base mt-0.5 shrink-0">
-                    {TYPE_ICONS[notification.type] || '📢'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm truncate ${!notification.read ? 'font-semibold' : 'font-medium'} ${textClass}`}>
-                        {notification.title}
-                      </span>
-                      <span className={`text-[10px] shrink-0 ${mutedClass}`}>
-                        {formatTimeAgo(notification.createdAt)}
-                      </span>
-                    </div>
-                    <p className={`text-xs mt-0.5 line-clamp-2 ${mutedClass}`}>
-                      {notification.message}
-                    </p>
-                  </div>
-                </div>
-              </button>
+                notification={notification}
+                darkMode={darkMode}
+                expanded={expandedId === notification.id}
+                actionable={!!getNotificationRoute(notification)}
+                canExpand={!getNotificationRoute(notification) && hasExpandableDetail(notification)}
+                onClick={handleRowClick}
+                onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+                onDelete={onDelete}
+              />
             ))
           )}
         </div>
