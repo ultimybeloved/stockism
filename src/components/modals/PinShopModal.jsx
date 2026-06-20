@@ -87,7 +87,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
 
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>📌 Pins</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>🎨 Customization</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
           </div>
           <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-orange-500 font-semibold">{formatCurrency(cash)}</span></p>
@@ -284,10 +284,16 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
               {userData?.crew && (
                 <div>
                   <h3 className={`font-semibold ${textClass} mb-2`}>Crew Pin</h3>
+                  {(() => {
+                    // displayCrewPin defaults to undefined (= shown), so toggle off
+                    // the EFFECTIVE displayed state, not the raw value, or the first
+                    // click from the default would just re-show it.
+                    const crewPinDisplayed = userData.displayCrewPin !== false;
+                    return (
                   <button
-                    onClick={() => onPurchase('toggleCrewPin', !userData.displayCrewPin, 0)}
+                    onClick={() => onPurchase('toggleCrewPin', !crewPinDisplayed, 0)}
                     className={`px-3 py-2 rounded-sm border flex items-center ${
-                      userData.displayCrewPin !== false
+                      crewPinDisplayed
                         ? 'border-orange-500 bg-orange-500/10'
                         : darkMode ? 'border-zinc-700' : 'border-amber-200'
                     }`}
@@ -298,8 +304,10 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                       <span className="mr-1">{CREW_MAP[userData.crew]?.emblem}</span>
                     )}
                     <span className={`text-sm ${textClass}`}>{CREW_MAP[userData.crew]?.name}</span>
-                    {userData.displayCrewPin !== false && <span className="text-xs text-orange-500 ml-2">✓ Displayed</span>}
+                    {crewPinDisplayed && <span className="text-xs text-orange-500 ml-2">✓ Displayed</span>}
                   </button>
+                    );
+                  })()}
                 </div>
               )}
 
