@@ -209,6 +209,25 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 
 // ============================================
+// DISCORD DAILY DROP (loot roll in discordInteractions.js)
+// ============================================
+// "High tier" is defined at roll time by LIVE price (not basePrice, which has
+// drifted way below current prices). The priciest fraction of tradeable stocks
+// is high tier. In a NORMAL roll a high-tier stock is capped at 1 share so a
+// lucky draw can't make someone rich; jackpots are drawn only from high tier.
+const DAILY_DROP_JACKPOT_CHANCE = 0.03;            // 3% of claims are jackpots
+const DAILY_DROP_HIGH_TIER_FRACTION = 0.25;        // priciest 25% by live price = high tier
+const DAILY_DROP_HIGH_TIER_CAP = 1;                // max shares of a high-tier stock in a normal roll
+const DAILY_DROP_NORMAL_SHARE_VALUES = [1, 2, 3, 4];
+const DAILY_DROP_NORMAL_SHARE_WEIGHTS = [55, 30, 11, 4]; // total shares, heavily weighted to 1-2
+const DAILY_DROP_NORMAL_VARIETY_VALUES = [1, 2, 3];
+const DAILY_DROP_NORMAL_VARIETY_WEIGHTS = [70, 25, 5];   // how many different stocks
+const DAILY_DROP_JACKPOT_SHARES_MIN = 6;
+const DAILY_DROP_JACKPOT_SHARES_MAX = 10;
+const DAILY_DROP_JACKPOT_VARIETY_MIN = 3;
+const DAILY_DROP_JACKPOT_VARIETY_MAX = 5;
+
+// ============================================
 // CLOUD FUNCTION SAFETY CAPS (cost / abuse blast radius)
 // ============================================
 // Hard ceiling on how many copies of any one function can run at the same time.
@@ -298,6 +317,17 @@ module.exports = {
   getFullCrewReward,
   ADMIN_UID,
   DISCORD_DAILY_DROP_CHANNEL,
+  DAILY_DROP_JACKPOT_CHANCE,
+  DAILY_DROP_HIGH_TIER_FRACTION,
+  DAILY_DROP_HIGH_TIER_CAP,
+  DAILY_DROP_NORMAL_SHARE_VALUES,
+  DAILY_DROP_NORMAL_SHARE_WEIGHTS,
+  DAILY_DROP_NORMAL_VARIETY_VALUES,
+  DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
+  DAILY_DROP_JACKPOT_SHARES_MIN,
+  DAILY_DROP_JACKPOT_SHARES_MAX,
+  DAILY_DROP_JACKPOT_VARIETY_MIN,
+  DAILY_DROP_JACKPOT_VARIETY_MAX,
   MAX_FN_INSTANCES,
   APP_CHECK_ENFORCED,
 };

@@ -7,7 +7,14 @@ const { verifyKey, InteractionType, InteractionResponseType } = require('discord
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
+const {
+  ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
+  DAILY_DROP_JACKPOT_CHANCE, DAILY_DROP_HIGH_TIER_FRACTION, DAILY_DROP_HIGH_TIER_CAP,
+  DAILY_DROP_NORMAL_SHARE_VALUES, DAILY_DROP_NORMAL_SHARE_WEIGHTS,
+  DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
+  DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
+  DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
+} = require('../constants');
 const { writeNotification, sendDiscordMessage } = require('../helpers');
 
 function weightedRandom(values, weights) {
@@ -20,18 +27,36 @@ function weightedRandom(values, weights) {
   return values[values.length - 1];
 }
 
-async function rollDailyStock() {
-  const JACKPOT_CHANCE = 0.03;
-  const isJackpot = Math.random() < JACKPOT_CHANCE;
-  let totalShares, varietyCount;
-  if (isJackpot) {
-    totalShares = Math.floor(Math.random() * 5) + 6;
-    varietyCount = Math.floor(Math.random() * 3) + 3;
-  } else {
-    totalShares = weightedRandom([1, 2, 3, 4, 5], [35, 30, 20, 10, 5]);
-    varietyCount = weightedRandom([1, 2, 3], [70, 25, 5]);
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Hands out `totalShares` round-robin across the selected stocks, but never
+// gives a stock more than its cap. Leftover shares (when every pick is capped)
+// are simply not awarded. Zero-share picks are dropped from the result.
+function distributeShares(selectedStocks, prices, totalShares, capFor) {
+  const picks = selectedStocks.map(stock => ({
+    ticker: stock.ticker,
+    name: stock.name,
+    shares: 0,
+    currentPrice: prices[stock.ticker] || stock.basePrice,
+    _cap: capFor(stock),
+  }));
+  let remaining = totalShares;
+  let progressed = true;
+  while (remaining > 0 && progressed) {
+    progressed = false;
+    for (const p of picks) {
+      if (remaining <= 0) break;
+      if (p.shares < p._cap) { p.shares += 1; remaining -= 1; progressed = true; }
+    }
   }
-  varietyCount = Math.min(varietyCount, totalShares);
+  return picks.filter(p => p.shares > 0).map(({ _cap, ...p }) => p);
+}
+
+async function rollDailyStock() {
+  const isJackpot = Math.random() < DAILY_DROP_JACKPOT_CHANCE;
+
   const marketDoc = await db.collection('market').doc('current').get();
   const prices = marketDoc.data()?.prices || {};
   const launchedTickers = marketDoc.data()?.launchedTickers || [];
@@ -39,13 +64,41 @@ async function rollDailyStock() {
     !c.ipoRequired || launchedTickers.includes(c.ticker)
   ).filter(c => prices[c.ticker] != null);
   if (tradeableChars.length === 0) return { picks: [], isJackpot: false };
-  const shuffled = [...tradeableChars].sort(() => Math.random() - 0.5);
-  const selectedStocks = shuffled.slice(0, Math.min(varietyCount, shuffled.length));
-  const picks = selectedStocks.map(stock => ({
-    ticker: stock.ticker, name: stock.name, shares: 0, currentPrice: prices[stock.ticker] || stock.basePrice
-  }));
-  for (let i = 0; i < totalShares; i++) picks[i % picks.length].shares += 1;
-  return { picks, isJackpot };
+
+  // "High tier" = the priciest slice by LIVE price (basePrice has drifted far
+  // below current prices, so live price is the only honest measure of value).
+  const byPrice = [...tradeableChars].sort((a, b) => (prices[b.ticker] || 0) - (prices[a.ticker] || 0));
+  const highCount = Math.max(1, Math.round(byPrice.length * DAILY_DROP_HIGH_TIER_FRACTION));
+  const highTierPool = byPrice.slice(0, highCount);
+  const highTierTickers = new Set(highTierPool.map(c => c.ticker));
+
+  const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+  if (isJackpot) {
+    // Jackpot is drawn entirely from high-tier stocks and stays generous.
+    const totalShares = randInt(DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX);
+    const varietyCount = Math.min(
+      randInt(DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX),
+      highTierPool.length,
+      totalShares
+    );
+    const selected = shuffle(highTierPool).slice(0, varietyCount);
+    const picks = distributeShares(selected, prices, totalShares, () => totalShares);
+    return { picks, isJackpot: true };
+  }
+
+  // Normal roll: few shares, and any high-tier stock is capped at 1 — you can
+  // still hit it, you just can't stack value off a lucky draw.
+  const totalShares = weightedRandom(DAILY_DROP_NORMAL_SHARE_VALUES, DAILY_DROP_NORMAL_SHARE_WEIGHTS);
+  const varietyCount = Math.min(
+    weightedRandom(DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS),
+    totalShares,
+    tradeableChars.length
+  );
+  const selected = shuffle(tradeableChars).slice(0, varietyCount);
+  const picks = distributeShares(selected, prices, totalShares,
+    (c) => highTierTickers.has(c.ticker) ? DAILY_DROP_HIGH_TIER_CAP : totalShares);
+  return { picks, isJackpot: false };
 }
 
 exports.discordInteractions = cf().https.onRequest(async (req, res) => {
