@@ -10,7 +10,7 @@ import { useAppContext } from '../../context/AppContext';
 const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
   const { darkMode, userData } = useAppContext();
   const [selectedPin, setSelectedPin] = useState(null);
-  const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'achievement', 'cosmetics', 'manage'
+  const [activeTab, setActiveTab] = useState('achievement'); // 'shop', 'achievement', 'cosmetics', 'manage' — defaults to achievements since the shop is empty
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);
 
