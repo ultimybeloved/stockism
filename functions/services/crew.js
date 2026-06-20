@@ -4,7 +4,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CREW_MEMBERS, CREW_SWITCH_PENALTY, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { checkBanned, checkDiscordWall } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 const { updateCrewMissionNewMember } = require('./crewMissions');
 
 
@@ -19,6 +19,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { crewId, isSwitch } = data;
 
   if (!crewId || typeof crewId !== 'string') {

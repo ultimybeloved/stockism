@@ -529,10 +529,43 @@ async function sendMarketStatusAlert(kind, reason = '') {
   }]);
 }
 
+// Coerce any of our timestamp shapes (Firestore Timestamp, epoch ms number,
+// or ISO string) to epoch ms; 0 if missing/unparseable.
+function toMs(ts) {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return ts;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+  if (typeof ts === 'string') { const p = Date.parse(ts); return isNaN(p) ? 0 : p; }
+  return 0;
+}
+
+// Most-recent activity for a user, used by the active-user metric. Takes the
+// max of the broad lastActive stamp plus the pre-existing lastTradeTime /
+// lastCheckin so existing active players count immediately after deploy.
+function getLastActiveMs(userData) {
+  if (!userData) return 0;
+  return Math.max(
+    toMs(userData.lastActive),
+    toMs(userData.lastTradeTime),
+    toMs(userData.lastCheckin)
+  );
+}
+
+// Fire-and-forget activity stamp. Called from player-action callables so the
+// active-user metric reflects all actions, not just trades/check-ins. Never
+// awaited — it must not affect the action's success.
+function touchLastActive(uid) {
+  if (!uid) return;
+  db.collection('users').doc(uid).update({ lastActive: Date.now() }).catch(() => {});
+}
+
 module.exports = {
   DIVIDEND_HOLD_DAYS,
   DIVIDEND_HOLD_MS,
   DIVIDEND_RATES,
+  getLastActiveMs,
+  touchLastActive,
   addPendingShares,
   decrementCohort,
   graduateCohort,

@@ -7,7 +7,7 @@ const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall } = require('../helpers');
+const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
@@ -249,6 +249,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         portfolioValue: UNVERIFIED_STARTING_CASH,
         portfolioHistory: [{ timestamp: Date.now(), value: UNVERIFIED_STARTING_CASH }],
         lastCheckin: null,
+        lastActive: Date.now(),
         createdAt: now,
         achievements: [],
         totalCheckins: 0,
@@ -531,6 +532,7 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const newDisplayName = data.displayName;
 
   if (!newDisplayName || typeof newDisplayName !== 'string') {
@@ -643,6 +645,7 @@ exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const userRef = db.collection('users').doc(uid);
 
   // Transaction so two concurrent purchases can't both pass the cash check and

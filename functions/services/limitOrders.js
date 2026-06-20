@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive } = require('../helpers');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -24,6 +24,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { ticker, type, shares, limitPrice, allowPartialFills } = data;
 
   // Validate ticker against character whitelist

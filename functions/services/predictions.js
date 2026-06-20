@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -14,6 +14,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { predictionId, option, amount } = data;
 
   if (!predictionId || !option || !amount || !Number.isFinite(amount) || amount <= 0) {
@@ -110,6 +111,7 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { predictionId } = data;
 
   if (!predictionId) {
@@ -227,6 +229,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { ticker, quantity } = data;
 
   if (!ticker || !quantity || !Number.isFinite(quantity) || quantity < 0.01 || Math.round(quantity * 100) / 100 !== quantity) {

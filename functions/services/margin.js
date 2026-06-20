@@ -13,7 +13,7 @@ const {
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
 } = require('../constants');
-const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError, touchLastActive } = require('../helpers');
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -22,6 +22,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { amount } = data;
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
@@ -69,6 +70,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -128,6 +130,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const userRef = db.collection('users').doc(uid);
   const marketRef = db.collection('market').doc('current');
 
@@ -195,6 +198,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { enable } = data;
   const userRef = db.collection('users').doc(uid);
 

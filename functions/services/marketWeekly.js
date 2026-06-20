@@ -5,8 +5,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs } = require('../helpers');
 
 
 exports.weeklyMarketSummary = cf().pubsub
@@ -66,6 +66,10 @@ exports.weeklyMarketSummary = cf().pubsub
         });
       });
 
+      // Active users — acted (traded, checked in, or any other action) within the window
+      const activeCutoff = now - ACTIVE_USER_WINDOW_MS;
+      const activeUsers = users.filter(u => !u.isBot && getLastActiveMs(u) >= activeCutoff).length;
+
       // Top portfolios
       const topPortfolios = users
         .filter(u => u.portfolioValue > 0)
@@ -80,7 +84,7 @@ exports.weeklyMarketSummary = cf().pubsub
         fields: [
           {
             name: '📊 Weekly Activity',
-            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${users.length} active traders`,
+            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${activeUsers} active users (last 14 days)`,
             inline: false
           },
           {
@@ -131,9 +135,12 @@ exports.weeklyLeaderboard = cf().pubsub
       }
 
       // Calculate portfolio values and sort
+      const activeCutoff = Date.now() - ACTIVE_USER_WINDOW_MS;
+      let activeCount = 0;
       const traders = [];
       usersSnapshot.forEach(doc => {
         const user = doc.data();
+        if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
         if (!user.isBankrupt) {
           traders.push({
             username: user.displayName,
@@ -155,7 +162,7 @@ exports.weeklyLeaderboard = cf().pubsub
         title: '🏆 Weekly Leaderboard',
         description: leaderboardText,
         footer: {
-          text: `Total Active Traders: ${traders.length}`
+          text: `Total Active Users (last 14 days): ${activeCount}`
         },
         timestamp: new Date().toISOString()
       };

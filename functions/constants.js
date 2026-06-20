@@ -151,6 +151,7 @@ const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
 // LEADERBOARD
 // ============================================
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+const ACTIVE_USER_WINDOW_MS = FOURTEEN_DAYS_MS; // a user counts as "active" if they acted within this window
 
 // ============================================
 // LADDER GAME
@@ -299,6 +300,7 @@ module.exports = {
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
   FOURTEEN_DAYS_MS,
+  ACTIVE_USER_WINDOW_MS,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,

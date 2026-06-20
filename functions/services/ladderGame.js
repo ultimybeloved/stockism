@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 const {
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
@@ -22,6 +22,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { startSide, bet } = data;
   // Whole-dollar bets only: silently floor any decimals away. With no decimals in
   // play there is nothing to round, so the old rounding exploit can't exist.

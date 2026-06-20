@@ -7,6 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER } = require('../constants');
+const { touchLastActive } = require('../helpers');
 
 // Placement closes at the lock (20:55), not at market open — the auction
 // settles opening prices at 20:56 while the market is still halted.
@@ -38,6 +39,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { ticker, action, shares, allowPartialFills = false } = data;
 
   if (!ticker || !CHARACTERS.some(c => c.ticker === ticker)) {
@@ -199,6 +201,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { orderId } = data;
 
   if (!orderId) {

@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested, touchLastActive } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -60,6 +60,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   // Whole-dollar deposits only: floor decimals away. The remainder stays in the
   // user's main cash (nothing is destroyed), and the ladder balance stays integer.
   const amount = Math.floor(Number(data.amount));
@@ -188,6 +189,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { amount } = data;
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {

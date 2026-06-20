@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CREW_MEMBERS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, DAILY_MISSIONS, WEEKLY_MISSIONS } = require('../crews');
-const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 
 // Server-side mission completion verification
 // Maps mission IDs to their completion check logic
@@ -169,6 +169,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { missionId, type } = data;
 
   if (!missionId || !type || !['daily', 'weekly'].includes(type)) {
@@ -296,6 +297,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -365,6 +367,7 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { action, pinId, slotType } = data;
 
   const userRef = db.collection('users').doc(uid);

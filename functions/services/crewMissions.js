@@ -10,7 +10,7 @@ const {
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
   CREW_MISSION_REWARDS, CREW_CONTRIB,
 } = require('../constants');
-const { checkBanned, checkDiscordWall, writeNotification } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, touchLastActive } = require('../helpers');
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 
@@ -155,6 +155,7 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid);
   const { missionId } = data;
 
   if (!VALID_CREW_MISSIONS.has(missionId)) {
