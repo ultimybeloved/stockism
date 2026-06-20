@@ -10,9 +10,10 @@ import HoldingRow from '../portfolio/HoldingRow';
 import ShortRow from '../portfolio/ShortRow';
 import IpoHoldingsList from '../portfolio/IpoHoldingsList';
 import PendingOrdersList from '../portfolio/PendingOrdersList';
+import HoldingsControls from '../portfolio/HoldingsControls';
 import { usePortfolioChartData } from '../portfolio/usePortfolioChartData';
 import { usePortfolioModalData } from '../portfolio/usePortfolioModalData';
-import { TIME_RANGES } from '../portfolio/shared';
+import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
 
 const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
@@ -24,6 +25,20 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [expandedTicker, setExpandedTicker] = useState(null);
   const [expandedShortTicker, setExpandedShortTicker] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('value');
+  const [sortDir, setSortDir] = useState('desc');
+
+  // Clicking the active sort flips direction; switching sort resets to a
+  // sensible default (Z→A feels wrong for names, so Name defaults to A→Z).
+  const handleSortChange = (key) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+  };
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -108,6 +123,12 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   const totalWeeklyDividends = useMemo(
     () => portfolioItems.reduce((sum, item) => sum + (item.weeklyDividend || 0), 0),
     [portfolioItems]
+  );
+
+  // Search + sort applied to the long-positions list for display only.
+  const visibleItems = useMemo(
+    () => sortHoldings(filterHoldings(portfolioItems, search), sortKey, sortDir),
+    [portfolioItems, search, sortKey, sortDir]
   );
 
   const shortItems = useMemo(() => {
@@ -250,15 +271,28 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                 <>
                   <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
                     <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>📈</span> Long Positions
-                    <span className={`text-xs font-normal ${mutedClass}`}>({portfolioItems.length})</span>
+                    <span className={`text-xs font-normal ${mutedClass}`}>
+                      ({search.trim() ? `${visibleItems.length} of ${portfolioItems.length}` : portfolioItems.length})
+                    </span>
                     {totalWeeklyDividends > 0 && (
                       <span className={`ml-auto text-xs font-normal ${mutedClass}`}>
                         ~{formatCurrency(totalWeeklyDividends)} / week in dividends
                       </span>
                     )}
                   </h3>
+                  <HoldingsControls
+                    darkMode={darkMode}
+                    search={search}
+                    setSearch={setSearch}
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSortChange={handleSortChange}
+                  />
+                  {visibleItems.length === 0 ? (
+                    <p className={`text-sm text-center py-4 ${mutedClass}`}>No holdings match your search.</p>
+                  ) : (
                   <div className="space-y-2">
-                    {portfolioItems.map(item => (
+                    {visibleItems.map(item => (
                       <HoldingRow
                         key={item.ticker}
                         item={item}
@@ -276,6 +310,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                       />
                     ))}
                   </div>
+                  )}
                 </>
               )}
 
