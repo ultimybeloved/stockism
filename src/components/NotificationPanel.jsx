@@ -59,15 +59,13 @@ export default function NotificationPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onMarkAllRead(visibleUnreadIds)}
-              disabled={visibleUnreadIds.length === 0}
-              className="text-xs text-orange-600 hover:text-orange-500 font-semibold transition-colors disabled:opacity-40"
+              className="text-xs text-orange-600 hover:text-orange-500 font-semibold transition-colors"
             >
               Mark {scope} Read
             </button>
             <button
               onClick={() => onClearAll(visibleIds)}
-              disabled={visibleIds.length === 0}
-              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-600 disabled:opacity-40`}
+              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-600`}
             >
               Clear {scope}
             </button>
