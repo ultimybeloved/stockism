@@ -27,6 +27,9 @@ export default function NotificationPanel({
   const all = notifications || [];
   const unreadCount = all.filter((n) => !n.read).length;
   const visible = filter === 'All' ? all : all.filter((n) => getNotificationCategory(n) === filter);
+  const visibleIds = visible.map((n) => n.id);
+  const visibleUnreadIds = visible.filter((n) => !n.read).map((n) => n.id);
+  const scope = filter === 'All' ? 'All' : filter;
 
   const handleRowClick = (notification) => {
     if (!notification.read) onMarkRead(notification.id);
@@ -55,16 +58,18 @@ export default function NotificationPanel({
           </h3>
           <div className="flex items-center gap-2">
             <button
-              onClick={onMarkAllRead}
-              className="text-xs text-orange-600 hover:text-orange-500 font-semibold transition-colors"
+              onClick={() => onMarkAllRead(visibleUnreadIds)}
+              disabled={visibleUnreadIds.length === 0}
+              className="text-xs text-orange-600 hover:text-orange-500 font-semibold transition-colors disabled:opacity-40"
             >
-              Mark All Read
+              Mark {scope} Read
             </button>
             <button
-              onClick={onClearAll}
-              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-600`}
+              onClick={() => onClearAll(visibleIds)}
+              disabled={visibleIds.length === 0}
+              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-600 disabled:opacity-40`}
             >
-              Clear All
+              Clear {scope}
             </button>
           </div>
         </div>

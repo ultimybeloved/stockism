@@ -547,30 +547,29 @@ export default function App() {
     }
   }, [user]);
 
-  const handleMarkAllNotificationsRead = useCallback(async () => {
-    if (!user) return;
+  // Both act on the exact ids the panel passes (scoped to the active filter tab),
+  // so "Clear" / "Mark Read" only touch what the user is actually looking at.
+  const handleMarkAllNotificationsRead = useCallback(async (ids) => {
+    if (!user || !ids?.length) return;
     try {
-      const batch = [];
-      for (const n of userNotifications.filter(n => !n.read)) {
-        batch.push(updateDoc(doc(db, 'users', user.uid, 'notifications', n.id), { read: true }));
-      }
-      await Promise.all(batch);
+      await Promise.all(ids.map(id =>
+        updateDoc(doc(db, 'users', user.uid, 'notifications', id), { read: true })
+      ));
     } catch (err) {
-      console.error('Failed to mark all read:', err);
+      console.error('Failed to mark notifications read:', err);
     }
-  }, [user, userNotifications]);
+  }, [user]);
 
-  const handleClearAllNotifications = useCallback(async () => {
-    if (!user) return;
+  const handleClearAllNotifications = useCallback(async (ids) => {
+    if (!user || !ids?.length) return;
     try {
-      const promises = userNotifications.map(n =>
-        deleteDoc(doc(db, 'users', user.uid, 'notifications', n.id))
-      );
-      await Promise.all(promises);
+      await Promise.all(ids.map(id =>
+        deleteDoc(doc(db, 'users', user.uid, 'notifications', id))
+      ));
     } catch (err) {
       console.error('Failed to clear notifications:', err);
     }
-  }, [user, userNotifications]);
+  }, [user]);
 
   const handleDeleteNotification = useCallback(async (notificationId) => {
     if (!user) return;
