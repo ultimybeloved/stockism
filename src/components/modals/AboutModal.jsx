@@ -101,6 +101,23 @@ const AboutModal = ({ onClose }) => {
                     Reddit
                   </a>
                 </div>
+
+                {/* Live Discord widget. Loads from discord.com only when this tab is open. */}
+                <div className="mt-3 w-full max-w-[350px]">
+                  <iframe
+                    src="https://discord.com/widget?id=1466532292242702452&theme=dark"
+                    title="Stockism Discord"
+                    width="350"
+                    height="500"
+                    allowtransparency="true"
+                    frameBorder="0"
+                    sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                    className="w-full rounded"
+                  />
+                  <p className={`text-xs ${mutedClass} mt-1`}>
+                    This widget loads live from Discord, so opening it lets Discord set its own cookies.
+                  </p>
+                </div>
               </div>
             </div>
           )}
