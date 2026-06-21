@@ -11,6 +11,7 @@ import DiscordLinkBanner from '../components/profile/DiscordLinkBanner';
 import CrewSection from '../components/profile/CrewSection';
 import ProfileChart from '../components/profile/ProfileChart';
 import TradingStats from '../components/profile/TradingStats';
+import LadderStats from '../components/profile/LadderStats';
 import ProfileSettings from '../components/profile/ProfileSettings';
 import PredictionHistory from '../components/profile/PredictionHistory';
 import DeleteAccountSection from '../components/profile/DeleteAccountSection';
@@ -106,6 +107,8 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
             betsPlaced={userBetHistory.length}
             darkMode={darkMode}
           />
+
+          <LadderStats user={user} userData={userData} darkMode={darkMode} />
 
           <PortfolioAnalytics
             darkMode={darkMode}
