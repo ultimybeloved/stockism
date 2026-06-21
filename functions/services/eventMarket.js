@@ -24,6 +24,7 @@ const {
   lmsrCost,
   lmsrBuyCost,
   lmsrSellRefund,
+  getTotalInvested,
   touchLastActive,
 } = require('../helpers');
 
@@ -101,6 +102,23 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     }
     if ((userData.cash || 0) < cost) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+    }
+
+    // Cap event-market exposure to what the user has invested in stocks, the same
+    // rule weekly bets and ladder deposits use. Without it, a barely-invested
+    // player could farm value straight out of the AMM. Only unsettled positions
+    // count toward the cap; resolved/settled ones are already realized.
+    const totalInvested = getTotalInvested(userData);
+    if (totalInvested <= 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before buying prediction shares.');
+    }
+    const activeEventCost = Object.values(userData.eventPositions || {}).reduce(
+      (sum, p) => sum + (p && !p.settled ? (p.costBasis || 0) : 0), 0
+    );
+    if (activeEventCost + cost > totalInvested) {
+      const room = Math.max(0, round2(totalInvested - activeEventCost));
+      throw new functions.https.HttpsError('failed-precondition',
+        `Long-term markets are capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`);
     }
 
     q[oi] = Math.round((q[oi] + qty) * 100) / 100;

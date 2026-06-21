@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';
-import { lmsrPrices, lmsrBuyCost, lmsrSellRefund } from '../utils/calculations';
+import { lmsrPrices, lmsrBuyCost, lmsrSellRefund, getTotalInvested } from '../utils/calculations';
 import { formatCountdown } from '../utils/marketHours';
 import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 
@@ -55,12 +55,25 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const positionValue = outcomes.reduce((sum, o, i) => sum + ownedFor(o) * prices[i], 0);
   const hasPosition = outcomes.some(o => ownedFor(o) > 0);
 
+  // Long-term markets are capped at what the user has invested in stocks (same
+  // rule as weekly bets and ladder deposits), enforced on the server. Mirror it
+  // here so the limit shows instead of bouncing off a server error. Only
+  // unsettled positions count, matching the backend.
+  const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
+  const activeEventCost = Object.values(userData?.eventPositions || {}).reduce(
+    (sum, p) => sum + (p && !p.settled ? (p.costBasis || 0) : 0), 0
+  );
+  const eventRoom = Math.max(0, totalInvested - activeEventCost);
+  const noInvestment = totalInvested <= 0;
+
   const qty = Number(shares) || 0;
   const ownedSelected = ownedFor(outcomes[selected]);
   const preview = qty > 0
     ? (mode === 'buy' ? lmsrBuyCost(q, b, selected, qty) : lmsrSellRefund(q, b, selected, qty))
     : 0;
-  const canSubmit = qty > 0 && (mode === 'buy' || qty <= ownedSelected);
+  const exceedsCap = mode === 'buy' && qty > 0 && preview > eventRoom + 1e-9;
+  const canSubmit = qty > 0
+    && (mode === 'buy' ? (!noInvestment && !exceedsCap) : qty <= ownedSelected);
 
   const submit = () => {
     if (!canSubmit) return;
@@ -233,6 +246,14 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
               <span className="text-orange-500 font-semibold">{formatCurrency(preview)}</span>
             </div>
           )}
+
+          {mode === 'buy' && (noInvestment ? (
+            <div className="text-xs text-red-500">Invest in stocks before buying prediction shares.</div>
+          ) : (
+            <div className={`text-xs ${exceedsCap ? 'text-red-500' : mutedClass}`}>
+              Limit left: <span className="font-semibold">{formatCurrency(eventRoom)}</span> · capped at what you've invested in stocks
+            </div>
+          ))}
 
           <div className="flex gap-2">
             <button
