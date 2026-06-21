@@ -2769,7 +2769,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           peakPortfolioValue: data.peakPortfolioValue || 0,
           totalCheckins: data.totalCheckins || 0,
           crew: data.crew || null,
-          lowestWhileHolding: data.lowestWhileHolding || {}
+          lowestWhileHolding: data.lowestWhileHolding || {},
+          discordId: data.discordId || null,
+          discordUsername: data.discordUsername || null,
+          requiresDiscordLink: data.requiresDiscordLink || false
         });
       });
 
@@ -2929,9 +2932,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       return;
     }
 
+    const q = query.toLowerCase();
     const filtered = allUsers.filter(u =>
-      u.displayName.toLowerCase().includes(query.toLowerCase()) ||
-      u.id.toLowerCase().includes(query.toLowerCase())
+      (u.displayName || '').toLowerCase().includes(q) ||
+      u.id.toLowerCase().includes(q) ||
+      (u.discordId || '').toLowerCase().includes(q) ||
+      (u.discordUsername || '').toLowerCase().includes(q)
     );
     setUserSearchResults(sortUsers(filtered));
   };

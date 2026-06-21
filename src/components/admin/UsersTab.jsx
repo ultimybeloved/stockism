@@ -52,7 +52,7 @@ const UsersTab = ({
           type="text"
           value={userSearchQuery}
           onChange={e => { handleUserSearch(e.target.value); setUsersPage(0); }}
-          placeholder="Search by name or ID..."
+          placeholder="Search by name, ID, or Discord..."
           className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
         />
         <select
@@ -199,6 +199,12 @@ const UsersTab = ({
             <div>
               <h3 className={`font-bold text-lg ${textClass}`}>{selectedUser.displayName}</h3>
               <p className={`text-xs ${mutedClass} font-mono`}>{selectedUser.id}</p>
+              {selectedUser.discordId && (
+                <p className={`text-xs ${mutedClass} font-mono`}>
+                  💬 Discord: {selectedUser.discordUsername || selectedUser.discordId}
+                  {selectedUser.discordUsername && ` (${selectedUser.discordId})`}
+                </p>
+              )}
             </div>
             <button
               onClick={() => setSelectedUser(null)}
