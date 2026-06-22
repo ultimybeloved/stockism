@@ -9,7 +9,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 
   const timeRemaining = prediction.endsAt - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
@@ -117,7 +117,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
       </div>
 
       {userBet && (
-        <div className={`mb-3 p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+        <div className={`mb-3 p-2 rounded-sm ${subtleClass}`}>
           <div className={`text-xs ${mutedClass}`}>Your bet</div>
           <div className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}>
             {formatCurrency(userBet.amount)} on "{userBet.option}"

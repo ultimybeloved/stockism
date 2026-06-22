@@ -10,7 +10,7 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const colorBlindMode = userData?.colorBlindMode || false;
   const isGuest = !user;
   const [quantity, setQuantity] = useState(1);
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 
   const character = CHARACTER_MAP[ipo.ticker];
   const timeRemaining = ipo.ipoEndsAt - Date.now();
@@ -45,7 +45,7 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
         ${ipo.ticker} - {character?.name}
       </h3>
 
-      <div className={`mt-3 p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+      <div className={`mt-3 p-3 rounded-sm ${subtleClass}`}>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className={`text-xs ${mutedClass}`}>Price</p>

@@ -8,7 +8,7 @@ import { useAppContext } from '../context/AppContext';
 const IPOHypeCard = ({ ipo }) => {
   const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 
   const timeRemaining = ipo.ipoStartsAt - Date.now();
   const character = CHARACTER_MAP[ipo.ticker];
@@ -32,7 +32,7 @@ const IPOHypeCard = ({ ipo }) => {
           <p className={`text-sm ${mutedClass} mt-1 line-clamp-2`}>{character.description}</p>
         )}
 
-        <div className={`mt-3 p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+        <div className={`mt-3 p-3 rounded-sm ${subtleClass}`}>
           <div className="grid grid-cols-2 gap-3 text-center">
             <div>
               <p className={`text-xs ${mutedClass}`}>IPO Price</p>

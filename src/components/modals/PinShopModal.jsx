@@ -14,7 +14,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   const ownedPins = userData?.ownedShopPins || [];
   const displayedShopPins = userData?.displayedShopPins || [];
@@ -198,7 +198,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                           className={`p-3 rounded-sm border ${
                             owned
                               ? 'border-orange-500 bg-orange-500/10'
-                              : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                              : borderClass
                           }`}
                         >
                           <div className="text-2xl text-center mb-2 flex items-center justify-center h-8">
@@ -258,7 +258,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                       className={`p-3 rounded-sm border text-left ${
                         isDisplayed
                           ? 'border-orange-500 bg-orange-500/10'
-                          : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                          : borderClass
                       }`}
                     >
                       <div className="text-2xl mb-1 inline-flex items-center justify-center h-7">
@@ -295,7 +295,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                     className={`px-3 py-2 rounded-sm border flex items-center ${
                       crewPinDisplayed
                         ? 'border-orange-500 bg-orange-500/10'
-                        : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                        : borderClass
                     }`}
                   >
                     {CREW_MAP[userData.crew]?.icon ? (
@@ -329,7 +329,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                           className={`px-3 py-2 rounded-sm border ${
                             isDisplayed
                               ? 'border-orange-500 bg-orange-500/10'
-                              : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                              : borderClass
                           }`}
                         >
                           <span className="mr-1 inline-flex items-center">

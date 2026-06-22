@@ -1,6 +1,7 @@
 import { useAppContext } from '../../context/AppContext';
 import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
+import { getThemeClasses } from '../../utils/theme';
 
 /**
  * Full-screen wall for accounts flagged for Discord verification (suspected alts,
@@ -14,6 +15,8 @@ export default function DiscordWallModal() {
   // Only walls a logged-in, flagged, not-yet-linked account.
   if (!user || !userData?.requiresDiscordLink || userData?.discordId) return null;
 
+  const { textClass, mutedClass } = getThemeClasses(darkMode);
+
   const startLink = () => {
     window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
   };
@@ -22,8 +25,8 @@ export default function DiscordWallModal() {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className={`max-w-md w-full p-6 rounded-lg border text-center ${darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'}`}>
         <div className="text-4xl mb-3">🔗</div>
-        <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Link Discord to continue</h2>
-        <p className={`text-sm mb-5 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
+        <h2 className={`text-xl font-bold mb-2 ${textClass}`}>Link Discord to continue</h2>
+        <p className={`text-sm mb-5 ${mutedClass}`}>
           To keep the game fair, this account needs a linked Discord before you can trade or play. It is a one-time step and takes a few seconds.
         </p>
         <button

@@ -225,12 +225,14 @@ function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
     }
   }, [user]);
 
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+
   if (!user) {
     return (
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
-        <div className={`max-w-sm w-full p-6 rounded-sm border text-center ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'}`}>
-          <p className={`text-lg font-semibold mb-3 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Link Your Discord</p>
-          <p className={`text-sm mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Log into Stockism first, then come back to this page.</p>
+        <div className={`max-w-sm w-full p-6 rounded-sm border text-center ${cardClass}`}>
+          <p className={`text-lg font-semibold mb-3 ${textClass}`}>Link Your Discord</p>
+          <p className={`text-sm mb-4 ${mutedClass}`}>Log into Stockism first, then come back to this page.</p>
           <button
             onClick={() => setShowLoginModal(true)}
             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm"
@@ -244,7 +246,7 @@ function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
 
   return (
     <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
-      <p className={darkMode ? 'text-zinc-400' : 'text-zinc-600'}>Redirecting to Discord...</p>
+      <p className={mutedClass}>Redirecting to Discord...</p>
     </div>
   );
 }
@@ -1517,7 +1519,7 @@ export default function App() {
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Styling - Orange/Yellow theme inspired by logo
-  const { bgClass, cardClass, mutedClass, inputClass: inputClassStyle } = getThemeClasses(darkMode);
+  const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
 
   // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
@@ -2168,7 +2170,7 @@ export default function App() {
       {showBailout && !isGuest && userData?.isBankrupt && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowBailout(false)}>
           <div
-            className={`w-full max-w-md ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'} border rounded-sm shadow-xl p-6`}
+            className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6`}
             onClick={e => e.stopPropagation()}
           >
             <div className="text-center mb-4">
@@ -2327,7 +2329,7 @@ export default function App() {
                 <span>{tradeConfirmation.action === 'short' ? 'Margin/Share:' : 'Est. Price/Share:'}</span>
                 <span className="font-semibold">{formatCurrency(Math.abs(tradeConfirmation.total) / tradeConfirmation.amount)}</span>
               </div>
-              <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+              <div className={`flex justify-between pt-2 border-t ${borderClass}`}>
                 <span className="font-semibold">{tradeConfirmation.action === 'short' ? 'Margin Cost:' : tradeConfirmation.action === 'cover' ? (tradeConfirmation.total < 0 ? 'Est. Cost:' : 'Est. Return:') : 'Est. Total:'}</span>
                 <span className={`font-bold ${
                   tradeConfirmation.action === 'buy' || tradeConfirmation.action === 'short' || (tradeConfirmation.action === 'cover' && tradeConfirmation.total < 0)
@@ -2384,7 +2386,7 @@ export default function App() {
                 <span>Your Pick:</span>
                 <span className="font-semibold text-orange-500">"{betConfirmation.option}"</span>
               </div>
-              <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+              <div className={`flex justify-between pt-2 border-t ${borderClass}`}>
                 <span className="font-semibold">Bet Amount:</span>
                 <span className="font-bold text-red-500">-{formatCurrency(betConfirmation.amount)}</span>
               </div>

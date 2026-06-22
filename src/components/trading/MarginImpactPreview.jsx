@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { formatCurrency } from '../../utils/formatters';
 import { calculateMarginStatus } from '../../utils/calculations';
+import { getThemeClasses } from '../../utils/theme';
 import {
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -13,6 +14,7 @@ import {
 // Returns null for pure-cash buys, so the parent can always render it.
 const MarginImpactPreview = ({ cost, userCash }) => {
   const { darkMode, userData, prices, priceHistory } = useAppContext();
+  const { textClass } = getThemeClasses(darkMode);
 
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   if (!marginStatus.enabled) return null;
@@ -41,7 +43,7 @@ const MarginImpactPreview = ({ cost, userCash }) => {
     ? 'text-red-500'
     : equityAfter <= MARGIN_WARNING_THRESHOLD
       ? 'text-yellow-500'
-      : darkMode ? 'text-zinc-100' : 'text-slate-900';
+      : textClass;
 
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-slate-500';
 

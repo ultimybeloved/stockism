@@ -7,6 +7,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
 import { isPreMarketWindow } from '../../utils/marketHours';
 import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
+import { getThemeClasses } from '../../utils/theme';
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -28,6 +29,7 @@ const LadderIcon = () => (
 
 const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters = [] }) => {
   const { darkMode, user, userData } = useAppContext();
+  const { textClass } = getThemeClasses(darkMode);
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -220,11 +222,11 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                           darkMode ? 'border-zinc-800' : 'border-amber-100'
                         }`}>
                           <div className="min-w-0 flex-1">
-                            <span className={`text-sm font-semibold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>{char.name}</span>
+                            <span className={`text-sm font-semibold ${textClass}`}>{char.name}</span>
                             <span className={`text-xs ml-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>${char.ticker}</span>
                           </div>
                           <div className="text-right ml-2 shrink-0">
-                            <span className={`text-sm font-bold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>${(char.currentPrice || 0).toFixed(2)}</span>
+                            <span className={`text-sm font-bold ${textClass}`}>${(char.currentPrice || 0).toFixed(2)}</span>
                             <span className={`text-xs ml-1 ${
                               userData?.colorBlindMode
                                 ? (char.weeklyChange >= 0 ? 'text-teal-500' : 'text-purple-500')

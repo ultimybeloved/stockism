@@ -4,7 +4,7 @@ import { getThemeClasses } from '../../utils/theme';
 // Collapsible crew card, or a "Join a Crew" button when the user has no crew.
 const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelection }) => {
   const [showCrewSection, setShowCrewSection] = useState(false);
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   if (!userCrew) {
     return (
@@ -21,7 +21,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
 
   return (
     <div
-      className={`rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} overflow-hidden`}
+      className={`rounded-sm border ${borderClass} overflow-hidden`}
       style={{ borderColor: crewData.color }}
     >
       <button
@@ -45,7 +45,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
       </button>
 
       {showCrewSection && (
-        <div className={`p-3 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+        <div className={`p-3 border-t ${borderClass}`}>
           <div className={`text-sm ${mutedClass} mb-2`}>
             <strong>Crew Members:</strong> {crewData.members?.join(', ')}
           </div>

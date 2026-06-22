@@ -12,7 +12,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   const { darkMode, userData, prices } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   const today = getTodayDateString();
   const weekId = getWeekId();
@@ -547,7 +547,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                       ? 'border-orange-500/30 bg-orange-500/5'
                       : mission.complete
                         ? 'border-orange-500 bg-orange-500/10'
-                        : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                        : borderClass
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -617,7 +617,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                         ? 'border-purple-500/30 bg-purple-500/5'
                         : mission.complete
                           ? 'border-purple-500 bg-purple-500/10'
-                          : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                          : borderClass
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">

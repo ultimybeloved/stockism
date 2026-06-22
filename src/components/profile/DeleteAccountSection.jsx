@@ -6,10 +6,10 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
   const [deleteStep, setDeleteStep] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [confirmUsername, setConfirmUsername] = useState('');
-  const { mutedClass } = getThemeClasses(darkMode);
+  const { mutedClass, subtleClass, borderClass } = getThemeClasses(darkMode);
 
   return (
-    <div className={`mt-6 pt-4 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+    <div className={`mt-6 pt-4 border-t ${borderClass}`}>
       {deleteStep === 0 && (
         <button
           onClick={() => setDeleteStep(1)}
@@ -20,7 +20,7 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
       )}
 
       {deleteStep === 1 && (
-        <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+        <div className={`p-3 rounded-sm ${subtleClass}`}>
           <h4 className={`font-semibold text-red-500 mb-2`}>Delete Your Account</h4>
           <p className={`text-sm ${mutedClass} mb-3`}>
             This will permanently delete your account and all associated data including:

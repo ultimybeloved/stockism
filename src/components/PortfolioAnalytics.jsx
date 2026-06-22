@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from 'react';
 import DonutChart from './charts/DonutChart';
 import { CHARACTER_MAP } from '../characters';
+import { getThemeClasses } from '../utils/theme';
 
 // Maps tickers to their crew/faction
 const CREW_TICKER_MAP = {
@@ -207,10 +208,11 @@ const PortfolioAnalytics = ({
     ? 'bg-zinc-800/50 border border-zinc-700 rounded-sm p-4'
     : 'bg-amber-50 border border-amber-200 rounded-sm p-4';
 
+  const { borderClass } = getThemeClasses(darkMode);
   if (positionData.length === 0 && !expanded) return null;
 
   return (
-    <div className={`${darkMode ? 'border-zinc-700' : 'border-amber-200'} border rounded-sm overflow-hidden`}>
+    <div className={`${borderClass} border rounded-sm overflow-hidden`}>
       {/* Header toggle */}
       <button
         onClick={() => setExpanded(!expanded)}

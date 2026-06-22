@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getThemeClasses } from '../utils/theme';
 
 const ICONS = {
   trade: '📈',
@@ -66,6 +67,7 @@ function timeAgo(timestamp) {
 }
 
 export default function TradeFeed({ darkMode, user, userCrew }) {
+  const { borderClass } = getThemeClasses(darkMode);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('crew'); // 'crew' | 'global'
   const [crewItems, setCrewItems] = useState([]);
@@ -168,7 +170,7 @@ export default function TradeFeed({ darkMode, user, userCrew }) {
           style={{ maxHeight: '420px' }}
         >
           {/* Header */}
-          <div className={`flex items-center justify-between px-3 py-2 border-b ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+          <div className={`flex items-center justify-between px-3 py-2 border-b ${borderClass}`}>
             <span className="font-semibold text-sm">📜 Trade Feed</span>
             <button
               onClick={handleToggle}
@@ -179,7 +181,7 @@ export default function TradeFeed({ darkMode, user, userCrew }) {
           </div>
 
           {/* Tabs */}
-          <div className={`flex border-b ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+          <div className={`flex border-b ${borderClass}`}>
             <button
               onClick={() => setTab('crew')}
               className={`flex-1 text-xs font-semibold py-1.5 transition-colors

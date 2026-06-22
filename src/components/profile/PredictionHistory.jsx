@@ -6,7 +6,7 @@ import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
 
 // Active bets + resolved prediction history (weekly), plus long-term event positions.
 const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const { predictions } = useAppContext();
 
   // Calculate potential payout for active bets
@@ -52,7 +52,7 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
               const resolved = market.resolved;
               const won = resolved && payout > 0;
               return (
-                <div key={marketId} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                <div key={marketId} className={`p-3 rounded-sm border ${borderClass}`}>
                   <p className={`text-sm font-semibold ${textClass}`}>{market.question}</p>
                   <div className="flex justify-between items-center mt-1">
                     <span className={`text-xs ${mutedClass}`}>{owned.map(x => `${x.qty} ${x.o}`).join(', ')}</span>
@@ -79,7 +79,7 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
             {activeBets.map(bet => {
               const potentialPayout = calculatePotentialPayout(bet);
               return (
-                <div key={bet.predictionId} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                <div key={bet.predictionId} className={`p-3 rounded-sm border ${borderClass}`}>
                   <p className={`text-sm font-semibold ${textClass}`}>{bet.prediction?.question || bet.question}</p>
                   <div className="flex justify-between items-center mt-2">
                     <div>

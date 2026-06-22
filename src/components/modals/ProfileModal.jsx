@@ -17,7 +17,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass, borderClass } = getThemeClasses(darkMode);
 
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;
@@ -201,7 +201,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
           {/* Crew Section - Collapsible */}
           {userCrew && crewData && (
             <div
-              className={`rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} overflow-hidden`}
+              className={`rounded-sm border ${borderClass} overflow-hidden`}
               style={{ borderColor: crewData.color }}
             >
               <button
@@ -225,7 +225,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
               </button>
 
               {showCrewSection && (
-                <div className={`p-3 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                <div className={`p-3 border-t ${borderClass}`}>
                   <div className={`text-sm ${mutedClass} mb-2`}>
                     <strong>Crew Members:</strong> {crewData.members?.join(', ')}
                   </div>
@@ -422,7 +422,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                 {userBetHistory.filter(b => b.prediction && !b.prediction.resolved).map(bet => {
                   const potentialPayout = calculatePotentialPayout(bet);
                   return (
-                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+                    <div key={bet.predictionId} className={`p-3 rounded-sm border ${borderClass}`}>
                       <p className={`text-sm font-semibold ${textClass}`}>{bet.prediction?.question || bet.question}</p>
                       <div className="flex justify-between items-center mt-2">
                         <div>
@@ -509,7 +509,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
           </div>
 
           {/* Delete Account Section */}
-          <div className={`mt-6 pt-4 border-t ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+          <div className={`mt-6 pt-4 border-t ${borderClass}`}>
             {deleteStep === 0 && (
               <button
                 onClick={() => setDeleteStep(1)}
@@ -520,7 +520,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
             )}
 
             {deleteStep === 1 && (
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+              <div className={`p-3 rounded-sm ${subtleClass}`}>
                 <h4 className={`font-semibold text-red-500 mb-2`}>Delete Your Account</h4>
                 <p className={`text-sm ${mutedClass} mb-3`}>
                   This will permanently delete your account and all associated data including:

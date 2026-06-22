@@ -8,7 +8,7 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
   const { darkMode, user, showNotification } = useAppContext();
   const [orders, setOrders] = useState([]);
   const [cancelling, setCancelling] = useState(null);
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   useEffect(() => {
     if (!user) return;
@@ -59,7 +59,7 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
         className={`relative w-full max-w-md rounded-sm shadow-xl ${cardClass}`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'border-zinc-700' : 'border-amber-200'}`}>
+        <div className={`flex items-center justify-between px-4 py-3 border-b ${borderClass}`}>
           <h2 className={`font-bold text-base ${textClass}`}>My Pre-Market Orders</h2>
           <button onClick={onClose} className={`text-lg leading-none ${mutedClass} hover:opacity-70`}>✕</button>
         </div>

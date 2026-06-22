@@ -77,7 +77,7 @@ const CREW_MISSIONS = [
 
 export default function CrewMissionsTab() {
   const { darkMode, userData, user } = useAppContext();
-  const { cardClass: _, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass: _, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const [missionData, setMissionData] = useState(null);
   const [claiming, setClaiming] = useState(null);
   const [claimError, setClaimError] = useState(null);
@@ -158,7 +158,7 @@ export default function CrewMissionsTab() {
                 ? 'border-blue-500/30 bg-blue-500/5'
                 : canClaim
                   ? 'border-blue-500 bg-blue-500/10'
-                  : darkMode ? 'border-zinc-700' : 'border-amber-200'
+                  : borderClass
             }`}
           >
             <div className="flex justify-between items-start mb-2">

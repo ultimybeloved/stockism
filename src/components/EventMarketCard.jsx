@@ -11,7 +11,7 @@ import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 // buy or sell any time, except when the market is frozen during chapter review.
 const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = false, isAdmin = false, onHide }) => {
   const { darkMode, userData } = useAppContext();
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 
   const colorBlindMode = userData?.colorBlindMode || false;
   const outcomeColors = [
@@ -123,7 +123,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
 
       {/* Your position */}
       {!notYetOpen && hasPosition && (
-        <div className={`mb-3 p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-amber-50'}`}>
+        <div className={`mb-3 p-2 rounded-sm ${subtleClass}`}>
           <div className={`text-xs ${mutedClass} mb-1`}>Your shares</div>
           {outcomes.map((o, i) => ownedFor(o) > 0 && (
             <div key={o} className="flex justify-between text-xs">

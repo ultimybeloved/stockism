@@ -21,7 +21,7 @@ const TradeHistoryModal = ({ onClose }) => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const inputClass = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-slate-900';
 
   const fetchTrades = async (afterDoc = null) => {
@@ -279,7 +279,7 @@ const TradeHistoryModal = ({ onClose }) => {
                   const dripEntries = Object.entries(reinvested).sort((a, b) => b[1].value - a[1].value);
                   const totalCount = cashEntries.length + dripEntries.length;
                   return (
-                    <div key={trade.id} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} ${darkMode ? getActionBg('dividend') : ''}`}>
+                    <div key={trade.id} className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg('dividend') : ''}`}>
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ const TradeHistoryModal = ({ onClose }) => {
                 const char = CHARACTER_MAP[trade.ticker];
                 const pl = getTradeP_L(trade);
                 return (
-                  <div key={trade.id} className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-700' : 'border-amber-200'} ${darkMode ? getActionBg(trade.action) : ''}`}>
+                  <div key={trade.id} className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg(trade.action) : ''}`}>
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
