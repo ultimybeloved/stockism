@@ -146,6 +146,38 @@ describe('calculateMarginStatus', () => {
     const platinum = calculateMarginStatus({ ...base, peakPortfolioValue: 50000 }, {});
     expect(platinum.availableMargin).toBeGreaterThan(bronze.availableMargin);
   });
+
+  it('holdings give a cash-poor player borrowing power, valued at cost not market', () => {
+    // Pumped 4x: paid $50, now shows $200. Borrowing must use the $50 cost basis,
+    // so pumping a stock you hold cannot inflate your limit.
+    const user = {
+      marginEnabled: true,
+      cash: 0,
+      holdings: { ABC: 100 },
+      costBasis: { ABC: 50 },
+      marginUsed: 0,
+      peakPortfolioValue: 50000, // Platinum 0.75x
+    };
+    const status = calculateMarginStatus(user, { ABC: 200 });
+    // collateral = min(50,200)*100 = 5000; borrowBase 5000; available = 5000*0.75
+    expect(status.borrowBase).toBe(5000);
+    expect(status.availableMargin).toBe(3750);
+  });
+
+  it('underwater holdings count at market price, not the higher cost basis', () => {
+    const user = {
+      marginEnabled: true,
+      cash: 0,
+      holdings: { ABC: 100 },
+      costBasis: { ABC: 200 }, // paid $200
+      marginUsed: 0,
+      peakPortfolioValue: 50000,
+    };
+    const status = calculateMarginStatus(user, { ABC: 50 }); // now $50
+    // collateral = min(200,50)*100 = 5000 (market), not 20000
+    expect(status.borrowBase).toBe(5000);
+    expect(status.availableMargin).toBe(3750);
+  });
 });
 
 // ─── calculatePriceImpactDollars (the live trade-preview impact) ────────────────

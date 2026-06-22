@@ -363,7 +363,16 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
         }
 
-        const maxBorrowable = Math.max(0, cash * tierMultiplier);
+        // Borrowing power scales with invested value, not just idle cash. Holdings
+        // count at the LOWER of cost basis or current price, so a pumped stock can't
+        // inflate the limit (paper gains don't count) — mirrors calculations.js.
+        const costBasis = userData.costBasis || {};
+        let collateralValue = 0;
+        for (const [t, s] of Object.entries(holdings)) {
+          if (s > 0) collateralValue += Math.min(costBasis[t] || 0, prices[t] || 0) * s;
+        }
+        const borrowBase = Math.max(0, cash + collateralValue - marginUsed);
+        const maxBorrowable = Math.max(0, borrowBase * tierMultiplier);
         const availableMargin = Math.max(0, maxBorrowable - marginUsed);
 
         if (!marginEnabled && cash < totalCost) {

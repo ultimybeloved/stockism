@@ -185,6 +185,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   const cash = userData.cash || 0;
   const holdings = userData.holdings || {};
   const marginUsed = userData.marginUsed || 0;
+  const costBasis = userData.costBasis || {};
   const peakPortfolio = userData.peakPortfolioValue || 0;
 
   const tierMultiplier = getMarginTierMultiplier(peakPortfolio);
@@ -192,6 +193,10 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 
   let holdingsValue = 0;
   let totalMaintenanceRequired = 0;
+  // Collateral for borrowing power: value holdings at the LOWER of cost basis or
+  // current price. A player can't inflate their limit by pumping a stock they hold
+  // (paper gains don't count), and can't borrow against a crashed cost basis either.
+  let collateralValue = 0;
 
   Object.entries(holdings).forEach(([ticker, shares]) => {
     if (shares > 0) {
@@ -199,6 +204,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
       const positionValue = price * shares;
       holdingsValue += positionValue;
       totalMaintenanceRequired += positionValue * MARGIN_MAINTENANCE_RATIO;
+      collateralValue += Math.min(costBasis[ticker] || 0, price) * shares;
     }
   });
 
@@ -206,7 +212,10 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   const portfolioValue = grossValue - marginUsed;
   const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 0;
 
-  const maxBorrowable = Math.max(0, cash * tierMultiplier);
+  // Borrowing power scales with invested value (cash + cost-based collateral − debt),
+  // not just idle cash, so a fully-invested portfolio can still use margin.
+  const borrowBase = Math.max(0, cash + collateralValue - marginUsed);
+  const maxBorrowable = Math.max(0, borrowBase * tierMultiplier);
   const availableMargin = Math.max(0, maxBorrowable - marginUsed);
 
   let status = 'safe';
@@ -227,6 +236,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
     marginUsed,
     availableMargin: Math.round(availableMargin * 100) / 100,
     maxBorrowable: Math.round(maxBorrowable * 100) / 100,
+    borrowBase: Math.round(borrowBase * 100) / 100,
     tierMultiplier,
     tierName,
     portfolioValue: Math.round(portfolioValue * 100) / 100,

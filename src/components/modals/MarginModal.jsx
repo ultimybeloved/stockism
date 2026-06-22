@@ -254,9 +254,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
                 <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
-                  Margin is borrowing power - it's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
-                  Your tier determines max borrowable: <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> ({(marginStatus.tierMultiplier * 100).toFixed(0)}% of available cash).
-                  When you sell stocks, proceeds <span className="text-orange-500 font-semibold">become cash</span> directly.
+                  Margin is borrowing power. It's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
+                  Your limit is <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> of your invested value: cash, plus what you've put into your stocks (counted at what you paid, capped at current value), minus debt. Right now that base is <span className="text-orange-500 font-semibold">{formatCurrency(marginStatus.borrowBase)}</span>.
+                  Unrealized gains don't count, so pumping a stock you hold won't raise your limit. Selling stocks turns proceeds <span className="text-orange-500 font-semibold">into cash</span> directly.
                 </p>
               </div>
 
