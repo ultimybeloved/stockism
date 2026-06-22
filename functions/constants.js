@@ -82,6 +82,10 @@ const isWeeklyTradingHalt = () => {
 const STARTING_CASH = 3000;            // full starting cash once verified (Discord linked)
 const UNVERIFIED_STARTING_CASH = 1000; // starting cash before Discord verification (anti-alt)
 const BAILOUT_CASH = 1500;
+const NAME_CHANGE_COST = 10000;        // cash cost to change display name (changeDisplayName)
+
+// Anti-manipulation: cooldown between buy/short on the same ticker by one user.
+const TICKER_COOLDOWN_MS = 10000;      // 10 seconds
 
 // Daily check-in streak rewards. Index 0 = day 1. The reward escalates with the
 // consecutive-day check-in streak, then caps at the last value forever (as long
@@ -276,6 +280,8 @@ module.exports = {
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,
+  NAME_CHANGE_COST,
+  TICKER_COOLDOWN_MS,
   CHECKIN_STREAK_REWARDS,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,

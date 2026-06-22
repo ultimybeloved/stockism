@@ -10,6 +10,7 @@ const {
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS, ANIMAL_TICKERS, SHORT_CONCENTRATION_CAP,
   SHORT_MARGIN_RATIO, ADMIN_UID, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED,
+  TICKER_COOLDOWN_MS,
 } = require('../constants');
 const {
   checkBanned,
@@ -21,6 +22,7 @@ const {
   decrementCohort,
   writeNotification,
   writeFeedEntry,
+  reportError,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissions');
 const { trackWatchedIpTrade } = require('./watchlist');
@@ -248,7 +250,6 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
 
       // ANTI-MANIPULATION: 10-second same-ticker cooldown (buy/short only)
       if (action === 'buy' || action === 'short') {
-        const TICKER_COOLDOWN_MS = 10000;
         const lastTickerTradeTime = userData.lastTickerTradeTime?.[ticker];
         if (lastTickerTradeTime) {
           const lastTickerMs = lastTickerTradeTime.toMillis ? lastTickerTradeTime.toMillis() : lastTickerTradeTime;
@@ -1135,7 +1136,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         }
       }
     } catch (achErr) {
-      console.error('Achievement check after trade failed:', achErr);
+      reportError(achErr, { where: 'executeTrade.achievementCheck', uid, ticker, action });
     }
 
     // Remove internal context from response
@@ -1195,7 +1196,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         trackWatchedIpTrade(uid, uData.displayName, context.rawRequest?.ip || 'unknown');
       }
     } catch (feedErr) {
-      console.error('Feed/notification write after trade failed:', feedErr.message);
+      reportError(feedErr, { where: 'executeTrade.feedWrite', uid, ticker, action });
     }
 
     return result;

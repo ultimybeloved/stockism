@@ -109,7 +109,6 @@ const AboutModal = ({ onClose }) => {
                     title="Stockism Discord"
                     width="350"
                     height="500"
-                    allowtransparency="true"
                     frameBorder="0"
                     sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
                     className="w-full rounded"

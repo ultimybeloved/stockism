@@ -6,7 +6,6 @@ import * as Sentry from '@sentry/react';
 
 export const usePriceHistory = (ticker) => {
   const { priceHistory } = useAppContext();
-  const mainHistory = priceHistory[ticker] || [];
   const [archivedHistory, setArchivedHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +19,7 @@ export const usePriceHistory = (ticker) => {
   }, [ticker]);
 
   const fullHistory = useMemo(() => {
+    const mainHistory = priceHistory[ticker] || [];
     if (archivedHistory.length === 0) {
       return [...mainHistory].sort((a, b) => a.timestamp - b.timestamp);
     }
@@ -27,7 +27,7 @@ export const usePriceHistory = (ticker) => {
     return [...archivedHistory, ...mainHistory]
       .filter(p => { if (seen.has(p.timestamp)) return false; seen.add(p.timestamp); return true; })
       .sort((a, b) => a.timestamp - b.timestamp);
-  }, [mainHistory, archivedHistory]);
+  }, [priceHistory, ticker, archivedHistory]);
 
   return { fullHistory, loading };
 };

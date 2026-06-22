@@ -1289,7 +1289,7 @@ export default function App() {
     const interval = setInterval(showBankruptcyReminder, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user, userData?.cash]);
+  }, [user, userData?.cash, showNotification]);
 
   // Hide prediction from feed (admin only)
   const handleHidePrediction = useCallback(async (predictionId) => {
@@ -2097,7 +2097,8 @@ export default function App() {
                 const userSnap = await getDoc(userDocRef);
                 if (userSnap.exists()) {
                   setUserData(userSnap.data());
-                  // Subscribe to changes
+                  // Subscribe to changes (clean up any existing listener first)
+                  userDataUnsubscribeRef.current?.();
                   userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
                     if (snap.exists()) setUserData(snap.data());
                   });
