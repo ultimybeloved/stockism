@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';
-import { lmsrPrices, lmsrBuyCost, lmsrSellRefund, getTotalInvested } from '../utils/calculations';
+import { lmsrPrices, lmsrBuyCost, lmsrSellRefund, getTotalInvested, niceStep, maxAffordableShares } from '../utils/calculations';
 import { formatCountdown } from '../utils/marketHours';
 import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 
@@ -74,6 +74,13 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const exceedsCap = mode === 'buy' && qty > 0 && preview > eventRoom + 1e-9;
   const canSubmit = qty > 0
     && (mode === 'buy' ? (!noInvestment && !exceedsCap) : qty <= ownedSelected);
+
+  // Stepper + Max bounds. Buy is limited by both cash and the invested cap; sell
+  // by what you own. niceStep keeps +/- proportional to that ceiling.
+  const buyBudget = Math.min(userData?.cash || 0, eventRoom);
+  const maxBuyShares = maxAffordableShares(q, b, selected, buyBudget);
+  const currentMax = mode === 'buy' ? maxBuyShares : ownedSelected;
+  const shareStep = niceStep(currentMax, 1);
 
   const submit = () => {
     if (!canSubmit) return;
@@ -217,15 +224,18 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
           <div>
             <div className={`text-xs ${mutedClass} mb-1`}>Shares</div>
             <div className="flex gap-2">
-              {[5, 10, 25, 50].map(n => (
-                <button
-                  key={n}
-                  onClick={() => setShares(n)}
-                  className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${shares === n ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
-                >
-                  {n}
-                </button>
-              ))}
+              <button type="button" onClick={() => setShares(s => Math.max(0, (Number(s) || 0) - shareStep))}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                -{shareStep}
+              </button>
+              <button type="button" onClick={() => setShares(s => Math.min(currentMax, (Number(s) || 0) + shareStep))}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                +{shareStep}
+              </button>
+              <button type="button" onClick={() => setShares(currentMax)} disabled={!(currentMax > 0)}
+                className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40">
+                Max
+              </button>
             </div>
             <input
               type="number"

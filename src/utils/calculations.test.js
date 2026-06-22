@@ -12,6 +12,8 @@ import {
   lmsrPrices,
   lmsrBuyCost,
   lmsrSellRefund,
+  niceStep,
+  maxAffordableShares,
 } from './calculations';
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
@@ -311,5 +313,28 @@ describe('LMSR event-market pricing', () => {
     const collected = lmsrBuyCost([0, 0], b, 0, shares);
     const houseLoss = shares - collected; // payout minus what the AMM took in
     expect(houseLoss).toBeLessThanOrEqual(b * Math.log(2) + 1e-6);
+  });
+});
+
+describe('niceStep', () => {
+  it('snaps to round 1/2/5 increments, never below min', () => {
+    expect(niceStep(0)).toBe(1);
+    expect(niceStep(200)).toBe(10);
+    expect(niceStep(1000)).toBe(50);
+    expect(niceStep(10000)).toBe(500);
+  });
+});
+
+describe('maxAffordableShares', () => {
+  it('returns the largest whole share count within budget', () => {
+    const q = [0, 0]; const b = 100;
+    const n = maxAffordableShares(q, b, 0, 50);
+    expect(n).toBeGreaterThan(0);
+    expect(lmsrBuyCost(q, b, 0, n)).toBeLessThanOrEqual(50);
+    expect(lmsrBuyCost(q, b, 0, n + 1)).toBeGreaterThan(50);
+  });
+
+  it('returns 0 when budget cannot afford a single share', () => {
+    expect(maxAffordableShares([0, 0], 100, 0, 0)).toBe(0);
   });
 });

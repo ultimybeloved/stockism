@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
+import { niceStep } from '../utils/calculations';
 import { useAppContext } from '../context/AppContext';
 
 const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
@@ -10,6 +11,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
   const [showBetUI, setShowBetUI] = useState(false);
 
   const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
+  const betStep = niceStep(betLimit, 1);
 
   const timeRemaining = prediction.endsAt - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
@@ -188,14 +190,18 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
               <div>
                 <div className={`text-xs ${mutedClass} mb-1`}>Bet Amount</div>
                 <div className="flex gap-2">
-                  {[25, 50, 100, 250].map(amount => (
-                    <button key={amount} onClick={() => setBetAmount(amount)}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${
-                        betAmount === amount ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
-                      }`}>
-                      ${amount}
-                    </button>
-                  ))}
+                  <button type="button" onClick={() => setBetAmount(a => Math.max(0, a - betStep))}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                    -{betStep}
+                  </button>
+                  <button type="button" onClick={() => setBetAmount(a => Math.min(betLimit || Infinity, a + betStep))}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                    +{betStep}
+                  </button>
+                  <button type="button" onClick={() => setBetAmount(Math.floor(betLimit))} disabled={!(betLimit > 0)}
+                    className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40">
+                    Max
+                  </button>
                 </div>
                 <input
                   type="number"

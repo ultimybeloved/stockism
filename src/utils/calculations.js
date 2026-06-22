@@ -325,3 +325,30 @@ export const lmsrSellRefund = (q, b, idx, shares) => {
   after[idx] -= shares;
   return lmsrCost(q, b) - lmsrCost(after, b);
 };
+
+// A "nice" round increment for +/- steppers: ~5% of `limit`, snapped to 1/2/5 × a
+// power of ten (1, 2, 5, 10, 20, 50, ...). Always at least `min`. Lets the +/-
+// buttons scale to the player's actual limit instead of fixed amounts.
+export const niceStep = (limit, min = 1) => {
+  const target = Math.max(min, (Number(limit) || 0) / 20);
+  const mag = Math.pow(10, Math.floor(Math.log10(target)));
+  const norm = target / mag;
+  const snapped = norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10;
+  return Math.max(min, snapped * mag);
+};
+
+// Largest whole number of shares whose LMSR buy cost stays within `budget`.
+// Powers the "Max" button on long-term event markets (cost is non-linear, so we
+// can't just divide). Exponential search for a bound, then binary search.
+export const maxAffordableShares = (q, b, idx, budget) => {
+  if (!(budget > 0)) return 0;
+  let hi = 1;
+  while (hi < 1e7 && lmsrBuyCost(q, b, idx, hi) <= budget) hi *= 2;
+  let lo = Math.floor(hi / 2);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (lmsrBuyCost(q, b, idx, mid) <= budget) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+};
