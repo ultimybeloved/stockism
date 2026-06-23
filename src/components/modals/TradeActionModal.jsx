@@ -96,8 +96,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     if (userData && prices) {
       const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
       if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-        const maxMarginUsable = Math.min(userCash, marginStatus.availableMargin);
-        buyingPower += maxMarginUsable;
+        // Use the full available margin, matching what the backend allows. (This
+        // was Math.min(cash, availableMargin) — a no-op under the old cash-based
+        // model, but it throttled buying power once margin scaled with portfolio.)
+        buyingPower += marginStatus.availableMargin;
       }
     }
     return buyingPower;
