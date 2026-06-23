@@ -154,6 +154,48 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
 });
 
 /**
+ * Admin-only: broadcast a notification to every (non-bot) user's bell. Used to
+ * announce game changes so players aren't confused. Batched so a few thousand
+ * users is one quick run.
+ */
+exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+    requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const title = (data.title || '').toString().trim();
+  const message = (data.message || '').toString().trim();
+  if (!title || !message) {
+    throw new functions.https.HttpsError('invalid-argument', 'Title and message are required.');
+  }
+  if (title.length > 100 || message.length > 1000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Title must be ≤ 100 chars and message ≤ 1000 chars.');
+  }
+
+  const usersSnap = await db.collection('users').get();
+  const createdAt = admin.firestore.FieldValue.serverTimestamp();
+  let sent = 0;
+  let batch = db.batch();
+  let pending = 0;
+  for (const doc of usersSnap.docs) {
+    if (doc.data().isBot) continue;
+    const ref = db.collection('users').doc(doc.id).collection('notifications').doc();
+    batch.set(ref, { type: 'announcement', title, message, read: false, createdAt, data: {} });
+    sent++;
+    pending++;
+    if (pending >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+  if (pending > 0) await batch.commit();
+
+  return { success: true, sent };
+});
+
+/**
  * Admin-only: flag or clear the Discord-link wall on a user. When set, the user
  * must link a Discord account before they can trade/bet/play (unless already linked).
  */

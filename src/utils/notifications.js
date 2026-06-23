@@ -10,6 +10,7 @@
 export const NOTIFICATION_META = {
   trade:       { icon: '📈', colorKey: 'green',   category: 'Trades' },
   alert:       { icon: '🔔', colorKey: 'blue',    category: 'Alerts' },
+  announcement:{ icon: '📢', colorKey: 'blue',    category: 'Alerts' },
   margin:      { icon: '⚠️', colorKey: 'amber',   category: 'Alerts' },
   achievement: { icon: '🏆', colorKey: 'gold',    category: 'Rewards' },
   dividend:    { icon: '💰', colorKey: 'emerald', category: 'Rewards' },

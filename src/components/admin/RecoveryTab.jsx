@@ -1,4 +1,5 @@
 import React from 'react';
+import AnnounceCard from './AnnounceCard';
 
 const RecoveryTab = ({
   darkMode,
@@ -82,6 +83,9 @@ const RecoveryTab = ({
 }) => {
   return (
     <div className="space-y-4">
+      {/* Broadcast announcement to all users */}
+      <AnnounceCard darkMode={darkMode} />
+
       {/* Bankrupt Users */}
       <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
         <div className="flex justify-between items-center mb-2">
