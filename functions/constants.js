@@ -126,6 +126,9 @@ const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
 // buyer (who triggers an early sellout) still has to hold through the float window,
 // and an early buyer holds through the IPO they opted into.
 const IPO_SELL_LOCKUP_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Shares bought with margin are locked from re-selling this long, so borrowed
+// money can't be used to spike a stock and bail before the price reverts.
+const MARGIN_SELL_LOCKUP_MS = 36 * 60 * 60 * 1000; // 36 hours
 
 // ============================================
 // EVENT PREDICTION MARKETS (long-term, AMM-priced)
@@ -300,6 +303,7 @@ module.exports = {
   LONG_MARGIN_LIQUIDATION_THRESHOLD,
   IPO_PRICE_JUMP,
   IPO_SELL_LOCKUP_MS,
+  MARGIN_SELL_LOCKUP_MS,
   EVENT_AMM_LIQUIDITY,
   EVENT_MIN_BUYIN,
   CREW_MEMBERS,

@@ -147,7 +147,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       // Check trade count limit first
       const sellCount = getTradeCount('sell');
       if (sellCount >= MAX_TRADES_PER_TICKER_24H) return 0;
-      return holdings || 0;
+      // Locked shares (IPO / margin holds) aren't sellable; mirror the server.
+      const lockNow = Date.now();
+      const lockedOf = (lock) => (lock && lockNow < (lock.until || 0)) ? (lock.shares || 0) : 0;
+      const lockedSell = lockedOf(userData?.ipoLockup?.[character.ticker]) + lockedOf(userData?.marginLockup?.[character.ticker]);
+      return Math.max(0, (holdings || 0) - lockedSell);
     } else if (action === 'short') {
       // Check trade count limit first
       const shortCount = getTradeCount('short');
@@ -182,6 +186,10 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
   const maxSharesFractional = getMaxShares();
   const maxSharesWhole = Math.floor(maxSharesFractional);
+  // Active margin lock on this ticker (for the sell-side note below).
+  const _mLock = userData?.marginLockup?.[character.ticker];
+  const marginLockedShares = _mLock && Date.now() < (_mLock.until || 0) ? (_mLock.shares || 0) : 0;
+  const marginLockHours = marginLockedShares > 0 ? Math.max(1, Math.ceil((_mLock.until - Date.now()) / 3600000)) : 0;
   // Selling/covering: always allow full fractional position — prevents getting stuck
   // with unsellable dust shares when partial toggle is off.
   const maxShares = (partialShares || action === 'sell' || action === 'cover')
@@ -428,11 +436,18 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           </div>
           {maxShares === 0 && (
             <p className="text-xs text-red-500 mt-1">
-              {action === 'sell' ? 'No shares owned' : action === 'cover' ? 'No short position' : 'Insufficient funds'}
+              {action === 'sell'
+                ? (marginLockedShares > 0 ? 'Your shares are locked from a recent margin buy' : 'No shares owned')
+                : action === 'cover' ? 'No short position' : 'Insufficient funds'}
             </p>
           )}
           {maxShares > 0 && (
             <p className={`text-xs ${mutedClass} mt-1`}>Max: {formatShares(maxShares)} shares</p>
+          )}
+          {action === 'sell' && marginLockedShares > 0 && (
+            <p className="text-xs text-amber-500 mt-1">
+              🔒 {formatShares(marginLockedShares)} share{marginLockedShares === 1 ? '' : 's'} locked from a margin buy (~{marginLockHours}h left)
+            </p>
           )}
         </div>
 

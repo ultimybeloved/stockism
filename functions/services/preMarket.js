@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER } = require('../constants');
-const { touchLastActive } = require('../helpers');
+const { touchLastActive, lockedShares } = require('../helpers');
 
 // Placement closes at the lock (20:55), not at market open — the auction
 // settles opening prices at 20:56 while the market is still halted.
@@ -154,12 +154,15 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
       .get();
 
     const reservedShares = pendingSells.docs.reduce((sum, doc) => sum + (doc.data().shares || 0), 0);
-    const availableShares = Math.round((currentHoldings - reservedShares) * 10000) / 10000;
+    // Locked shares (IPO / margin holds) can't be queued for sale either, so a
+    // pre-market order can't be used to dodge the hold.
+    const locked = lockedShares(userData, ticker).total;
+    const availableShares = Math.round((currentHoldings - reservedShares - locked) * 10000) / 10000;
 
     if (availableShares < shares) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Insufficient shares. Holdings: ${currentHoldings}, reserved by other orders: ${reservedShares}, available: ${availableShares}.`
+        `Insufficient sellable shares. Holdings: ${currentHoldings}, reserved: ${reservedShares}, locked: ${locked}, available: ${availableShares}.`
       );
     }
   }

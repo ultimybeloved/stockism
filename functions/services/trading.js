@@ -10,7 +10,7 @@ const {
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS, ANIMAL_TICKERS, SHORT_CONCENTRATION_CAP,
   SHORT_MARGIN_RATIO, ADMIN_UID, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED,
-  TICKER_COOLDOWN_MS,
+  TICKER_COOLDOWN_MS, MARGIN_SELL_LOCKUP_MS,
 } = require('../constants');
 const {
   checkBanned,
@@ -23,6 +23,7 @@ const {
   writeNotification,
   writeFeedEntry,
   reportError,
+  lockedShares,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissions');
 const { trackWatchedIpTrade } = require('./watchlist');
@@ -328,6 +329,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         }
       }
       let newMarginUsed = marginUsed;
+      let marginLockUpdate = null;
       const effectiveSpread = character.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
       // New accounts move the market less (anti-manipulation). Enforced here so
       // it actually applies — the frontend preview mirrors this factor.
@@ -391,6 +393,19 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         newMarginUsed = marginUsed + marginToUse;
         newHoldings[ticker] = (holdings[ticker] || 0) + amount;
 
+        // Lock the margin-funded shares from re-selling for a hold period, so
+        // borrowed money can't spike a stock and bail before the price reverts.
+        // Accumulates with any still-active lock; mirrors the IPO lockup.
+        if (marginToUse > 0 && executionPrice > 0) {
+          const marginShares = Math.round((marginToUse / executionPrice) * 100) / 100;
+          const existing = userData.marginLockup?.[ticker];
+          const stillActive = existing && now < (existing.until || 0);
+          marginLockUpdate = {
+            shares: Math.round(((stillActive ? existing.shares : 0) + marginShares) * 100) / 100,
+            until: Math.max(existing?.until || 0, now + MARGIN_SELL_LOCKUP_MS),
+          };
+        }
+
       // SELL LOGIC
       } else if (action === 'sell') {
         // Enforce 10-trade cap for sells
@@ -405,16 +420,19 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', 'Insufficient shares to sell.');
         }
 
-        // IPO lockup: shares bought in an IPO can't be sold until the lockup
-        // clears, so the guaranteed launch pop can't be flipped risk-free.
-        const ipoLock = userData.ipoLockup?.[ticker];
-        if (ipoLock && now < (ipoLock.until || 0)) {
-          const sellable = Math.max(0, currentHoldings - (ipoLock.shares || 0));
-          if (amount > sellable) {
-            const unlockDate = new Date(ipoLock.until).toISOString().split('T')[0];
-            throw new functions.https.HttpsError('failed-precondition',
-              `${ipoLock.shares} of your $${ticker} shares are IPO-locked until ${unlockDate}. You can sell ${sellable} now.`);
+        // Lockups: IPO shares and margin-funded shares can't be sold until their
+        // hold clears, so the launch pop and borrowed-money pumps can't be flipped.
+        const locks = lockedShares(userData, ticker, now);
+        if (locks.total > 0 && amount > Math.max(0, currentHoldings - locks.total)) {
+          const sellable = Math.max(0, currentHoldings - locks.total);
+          const parts = [];
+          if (locks.ipo > 0) parts.push(`${locks.ipo} IPO-locked`);
+          if (locks.margin > 0) {
+            const hrs = Math.max(1, Math.ceil((userData.marginLockup[ticker].until - now) / 3600000));
+            parts.push(`${locks.margin} margin-locked (~${hrs}h left)`);
           }
+          throw new functions.https.HttpsError('failed-precondition',
+            `Some $${ticker} shares are locked (${parts.join(', ')}). You can sell ${sellable} now.`);
         }
 
         // Enforce 45-second hold period
@@ -793,6 +811,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         holdings: newHoldings,
         shorts: newShorts,
         marginUsed: newMarginUsed,
+        ...(marginLockUpdate ? { [`marginLockup.${ticker}`]: marginLockUpdate } : {}),
         tickerTradeHistory: updatedTickerTradeHistory,
         lastTradeTime: admin.firestore.Timestamp.now(),
         // Mission progress (server-side — blocks client spoofing)
@@ -869,6 +888,11 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         const sellLock = userData.ipoLockup?.[ticker];
         if (sellLock && (now >= (sellLock.until || 0) || totalHoldings <= 0)) {
           updates[`ipoLockup.${ticker}`] = admin.firestore.FieldValue.delete();
+        }
+        // Same for the margin lockup.
+        const mLock = userData.marginLockup?.[ticker];
+        if (mLock && (now >= (mLock.until || 0) || totalHoldings <= 0)) {
+          updates[`marginLockup.${ticker}`] = admin.firestore.FieldValue.delete();
         }
 
         // Dividend cohort: consume eligible first, then oldest pending. Delete

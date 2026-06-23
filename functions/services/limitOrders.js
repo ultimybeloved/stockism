@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares } = require('../helpers');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -112,15 +112,17 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings (some shares reserved by pending orders).');
     }
 
-    // IPO lockup: can't queue a sell / stop-loss against still-locked IPO shares
-    // (otherwise a queued order would dodge the lockup and flip the launch pop).
-    const ipoLock = userData.ipoLockup?.[ticker];
-    if (ipoLock && Date.now() < (ipoLock.until || 0)) {
-      const freeShares = Math.max(0, currentHoldings - (ipoLock.shares || 0));
+    // Lockups: can't queue a sell / stop-loss against IPO- or margin-locked shares
+    // (otherwise a queued order would dodge the hold and flip the position).
+    const locks = lockedShares(userData, ticker);
+    if (locks.total > 0) {
+      const freeShares = Math.max(0, currentHoldings - locks.total);
       if (shares > freeShares) {
-        const unlockDate = new Date(ipoLock.until).toISOString().split('T')[0];
+        const parts = [];
+        if (locks.ipo > 0) parts.push(`${locks.ipo} IPO-locked`);
+        if (locks.margin > 0) parts.push(`${locks.margin} margin-locked`);
         throw new functions.https.HttpsError('failed-precondition',
-          `${ipoLock.shares} of your $${ticker} shares are IPO-locked until ${unlockDate}. You can place a sell for up to ${freeShares} now.`);
+          `Some $${ticker} shares are locked (${parts.join(', ')}). You can place a sell for up to ${freeShares} now.`);
       }
     }
   }

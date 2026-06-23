@@ -560,8 +560,21 @@ function touchLastActive(uid) {
   db.collection('users').doc(uid).update({ lastActive: Date.now() }).catch(() => {});
 }
 
+// Shares currently locked from selling, combining the IPO and margin lockups.
+// Both are { shares, until } maps on the user doc; a lock counts only while
+// unexpired. Used by every sell path (executeTrade, limit orders, pre-market)
+// so the lockups are enforced consistently and can't be dodged by one route.
+const lockedShares = (userData, ticker, now = Date.now()) => {
+  const ipo = userData?.ipoLockup?.[ticker];
+  const margin = userData?.marginLockup?.[ticker];
+  const ipoN = ipo && now < (ipo.until || 0) ? (ipo.shares || 0) : 0;
+  const marginN = margin && now < (margin.until || 0) ? (margin.shares || 0) : 0;
+  return { ipo: ipoN, margin: marginN, total: ipoN + marginN };
+};
+
 module.exports = {
   DIVIDEND_HOLD_DAYS,
+  lockedShares,
   DIVIDEND_HOLD_MS,
   DIVIDEND_RATES,
   getLastActiveMs,
