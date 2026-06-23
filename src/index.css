@@ -111,26 +111,29 @@ body {
 .cos-name-rainbow { background-image: linear-gradient(90deg,#ff4d4d,#ffa64d,#ffe14d,#4dff88,#4da6ff,#a64dff,#ff4d4d); background-size: 300% auto; animation: cosBgMove 6s linear infinite; }
 @keyframes cosBgMove { to { background-position: 200% center; } }
 
-/* Row frames: an animated gradient border drawn with a masked pseudo-element.
-   The row needs `position: relative`. */
+/* Row frames: an animated border on a pseudo-element. A plain border (not a CSS
+   mask) plus its OWN box-shadow glow, so it renders reliably everywhere — incl.
+   the leaderboard, where the row already sets an inline box-shadow. The border
+   sits at the row edge (inset:0) so overflow never clips it. Row needs
+   `position: relative`. */
 .cos-frame-ember, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold { position: relative; }
 .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before {
   content: '';
   position: absolute;
   inset: 0;
+  border: 2px solid;
   border-radius: inherit;
-  padding: 2px;
-  background-size: 100% 300%;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
   pointer-events: none;
+  z-index: 1;
 }
-.cos-frame-ember::before    { background-image: linear-gradient(0deg,#7c2d12,#ea580c,#fbbf24,#ea580c,#7c2d12); animation: cosFrameFlow 1.2s linear infinite; }
-.cos-frame-frost::before    { background-image: linear-gradient(0deg,#0e7490,#67e8f9,#ffffff,#67e8f9,#0e7490); animation: cosFrameFlow 2.4s linear infinite; }
-.cos-frame-electric::before { background-image: linear-gradient(0deg,#1e3a8a,#3b82f6,#ffffff,#3b82f6,#1e3a8a); animation: cosFrameFlow 0.9s linear infinite; }
-.cos-frame-gold::before     { background-image: linear-gradient(0deg,#92400e,#f59e0b,#fffbe6,#f59e0b,#92400e); animation: cosFrameFlow 2s linear infinite; }
-@keyframes cosFrameFlow { to { background-position: 0 -300%; } }
+.cos-frame-ember::before    { animation: cosFrameEmber 1.6s ease-in-out infinite; }
+.cos-frame-frost::before    { animation: cosFrameFrost 2.4s ease-in-out infinite; }
+.cos-frame-electric::before { animation: cosFrameElectric 0.9s ease-in-out infinite; }
+.cos-frame-gold::before     { animation: cosFrameGold 2s ease-in-out infinite; }
+@keyframes cosFrameEmber    { 0%,100% { border-color:#ea580c; box-shadow:0 0 8px #ea580c66, inset 0 0 6px #ea580c44; } 50% { border-color:#fbbf24; box-shadow:0 0 14px #fbbf2488, inset 0 0 10px #fbbf2466; } }
+@keyframes cosFrameFrost    { 0%,100% { border-color:#22d3ee; box-shadow:0 0 8px #22d3ee66, inset 0 0 6px #22d3ee44; } 50% { border-color:#ffffff; box-shadow:0 0 14px #67e8f988, inset 0 0 10px #67e8f966; } }
+@keyframes cosFrameElectric { 0%,100% { border-color:#3b82f6; box-shadow:0 0 8px #3b82f666, inset 0 0 6px #3b82f644; } 50% { border-color:#ffffff; box-shadow:0 0 14px #60a5fa88, inset 0 0 10px #60a5fa66; } }
+@keyframes cosFrameGold     { 0%,100% { border-color:#f59e0b; box-shadow:0 0 8px #f59e0b66, inset 0 0 6px #f59e0b44; } 50% { border-color:#fffbe6; box-shadow:0 0 14px #fbbf2488, inset 0 0 10px #fbbf2466; } }
 
 /* Pulsing glow auras. */
 .cos-glow-pulse-gold   { animation: cosGlowGold 2s ease-in-out infinite; }
