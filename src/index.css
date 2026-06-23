@@ -113,7 +113,7 @@ body {
 
 /* Row frames: an animated gradient border drawn with a masked pseudo-element.
    The row needs `position: relative`. */
-.cos-frame-flames, .cos-frame-ember, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold { position: relative; }
+.cos-frame-ember, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold { position: relative; }
 .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before {
   content: '';
   position: absolute;
@@ -132,33 +132,6 @@ body {
 .cos-frame-gold::before     { background-image: linear-gradient(0deg,#92400e,#f59e0b,#fffbe6,#f59e0b,#92400e); animation: cosFrameFlow 2s linear infinite; }
 @keyframes cosFrameFlow { to { background-position: 0 -300%; } }
 
-/* Pixel Flames: a tiling pixel-art fire strip rising from the bottom edge, with
-   two offset layers for an organic flicker. Crisp-edged SVG (original, no IP). */
-.cos-frame-flames { box-shadow: 0 0 14px #ea580c55; }
-.cos-frame-flames::before, .cos-frame-flames::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 12px;
-  background-repeat: repeat-x;
-  background-size: 16px 12px;
-  image-rendering: pixelated;
-  transform-origin: bottom;
-  pointer-events: none;
-}
-.cos-frame-flames::before {
-  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='12' viewBox='0 0 16 12' shape-rendering='crispEdges'><rect x='4' y='7' width='8' height='5' fill='%23e2531a'/><rect x='5' y='4' width='6' height='3' fill='%23f7a81b'/><rect x='6' y='2' width='4' height='2' fill='%23ffe23d'/><rect x='7' y='0' width='2' height='2' fill='%23ffe23d'/><rect x='7' y='5' width='2' height='6' fill='%23fff3b0'/></svg>");
-  animation: cosFlameA 0.5s steps(3) infinite;
-}
-.cos-frame-flames::after {
-  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='12' viewBox='0 0 16 12' shape-rendering='crispEdges'><rect x='5' y='8' width='6' height='4' fill='%23ea580c'/><rect x='6' y='5' width='4' height='3' fill='%23fbbf24'/><rect x='7' y='2' width='2' height='3' fill='%23ffe23d'/><rect x='7' y='0' width='1' height='2' fill='%23fff3b0'/><rect x='8' y='6' width='1' height='5' fill='%23fff3b0'/></svg>");
-  background-position: 8px 0;
-  opacity: 0.85;
-  animation: cosFlameB 0.45s steps(3) infinite;
-}
-@keyframes cosFlameA { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-1px) scaleY(1.18); } }
-@keyframes cosFlameB { 0%,100% { transform: translateY(-1px) scaleY(1.1); } 50% { transform: translateY(0) scaleY(0.92); } }
-
 /* Pulsing glow auras. */
 .cos-glow-pulse-gold   { animation: cosGlowGold 2s ease-in-out infinite; }
 .cos-glow-pulse-violet { animation: cosGlowViolet 2s ease-in-out infinite; }
@@ -168,6 +141,5 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
   .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before,
-  .cos-frame-flames::before, .cos-frame-flames::after,
   .cos-glow-pulse-gold, .cos-glow-pulse-violet { animation: none; }
 }

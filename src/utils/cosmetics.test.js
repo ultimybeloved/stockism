@@ -21,10 +21,10 @@ describe('getCosmeticStyles', () => {
   });
 
   it('animated cosmetics expose a CSS class instead of an inline color', () => {
-    const r = getCosmeticStyles({ nameColor: 'name_rainbow', rowFrame: 'frame_flames' });
+    const r = getCosmeticStyles({ nameColor: 'name_rainbow', rowFrame: 'frame_frost' });
     expect(r.nameColor).toBeUndefined();
     expect(r.nameClass).toBe('cos-name-rainbow');
-    expect(r.rowClass).toContain('cos-frame-flames');
+    expect(r.rowClass).toContain('cos-frame-frost');
   });
 
   it('combines animated glow and frame classes on the row', () => {

@@ -245,7 +245,9 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
                         backgroundColor: backdropColor ? (darkMode ? `${backdropColor}18` : `${backdropColor}12`) : (darkMode ? `${userCrewColor}20` : `${userCrewColor}15`),
                         boxShadow: glowColor ? `0 0 18px ${glowColor}50` : `inset 0 0 12px ${userCrewColor}30`,
                         willChange: 'auto',
-                        contain: 'layout style paint',
+                        // 'paint' clips the outer glow box-shadow and frame border
+                        // on the current user's own row — keep layout/style only.
+                        contain: 'layout style',
                       } : {
                         ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
                         ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
