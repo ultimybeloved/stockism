@@ -43,7 +43,8 @@ export const COSMETICS = [
   { id: 'name_rainbow', name: 'Rainbow', type: 'nameColor', color: '#A78BFA', price: 60000, rarity: 'epic', effectClass: 'cos-name-rainbow', description: 'Your name cycles through every color.' },
 
   // Animated row frames (new type)
-  { id: 'frame_flames',   name: 'Pixel Flames', type: 'rowFrame', color: '#F97316', price: 80000,  rarity: 'epic',      effectClass: 'cos-frame-flames',   description: 'A flickering flame border wraps your row.' },
+  { id: 'frame_flames',   name: 'Pixel Flames', type: 'rowFrame', color: '#F97316', price: 80000,  rarity: 'epic',      effectClass: 'cos-frame-flames',   description: 'Pixelated flames flicker up from your row.' },
+  { id: 'frame_ember',    name: 'Ember Edge',   type: 'rowFrame', color: '#EA580C', price: 70000,  rarity: 'rare',      effectClass: 'cos-frame-ember',    description: 'A glowing ember border traces your row.' },
   { id: 'frame_frost',    name: 'Frostbite',    type: 'rowFrame', color: '#06B6D4', price: 80000,  rarity: 'epic',      effectClass: 'cos-frame-frost',    description: 'A shimmering ice border frames your row.' },
   { id: 'frame_electric', name: 'Live Wire',    type: 'rowFrame', color: '#3B82F6', price: 90000,  rarity: 'epic',      effectClass: 'cos-frame-electric', description: 'An electric current races around your row.' },
   { id: 'frame_gold',     name: 'Gilded Frame', type: 'rowFrame', color: '#F59E0B', price: 120000, rarity: 'legendary', effectClass: 'cos-frame-gold',     description: 'A molten gold border crowns your row.' },
