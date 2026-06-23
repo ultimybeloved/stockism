@@ -97,3 +97,49 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ===== Animated cosmetics ===== */
+/* Name effects: animate a gradient behind clipped text. */
+.cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora {
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% auto;
+}
+.cos-name-shimmer { background-image: linear-gradient(90deg,#b45309,#fbbf24,#fffbe6,#fbbf24,#b45309); animation: cosBgMove 3s linear infinite; }
+.cos-name-aurora  { background-image: linear-gradient(90deg,#22d3ee,#a78bfa,#22d3ee); animation: cosBgMove 4s linear infinite; }
+.cos-name-rainbow { background-image: linear-gradient(90deg,#ff4d4d,#ffa64d,#ffe14d,#4dff88,#4da6ff,#a64dff,#ff4d4d); background-size: 300% auto; animation: cosBgMove 6s linear infinite; }
+@keyframes cosBgMove { to { background-position: 200% center; } }
+
+/* Row frames: an animated gradient border drawn with a masked pseudo-element.
+   The row needs `position: relative`. */
+.cos-frame-flames, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold { position: relative; }
+.cos-frame-flames::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background-size: 100% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+.cos-frame-flames::before   { background-image: linear-gradient(0deg,#7c2d12,#ea580c,#fbbf24,#ea580c,#7c2d12); animation: cosFrameFlow 1.2s linear infinite; }
+.cos-frame-frost::before    { background-image: linear-gradient(0deg,#0e7490,#67e8f9,#ffffff,#67e8f9,#0e7490); animation: cosFrameFlow 2.4s linear infinite; }
+.cos-frame-electric::before { background-image: linear-gradient(0deg,#1e3a8a,#3b82f6,#ffffff,#3b82f6,#1e3a8a); animation: cosFrameFlow 0.9s linear infinite; }
+.cos-frame-gold::before     { background-image: linear-gradient(0deg,#92400e,#f59e0b,#fffbe6,#f59e0b,#92400e); animation: cosFrameFlow 2s linear infinite; }
+@keyframes cosFrameFlow { to { background-position: 0 -300%; } }
+
+/* Pulsing glow auras. */
+.cos-glow-pulse-gold   { animation: cosGlowGold 2s ease-in-out infinite; }
+.cos-glow-pulse-violet { animation: cosGlowViolet 2s ease-in-out infinite; }
+@keyframes cosGlowGold   { 0%,100% { box-shadow: 0 0 10px #f59e0b66; } 50% { box-shadow: 0 0 28px #f59e0bcc; } }
+@keyframes cosGlowViolet { 0%,100% { box-shadow: 0 0 10px #8b5cf666; } 50% { box-shadow: 0 0 28px #8b5cf6cc; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
+  .cos-frame-flames::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before,
+  .cos-glow-pulse-gold, .cos-glow-pulse-violet { animation: none; }
+}

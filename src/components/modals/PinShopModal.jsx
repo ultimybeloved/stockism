@@ -135,8 +135,13 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
                             style={owned && !active ? { borderColor: cosmetic.color + '80' } : {}}
                           >
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="w-5 h-5 rounded-full shrink-0" style={{ backgroundColor: cosmetic.color }} />
-                              <span className={`font-semibold text-sm ${textClass}`}>{cosmetic.name}</span>
+                              <div
+                                className={`relative w-5 h-5 rounded-full shrink-0 ${cosmetic.type !== 'nameColor' ? (cosmetic.effectClass || '') : ''}`}
+                                style={{ backgroundColor: cosmetic.color }}
+                              />
+                              <span className={`font-semibold text-sm ${cosmetic.type === 'nameColor' && cosmetic.effectClass ? cosmetic.effectClass : textClass}`}>
+                                {cosmetic.name}
+                              </span>
                             </div>
                             <p className={`text-xs ${mutedClass} mb-2`}>{cosmetic.description}</p>
                             {owned ? (

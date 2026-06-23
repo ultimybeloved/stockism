@@ -31,6 +31,26 @@ export const COSMETICS = [
   { id: 'backdrop_midnight', name: 'Midnight', type: 'rowBackdrop', color: '#312E81', price: 25000, description: 'A deep indigo backdrop on your row.' },
   { id: 'backdrop_onyx',     name: 'Onyx',     type: 'rowBackdrop', color: '#334155', price: 25000, description: 'A dark slate backdrop on your row.' },
   { id: 'backdrop_lagoon',   name: 'Lagoon',   type: 'rowBackdrop', color: '#0F766E', price: 25000, description: 'A cool teal backdrop on your row.' },
+
+  // ─── Animated cosmetics (premium) ──────────────────────────────────────────
+  // `effectClass` references a CSS animation in src/index.css. `rarity` is used
+  // for gacha weighting (Phase 2). Keep ids/prices in sync with the backend
+  // COSMETIC_CATALOG in functions/services/users.js.
+
+  // Animated name effects
+  { id: 'name_shimmer', name: 'Shimmer', type: 'nameColor', color: '#FBBF24', price: 40000, rarity: 'rare', effectClass: 'cos-name-shimmer', description: 'Your name shimmers with a sweeping gold sheen.' },
+  { id: 'name_aurora',  name: 'Aurora',  type: 'nameColor', color: '#22D3EE', price: 50000, rarity: 'rare', effectClass: 'cos-name-aurora',  description: 'Your name flows through cyan and violet.' },
+  { id: 'name_rainbow', name: 'Rainbow', type: 'nameColor', color: '#A78BFA', price: 60000, rarity: 'epic', effectClass: 'cos-name-rainbow', description: 'Your name cycles through every color.' },
+
+  // Animated row frames (new type)
+  { id: 'frame_flames',   name: 'Pixel Flames', type: 'rowFrame', color: '#F97316', price: 80000,  rarity: 'epic',      effectClass: 'cos-frame-flames',   description: 'A flickering flame border wraps your row.' },
+  { id: 'frame_frost',    name: 'Frostbite',    type: 'rowFrame', color: '#06B6D4', price: 80000,  rarity: 'epic',      effectClass: 'cos-frame-frost',    description: 'A shimmering ice border frames your row.' },
+  { id: 'frame_electric', name: 'Live Wire',    type: 'rowFrame', color: '#3B82F6', price: 90000,  rarity: 'epic',      effectClass: 'cos-frame-electric', description: 'An electric current races around your row.' },
+  { id: 'frame_gold',     name: 'Gilded Frame', type: 'rowFrame', color: '#F59E0B', price: 120000, rarity: 'legendary', effectClass: 'cos-frame-gold',     description: 'A molten gold border crowns your row.' },
+
+  // Animated glows
+  { id: 'glow_pulse_gold',   name: 'Pulsing Gold',     type: 'rowGlow', color: '#F59E0B', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-gold',   description: 'A gold aura that pulses around your row.' },
+  { id: 'glow_pulse_violet', name: 'Pulsing Amethyst', type: 'rowGlow', color: '#8B5CF6', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-violet', description: 'A violet aura that pulses around your row.' },
 ];
 
 export const COSMETIC_MAP = Object.fromEntries(COSMETICS.map(c => [c.id, c]));
@@ -39,6 +59,7 @@ export const COSMETIC_TYPE_LABELS = {
   nameColor:   '✏️ Name Color',
   rowGlow:     '✨ Row Glow',
   rowBackdrop: '🎨 Row Backdrop',
+  rowFrame:    '🔥 Row Frame',
 };
 
-export const COSMETIC_TYPES = ['nameColor', 'rowGlow', 'rowBackdrop'];
+export const COSMETIC_TYPES = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];

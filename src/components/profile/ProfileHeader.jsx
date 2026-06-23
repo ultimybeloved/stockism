@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../firebase';
-import { COSMETIC_MAP } from '../../constants/cosmetics';
+import { getCosmeticStyles } from '../../utils/cosmetics';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
@@ -37,21 +37,18 @@ const ProfileHeader = ({ userData, darkMode }) => {
     setNameSaving(false);
   };
 
-  const ac = userData?.activeCosmetics || {};
-  const nameColorC   = ac.nameColor   ? COSMETIC_MAP[ac.nameColor]   : null;
-  const rowGlowC     = ac.rowGlow     ? COSMETIC_MAP[ac.rowGlow]     : null;
-  const rowBackdropC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics);
 
   return (
     <div
-      className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
+      className={`relative p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} ${rowClass}`}
       style={{
-        ...(rowGlowC     ? { boxShadow: `0 0 24px ${rowGlowC.color}40` } : {}),
-        ...(rowBackdropC ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+        ...(glowColor     ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
+        ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
       }}
     >
       <h2 className={`text-lg font-semibold ${textClass}`}>
-        👤 <span style={{ color: nameColorC?.color }}>{userData?.displayName}</span>
+        👤 <span className={nameClass} style={{ color: nameColor }}>{userData?.displayName}</span>
       </h2>
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 

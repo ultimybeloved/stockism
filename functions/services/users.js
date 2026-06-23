@@ -633,6 +633,16 @@ const COSMETIC_CATALOG = {
   backdrop_midnight: { type: 'rowBackdrop', price: 25000 },
   backdrop_onyx:     { type: 'rowBackdrop', price: 25000 },
   backdrop_lagoon:   { type: 'rowBackdrop', price: 25000 },
+  // Animated cosmetics — keep ids/prices in sync with src/constants/cosmetics.js.
+  name_shimmer:       { type: 'nameColor',   price: 40000  },
+  name_aurora:        { type: 'nameColor',   price: 50000  },
+  name_rainbow:       { type: 'nameColor',   price: 60000  },
+  frame_flames:       { type: 'rowFrame',    price: 80000  },
+  frame_frost:        { type: 'rowFrame',    price: 80000  },
+  frame_electric:     { type: 'rowFrame',    price: 90000  },
+  frame_gold:         { type: 'rowFrame',    price: 120000 },
+  glow_pulse_gold:    { type: 'rowGlow',     price: 50000  },
+  glow_pulse_violet:  { type: 'rowGlow',     price: 50000  },
 };
 
 exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
