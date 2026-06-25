@@ -41,6 +41,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const [mode, setMode] = useState('buy');
   const [shares, setShares] = useState(10);
   const [showTrade, setShowTrade] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Announced-but-locked window: visible with a countdown, no trading until opensAt.
   const [nowTs, setNowTs] = useState(Date.now());
@@ -82,12 +83,24 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const currentMax = mode === 'buy' ? maxBuyShares : ownedSelected;
   const shareStep = niceStep(currentMax, 1);
 
-  const submit = () => {
-    if (!canSubmit) return;
-    if (mode === 'buy') onBuy(market.id, outcomes[selected], qty);
-    else onSell(market.id, outcomes[selected], qty);
-    setShowTrade(false);
-    setShares(10);
+  // Wait for the trade to actually clear before closing the panel. Without this the
+  // panel vanished the instant you tapped, with no sign anything happened until a
+  // toast popped a second later, and a failed trade silently dropped you back to the
+  // Trade button. Now the button shows progress and the panel only closes on success.
+  const submit = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = mode === 'buy'
+        ? await onBuy(market.id, outcomes[selected], qty)
+        : await onSell(market.id, outcomes[selected], qty);
+      if (res) {
+        setShowTrade(false);
+        setShares(10);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -268,16 +281,17 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
           <div className="flex gap-2">
             <button
               onClick={() => { setShowTrade(false); setShares(10); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+              disabled={submitting}
+              className={`flex-1 py-2 text-sm font-semibold rounded-sm disabled:opacity-50 ${darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
             >
               Cancel
             </button>
             <button
               onClick={submit}
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               className="flex-1 py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
             >
-              {mode === 'buy' ? 'Buy' : 'Sell'}
+              {submitting ? 'Processing...' : (mode === 'buy' ? 'Buy' : 'Sell')}
             </button>
           </div>
         </div>
