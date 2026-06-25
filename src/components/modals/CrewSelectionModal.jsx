@@ -4,7 +4,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
-const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading }) => {
+const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading, selectLoading }) => {
   const { darkMode, userData } = useAppContext();
   const [selectedCrew, setSelectedCrew] = useState(null);
   const [confirming, setConfirming] = useState(false);
@@ -23,10 +23,12 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading 
     setConfirming(true);
   };
 
-  const handleConfirm = () => {
-    // Pass true if switching crews (has existing crew), false if joining fresh
-    onSelect(selectedCrew, !!currentCrew);
-    onClose();
+  const handleConfirm = async () => {
+    if (selectLoading) return;
+    // Pass true if switching crews (has existing crew), false if joining fresh.
+    // Wait for the result so the modal only closes once it actually went through.
+    const ok = await onSelect(selectedCrew, !!currentCrew);
+    if (ok) onClose();
   };
 
   const handleLeave = async () => {
@@ -146,15 +148,17 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading 
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setConfirming(false)}
-                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
+                disabled={selectLoading}
+                className={`px-6 py-2 rounded-sm border disabled:opacity-50 ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
               >
                 Back
               </button>
               <button
                 onClick={handleConfirm}
-                className="px-6 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                disabled={selectLoading}
+                className="px-6 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-50"
               >
-                {currentCrew ? 'Confirm Switch' : 'Join Crew'}
+                {selectLoading ? (currentCrew ? 'Switching...' : 'Joining...') : (currentCrew ? 'Confirm Switch' : 'Join Crew')}
               </button>
             </div>
           </div>

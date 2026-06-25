@@ -586,8 +586,10 @@ export default function App() {
     try {
       await createPriceAlertFunction({ ticker, targetPrice, direction });
       showNotification('success', `Price alert set for $${ticker}`);
+      return true;
     } catch (err) {
       showNotification('error', err.message || 'Failed to create alert');
+      return false;
     }
   }, [showNotification]);
 
@@ -2143,6 +2145,7 @@ export default function App() {
           onLeave={handleCrewLeave}
           isGuest={isGuest}
           leaveLoading={actionLoading.leaveCrew}
+          selectLoading={actionLoading.selectCrew}
         />
       )}
       {showPinShop && !isGuest && (

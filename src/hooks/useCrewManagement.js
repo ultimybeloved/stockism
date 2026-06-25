@@ -4,8 +4,12 @@ import { CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 
 export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
+  // Returns true on success so the modal can wait for the round-trip before
+  // closing (and stay open on failure). Without this the modal closed the instant
+  // you confirmed, with no sign anything happened until a toast popped a beat later.
   const handleCrewSelect = useCallback(async (crewId, isSwitch) => {
-    if (!user || !userData) return;
+    if (!user || !userData) return false;
+    setLoadingKey('selectCrew', true);
     try {
       if (isSwitch && userData.crew) {
         const result = await switchCrewFunction({ crewId, isSwitch: true });
@@ -19,11 +23,15 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
         const crew = CREW_MAP[crewId];
         showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
       }
+      return true;
     } catch (err) {
       console.error('Failed to select crew:', err);
       showNotification('error', err?.message || err?.details || 'Failed to join crew');
+      return false;
+    } finally {
+      setLoadingKey('selectCrew', false);
     }
-  }, [user, userData, showNotification, setUserData]);
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleCrewLeave = useCallback(async () => {
     if (!user || !userData || !userData.crew) return;

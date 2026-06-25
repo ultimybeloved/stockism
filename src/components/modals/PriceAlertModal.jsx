@@ -14,6 +14,8 @@ export default function PriceAlertModal({
 }) {
   const [direction, setDirection] = useState("above");
   const [targetPrice, setTargetPrice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const cardClass = darkMode
     ? "bg-zinc-900 border-zinc-800 text-zinc-100"
@@ -31,10 +33,27 @@ export default function PriceAlertModal({
     return (((parsedTarget - currentPrice) / currentPrice) * 100).toFixed(2);
   }, [parsedTarget, currentPrice, isValid]);
 
-  const handleCreate = () => {
-    if (!isValid) return;
-    onCreateAlert({ ticker, targetPrice: parsedTarget, direction });
-    setTargetPrice("");
+  const handleCreate = async () => {
+    if (!isValid || submitting) return;
+    setSubmitting(true);
+    try {
+      const ok = await onCreateAlert({ ticker, targetPrice: parsedTarget, direction });
+      if (ok) setTargetPrice("");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Pass the doc id, not the whole alert object — the backend deletes by id, so
+  // handing it the object made every delete throw and silently fail.
+  const handleDelete = async (alert) => {
+    if (deletingId) return;
+    setDeletingId(alert.id);
+    try {
+      await onDeleteAlert(alert.id);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getPctFromCurrent = (price) => {
@@ -119,14 +138,14 @@ export default function PriceAlertModal({
         {/* Create Button */}
         <button
           onClick={handleCreate}
-          disabled={!isValid}
+          disabled={!isValid || submitting}
           className={`w-full py-2 rounded-sm text-sm font-medium transition-colors ${
-            isValid
+            isValid && !submitting
               ? "bg-orange-600 text-white hover:bg-orange-700"
               : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
           }`}
         >
-          Create Alert
+          {submitting ? "Creating..." : "Create Alert"}
         </button>
 
         {/* Max alerts info */}
@@ -168,10 +187,11 @@ export default function PriceAlertModal({
                       </span>
                     </div>
                     <button
-                      onClick={() => onDeleteAlert(alert)}
-                      className="text-red-500 hover:text-red-400 text-xs font-bold"
+                      onClick={() => handleDelete(alert)}
+                      disabled={deletingId === alert.id}
+                      className="text-red-500 hover:text-red-400 text-xs font-bold disabled:opacity-40"
                     >
-                      ✕
+                      {deletingId === alert.id ? "…" : "✕"}
                     </button>
                   </div>
                 );
