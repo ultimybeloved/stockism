@@ -12,6 +12,8 @@ const IpoTab = ({
   setIpoTicker,
   ipoHoursUntilStart,
   setIpoHoursUntilStart,
+  ipoMinutesUntilStart,
+  setIpoMinutesUntilStart,
   ipoDurationHours,
   setIpoDurationHours,
   ipoTotalShares,
@@ -103,15 +105,31 @@ const IpoTab = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Hype Phase (hours)</label>
-              <input
-                type="number"
-                value={ipoHoursUntilStart}
-                onChange={e => setIpoHoursUntilStart(Math.max(0, parseInt(e.target.value) || 0))}
-                min="0"
-                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-              />
-              <p className={`text-xs ${mutedClass} mt-1`}>0 = IPO starts immediately</p>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Hype Phase (until buying starts)</label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={ipoHoursUntilStart}
+                    onChange={e => setIpoHoursUntilStart(Math.max(0, parseInt(e.target.value) || 0))}
+                    min="0"
+                    className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                  />
+                  <p className={`text-xs ${mutedClass} mt-1 text-center`}>hours</p>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={ipoMinutesUntilStart}
+                    onChange={e => setIpoMinutesUntilStart(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                    min="0"
+                    max="59"
+                    className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+                  />
+                  <p className={`text-xs ${mutedClass} mt-1 text-center`}>minutes</p>
+                </div>
+              </div>
+              <p className={`text-xs ${mutedClass} mt-1`}>0h 0m = IPO starts immediately</p>
             </div>
             <div>
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>IPO Duration (hours)</label>
@@ -154,7 +172,7 @@ const IpoTab = ({
                 <strong>${ipoTicker}</strong> IPO will:
               </p>
               <ul className={`text-xs ${mutedClass} mt-1 space-y-1`}>
-                <li>• Hype phase: {ipoHoursUntilStart}h (announcement)</li>
+                <li>• Hype phase: {ipoHoursUntilStart}h {ipoMinutesUntilStart}m (announcement)</li>
                 <li>• IPO buying: {ipoDurationHours}h</li>
                 <li>• {ipoTotalShares} shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice} (max {ipoMaxPerUser}/user)</li>
                 <li>• After IPO: +15% price jump</li>

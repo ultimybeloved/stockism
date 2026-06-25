@@ -183,6 +183,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // IPO state
   const [ipoTicker, setIpoTicker] = useState('');
   const [ipoHoursUntilStart, setIpoHoursUntilStart] = useState(24); // Hours until IPO buying starts (hype phase)
+  const [ipoMinutesUntilStart, setIpoMinutesUntilStart] = useState(0); // Extra minutes on top of the hype-phase hours
   const [ipoDurationHours, setIpoDurationHours] = useState(24); // How long IPO buying lasts
   const [ipoTotalShares, setIpoTotalShares] = useState(150); // Total shares available
   const [ipoMaxPerUser, setIpoMaxPerUser] = useState(10); // Max shares per user
@@ -1285,7 +1286,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const currentList = snap.exists() ? (snap.data().list || []) : [];
 
       const now = Date.now();
-      const ipoStartsAt = now + (ipoHoursUntilStart * 60 * 60 * 1000);
+      const ipoStartsAt = now + (ipoHoursUntilStart * 60 * 60 * 1000) + (ipoMinutesUntilStart * 60 * 1000);
       const ipoEndsAt = ipoStartsAt + (ipoDurationHours * 60 * 60 * 1000);
 
       const newIPO = {
@@ -1327,7 +1328,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         // Don't block IPO creation if Discord fails
       }
 
-      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying in ${ipoHoursUntilStart}h`);
+      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying in ${ipoHoursUntilStart}h ${ipoMinutesUntilStart}m`);
       setIpoTicker('');
       loadIPOs();
     } catch (err) {
@@ -4117,6 +4118,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               setIpoTicker={setIpoTicker}
               ipoHoursUntilStart={ipoHoursUntilStart}
               setIpoHoursUntilStart={setIpoHoursUntilStart}
+              ipoMinutesUntilStart={ipoMinutesUntilStart}
+              setIpoMinutesUntilStart={setIpoMinutesUntilStart}
               ipoDurationHours={ipoDurationHours}
               setIpoDurationHours={setIpoDurationHours}
               ipoTotalShares={ipoTotalShares}
