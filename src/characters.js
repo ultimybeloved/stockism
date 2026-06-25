@@ -208,6 +208,7 @@ export const CHARACTERS = [
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
   { name: "Bangho Lee", ticker: "MONO", basePrice: 80, volatility: 0.04, dateAdded: "2026-06-04T00:04:00", ipoRequired: true },
+  { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, volatility: 0.04, dateAdded: "2026-06-25T00:00:00", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -296,13 +297,14 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "Yamazaki Fund", ticker: "YAMA", basePrice: 68, volatility: 0.025, dateAdded: "2026-02-20T00:07:00",
+    name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, volatility: 0.025, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV"],
     trailingFactors: [
-      { ticker: "GUN", coefficient: 0.133 }, { ticker: "SHNG", coefficient: 0.133 },
-      { ticker: "SHRO", coefficient: 0.133 }, { ticker: "SHKO", coefficient: 0.133 },
-      { ticker: "HIKO", coefficient: 0.133 }, { ticker: "SOMI", coefficient: 0.133 }
+      { ticker: "GUN", coefficient: 0.114 }, { ticker: "SHNG", coefficient: 0.114 },
+      { ticker: "SHRO", coefficient: 0.114 }, { ticker: "SHKO", coefficient: 0.114 },
+      { ticker: "HIKO", coefficient: 0.114 }, { ticker: "SOMI", coefficient: 0.114 },
+      { ticker: "YADV", coefficient: 0.114 }
     ]
   },
   {
