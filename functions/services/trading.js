@@ -10,7 +10,7 @@ const {
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS, ANIMAL_TICKERS, SHORT_CONCENTRATION_CAP,
   SHORT_MARGIN_RATIO, ADMIN_UID, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED,
-  TICKER_COOLDOWN_MS, MARGIN_SELL_LOCKUP_MS,
+  TICKER_COOLDOWN_MS, MARGIN_SELL_LOCKUP_MS, UNIFIER_FULL_SHARE_MIN,
 } = require('../constants');
 const {
   checkBanned,
@@ -1023,8 +1023,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
             achievementCtx.npcProfit = profitPerShare * amount;
           }
         }
-        // Track if user sold last share (for Unifier revocation)
-        achievementCtx.soldLastShare = !(newHoldings[ticker] > 0);
+        // Track if this sell dropped the holding below a full share (for Unifier
+        // revocation — the achievement requires a full share of every character).
+        achievementCtx.droppedBelowFullShare = !((newHoldings[ticker] || 0) >= UNIFIER_FULL_SHARE_MIN);
         // Discount Deacon: dollar profit ending in .99
         if (costBasis > 0) {
           const dollarProfit = Math.round((executionPrice - costBasis) * amount * 100) / 100;
@@ -1152,18 +1153,21 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           await db.collection('users').doc(uid).update(achievementUpdate);
         }
 
-        // Unifier of Seoul revocation: if this sell emptied a non-ETF holding
-        // and the user currently holds UNIFIER, they no longer qualify.
-        // syncPortfolio will re-award it if they buy the share back.
+        // Unifier of Seoul revocation: if this sell dropped a non-ETF holding
+        // below a full share and the user currently holds UNIFIER, they no
+        // longer qualify. syncPortfolio re-awards it if they buy back up to a
+        // full share. Also drop it from displayed pins so it can't keep
+        // occupying a profile slot the user can no longer see to free up.
         if (
           action === 'sell' &&
-          ctx.soldLastShare &&
+          ctx.droppedBelowFullShare &&
           currentAchievements.includes('UNIFIER')
         ) {
           const char = CHARACTERS.find(c => c.ticker === ticker);
           if (char && !char.isETF) {
             await db.collection('users').doc(uid).update({
               achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+              displayedAchievementPins: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
             });
           }
         }

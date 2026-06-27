@@ -12,6 +12,7 @@ const {
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
+  UNIFIER_FULL_SHARE_MIN,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError, touchLastActive } = require('../helpers');
 
@@ -655,14 +656,15 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     revokedAchievements.push('DIVERSIFIED');
   }
 
-  // Unifier of Seoul: own at least 1 share of every tradeable character (excludes ETFs).
-  // Auto-revoked if user no longer qualifies — e.g. they sold a share or a new
+  // Unifier of Seoul: own at least one FULL share of every tradeable character
+  // (excludes ETFs). Partial/fractional holdings do not count. Auto-revoked if
+  // the user no longer qualifies — e.g. they sold below a full share or a new
   // character was added to the roster since they earned it.
   const launchedTickers = marketDoc.data().launchedTickers || [];
   const tradeableCharacters = CHARACTERS.filter(c => !c.isETF && (!c.ipoRequired || launchedTickers.includes(c.ticker)));
   const totalCharacters = tradeableCharacters.length;
   const characterTickers = new Set(tradeableCharacters.map(c => c.ticker));
-  const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(([ticker, shares]) => shares > 0 && characterTickers.has(ticker)).length;
+  const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(([ticker, shares]) => shares >= UNIFIER_FULL_SHARE_MIN && characterTickers.has(ticker)).length;
   const qualifiesForUnifier = ownedCharacterCount >= totalCharacters && totalCharacters > 0;
   if (qualifiesForUnifier && !currentAchievements.includes('UNIFIER')) {
     newAchievements.push('UNIFIER');
@@ -779,10 +781,13 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   await userRef.update(updateData);
 
   // Revocations go in a separate write — Firestore forbids mixing arrayUnion
-  // and arrayRemove on the same field in one update.
+  // and arrayRemove on the same field in one update. Also drop any revoked
+  // achievement from the displayed pins so it can't keep occupying a profile
+  // slot the user can no longer see to free up.
   if (revokedAchievements.length > 0) {
     await userRef.update({
       achievements: admin.firestore.FieldValue.arrayRemove(...revokedAchievements),
+      displayedAchievementPins: admin.firestore.FieldValue.arrayRemove(...revokedAchievements),
     });
   }
 

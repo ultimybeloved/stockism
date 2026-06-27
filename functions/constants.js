@@ -161,6 +161,15 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const ACTIVE_USER_WINDOW_MS = FOURTEEN_DAYS_MS; // a user counts as "active" if they acted within this window
 
 // ============================================
+// ACHIEVEMENTS
+// ============================================
+// Unifier of Seoul: a character only counts toward the achievement if the user
+// holds at least one FULL share. The threshold sits just under 1.0 to tolerate
+// floating-point dust from fractional trades (e.g. 0.3333 + 0.6667 landing on
+// 0.9999999999999999) while still rejecting any genuine partial holding.
+const UNIFIER_FULL_SHARE_MIN = 0.999999;
+
+// ============================================
 // LADDER GAME
 // ============================================
 const LADDER_GAME_INITIAL_BALANCE    = 500;   // starting balance for new ladder game users
@@ -311,6 +320,7 @@ module.exports = {
   ANIMAL_TICKERS,
   FOURTEEN_DAYS_MS,
   ACTIVE_USER_WINDOW_MS,
+  UNIFIER_FULL_SHARE_MIN,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,

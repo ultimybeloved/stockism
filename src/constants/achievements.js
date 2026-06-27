@@ -211,7 +211,7 @@ export const ACHIEVEMENTS = {
     id: 'UNIFIER',
     name: 'Unifier of Seoul',
     emoji: '🗺️',
-    description: 'Own at least 1 share of every character',
+    description: 'Hold a full share of every character',
     hint: 'Gotta catch \'em all'
   },
 

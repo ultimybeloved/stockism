@@ -18,8 +18,12 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
 
   const ownedPins = userData?.ownedShopPins || [];
   const displayedShopPins = userData?.displayedShopPins || [];
-  const displayedAchievementPins = userData?.displayedAchievementPins || [];
   const earnedAchievements = userData?.achievements || [];
+  // Drop pins for achievements the user no longer has (revocable ones like
+  // Unifier or Diversified can be lost). A stale entry is invisible in the list
+  // below but would otherwise keep occupying a slot the user can't free up.
+  // Toggling anything persists this cleaned list back to Firestore.
+  const displayedAchievementPins = (userData?.displayedAchievementPins || []).filter(id => earnedAchievements.includes(id));
   const cash = userData?.cash || 0;
 
   // Calculate slots
