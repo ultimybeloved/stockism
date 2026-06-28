@@ -125,9 +125,13 @@ export const getActiveShopPins = () => {
 // DAILY MISSIONS
 // ============================================
 
+// Every daily mission rewards an ACTION you take today (buy/sell/trade) or a
+// portfolio COMPOSITION you actively maintain (percentage in crew). Missions
+// that paid out for a static holding you already had were removed - they were
+// free recurring income for zero effort.
 export const DAILY_MISSIONS = {
   // ============================================
-  // ORIGINAL 3
+  // TRADING ACTIONS
   // ============================================
   BUY_CREW_MEMBER: {
     id: 'BUY_CREW_MEMBER',
@@ -135,14 +139,6 @@ export const DAILY_MISSIONS = {
     description: 'Buy shares of any crew member',
     reward: 100,
     checkType: 'BUY_CREW'
-  },
-  HOLD_CREW_SHARES: {
-    id: 'HOLD_CREW_SHARES',
-    name: 'Loyal Holder',
-    description: 'Hold 20+ shares of crew members',
-    reward: 75,
-    checkType: 'HOLD_CREW',
-    requirement: 20
   },
   MAKE_TRADES: {
     id: 'MAKE_TRADES',
@@ -152,10 +148,6 @@ export const DAILY_MISSIONS = {
     checkType: 'TRADE_COUNT',
     requirement: 5
   },
-  
-  // ============================================
-  // GENERAL TRADING (4)
-  // ============================================
   BUY_ANY_STOCK: {
     id: 'BUY_ANY_STOCK',
     name: 'Market Buyer',
@@ -170,14 +162,6 @@ export const DAILY_MISSIONS = {
     reward: 75,
     checkType: 'SELL_ANY'
   },
-  HOLD_LARGE_POSITION: {
-    id: 'HOLD_LARGE_POSITION',
-    name: 'Big Believer',
-    description: 'Hold 50+ shares of any single character',
-    reward: 125,
-    checkType: 'HOLD_LARGE',
-    requirement: 50
-  },
   TRADE_VOLUME: {
     id: 'TRADE_VOLUME',
     name: 'Volume Trader',
@@ -186,70 +170,12 @@ export const DAILY_MISSIONS = {
     checkType: 'TRADE_VOLUME',
     requirement: 100
   },
-  
-  // ============================================
-  // CREW LOYALTY (4)
-  // ============================================
-  CREW_MAJORITY: {
-    id: 'CREW_MAJORITY',
-    name: 'Crew Majority',
-    description: 'Have 50%+ of your holdings in crew members',
-    reward: 125,
-    checkType: 'CREW_MAJORITY',
-    requirement: 50
-  },
-  CREW_COLLECTOR: {
-    id: 'CREW_COLLECTOR',
-    name: 'Crew Collector',
-    description: 'Own shares of 3+ different crew members',
-    reward: 100,
-    checkType: 'CREW_COLLECTOR',
-    requirement: 3
-  },
-  FULL_ROSTER: {
-    id: 'FULL_ROSTER',
-    name: 'Full Roster',
-    description: 'Own at least 1 share of every crew member',
-    reward: 200,
-    checkType: 'FULL_ROSTER'
-  },
-  CREW_LEADER: {
-    id: 'CREW_LEADER',
-    name: 'Crew Leader',
-    description: 'Hold 35+ shares of any crew member stock',
-    reward: 150,
-    checkType: 'CREW_LEADER',
-    requirement: 35
-  },
-  
-  // ============================================
-  // CREW VS CREW (2)
-  // ============================================
   RIVAL_TRADER: {
     id: 'RIVAL_TRADER',
     name: 'Rival Trader',
     description: 'Buy shares of a rival crew member today',
     reward: 75,
     checkType: 'RIVAL_TRADER'
-  },
-  SPY_GAME: {
-    id: 'SPY_GAME',
-    name: 'Spy Game',
-    description: 'Own shares in 3+ different crews',
-    reward: 100,
-    checkType: 'SPY_GAME',
-    requirement: 3
-  },
-  
-  // ============================================
-  // CHARACTER-SPECIFIC (3)
-  // ============================================
-  TOP_DOG: {
-    id: 'TOP_DOG',
-    name: 'Top Dog',
-    description: 'Own shares of the highest-priced character',
-    reward: 100,
-    checkType: 'TOP_DOG'
   },
   UNDERDOG_INVESTOR: {
     id: 'UNDERDOG_INVESTOR',
@@ -258,18 +184,6 @@ export const DAILY_MISSIONS = {
     reward: 75,
     checkType: 'UNDERDOG_INVESTOR'
   },
-  
-  // ============================================
-  // CREW VALUE (2)
-  // ============================================
-  BALANCED_CREW: {
-    id: 'BALANCED_CREW',
-    name: 'Balanced Crew',
-    description: 'Own at least 5 shares of 2+ different crew members',
-    reward: 100,
-    checkType: 'BALANCED_CREW',
-    requirement: 2
-  },
   CREW_ACCUMULATOR: {
     id: 'CREW_ACCUMULATOR',
     name: 'Crew Accumulator',
@@ -277,6 +191,18 @@ export const DAILY_MISSIONS = {
     reward: 150,
     checkType: 'CREW_ACCUMULATOR',
     requirement: 20
+  },
+
+  // ============================================
+  // CREW LOYALTY (percentage-based, scales fairly across account sizes)
+  // ============================================
+  CREW_MAJORITY: {
+    id: 'CREW_MAJORITY',
+    name: 'Crew Majority',
+    description: 'Have 50%+ of your holdings in crew members',
+    reward: 125,
+    checkType: 'CREW_MAJORITY',
+    requirement: 50
   }
 };
 
@@ -285,9 +211,14 @@ export const DAILY_MISSIONS = {
 // Week starts Monday 12:00am
 // ============================================
 
+// Weekly missions reward a week's worth of ACTIVITY (trade value/volume/count,
+// trading + checkin streaks, portfolio growth) or an actively-maintained crew
+// COMPOSITION (percentage of value in crew). Static-snapshot missions that paid
+// out just for holding a position were removed - they auto-completed every week
+// with no effort and favoured big established accounts.
 export const WEEKLY_MISSIONS = {
   // ============================================
-  // TRADING VOLUME (3)
+  // TRADING VOLUME
   // ============================================
   MARKET_WHALE: {
     id: 'MARKET_WHALE',
@@ -313,9 +244,25 @@ export const WEEKLY_MISSIONS = {
     checkType: 'WEEKLY_TRADE_COUNT',
     requirement: 40
   },
+  SHARE_MOGUL: {
+    id: 'SHARE_MOGUL',
+    name: 'Share Mogul',
+    description: 'Trade 400+ total shares this week',
+    reward: 700,
+    checkType: 'WEEKLY_TRADE_VOLUME',
+    requirement: 400
+  },
+  TRADE_MASTER: {
+    id: 'TRADE_MASTER',
+    name: 'Trade Master',
+    description: 'Make 75+ trades this week',
+    reward: 600,
+    checkType: 'WEEKLY_TRADE_COUNT',
+    requirement: 75
+  },
 
   // ============================================
-  // CONSISTENCY (2)
+  // CONSISTENCY
   // ============================================
   TRADING_STREAK: {
     id: 'TRADING_STREAK',
@@ -335,7 +282,7 @@ export const WEEKLY_MISSIONS = {
   },
 
   // ============================================
-  // CREW LOYALTY (3)
+  // CREW LOYALTY (percentage-based, scales fairly across account sizes)
   // ============================================
   CREW_MAXIMALIST: {
     id: 'CREW_MAXIMALIST',
@@ -345,34 +292,10 @@ export const WEEKLY_MISSIONS = {
     checkType: 'WEEKLY_CREW_PERCENT',
     requirement: 80
   },
-  CREW_HOARDER: {
-    id: 'CREW_HOARDER',
-    name: 'Crew Hoarder',
-    description: 'Accumulate 75+ total shares of crew members',
-    reward: 500,
-    checkType: 'WEEKLY_CREW_SHARES',
-    requirement: 75
-  },
-  FULL_CREW_OWNERSHIP: {
-    id: 'FULL_CREW_OWNERSHIP',
-    name: 'Full Crew Ownership',
-    description: 'Own 8+ shares of EVERY crew member. Reward scales with crew size.',
-    reward: 300, // base reward; actual payout = getFullCrewReward(roster size)
-    checkType: 'WEEKLY_FULL_CREW',
-    requirement: 8
-  },
 
   // ============================================
-  // PORTFOLIO (2)
+  // PORTFOLIO GROWTH
   // ============================================
-  DIVERSIFICATION_MASTER: {
-    id: 'DIVERSIFICATION_MASTER',
-    name: 'Diversification Master',
-    description: 'Own shares in 5+ different crews simultaneously',
-    reward: 500,
-    checkType: 'WEEKLY_CREW_DIVERSITY',
-    requirement: 5
-  },
   PORTFOLIO_BUILDER: {
     id: 'PORTFOLIO_BUILDER',
     name: 'Portfolio Builder',
@@ -380,66 +303,6 @@ export const WEEKLY_MISSIONS = {
     reward: 750,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
     requirement: 15 // percent growth from the week's starting value
-  },
-
-  // ============================================
-  // HIGHER-TIER TRADING (2)
-  // ============================================
-  SHARE_MOGUL: {
-    id: 'SHARE_MOGUL',
-    name: 'Share Mogul',
-    description: 'Trade 400+ total shares this week',
-    reward: 700,
-    checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 400
-  },
-  TRADE_MASTER: {
-    id: 'TRADE_MASTER',
-    name: 'Trade Master',
-    description: 'Make 75+ trades this week',
-    reward: 600,
-    checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 75
-  },
-
-  // ============================================
-  // PORTFOLIO SNAPSHOT (3)
-  // ============================================
-  HEAVY_BAGS: {
-    id: 'HEAVY_BAGS',
-    name: 'Heavy Bags',
-    description: 'Hold 300+ total shares across all positions',
-    reward: 600,
-    checkType: 'WEEKLY_TOTAL_SHARES',
-    requirement: 300
-  },
-  PENNY_COLLECTOR: {
-    id: 'PENNY_COLLECTOR',
-    name: 'Penny Collector',
-    description: 'Own 80+ shares of stocks priced under $25',
-    reward: 500,
-    checkType: 'WEEKLY_PENNY_SHARES',
-    requirement: 80
-  },
-  BLUE_CHIP_INVESTOR: {
-    id: 'BLUE_CHIP_INVESTOR',
-    name: 'Blue Chip Investor',
-    description: 'Own shares in 3+ stocks priced over $100',
-    reward: 600,
-    checkType: 'WEEKLY_BLUE_CHIPS',
-    requirement: 3
-  },
-
-  // ============================================
-  // SHORTS & GROWTH (2)
-  // ============================================
-  SHORT_KING: {
-    id: 'SHORT_KING',
-    name: 'Short King',
-    description: 'Have 3+ active short positions at the same time',
-    reward: 700,
-    checkType: 'WEEKLY_SHORT_COUNT',
-    requirement: 3
   },
   PORTFOLIO_MOONSHOT: {
     id: 'PORTFOLIO_MOONSHOT',
@@ -459,11 +322,13 @@ export const WEEKLY_MISSIONS = {
 // `npm run sync:chars` - never edit that file directly.
 
 // Crew mission payouts, claimed per player once the crew-wide goal is met.
+// Each one requires a real personal trading contribution to claim (see
+// CREW_CONTRIB). The old "Full Roster" and "Open Recruitment" missions were
+// removed: their crew goals were near-permanently true for any active crew, so
+// every member collected the payout every week for doing nothing.
 export const CREW_MISSION_REWARDS = {
   CREW_BUY_500: 500,
   CREW_SELL_500: 400,
-  CREW_FULL_ROSTER: 750,
-  CREW_RECRUIT: 300,
   CREW_VOLUME: 500
 };
 
@@ -472,8 +337,7 @@ export const CREW_MISSION_REWARDS = {
 export const CREW_CONTRIB = {
   BUY_SHARES: 50,   // shares of your crew's stocks you personally bought
   SELL_SHARES: 50,  // shares of your crew's stocks you personally sold
-  VOLUME: 500,      // dollars of crew-stock trade volume you personally generated
-  ROSTER_HOLD: 10   // total crew shares you must hold for crew Full Roster
+  VOLUME: 500       // dollars of crew-stock trade volume you personally generated
 };
 
 // The buy / sell / volume crew goals only count trades of the crew's OWN
@@ -493,13 +357,6 @@ export const getCrewSellTarget = (memberCount) =>
   Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
 export const getCrewVolumeTarget = (memberCount) =>
   Math.max(CREW_VOLUME_MIN, CREW_VOLUME_PER_MEMBER * (memberCount || 0));
-
-// Full Crew Ownership pays per roster member so big crews (more shares
-// needed) earn more than small ones.
-export const FULL_CREW_REWARD_PER_MEMBER = 60;
-export const FULL_CREW_REWARD_MIN = 300;
-export const getFullCrewReward = (memberCount) =>
-  Math.max(FULL_CREW_REWARD_MIN, FULL_CREW_REWARD_PER_MEMBER * (memberCount || 0));
 
 // Helper function to get current week identifier (Monday 12:00am start)
 export const getWeekId = (date = new Date()) => {
@@ -535,14 +392,9 @@ export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
   const idx2 = Math.abs(hash * 31) % count;
   const finalIdx2 = idx2 === idx1 ? (idx2 + 1) % count : idx2;
 
-  // Full Crew Ownership pays per roster member (see getFullCrewReward)
-  const withScaledReward = (mission) => mission.id === 'FULL_CREW_OWNERSHIP'
-    ? { ...mission, reward: getFullCrewReward((CREW_MAP[crewId]?.members || []).length) }
-    : mission;
-
   return [
-    withScaledReward(WEEKLY_MISSIONS[missionKeys[idx1]]),
-    withScaledReward(WEEKLY_MISSIONS[missionKeys[finalIdx2]])
+    WEEKLY_MISSIONS[missionKeys[idx1]],
+    WEEKLY_MISSIONS[missionKeys[finalIdx2]]
   ];
 };
 

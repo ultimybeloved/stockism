@@ -45,34 +45,6 @@ const CREW_MISSIONS = [
     formatProgress: (v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`,
     formatTarget: (t) => t >= 1000 ? `$${(t / 1000).toFixed(t % 1000 === 0 ? 0 : 1)}k` : `$${t}`,
   },
-  {
-    id: 'CREW_RECRUIT',
-    name: 'Open Recruitment',
-    description: 'A new member joins your crew this week. Must have been in the crew before they joined.',
-    reward: CREW_MISSION_REWARDS.CREW_RECRUIT,
-    color: 'blue',
-    getProgress: (d) => ({ value: Math.min(d.newMemberCount || 0, 1), target: 1 }),
-    contributed: (d, uid, userData) => {
-      const weekStartTs = new Date(getWeekId() + 'T00:00:00Z').getTime();
-      return (userData?.crewJoinedAt || 0) < weekStartTs;
-    },
-  },
-  {
-    id: 'CREW_FULL_ROSTER',
-    name: 'Full Roster',
-    description: `Every crew member stock is held by at least one person in your crew. You must hold ${CREW_CONTRIB.ROSTER_HOLD}+ crew shares.`,
-    reward: CREW_MISSION_REWARDS.CREW_FULL_ROSTER,
-    color: 'blue',
-    getProgress: () => ({ value: 0, target: 1, serverSide: true }),
-    contributed: (d, uid, userData) => {
-      const crew = userData?.crew;
-      const crewInfo = crew ? CREW_MAP[crew] : null;
-      const members = crewInfo?.members || [];
-      const holdings = userData?.holdings || {};
-      const heldCrewShares = members.reduce((s, t) => s + (holdings[t] || 0), 0);
-      return heldCrewShares >= CREW_CONTRIB.ROSTER_HOLD;
-    },
-  },
 ];
 
 export default function CrewMissionsTab() {
@@ -140,13 +112,13 @@ export default function CrewMissionsTab() {
 
       {CREW_MISSIONS.map((mission) => {
         const memberCount = (crewInfo?.members || []).length;
-        const { value, target, serverSide } = mission.getProgress(data, memberCount);
+        const { value, target } = mission.getProgress(data, memberCount);
         const isClaimed = !!data.claimed?.[uid]?.[mission.id];
         const hasContributed = mission.contributed(data, uid, userData);
-        const goalMet = serverSide ? false : value >= target;
+        const goalMet = value >= target;
         const canClaim = goalMet && hasContributed && !isClaimed;
 
-        const pct = serverSide ? 0 : Math.min(100, target > 0 ? (value / target) * 100 : 0);
+        const pct = Math.min(100, target > 0 ? (value / target) * 100 : 0);
         const progressLabel = mission.formatProgress ? mission.formatProgress(value) : String(value);
         const targetLabel = mission.formatTarget ? mission.formatTarget(target) : String(target);
 
@@ -171,21 +143,17 @@ export default function CrewMissionsTab() {
               </span>
             </div>
 
-            {serverSide ? (
-              <p className={`text-xs ${mutedClass} italic`}>Verified server-side on claim</p>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
-                  <div
-                    className={`h-full rounded-full transition-all ${goalMet ? 'bg-blue-500' : 'bg-blue-400/60'}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className={`text-xs ${mutedClass} w-16 text-right`}>
-                  {progressLabel}/{targetLabel}
-                </span>
+            <div className="flex items-center gap-2">
+              <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                <div
+                  className={`h-full rounded-full transition-all ${goalMet ? 'bg-blue-500' : 'bg-blue-400/60'}`}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
-            )}
+              <span className={`text-xs ${mutedClass} w-16 text-right`}>
+                {progressLabel}/{targetLabel}
+              </span>
+            </div>
 
             {!hasContributed && !isClaimed && (
               <p className={`text-xs ${mutedClass} mt-1 italic`}>You haven't contributed yet.</p>
@@ -202,15 +170,6 @@ export default function CrewMissionsTab() {
             )}
             {isClaimed && (
               <p className="text-xs text-blue-500 mt-2 text-center">Claimed</p>
-            )}
-            {serverSide && hasContributed && !isClaimed && (
-              <button
-                onClick={() => handleClaim(mission.id)}
-                disabled={claiming === mission.id}
-                className="w-full mt-2 py-1.5 text-sm font-semibold rounded-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-              >
-                {claiming === mission.id ? 'Checking...' : 'Check & Claim'}
-              </button>
             )}
           </div>
         );

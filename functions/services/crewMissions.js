@@ -67,24 +67,6 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
 };
 
 /**
- * Fire-and-forget — called from switchCrew after a user successfully joins a crew.
- */
-const updateCrewMissionNewMember = async (crew) => {
-  if (!crew) return;
-  try {
-    const weekId = getWeekId();
-    const ref = db.collection('crewMissions').doc(`${crew}_${weekId}`);
-    await ref.set({
-      crew,
-      weekId,
-      newMemberCount: admin.firestore.FieldValue.increment(1),
-    }, { merge: true });
-  } catch (err) {
-    console.error('updateCrewMissionNewMember error:', err.message);
-  }
-};
-
-/**
  * Checks if the crew goal is met and whether the user contributed.
  * Returns { complete, contributed, reason? }
  */
@@ -119,29 +101,6 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
         contributed: meetsContribution(missionData.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
         reason: complete ? null : `Crew needs $${target.toLocaleString()} in crew-stock trade volume this week.`,
       };
-    }
-    case 'CREW_RECRUIT': {
-      const complete = (missionData.newMemberCount || 0) >= 1;
-      if (!complete) return { complete: false, contributed: false, reason: 'No new crew members joined this week.' };
-      const weekStartTs = new Date(weekId + 'T00:00:00Z').getTime();
-      const contributed = (userData.crewJoinedAt || 0) < weekStartTs;
-      return { complete: true, contributed, reason: null };
-    }
-    case 'CREW_FULL_ROSTER': {
-      const usersSnap = await db.collection('users').where('crew', '==', crew).get();
-      const coveredTickers = new Set();
-      usersSnap.docs.forEach(doc => {
-        const holdings = doc.data().holdings || {};
-        Object.entries(holdings).forEach(([t, shares]) => {
-          if (shares > 0 && crewTickers.includes(t)) coveredTickers.add(t);
-        });
-      });
-      const complete = crewTickers.every(t => coveredTickers.has(t));
-      if (!complete) return { complete: false, contributed: false, reason: 'Not every crew stock is held by a crew member.' };
-      const userHoldings = userData.holdings || {};
-      const heldCrewShares = crewTickers.reduce((s, t) => s + (userHoldings[t] || 0), 0);
-      const contributed = heldCrewShares >= CREW_CONTRIB.ROSTER_HOLD;
-      return { complete: true, contributed };
     }
     default:
       return { complete: false, contributed: false, reason: 'Unknown mission.' };
@@ -213,5 +172,4 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
 });
 
 exports.updateCrewMissionProgress = updateCrewMissionProgress;
-exports.updateCrewMissionNewMember = updateCrewMissionNewMember;
 exports.CREW_MISSION_REWARDS = CREW_MISSION_REWARDS;

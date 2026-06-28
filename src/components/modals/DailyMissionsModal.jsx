@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CrewMissionsTab from '../missions/CrewMissionsTab';
-import { DAILY_MISSIONS, WEEKLY_MISSIONS, CREW_MAP, CREWS } from '../../crews';
-import { getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
+import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
@@ -27,51 +26,22 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
 
   const todaysMissions = getDailyMissions(today, userCrew, rerollSeed);
 
-  // Helper to get all crew tickers a character belongs to
-  const getCharacterCrews = (ticker) => {
-    const crews = [];
-    Object.values(CREWS).forEach(crew => {
-      if (crew.members.includes(ticker)) {
-        crews.push(crew.id);
-      }
-    });
-    return crews;
-  };
-
   // Calculate mission progress
   const getMissionProgress = (mission) => {
     const holdings = userData?.holdings || {};
 
     switch (mission.checkType) {
       // ============================================
-      // ORIGINAL 3
+      // TRADING ACTIONS (something done today)
       // ============================================
       case 'BUY_CREW': {
         const bought = dailyProgress.boughtCrewMember || false;
         return { complete: bought, progress: bought ? 1 : 0, target: 1 };
       }
-      case 'HOLD_CREW': {
-        const totalShares = crewMembers.reduce((sum, ticker) => {
-          return sum + (holdings[ticker] || 0);
-        }, 0);
-        return {
-          complete: totalShares >= mission.requirement,
-          progress: totalShares,
-          target: mission.requirement
-        };
-      }
       case 'TRADE_COUNT': {
         const trades = dailyProgress.tradesCount || 0;
-        return {
-          complete: trades >= mission.requirement,
-          progress: trades,
-          target: mission.requirement
-        };
+        return { complete: trades >= mission.requirement, progress: trades, target: mission.requirement };
       }
-
-      // ============================================
-      // GENERAL TRADING
-      // ============================================
       case 'BUY_ANY': {
         const bought = dailyProgress.boughtAny || false;
         return { complete: bought, progress: bought ? 1 : 0, target: 1 };
@@ -80,139 +50,31 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         const sold = dailyProgress.soldAny || false;
         return { complete: sold, progress: sold ? 1 : 0, target: 1 };
       }
-      case 'HOLD_LARGE': {
-        const maxHolding = Math.max(0, ...Object.values(holdings));
-        return {
-          complete: maxHolding >= mission.requirement,
-          progress: maxHolding,
-          target: mission.requirement
-        };
-      }
       case 'TRADE_VOLUME': {
         const volume = dailyProgress.tradeVolume || 0;
-        return {
-          complete: volume >= mission.requirement,
-          progress: volume,
-          target: mission.requirement
-        };
+        return { complete: volume >= mission.requirement, progress: volume, target: mission.requirement };
       }
-
-      // ============================================
-      // CREW LOYALTY
-      // ============================================
-      case 'CREW_MAJORITY': {
-        // 50%+ of holdings in crew members
-        const totalShares = Object.values(holdings).reduce((sum, s) => sum + s, 0);
-        const crewShares = crewMembers.reduce((sum, ticker) => sum + (holdings[ticker] || 0), 0);
-        const percent = totalShares > 0 ? (crewShares / totalShares) * 100 : 0;
-        return {
-          complete: percent >= mission.requirement,
-          progress: Math.floor(percent),
-          target: mission.requirement
-        };
-      }
-      case 'CREW_COLLECTOR': {
-        // Own shares of 3+ different crew members
-        const ownedCrewMembers = crewMembers.filter(ticker => (holdings[ticker] || 0) > 0).length;
-        return {
-          complete: ownedCrewMembers >= mission.requirement,
-          progress: ownedCrewMembers,
-          target: mission.requirement
-        };
-      }
-      case 'FULL_ROSTER': {
-        // Own at least 1 share of every crew member
-        const ownedCrewMembers = crewMembers.filter(ticker => (holdings[ticker] || 0) > 0).length;
-        const totalCrewMembers = crewMembers.length;
-        return {
-          complete: ownedCrewMembers >= totalCrewMembers && totalCrewMembers > 0,
-          progress: ownedCrewMembers,
-          target: totalCrewMembers
-        };
-      }
-      case 'CREW_LEADER': {
-        const maxCrewHolding = Math.max(0, ...crewMembers.map(ticker => holdings[ticker] || 0));
-        return {
-          complete: maxCrewHolding >= mission.requirement,
-          progress: maxCrewHolding,
-          target: mission.requirement
-        };
-      }
-
-      // ============================================
-      // CREW VS CREW
-      // ============================================
       case 'RIVAL_TRADER': {
-        // Bought shares of a non-crew member today
         const bought = dailyProgress.boughtRival || false;
         return { complete: bought, progress: bought ? 1 : 0, target: 1 };
       }
-      case 'SPY_GAME': {
-        // Own shares in 3+ different crews
-        const crewsOwned = new Set();
-        Object.entries(holdings).forEach(([ticker, shares]) => {
-          if (shares > 0) {
-            getCharacterCrews(ticker).forEach(crewId => crewsOwned.add(crewId));
-          }
-        });
-        return {
-          complete: crewsOwned.size >= mission.requirement,
-          progress: crewsOwned.size,
-          target: mission.requirement
-        };
-      }
-
-      // ============================================
-      // CHARACTER-SPECIFIC
-      // ============================================
-      case 'TOP_DOG': {
-        // Own shares of the highest-priced character
-        let highestTicker = null;
-        let highestPrice = 0;
-        Object.entries(prices).forEach(([ticker, price]) => {
-          if (price > highestPrice) {
-            highestPrice = price;
-            highestTicker = ticker;
-          }
-        });
-        const ownsTopDog = highestTicker && (holdings[highestTicker] || 0) > 0;
-        return { complete: ownsTopDog, progress: ownsTopDog ? 1 : 0, target: 1 };
-      }
       case 'UNDERDOG_INVESTOR': {
-        // Bought a character priced under $20 today
         const bought = dailyProgress.boughtUnderdog || false;
         return { complete: bought, progress: bought ? 1 : 0, target: 1 };
       }
-      case 'WHALE_WATCH': {
-        // Own 50+ shares of any single character
-        const maxHolding = Math.max(0, ...Object.values(holdings));
-        return {
-          complete: maxHolding >= mission.requirement,
-          progress: maxHolding,
-          target: mission.requirement
-        };
+      case 'CREW_ACCUMULATOR': {
+        const crewSharesBought = dailyProgress.crewSharesBought || 0;
+        return { complete: crewSharesBought >= mission.requirement, progress: crewSharesBought, target: mission.requirement };
       }
 
       // ============================================
-      // CREW VALUE
+      // CREW LOYALTY (percentage you actively maintain)
       // ============================================
-      case 'BALANCED_CREW': {
-        // Own at least 5 shares of 2+ different crew members
-        const qualifyingMembers = crewMembers.filter(ticker => (holdings[ticker] || 0) >= 5).length;
-        return {
-          complete: qualifyingMembers >= mission.requirement,
-          progress: qualifyingMembers,
-          target: mission.requirement
-        };
-      }
-      case 'CREW_ACCUMULATOR': {
-        // Bought 10+ total shares of crew members today
-        const crewSharesBought = dailyProgress.crewSharesBought || 0;
-        return {
-          complete: crewSharesBought >= mission.requirement,
-          progress: crewSharesBought,
-          target: mission.requirement
-        };
+      case 'CREW_MAJORITY': {
+        const totalShares = Object.values(holdings).reduce((sum, s) => sum + s, 0);
+        const crewShares = crewMembers.reduce((sum, ticker) => sum + (holdings[ticker] || 0), 0);
+        const percent = totalShares > 0 ? (crewShares / totalShares) * 100 : 0;
+        return { complete: percent >= mission.requirement, progress: Math.floor(percent), target: mission.requirement };
       }
 
       default:
@@ -236,17 +98,6 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
 
   // Get this crew's 2 weekly missions
   const thisWeeksMissions = userCrew ? getCrewWeeklyMissions(userCrew, weekId, rerollSeed) : [];
-
-  // Helper to get all crew tickers a character belongs to (for weekly too)
-  const getCharacterCrewsForWeekly = (ticker) => {
-    const crews = [];
-    Object.values(CREWS).forEach(crew => {
-      if (crew.members.includes(ticker)) {
-        crews.push(crew.id);
-      }
-    });
-    return crews;
-  };
 
   // Calculate weekly mission progress
   const getWeeklyMissionProgress = (mission) => {
@@ -326,42 +177,10 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
           target: mission.requirement
         };
       }
-      case 'WEEKLY_CREW_SHARES': {
-        const totalCrewShares = crewMembers.reduce((sum, ticker) => sum + (holdings[ticker] || 0), 0);
-        return {
-          complete: totalCrewShares >= mission.requirement,
-          progress: totalCrewShares,
-          target: mission.requirement
-        };
-      }
-      case 'WEEKLY_FULL_CREW': {
-        // Own 5+ shares of EVERY crew member
-        const qualifyingMembers = crewMembers.filter(ticker => (holdings[ticker] || 0) >= mission.requirement).length;
-        const totalMembers = crewMembers.length;
-        return {
-          complete: qualifyingMembers >= totalMembers && totalMembers > 0,
-          progress: qualifyingMembers,
-          target: totalMembers
-        };
-      }
 
       // ============================================
-      // PORTFOLIO
+      // PORTFOLIO GROWTH
       // ============================================
-      case 'WEEKLY_CREW_DIVERSITY': {
-        // Own shares in 5+ different crews
-        const crewsOwned = new Set();
-        Object.entries(holdings).forEach(([ticker, shares]) => {
-          if (shares > 0) {
-            getCharacterCrewsForWeekly(ticker).forEach(crewId => crewsOwned.add(crewId));
-          }
-        });
-        return {
-          complete: crewsOwned.size >= mission.requirement,
-          progress: crewsOwned.size,
-          target: mission.requirement
-        };
-      }
       case 'WEEKLY_PORTFOLIO_GROWTH': {
         // requirement is percent growth from the week's starting value
         const startValue = wp.startPortfolioValue || portfolioValue;
@@ -369,50 +188,6 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         return {
           complete: growthPct >= mission.requirement,
           progress: Math.max(0, Math.floor(growthPct)),
-          target: mission.requirement
-        };
-      }
-
-      case 'WEEKLY_TOTAL_SHARES': {
-        const totalShares = Object.values(holdings).reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
-        return {
-          complete: totalShares >= mission.requirement,
-          progress: totalShares,
-          target: mission.requirement
-        };
-      }
-      case 'WEEKLY_PENNY_SHARES': {
-        let pennyShares = 0;
-        Object.entries(holdings).forEach(([ticker, shares]) => {
-          if (shares > 0 && (prices[ticker] || 0) < 25) {
-            pennyShares += shares;
-          }
-        });
-        return {
-          complete: pennyShares >= mission.requirement,
-          progress: pennyShares,
-          target: mission.requirement
-        };
-      }
-      case 'WEEKLY_BLUE_CHIPS': {
-        let blueChipCount = 0;
-        Object.entries(holdings).forEach(([ticker, shares]) => {
-          if (shares > 0 && (prices[ticker] || 0) > 100) {
-            blueChipCount++;
-          }
-        });
-        return {
-          complete: blueChipCount >= mission.requirement,
-          progress: blueChipCount,
-          target: mission.requirement
-        };
-      }
-      case 'WEEKLY_SHORT_COUNT': {
-        const shorts = userData?.shorts || {};
-        const activeShorts = Object.values(shorts).filter(p => p && p.shares > 0).length;
-        return {
-          complete: activeShorts >= mission.requirement,
-          progress: activeShorts,
           target: mission.requirement
         };
       }
