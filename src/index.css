@@ -117,23 +117,27 @@ body {
    sits at the row edge (inset:0) so overflow never clips it. Row needs
    `position: relative`. */
 .cos-frame-ember, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold { position: relative; }
+/* The frame sits just INSIDE the row (inset) with an inset-only glow, so it
+   never bleeds past the row edge and get clipped by scroll containers (e.g.
+   the leaderboard list). border-color is set statically too so the frame still
+   shows when prefers-reduced-motion disables the animation. */
 .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 3px;
   border: 2px solid;
-  border-radius: inherit;
+  border-radius: 6px;
   pointer-events: none;
   z-index: 1;
 }
-.cos-frame-ember::before    { animation: cosFrameEmber 1.6s ease-in-out infinite; }
-.cos-frame-frost::before    { animation: cosFrameFrost 2.4s ease-in-out infinite; }
-.cos-frame-electric::before { animation: cosFrameElectric 0.9s ease-in-out infinite; }
-.cos-frame-gold::before     { animation: cosFrameGold 2s ease-in-out infinite; }
-@keyframes cosFrameEmber    { 0%,100% { border-color:#ea580c; box-shadow:0 0 8px #ea580c66, inset 0 0 6px #ea580c44; } 50% { border-color:#fbbf24; box-shadow:0 0 14px #fbbf2488, inset 0 0 10px #fbbf2466; } }
-@keyframes cosFrameFrost    { 0%,100% { border-color:#22d3ee; box-shadow:0 0 8px #22d3ee66, inset 0 0 6px #22d3ee44; } 50% { border-color:#ffffff; box-shadow:0 0 14px #67e8f988, inset 0 0 10px #67e8f966; } }
-@keyframes cosFrameElectric { 0%,100% { border-color:#3b82f6; box-shadow:0 0 8px #3b82f666, inset 0 0 6px #3b82f644; } 50% { border-color:#ffffff; box-shadow:0 0 14px #60a5fa88, inset 0 0 10px #60a5fa66; } }
-@keyframes cosFrameGold     { 0%,100% { border-color:#f59e0b; box-shadow:0 0 8px #f59e0b66, inset 0 0 6px #f59e0b44; } 50% { border-color:#fffbe6; box-shadow:0 0 14px #fbbf2488, inset 0 0 10px #fbbf2466; } }
+.cos-frame-ember::before    { border-color:#ea580c; animation: cosFrameEmber 1.6s ease-in-out infinite; }
+.cos-frame-frost::before    { border-color:#22d3ee; animation: cosFrameFrost 2.4s ease-in-out infinite; }
+.cos-frame-electric::before { border-color:#3b82f6; animation: cosFrameElectric 0.9s ease-in-out infinite; }
+.cos-frame-gold::before     { border-color:#f59e0b; animation: cosFrameGold 2s ease-in-out infinite; }
+@keyframes cosFrameEmber    { 0%,100% { border-color:#ea580c; box-shadow: inset 0 0 7px #ea580c66; } 50% { border-color:#fbbf24; box-shadow: inset 0 0 12px #fbbf2299; } }
+@keyframes cosFrameFrost    { 0%,100% { border-color:#22d3ee; box-shadow: inset 0 0 7px #22d3ee66; } 50% { border-color:#ffffff; box-shadow: inset 0 0 12px #67e8f999; } }
+@keyframes cosFrameElectric { 0%,100% { border-color:#3b82f6; box-shadow: inset 0 0 7px #3b82f666; } 50% { border-color:#ffffff; box-shadow: inset 0 0 12px #60a5fa99; } }
+@keyframes cosFrameGold     { 0%,100% { border-color:#f59e0b; box-shadow: inset 0 0 7px #f59e0b66; } 50% { border-color:#fffbe6; box-shadow: inset 0 0 12px #fbbf2299; } }
 
 /* Pulsing glow auras. */
 .cos-glow-pulse-gold   { animation: cosGlowGold 2s ease-in-out infinite; }
