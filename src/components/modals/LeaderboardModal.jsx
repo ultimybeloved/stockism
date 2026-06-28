@@ -126,6 +126,11 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
   // Get user's crew color
   const userCrewColor = currentUserData?.crew ? CREW_MAP[currentUserData.crew]?.color : '#6b7280';
 
+  // Current user's own cosmetics, so their row frame/glow also shows on the
+  // sticky summary bar when they're ranked outside the visible top-50 list
+  // (the bar is the only place they appear in that case).
+  const selfCosmetics = getCosmeticStyles(currentUserData?.activeCosmetics);
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className={`w-full max-w-lg ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[80vh] flex flex-col`}
@@ -199,7 +204,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           {/* Sticky Header - shown when user row has scrolled above viewport */}
           {currentUser && userRank && userInList && userRowPosition === 'above' && (
             <div
-              className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
+              className={`sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b ${selfCosmetics.rowClass}`}
               style={{
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,
@@ -307,7 +312,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           {/* Sticky Footer - shown when user row is below viewport */}
           {currentUser && userRank && !loading && (userRowPosition === 'below' || !userInList) && (
             <div
-              className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
+              className={`sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t ${selfCosmetics.rowClass}`}
               style={{
                 backgroundColor: darkMode ? '#18181b' : '#ffffff',
                 borderColor: userCrewColor,

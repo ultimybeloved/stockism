@@ -124,9 +124,9 @@ body {
 .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before {
   content: '';
   position: absolute;
-  inset: 3px;
+  inset: 0;
   border: 2px solid;
-  border-radius: 6px;
+  border-radius: inherit;
   pointer-events: none;
   z-index: 1;
 }
