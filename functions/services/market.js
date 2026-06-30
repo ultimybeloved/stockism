@@ -67,6 +67,27 @@ exports.dailyMarketSummary = cf().pubsub
       gainers.sort((a, b) => b.change - a.change);
       losers.sort((a, b) => a.change - b.change);
 
+      // Record today's market index value so the index banner can show a rolling
+      // 30-day change. Stored in its own doc (not market/current) to keep the
+      // frequently-read market doc small. Capped to ~13 months of daily points.
+      try {
+        let sum = 0, count = 0;
+        for (const c of CHARACTERS) {
+          if (c.isETF || !(c.basePrice > 0)) continue;
+          const p = prices[c.ticker];
+          sum += (p != null ? p : c.basePrice) / c.basePrice;
+          count++;
+        }
+        const indexValue = count > 0 ? 1000 * (sum / count) : 1000;
+        const idxRef = db.collection('market').doc('indexHistory');
+        const idxSnap = await idxRef.get();
+        const hist = idxSnap.exists ? (idxSnap.data().history || []) : [];
+        hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
+        await idxRef.set({ history: hist.slice(-400) }, { merge: true });
+      } catch (e) {
+        console.error('index history record failed:', e.message);
+      }
+
       // Calculate trading volume (from transaction logs)
       let totalVolume = 0;
       let tradeCount = 0;

@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
 import SimpleLineChart from './charts/SimpleLineChart';
+import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 
@@ -104,6 +106,30 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
   const { cardClass } = getThemeClasses(darkMode);
   const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters), [prices]);
 
+  // Index value ~30 days ago, from the daily history the backend records. While
+  // that history is still building (first ~30 days), fall back to the oldest
+  // point available so the number is meaningful immediately.
+  const [index30dAgo, setIndex30dAgo] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'market', 'indexHistory'));
+        if (cancelled || !snap.exists()) return;
+        const hist = snap.data().history || [];
+        if (hist.length === 0) return;
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        let ref = null;
+        for (let i = hist.length - 1; i >= 0; i--) {
+          if (hist[i].t <= cutoff) { ref = hist[i]; break; }
+        }
+        if (!ref) ref = hist[0];
+        if (!cancelled) setIndex30dAgo(ref.v);
+      } catch { /* leave null — 30d line just hides */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // 24h sparkline data
   const { change24h, changePct24h, sparklineData } = useMemo(() => {
     const points = buildIndexSeries(priceHistory, currentIndex, 24);
@@ -121,13 +147,13 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
     return buildIndexSeries(priceHistory, currentIndex, range.hours);
   }, [expanded, timeRange, priceHistory, currentIndex]);
 
-  const fromBasePct = ((currentIndex - 1000) / 1000) * 100;
   const isUp = change24h >= 0;
   const upColor = colorBlindMode ? 'text-teal-400' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-400' : 'text-red-500';
   const changeColor = isUp ? upColor : downColor;
-  const baseIsUp = fromBasePct >= 0;
-  const baseColor = baseIsUp ? upColor : downColor;
+  const change30dPct = (index30dAgo != null && index30dAgo > 0) ? ((currentIndex - index30dAgo) / index30dAgo) * 100 : null;
+  const thirtyIsUp = (change30dPct ?? 0) >= 0;
+  const thirtyColor = thirtyIsUp ? upColor : downColor;
 
   return (
     <>
@@ -149,9 +175,11 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
                 {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}{change24h.toFixed(2)} ({isUp ? '+' : ''}{changePct24h.toFixed(2)}%) 24h
               </span>
             </div>
-            <div className={`text-xs mt-0.5 ${baseColor}`}>
-              {baseIsUp ? '\u2191' : '\u2193'} {Math.abs(fromBasePct).toFixed(2)}% from base
-            </div>
+            {change30dPct != null && (
+              <div className={`text-xs mt-0.5 ${thirtyColor}`}>
+                {thirtyIsUp ? '\u2191' : '\u2193'} {Math.abs(change30dPct).toFixed(2)}% 30d
+              </div>
+            )}
           </div>
           {sparklineData.length >= 2 && (
             <div className="w-full sm:w-40 h-10 flex-shrink-0">

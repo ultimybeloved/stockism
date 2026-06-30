@@ -6,7 +6,7 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const {
   ADMIN_UID, isWeeklyTradingHalt,
-  TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS,
+  TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS, THIRTY_DAYS_MS,
   MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
@@ -628,6 +628,10 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   const snap7d = userData.portfolioSnapshot7d;
   if (!snap7d || (now - snap7d.timestamp) >= ONE_WEEK_MS) {
     updateData.portfolioSnapshot7d = { timestamp: now, value: portfolioValue };
+  }
+  const snap30d = userData.portfolioSnapshot30d;
+  if (!snap30d || (now - snap30d.timestamp) >= THIRTY_DAYS_MS) {
+    updateData.portfolioSnapshot30d = { timestamp: now, value: portfolioValue };
   }
 
   // Check achievements

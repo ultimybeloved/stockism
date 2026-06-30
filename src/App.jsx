@@ -106,7 +106,6 @@ import { getThemeClasses } from './utils/theme';
 import {
   ADMIN_UIDS,
   ITEMS_PER_PAGE,
-  STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,
   IPO_TOTAL_SHARES,
@@ -1788,8 +1787,13 @@ export default function App() {
               const changePercent24h = value24hAgo && value24hAgo > 0 ? ((change24h / value24hAgo) * 100) : 0;
 
               const colors24h = getColorBlindColors(change24h >= 0);
-              // Unverified accounts start at the reduced amount; full once Discord-linked.
-              const startBaseline = userData?.startingCashUnlocked ? STARTING_CASH : UNVERIFIED_STARTING_CASH;
+
+              // Rolling 30-day change — far more meaningful than total % since the
+              // account started. Uses the approximate 30d reference snapshot.
+              const snap30d = activeUserData.portfolioSnapshot30d;
+              const value30dAgo = snap30d?.value ?? null;
+              const changePercent30d = value30dAgo && value30dAgo > 0 ? (((portfolioValue - value30dAgo) / value30dAgo) * 100) : null;
+              const colors30d = getColorBlindColors((changePercent30d ?? 0) >= 0);
 
               return (
                 <>
@@ -1798,8 +1802,9 @@ export default function App() {
                       {change24h >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(change24h))} ({formatChange(changePercent24h)}) 24h
                     </p>
                   )}
-                  <p className={`text-xs ${mutedClass}`}>
-                    {portfolioValue >= startBaseline ? '▲' : '▼'} {(startBaseline > 0 ? ((portfolioValue - startBaseline) / startBaseline * 100) : 0).toFixed(2)}% from start
+                  <p className={`text-xs ${changePercent30d != null ? colors30d.text : mutedClass}`}>
+                    {changePercent30d != null && (changePercent30d >= 0 ? '▲ ' : '▼ ')}
+                    {changePercent30d != null ? `${formatChange(changePercent30d)} 30d` : ''}
                     {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
                   </p>
                 </>
