@@ -629,9 +629,29 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   if (!snap7d || (now - snap7d.timestamp) >= ONE_WEEK_MS) {
     updateData.portfolioSnapshot7d = { timestamp: now, value: portfolioValue };
   }
+  // 30-day reference is the user's ACTUAL portfolio value ~30 days ago, read
+  // from the permanent portfolioHistory. Refreshed at most once a day so the
+  // window slides without querying history on every sync (one read/user/day).
   const snap30d = userData.portfolioSnapshot30d;
-  if (!snap30d || (now - snap30d.timestamp) >= THIRTY_DAYS_MS) {
-    updateData.portfolioSnapshot30d = { timestamp: now, value: portfolioValue };
+  if (!snap30d || (now - (snap30d.refreshedAt || 0)) >= TWENTY_FOUR_HOURS_MS) {
+    try {
+      const cutoff = now - THIRTY_DAYS_MS;
+      const atOrBefore = await userRef.collection('portfolioHistory')
+        .where('timestamp', '<=', cutoff).orderBy('timestamp', 'desc').limit(1).get();
+      let value;
+      if (!atOrBefore.empty) {
+        value = atOrBefore.docs[0].data().value;
+      } else {
+        // Account younger than 30 days — compare against the earliest point on record.
+        const earliest = await userRef.collection('portfolioHistory')
+          .orderBy('timestamp', 'asc').limit(1).get();
+        value = earliest.empty ? portfolioValue : earliest.docs[0].data().value;
+      }
+      updateData.portfolioSnapshot30d = { refreshedAt: now, value };
+    } catch (e) {
+      // Non-fatal — keep the existing snapshot rather than blocking the sync.
+      console.error('30d snapshot refresh failed:', e.message);
+    }
   }
 
   // Check achievements
