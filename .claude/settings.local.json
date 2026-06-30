@@ -11,7 +11,7 @@
       "Bash(npm run build:*)",
       "Bash(npx vite build)",
       "Bash(npm install)",
-      "Bash(firebase deploy:*)",
+      "Bash(firebase deploy --only functions:*)",
       "Bash(firebase use:*)",
       "Bash(git commit:*)",
       "Bash(npx firebase-tools:*)",
@@ -32,7 +32,7 @@
       "Bash(findstr:*)",
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" diff --stat)",
       "Bash(git -C \"C:\\\\Users\\\\ricky\\\\Documents\\\\stockism\" log --oneline -5)",
-      "Bash(npx firebase deploy:*)",
+      "Bash(npx firebase deploy --only functions:*)",
       "Bash(cd:*)",
       "Bash(sed -n '1989,2919p' functions/index.js)",
       "Read(//tmp/**)",
@@ -51,9 +51,8 @@
       "Bash(git --no-pager diff functions/botTrader.js functions/services/dividends.js functions/services/adminOps.js)",
       "Bash(npm --prefix functions run lint)",
       "Bash(git --no-pager diff --stat)",
-      "Bash(npx firebase *)",
       "PowerShell(npm run *)",
-      "PowerShell(firebase deploy *)"
+      "PowerShell(firebase deploy --only functions*)"
     ]
   },
   "hooks": {

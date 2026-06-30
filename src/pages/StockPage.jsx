@@ -102,8 +102,6 @@ const StockPage = ({ onTrade }) => {
   const crew = !character?.isETF ? Object.values(CREWS).find(c => c.members.includes(ticker)) : null;
   const memberOfETFs = !character?.isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(ticker)) : [];
 
-  const divider = <div className={`border-t ${darkMode ? 'border-zinc-800' : 'border-amber-100'} my-3`} />;
-
   const stat = (label, value, cls = textClass) => (
     <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>
       <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>

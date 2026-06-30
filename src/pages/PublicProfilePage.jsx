@@ -269,7 +269,7 @@ const PublicProfilePage = () => {
   );
 };
 
-const AdminPanel = ({ data, darkMode, textClass, mutedClass, cardClass }) => {
+const AdminPanel = ({ data, darkMode, textClass, mutedClass }) => {
   const [copied, setCopied] = useState(false);
 
   const copyUID = () => {

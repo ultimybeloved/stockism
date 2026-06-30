@@ -11,7 +11,6 @@ import { useState, useCallback } from 'react';
  */
 export const useNotifications = () => {
   const [notification, setNotification] = useState(null);
-  const [notificationQueue, setNotificationQueue] = useState([]);
 
   // Show a notification
   const showNotification = useCallback((type, message, duration = 3000) => {
@@ -56,22 +55,6 @@ export const useNotifications = () => {
     setNotification(null);
   }, []);
 
-  // Queue-based notification system for multiple notifications
-  const queueNotification = useCallback((type, message, duration = 3000) => {
-    setNotificationQueue(prev => [...prev, { type, message, duration, id: Date.now() }]);
-  }, []);
-
-  // Process notification queue
-  const processQueue = useCallback(() => {
-    setNotificationQueue(prev => {
-      if (prev.length === 0) return prev;
-
-      const [first, ...rest] = prev;
-      showNotification(first.type, first.message, first.duration);
-      return rest;
-    });
-  }, [showNotification]);
-
   return {
     notification,
     showNotification,
@@ -80,8 +63,6 @@ export const useNotifications = () => {
     warning,
     info,
     clearNotification,
-    queueNotification,
-    processQueue,
     hasNotification: !!notification
   };
 };
