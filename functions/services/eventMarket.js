@@ -113,7 +113,8 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before buying prediction shares.');
     }
     const activeEventCost = Object.values(userData.eventPositions || {}).reduce(
-      (sum, p) => sum + (p && !p.settled ? (p.costBasis || 0) : 0), 0
+      // Max(0, …) guards any pre-clamp negative basis from older sells.
+      (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0), 0
     );
     if (activeEventCost + cost > totalInvested) {
       const room = Math.max(0, round2(totalInvested - activeEventCost));
@@ -222,7 +223,9 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
       cash: round2((userData.cash || 0) + refund),
       [`eventPositions.${marketId}`]: {
         shares: newShares,
-        costBasis: round2((pos.costBasis || 0) - refund),
+        // Clamp at 0: selling at a profit must not go negative, or the surplus
+        // would grant extra invested-cap room in other markets.
+        costBasis: Math.max(0, round2((pos.costBasis || 0) - refund)),
         settled: false,
       },
     });

@@ -62,7 +62,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   // unsettled positions count, matching the backend.
   const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
   const activeEventCost = Object.values(userData?.eventPositions || {}).reduce(
-    (sum, p) => sum + (p && !p.settled ? (p.costBasis || 0) : 0), 0
+    (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0), 0
   );
   const eventRoom = Math.max(0, totalInvested - activeEventCost);
   const noInvestment = totalInvested <= 0;

@@ -654,6 +654,19 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     }
   }
 
+  // Prune stale mission-progress keys so the user doc doesn't grow forever
+  // (one map entry per active day/week otherwise accumulates for the account's
+  // lifetime). Keys are YYYY-MM-DD strings, so a lexicographic sort is
+  // chronological. Anything older than the 2 most recent can't be claimed.
+  const pruneMissionMap = (map, field) => {
+    const keys = Object.keys(map || {}).sort();
+    keys.slice(0, Math.max(0, keys.length - 2)).forEach(k => {
+      updateData[`${field}.${k}`] = admin.firestore.FieldValue.delete();
+    });
+  };
+  pruneMissionMap(userData.dailyMissions, 'dailyMissions');
+  pruneMissionMap(userData.weeklyMissions, 'weeklyMissions');
+
   // Check achievements
   const currentAchievements = userData.achievements || [];
   const newAchievements = [];

@@ -52,7 +52,8 @@
       "Bash(npm --prefix functions run lint)",
       "Bash(git --no-pager diff --stat)",
       "PowerShell(npm run *)",
-      "PowerShell(firebase deploy --only functions*)"
+      "PowerShell(firebase deploy --only functions*)",
+      "Bash(npx firebase *)"
     ]
   },
   "hooks": {

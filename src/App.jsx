@@ -122,7 +122,7 @@ import {
   getTotalInvested,
 } from './utils/calculations';
 import { formatCurrency, formatChange } from './utils/formatters';
-import { toMillis } from './utils/date';
+import { toMillis, getWeekStart } from './utils/date';
 
 
 // ============================================
@@ -146,17 +146,6 @@ const getAccountAgeImpactFactor = (userData) => {
 // ============================================
 
 // Helper to get the start of the current prediction week (Wednesday)
-const getWeekStart = () => {
-  const now = new Date();
-  const day = now.getDay();
-  // Wednesday = 3, so we need to go back to the most recent Wednesday
-  const daysToSubtract = (day + 4) % 7; // Days since last Wednesday
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - daysToSubtract);
-  weekStart.setHours(0, 0, 0, 0);
-  return weekStart;
-};
-
 // Helper to get week identifier for persistence
 const getWeekIdentifier = () => {
   return getWeekStart().toISOString().split('T')[0]; // e.g., "2026-01-22"

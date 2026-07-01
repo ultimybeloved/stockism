@@ -149,6 +149,22 @@ export const toUTCDateString = (timestamp) => {
 };
 
 /**
+ * Get the start (local midnight) of the current chapter week, which begins
+ * on Wednesday. Used for "new this week" boards and weekly persistence keys.
+ * @returns {Date} Most recent Wednesday at 00:00 local time
+ */
+export const getWeekStart = () => {
+  const now = new Date();
+  const day = now.getDay();
+  // Wednesday = 3, so we need to go back to the most recent Wednesday
+  const daysToSubtract = (day + 4) % 7; // Days since last Wednesday
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - daysToSubtract);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+};
+
+/**
  * Get milliseconds until next UTC midnight
  */
 export const msUntilUTCMidnight = () => {
