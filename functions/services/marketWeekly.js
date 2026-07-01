@@ -204,9 +204,6 @@ exports.weeklyCrewRankings = cf().pubsub
         'YAMAZAKI': { name: 'Yamazaki Syndicate', emblem: '⛩️', members: [], totalCash: 0, weeklyGain: 0 }
       };
 
-      // Get week-old data for comparison
-      const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
       usersSnapshot.forEach(doc => {
         const user = doc.data();
         const crew = user.crew;
@@ -220,13 +217,11 @@ exports.weeklyCrewRankings = cf().pubsub
           });
           crews[crew].totalCash += portfolioValue;
 
-          // Calculate weekly gain from portfolio history
-          if (user.portfolioHistory && Array.isArray(user.portfolioHistory)) {
-            const weekOldEntry = user.portfolioHistory.find(h => h.timestamp >= oneWeekAgo);
-            if (weekOldEntry) {
-              const weeklyGain = portfolioValue - weekOldEntry.value;
-              crews[crew].weeklyGain += weeklyGain;
-            }
+          // Calculate weekly gain from the rolling 7-day reference snapshot
+          // (portfolio history lives in a subcollection now, not on the doc)
+          const snap7d = user.portfolioSnapshot7d;
+          if (snap7d && snap7d.value > 0) {
+            crews[crew].weeklyGain += portfolioValue - snap7d.value;
           }
         }
       });

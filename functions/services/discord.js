@@ -103,7 +103,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
           cash: STARTING_CASH,
           holdings: {},
           portfolioValue: STARTING_CASH,
-          portfolioHistory: [{ timestamp: Date.now(), value: STARTING_CASH }],
+          lastPortfolioSnapshot: { timestamp: Date.now(), value: STARTING_CASH },
           lastCheckin: null,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           achievements: [],
@@ -117,6 +117,8 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
           onboardingComplete: false,
           startingCashUnlocked: true
         });
+        await db.collection('users').doc(firebaseUid)
+          .collection('portfolioHistory').add({ timestamp: Date.now(), value: STARTING_CASH });
       }
     } else {
       // No email from Discord — create user without email
@@ -134,7 +136,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
         cash: STARTING_CASH,
         holdings: {},
         portfolioValue: STARTING_CASH,
-        portfolioHistory: [{ timestamp: Date.now(), value: STARTING_CASH }],
+        lastPortfolioSnapshot: { timestamp: Date.now(), value: STARTING_CASH },
         lastCheckin: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         achievements: [],
@@ -147,6 +149,8 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
         isBankrupt: false,
         onboardingComplete: false
       });
+      await db.collection('users').doc(firebaseUid)
+        .collection('portfolioHistory').add({ timestamp: Date.now(), value: STARTING_CASH });
     }
 
     // Create custom Firebase token

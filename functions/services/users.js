@@ -247,7 +247,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         cash: UNVERIFIED_STARTING_CASH,
         holdings: {},
         portfolioValue: UNVERIFIED_STARTING_CASH,
-        portfolioHistory: [{ timestamp: Date.now(), value: UNVERIFIED_STARTING_CASH }],
+        lastPortfolioSnapshot: { timestamp: Date.now(), value: UNVERIFIED_STARTING_CASH },
         lastCheckin: null,
         lastActive: Date.now(),
         createdAt: now,
@@ -263,6 +263,12 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         startingCashUnlocked: false,
         signupIp: sanitizedSignupIp || null,
         requiresDiscordLink
+      });
+
+      // Seed the permanent history subcollection with the starting point
+      transaction.set(userRef.collection('portfolioHistory').doc(), {
+        timestamp: Date.now(),
+        value: UNVERIFIED_STARTING_CASH
       });
 
       // Reserve this account's per-IP slot in the SAME transaction, so the cap

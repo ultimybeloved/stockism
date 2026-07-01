@@ -281,9 +281,12 @@ exports.comebackAlert = cf().https.onCall(async (data, context) => {
     const userData = userDoc.data();
     const actualValue = userData.portfolioValue || 0;
 
-    const portfolioHistory = userData.portfolioHistory || [];
-    const lowestHistorical = portfolioHistory.length > 0
-      ? Math.min(...portfolioHistory.map(h => h.value || Infinity))
+    // Lowest recorded value from the permanent history subcollection
+    const lowSnap = await db.collection('users').doc(context.auth.uid)
+      .collection('portfolioHistory')
+      .orderBy('value', 'asc').limit(1).get();
+    const lowestHistorical = !lowSnap.empty
+      ? (lowSnap.docs[0].data().value ?? actualValue)
       : actualValue;
     const serverLowPoint = Math.min(lowestHistorical, actualValue);
 

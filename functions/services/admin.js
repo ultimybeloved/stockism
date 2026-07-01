@@ -63,12 +63,15 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       shorts: {},
       costBasis: {},
       portfolioValue: rollbackCash,
-      portfolioHistory: [{ timestamp: Date.now(), value: rollbackCash }],
+      lastPortfolioSnapshot: { timestamp: Date.now(), value: rollbackCash },
       marginUsed: 0,
       isBanned: true,
       bannedAt: admin.firestore.FieldValue.serverTimestamp(),
       banReason: reason
     });
+
+    // Record the rollback in the permanent history subcollection
+    await userRef.collection('portfolioHistory').add({ timestamp: Date.now(), value: rollbackCash });
 
     // Log to console
     console.log(`USER BANNED: ${displayName} (${userId}) - Reason: ${reason}`);
