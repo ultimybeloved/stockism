@@ -5,7 +5,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS } = require('../constants');
+const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS } = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -245,12 +245,15 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     return sum + (shortsRaw[t].shares * (prices[t] || 0));
   }, 0);
 
-  // Portfolio history for sparkline — query permanent subcollection
+  // Portfolio history for sparkline — last 30 days, capped so a very active
+  // account can't turn one profile view into thousands of doc reads.
   const histSnap = await db.collection('users').doc(uid)
     .collection('portfolioHistory')
-    .orderBy('timestamp')
+    .where('timestamp', '>=', Date.now() - THIRTY_DAYS_MS)
+    .orderBy('timestamp', 'desc')
+    .limit(PUBLIC_PROFILE_SPARKLINE_MAX_POINTS)
     .get();
-  const portfolioHistory = histSnap.docs.map(d => d.data());
+  const portfolioHistory = histSnap.docs.map(d => d.data()).reverse();
 
   // Admin-only: weekly gain + full financial data
   let adminData = null;

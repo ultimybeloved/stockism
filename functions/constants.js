@@ -54,6 +54,10 @@ const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
 const NINETY_DAYS_MS        = 90 * 24 * 60 * 60 * 1000;
 
+// Read cap for the public-profile sparkline query (keeps per-view Firestore
+// reads bounded no matter how many history points an account has).
+const PUBLIC_PROFILE_SPARKLINE_MAX_POINTS = 150;
+
 // ============================================
 // WEEKLY TRADING HALT (Thursday 13:00–21:00 UTC)
 // ============================================
@@ -280,6 +284,7 @@ module.exports = {
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,
+  PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
   NINETY_DAYS_MS,
   SHORT_MARGIN_RATIO,
   WEEKLY_HALT_START_MINUTE,

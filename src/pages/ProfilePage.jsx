@@ -1,9 +1,7 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import * as Sentry from '@sentry/react';
 import { CREW_MAP } from '../crews';
+import { usePortfolioHistory } from '../components/portfolio/usePortfolioHistory';
 import PortfolioAnalytics from '../components/PortfolioAnalytics';
 import { getThemeClasses } from '../utils/theme';
 import ProfileHeader from '../components/profile/ProfileHeader';
@@ -18,17 +16,10 @@ import DeleteAccountSection from '../components/profile/DeleteAccountSection';
 
 const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
   const { darkMode, user, userData, predictions, prices, holdings, shorts, costBasis } = useAppContext();
-  const [portfolioHistory, setPortfolioHistory] = useState([]);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    const q = query(collection(db, 'users', user.uid, 'portfolioHistory'), orderBy('timestamp'));
-    getDocs(q).then(snap => {
-      if (!cancelled) setPortfolioHistory(snap.docs.map(d => d.data()));
-    }).catch((e) => Sentry.captureException(e));
-    return () => { cancelled = true; };
-  }, [user]);
+  // History is fetched per selected chart range so we only read what the
+  // chart shows (the full subcollection can be thousands of docs).
+  const [chartTimeRange, setChartTimeRange] = useState('1m');
+  const { history: portfolioHistory } = usePortfolioHistory(user, chartTimeRange);
 
   const { cardClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -95,6 +86,8 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
             portfolioHistory={portfolioHistory}
             darkMode={darkMode}
             colorBlindMode={colorBlindMode}
+            timeRange={chartTimeRange}
+            onTimeRangeChange={setChartTimeRange}
           />
 
           <TradingStats

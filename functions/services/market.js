@@ -10,17 +10,16 @@ const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRI
 const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
 
 
-exports.dailyMarketSummary = cf().pubsub
-  .schedule('0 21 * * *')
-  .timeZone('UTC')
-  .onRun(async (context) => {
-    try {
+// Builds and posts the daily market summary Discord embed. Shared by the
+// scheduled run and the admin re-trigger. Only the scheduled run records the
+// daily market-index point, so a manual re-run can't double-record it.
+async function doDailyMarketSummary({ recordIndexHistory }) {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();
 
       if (!marketSnap.exists) {
         console.log('No market data found');
-        return null;
+        return { success: false, error: 'No market data found' };
       }
 
       const marketData = marketSnap.data();
@@ -70,7 +69,7 @@ exports.dailyMarketSummary = cf().pubsub
       // Record today's market index value so the index banner can show a rolling
       // 30-day change. Stored in its own doc (not market/current) to keep the
       // frequently-read market doc small. Capped to ~13 months of daily points.
-      try {
+      if (recordIndexHistory) try {
         let sum = 0, count = 0;
         for (const c of CHARACTERS) {
           if (c.isETF || !(c.basePrice > 0)) continue;
@@ -99,7 +98,8 @@ exports.dailyMarketSummary = cf().pubsub
           if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > dayAgo) {
             totalVolume += tx.totalCost || tx.totalRevenue || 0;
             tradeCount++;
-            traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
+            // Bots count toward market volume but not trader rankings
+            if (!user.isBot) traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
           }
         });
       });
@@ -155,16 +155,24 @@ exports.dailyMarketSummary = cf().pubsub
 
       embed.fields.push({
         name: '💰 Market Stats',
-        value: `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.cash || 0), 0)).toLocaleString()}\nActive Traders: ${users.length}`,
+        value: `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : (u.cash || 0)), 0)).toLocaleString()}\nActive Traders: ${Object.keys(traderActivity).length}`,
         inline: false
       });
 
       await sendDiscordMessage(null, [embed]);
-      return null;
+      return { success: true };
+}
+
+exports.dailyMarketSummary = cf().pubsub
+  .schedule('0 21 * * *')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      await doDailyMarketSummary({ recordIndexHistory: true });
     } catch (error) {
       console.error('Error in dailyMarketSummary:', error);
-      return null;
     }
+    return null;
   });
 
 /**
@@ -383,124 +391,7 @@ exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
   }
 
   try {
-    const marketRef = db.collection('market').doc('current');
-    const marketSnap = await marketRef.get();
-
-    if (!marketSnap.exists) {
-      return { success: false, error: 'No market data found' };
-    }
-
-    const marketData = marketSnap.data();
-    const prices = marketData.prices || {};
-    const priceHistory = marketData.priceHistory || {};
-
-    const usersSnap = await db.collection('users').get();
-    const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    const now = Date.now();
-    const dayAgo = now - (24 * 60 * 60 * 1000);
-    const gainers = [];
-    const losers = [];
-    const athStocks = [];
-
-    Object.entries(prices).forEach(([ticker, currentPrice]) => {
-      const history = priceHistory[ticker] || [];
-      if (history.length === 0) return;
-
-      let price24hAgo = history[0].price;
-      for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].timestamp <= dayAgo) {
-          price24hAgo = history[i].price;
-          break;
-        }
-      }
-
-      const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
-      const stock = { ticker, price: currentPrice, change };
-
-      if (change > 0) gainers.push(stock);
-      if (change < 0) losers.push(stock);
-
-      const highestHistorical = Math.max(...history.map(h => h.price));
-      if (currentPrice >= highestHistorical) {
-        athStocks.push(ticker);
-      }
-    });
-
-    gainers.sort((a, b) => b.change - a.change);
-    losers.sort((a, b) => a.change - b.change);
-
-    let totalVolume = 0;
-    let tradeCount = 0;
-    const traderActivity = {};
-
-    users.forEach(user => {
-      const txLog = user.transactionLog || [];
-      txLog.forEach(tx => {
-        if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > dayAgo) {
-          totalVolume += tx.totalCost || tx.totalRevenue || 0;
-          tradeCount++;
-          traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
-        }
-      });
-    });
-
-    const topTraders = Object.entries(traderActivity)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
-    const embed = {
-      title: '📊 Daily Market Summary',
-      description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
-      color: 0xFF6B35,
-      fields: [
-        {
-          name: '📈 Market Activity',
-          value: `${tradeCount} trades • $${totalVolume.toFixed(2)} volume`,
-          inline: false
-        },
-        {
-          name: '🔥 Top Gainers (24h)',
-          value: gainers.slice(0, 3).map(s =>
-            `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`
-          ).join('\n') || 'None',
-          inline: true
-        },
-        {
-          name: '📉 Top Losers (24h)',
-          value: losers.slice(0, 3).map(s =>
-            `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`
-          ).join('\n') || 'None',
-          inline: true
-        }
-      ],
-      timestamp: new Date().toISOString()
-    };
-
-    if (athStocks.length > 0) {
-      embed.fields.push({
-        name: '🎯 New All-Time Highs',
-        value: athStocks.slice(0, 5).join(', '),
-        inline: false
-      });
-    }
-
-    if (topTraders.length > 0) {
-      embed.fields.push({
-        name: '⚡ Most Active Traders',
-        value: topTraders.map((_, i) => `#${i + 1}: ${topTraders[i][1]} trades`).join('\n'),
-        inline: false
-      });
-    }
-
-    embed.fields.push({
-      name: '💰 Market Stats',
-      value: `Total Cash: $${users.reduce((sum, u) => sum + (u.cash || 0), 0).toLocaleString()}\nActive Traders: ${users.length}`,
-      inline: false
-    });
-
-    await sendDiscordMessage(null, [embed]);
-    return { success: true };
+    return await doDailyMarketSummary({ recordIndexHistory: false });
   } catch (error) {
     console.error('Error in triggerDailyMarketSummary:', error);
     return { success: false, error: error.message };

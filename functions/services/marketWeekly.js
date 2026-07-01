@@ -70,9 +70,9 @@ exports.weeklyMarketSummary = cf().pubsub
       const activeCutoff = now - ACTIVE_USER_WINDOW_MS;
       const activeUsers = users.filter(u => !u.isBot && getLastActiveMs(u) >= activeCutoff).length;
 
-      // Top portfolios
+      // Top portfolios — bots are excluded from all user-facing rankings
       const topPortfolios = users
-        .filter(u => u.portfolioValue > 0)
+        .filter(u => !u.isBot && u.portfolioValue > 0)
         .sort((a, b) => b.portfolioValue - a.portfolioValue)
         .slice(0, 5);
 
@@ -141,7 +141,8 @@ exports.weeklyLeaderboard = cf().pubsub
       usersSnapshot.forEach(doc => {
         const user = doc.data();
         if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
-        if (!user.isBankrupt) {
+        // Bots are excluded from all user-facing rankings
+        if (!user.isBankrupt && !user.isBot) {
           traders.push({
             username: user.displayName,
             portfolioValue: user.portfolioValue || user.cash || 0
@@ -208,7 +209,8 @@ exports.weeklyCrewRankings = cf().pubsub
         const user = doc.data();
         const crew = user.crew;
 
-        if (crew && crews[crew]) {
+        // Bots are excluded from all user-facing rankings
+        if (!user.isBot && crew && crews[crew]) {
           const portfolioValue = user.portfolioValue || user.cash || 0;
 
           crews[crew].members.push({

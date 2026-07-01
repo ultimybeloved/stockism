@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 
+// Keys must match shared TIME_RANGES so the page can fetch history per range.
 const TIME_RANGES = [
   { key: '1d', label: '24h', hours: 24 },
   { key: '7d', label: '7D', hours: 168 },
@@ -9,10 +10,10 @@ const TIME_RANGES = [
   { key: 'all', label: 'All', hours: Infinity },
 ];
 
-// The "Portfolio Value" chart card on the profile page. Self-contained: owns its
-// time-range selection, hover state, and all chart geometry.
-const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMode }) => {
-  const [chartTimeRange, setChartTimeRange] = useState('1m');
+// The "Portfolio Value" chart card on the profile page. Range selection is
+// controlled by the parent so it can fetch only the history the range needs.
+const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMode, timeRange, onTimeRangeChange }) => {
+  const chartTimeRange = timeRange;
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const { textClass } = getThemeClasses(darkMode);
 
@@ -24,10 +25,9 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
         { timestamp: now, value: portfolioValue, fullDate: 'Now' }
       ];
     }
-    const range = TIME_RANGES.find(r => r.key === chartTimeRange);
-    const cutoff = range.hours === Infinity ? 0 : Date.now() - (range.hours * 60 * 60 * 1000);
+    // History arrives already bounded to the selected range (fetched per range
+    // by the parent), so no client-side cutoff filter is needed.
     let data = portfolioHistory
-      .filter(point => point.timestamp >= cutoff)
       .map(point => ({
         ...point,
         fullDate: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
@@ -91,7 +91,7 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
           {TIME_RANGES.map(range => (
             <button
               key={range.key}
-              onClick={() => setChartTimeRange(range.key)}
+              onClick={() => onTimeRangeChange(range.key)}
               className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                 chartTimeRange === range.key
                   ? 'bg-orange-600 text-white'
