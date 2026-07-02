@@ -42,6 +42,7 @@ export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to mo
 export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
 export const ETF_BID_ASK_SPREAD = 0.001; // 0.1% spread for ETFs (diversified = lower risk)
 export const MIN_PRICE = 0.01; // Minimum price floor
+export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be swept as dust — keep in sync with functions/constants.js
 export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)

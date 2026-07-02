@@ -85,6 +85,7 @@ export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
 export const broadcastNotificationFunction = httpsCallable(functions, 'broadcastNotification');
 // Trade execution & anti-exploit
 export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
+export const sweepDustPositionsFunction = httpsCallable(functions, 'sweepDustPositions');
 export const banUserFunction = httpsCallable(functions, 'banUser');
 // Daily checkin
 export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');

@@ -16,6 +16,7 @@ const BASE_LIQUIDITY = 100;
 const BID_ASK_SPREAD = 0.002;
 const ETF_BID_ASK_SPREAD = 0.001;
 const MIN_PRICE = 0.01;
+const DUST_MAX_VALUE = 5; // positions worth less than this ($) are sweepable dust
 const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
 // Anti-manipulation: per-user, per-ticker, per-day limits
@@ -271,6 +272,7 @@ module.exports = {
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
+  DUST_MAX_VALUE,
   MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,

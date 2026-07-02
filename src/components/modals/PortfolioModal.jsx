@@ -11,6 +11,8 @@ import ShortRow from '../portfolio/ShortRow';
 import IpoHoldingsList from '../portfolio/IpoHoldingsList';
 import PendingOrdersList from '../portfolio/PendingOrdersList';
 import HoldingsControls from '../portfolio/HoldingsControls';
+import DustCleanupBanner from '../portfolio/DustCleanupBanner';
+import { useDustCleanup } from '../../hooks/useDustCleanup';
 import { usePortfolioChartData } from '../portfolio/usePortfolioChartData';
 import { usePortfolioModalData } from '../portfolio/usePortfolioModalData';
 import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
@@ -139,6 +141,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     () => sortHoldings(filterHoldings(portfolioItems, search), sortKey, sortDir),
     [portfolioItems, search, sortKey, sortDir]
   );
+  const { dustItems, dustTotal, sweeping, handleSweep } = useDustCleanup(portfolioItems, showNotification);
 
   const shortItems = useMemo(() => {
     return Object.entries(shorts || {})
@@ -314,7 +317,11 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                   />
 
                   {positionTab === 'long' ? (
-                    portfolioItems.length === 0 ? (
+                    <>
+                    {dustItems.length > 0 && (
+                      <DustCleanupBanner count={dustItems.length} total={dustTotal} sweeping={sweeping} onConfirm={handleSweep} darkMode={darkMode} />
+                    )}
+                    {portfolioItems.length === 0 ? (
                       <p className={`text-sm text-center py-4 ${mutedClass}`}>No long positions.</p>
                     ) : visibleItems.length === 0 ? (
                       <p className={`text-sm text-center py-4 ${mutedClass}`}>No holdings match your search.</p>
@@ -345,7 +352,8 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                           ))}
                         </div>
                       </>
-                    )
+                    )}
+                    </>
                   ) : (
                     shortItems.length === 0 ? (
                       <p className={`text-sm text-center py-4 ${mutedClass}`}>No short positions.</p>
