@@ -8,68 +8,8 @@ const {
   ADMIN_UID,
   STARTING_CASH,
   REINSTATE_CASH_DEFAULT,
-  TWENTY_FOUR_HOURS_MS,
-  ONE_WEEK_MS,
 } = require('../constants');
-const { writeNotification, priceHistoryRef, appendPriceHistory } = require('../helpers');
-
-// One-time cleanup: the J High pin collection used ripped official collab art,
-// so it was pulled from the game. Refund every owner what they paid PLUS 50%
-// extra (some pins required a hard-to-track daily check-in streak), and strip
-// the pins from their inventory + profile. Idempotent: it removes the pins as
-// it refunds, so a re-run finds nobody and refunds no one twice.
-const J_HIGH_PIN_PRICES = {
-  jay_j_high: 750,
-  jace_j_high: 750,
-  vasco_j_high: 2000,
-  zack_j_high: 2000,
-  daniel_j_high: 5000,
-};
-const J_HIGH_PIN_IDS = Object.keys(J_HIGH_PIN_PRICES);
-const J_HIGH_REFUND_MULTIPLIER = 1.5; // base price + 50% extra
-
-exports.refundJHighPins = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
-
-  const snap = await db.collection('users')
-    .where('ownedShopPins', 'array-contains-any', J_HIGH_PIN_IDS)
-    .get();
-
-  let usersRefunded = 0;
-  let totalRefunded = 0;
-
-  for (const docSnap of snap.docs) {
-    const u = docSnap.data();
-    const ownedJHigh = (u.ownedShopPins || []).filter((id) => J_HIGH_PIN_IDS.includes(id));
-    if (ownedJHigh.length === 0) continue;
-
-    const refund = Math.round(
-      ownedJHigh.reduce((sum, id) => sum + J_HIGH_PIN_PRICES[id] * J_HIGH_REFUND_MULTIPLIER, 0)
-    );
-
-    await docSnap.ref.update({
-      cash: admin.firestore.FieldValue.increment(refund),
-      portfolioValue: admin.firestore.FieldValue.increment(refund),
-      ownedShopPins: admin.firestore.FieldValue.arrayRemove(...ownedJHigh),
-      displayedShopPins: admin.firestore.FieldValue.arrayRemove(...ownedJHigh),
-    });
-
-    await writeNotification(docSnap.id, {
-      type: 'system',
-      title: 'J High pins removed',
-      message: `We had to pull the J High pins. You've been refunded $${refund.toLocaleString()} (what you paid plus 50% extra) for the ${ownedJHigh.length} pin${ownedJHigh.length > 1 ? 's' : ''} you owned.`,
-      data: {},
-    });
-
-    usersRefunded++;
-    totalRefunded += refund;
-  }
-
-  return { success: true, usersRefunded, totalRefunded };
-});
+const { priceHistoryRef, appendPriceHistory } = require('../helpers');
 
 exports.removeAchievement = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -826,64 +766,6 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
 });
 
 /**
- * One-time migration: move portfolioHistory arrays to subcollection.
- * Run once after deploying the subcollection-based syncPortfolio, then remove.
- */
-exports.migratePortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' })
-  .https.onCall(async (data, context) => {
-    requireAppCheck(context);
-    if (!context.auth || context.auth.uid !== ADMIN_UID) {
-      throw new functions.https.HttpsError('permission-denied', 'Admin only');
-    }
-
-    const usersSnap = await db.collection('users').get();
-    let migrated = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    for (const userDoc of usersSnap.docs) {
-      const userData = userDoc.data();
-      const history = userData.portfolioHistory;
-      if (!Array.isArray(history) || history.length === 0) {
-        skipped++;
-        continue;
-      }
-
-      try {
-        const subcollRef = userDoc.ref.collection('portfolioHistory');
-        const batch = db.batch();
-        for (const entry of history) {
-          if (entry && typeof entry.timestamp === 'number' && typeof entry.value === 'number') {
-            batch.set(subcollRef.doc(), entry);
-          }
-        }
-        await batch.commit();
-
-        // Seed snapshot fields from last entry
-        const last = history[history.length - 1];
-        const updatePayload = {
-          lastPortfolioSnapshot: last,
-          portfolioHistory: admin.firestore.FieldValue.delete(),
-        };
-        // Seed 24h snapshot from first entry that's >= 24h old
-        const now = Date.now();
-        const snap24h = history.find(e => e.timestamp <= now - TWENTY_FOUR_HOURS_MS);
-        if (snap24h) updatePayload.portfolioSnapshot24h = snap24h;
-        const snap7d = history.find(e => e.timestamp <= now - ONE_WEEK_MS);
-        if (snap7d) updatePayload.portfolioSnapshot7d = snap7d;
-
-        await userDoc.ref.update(updatePayload);
-        migrated++;
-      } catch (err) {
-        console.error(`Migration failed for ${userDoc.id}:`, err.message);
-        errors++;
-      }
-    }
-
-    return { migrated, skipped, errors };
-  });
-
-/**
  * Reconstruct portfolio history from permanent trades + price history archives.
  * For each user's trades (sorted ascending), rebuild holdings state and calculate
  * portfolio value = cashAfter + sum(longShares * historicalPrice).
@@ -1047,78 +929,6 @@ exports.reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' })
 
     return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
   });
-
-/**
- * One-time migration: copy the priceHistory map out of market/current into its
- * own doc (market/priceHistory) so the hot doc every client subscribes to
- * stays small. Two modes, both admin-only:
- *   {} (default)              — COPY old field → new doc, then verify counts.
- *   { finalize: true }        — delete the old field from market/current, but
- *                               ONLY if the new doc's point counts are >= the
- *                               old field's for every ticker (data is sacred —
- *                               nothing is removed until the copy is proven).
- * Safe to re-run; copy overwrites the new doc with the old field's contents.
- */
-exports.migratePriceHistoryDoc = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
-
-  const marketRef = db.collection('market').doc('current');
-  const marketSnap = await marketRef.get();
-  if (!marketSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'Market document not found');
-  }
-  const oldHistory = marketSnap.data().priceHistory || {};
-  const countPoints = (map) => Object.values(map).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
-
-  if (data && data.finalize) {
-    // Verify the new doc fully covers the old field before deleting anything.
-    const newSnap = await priceHistoryRef().get();
-    const newHistory = newSnap.exists ? (newSnap.data() || {}) : {};
-    const missing = [];
-    for (const [ticker, arr] of Object.entries(oldHistory)) {
-      const oldLen = Array.isArray(arr) ? arr.length : 0;
-      const newLen = Array.isArray(newHistory[ticker]) ? newHistory[ticker].length : 0;
-      if (newLen < oldLen) missing.push(`${ticker} (${newLen}/${oldLen})`);
-    }
-    if (missing.length > 0) {
-      throw new functions.https.HttpsError('failed-precondition',
-        `New doc is missing points for: ${missing.join(', ')}. Re-run the copy first.`);
-    }
-    await marketRef.update({ priceHistory: admin.firestore.FieldValue.delete() });
-    return {
-      finalized: true,
-      message: `Old priceHistory field deleted from market/current. New doc holds ${countPoints(newHistory)} points across ${Object.keys(newHistory).length} tickers.`
-    };
-  }
-
-  // Copy mode — MERGE with anything already in the new doc so a re-run can
-  // never erase points that accumulated there after the first copy.
-  if (Object.keys(oldHistory).length === 0) {
-    return { copied: false, message: 'No priceHistory field on market/current — nothing to copy.' };
-  }
-  const existingSnap = await priceHistoryRef().get();
-  const existing = existingSnap.exists ? (existingSnap.data() || {}) : {};
-  const merged = { ...existing };
-  for (const [ticker, arr] of Object.entries(oldHistory)) {
-    const base = Array.isArray(arr) ? arr : [];
-    const seen = new Set(base.map(p => p.timestamp));
-    const extra = (existing[ticker] || []).filter(p => !seen.has(p.timestamp));
-    merged[ticker] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
-  }
-  await priceHistoryRef().set(merged);
-  const verifySnap = await priceHistoryRef().get();
-  const copied = verifySnap.data() || {};
-  return {
-    copied: true,
-    tickers: Object.keys(copied).length,
-    points: countPoints(copied),
-    sourcePoints: countPoints(oldHistory),
-    message: `Copied ${countPoints(copied)}/${countPoints(oldHistory)} points for ${Object.keys(copied).length} tickers. Run with { finalize: true } to remove the old field once the app is updated.`
-  };
-});
 
 /**
  * Initialize prices for any character in characters.js that doesn't have a

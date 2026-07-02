@@ -9,13 +9,14 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const {
   ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
+  ADMIN_PRICE_PROTECTION_MS,
   DAILY_DROP_JACKPOT_CHANCE, DAILY_DROP_HIGH_TIER_FRACTION, DAILY_DROP_HIGH_TIER_CAP,
   DAILY_DROP_NORMAL_SHARE_VALUES, DAILY_DROP_NORMAL_SHARE_WEIGHTS,
   DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
   DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
   DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, appendPriceHistory } = require('../helpers');
+const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef } = require('../helpers');
 
 function weightedRandom(values, weights) {
   const total = weights.reduce((a, b) => a + b, 0);
@@ -184,7 +185,6 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
         const userDoc = usersSnap.docs[0];
         const uid = userDoc.id;
-        const userData = userDoc.data();
 
         // Check if this drop has expired (72-hour window)
         if (messageId) {
@@ -246,38 +246,51 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const marketDoc = await marketRef.get();
         const prices = marketDoc.data()?.prices || {};
 
-        // Build Firestore updates (claimedDailyStockMessages was already written
-        // by the reservation transaction above)
-        const updates = {
-          lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
-          lastDailyStockResult: {
-            picks: picks.map(p => ({
-              ticker: p.ticker,
-              name: p.name,
-              shares: p.shares,
-              currentPrice: p.currentPrice
-            })),
-            isJackpot,
-            claimedAt: new Date().toISOString()
+        // Award the shares in a transaction with a FRESH read of holdings —
+        // the query read above is seconds stale by now, and a concurrent trade
+        // (or a claim on a second drop message) would be clobbered by a blind
+        // write computed from it. claimedDailyStockMessages was already
+        // written by the reservation transaction above.
+        await db.runTransaction(async (tx) => {
+          const freshUser = await tx.get(db.collection('users').doc(uid));
+          if (!freshUser.exists) throw new Error('User vanished mid-claim');
+          const freshHoldings = freshUser.data().holdings || {};
+          const freshCostBasis = freshUser.data().costBasis || {};
+
+          const updates = {
+            lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
+            lastDailyStockResult: {
+              picks: picks.map(p => ({
+                ticker: p.ticker,
+                name: p.name,
+                shares: p.shares,
+                currentPrice: p.currentPrice
+              })),
+              isJackpot,
+              claimedAt: new Date().toISOString()
+            }
+          };
+
+          for (const pick of picks) {
+            const existingShares = freshHoldings[pick.ticker] || 0;
+            const existingCost = freshCostBasis[pick.ticker] || 0;
+            const newShares = existingShares + pick.shares;
+            // Weighted average cost basis: free shares have $0 cost
+            const newCostBasis = existingShares > 0
+              ? (existingCost * existingShares) / newShares
+              : 0;
+            updates[`holdings.${pick.ticker}`] = newShares;
+            updates[`costBasis.${pick.ticker}`] = newCostBasis;
           }
-        };
 
-        const currentHoldings = userData.holdings || {};
-        const currentCostBasis = userData.costBasis || {};
+          tx.update(freshUser.ref, updates);
+        });
 
-        for (const pick of picks) {
-          const existingShares = currentHoldings[pick.ticker] || 0;
-          const existingCost = currentCostBasis[pick.ticker] || 0;
-          const newShares = existingShares + pick.shares;
-          // Weighted average cost basis: free shares have $0 cost
-          const newCostBasis = existingShares > 0
-            ? (existingCost * existingShares) / newShares
-            : 0;
-          updates[`holdings.${pick.ticker}`] = newShares;
-          updates[`costBasis.${pick.ticker}`] = newCostBasis;
-        }
-
-        // Apply buy-side price impact (simulates buy pressure for free shares)
+        // Apply buy-side price impact (simulates buy pressure for free shares).
+        // Admin-protected tickers are skipped — automated movers must never
+        // override a recent manual price set (same rule as bots/market maker).
+        const histSnap = await priceHistoryRef().get();
+        const liveHistory = histSnap.exists ? (histSnap.data() || {}) : {};
         const timestamp = Date.now();
         const newPrices = { ...prices };
         const marketUpdates = {};
@@ -286,6 +299,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         for (const pick of picks) {
           const currentPrice = newPrices[pick.ticker];
           if (!currentPrice || currentPrice <= 0) continue;
+          if (isPriceProtected(liveHistory, pick.ticker, ADMIN_PRICE_PROTECTION_MS)) continue;
 
           let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / BASE_LIQUIDITY);
           const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
@@ -299,7 +313,6 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           historyPoints[pick.ticker] = { timestamp, price: newPrices[pick.ticker] };
         }
 
-        await db.collection('users').doc(uid).update(updates);
         if (Object.keys(marketUpdates).length > 0) {
           await marketRef.update(marketUpdates);
           await appendPriceHistory(null, historyPoints);

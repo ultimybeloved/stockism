@@ -10,7 +10,6 @@ const DividendsTab = ({
   inputClass,
   dividendActionLoading,
   handleRunDividends,
-  handleBackfillCohorts,
   loadDividendConfig,
   dividendRunResult,
   dividendLastRuns,
@@ -32,20 +31,6 @@ const DividendsTab = ({
             className="px-3 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm disabled:opacity-50 font-semibold"
           >
             {dividendActionLoading ? 'Working...' : '▶ Run Dividend Payout Now'}
-          </button>
-          <button
-            onClick={() => handleBackfillCohorts(false)}
-            disabled={dividendActionLoading}
-            className="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-          >
-            Backfill Missing Cohorts
-          </button>
-          <button
-            onClick={() => handleBackfillCohorts(true)}
-            disabled={dividendActionLoading}
-            className="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50 font-semibold"
-          >
-            FORCE Backfill (destructive)
           </button>
           <button
             onClick={loadDividendConfig}

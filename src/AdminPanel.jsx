@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction, refundJHighPinsFunction, migratePriceHistoryDocFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, auditUsernamesFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
@@ -107,13 +107,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [backups, setBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(false);
-  const [scanningHistory, setScanningHistory] = useState(false);
-  const [migratingPortfolioHistory, setMigratingPortfolioHistory] = useState(false);
-  const [portfolioMigrationResult, setPortfolioMigrationResult] = useState(null);
-  const [migratingPriceHistory, setMigratingPriceHistory] = useState(false);
-  const [priceHistoryMigrationResult, setPriceHistoryMigrationResult] = useState(null);
-  const [refundingJHighPins, setRefundingJHighPins] = useState(false);
-  const [jHighRefundResult, setJHighRefundResult] = useState(null);
   const [reconstructingHistory, setReconstructingHistory] = useState(false);
   const [reconstructionResult, setReconstructionResult] = useState(null);
   const [reconstructUid, setReconstructUid] = useState('');
@@ -316,22 +309,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       await loadDividendConfig();
     } catch (err) {
       showMessage('error', 'Payout failed: ' + (err.message || 'Unknown error'));
-    } finally {
-      setDividendActionLoading(false);
-    }
-  };
-
-  const handleBackfillCohorts = async (force = false) => {
-    const msg = force
-      ? 'FORCE-backfill holdingCohorts on ALL users? This OVERWRITES existing cohorts.'
-      : 'Backfill holdingCohorts on all users missing the field? Safe — skips users who already have cohorts.';
-    if (!confirm(msg)) return;
-    setDividendActionLoading(true);
-    try {
-      const result = await backfillHoldingCohortsFunction({ force });
-      showMessage('success', `Backfill: ${result.data.updated} updated, ${result.data.skipped} skipped, ${result.data.scanned} scanned.`);
-    } catch (err) {
-      showMessage('error', 'Backfill failed: ' + (err.message || 'Unknown error'));
     } finally {
       setDividendActionLoading(false);
     }
@@ -3794,48 +3771,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
-  const handleMigratePortfolioHistory = async () => {
-    if (!window.confirm('Run the one-time portfolio history migration? This will move all existing portfolioHistory arrays into permanent subcollections.')) return;
-    setMigratingPortfolioHistory(true);
-    try {
-      const result = await migratePortfolioHistoryFunction();
-      setPortfolioMigrationResult(result.data);
-    } catch (error) {
-      setMessage({ type: 'error', text: `Migration failed: ${error.message}` });
-    } finally {
-      setMigratingPortfolioHistory(false);
-    }
-  };
-
-  const handleMigratePriceHistory = async (finalize) => {
-    const prompt = finalize
-      ? 'Step 2 — FINALIZE: delete the old priceHistory field from the market doc? Only runs after verifying every point was copied. Run only after the new backend + site are live.'
-      : 'Step 1 — COPY: copy all chart history into its own document? Nothing is deleted; safe to re-run.';
-    if (!window.confirm(prompt)) return;
-    setMigratingPriceHistory(true);
-    try {
-      const result = await migratePriceHistoryDocFunction(finalize ? { finalize: true } : {});
-      setPriceHistoryMigrationResult(result.data);
-    } catch (error) {
-      setMessage({ type: 'error', text: `Price history migration failed: ${error.message}` });
-    } finally {
-      setMigratingPriceHistory(false);
-    }
-  };
-
-  const handleRefundJHighPins = async () => {
-    if (!window.confirm('Refund and remove all J High pins? Every owner gets their cash back plus 50% extra, and the pins are stripped from their profile. Safe to run once.')) return;
-    setRefundingJHighPins(true);
-    try {
-      const result = await refundJHighPinsFunction();
-      setJHighRefundResult(result.data);
-    } catch (error) {
-      setMessage({ type: 'error', text: `J High refund failed: ${error.message}` });
-    } finally {
-      setRefundingJHighPins(false);
-    }
-  };
-
   const handleRepairCorruptedAccounts = async () => {
     setLoading(true);
     setMessage(null);
@@ -3986,7 +3921,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
+      <div className={`w-full max-w-3xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
         
         {/* Header */}
@@ -4005,89 +3940,36 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           </div>
         </div>
 
-        {/* Tabs - Two-row layout */}
-        <div className={`border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-          <div className="flex">
-            <button
-              onClick={() => { setActiveTab('ipo'); loadIPOs(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'ipo' ? 'text-orange-500 border-b-2 border-orange-500 bg-orange-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🚀 IPO
-            </button>
-            <button
-              onClick={() => { setActiveTab('predictions'); loadAllBets(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'predictions' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🎲 Bets {unresolvedPredictions.length > 0 && `(${unresolvedPredictions.length})`}
-            </button>
-            <button
-              onClick={() => setActiveTab('holders')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'holders' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              📊 Holders
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'users' ? 'text-green-500 border-b-2 border-green-500 bg-green-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              👥 Users
-            </button>
-            <button
-              onClick={() => { setActiveTab('bots'); handleLoadBots(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'bots' ? 'text-purple-500 border-b-2 border-purple-500 bg-purple-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🤖 Bots
-            </button>
-            <button
-              onClick={() => { setActiveTab('trades'); loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'trades' ? 'text-yellow-500 border-b-2 border-yellow-500 bg-yellow-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              💹 Trades
-            </button>
-            <button
-              onClick={() => setActiveTab('diagnostic')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'diagnostic' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🔍 Diag
-            </button>
-          </div>
-          <div className="flex">
-            <button
-              onClick={() => { setActiveTab('stats'); loadMarketStats(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'stats' ? 'text-cyan-500 border-b-2 border-cyan-500 bg-cyan-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              📈 Stats
-            </button>
-            <button
-              onClick={() => setActiveTab('recovery')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'recovery' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🔧 Recovery
-            </button>
-            <button
-              onClick={() => { setActiveTab('badges'); loadBadgeUsers(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'badges' ? 'text-amber-500 border-b-2 border-amber-500 bg-amber-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🏅 Badges
-            </button>
-            <button
-              onClick={() => setActiveTab('market')}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'market' ? 'text-blue-500 border-b-2 border-blue-500 bg-blue-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              🏛️ Market
-            </button>
-            <button
-              onClick={() => { setActiveTab('watchlist'); if (!watchlistLoaded) loadWatchlist(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'watchlist' ? 'text-red-500 border-b-2 border-red-500 bg-red-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              👁️ Watch
-            </button>
-            <button
-              onClick={() => { setActiveTab('dividends'); loadDividendConfig(); }}
-              className={`flex-1 text-center py-2.5 text-xs font-semibold transition-colors ${activeTab === 'dividends' ? 'text-emerald-500 border-b-2 border-emerald-500 bg-emerald-500/10' : `${mutedClass} hover:bg-slate-500/10`}`}
-            >
-              💵 Dividends
-            </button>
+        {/* Tabs — uniform pills, wrap as needed */}
+        <div className={`px-3 py-2.5 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'users', icon: '👥', label: 'Users' },
+              { id: 'trades', icon: '💹', label: 'Trades', load: () => loadRecentTrades(tradeTimePeriod, tradeTypeFilter, tradeFilterTicker, tradeBotFilter) },
+              { id: 'holders', icon: '📊', label: 'Holders' },
+              { id: 'market', icon: '🏛️', label: 'Market' },
+              { id: 'stats', icon: '📈', label: 'Stats', load: loadMarketStats },
+              { id: 'ipo', icon: '🚀', label: 'IPO', load: loadIPOs },
+              { id: 'predictions', icon: '🎲', label: 'Bets', badge: unresolvedPredictions.length, load: loadAllBets },
+              { id: 'dividends', icon: '💵', label: 'Dividends', load: loadDividendConfig },
+              { id: 'bots', icon: '🤖', label: 'Bots', load: handleLoadBots },
+              { id: 'badges', icon: '🏅', label: 'Badges', load: loadBadgeUsers },
+              { id: 'watchlist', icon: '👁️', label: 'Watchlist', load: () => { if (!watchlistLoaded) loadWatchlist(); } },
+              { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
+              { id: 'recovery', icon: '🔧', label: 'Recovery' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); if (tab.load) tab.load(); }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-teal-600 text-white'
+                    : `${mutedClass} ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`
+                }`}
+              >
+                {tab.icon} {tab.label}{tab.badge > 0 ? ` (${tab.badge})` : ''}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -4325,15 +4207,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               diagnosisResults={diagnosisResults}
               handleDiagnoseUsers={handleDiagnoseUsers}
               handleManualBackup={handleManualBackup}
-              migratingPortfolioHistory={migratingPortfolioHistory}
-              portfolioMigrationResult={portfolioMigrationResult}
-              handleMigratePortfolioHistory={handleMigratePortfolioHistory}
-              migratingPriceHistory={migratingPriceHistory}
-              priceHistoryMigrationResult={priceHistoryMigrationResult}
-              handleMigratePriceHistory={handleMigratePriceHistory}
-              refundingJHighPins={refundingJHighPins}
-              jHighRefundResult={jHighRefundResult}
-              handleRefundJHighPins={handleRefundJHighPins}
               reconstructingHistory={reconstructingHistory}
               reconstructionResult={reconstructionResult}
               reconstructUid={reconstructUid}
@@ -4633,7 +4506,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           inputClass={inputClass}
           dividendActionLoading={dividendActionLoading}
           handleRunDividends={handleRunDividends}
-          handleBackfillCohorts={handleBackfillCohorts}
           loadDividendConfig={loadDividendConfig}
           dividendRunResult={dividendRunResult}
           dividendLastRuns={dividendLastRuns}

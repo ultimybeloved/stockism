@@ -86,7 +86,6 @@ export const broadcastNotificationFunction = httpsCallable(functions, 'broadcast
 // Trade execution & anti-exploit
 export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
 export const banUserFunction = httpsCallable(functions, 'banUser');
-export const refundJHighPinsFunction = httpsCallable(functions, 'refundJHighPins');
 // Daily checkin
 export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
 // Ladder game
@@ -165,12 +164,9 @@ export const recoverTickerFunction = httpsCallable(functions, 'recoverTicker');
 export const auditUserDropsFunction = httpsCallable(functions, 'auditUserDrops');
 // Dividends
 export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividendPayoutNow');
-export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfillHoldingCohorts');
-// One-time migrations
+// Username reservation audit + portfolio-history repair
 export const auditUsernamesFunction = httpsCallable(functions, 'migrateUsernames');
-export const migratePortfolioHistoryFunction = httpsCallable(functions, 'migratePortfolioHistory');
 export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
-export const migratePriceHistoryDocFunction = httpsCallable(functions, 'migratePriceHistoryDoc');
 // Admin: initialize prices for new characters
 export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewCharacterPrices');
 
