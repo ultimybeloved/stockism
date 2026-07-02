@@ -53,7 +53,8 @@
       "Bash(git --no-pager diff --stat)",
       "PowerShell(npm run *)",
       "PowerShell(firebase deploy --only functions*)",
-      "Bash(npx firebase *)"
+      "Bash(npx firebase *)",
+      "Bash(awk -F: '{print $1}')"
     ]
   },
   "hooks": {

@@ -14,7 +14,7 @@ const {
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
   UNIFIER_FULL_SHARE_MIN,
 } = require('../constants');
-const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError, touchLastActive, appendPriceHistory } = require('../helpers');
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -438,11 +438,10 @@ exports.checkShortMarginCalls = cf().pubsub
 
                 // Update market price (dampened)
                 transaction.update(marketRef, {
-                  [`prices.${ticker}`]: newPrice,
-                  [`priceHistory.${ticker}`]: admin.firestore.FieldValue.arrayUnion({
-                    timestamp: Date.now(),
-                    price: newPrice
-                  })
+                  [`prices.${ticker}`]: newPrice
+                });
+                appendPriceHistory(transaction, {
+                  [ticker]: { timestamp: Date.now(), price: newPrice }
                 });
 
                 // Log the liquidation trade

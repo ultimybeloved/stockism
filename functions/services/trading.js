@@ -24,6 +24,8 @@ const {
   writeFeedEntry,
   reportError,
   lockedShares,
+  priceHistoryRef,
+  appendPriceHistory,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissions');
 const { trackWatchedIpTrade } = require('./watchlist');
@@ -96,6 +98,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       const marketDoc = await transaction.get(marketRef);
+      const historyDoc = await transaction.get(priceHistoryRef());
 
       if (!userDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'User not found.');
@@ -142,7 +145,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       }
 
       const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
+      const priceHistory = historyDoc.exists ? (historyDoc.data() || {}) : {};
       let currentPrice = prices[ticker];
 
       const character = CHARACTERS.find(c => c.ticker === ticker);
@@ -756,15 +759,14 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         prices: { ...prices, ...priceUpdates }
       };
 
-      // Add price history for all updated tickers
+      // Add price history for all updated tickers (separate doc — see helpers)
+      const historyPoints = {};
       Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
-        marketUpdates[`priceHistory.${updatedTicker}`] = admin.firestore.FieldValue.arrayUnion({
-          timestamp,
-          price: updatedPrice
-        });
+        historyPoints[updatedTicker] = { timestamp, price: updatedPrice };
       });
 
       transaction.update(marketRef, marketUpdates);
+      appendPriceHistory(transaction, historyPoints);
 
       // Build updated tickerTradeHistory
       const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;

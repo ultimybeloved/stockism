@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory } = require('../helpers');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -483,11 +483,10 @@ exports.checkLimitOrders = cf().pubsub
                 // Apply price impact to market (only if there's actual impact)
                 if (effectiveImpact > 0) {
                   transaction.update(marketRef, {
-                    [`prices.${order.ticker}`]: newMarketPrice,
-                    [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
-                      timestamp: Date.now(),
-                      price: newMarketPrice
-                    })
+                    [`prices.${order.ticker}`]: newMarketPrice
+                  });
+                  appendPriceHistory(transaction, {
+                    [order.ticker]: { timestamp: Date.now(), price: newMarketPrice }
                   });
                 }
 
@@ -537,11 +536,10 @@ exports.checkLimitOrders = cf().pubsub
                 // Apply price impact to market (only if there's actual impact)
                 if (effectiveImpact > 0) {
                   transaction.update(marketRef, {
-                    [`prices.${order.ticker}`]: newMarketPrice,
-                    [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
-                      timestamp: Date.now(),
-                      price: newMarketPrice
-                    })
+                    [`prices.${order.ticker}`]: newMarketPrice
+                  });
+                  appendPriceHistory(transaction, {
+                    [order.ticker]: { timestamp: Date.now(), price: newMarketPrice }
                   });
                 }
 

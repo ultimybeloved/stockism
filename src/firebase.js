@@ -170,6 +170,7 @@ export const backfillHoldingCohortsFunction = httpsCallable(functions, 'backfill
 export const auditUsernamesFunction = httpsCallable(functions, 'migrateUsernames');
 export const migratePortfolioHistoryFunction = httpsCallable(functions, 'migratePortfolioHistory');
 export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
+export const migratePriceHistoryDocFunction = httpsCallable(functions, 'migratePriceHistoryDoc');
 // Admin: initialize prices for new characters
 export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewCharacterPrices');
 

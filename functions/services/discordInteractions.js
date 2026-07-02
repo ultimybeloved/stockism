@@ -15,7 +15,7 @@ const {
   DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
   DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage } = require('../helpers');
+const { writeNotification, sendDiscordMessage, appendPriceHistory } = require('../helpers');
 
 function weightedRandom(values, weights) {
   const total = weights.reduce((a, b) => a + b, 0);
@@ -281,6 +281,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const timestamp = Date.now();
         const newPrices = { ...prices };
         const marketUpdates = {};
+        const historyPoints = {};
 
         for (const pick of picks) {
           const currentPrice = newPrices[pick.ticker];
@@ -292,16 +293,17 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
           newPrices[pick.ticker] = Math.round((currentPrice + priceImpact) * 100) / 100;
 
-          marketUpdates[`priceHistory.${pick.ticker}`] = admin.firestore.FieldValue.arrayUnion({
-            timestamp,
-            price: newPrices[pick.ticker]
-          });
+          // Field-path write per ticker (never rewrite the whole prices map —
+          // a concurrent trade on another ticker would be clobbered)
+          marketUpdates[`prices.${pick.ticker}`] = newPrices[pick.ticker];
+          historyPoints[pick.ticker] = { timestamp, price: newPrices[pick.ticker] };
         }
 
-        marketUpdates.prices = newPrices;
-
         await db.collection('users').doc(uid).update(updates);
-        await marketRef.update(marketUpdates);
+        if (Object.keys(marketUpdates).length > 0) {
+          await marketRef.update(marketUpdates);
+          await appendPriceHistory(null, historyPoints);
+        }
 
         // Build response embed (using post-impact prices)
         const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);

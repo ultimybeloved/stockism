@@ -14,7 +14,7 @@ const {
   ADMIN_PRICE_PROTECTION_MS,
   isWeeklyTradingHalt,
 } = require('../constants');
-const { calculateMarginalImpact, isPriceProtected } = require('../helpers');
+const { calculateMarginalImpact, isPriceProtected, priceHistoryRef } = require('../helpers');
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
@@ -60,12 +60,14 @@ exports.marketMakerCycle = cf().pubsub
       }
 
       const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
+      const historySnap = await priceHistoryRef().get();
+      const priceHistory = historySnap.exists ? (historySnap.data() || {}) : {};
 
       const now = Date.now();
       const cutoff = now - SEVEN_DAYS_MS;
 
       const updates = {};
+      const historyPoints = {};
       let interventionCount = 0;
 
       for (const ticker of NON_ETF_TICKERS) {
@@ -118,11 +120,11 @@ exports.marketMakerCycle = cf().pubsub
         if (newPrice === currentPrice) continue;
 
         updates[`prices.${ticker}`] = newPrice;
-        updates[`priceHistory.${ticker}`] = admin.firestore.FieldValue.arrayUnion({
+        historyPoints[ticker] = {
           timestamp: now,
           price: newPrice,
           source: 'market_maker',
-        });
+        };
 
         interventionCount++;
         console.log(
@@ -133,7 +135,15 @@ exports.marketMakerCycle = cf().pubsub
       }
 
       if (interventionCount > 0) {
-        await marketRef.update(updates);
+        // Batch so the price change and its history point land atomically
+        const batch = db.batch();
+        batch.update(marketRef, updates);
+        const histUpdates = {};
+        for (const [t, p] of Object.entries(historyPoints)) {
+          histUpdates[t] = admin.firestore.FieldValue.arrayUnion(p);
+        }
+        batch.set(priceHistoryRef(), histUpdates, { merge: true });
+        await batch.commit();
         console.log(`marketMakerCycle: ${interventionCount} interventions applied`);
       } else {
         console.log('marketMakerCycle: no interventions needed');

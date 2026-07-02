@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction, refundJHighPinsFunction } from './firebase';
+import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, backfillHoldingCohortsFunction, auditUsernamesFunction, migratePortfolioHistoryFunction, reconstructPortfolioHistoryFunction, refundJHighPinsFunction, migratePriceHistoryDocFunction } from './firebase';
 import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
 import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
@@ -111,6 +111,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [scanningHistory, setScanningHistory] = useState(false);
   const [migratingPortfolioHistory, setMigratingPortfolioHistory] = useState(false);
   const [portfolioMigrationResult, setPortfolioMigrationResult] = useState(null);
+  const [migratingPriceHistory, setMigratingPriceHistory] = useState(false);
+  const [priceHistoryMigrationResult, setPriceHistoryMigrationResult] = useState(null);
   const [refundingJHighPins, setRefundingJHighPins] = useState(false);
   const [jHighRefundResult, setJHighRefundResult] = useState(null);
   const [reconstructingHistory, setReconstructingHistory] = useState(false);
@@ -767,8 +769,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setDiagnosing(false);
   };
 
+  // Chart history lives in its own doc (market/priceHistory), keyed by ticker.
+  const priceHistoryDocRef = () => doc(db, 'market', 'priceHistory');
+
   // Helper function to apply trailing stock effects
-  const applyTrailingEffects = (marketUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set()) => {
+  const applyTrailingEffects = (marketUpdates, historyUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set()) => {
     if (depth > 3 || visited.has(sourceTicker)) {
       return;
     }
@@ -797,14 +802,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         console.log(`[ADMIN TRAILING] ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
 
         marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
-        marketUpdates[`priceHistory.${relatedTicker}`] = arrayUnion({
+        historyUpdates[relatedTicker] = arrayUnion({
           timestamp,
           price: settledRelatedPrice,
           source: 'trailing'
         });
 
         // Recursively apply trailing effects with shared visited set (no cloning)
-        applyTrailingEffects(marketUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited);
+        applyTrailingEffects(marketUpdates, historyUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited);
       }
     });
   };
@@ -833,12 +838,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(true);
     try {
       const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
       let now = Date.now();
 
-      if (snap.exists()) {
-        const data = snap.data();
-        let currentHistory = data.priceHistory?.[character.ticker] || [];
+      {
+        const histData = histSnap.exists() ? (histSnap.data() || {}) : {};
+        let currentHistory = histData[character.ticker] || [];
 
         if (currentHistory.length === 0 && currentPrice) {
           currentHistory = [{ timestamp: now - 1000, price: currentPrice }];
@@ -857,21 +862,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
         // Build market updates with trailing effects
         const marketUpdates = {
-          [`prices.${character.ticker}`]: targetPrice,
-          [`priceHistory.${character.ticker}`]: updatedHistory
+          [`prices.${character.ticker}`]: targetPrice
+        };
+        const historyUpdates = {
+          [character.ticker]: updatedHistory
         };
 
         // Apply trailing stock effects
         console.log(`[ADMIN TRAILING START] Applying effects for ${character.ticker}: $${currentPrice} -> $${targetPrice}`);
-        applyTrailingEffects(marketUpdates, character.ticker, currentPrice, targetPrice, now);
+        applyTrailingEffects(marketUpdates, historyUpdates, character.ticker, currentPrice, targetPrice, now);
         console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
 
         await updateDoc(marketRef, marketUpdates);
-      } else {
-        await setDoc(marketRef, {
-          prices: { [character.ticker]: targetPrice },
-          priceHistory: { [character.ticker]: [{ timestamp: now, price: targetPrice, source: 'admin_adjust' }] }
-        }, { merge: true });
+        await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
       }
 
       const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
@@ -931,45 +934,38 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(true);
     try {
       const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
       const now = Date.now();
-      
-      if (snap.exists()) {
-        const data = snap.data();
-        let currentHistory = data.priceHistory?.[selectedTicker] || [];
-        
+
+      {
+        const histData = histSnap.exists() ? (histSnap.data() || {}) : {};
+        let currentHistory = histData[selectedTicker] || [];
+
         // If no history exists, add the current price as the first entry
         if (currentHistory.length === 0 && currentPrice) {
           currentHistory = [{ timestamp: now - 1000, price: currentPrice }]; // 1 second before
         }
-        
+
         console.log('Current history length for', selectedTicker, ':', currentHistory.length);
-        console.log('Last entry:', currentHistory[currentHistory.length - 1]);
 
         // Add new price to history
         const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice, source: 'admin_adjust' }];
 
-        console.log('New history length:', updatedHistory.length);
-        console.log('New last entry:', updatedHistory[updatedHistory.length - 1]);
-
         // Build market updates with trailing effects
         const marketUpdates = {
-          [`prices.${selectedTicker}`]: targetPrice,
-          [`priceHistory.${selectedTicker}`]: updatedHistory
+          [`prices.${selectedTicker}`]: targetPrice
+        };
+        const historyUpdates = {
+          [selectedTicker]: updatedHistory
         };
 
         // Apply trailing stock effects
         console.log(`[ADMIN TRAILING START] Applying effects for ${selectedTicker}: $${currentPrice} -> $${targetPrice}`);
-        applyTrailingEffects(marketUpdates, selectedTicker, currentPrice, targetPrice, now);
+        applyTrailingEffects(marketUpdates, historyUpdates, selectedTicker, currentPrice, targetPrice, now);
         console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
 
         await updateDoc(marketRef, marketUpdates);
-      } else {
-        // Market doc doesn't exist, create it with this price
-        await setDoc(marketRef, {
-          prices: { [selectedTicker]: targetPrice },
-          priceHistory: { [selectedTicker]: [{ timestamp: now, price: targetPrice, source: 'admin_adjust' }] }
-        }, { merge: true });
+        await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
       }
 
       const character = CHARACTERS.find(c => c.ticker === selectedTicker);
@@ -1034,16 +1030,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
     setLoading(true);
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
 
-      if (!snap.exists()) {
-        showMessage('error', 'Market document not found');
+      if (!histSnap.exists()) {
+        showMessage('error', 'Price history document not found');
         return;
       }
 
-      const data = snap.data();
-      const priceHistory = data.priceHistory || {};
+      const priceHistory = histSnap.data() || {};
       const cleanedHistory = {};
       let tickersCleaned = 0;
       let entriesRemoved = 0;
@@ -1063,13 +1057,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
           if (filtered.length !== history.length) {
             tickersCleaned++;
-            cleanedHistory[`priceHistory.${char.ticker}`] = filtered;
+            cleanedHistory[char.ticker] = filtered;
           }
         }
       });
 
       if (Object.keys(cleanedHistory).length > 0) {
-        await updateDoc(marketRef, cleanedHistory);
+        await updateDoc(priceHistoryDocRef(), cleanedHistory);
         showMessage('success', `✅ Cleaned ${tickersCleaned} tickers, removed ${entriesRemoved} base price entries!`);
       } else {
         showMessage('info', 'No base price entries found to clean.');
@@ -1086,15 +1080,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(true);
     try {
       const marketRef = doc(db, 'market', 'current');
-      const snap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
 
-      if (!snap.exists()) {
-        showMessage('error', 'Market document not found');
+      if (!histSnap.exists()) {
+        showMessage('error', 'Price history document not found');
         return;
       }
 
-      const data = snap.data();
-      const priceHistory = data.priceHistory || {};
+      const priceHistory = histSnap.data() || {};
       const updatedPrices = {};
 
       // For each ticker, set current price to the last history entry
@@ -1134,13 +1127,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       CHARACTERS.forEach(char => {
         resetPrices[char.ticker] = char.basePrice;
-        resetHistory[char.ticker] = [{ timestamp: now, price: char.basePrice }];
+        // APPEND a reset point — never wipe the chart record (history is the
+        // permanent story of the market; a reset is just another event in it)
+        resetHistory[char.ticker] = arrayUnion({ timestamp: now, price: char.basePrice, source: 'admin_reset' });
       });
 
-      await updateDoc(marketRef, {
-        prices: resetPrices,
-        priceHistory: resetHistory
-      });
+      await updateDoc(marketRef, { prices: resetPrices });
+      await setDoc(priceHistoryDocRef(), resetHistory, { merge: true });
 
       showMessage('success', `✅ Reset ${CHARACTERS.length} characters to base prices!`);
     } catch (err) {
@@ -1701,10 +1694,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // Load price history snapshots for rollback
   const loadPriceSnapshots = async (ticker) => {
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
-      const marketData = marketSnap.data();
-      const history = marketData?.priceHistory?.[ticker] || [];
+      const histSnap = await getDoc(priceHistoryDocRef());
+      const history = (histSnap.data() || {})[ticker] || [];
       
       // Get last 50 price points
       const snapshots = history.slice(-50).reverse().map(h => ({
@@ -1818,10 +1809,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
       const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
-      const marketData = marketSnap.data();
-      const priceHistory = marketData?.priceHistory || {};
-      
+      const histSnap = await getDoc(priceHistoryDocRef());
+      const priceHistory = histSnap.exists() ? (histSnap.data() || {}) : {};
+
       let tradesReversed = 0;
       let usersAffected = 0;
       const priceRollbacks = {};
@@ -1930,15 +1920,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         // Keep only entries at or before the rollback timestamp
         const cleanedHistory = history.filter(h => h.timestamp <= rollbackTimestamp);
         if (cleanedHistory.length !== history.length) {
-          historyUpdates[`priceHistory.${ticker}`] = cleanedHistory;
+          historyUpdates[ticker] = cleanedHistory;
         }
       }
 
-      // Combine price and history updates
-      const marketUpdates = { ...priceUpdates, ...historyUpdates };
-
-      if (Object.keys(marketUpdates).length > 0) {
-        await updateDoc(marketRef, marketUpdates);
+      if (Object.keys(priceUpdates).length > 0) {
+        await updateDoc(marketRef, priceUpdates);
+      }
+      if (Object.keys(historyUpdates).length > 0) {
+        await updateDoc(priceHistoryDocRef(), historyUpdates);
       }
 
       const historyTrimmed = Object.keys(historyUpdates).length;
@@ -1954,10 +1944,8 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // Get price history for investigation
   const getPriceHistoryForTicker = async (ticker) => {
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
-      const marketData = marketSnap.data();
-      const history = marketData?.priceHistory?.[ticker] || [];
+      const histSnap = await getDoc(priceHistoryDocRef());
+      const history = (histSnap.data() || {})[ticker] || [];
       return history.slice(-1000).map(h => ({
         timestamp: h.timestamp,
         price: h.price,
@@ -1973,23 +1961,21 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const cleanPriceHistory = async (ticker, minPrice, maxPrice) => {
     setLoading(true);
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
-      const marketData = marketSnap.data();
-      const history = marketData?.priceHistory?.[ticker] || [];
-      
+      const histSnap = await getDoc(priceHistoryDocRef());
+      const history = (histSnap.data() || {})[ticker] || [];
+
       const originalCount = history.length;
-      
+
       // Filter out price points outside the acceptable range
-      const cleanedHistory = history.filter(h => 
+      const cleanedHistory = history.filter(h =>
         h.price >= minPrice && h.price <= maxPrice
       );
-      
+
       const removedCount = originalCount - cleanedHistory.length;
-      
+
       if (removedCount > 0) {
-        await updateDoc(marketRef, {
-          [`priceHistory.${ticker}`]: cleanedHistory
+        await updateDoc(priceHistoryDocRef(), {
+          [ticker]: cleanedHistory
         });
         showMessage('success', `Cleaned ${ticker} history: removed ${removedCount} bad data points`);
       } else {
@@ -2043,28 +2029,26 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
       // Use transaction to safely merge with current data (prevents race conditions)
       const marketRef = doc(db, 'market', 'current');
+      const now = Date.now();
       await runTransaction(db, async (transaction) => {
         const marketSnap = await transaction.get(marketRef);
         const currentData = marketSnap.data() || {};
         const currentPrices = currentData.prices || {};
-        const currentHistory = currentData.priceHistory || {};
 
         // Merge: use restored prices where available, keep current otherwise
         const finalPrices = { ...currentPrices, ...restoredPrices };
 
-        // Record the restoration in price history
-        const now = Date.now();
+        // Record the restoration in price history (its own doc, appended)
         const historyUpdates = {};
         Object.entries(restoredPrices).forEach(([ticker, price]) => {
-          const tickerHistory = currentHistory[ticker] || [];
-          historyUpdates[ticker] = [...tickerHistory, { timestamp: now, price, source: 'admin_restore' }];
+          historyUpdates[ticker] = arrayUnion({ timestamp: now, price, source: 'admin_restore' });
         });
 
         transaction.update(marketRef, {
           prices: finalPrices,
-          priceHistory: { ...currentHistory, ...historyUpdates },
           lastAdminRestore: now
         });
+        transaction.set(priceHistoryDocRef(), historyUpdates, { merge: true });
       });
 
       showMessage('success', `Restored prices for ${Object.keys(restoredPrices).length} tickers from user costBasis data`);
@@ -3189,16 +3173,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const handleScanFutureEntries = async () => {
     setScanningHistory(true);
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
 
-      if (!marketSnap.exists()) {
-        showMessage('error', 'Market data not found');
+      if (!histSnap.exists()) {
+        showMessage('error', 'Price history data not found');
         setScanningHistory(false);
         return;
       }
 
-      const priceHistory = marketSnap.data().priceHistory || {};
+      const priceHistory = histSnap.data() || {};
       const now = Date.now();
       const futureFound = [];
 
@@ -3239,16 +3222,15 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
     setLoading(true);
     try {
-      const marketRef = doc(db, 'market', 'current');
-      const marketSnap = await getDoc(marketRef);
+      const histSnap = await getDoc(priceHistoryDocRef());
 
-      if (!marketSnap.exists()) {
-        showMessage('error', 'Market data not found');
+      if (!histSnap.exists()) {
+        showMessage('error', 'Price history data not found');
         setLoading(false);
         return;
       }
 
-      const priceHistory = marketSnap.data().priceHistory || {};
+      const priceHistory = histSnap.data() || {};
       const now = Date.now();
       const updates = {};
 
@@ -3258,12 +3240,12 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
         const cleanedHistory = history.filter(entry => entry.timestamp <= now);
         if (cleanedHistory.length !== history.length) {
-          updates[`priceHistory.${ticker}`] = cleanedHistory;
+          updates[ticker] = cleanedHistory;
         }
       }
 
       if (Object.keys(updates).length > 0) {
-        await updateDoc(marketRef, updates);
+        await updateDoc(priceHistoryDocRef(), updates);
         showMessage('success', `Cleaned up ${futureEntries.reduce((sum, t) => sum + t.count, 0)} future entries!`);
         setFutureEntries([]);
       } else {
@@ -3826,6 +3808,22 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
+  const handleMigratePriceHistory = async (finalize) => {
+    const prompt = finalize
+      ? 'Step 2 — FINALIZE: delete the old priceHistory field from the market doc? Only runs after verifying every point was copied. Run only after the new backend + site are live.'
+      : 'Step 1 — COPY: copy all chart history into its own document? Nothing is deleted; safe to re-run.';
+    if (!window.confirm(prompt)) return;
+    setMigratingPriceHistory(true);
+    try {
+      const result = await migratePriceHistoryDocFunction(finalize ? { finalize: true } : {});
+      setPriceHistoryMigrationResult(result.data);
+    } catch (error) {
+      setMessage({ type: 'error', text: `Price history migration failed: ${error.message}` });
+    } finally {
+      setMigratingPriceHistory(false);
+    }
+  };
+
   const handleRefundJHighPins = async () => {
     if (!window.confirm('Refund and remove all J High pins? Every owner gets their cash back plus 50% extra, and the pins are stripped from their profile. Safe to run once.')) return;
     setRefundingJHighPins(true);
@@ -4331,6 +4329,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               migratingPortfolioHistory={migratingPortfolioHistory}
               portfolioMigrationResult={portfolioMigrationResult}
               handleMigratePortfolioHistory={handleMigratePortfolioHistory}
+              migratingPriceHistory={migratingPriceHistory}
+              priceHistoryMigrationResult={priceHistoryMigrationResult}
+              handleMigratePriceHistory={handleMigratePriceHistory}
               refundingJHighPins={refundingJHighPins}
               jHighRefundResult={jHighRefundResult}
               handleRefundJHighPins={handleRefundJHighPins}

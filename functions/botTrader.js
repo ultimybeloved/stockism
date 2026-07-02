@@ -8,7 +8,7 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact, isPriceProtected } = require('./helpers');
+const { calculateMarginalImpact, isPriceProtected, priceHistoryRef, appendPriceHistory } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -279,6 +279,11 @@ module.exports = {
           return null;
         }
 
+        // Chart history lives in its own doc now. Attach it so the decision
+        // helpers (trends, admin price protection) read it as before.
+        const historySnap = await priceHistoryRef().get();
+        marketData.priceHistory = historySnap.exists ? (historySnap.data() || {}) : {};
+
         const prices = marketData.prices || {};
         const launchedTickers = marketData.launchedTickers || [];
         const allTickers = Object.keys(prices).filter(t => {
@@ -340,7 +345,13 @@ module.exports = {
             const botSnap = await transaction.get(botRef);
             const botData = botSnap.data();
 
-            const currentPrice = prices[decision.ticker];
+            // Read prices fresh inside the transaction — the pre-loop snapshot
+            // can be minutes old (bots sleep between trades), and writing from
+            // it used to clobber concurrent player trades.
+            const marketTxnSnap = await transaction.get(marketRef);
+            const freshPrices = (marketTxnSnap.data() || {}).prices || {};
+
+            const currentPrice = freshPrices[decision.ticker];
             if (!currentPrice) return;
 
             if (decision.action === 'BUY') {
@@ -364,7 +375,7 @@ module.exports = {
               const newCash = botData.cash - totalCost;
               const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
                 const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                return sum + (prices[ticker] || 0) * shareCount;
+                return sum + (freshPrices[ticker] || 0) * shareCount;
               }, 0);
 
               const txLog = botData.transactionLog || [];
@@ -389,21 +400,16 @@ module.exports = {
                 transactionLog: txLog.slice(-100) // Keep last 100
               });
 
-              // Update market price
-              const newPrices = { ...prices, [decision.ticker]: newPrice };
-              const newHistory = { ...(marketData.priceHistory || {}) };
-              if (!newHistory[decision.ticker]) newHistory[decision.ticker] = [];
-              newHistory[decision.ticker].push({
-                timestamp: Date.now(),
-                price: newPrice
-              });
-
+              // Update market price — field-path write on just this ticker so a
+              // concurrent player trade on another ticker can never be clobbered
               appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
               transaction.update(marketRef, {
-                prices: newPrices,
-                priceHistory: newHistory,
+                [`prices.${decision.ticker}`]: newPrice,
                 [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
                 botImpactDate: today
+              });
+              appendPriceHistory(transaction, {
+                [decision.ticker]: { timestamp: Date.now(), price: newPrice }
               });
 
             } else if (decision.action === 'SELL') {
@@ -424,7 +430,7 @@ module.exports = {
               const newCash = botData.cash + totalRevenue;
               const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
                 const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                return sum + (prices[ticker] || 0) * shareCount;
+                return sum + (freshPrices[ticker] || 0) * shareCount;
               }, 0);
 
               const txLog = botData.transactionLog || [];
@@ -448,21 +454,16 @@ module.exports = {
                 transactionLog: txLog.slice(-100)
               });
 
-              // Update market price
-              const newPrices = { ...prices, [decision.ticker]: newPrice };
-              const newHistory = { ...(marketData.priceHistory || {}) };
-              if (!newHistory[decision.ticker]) newHistory[decision.ticker] = [];
-              newHistory[decision.ticker].push({
-                timestamp: Date.now(),
-                price: newPrice
-              });
-
+              // Update market price — field-path write on just this ticker so a
+              // concurrent player trade on another ticker can never be clobbered
               appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
               transaction.update(marketRef, {
-                prices: newPrices,
-                priceHistory: newHistory,
+                [`prices.${decision.ticker}`]: newPrice,
                 [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
                 botImpactDate: today
+              });
+              appendPriceHistory(transaction, {
+                [decision.ticker]: { timestamp: Date.now(), price: newPrice }
               });
             }
           });

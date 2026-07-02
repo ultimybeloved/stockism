@@ -11,7 +11,7 @@ const {
   WHALE_ALERT_SHARES_SOFT, WHALE_ALERT_PRICE_SOFT, WHALE_ALERT_SHARES_HARD,
   CREW_MILESTONE_THRESHOLDS,
 } = require('../constants');
-const { sendDiscordMessage, writeNotification } = require('../helpers');
+const { sendDiscordMessage, writeNotification, priceHistoryRef } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
@@ -342,7 +342,8 @@ exports.priceThresholdAlert = cf().pubsub
       }
 
       const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
+      const histSnap = await priceHistoryRef().get();
+      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
       const alertedThresholds = marketData.alertedThresholds || {};
 
       const now = Date.now();

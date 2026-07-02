@@ -88,6 +88,26 @@ const {
 // the pre-market auction (marketOrders.js) — the auction runs it FIRST so the
 // jump and the auction's opening prices can never fight over the same ticker.
 // Returns [{ ticker, newPrice, sharesSold, ipoTotalShares }] for callers to announce.
+// Live price-chart history lives in its own doc (market/priceHistory, shape
+// { [ticker]: [{ timestamp, price, source? }] }) so the hot market/current doc
+// every client subscribes to stays small. Older points are archived (never
+// deleted) to market/current/price_history/{ticker} by archiving.js.
+const priceHistoryRef = () => db.collection('market').doc('priceHistory');
+
+// Append history points for one or more tickers. Works inside a transaction
+// (pass it) or standalone (pass null). set+merge creates the doc if missing.
+const appendPriceHistory = (transaction, points) => {
+  const updates = {};
+  for (const [ticker, point] of Object.entries(points)) {
+    updates[ticker] = admin.firestore.FieldValue.arrayUnion(point);
+  }
+  if (transaction) {
+    transaction.set(priceHistoryRef(), updates, { merge: true });
+    return null;
+  }
+  return priceHistoryRef().set(updates, { merge: true });
+};
+
 const applyDueIPOJumps = async () => {
   const ipoRef = db.collection('market').doc('ipos');
   const marketRef = db.collection('market').doc('current');
@@ -101,6 +121,7 @@ const applyDueIPOJumps = async () => {
     const updatedList = [...ipos];
     const notifications = [];
     const marketUpdates = {};
+    const historyPoints = {};
     const tickersToLaunch = [];
 
     for (let i = 0; i < ipos.length; i++) {
@@ -109,10 +130,7 @@ const applyDueIPOJumps = async () => {
       if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
         const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
         marketUpdates[`prices.${ipo.ticker}`] = newPrice;
-        marketUpdates[`priceHistory.${ipo.ticker}`] = admin.firestore.FieldValue.arrayUnion({
-          timestamp: now,
-          price: newPrice
-        });
+        historyPoints[ipo.ticker] = { timestamp: now, price: newPrice };
         tickersToLaunch.push(ipo.ticker);
         updatedList[i] = { ...ipo, priceJumped: true };
 
@@ -131,6 +149,7 @@ const applyDueIPOJumps = async () => {
         ...marketUpdates,
         launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch)
       });
+      appendPriceHistory(transaction, historyPoints);
       transaction.update(ipoRef, { list: updatedList });
     }
 
@@ -584,6 +603,8 @@ module.exports = {
   graduateCohort,
   calculateMarginalImpact,
   applyDueIPOJumps,
+  priceHistoryRef,
+  appendPriceHistory,
   isPriceProtected,
   getAccountAgeImpactFactor,
   getTotalInvested,

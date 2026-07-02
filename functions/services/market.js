@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef } = require('../helpers');
 
 
 // Builds and posts the daily market summary Discord embed. Shared by the
@@ -24,7 +24,8 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
 
       const marketData = marketSnap.data();
       const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
+      const histSnap = await priceHistoryRef().get();
+      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
 
       // Get all users for stats
       const usersSnap = await db.collection('users').get();
@@ -68,7 +69,9 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
 
       // Record today's market index value so the index banner can show a rolling
       // 30-day change. Stored in its own doc (not market/current) to keep the
-      // frequently-read market doc small. Capped to ~13 months of daily points.
+      // frequently-read market doc small. Never trimmed — at one point per day
+      // this stays tiny for decades, and the index's full arc is part of the
+      // game's permanent record.
       if (recordIndexHistory) try {
         let sum = 0, count = 0;
         for (const c of CHARACTERS) {
@@ -82,7 +85,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
         const idxSnap = await idxRef.get();
         const hist = idxSnap.exists ? (idxSnap.data().history || []) : [];
         hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
-        await idxRef.set({ history: hist.slice(-400) }, { merge: true });
+        await idxRef.set({ history: hist }, { merge: true });
       } catch (e) {
         console.error('index history record failed:', e.message);
       }

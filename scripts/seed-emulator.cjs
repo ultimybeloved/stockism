@@ -29,12 +29,14 @@ async function main() {
 
   await db.collection('market').doc('current').set({
     prices,
-    priceHistory,
     launchedTickers: [],
     marketHalted: false,
     totalTrades: 0,
     lastUpdate: now,
   }, { merge: true });
+
+  // Chart history lives in its own doc (mirrors prod after the split)
+  await db.collection('market').doc('priceHistory').set(priceHistory, { merge: true });
 
   console.log(`✅ Seeded emulator market doc with ${Object.keys(prices).length} tickers at ${process.env.FIRESTORE_EMULATOR_HOST}`);
   process.exit(0);

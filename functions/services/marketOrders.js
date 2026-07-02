@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -141,6 +141,7 @@ const runMarketOpenProcessing = async (trigger) => {
 
     const auctionPrices = {}; // ticker -> { openingPrice, openingAsk, openingBid }
     const priceWrites = {};
+    const auctionHistoryPoints = {};
     for (const [ticker, { buys, sells }] of Object.entries(byTicker)) {
       const basePrice = currentPrices[ticker] || CHARACTER_MAP[ticker]?.basePrice;
       const netDemand = buys - sells;
@@ -163,15 +164,16 @@ const runMarketOpenProcessing = async (trigger) => {
 
       if (openingPrice !== basePrice) {
         priceWrites[`prices.${ticker}`] = openingPrice;
-        priceWrites[`priceHistory.${ticker}`] = admin.firestore.FieldValue.arrayUnion({
+        auctionHistoryPoints[ticker] = {
           timestamp: Date.now(),
           price: openingPrice,
           source: 'pre_market_auction'
-        });
+        };
       }
     }
     if (Object.keys(priceWrites).length > 0) {
       await marketRef.update(priceWrites);
+      await appendPriceHistory(null, auctionHistoryPoints);
     }
 
     // ── 5. Execute fills at the opening price ──────────────────────────────
@@ -390,11 +392,10 @@ const runMarketOpenProcessing = async (trigger) => {
         transaction.update(userRef, updates);
         if (effectiveImpact > 0) {
           transaction.update(marketRef, {
-            [`prices.${order.ticker}`]: newMarketPrice,
-            [`priceHistory.${order.ticker}`]: admin.firestore.FieldValue.arrayUnion({
-              timestamp: now,
-              price: newMarketPrice
-            })
+            [`prices.${order.ticker}`]: newMarketPrice
+          });
+          appendPriceHistory(transaction, {
+            [order.ticker]: { timestamp: now, price: newMarketPrice }
           });
         }
         const newFilledTotal = freshAlreadyFilled + fillShares;

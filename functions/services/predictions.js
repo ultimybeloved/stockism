@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -338,11 +338,10 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
       const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
       transaction.update(marketRef, {
         [`prices.${ticker}`]: newPrice,
-        [`priceHistory.${ticker}`]: admin.firestore.FieldValue.arrayUnion({
-          timestamp: now,
-          price: newPrice
-        }),
         launchedTickers: admin.firestore.FieldValue.arrayUnion(ticker)
+      });
+      appendPriceHistory(transaction, {
+        [ticker]: { timestamp: now, price: newPrice }
       });
     } else if (marketDoc.exists) {
       // Initialize price if not set

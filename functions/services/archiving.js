@@ -4,20 +4,23 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE } = require('../constants');
+const { priceHistoryRef } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
 async function doArchivePriceHistory(ticker = null) {
   const MAX_HISTORY_SIZE = 1000;
+  // Live history lives in its own doc; older points are MOVED (never deleted)
+  // to the permanent archive at market/current/price_history/{ticker}.
   const marketRef = db.collection('market').doc('current');
-  const marketSnap = await marketRef.get();
+  const histRef = priceHistoryRef();
+  const histSnap = await histRef.get();
 
-  if (!marketSnap.exists) {
-    return { success: false, error: 'Market document not found' };
+  if (!histSnap.exists) {
+    return { success: false, error: 'Price history document not found' };
   }
 
-  const marketData = marketSnap.data();
-  const priceHistory = marketData.priceHistory || {};
+  const priceHistory = histSnap.data() || {};
   const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
   let archivedCount = 0;
 
@@ -37,8 +40,8 @@ async function doArchivePriceHistory(ticker = null) {
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      await marketRef.update({
-        [`priceHistory.${t}`]: toKeep
+      await histRef.update({
+        [t]: toKeep
       });
 
       archivedCount++;

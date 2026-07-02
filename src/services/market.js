@@ -6,10 +6,8 @@
 import {
   doc,
   getDoc,
-  setDoc,
   updateDoc,
-  onSnapshot,
-  serverTimestamp
+  onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
@@ -44,12 +42,11 @@ export const subscribeToMarket = (onData, onError) => {
         mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
       });
 
-      onData(mergedPrices, data.priceHistory || {}, data);
+      // Chart history lives in market/priceHistory now (fetched separately);
+      // the live subscription only carries the small prices doc.
+      onData(mergedPrices, {}, data);
     } else {
-      // Initialize market data if it doesn't exist
-      initializeMarket();
-
-      // Return initial prices while waiting for creation
+      // Market doc missing — show base prices; the backend owns initialization.
       const initialPrices = {};
       CHARACTERS.forEach(c => {
         initialPrices[c.ticker] = c.basePrice;
@@ -57,40 +54,6 @@ export const subscribeToMarket = (onData, onError) => {
       onData(initialPrices, {}, null);
     }
   }, onError);
-};
-
-/**
- * Initialize market data (called when market doc doesn't exist)
- * Uses getDoc check + merge: true to prevent race conditions from multiple concurrent initializations
- */
-export const initializeMarket = async () => {
-  const marketRef = getMarketRef();
-
-  // Check if document already exists to prevent race condition
-  const existingDoc = await getDoc(marketRef);
-  if (existingDoc.exists()) {
-    const data = existingDoc.data();
-    return { prices: data.prices || {}, priceHistory: data.priceHistory || {} };
-  }
-
-  const initialPrices = {};
-  const initialHistory = {};
-
-  CHARACTERS.forEach(c => {
-    initialPrices[c.ticker] = c.basePrice;
-    initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
-  });
-
-  // Use merge: true as additional safety - if another process created the doc
-  // between our check and this write, we won't overwrite their data
-  await setDoc(marketRef, {
-    prices: initialPrices,
-    priceHistory: initialHistory,
-    lastUpdate: serverTimestamp(),
-    totalTrades: 0
-  }, { merge: true });
-
-  return { prices: initialPrices, priceHistory: initialHistory };
 };
 
 /**

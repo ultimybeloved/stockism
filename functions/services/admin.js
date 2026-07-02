@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID } = require('../constants');
-const { sendDiscordMessage } = require('../helpers');
+const { sendDiscordMessage, priceHistoryRef } = require('../helpers');
 
 /**
  * Admin function to ban a user and rollback fraudulent gains
@@ -123,10 +123,11 @@ exports.backupMarketData = cf().pubsub
 
       if (marketSnap.exists) {
         const marketData = marketSnap.data();
+        const histSnap = await priceHistoryRef().get();
         const marketBackup = {
           timestamp,
           prices: marketData.prices || {},
-          priceHistory: marketData.priceHistory || {},
+          priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
           liquidity: marketData.liquidity || {},
           metadata: {
             backupDate: timestamp,
@@ -242,11 +243,12 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
     }
 
     const marketData = marketSnap.data();
+    const histSnap = await priceHistoryRef().get();
     const marketBackup = {
       timestamp,
       manual: true,
       prices: marketData.prices || {},
-      priceHistory: marketData.priceHistory || {},
+      priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
       liquidity: marketData.liquidity || {},
       metadata: {
         backupDate: timestamp,
@@ -359,12 +361,9 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
 
     console.log(`Backup loaded. Contains ${Object.keys(backupData.priceHistory || {}).length} tickers`);
 
-    // Restore price history to Firestore (keep current prices)
-    const marketRef = db.collection('market').doc('current');
-
-    await marketRef.update({
-      priceHistory: backupData.priceHistory
-    });
+    // Restore price history to Firestore (keep current prices).
+    // History lives in its own doc now.
+    await priceHistoryRef().set(backupData.priceHistory);
 
     console.log('✅ Price history restored successfully!');
 
@@ -398,15 +397,14 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
   }
 
   try {
-    const marketRef = db.collection('market').doc('current');
-    const marketDoc = await marketRef.get();
+    const histRef = priceHistoryRef();
+    const histDoc = await histRef.get();
 
-    if (!marketDoc.exists) {
-      throw new Error('Market document not found');
+    if (!histDoc.exists) {
+      throw new Error('Price history document not found');
     }
 
-    const data = marketDoc.data();
-    const priceHistory = data.priceHistory || {};
+    const priceHistory = histDoc.data() || {};
 
     let tickersFixed = 0;
     let tickersSkipped = 0;
@@ -433,7 +431,7 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
         });
 
         // Remove the first element
-        updates[`priceHistory.${ticker}`] = history.slice(1);
+        updates[ticker] = history.slice(1);
         tickersFixed++;
       } else {
         tickersSkipped++;
@@ -450,7 +448,7 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
     }
 
     // Apply updates
-    await marketRef.update(updates);
+    await histRef.update(updates);
 
     return {
       success: true,
@@ -493,12 +491,13 @@ exports.monthlyPermanentBackup = cf().pubsub
 
       if (marketSnap.exists) {
         const marketData = marketSnap.data();
+        const histSnap = await priceHistoryRef().get();
         const marketBackup = {
           timestamp,
           yearMonth,
           permanent: true,
           prices: marketData.prices || {},
-          priceHistory: marketData.priceHistory || {},
+          priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
           liquidity: marketData.liquidity || {},
           metadata: {
             backupDate: timestamp,

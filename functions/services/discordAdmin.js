@@ -9,7 +9,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
-const { writeNotification, sendDiscordMessage } = require('../helpers');
+const { writeNotification, sendDiscordMessage, priceHistoryRef } = require('../helpers');
 
 
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
@@ -30,7 +30,8 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   const marketSnap = await db.collection('market').doc('current').get();
   const marketData = marketSnap.data() || {};
   const currentPrice = (marketData.prices || {})[ticker] || 0;
-  const priceHistory = (marketData.priceHistory || {})[ticker] || [];
+  const histSnap = await priceHistoryRef().get();
+  const priceHistory = ((histSnap.data() || {})[ticker]) || [];
 
   // Find price closest to (but before) startTimestamp
   let priceAtStart = currentPrice;
@@ -259,7 +260,8 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   const currentPrice = (marketData.prices || {})[ticker] || 0;
 
   // Look up price at rollback timestamp from priceHistory
-  const fullHistory = ((marketData.priceHistory || {})[ticker] || []);
+  const rollbackHistSnap = await priceHistoryRef().get();
+  const fullHistory = ((rollbackHistSnap.data() || {})[ticker]) || [];
   let targetPrice = null;
   for (const entry of fullHistory) {
     const entryTs = entry.timestamp?._seconds
@@ -436,11 +438,11 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   // 2. Execute writes
   const batch = db.batch();
 
-  // Reset price and rewrite price history
+  // Reset price and rewrite price history (history lives in its own doc)
   batch.update(db.collection('market').doc('current'), {
-    [`prices.${ticker}`]: targetPrice,
-    [`priceHistory.${ticker}`]: newHistory
+    [`prices.${ticker}`]: targetPrice
   });
+  batch.set(priceHistoryRef(), { [ticker]: newHistory }, { merge: true });
 
   // Claw back cash from profiteers
   for (const cb of clawbacks) {

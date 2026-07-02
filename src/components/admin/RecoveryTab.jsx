@@ -61,6 +61,10 @@ const RecoveryTab = ({
   migratingPortfolioHistory,
   portfolioMigrationResult,
   handleMigratePortfolioHistory,
+  // Price history doc migration (chart data split)
+  migratingPriceHistory,
+  priceHistoryMigrationResult,
+  handleMigratePriceHistory,
   // Portfolio history reconstruction from trades
   reconstructingHistory,
   reconstructionResult,
@@ -363,6 +367,36 @@ const RecoveryTab = ({
         >
           {migratingPortfolioHistory ? 'Migrating... (may take a minute)' : portfolioMigrationResult ? 'Migration complete' : '📦 Run Portfolio History Migration'}
         </button>
+      </div>
+
+      {/* Price History Doc Migration (chart data split) */}
+      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-orange-700' : 'border-orange-300'}`}>
+        <h3 className={`font-semibold mb-2 text-orange-500`}>📈 Migrate Chart History to Its Own Document</h3>
+        <p className={`text-sm ${mutedClass} mb-3`}>
+          One-time, two steps. Step 1 copies all stock chart history into a separate document (nothing is deleted, safe to re-run).
+          Step 2 removes the old copy from the market document — it refuses to run unless every data point is verified in the new home first.
+        </p>
+        {priceHistoryMigrationResult && (
+          <p className="text-sm mb-3 font-semibold text-green-500">
+            {priceHistoryMigrationResult.message}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleMigratePriceHistory(false)}
+            disabled={migratingPriceHistory}
+            className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
+          >
+            {migratingPriceHistory ? 'Working...' : 'Step 1: Copy'}
+          </button>
+          <button
+            onClick={() => handleMigratePriceHistory(true)}
+            disabled={migratingPriceHistory}
+            className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-sm disabled:opacity-50"
+          >
+            {migratingPriceHistory ? 'Working...' : 'Step 2: Finalize (verified delete)'}
+          </button>
+        </div>
       </div>
 
       {/* Portfolio History Reconstruction */}

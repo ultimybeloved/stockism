@@ -15,7 +15,6 @@ import {
 import {
   doc,
   getDoc,
-  setDoc,
   updateDoc,
   onSnapshot,
   collection,
@@ -24,10 +23,6 @@ import {
   orderBy,
   limit,
   getDocs,
-  serverTimestamp,
-  arrayUnion,
-  runTransaction,
-  addDoc,
   deleteDoc,
   deleteField
 } from 'firebase/firestore';
@@ -748,10 +743,14 @@ export default function App() {
     }
   }, []);
 
-  // Listen to global market data
+  // Listen to global market data. Chart history lives in its own doc
+  // (market/priceHistory) and is fetched ONCE below — the live subscription
+  // only carries the small prices doc, so every price tick no longer pushes
+  // the full chart history for every stock to every player.
+  const prevPricesRef = useRef(null);
   useEffect(() => {
     const marketRef = doc(db, 'market', 'current');
-    
+
     const unsubscribe = onSnapshot(marketRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -766,33 +765,36 @@ export default function App() {
           }
         });
         setPrices(mergedPrices);
-        setPriceHistory(data.priceHistory || {});
         setMarketData(data);
         setLaunchedTickers(launched);
-      } else {
-        // Initialize market data if it doesn't exist
-        const initialPrices = {};
-        const initialHistory = {};
-        CHARACTERS.forEach(c => {
-          // Skip characters that require IPO - they'll be added when IPO launches
-          if (!c.ipoRequired) {
-            initialPrices[c.ticker] = c.basePrice;
-            initialHistory[c.ticker] = [{ timestamp: Date.now(), price: c.basePrice }];
+
+        // Extend local chart history from live ticks (the server appends the
+        // same points to market/priceHistory; these local ones just keep the
+        // charts moving without re-downloading history).
+        const prev = prevPricesRef.current;
+        if (prev) {
+          const ts = Date.now();
+          const changed = Object.entries(mergedPrices)
+            .filter(([t, p]) => prev[t] !== undefined && prev[t] !== p);
+          if (changed.length > 0) {
+            setPriceHistory(prevHist => {
+              const next = { ...prevHist };
+              changed.forEach(([t, p]) => {
+                next[t] = [...(next[t] || []), { timestamp: ts, price: p }].slice(-2000);
+              });
+              return next;
+            });
           }
+        }
+        prevPricesRef.current = mergedPrices;
+      } else {
+        // Market doc missing (fresh environment) — show base prices; the
+        // backend owns market initialization.
+        const initialPrices = {};
+        CHARACTERS.forEach(c => {
+          if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
         });
-
-        setDoc(marketRef, {
-          prices: initialPrices,
-          priceHistory: initialHistory,
-          launchedTickers: [], // Initialize empty launched tickers array
-          lastUpdate: serverTimestamp(),
-          totalTrades: 0
-        }, { merge: true }).catch(err => {
-          console.error('Failed to initialize market data:', err);
-        });
-
         setPrices(initialPrices);
-        setPriceHistory(initialHistory);
         setLaunchedTickers([]);
       }
     });
@@ -816,173 +818,30 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-add price history entries and run tiered pruning
+  // Fetch chart history once per session from its own doc. Live ticks keep it
+  // current locally (see the market subscription above); merging preserves any
+  // points that arrived before this fetch resolved.
   useEffect(() => {
-    if (!user || !ADMIN_UIDS.includes(user.uid)) return;
-
-    const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    const SEVEN_DAYS = 7 * ONE_DAY;
-    const ONE_YEAR = 365 * ONE_DAY;
-
-    // Prune history based on age tiers
-    const pruneHistoryTiers = (history, now) => {
-      if (!history || history.length === 0) return { mainDoc: [], archive: [] };
-
-      const tier1Cutoff = now - ONE_DAY;       // < 24h: keep all
-      const tier2Cutoff = now - SEVEN_DAYS;    // 24h-7d: 1 per hour
-      const tier3Cutoff = now - ONE_YEAR;      // 7d-1y: 1 per day (archive)
-      // > 1y: 1 per week (archive)
-
-      const tier1 = []; // < 24h - keep all
-      const tier2 = []; // 24h-7d - will prune to hourly
-      const tier3 = []; // 7d-1y - will prune to daily
-      const tier4 = []; // > 1y - will prune to weekly
-
-      // Sort into tiers
-      for (const point of history) {
-        if (point.timestamp >= tier1Cutoff) {
-          tier1.push(point);
-        } else if (point.timestamp >= tier2Cutoff) {
-          tier2.push(point);
-        } else if (point.timestamp >= tier3Cutoff) {
-          tier3.push(point);
-        } else {
-          tier4.push(point);
-        }
-      }
-
-      // Prune tier 2 to 1 point per hour
-      const prunedTier2 = [];
-      const seenHours2 = new Set();
-      for (const point of tier2.sort((a, b) => b.timestamp - a.timestamp)) {
-        const hourKey = Math.floor(point.timestamp / (60 * 60 * 1000));
-        if (!seenHours2.has(hourKey)) {
-          seenHours2.add(hourKey);
-          prunedTier2.push(point);
-        }
-      }
-
-      // Prune tier 3 to 1 point per day (daily close - last point of each day)
-      const prunedTier3 = [];
-      const seenDays3 = new Set();
-      for (const point of tier3.sort((a, b) => b.timestamp - a.timestamp)) {
-        const dayKey = Math.floor(point.timestamp / ONE_DAY);
-        if (!seenDays3.has(dayKey)) {
-          seenDays3.add(dayKey);
-          prunedTier3.push(point);
-        }
-      }
-
-      // Prune tier 4 to 1 point per week
-      const prunedTier4 = [];
-      const seenWeeks4 = new Set();
-      const ONE_WEEK = 7 * ONE_DAY;
-      for (const point of tier4.sort((a, b) => b.timestamp - a.timestamp)) {
-        const weekKey = Math.floor(point.timestamp / ONE_WEEK);
-        if (!seenWeeks4.has(weekKey)) {
-          seenWeeks4.add(weekKey);
-          prunedTier4.push(point);
-        }
-      }
-
-      // Main doc: tier 1 + pruned tier 2 (last 7 days)
-      const mainDoc = [...prunedTier2, ...tier1].sort((a, b) => a.timestamp - b.timestamp);
-
-      // Archive: pruned tier 3 + pruned tier 4 (older than 7 days)
-      const archive = [...prunedTier4, ...prunedTier3].sort((a, b) => a.timestamp - b.timestamp);
-
-      return { mainDoc, archive };
-    };
-
-    const checkAndUpdatePriceHistory = async () => {
-      const marketRef = doc(db, 'market', 'current');
-      const now = Date.now();
-
-      // First, fetch all archive data outside the transaction
-      const archiveData = {};
-      for (const character of CHARACTERS) {
-        const ticker = character.ticker;
-        const archiveRef = doc(db, 'market', 'current', 'price_history', ticker);
-        const archiveSnap = await getDoc(archiveRef);
-        archiveData[ticker] = archiveSnap.exists() ? (archiveSnap.data().history || []) : [];
-      }
-
-      let archiveUpdates = [];
-
-      // Use transaction to prevent race conditions with trade updates
-      await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(marketRef);
-
-        if (!snap.exists()) return;
-
-        const data = snap.data();
-        const currentPrices = data.prices || {};
-        const currentHistory = data.priceHistory || {};
-
-        const mainDocUpdates = {};
-
-        for (const character of CHARACTERS) {
-          const ticker = character.ticker;
-          const currentPrice = currentPrices[ticker] || character.basePrice;
-          let history = [...(currentHistory[ticker] || [])];
-
-          // Check if we need to add a new 12-hour entry
-          const lastEntry = history[history.length - 1];
-          const lastTimestamp = lastEntry?.timestamp || 0;
-          const needsNewEntry = now - lastTimestamp >= TWELVE_HOURS;
-
-          if (needsNewEntry) {
-            history.push({ timestamp: now, price: currentPrice });
-          }
-
-          // Combine main doc history with archive for full pruning
-          const existingArchive = archiveData[ticker] || [];
-          const fullHistory = [...existingArchive, ...history];
-
-          // Run tiered pruning
-          const { mainDoc, archive } = pruneHistoryTiers(fullHistory, now);
-
-          // Only update if something changed
-          const historyChanged = needsNewEntry ||
-            mainDoc.length !== (currentHistory[ticker] || []).length ||
-            archive.length !== existingArchive.length;
-
-          if (historyChanged) {
-            mainDocUpdates[`priceHistory.${ticker}`] = mainDoc;
-
-            if (archive.length > 0 || existingArchive.length > 0) {
-              archiveUpdates.push({ ticker, history: archive });
-            }
-          }
-        }
-
-        // Update main document within transaction
-        if (Object.keys(mainDocUpdates).length > 0) {
-          transaction.update(marketRef, mainDocUpdates);
-          console.log(`Updating price history for ${Object.keys(mainDocUpdates).length} characters`);
-        }
-      });
-
-      // Update archive sub-collection documents (after transaction completes)
-      for (const { ticker, history } of archiveUpdates) {
-        const archiveRef = doc(db, 'market', 'current', 'price_history', ticker);
-        await setDoc(archiveRef, { history, lastUpdated: now }, { merge: true });
-      }
-
-      if (archiveUpdates.length > 0) {
-        console.log(`Archived history for ${archiveUpdates.length} characters`);
-      }
-    };
-
-    // Run immediately on mount
-    checkAndUpdatePriceHistory();
-
-    // Then check every hour (will only update if 12h passed for new entries, but prunes on each run)
-    const interval = setInterval(checkAndUpdatePriceHistory, 60 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [user]);
+    let cancelled = false;
+    getDoc(doc(db, 'market', 'priceHistory'))
+      .then(snap => {
+        if (cancelled || !snap.exists()) return;
+        const fetched = snap.data() || {};
+        setPriceHistory(prevLocal => {
+          const merged = {};
+          const tickers = new Set([...Object.keys(fetched), ...Object.keys(prevLocal)]);
+          tickers.forEach(t => {
+            const base = Array.isArray(fetched[t]) ? fetched[t] : [];
+            const seen = new Set(base.map(p => p.timestamp));
+            const extra = (prevLocal[t] || []).filter(p => !seen.has(p.timestamp));
+            merged[t] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
+          });
+          return merged;
+        });
+      })
+      .catch(err => console.error('Failed to load price history:', err));
+    return () => { cancelled = true; };
+  }, []);
 
   // Listen to IPO data
   useEffect(() => {

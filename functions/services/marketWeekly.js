@@ -6,7 +6,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, priceHistoryRef } = require('../helpers');
 
 
 exports.weeklyMarketSummary = cf().pubsub
@@ -21,7 +21,8 @@ exports.weeklyMarketSummary = cf().pubsub
 
       const marketData = marketSnap.data();
       const prices = marketData.prices || {};
-      const priceHistory = marketData.priceHistory || {};
+      const histSnap = await priceHistoryRef().get();
+      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
 
       // Get all users
       const usersSnap = await db.collection('users').get();
