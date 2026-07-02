@@ -333,10 +333,28 @@ exports.checkLimitOrders = cf().pubsub
 
           try {
             await db.runTransaction(async (transaction) => {
-              fillShares = remainingShares;  // Reset on every retry
               executedPrice = 0;
+              const orderRef = db.collection('limitOrders').doc(orderId);
+              const freshOrderSnap = await transaction.get(orderRef);
               const userSnap = await transaction.get(userRef);
               const freshMarketSnap = await transaction.get(marketRef);
+
+              // Re-read the order inside the transaction: the client cancels by
+              // writing the doc directly, and a blind FILLED write here would
+              // otherwise overwrite that cancel (or double-fill on overlapping
+              // runs) and execute a trade the user no longer wants.
+              if (!freshOrderSnap.exists) {
+                throw new Error('Order no longer exists');
+              }
+              const freshOrder = freshOrderSnap.data();
+              if (!['PENDING', 'PARTIALLY_FILLED'].includes(freshOrder.status)) {
+                throw new Error('Order no longer active');
+              }
+              const freshFilled = freshOrder.filledShares || 0;
+              fillShares = totalShares - freshFilled;  // Reset on every retry
+              if (fillShares <= 0) {
+                throw new Error('Order no longer active');
+              }
 
               if (!userSnap.exists) {
                 throw new Error('User not found');
@@ -549,9 +567,9 @@ exports.checkLimitOrders = cf().pubsub
               // Mark the order filled inside the same transaction as the balance
               // change, so a crash here can't leave it PENDING and double-fill it
               // on the next 2-minute cycle.
-              const newFilledTotal = alreadyFilled + fillShares;
+              const newFilledTotal = freshFilled + fillShares;
               const isPartialFill = order.allowPartialFills && newFilledTotal < totalShares;
-              transaction.update(db.collection('limitOrders').doc(orderId), {
+              transaction.update(orderRef, {
                 status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
                 filledShares: newFilledTotal,
                 executedPrice: executedPrice,
@@ -575,6 +593,15 @@ exports.checkLimitOrders = cf().pubsub
                 status: 'CANCELED',
                 cancelReason: msg,
                 updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              // Tell the user — a silently vanished stop loss leaves them
+              // thinking they're still protected.
+              const canceledLabel = order.type === 'STOP_LOSS' ? 'Stop Loss' : `${order.type} Limit Order`;
+              await writeNotification(order.userId, {
+                type: 'trade',
+                title: `${canceledLabel} Canceled`,
+                message: `Your ${canceledLabel.toLowerCase()} for ${order.shares} $${order.ticker} was canceled: ${msg}`,
+                data: { ticker: order.ticker, orderId }
               });
               canceled++;
             } else {

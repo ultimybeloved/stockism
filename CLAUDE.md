@@ -235,10 +235,7 @@ Quick reference so you know where to look and where to add things.
 |---|---|
 | `src/App.jsx` | Router, top-level subscriptions, modal rendering — nothing else |
 | `src/context/AppContext.jsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
-| `src/hooks/useAuth.js` | Firebase auth state |
-| `src/hooks/useMarket.js` | Market/price subscriptions |
 | `src/hooks/useModalManager.js` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
-| `src/hooks/useNotifications.js` | Notification bell state |
 | `src/hooks/useTradeManagement.js` | handleTrade — trade execution, retry logic, achievement checks |
 | `src/hooks/useMissionManagement.js` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
 | `src/hooks/useMarginManagement.js` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
