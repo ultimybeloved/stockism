@@ -636,35 +636,33 @@ exports.checkPriceAlerts = cf().pubsub
       if (!marketSnap.exists) return null;
       const prices = marketSnap.data().prices || {};
 
-      const usersSnap = await db.collection('users').get();
+      // Collection-group query reads only the untriggered alert docs
+      // themselves, instead of scanning every user doc plus one subcollection
+      // query per user on every run.
+      const alertsSnap = await db.collectionGroup('priceAlerts')
+        .where('triggered', '==', false)
+        .get();
       let triggered = 0;
 
-      for (const userDoc of usersSnap.docs) {
-        const alertsSnap = await userDoc.ref.collection('priceAlerts')
-          .where('triggered', '==', false)
-          .get();
+      for (const alertDoc of alertsSnap.docs) {
+        const alert = alertDoc.data();
+        const currentPrice = prices[alert.ticker];
+        if (!currentPrice) continue;
 
-        if (alertsSnap.empty) continue;
+        let shouldTrigger = false;
+        if (alert.direction === 'above' && currentPrice >= alert.targetPrice) shouldTrigger = true;
+        if (alert.direction === 'below' && currentPrice <= alert.targetPrice) shouldTrigger = true;
 
-        for (const alertDoc of alertsSnap.docs) {
-          const alert = alertDoc.data();
-          const currentPrice = prices[alert.ticker];
-          if (!currentPrice) continue;
-
-          let shouldTrigger = false;
-          if (alert.direction === 'above' && currentPrice >= alert.targetPrice) shouldTrigger = true;
-          if (alert.direction === 'below' && currentPrice <= alert.targetPrice) shouldTrigger = true;
-
-          if (shouldTrigger) {
-            await alertDoc.ref.update({ triggered: true });
-            await writeNotification(userDoc.id, {
-              type: 'alert',
-              title: `Price Alert: $${alert.ticker}`,
-              message: `$${alert.ticker} is now $${currentPrice.toFixed(2)} (${alert.direction === 'above' ? 'above' : 'below'} your target of $${alert.targetPrice.toFixed(2)})`,
-              data: { ticker: alert.ticker, price: currentPrice }
-            });
-            triggered++;
-          }
+        if (shouldTrigger) {
+          const uid = alertDoc.ref.parent.parent.id;
+          await alertDoc.ref.update({ triggered: true });
+          await writeNotification(uid, {
+            type: 'alert',
+            title: `Price Alert: $${alert.ticker}`,
+            message: `$${alert.ticker} is now $${currentPrice.toFixed(2)} (${alert.direction === 'above' ? 'above' : 'below'} your target of $${alert.targetPrice.toFixed(2)})`,
+            data: { ticker: alert.ticker, price: currentPrice }
+          });
+          triggered++;
         }
       }
 

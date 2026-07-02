@@ -112,6 +112,7 @@ import {
   MIN_PRICE,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+  PORTFOLIO_SYNC_MIN_INTERVAL_MS,
 } from './constants';
 import {
   getCurrentPrice,
@@ -1222,12 +1223,17 @@ export default function App() {
 
 
   // Sync portfolio value, history, and achievements via Cloud Function
-  // (these fields are blocked from client-side writes by security rules)
-  // Debounced to avoid firing on every price tick
+  // (these fields are blocked from client-side writes by security rules).
+  // Debounced, with a minimum interval: the sync's own write updates userData,
+  // which re-arms this effect — without the floor every active client would
+  // call the backend roughly every 30 seconds for the whole session.
+  const lastPortfolioSyncRef = useRef(0);
   useEffect(() => {
     if (!user || !userData || Object.keys(prices).length === 0) return;
 
     const timeout = setTimeout(async () => {
+      if (Date.now() - lastPortfolioSyncRef.current < PORTFOLIO_SYNC_MIN_INTERVAL_MS) return;
+      lastPortfolioSyncRef.current = Date.now();
       try {
         await syncPortfolioFunction();
       } catch (error) {
