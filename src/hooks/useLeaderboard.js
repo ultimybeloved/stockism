@@ -6,7 +6,9 @@ import { LEADERBOARD_DOC_FRESH_MS } from '../constants';
 // Session cache shared by the leaderboard page and the ladder modal, so
 // switching between them (or re-visiting) within the freshness window costs
 // zero reads. Module-level: survives unmounts, cleared on page reload.
-const sessionCache = {}; // key -> { leaders, callerRank, fetchedAt }
+// callerRank is tagged with the uid it was computed for, so switching
+// accounts mid-session can never show the previous account's rank.
+const sessionCache = {}; // key -> { leaders, callerRank, callerRankUid, fetchedAt }
 
 // Must mirror the backend cacheKey in functions/services/leaderboard.js
 const docKey = (sortBy, crew) =>
@@ -50,7 +52,10 @@ export function useLeaderboard(sortBy, crewFilter, user) {
         .then(res => {
           if (cancelled) return;
           setUserRank(res.data.callerRank ?? null);
-          if (sessionCache[key]) sessionCache[key].callerRank = res.data.callerRank ?? null;
+          if (sessionCache[key]) {
+            sessionCache[key].callerRank = res.data.callerRank ?? null;
+            sessionCache[key].callerRankUid = user.uid;
+          }
         })
         .catch(() => { /* rank stays blank; list is already on screen */ });
     };
@@ -59,10 +64,11 @@ export function useLeaderboard(sortBy, crewFilter, user) {
       // Layer 0: session cache — no reads at all
       const s = sessionCache[key];
       if (s && Date.now() - s.fetchedAt < LEADERBOARD_DOC_FRESH_MS) {
+        const cachedRank = user && s.callerRankUid === user.uid ? s.callerRank : null;
         setLeaders(s.leaders);
-        setUserRank(rankFromList(s.leaders) ?? s.callerRank ?? null);
+        setUserRank(rankFromList(s.leaders) ?? cachedRank);
         setLoading(false);
-        if (s.callerRank == null) fetchRankInBackground(s.leaders);
+        if (cachedRank == null) fetchRankInBackground(s.leaders);
         return;
       }
 
@@ -77,7 +83,7 @@ export function useLeaderboard(sortBy, crewFilter, user) {
           setLeaders(leaderData);
           setUserRank(rankFromList(leaderData));
           setLoading(false);
-          sessionCache[key] = { leaders: leaderData, callerRank: null, fetchedAt: Date.now() };
+          sessionCache[key] = { leaders: leaderData, callerRank: null, callerRankUid: null, fetchedAt: Date.now() };
           fetchRankInBackground(leaderData);
           return;
         }
@@ -93,6 +99,7 @@ export function useLeaderboard(sortBy, crewFilter, user) {
         sessionCache[key] = {
           leaders: leaderData,
           callerRank: result.data.callerRank ?? null,
+          callerRankUid: user ? user.uid : null,
           fetchedAt: Date.now(),
         };
       } catch (err) {

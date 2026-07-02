@@ -188,14 +188,6 @@ const saveCollapsedState = (key, collapsed, identifier) => {
 // IPO ACTIVE CARD → moved to src/components/IPOActiveCard.jsx
 // ============================================
 
-// ============================================
-// LEADERBOARD MODAL
-// ============================================
-
-// LeaderboardModal - now imported from components/modals/
-
-
-
 const inputClass = 'bg-zinc-950 border-zinc-700 text-zinc-100';
 
 // ============================================

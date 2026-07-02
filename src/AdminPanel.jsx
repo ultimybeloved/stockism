@@ -7,7 +7,6 @@ import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './fi
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
 import { ACHIEVEMENTS } from './constants/achievements';
-import { initializeMarket } from './services/market';
 import IpoTab from './components/admin/IpoTab';
 import PredictionsTab from './components/admin/PredictionsTab';
 import HoldersTab from './components/admin/HoldersTab';

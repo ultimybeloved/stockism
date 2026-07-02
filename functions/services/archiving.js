@@ -170,7 +170,7 @@ exports.syncAllPortfolios = cf().pubsub
 
       let syncedCount = 0;
       let errorCount = 0;
-      const batch = db.batch();
+      let batch = db.batch();
       let batchCount = 0;
 
       for (const userDoc of usersSnapshot.docs) {
@@ -237,10 +237,12 @@ exports.syncAllPortfolios = cf().pubsub
             batchCount++;
             syncedCount++;
 
-            // Commit batch every 500 operations (Firestore limit)
+            // Commit batch every 500 operations (Firestore limit). A committed
+            // WriteBatch can't be reused — start a fresh one.
             if (batchCount >= 500) {
               await batch.commit();
               console.log(`Committed batch of ${batchCount} updates`);
+              batch = db.batch();
               batchCount = 0;
             }
           }
