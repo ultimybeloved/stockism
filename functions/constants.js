@@ -98,7 +98,7 @@ const TICKER_COOLDOWN_MS = 10000;      // 10 seconds
 // upgrade for everyone. Keep in sync with src/constants/economy.js.
 const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
 const SHORT_MARGIN_RATIO = 1.0; // 100% collateral — deposit dollar-for-dollar
-const LEADERBOARD_CACHE_TTL = 60000; // 60 seconds
+const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 min — freshness window for the in-memory cache AND the shared leaderboard/{key} doc (keep in sync with LEADERBOARD_DOC_FRESH_MS in src/constants/economy.js)
 
 // ============================================
 // MARGIN

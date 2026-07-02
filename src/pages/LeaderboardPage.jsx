@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getLeaderboardFunction } from '../firebase';
 import { useAppContext } from '../context/AppContext';
+import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREWS, CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
@@ -10,58 +10,12 @@ import { getThemeClasses } from '../utils/theme';
 
 const LeaderboardPage = () => {
   const { darkMode, user, userData } = useAppContext();
-  const [leaders, setLeaders] = useState([]);
-  const [crewLeaders, setCrewLeaders] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('value');
-  const [userRank, setUserRank] = useState(null);
+  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user);
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
-  const crewCache = useRef({});
-
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      const cacheKey = sortBy === 'weeklyGain' ? `gain_${crewFilter}` : crewFilter === 'ALL' ? 'ALL' : crewFilter;
-      if (crewCache.current[cacheKey]) {
-        const cached = crewCache.current[cacheKey];
-        if (crewFilter === 'ALL') {
-          setLeaders(cached.leaders);
-        } else {
-          setCrewLeaders(cached.leaders);
-        }
-        setUserRank(cached.callerRank);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params = { sortBy };
-        if (crewFilter !== 'ALL') params.crew = crewFilter;
-        const result = await getLeaderboardFunction(params);
-        const leaderData = result.data.leaderboard.map((user, index) => ({
-          rank: index + 1,
-          crewRank: index + 1,
-          ...user,
-          id: user.userId
-        }));
-        if (crewFilter === 'ALL') {
-          setLeaders(leaderData);
-          setCrewLeaders([]);
-        } else {
-          setCrewLeaders(leaderData);
-        }
-        setUserRank(result.data.callerRank);
-        crewCache.current[cacheKey] = { leaders: leaderData, callerRank: result.data.callerRank };
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      }
-      setLoading(false);
-    };
-    fetchLeaderboard();
-  }, [sortBy, crewFilter]);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -78,11 +32,6 @@ const LeaderboardPage = () => {
     if (rank === 3) return '🥉';
     return `#${rank}`;
   };
-
-  const filteredLeaders = useMemo(() => {
-    if (crewFilter === 'ALL') return leaders;
-    return crewLeaders;
-  }, [leaders, crewLeaders, crewFilter]);
 
   const userInList = useMemo(
     () => filteredLeaders.some(leader => user && leader.id === user.uid),
@@ -167,7 +116,7 @@ const LeaderboardPage = () => {
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
             <button
-              onClick={() => { setSortBy('value'); crewCache.current = {}; }}
+              onClick={() => setSortBy('value')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortBy === 'value'
                   ? 'bg-orange-600 text-white'
@@ -177,7 +126,7 @@ const LeaderboardPage = () => {
               Net Worth
             </button>
             <button
-              onClick={() => { setSortBy('weeklyGain'); crewCache.current = {}; }}
+              onClick={() => setSortBy('weeklyGain')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortBy === 'weeklyGain'
                   ? 'bg-emerald-600 text-white'

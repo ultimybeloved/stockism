@@ -10,25 +10,59 @@ const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, PUBL
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
 
+// Fields the leaderboard actually displays — projected with .select() so we
+// never pull heavy unused maps (holdings is needed for holdingsCount).
+const LEADERBOARD_FIELDS = [
+  'displayName', 'portfolioValue', 'crew', 'isCrewHead', 'crewHeadColor',
+  'holdings', 'displayCrewPin', 'displayedAchievementPins', 'achievements',
+  'displayedShopPins', 'previousDisplayName', 'nameChangedAt',
+  'activeCosmetics', 'isPublic', 'isBot', 'portfolioSnapshot7d',
+];
+
+// Caller's rank via count aggregations (~1 read per 1000 counted) instead of
+// reading one doc per higher-ranked user. Bots are subtracted with a second
+// count so ranks match the bot-free leaderboard.
+const countRankAbove = async (value, crew) => {
+  let above = db.collection('users').where('portfolioValue', '>', value);
+  let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', value);
+  if (crew) {
+    above = above.where('crew', '==', crew);
+    botsAbove = botsAbove.where('crew', '==', crew);
+  }
+  const [aboveSnap, botsSnap] = await Promise.all([above.count().get(), botsAbove.count().get()]);
+  return Math.max(0, aboveSnap.data().count - botsSnap.data().count) + 1;
+};
+
 exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
   try {
     const { crew, sortBy = 'value' } = data || {};
     const cacheKey = crew ? (sortBy === 'weeklyGain' ? `weeklyGain_${crew}` : crew) : (sortBy === 'weeklyGain' ? 'weeklyGain' : 'global');
+    const docRef = db.collection('leaderboard').doc(cacheKey);
 
-    // Check server-side cache
+    // Layer 1: in-memory cache (this warm instance). Layer 2: the shared
+    // Firestore doc — written on every recompute so clients (and other
+    // instances) can read the same result directly without recomputing.
     let leaderboard;
     const cached = leaderboardCache[cacheKey];
     if (cached && (Date.now() - cached.timestamp) < LEADERBOARD_CACHE_TTL) {
       leaderboard = cached.data;
-    } else {
+    }
+    if (!leaderboard) {
+      const docSnap = await docRef.get();
+      if (docSnap.exists && (Date.now() - (docSnap.data().generatedAt || 0)) < LEADERBOARD_CACHE_TTL) {
+        leaderboard = docSnap.data().entries || [];
+        leaderboardCache[cacheKey] = { data: leaderboard, timestamp: docSnap.data().generatedAt };
+      }
+    }
+    if (!leaderboard) {
       if (sortBy === 'weeklyGain') {
         let query = db.collection('users');
         if (crew) {
           query = query.where('crew', '==', crew);
         }
         // Get a reasonable set to calculate gains from
-        query = query.orderBy('portfolioValue', 'desc').limit(200);
+        query = query.orderBy('portfolioValue', 'desc').limit(200).select(...LEADERBOARD_FIELDS);
 
         const snapshot = await query.get();
         const twoWeeksAgo = Date.now() - FOURTEEN_DAYS_MS;
@@ -82,7 +116,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
           query = query.where('crew', '==', crew);
         }
 
-        query = query.orderBy('portfolioValue', 'desc').limit(100);
+        query = query.orderBy('portfolioValue', 'desc').limit(100).select(...LEADERBOARD_FIELDS);
 
         const snapshot = await query.get();
 
@@ -122,8 +156,15 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         });
       }
 
-      // Cache the result
-      leaderboardCache[cacheKey] = { data: leaderboard, timestamp: Date.now() };
+      // Cache in memory and publish to the shared Firestore doc so every
+      // other instance — and every client — can serve this without recomputing
+      const now = Date.now();
+      leaderboardCache[cacheKey] = { data: leaderboard, timestamp: now };
+      try {
+        await docRef.set({ entries: leaderboard, generatedAt: now, key: cacheKey });
+      } catch (e) {
+        console.error('leaderboard doc publish failed:', e.message);
+      }
     }
 
     // Find caller's rank if authenticated (always per-request)
@@ -133,19 +174,12 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
       } else if (sortBy !== 'weeklyGain') {
-        // Caller is outside top 50 — count how many non-bot users have a higher portfolioValue
+        // Caller is outside top 50 — count aggregation instead of reading one
+        // doc per higher-ranked user (that scaled with the caller's rank)
         try {
           const callerDoc = await db.collection('users').doc(context.auth.uid).select('isBot', 'portfolioValue').get();
-          if (callerDoc.exists) {
-            const callerData = callerDoc.data();
-            if (!callerData.isBot) {
-              const callerValue = callerData.portfolioValue || 0;
-              let rankQuery = db.collection('users').where('portfolioValue', '>', callerValue).select('isBot');
-              if (crew) rankQuery = rankQuery.where('crew', '==', crew);
-              const higherSnapshot = await rankQuery.get();
-              const higherCount = higherSnapshot.docs.filter(d => !d.data().isBot).length;
-              callerRank = higherCount + 1;
-            }
+          if (callerDoc.exists && !callerDoc.data().isBot) {
+            callerRank = await countRankAbove(callerDoc.data().portfolioValue || 0, crew);
           }
         } catch (e) {
           // Leave callerRank null if lookup fails
@@ -205,13 +239,10 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
   const marketSnap = await db.collection('market').doc('current').get();
   const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
 
-  // Compute global rank
+  // Compute global rank (count aggregation — cheap regardless of rank)
   let rank = null;
   try {
-    const rankQuery = db.collection('users').where('portfolioValue', '>', userData.portfolioValue || 0).select('isBot');
-    const higherSnap = await rankQuery.get();
-    const higherCount = higherSnap.docs.filter(d => !d.data().isBot).length;
-    rank = higherCount + 1;
+    rank = await countRankAbove(userData.portfolioValue || 0, null);
   } catch (e) { /* leave null */ }
 
   // Holdings tickers only (no share counts exposed), sorted by share count for top holdings
@@ -221,17 +252,11 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     .sort((a, b) => (holdingsRaw[b] || 0) - (holdingsRaw[a] || 0))
     .slice(0, 5);
 
-  // Crew rank
+  // Crew rank (count aggregation)
   let crewRank = null;
   if (userData.crew) {
     try {
-      const crewSnap = await db.collection('users')
-        .where('crew', '==', userData.crew)
-        .where('portfolioValue', '>', userData.portfolioValue || 0)
-        .select('isBot')
-        .get();
-      const higherCrewCount = crewSnap.docs.filter(d => !d.data().isBot).length;
-      crewRank = higherCrewCount + 1;
+      crewRank = await countRankAbove(userData.portfolioValue || 0, userData.crew);
     } catch (e) { /* leave null */ }
   }
 

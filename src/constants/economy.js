@@ -8,6 +8,7 @@ export const STARTING_CASH = 3000;
 export const UNVERIFIED_STARTING_CASH = 1000; // before Discord verification (anti-alt) — keep in sync with functions/constants.js
 export const BAILOUT_CASH = 1500; // cash granted by a bankruptcy bailout — keep in sync with functions/constants.js
 export const PORTFOLIO_SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000; // floor between passive syncPortfolio calls (backend cost control)
+export const LEADERBOARD_DOC_FRESH_MS = 5 * 60 * 1000; // how long a precomputed leaderboard/{key} doc counts as fresh — keep in sync with LEADERBOARD_CACHE_TTL in functions/constants.js
 export const DAILY_BONUS = 300;
 // Daily check-in streak rewards. Index 0 = day 1; reward escalates with the
 // consecutive-day streak, then caps at the last value. Keep in sync with

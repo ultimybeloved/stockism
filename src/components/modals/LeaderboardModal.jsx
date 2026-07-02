@@ -1,66 +1,19 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CREWS, CREW_MAP } from '../../crews';
 import PinDisplay from '../common/PinDisplay';
-import { getLeaderboardFunction } from '../../firebase';
+import { useLeaderboard } from '../../hooks/useLeaderboard';
 import { formatCurrency } from '../../utils/formatters';
 import { getCosmeticStyles } from '../../utils/cosmetics';
 import { getThemeClasses } from '../../utils/theme';
 
 const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, currentUserData }) => {
-  const [leaders, setLeaders] = useState([]);
-  const [crewLeaders, setCrewLeaders] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [crewFilter, setCrewFilter] = useState('ALL');
-  const [userRank, setUserRank] = useState(null);
+  const [sortBy, setSortBy] = useState('value');
+  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, currentUser);
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
-  const crewCache = useRef({});
-  const [sortBy, setSortBy] = useState('value');
-
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      const cacheKey = sortBy === 'weeklyGain' ? `gain_${crewFilter}` : crewFilter === 'ALL' ? 'ALL' : crewFilter;
-      if (crewCache.current[cacheKey]) {
-        const cached = crewCache.current[cacheKey];
-        if (crewFilter === 'ALL') {
-          setLeaders(cached.leaders);
-          setCrewLeaders([]);
-        } else {
-          setCrewLeaders(cached.leaders);
-        }
-        setUserRank(cached.callerRank);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params = { sortBy };
-        if (crewFilter !== 'ALL') params.crew = crewFilter;
-        const result = await getLeaderboardFunction(params);
-        const leaderData = result.data.leaderboard.map((user, index) => ({
-          rank: index + 1,
-          crewRank: index + 1,
-          ...user,
-          id: user.userId
-        }));
-        if (crewFilter === 'ALL') {
-          setLeaders(leaderData);
-          setCrewLeaders([]);
-        } else {
-          setCrewLeaders(leaderData);
-        }
-        setUserRank(result.data.callerRank);
-        crewCache.current[cacheKey] = { leaders: leaderData, callerRank: result.data.callerRank };
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      }
-      setLoading(false);
-    };
-    fetchLeaderboard();
-  }, [sortBy, crewFilter]);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -77,12 +30,6 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
     if (rank === 3) return '🥉';
     return `#${rank}`;
   };
-
-  // Use crew-specific leaderboard when filtering, otherwise use main leaderboard
-  const filteredLeaders = useMemo(() => {
-    if (crewFilter === 'ALL') return leaders;
-    return crewLeaders;
-  }, [leaders, crewLeaders, crewFilter]);
 
   const userInList = useMemo(
     () => filteredLeaders.some(leader => currentUser && leader.id === currentUser.uid),
@@ -178,7 +125,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
             <button
-              onClick={() => { setSortBy('value'); crewCache.current = {}; }}
+              onClick={() => setSortBy('value')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortBy === 'value'
                   ? 'bg-orange-600 text-white'
@@ -188,7 +135,7 @@ const LeaderboardModal = ({ onClose, darkMode, currentUserCrew, currentUser, cur
               Net Worth
             </button>
             <button
-              onClick={() => { setSortBy('weeklyGain'); crewCache.current = {}; }}
+              onClick={() => setSortBy('weeklyGain')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortBy === 'weeklyGain'
                   ? 'bg-emerald-600 text-white'

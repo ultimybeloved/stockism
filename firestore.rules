@@ -123,6 +123,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // LEADERBOARD SNAPSHOTS
+    // ============================================
+    // Precomputed top-50 docs written by the getLeaderboard function (Admin
+    // SDK). Public read so clients render instantly without a function call.
+    match /leaderboard/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ============================================
     // DIVIDEND CONFIG
     // ============================================
     // Public read so the client can show tier badges. Admin-only writes
