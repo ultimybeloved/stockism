@@ -204,11 +204,17 @@ export const CHARACTERS = [
   { name: "Minsik Choi", ticker: "MNSK", basePrice: 10, volatility: 0.04, dateAdded: "2026-06-04T00:02:00" },
   { name: "Yuri Park", ticker: "AUNT", basePrice: 10, volatility: 0.04, dateAdded: "2026-06-04T00:03:00" },
 
+  // New characters added 2026-07-02
+  { name: "Takeshi Saejima", ticker: "IJA", basePrice: 12.5, volatility: 0.04, dateAdded: "2026-07-02T00:00:00" },
+  { name: "Kenji Gonda", ticker: "KMSH", basePrice: 12.5, volatility: 0.04, dateAdded: "2026-07-02T00:01:00" },
+  { name: "Reiji Madarame", ticker: "SUMO", basePrice: 12.5, volatility: 0.04, dateAdded: "2026-07-02T00:02:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, volatility: 0.04, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, volatility: 0.04, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
   { name: "Bangho Lee", ticker: "MONO", basePrice: 80, volatility: 0.04, dateAdded: "2026-06-04T00:04:00", ipoRequired: true },
   { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, volatility: 0.04, dateAdded: "2026-06-25T00:00:00", ipoRequired: true },
+  { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, volatility: 0.04, dateAdded: "2026-07-02T00:03:00", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -299,12 +305,14 @@ export const CHARACTERS = [
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, volatility: 0.025, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO"],
     trailingFactors: [
-      { ticker: "GUN", coefficient: 0.114 }, { ticker: "SHNG", coefficient: 0.114 },
-      { ticker: "SHRO", coefficient: 0.114 }, { ticker: "SHKO", coefficient: 0.114 },
-      { ticker: "HIKO", coefficient: 0.114 }, { ticker: "SOMI", coefficient: 0.114 },
-      { ticker: "YADV", coefficient: 0.114 }
+      { ticker: "GUN", coefficient: 0.073 }, { ticker: "SHNG", coefficient: 0.073 },
+      { ticker: "SHRO", coefficient: 0.073 }, { ticker: "SHKO", coefficient: 0.073 },
+      { ticker: "HIKO", coefficient: 0.073 }, { ticker: "SOMI", coefficient: 0.073 },
+      { ticker: "YADV", coefficient: 0.073 }, { ticker: "REI", coefficient: 0.073 },
+      { ticker: "IJA", coefficient: 0.073 }, { ticker: "KMSH", coefficient: 0.073 },
+      { ticker: "SUMO", coefficient: 0.073 }
     ]
   },
   {
