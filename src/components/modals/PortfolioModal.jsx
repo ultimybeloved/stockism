@@ -16,9 +16,10 @@ import { useDustCleanup } from '../../hooks/useDustCleanup';
 import { usePortfolioChartData } from '../portfolio/usePortfolioChartData';
 import { usePortfolioModalData } from '../portfolio/usePortfolioModalData';
 import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
+import { isWeeklyHalt } from '../../utils/marketHours';
 
 const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
-  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, activeIPOs = [], showNotification } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs = [], showNotification } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
@@ -318,7 +319,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
 
                   {positionTab === 'long' ? (
                     <>
-                    {dustItems.length > 0 && (
+                    {dustItems.length > 0 && !isWeeklyHalt() && !marketData?.marketHalted && (
                       <DustCleanupBanner count={dustItems.length} total={dustTotal} sweeping={sweeping} onConfirm={handleSweep} darkMode={darkMode} />
                     )}
                     {portfolioItems.length === 0 ? (

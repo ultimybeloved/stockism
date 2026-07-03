@@ -100,9 +100,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [diagnosisIds, setDiagnosisIds] = useState('');
   const [diagnosing, setDiagnosing] = useState(false);
 
-  // Price history cleanup state
-  const [futureEntries, setFutureEntries] = useState([]);
-
   // Backup restore state
   const [backups, setBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
@@ -2320,8 +2317,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       
       const suspicious = [];
       const now = Date.now();
-      const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-      
+
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const id = docSnap.id;
@@ -2347,8 +2343,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         // - Zero activity (no trades, no checkins) AND default cash AND no holdings
         const isInactive = totalTrades === 0 && totalCheckins === 0 && holdingsCount === 0;
         const hasDefaultCash = cash === 1000 || (cash >= 999 && cash <= 1001);
-        const noRecentActivity = lastActive < oneWeekAgo || lastActive === 0;
-        
+
         if (isInactive && hasDefaultCash) {
           suspicious.push({
             id,
@@ -2959,109 +2954,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
-  // Process payouts for recovered prediction
-  const handleProcessRecovery = async (action) => {
-    if (recoveryBets.length === 0) {
-      showMessage('error', 'No bets to process');
-      return;
-    }
-
-    if (action === 'payout' && !recoveryWinner) {
-      showMessage('error', 'Please select a winning option');
-      return;
-    }
-
-    const predId = recoveryPredictionId.trim();
-    
-    setLoading(true);
-    try {
-      // Calculate total pool and winning pool
-      const totalPool = recoveryBets.reduce((sum, bet) => sum + bet.amount, 0);
-      const winningPool = action === 'payout' 
-        ? recoveryBets.filter(b => b.option === recoveryWinner).reduce((sum, bet) => sum + bet.amount, 0)
-        : 0;
-
-      console.log('Processing recovery:', { action, totalPool, winningPool, recoveryWinner, betsCount: recoveryBets.length });
-
-      let processed = 0;
-      
-      for (const bet of recoveryBets) {
-        if (bet.paid) {
-          console.log('Skipping already paid bet:', bet.displayName);
-          continue;
-        }
-        
-        const userRef = doc(db, 'users', bet.userId);
-        
-        try {
-          if (action === 'refund') {
-            // Refund: give back original bet amount
-            await updateDoc(userRef, {
-              cash: bet.cash + bet.amount,
-              [`bets.${predId}.paid`]: true,
-              [`bets.${predId}.payout`]: bet.amount,
-              [`bets.${predId}.refunded`]: true
-            });
-            console.log('Refunded:', bet.displayName, bet.amount);
-            processed++;
-          } else if (action === 'payout') {
-            // Payout: winners split the pot
-            if (bet.option === recoveryWinner && winningPool > 0) {
-              const userShare = bet.amount / winningPool;
-              const payout = Math.round(userShare * totalPool * 100) / 100;
-
-              // Calculate new prediction wins and check for achievements
-              const newPredictionWins = (bet.predictionWins || 0) + 1;
-              const currentAchievements = bet.achievements || [];
-              const newAchievements = [];
-
-              if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) {
-                newAchievements.push('ORACLE');
-              }
-              if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) {
-                newAchievements.push('PROPHET');
-              }
-
-              const updateData = {
-                cash: bet.cash + payout,
-                [`bets.${predId}.paid`]: true,
-                [`bets.${predId}.payout`]: payout,
-                predictionWins: newPredictionWins
-              };
-
-              if (newAchievements.length > 0) {
-                updateData.achievements = arrayUnion(...newAchievements);
-              }
-
-              await updateDoc(userRef, updateData);
-              console.log('Paid winner:', bet.displayName, payout, 'wins:', newPredictionWins, newAchievements.length > 0 ? 'NEW ACHIEVEMENTS:' + newAchievements.join(',') : '');
-            } else {
-              // Losers get nothing but mark as paid
-              await updateDoc(userRef, {
-                [`bets.${predId}.paid`]: true,
-                [`bets.${predId}.payout`]: 0
-              });
-              console.log('Marked loser as paid:', bet.displayName);
-            }
-            processed++;
-          }
-        } catch (userErr) {
-          console.error('Error processing user:', bet.displayName, userErr);
-        }
-      }
-
-      showMessage('success', `${action === 'refund' ? 'Refunded' : 'Paid out'} ${processed} users!`);
-      setRecoveryBets([]);
-      setRecoveryWinner('');
-      setRecoveryOptions([]);
-      setRecoveryPredictionId('');
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Failed to process: ${err.message}`);
-    }
-    setLoading(false);
-  };
-
   // Override previous payout decision — pays correct winners regardless of paid status
   const handleOverridePayout = async () => {
     if (recoveryBets.length === 0) {
@@ -3141,95 +3033,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
-    }
-    setLoading(false);
-  };
-
-  // Scan for future price history entries
-  const handleScanFutureEntries = async () => {
-    setScanningHistory(true);
-    try {
-      const histSnap = await getDoc(priceHistoryDocRef());
-
-      if (!histSnap.exists()) {
-        showMessage('error', 'Price history data not found');
-        setScanningHistory(false);
-        return;
-      }
-
-      const priceHistory = histSnap.data() || {};
-      const now = Date.now();
-      const futureFound = [];
-
-      // Check each ticker's price history
-      for (const [ticker, history] of Object.entries(priceHistory)) {
-        if (!Array.isArray(history)) continue;
-
-        const badEntries = history.filter(entry => entry.timestamp > now);
-        if (badEntries.length > 0) {
-          futureFound.push({
-            ticker,
-            count: badEntries.length,
-            entries: badEntries.map(e => ({
-              timestamp: e.timestamp,
-              price: e.price,
-              date: new Date(e.timestamp).toLocaleString()
-            }))
-          });
-        }
-      }
-
-      setFutureEntries(futureFound);
-      showMessage('success', `Scan complete. Found ${futureFound.reduce((sum, t) => sum + t.count, 0)} future entries across ${futureFound.length} tickers.`);
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Scan failed: ${err.message}`);
-    }
-    setScanningHistory(false);
-  };
-
-  // Remove future price history entries
-  const handleCleanupFutureEntries = async () => {
-    if (futureEntries.length === 0) return;
-
-    if (!confirm(`This will remove ${futureEntries.reduce((sum, t) => sum + t.count, 0)} future price history entries. Continue?`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const histSnap = await getDoc(priceHistoryDocRef());
-
-      if (!histSnap.exists()) {
-        showMessage('error', 'Price history data not found');
-        setLoading(false);
-        return;
-      }
-
-      const priceHistory = histSnap.data() || {};
-      const now = Date.now();
-      const updates = {};
-
-      // Clean each ticker's history
-      for (const [ticker, history] of Object.entries(priceHistory)) {
-        if (!Array.isArray(history)) continue;
-
-        const cleanedHistory = history.filter(entry => entry.timestamp <= now);
-        if (cleanedHistory.length !== history.length) {
-          updates[ticker] = cleanedHistory;
-        }
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await updateDoc(priceHistoryDocRef(), updates);
-        showMessage('success', `Cleaned up ${futureEntries.reduce((sum, t) => sum + t.count, 0)} future entries!`);
-        setFutureEntries([]);
-      } else {
-        showMessage('info', 'No changes needed');
-      }
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Cleanup failed: ${err.message}`);
     }
     setLoading(false);
   };

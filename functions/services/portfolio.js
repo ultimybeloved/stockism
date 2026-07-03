@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MIN_PRICE, DUST_MAX_VALUE } = require('../constants');
+const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MIN_PRICE, DUST_MAX_VALUE, isWeeklyTradingHalt } = require('../constants');
 const { touchLastActive, lockedShares, reportError } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -33,6 +33,11 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
+  // Selling dust is still selling — it follows the same halt rules as trades.
+  if (isWeeklyTradingHalt()) {
+    throw new functions.https.HttpsError('failed-precondition', 'Market is closed for the weekly halt.');
+  }
+
   const uid = context.auth.uid;
   touchLastActive(uid);
 
@@ -54,7 +59,13 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
       }
 
-      const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+      const marketData = marketSnap.exists ? marketSnap.data() : {};
+      if (marketData.marketHalted) {
+        throw new functions.https.HttpsError('failed-precondition', marketData.haltReason || 'Market is currently halted.');
+      }
+
+      const prices = marketData.prices || {};
+      const haltedTickers = marketData.haltedTickers || {};
       const holdings = userData.holdings || {};
       const now = Date.now();
 
@@ -72,6 +83,10 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
         // Only tiny positions.
         if (shares * price >= DUST_MAX_VALUE) continue;
 
+        // Skip tickers under a circuit-breaker halt.
+        const tickerHalt = haltedTickers[ticker];
+        if (tickerHalt && tickerHalt.resumeAt && now < tickerHalt.resumeAt) continue;
+
         // Never sweep locked shares (IPO lockup / margin-funded holds). If any
         // part of the position is locked, leave the whole thing alone.
         if (lockedShares(userData, ticker, now).total > 0) continue;
@@ -83,6 +98,9 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
         updates[`holdings.${ticker}`] = admin.firestore.FieldValue.delete();
         updates[`costBasis.${ticker}`] = admin.firestore.FieldValue.delete();
         updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+        // Position is fully closed — drop the dividend cohort like the normal
+        // sell path does (also resets the ETF firstHeldAt clock).
+        updates[`holdingCohorts.${ticker}`] = admin.firestore.FieldValue.delete();
       }
 
       if (swept === 0) {
