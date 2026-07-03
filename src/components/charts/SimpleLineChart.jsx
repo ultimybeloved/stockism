@@ -3,7 +3,6 @@
 // Lightweight SVG chart for sparklines
 // ============================================
 
-import React from 'react';
 
 /**
  * Simple line chart component for sparklines
@@ -17,7 +16,6 @@ import React from 'react';
  */
 const SimpleLineChart = ({
   data,
-  darkMode = false,
   colorBlindMode = false,
   width = 100,
   height = 32,

@@ -49,7 +49,8 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
       ];
     }
     return data;
-  }, [portfolioHistory, chartTimeRange, portfolioValue]);
+    // chartTimeRange isn't read here — the parent refetches portfolioHistory per range.
+  }, [portfolioHistory, portfolioValue]);
 
   const chartValues = chartData.map(d => d.value);
   const minChartValue = Math.min(...chartValues);

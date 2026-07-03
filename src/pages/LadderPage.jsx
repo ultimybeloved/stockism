@@ -1,4 +1,3 @@
-import React from 'react';
 import LadderGame from '../components/LadderGame';
 
 const LadderPage = () => {

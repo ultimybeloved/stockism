@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   MARGIN_INTEREST_RATE,
   MARGIN_CALL_GRACE_PERIOD
@@ -7,8 +7,6 @@ import { formatCurrency } from '../../utils/formatters';
 import {
   checkMarginEligibility,
   calculateMarginStatus,
-  getMarginTierMultiplier,
-  getMarginTierName
 } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';

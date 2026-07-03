@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db, cancelPreMarketOrderFunction } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';

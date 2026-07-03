@@ -3,7 +3,7 @@
 // Collapsible analytics dashboard for portfolio
 // ============================================
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import DonutChart from './charts/DonutChart';
 import { CHARACTER_MAP } from '../characters';
 import { getThemeClasses } from '../utils/theme';
@@ -80,10 +80,7 @@ const PortfolioAnalytics = ({
   shorts = {},
   prices = {},
   costBasis = {},
-  portfolioHistory = [],
   portfolioValue = 0,
-  userData,
-  user,
 }) => {
   const [expanded, setExpanded] = useState(false);
 

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import CrewMissionsTab from '../missions/CrewMissionsTab';
 import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
-import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 import { getThemeClasses } from '../../utils/theme';

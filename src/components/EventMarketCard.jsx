@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';

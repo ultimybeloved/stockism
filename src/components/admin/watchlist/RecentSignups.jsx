@@ -1,4 +1,3 @@
-import React from 'react';
 
 // Read-only alt-ring report. Pulls recent signups (joined to their Firebase Auth
 // email + signup IP server-side) and shows them grouped by shared signup IP,

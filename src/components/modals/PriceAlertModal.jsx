@@ -1,13 +1,11 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { getThemeClasses } from "../../utils/theme";
 
 export default function PriceAlertModal({
   ticker,
   currentPrice,
-  characterName,
   darkMode,
   onClose,
-  user,
   existingAlerts = [],
   onCreateAlert,
   onDeleteAlert,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db, playLadderGameFunction, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction } from '../firebase';
 import { LADDER_GAME_MAX_BALANCE, LADDER_DEPOSIT_WINDOW_MS } from '../constants/economy';
@@ -8,18 +8,18 @@ import { useAppContext } from '../context/AppContext';
 import LadderTutorialModal from './LadderTutorialModal';
 
 const LadderGame = ({ onClose }) => {
-  const { user, userData, darkMode, showNotification } = useAppContext();
+  const { user, userData, showNotification } = useAppContext();
   const [userLadderData, setUserLadderData] = useState(null);
   const [globalHistory, setGlobalHistory] = useState([]);
   const [userStockismCash, setUserStockismCash] = useState(0);
 
   // Game state
   const [selectedStart, setSelectedStart] = useState(null);
-  const [selectedBet, setSelectedBet] = useState(null);
+  const [_selectedBet, setSelectedBet] = useState(null); // write-only: kept for setter call sites in the game flow
   const [playing, setPlaying] = useState(false);
   const [complete, setComplete] = useState(false);
   const [betAmount, setBetAmount] = useState(1);
-  const [currentLadder, setCurrentLadder] = useState(null);
+  const [_currentLadder, setCurrentLadder] = useState(null); // write-only: kept for setter call sites in the game flow
   const [displayBalance, setDisplayBalance] = useState(null); // For immediate balance updates
   const [showResultBanner, setShowResultBanner] = useState(false);
   const [resultText, setResultText] = useState('');
@@ -448,7 +448,7 @@ const LadderGame = ({ onClose }) => {
     });
   };
 
-  const showResult = (gameResult, won, betAmt, payout, streak) => {
+  const showResult = (gameResult, won, betAmt, payout) => {
     setResultText(gameResult.toUpperCase());
     if (won) {
       setResultOutcome(`+$${payout.toLocaleString()}`);
@@ -586,7 +586,6 @@ const LadderGame = ({ onClose }) => {
   const bgDark = '#3b3624';
   const textDark = '#2a2a2a';
   const textLight = '#666';
-  const textHeader = '#5c5346';
   const btnGray = '#b4ac99';
   const cornerBrown = '#715a3b';
 

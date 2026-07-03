@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createUserFunction } from '../../firebase';
 import { containsProfanity, getProfanityMessage } from '../../utils/profanity';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
-const UsernameModal = ({ user, onComplete, darkMode }) => {
+const UsernameModal = ({ onComplete, darkMode }) => {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

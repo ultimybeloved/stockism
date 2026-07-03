@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   BASE_LIQUIDITY,
   MIN_PRICE,
@@ -11,7 +11,6 @@ import {
   calculatePortfolioValue,
   calculatePriceImpactDollars,
   getBidAskPrices,
-  getCurrentPrice,
   calculateMarginStatus
 } from '../../utils/calculations';
 import { createLimitOrderFunction } from '../../firebase';
@@ -34,7 +33,7 @@ const pruneAndSumTradeHistory = (entries, now) => {
 
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, onTrade, onClose, defaultToLimitOrder = false, haltInfo }) => {
-  const { darkMode, user, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
+  const { darkMode, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [amount, setAmount] = useState(1);
   const [partialShares, setPartialShares] = useState(false);

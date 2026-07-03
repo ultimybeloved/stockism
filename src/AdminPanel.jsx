@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, runTransaction, arrayUnion } from 'firebase/firestore';
-import { db, createBotsFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, auditUsernamesFunction, reconstructPortfolioHistoryFunction } from './firebase';
-import { DEFAULT_DIVIDEND_TIERS, getDividendTier } from './characters';
-import { DIVIDEND_RATES, EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
+import { useState } from 'react';
+import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { db, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, auditUsernamesFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { ADMIN_UIDS, MIN_PRICE } from './constants';
-import { ACHIEVEMENTS } from './constants/achievements';
 import IpoTab from './components/admin/IpoTab';
 import PredictionsTab from './components/admin/PredictionsTab';
 import HoldersTab from './components/admin/HoldersTab';
@@ -73,12 +71,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [extendDays, setExtendDays] = useState(7);
   const [allowAdditionalBets, setAllowAdditionalBets] = useState(false);
 
-  // Price adjustment state
-  const [selectedTicker, setSelectedTicker] = useState('');
-  const [adjustmentType, setAdjustmentType] = useState('set'); // 'set' or 'percent'
-  const [newPrice, setNewPrice] = useState('');
-  const [percentChange, setPercentChange] = useState('');
-  
   // Recovery tool state
   const [recoveryPredictionId, setRecoveryPredictionId] = useState('');
   const [recoveryBets, setRecoveryBets] = useState([]);
@@ -89,7 +81,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [renameOldTicker, setRenameOldTicker] = useState('');
   const [renameNewTicker, setRenameNewTicker] = useState('');
   const [renameResult, setRenameResult] = useState(null);
-  const [renaming, setRenaming] = useState(false);
 
   // Spike victim repair state
   const [spikeVictims, setSpikeVictims] = useState([]);
@@ -107,14 +98,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [reconstructingHistory, setReconstructingHistory] = useState(false);
   const [reconstructionResult, setReconstructionResult] = useState(null);
   const [reconstructUid, setReconstructUid] = useState('');
-
-  // Check-in fraud detection state
-  const [fraudUsers, setFraudUsers] = useState([]);
-  const [scanningFraud, setScanningFraud] = useState(false);
-
-  // Trade fraud detection state
-  const [tradeFraudUsers, setTradeFraudUsers] = useState([]);
-  const [scanningTradeFraud, setScanningTradeFraud] = useState(false);
 
   // Watchlist state
   const [watchedUsers, setWatchedUsers] = useState([]);
@@ -153,7 +136,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [transferring, setTransferring] = useState(false);
 
   // Manual rollback state
-  const [rollbackTarget, setRollbackTarget] = useState(null);
   const [newDisplayName, setNewDisplayName] = useState('');
 
   // Bot management state
@@ -201,15 +183,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const [tradeTimePeriod, setTradeTimePeriod] = useState('24h'); // '24h', 'week', 'all'
   const [tradeTypeFilter, setTradeTypeFilter] = useState('all'); // 'all', 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'
   const [tradeBotFilter, setTradeBotFilter] = useState('real'); // 'real', 'bots', 'all'
-  const [priceSnapshots, setPriceSnapshots] = useState([]); // For rollback
   const [rollbackTimestamp, setRollbackTimestamp] = useState('');
   const [rollbackConfirm, setRollbackConfirm] = useState(false);
   const [selectedTickerHistory, setSelectedTickerHistory] = useState([]);
-  const [cleanupMinPrice, setCleanupMinPrice] = useState('');
-  const [cleanupMaxPrice, setCleanupMaxPrice] = useState('');
-  const [searchStartTime, setSearchStartTime] = useState('');
-  const [searchEndTime, setSearchEndTime] = useState('');
-  
+
   // Orphan cleanup state
   const [orphanedUsers, setOrphanedUsers] = useState([]);
   const [orphanScanComplete, setOrphanScanComplete] = useState(false);
@@ -594,7 +571,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   const handleToggleDiscordWall = async (userId, displayName, currentValue) => {
     const turningOn = !currentValue;
-    const verb = turningOn ? 'require a Discord link from' : 'clear the Discord wall on';
     if (!confirm(`${turningOn ? 'Require Discord verification for' : 'Clear the Discord wall on'} ${displayName}?`)) return;
     setLoading(true);
     try {
@@ -866,95 +842,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       showMessage('error', 'Failed to adjust price: ' + err.message);
     }
 
-    setLoading(false);
-  };
-
-  const handlePriceAdjustment = async () => {
-    if (!selectedTicker) {
-      showMessage('error', 'Please select a character');
-      return;
-    }
-
-    const character = CHARACTERS.find(c => c.ticker === selectedTicker);
-    const currentPrice = prices[selectedTicker] || character?.basePrice;
-    if (!currentPrice) {
-      showMessage('error', 'Could not get current price');
-      return;
-    }
-
-    let targetPrice;
-    if (adjustmentType === 'set') {
-      targetPrice = parseFloat(newPrice);
-      if (isNaN(targetPrice) || targetPrice <= 0) {
-        showMessage('error', 'Please enter a valid price');
-        return;
-      }
-    } else {
-      const percent = parseFloat(percentChange);
-      if (isNaN(percent)) {
-        showMessage('error', 'Please enter a valid percentage');
-        return;
-      }
-      targetPrice = currentPrice * (1 + percent / 100);
-      if (targetPrice <= 0) {
-        showMessage('error', 'Resulting price would be negative');
-        return;
-      }
-    }
-
-    targetPrice = Math.round(targetPrice * 100) / 100;
-
-    setLoading(true);
-    try {
-      const marketRef = doc(db, 'market', 'current');
-      const histSnap = await getDoc(priceHistoryDocRef());
-      const now = Date.now();
-
-      {
-        const histData = histSnap.exists() ? (histSnap.data() || {}) : {};
-        let currentHistory = histData[selectedTicker] || [];
-
-        // If no history exists, add the current price as the first entry
-        if (currentHistory.length === 0 && currentPrice) {
-          currentHistory = [{ timestamp: now - 1000, price: currentPrice }]; // 1 second before
-        }
-
-        console.log('Current history length for', selectedTicker, ':', currentHistory.length);
-
-        // Add new price to history
-        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice, source: 'admin_adjust' }];
-
-        // Build market updates with trailing effects
-        const marketUpdates = {
-          [`prices.${selectedTicker}`]: targetPrice
-        };
-        const historyUpdates = {
-          [selectedTicker]: updatedHistory
-        };
-
-        // Apply trailing stock effects
-        console.log(`[ADMIN TRAILING START] Applying effects for ${selectedTicker}: $${currentPrice} -> $${targetPrice}`);
-        applyTrailingEffects(marketUpdates, historyUpdates, selectedTicker, currentPrice, targetPrice, now);
-        console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
-
-        await updateDoc(marketRef, marketUpdates);
-        await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
-      }
-
-      const character = CHARACTERS.find(c => c.ticker === selectedTicker);
-      const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
-      const direction = targetPrice > currentPrice ? '📈' : '📉';
-      
-      showMessage('success', `${direction} ${character?.name || selectedTicker}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`);
-      
-      // Reset form
-      setSelectedTicker('');
-      setNewPrice('');
-      setPercentChange('');
-    } catch (err) {
-      console.error(err);
-      showMessage('error', 'Failed to adjust price');
-    }
     setLoading(false);
   };
 
@@ -1664,117 +1551,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setTradesLoading(false);
   };
 
-  // Load price history snapshots for rollback
-  const loadPriceSnapshots = async (ticker) => {
-    try {
-      const histSnap = await getDoc(priceHistoryDocRef());
-      const history = (histSnap.data() || {})[ticker] || [];
-      
-      // Get last 50 price points
-      const snapshots = history.slice(-50).reverse().map(h => ({
-        timestamp: h.timestamp,
-        price: h.price,
-        date: new Date(h.timestamp).toLocaleString()
-      }));
-      
-      setPriceSnapshots(snapshots);
-      return snapshots;
-    } catch (err) {
-      console.error('Failed to load price snapshots:', err);
-      return [];
-    }
-  };
-
-  // Search trades by ticker and time range
-  const searchTradesByTickerAndTime = async (ticker, startTime, endTime) => {
-    setTradesLoading(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const snapshot = await getDocs(usersRef);
-      
-      const matchingTrades = [];
-      
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        const userName = data.displayName || 'Unknown';
-        const transactionLog = data.transactionLog || [];
-        
-        // Filter trades by ticker and time range
-        transactionLog.forEach(tx => {
-          if (tx.ticker === ticker && 
-              tx.timestamp >= startTime && 
-              tx.timestamp <= endTime &&
-              ['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'].includes(tx.type)) {
-            matchingTrades.push({
-              userId,
-              userName,
-              type: tx.type,
-              ticker: tx.ticker,
-              shares: tx.shares || tx.amount || 0,
-              price: tx.pricePerShare || tx.price || tx.entryPrice || 0,
-              total: tx.totalCost || tx.totalRevenue || tx.marginRequired || 0,
-              timestamp: tx.timestamp,
-              priceImpact: tx.priceImpact || 0,
-              newPrice: tx.newPrice || 0,
-              // Include full tx for debugging
-              raw: tx
-            });
-          }
-        });
-      });
-      
-      // Sort by timestamp
-      matchingTrades.sort((a, b) => a.timestamp - b.timestamp);
-      
-      setRecentTrades(matchingTrades);
-      showMessage('success', `Found ${matchingTrades.length} trades for $${ticker} in time range`);
-    } catch (err) {
-      console.error('Failed to search trades:', err);
-      showMessage('error', 'Failed to search trades');
-    }
-    setTradesLoading(false);
-  };
-
-  // Rollback price to a specific snapshot
-  const rollbackPrice = async (ticker, targetPrice) => {
-    setLoading(true);
-    try {
-      const marketRef = doc(db, 'market', 'current');
-      
-      await updateDoc(marketRef, {
-        [`prices.${ticker}`]: targetPrice
-      });
-      
-      showMessage('success', `Rolled back $${ticker} to $${targetPrice.toFixed(2)}`);
-    } catch (err) {
-      console.error('Failed to rollback price:', err);
-      showMessage('error', 'Failed to rollback price');
-    }
-    setLoading(false);
-  };
-
-  // Bulk rollback multiple tickers
-  const bulkRollbackPrices = async (tickerPrices) => {
-    setLoading(true);
-    try {
-      const marketRef = doc(db, 'market', 'current');
-      const updates = {};
-      
-      for (const [ticker, price] of Object.entries(tickerPrices)) {
-        updates[`prices.${ticker}`] = price;
-      }
-      
-      await updateDoc(marketRef, updates);
-      
-      showMessage('success', `Rolled back ${Object.keys(tickerPrices).length} prices`);
-    } catch (err) {
-      console.error('Failed to bulk rollback:', err);
-      showMessage('error', 'Failed to bulk rollback');
-    }
-    setLoading(false);
-  };
-
   // FULL MARKET ROLLBACK - Reverses all trades after a timestamp
   const executeFullRollback = async (rollbackTimestamp) => {
     setLoading(true);
@@ -1930,384 +1706,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     }
   };
 
-  // Clean up bad price history data (removes extreme spikes/crashes)
-  const cleanPriceHistory = async (ticker, minPrice, maxPrice) => {
-    setLoading(true);
-    try {
-      const histSnap = await getDoc(priceHistoryDocRef());
-      const history = (histSnap.data() || {})[ticker] || [];
-
-      const originalCount = history.length;
-
-      // Filter out price points outside the acceptable range
-      const cleanedHistory = history.filter(h =>
-        h.price >= minPrice && h.price <= maxPrice
-      );
-
-      const removedCount = originalCount - cleanedHistory.length;
-
-      if (removedCount > 0) {
-        await updateDoc(priceHistoryDocRef(), {
-          [ticker]: cleanedHistory
-        });
-        showMessage('success', `Cleaned ${ticker} history: removed ${removedCount} bad data points`);
-      } else {
-        showMessage('info', `No bad data points found in ${ticker} history`);
-      }
-    } catch (err) {
-      console.error('Failed to clean price history:', err);
-      showMessage('error', 'Failed to clean price history');
-    }
-    setLoading(false);
-  };
-
-  // RESTORE PRICES FROM USER COSTBASIS DATA
-  // Uses transaction to prevent concurrent updates from being lost
-  const restorePricesFromCostBasis = async () => {
-    setLoading(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const snapshot = await getDocs(usersRef);
-
-      // Collect all costBasis values per ticker
-      const priceData = {};
-
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const costBasis = data.costBasis || {};
-
-        Object.entries(costBasis).forEach(([ticker, price]) => {
-          if (price && price > 0 && price < 10000) { // Filter out crazy values
-            if (!priceData[ticker]) {
-              priceData[ticker] = [];
-            }
-            priceData[ticker].push(price);
-          }
-        });
-      });
-
-      // Calculate best price estimate using median (avoids manipulation outliers)
-      const restoredPrices = {};
-
-      Object.entries(priceData).forEach(([ticker, prices]) => {
-        if (prices.length > 0) {
-          prices.sort((a, b) => a - b);
-          const mid = Math.floor(prices.length / 2);
-          const median = prices.length % 2 === 0
-            ? (prices[mid - 1] + prices[mid]) / 2
-            : prices[mid];
-          restoredPrices[ticker] = Math.round(median * 100) / 100;
-        }
-      });
-
-      // Use transaction to safely merge with current data (prevents race conditions)
-      const marketRef = doc(db, 'market', 'current');
-      const now = Date.now();
-      await runTransaction(db, async (transaction) => {
-        const marketSnap = await transaction.get(marketRef);
-        const currentData = marketSnap.data() || {};
-        const currentPrices = currentData.prices || {};
-
-        // Merge: use restored prices where available, keep current otherwise
-        const finalPrices = { ...currentPrices, ...restoredPrices };
-
-        // Record the restoration in price history (its own doc, appended)
-        const historyUpdates = {};
-        Object.entries(restoredPrices).forEach(([ticker, price]) => {
-          historyUpdates[ticker] = arrayUnion({ timestamp: now, price, source: 'admin_restore' });
-        });
-
-        transaction.update(marketRef, {
-          prices: finalPrices,
-          lastAdminRestore: now
-        });
-        transaction.set(priceHistoryDocRef(), historyUpdates, { merge: true });
-      });
-
-      showMessage('success', `Restored prices for ${Object.keys(restoredPrices).length} tickers from user costBasis data`);
-      console.log('Restored prices:', restoredPrices);
-    } catch (err) {
-      console.error('Failed to restore prices:', err);
-      showMessage('error', 'Failed to restore prices: ' + err.message);
-    }
-    setLoading(false);
-  };
-
-  // Find and clean illegitimate bets (bets > investment amount)
-  const [illegitimateBets, setIllegitimateBets] = useState([]);
-  const [betScanLoading, setBetScanLoading] = useState(false);
-  
-  const scanForIllegitimateBets = async (minBetAmount = 0) => {
-    setBetScanLoading(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const snapshot = await getDocs(usersRef);
-      
-      const badBets = [];
-      
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        const userName = data.displayName || 'Unknown';
-        
-        // Skip admin
-        if (ADMIN_UIDS.includes(userId)) return;
-        
-        // Calculate their investment (total spent on stocks)
-        const totalSpentOnStocks = Object.entries(data.holdings || {}).reduce((sum, [ticker, shares]) => {
-          const basis = data.costBasis?.[ticker] || 0;
-          return sum + (basis * shares);
-        }, 0);
-        const totalShortMargin = Object.values(data.shorts || {}).filter(short => short).reduce((sum, short) => sum + (short.margin || 0), 0);
-        const totalInvested = totalSpentOnStocks + totalShortMargin;
-        
-        // Check their bets - ONLY unpaid (active) bets
-        const bets = data.bets || {};
-        Object.entries(bets).forEach(([predictionId, bet]) => {
-          // Skip already paid/resolved bets
-          if (bet.paid) return;
-          
-          const betAmount = bet.amount || 0;
-          
-          // Flag if bet >= minBetAmount AND bet > their investment
-          if (betAmount >= minBetAmount && betAmount > totalInvested) {
-            badBets.push({
-              userId,
-              userName,
-              predictionId,
-              option: bet.option,
-              betAmount,
-              totalInvested,
-              excess: betAmount - totalInvested,
-              question: bet.question || 'Unknown'
-            });
-          }
-        });
-      });
-      
-      // Sort by excess amount (most over-bet first)
-      badBets.sort((a, b) => b.excess - a.excess);
-      
-      setIllegitimateBets(badBets);
-      showMessage('success', `Found ${badBets.length} illegitimate active bets`);
-    } catch (err) {
-      console.error('Failed to scan bets:', err);
-      showMessage('error', 'Failed to scan bets');
-    }
-    setBetScanLoading(false);
-  };
-  
-  // Refund a single illegitimate bet
-  const refundBet = async (userId, predictionId, betAmount, option) => {
-    setLoading(true);
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.data();
-      
-      // Refund cash
-      const newCash = (userData.cash || 0) + betAmount;
-      
-      // Remove the bet
-      const updatedBets = { ...userData.bets };
-      delete updatedBets[predictionId];
-      
-      await updateDoc(userRef, {
-        cash: newCash,
-        bets: updatedBets
-      });
-      
-      // Also need to update the prediction pool
-      const predictionsRef = doc(db, 'predictions', 'current');
-      const predSnap = await getDoc(predictionsRef);
-      const predData = predSnap.data();
-      
-      if (predData?.list) {
-        const updatedList = predData.list.map(p => {
-          if (p.id === predictionId && p.pools && p.pools[option]) {
-            const newPools = { ...p.pools };
-            newPools[option] = Math.max(0, (newPools[option] || 0) - betAmount);
-            return { ...p, pools: newPools };
-          }
-          return p;
-        });
-        
-        await updateDoc(predictionsRef, { list: updatedList });
-      }
-      
-      showMessage('success', `Refunded $${betAmount} to user`);
-      
-      // Remove from local list
-      setIllegitimateBets(prev => prev.filter(b => !(b.userId === userId && b.predictionId === predictionId)));
-      
-    } catch (err) {
-      console.error('Failed to refund bet:', err);
-      showMessage('error', 'Failed to refund bet');
-    }
-    setLoading(false);
-  };
-  
-  // Refund all illegitimate bets
-  const refundAllIllegitimateBets = async () => {
-    if (illegitimateBets.length === 0) return;
-    
-    setLoading(true);
-    let refunded = 0;
-    
-    for (const bet of illegitimateBets) {
-      try {
-        const userRef = doc(db, 'users', bet.userId,);
-        const userSnap = await getDoc(userRef);
-        const userData = userSnap.data();
-        
-        // Refund cash
-        const newCash = (userData.cash || 0) + bet.betAmount;
-        
-        // Remove the bet
-        const updatedBets = { ...userData.bets };
-        delete updatedBets[bet.predictionId];
-        
-        await updateDoc(userRef, {
-          cash: newCash,
-          bets: updatedBets
-        });
-        
-        // Update prediction pool
-        const predictionsRef = doc(db, 'predictions', 'current');
-        const predSnap = await getDoc(predictionsRef);
-        const predData = predSnap.data();
-        
-        if (predData?.list) {
-          const updatedList = predData.list.map(p => {
-            if (p.id === bet.predictionId && p.pools && p.pools[bet.option]) {
-              const newPools = { ...p.pools };
-              newPools[bet.option] = Math.max(0, (newPools[bet.option] || 0) - bet.betAmount);
-              return { ...p, pools: newPools };
-            }
-            return p;
-          });
-          
-          await updateDoc(predictionsRef, { list: updatedList });
-        }
-        
-        refunded++;
-      } catch (err) {
-        console.error('Failed to refund bet:', err);
-      }
-    }
-    
-    showMessage('success', `Refunded ${refunded} bets`);
-    setIllegitimateBets([]);
-    setLoading(false);
-  };
-
-  // Scan for suspicious accounts (potential exploiters)
-  const [suspiciousAccounts, setSuspiciousAccounts] = useState([]);
-  const [suspiciousScanLoading, setSuspiciousScanLoading] = useState(false);
-  
-  const scanForSuspiciousAccounts = async () => {
-    setSuspiciousScanLoading(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const marketRef = doc(db, 'market', 'current');
-      const [usersSnapshot, marketSnap] = await Promise.all([
-        getDocs(usersRef),
-        getDoc(marketRef)
-      ]);
-      
-      const marketData = marketSnap.data();
-      const currentPrices = marketData?.prices || {};
-      
-      const suspicious = [];
-      
-      usersSnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const id = docSnap.id;
-        const userName = data.displayName || 'Unknown';
-        
-        // Skip admin accounts
-        if (ADMIN_UIDS.includes(id)) return;
-        
-        const cash = data.cash || 0;
-        const holdings = data.holdings || {};
-        const costBasis = data.costBasis || {};
-        const shorts = data.shorts || {};
-        const totalTrades = data.totalTrades || 0;
-        const portfolioValue = data.portfolioValue || 0;
-        
-        const flags = [];
-        
-        // 1. Bought stocks at suspiciously low prices (cost basis < $1)
-        Object.entries(costBasis).forEach(([ticker, basis]) => {
-          if (basis > 0 && basis < 1 && holdings[ticker] > 0) {
-            flags.push(`Bought $${ticker} at $${basis.toFixed(2)} (owns ${holdings[ticker]} shares)`);
-          }
-        });
-        
-        // 2. Portfolio value way higher than reasonable from trades
-        // Rough check: if portfolioValue > totalTrades * 10000, suspicious
-        if (portfolioValue > 100000 && totalTrades < 50) {
-          flags.push(`Portfolio $${portfolioValue.toFixed(0)} with only ${totalTrades} trades`);
-        }
-        
-        // 3. Owns massive amounts of a single stock
-        Object.entries(holdings).forEach(([ticker, shares]) => {
-          if (shares > 1000) {
-            const currentPrice = currentPrices[ticker] || 100;
-            const value = shares * currentPrice;
-            flags.push(`Owns ${shares} $${ticker} (worth $${value.toFixed(0)})`);
-          }
-        });
-        
-        // 4. Has shorts with suspicious entry prices
-        Object.entries(shorts).forEach(([ticker, short]) => {
-          if (short.shares > 0 && short.entryPrice < 1) {
-            flags.push(`Shorted $${ticker} at $${short.entryPrice.toFixed(2)} (${short.shares} shares)`);
-          }
-        });
-        
-        // 5. Cash way above starting amount without many trades
-        if (cash > 50000 && totalTrades < 20) {
-          flags.push(`Has $${cash.toFixed(0)} cash with only ${totalTrades} trades`);
-        }
-        
-        // 6. Empty transaction log but has trades recorded
-        const hasTransactionLog = data.transactionLog && data.transactionLog.length > 0;
-        if (totalTrades > 5 && !hasTransactionLog) {
-          flags.push(`${totalTrades} trades but no transaction log (old account or cleared)`);
-        }
-        
-        if (flags.length > 0) {
-          suspicious.push({
-            id,
-            userName,
-            cash,
-            portfolioValue,
-            totalTrades,
-            holdings,
-            costBasis,
-            shorts,
-            flags,
-            createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt) || null
-          });
-        }
-      });
-      
-      // Sort by most flags first, then by portfolio value
-      suspicious.sort((a, b) => {
-        if (b.flags.length !== a.flags.length) return b.flags.length - a.flags.length;
-        return b.portfolioValue - a.portfolioValue;
-      });
-      
-      setSuspiciousAccounts(suspicious);
-      showMessage('success', `Found ${suspicious.length} suspicious accounts`);
-    } catch (err) {
-      console.error('Failed to scan for suspicious accounts:', err);
-      showMessage('error', 'Failed to scan');
-    }
-    setSuspiciousScanLoading(false);
-  };
-
   // Scan for likely orphaned/bot accounts
   const scanForOrphanedUsers = async () => {
     setLoading(true);
@@ -2316,7 +1714,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       const snapshot = await getDocs(usersRef);
       
       const suspicious = [];
-      const now = Date.now();
 
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -3037,311 +2434,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
-  // Scan for check-in fraud (future dates)
-  const handleScanCheckinFraud = async () => {
-    setScanningFraud(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const usersSnap = await getDocs(usersRef);
-
-      const now = new Date();
-      const todayString = now.toISOString().split('T')[0]; // YYYY-MM-DD
-      const fraudFound = [];
-
-      usersSnap.forEach(doc => {
-        const user = doc.data();
-        const dailyMissions = user.dailyMissions || {};
-        const futureCheckins = [];
-
-        // Check each date in dailyMissions
-        for (const [dateStr, missions] of Object.entries(dailyMissions)) {
-          if (missions.checkedIn) {
-            const checkinDate = new Date(dateStr);
-            if (checkinDate > now) {
-              futureCheckins.push({
-                date: dateStr,
-                daysInFuture: Math.ceil((checkinDate - now) / (1000 * 60 * 60 * 24))
-              });
-            }
-          }
-        }
-
-        if (futureCheckins.length > 0) {
-          const fraudulentBonus = futureCheckins.length * 300; // $300 per check-in
-          const correctedCheckins = (user.totalCheckins || 0) - futureCheckins.length;
-          const legitimateCash = 1000 + (correctedCheckins * 300); // $1000 starting + legitimate bonuses
-          fraudFound.push({
-            userId: doc.id,
-            displayName: user.displayName || 'Unknown',
-            cash: user.cash || 0,
-            portfolioValue: user.portfolioValue || 0,
-            totalCheckins: user.totalCheckins || 0,
-            futureCheckins,
-            fraudulentBonus,
-            correctedCheckins,
-            legitimateCash
-          });
-        }
-      });
-
-      // Sort by amount of fraud
-      fraudFound.sort((a, b) => b.fraudulentBonus - a.fraudulentBonus);
-
-      setFraudUsers(fraudFound);
-      showMessage('success', `Scan complete. Found ${fraudFound.length} users with future check-ins totaling $${fraudFound.reduce((sum, u) => sum + u.fraudulentBonus, 0).toLocaleString()}`);
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Scan failed: ${err.message}`);
-    }
-    setScanningFraud(false);
-  };
-
-  // Fix a single user's fraudulent check-ins
-  const handleFixUserCheckins = async (userId, fraudData) => {
-    // Calculate legitimate cash: $1000 starting + (legitimate check-ins × $300)
-    const legitimateCash = 1000 + (fraudData.correctedCheckins * 300);
-
-    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ${fraudData.displayName}'s fraud?\n\nThis will:\n- LIQUIDATE all positions (they used fraudulent money to buy stocks)\n- Reset cash to $${legitimateCash.toLocaleString()} (${fraudData.correctedCheckins} legitimate check-ins × $300)\n- Remove ${fraudData.futureCheckins.length} future check-ins\n\nCurrent portfolio: $${fraudData.cash.toLocaleString()}\nAfter fix: $${legitimateCash.toLocaleString()}\n\nThis cannot be undone!`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const userRef = doc(db, 'users', userId);
-      const updates = {
-        cash: legitimateCash,
-        totalCheckins: fraudData.correctedCheckins,
-        holdings: {}, // Liquidate all positions
-        shorts: {}, // Close all shorts
-        costBasis: {}, // Reset cost basis
-        portfolioValue: legitimateCash,
-        marginUsed: 0
-      };
-
-      // Remove future check-in entries from dailyMissions
-      for (const checkin of fraudData.futureCheckins) {
-        updates[`dailyMissions.${checkin.date}`] = {}; // Clear the entire day's missions
-      }
-
-      await updateDoc(userRef, updates);
-      showMessage('success', `Liquidated ${fraudData.displayName}'s account! Reset to $${legitimateCash.toLocaleString()}`);
-
-      // Remove from list
-      setFraudUsers(prev => prev.filter(u => u.userId !== userId));
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Failed to fix user: ${err.message}`);
-    }
-    setLoading(false);
-  };
-
-  // Fix all fraudulent check-ins
-  const handleFixAllCheckins = async () => {
-    if (fraudUsers.length === 0) return;
-
-    const totalFraud = fraudUsers.reduce((sum, u) => sum + u.fraudulentBonus, 0);
-    const totalUsers = fraudUsers.length;
-
-    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ALL ${totalUsers} users with fraudulent check-ins?\n\nThis will:\n- LIQUIDATE all their positions\n- Reset each to legitimate cash only\n- Remove $${totalFraud.toLocaleString()} from the economy\n\nThis action cannot be undone!`)) {
-      return;
-    }
-
-    setLoading(true);
-    let fixed = 0;
-    let failed = 0;
-
-    for (const fraudData of fraudUsers) {
-      try {
-        const legitimateCash = 1000 + (fraudData.correctedCheckins * 300);
-        const userRef = doc(db, 'users', fraudData.userId);
-        const updates = {
-          cash: legitimateCash,
-          totalCheckins: fraudData.correctedCheckins,
-          holdings: {},
-          shorts: {},
-          costBasis: {},
-          portfolioValue: legitimateCash,
-          marginUsed: 0
-        };
-
-        // Remove future check-in entries
-        for (const checkin of fraudData.futureCheckins) {
-          updates[`dailyMissions.${checkin.date}`] = {};
-        }
-
-        await updateDoc(userRef, updates);
-        fixed++;
-      } catch (err) {
-        console.error('Failed to fix', fraudData.displayName, err);
-        failed++;
-      }
-    }
-
-    showMessage('success', `Liquidated ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
-    setFraudUsers([]);
-    setLoading(false);
-  };
-
-  // Scan for trade fraud (future-dated trades)
-  const handleScanTradeFraud = async () => {
-    setScanningTradeFraud(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const usersSnap = await getDocs(usersRef);
-
-      const now = Date.now();
-      const fraudFound = [];
-
-      usersSnap.forEach(doc => {
-        const user = doc.data();
-        const transactionLog = user.transactionLog || [];
-        const futureTrades = [];
-
-        // Check each transaction for future timestamps
-        transactionLog.forEach((tx, index) => {
-          if (tx.timestamp > now) {
-            futureTrades.push({
-              index,
-              type: tx.type,
-              ticker: tx.ticker,
-              shares: tx.shares || tx.amount || 0,
-              price: tx.pricePerShare || tx.price || 0,
-              timestamp: tx.timestamp,
-              date: new Date(tx.timestamp).toLocaleString(),
-              daysInFuture: ((tx.timestamp - now) / (1000 * 60 * 60 * 24)).toFixed(1)
-            });
-          }
-        });
-
-        if (futureTrades.length > 0) {
-          fraudFound.push({
-            userId: doc.id,
-            displayName: user.displayName || 'Unknown',
-            cash: user.cash || 0,
-            portfolioValue: user.portfolioValue || 0,
-            holdings: user.holdings || {},
-            shorts: user.shorts || {},
-            futureTrades,
-            totalFutureTrades: futureTrades.length
-          });
-        }
-      });
-
-      // Sort by number of future trades
-      fraudFound.sort((a, b) => b.totalFutureTrades - a.totalFutureTrades);
-
-      setTradeFraudUsers(fraudFound);
-      showMessage('success', `Scan complete. Found ${fraudFound.length} users with ${fraudFound.reduce((sum, u) => sum + u.totalFutureTrades, 0)} future-dated trades`);
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Scan failed: ${err.message}`);
-    }
-    setScanningTradeFraud(false);
-  };
-
-  // Fix a single user's fraudulent trades
-  const handleFixUserTrades = async (userId, fraudData) => {
-    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ${fraudData.displayName}'s future-dated trades?\n\nThis will:\n- LIQUIDATE all positions (they used time travel to make trades)\n- DELETE all future-dated transactions from their log\n- Reset cash to $1000 (starting balance)\n- Reset portfolio value to $1000\n\nCurrent portfolio: $${fraudData.portfolioValue.toLocaleString()}\nFuture trades: ${fraudData.totalFutureTrades}\n\nThis cannot be undone!`)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        showMessage('error', 'User not found');
-        setLoading(false);
-        return;
-      }
-
-      const userData = userSnap.data();
-      const transactionLog = userData.transactionLog || [];
-      const now = Date.now();
-
-      // Filter out all future-dated transactions
-      const cleanedLog = transactionLog.filter(tx => tx.timestamp <= now);
-
-      const updates = {
-        cash: 1000, // Reset to starting balance
-        totalCheckins: 0, // Reset check-ins as well
-        holdings: {}, // Liquidate all positions
-        shorts: {}, // Close all shorts
-        costBasis: {}, // Reset cost basis
-        portfolioValue: 1000,
-        marginUsed: 0,
-        transactionLog: cleanedLog
-      };
-
-      await updateDoc(userRef, updates);
-      showMessage('success', `Liquidated ${fraudData.displayName}'s account! Removed ${fraudData.totalFutureTrades} future trades. Reset to $1,000`);
-
-      // Remove from list
-      setTradeFraudUsers(prev => prev.filter(u => u.userId !== userId));
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Failed to fix user: ${err.message}`);
-    }
-    setLoading(false);
-  };
-
-  // Fix all users with fraudulent trades
-  const handleFixAllTradeFraud = async () => {
-    if (tradeFraudUsers.length === 0) return;
-
-    const totalTrades = tradeFraudUsers.reduce((sum, u) => sum + u.totalFutureTrades, 0);
-    const totalUsers = tradeFraudUsers.length;
-
-    if (!confirm(`⚠️ NUCLEAR OPTION ⚠️\n\nFix ALL ${totalUsers} users with future-dated trades?\n\nThis will:\n- LIQUIDATE all their positions\n- Remove ${totalTrades} future-dated trades\n- Reset each to $1,000 starting balance\n\nThis action cannot be undone!`)) {
-      return;
-    }
-
-    setLoading(true);
-    let fixed = 0;
-    let failed = 0;
-
-    for (const fraudData of tradeFraudUsers) {
-      try {
-        const userRef = doc(db, 'users', fraudData.userId);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-          failed++;
-          continue;
-        }
-
-        const userData = userSnap.data();
-        const transactionLog = userData.transactionLog || [];
-        const now = Date.now();
-
-        // Filter out all future-dated transactions
-        const cleanedLog = transactionLog.filter(tx => tx.timestamp <= now);
-
-        const updates = {
-          cash: 1000,
-          totalCheckins: 0,
-          holdings: {},
-          shorts: {},
-          costBasis: {},
-          portfolioValue: 1000,
-          marginUsed: 0,
-          transactionLog: cleanedLog
-        };
-
-        await updateDoc(userRef, updates);
-        fixed++;
-      } catch (err) {
-        console.error('Failed to fix', fraudData.displayName, err);
-        failed++;
-      }
-    }
-
-    showMessage('success', `Liquidated ${fixed} users! ${failed > 0 ? `Failed: ${failed}` : ''}`);
-    setTradeFraudUsers([]);
-    setLoading(false);
-  };
-
   // Rollback user to a specific transaction timestamp
   const handleRollbackUser = async (userId, transaction) => {
     if (!confirm(`⚠️ ROLLBACK USER ⚠️\n\nRoll back to transaction from ${new Date(transaction.timestamp).toLocaleString()}?\n\nThis will:\n- Set cash to $${transaction.cashAfter?.toLocaleString() || '0'}\n- Set portfolio to $${transaction.portfolioAfter?.toLocaleString() || '0'}\n- You'll need to manually fix holdings/shorts\n\nContinue?`)) {
@@ -3357,7 +2449,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       });
 
       showMessage('success', `Rolled back user to ${new Date(transaction.timestamp).toLocaleString()}!`);
-      setRollbackTarget(null);
 
       // Refresh selected user data
       const updatedSnap = await getDoc(userRef);
@@ -3468,23 +2559,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       showMessage('error', `Failed to change name: ${err.message}`);
     }
     setLoading(false);
-  };
-
-  const handleCreateBots = async () => {
-    if (!confirm(`Create 20 bot traders?\n\nEach bot will get their starting cash and begin trading automatically.`)) {
-      return;
-    }
-
-    setBotsLoading(true);
-    try {
-      const result = await createBotsFunction();
-      showMessage('success', result.data.message);
-      await handleLoadBots();
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Failed to create bots: ${err.message}`);
-    }
-    setBotsLoading(false);
   };
 
   const handleLoadBots = async () => {
@@ -3912,7 +2986,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               allUsers={allUsers}
               userSearchResults={userSearchResults}
               usersPage={usersPage}
-              USERS_PER_PAGE={25}
+              USERS_PER_PAGE={USERS_PER_PAGE}
               selectedUser={selectedUser}
               setSelectedUser={setSelectedUser}
               calculateLivePortfolioValue={calculateLivePortfolioValue}
@@ -3920,7 +2994,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               handleSetCash={handleSetCash}
               handleTransferToLadder={handleTransferToLadder}
               handleToggleDiscordWall={handleToggleDiscordWall}
-              handleReinstateUser={handleReinstateUser}
               handleChangeDisplayName={handleChangeDisplayName}
               newDisplayName={newDisplayName}
               setNewDisplayName={setNewDisplayName}
@@ -4031,7 +3104,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               setRenameOldTicker={setRenameOldTicker}
               renameNewTicker={renameNewTicker}
               setRenameNewTicker={setRenameNewTicker}
-              renaming={renaming}
               renameResult={renameResult}
               setRenameResult={setRenameResult}
               showMessage={showMessage}

@@ -1,4 +1,3 @@
-import React from 'react';
 import { CHARACTERS } from '../../characters';
 
 const StatsTab = ({
@@ -163,7 +162,7 @@ const StatsTab = ({
               <div className="mb-3">
                 <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Most Traded (24h)</h4>
                 <div className="space-y-1">
-                  {marketStats.topTraded24h.map((item, i) => (
+                  {marketStats.topTraded24h.map((item) => (
                     <div key={item.ticker} className="flex justify-between text-sm">
                       <span className={textClass}>${item.ticker}</span>
                       <span className="font-bold text-cyan-500">${item.volume.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
@@ -213,7 +212,7 @@ const StatsTab = ({
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
               <h3 className={`font-semibold mb-3 text-green-500`}>📈 Top Gainers</h3>
               <div className="space-y-1">
-                {marketStats.topGainers.map((item, i) => (
+                {marketStats.topGainers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
                     <span className={textClass}>${item.ticker}</span>
                     <span className="font-bold text-green-500">+{item.change.toFixed(1)}%</span>
@@ -226,7 +225,7 @@ const StatsTab = ({
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
               <h3 className={`font-semibold mb-3 text-red-500`}>📉 Top Losers</h3>
               <div className="space-y-1">
-                {marketStats.topLosers.map((item, i) => (
+                {marketStats.topLosers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
                     <span className={textClass}>${item.ticker}</span>
                     <span className="font-bold text-red-500">{item.change.toFixed(1)}%</span>

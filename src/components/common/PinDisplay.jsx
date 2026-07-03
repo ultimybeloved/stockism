@@ -1,4 +1,3 @@
-import React from 'react';
 import { CREW_MAP } from '../../crews';
 import { ACHIEVEMENTS } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';

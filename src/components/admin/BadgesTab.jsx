@@ -1,9 +1,7 @@
-import React from 'react';
 import { ACHIEVEMENTS } from '../../constants/achievements';
 
 const BadgesTab = ({
   darkMode,
-  textClass,
   mutedClass,
   loading,
   badgesLoaded,

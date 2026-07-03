@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { DIVIDEND_RATES } from '../../constants/economy';
@@ -58,7 +58,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     usePortfolioModalData(user, timeRange, showNotification);
 
   // Helper to get price from 24h ago
-  const getPrice24hAgo = (ticker) => {
+  const getPrice24hAgo = useCallback((ticker) => {
     const history = priceHistory?.[ticker] || [];
     if (history.length === 0) return prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
 
@@ -69,7 +69,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
       }
     }
     return history[0]?.price || prices[ticker] || 0;
-  };
+  }, [priceHistory, prices]);
 
   const portfolioItems = useMemo(() => {
     const now = Date.now();
@@ -130,7 +130,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
         };
       })
       .sort((a, b) => b.value - a.value);
-  }, [holdings, prices, costBasis, priceHistory, holdingCohorts, dividendTierOverrides]);
+  }, [holdings, prices, costBasis, holdingCohorts, dividendTierOverrides, getPrice24hAgo]);
 
   const totalWeeklyDividends = useMemo(
     () => portfolioItems.reduce((sum, item) => sum + (item.weeklyDividend || 0), 0),
@@ -224,7 +224,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   };
 
   const { chartData, hasChartData, minValue, maxValue, valueRange, firstValue, lastValue, periodChange, isUp } =
-    usePortfolioChartData(portfolioHistory, currentValue, timeRange);
+    usePortfolioChartData(portfolioHistory, currentValue);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>

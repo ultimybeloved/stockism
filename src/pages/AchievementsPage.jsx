@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { getThemeClasses } from '../utils/theme';

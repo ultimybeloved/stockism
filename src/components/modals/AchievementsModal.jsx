@@ -2,7 +2,7 @@ import { ACHIEVEMENTS } from '../../constants/achievements';
 import { getThemeClasses } from '../../utils/theme';
 
 const AchievementsModal = ({ onClose, darkMode, userData }) => {
-  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);

@@ -1,6 +1,5 @@
-import React from 'react';
 
-export default function NotificationBell({ darkMode, user, onTogglePanel, unreadCount }) {
+export default function NotificationBell({ darkMode, onTogglePanel, unreadCount }) {
   return (
     <button
       onClick={onTogglePanel}

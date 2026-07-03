@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import AnnounceCard from './AnnounceCard';
 
 const RecoveryTab = ({
@@ -48,7 +48,6 @@ const RecoveryTab = ({
   setRenameOldTicker,
   renameNewTicker,
   setRenameNewTicker,
-  renaming,
   renameResult,
   setRenameResult,
   showMessage,
@@ -73,6 +72,11 @@ const RecoveryTab = ({
   setRollbackConfirm,
   executeFullRollback,
 }) => {
+  // Owned here (not a prop) so the rename buttons actually disable while a
+  // rename/dry-run is in flight — renameTicker halts the whole market, so a
+  // double-click must never fire it twice.
+  const [renaming, setRenaming] = useState(false);
+
   return (
     <div className="space-y-4">
       {/* Broadcast announcement to all users */}
@@ -498,11 +502,14 @@ const RecoveryTab = ({
                 return;
               }
               setRenameResult(null);
+              setRenaming(true);
               try {
                 const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: true });
                 setRenameResult(result.data);
               } catch (err) {
                 showMessage('error', `Dry run failed: ${err.message}`);
+              } finally {
+                setRenaming(false);
               }
             }}
             disabled={renaming || !renameOldTicker.trim() || !renameNewTicker.trim()}
@@ -519,12 +526,15 @@ const RecoveryTab = ({
               if (!window.confirm(`RENAME ${renameOldTicker} → ${renameNewTicker}?\n\nThis will modify ${renameResult.totalDocsToModify} documents.\nThe market will be halted during execution.\n\nAre you sure?`)) {
                 return;
               }
+              setRenaming(true);
               try {
                 const result = await renameTickerFunction({ oldTicker: renameOldTicker.trim(), newTicker: renameNewTicker.trim(), dryRun: false });
                 setRenameResult(result.data);
                 showMessage('success', `Renamed ${renameOldTicker} → ${renameNewTicker} successfully! ${result.data.totalDocsModified} docs modified.`);
               } catch (err) {
                 showMessage('error', `Rename failed: ${err.message}`);
+              } finally {
+                setRenaming(false);
               }
             }}
             disabled={renaming || !renameResult?.dryRun}

@@ -23,7 +23,12 @@ module.exports = {
     // These two are the high-value ones: rules-of-hooks catches real bugs.
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
-    'no-unused-vars': 'warn',
+    // `_` is the convention for intentionally-ignored params/destructure slots.
+    'no-unused-vars': ['warn', {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_$',
+      destructuredArrayIgnorePattern: '^_',
+    }],
     'no-empty': 'warn',
     'react/no-unescaped-entities': 'off',
   },

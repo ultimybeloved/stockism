@@ -1,4 +1,3 @@
-import React from 'react';
 import EventMarketFields from './EventMarketFields';
 import { lmsrCost } from '../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';

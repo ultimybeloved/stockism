@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { SHOP_PINS, PIN_SLOT_COSTS, CREW_MAP, getActiveShopPins } from '../../crews';
 import { ACHIEVEMENTS } from '../../constants/achievements';
 import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../constants/cosmetics';
 import { formatCurrency } from '../../utils/formatters';
-import PinDisplay from '../common/PinDisplay';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
-const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic, purchaseLoading }) => {
+const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic }) => {
   const { darkMode, userData } = useAppContext();
-  const [selectedPin, setSelectedPin] = useState(null);
   const [activeTab, setActiveTab] = useState('achievement'); // 'shop', 'achievement', 'cosmetics', 'manage' — defaults to achievements since the shop is empty
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);

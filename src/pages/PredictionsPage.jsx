@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import { getThemeClasses } from '../utils/theme';
 import { getTotalInvested } from '../utils/calculations';

@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { isWeeklyHalt, getHaltTimeRemaining, getNextHaltStart, formatCountdown, isMarketOpenGracePeriod, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
+import { useMemo, useState, useEffect } from 'react';
+import { isWeeklyHalt, getHaltTimeRemaining, formatCountdown, isMarketOpenGracePeriod, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
 import { useAppContext } from '../context/AppContext';
 
 const MarketTicker = () => {
@@ -55,7 +55,6 @@ const MarketTicker = () => {
   }, [prices, priceHistory]);
 
   // Schedule info
-  const nextHalt = getNextHaltStart();
   const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC`;
 
   const haltReason = marketData?.haltReason;

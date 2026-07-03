@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getThemeClasses } from '../utils/theme';
@@ -66,7 +66,7 @@ function timeAgo(timestamp) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function TradeFeed({ darkMode, user, userCrew }) {
+export default function TradeFeed({ darkMode, userCrew }) {
   const { borderClass } = getThemeClasses(darkMode);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('crew'); // 'crew' | 'global'

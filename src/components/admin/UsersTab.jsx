@@ -1,4 +1,3 @@
-import React from 'react';
 import { CHARACTERS } from '../../characters';
 import { ADMIN_UIDS } from '../../constants';
 
@@ -31,7 +30,6 @@ const UsersTab = ({
   handleSetCash,
   handleTransferToLadder,
   handleToggleDiscordWall,
-  handleReinstateUser,
   handleChangeDisplayName,
   newDisplayName,
   setNewDisplayName,
@@ -137,7 +135,7 @@ const UsersTab = ({
               }
 
               if (user.shorts && Object.keys(user.shorts).length > 0) {
-                Object.entries(user.shorts).forEach(([ticker, position]) => {
+                Object.values(user.shorts).forEach((position) => {
                   if (position && position.shares > 0) {
                     totalShortShares += position.shares;
                     totalShortValue += position.margin || 0;
@@ -678,7 +676,7 @@ const UsersTab = ({
           <div className="space-y-1">
             {userSearchResults
               .slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE)
-              .map((u, i) => {
+              .map((u) => {
                 const isSelected = selectedForDeletion.has(u.id);
                 const isAdminUser = ADMIN_UIDS.includes(u.id);
 

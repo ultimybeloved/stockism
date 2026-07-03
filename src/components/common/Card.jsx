@@ -3,7 +3,6 @@
 // Reusable card container with consistent styling
 // ============================================
 
-import React from 'react';
 
 /**
  * Card component

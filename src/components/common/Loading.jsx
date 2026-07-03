@@ -3,7 +3,6 @@
 // Reusable loading spinner and states
 // ============================================
 
-import React from 'react';
 
 /**
  * Loading Spinner component

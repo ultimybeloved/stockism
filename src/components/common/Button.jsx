@@ -3,7 +3,6 @@
 // Reusable button with consistent styling
 // ============================================
 
-import React from 'react';
 
 /**
  * Button component

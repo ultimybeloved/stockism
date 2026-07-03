@@ -1,4 +1,3 @@
-import React from 'react';
 import { CHARACTERS } from '../../characters';
 import { getDividendTier, DEFAULT_DIVIDEND_TIERS } from '../../characters';
 import { DIVIDEND_RATES } from '../../constants/economy';

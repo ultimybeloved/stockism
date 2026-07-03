@@ -1,4 +1,3 @@
-import React from 'react';
 import { MS_PER_HOUR, EVENT_OPEN_DELAY_PRESETS_HOURS } from '../../constants/economy';
 
 // Event-only create fields for the admin Predictions tab: house liquidity seed and

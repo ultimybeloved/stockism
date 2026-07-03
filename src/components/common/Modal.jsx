@@ -3,7 +3,7 @@
 // Reusable modal wrapper with consistent styling
 // ============================================
 
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 
 let openModalCount = 0;
 

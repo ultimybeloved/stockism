@@ -3,7 +3,6 @@
 // Reusable SVG donut chart with legend
 // ============================================
 
-import React from 'react';
 
 /**
  * Donut chart component

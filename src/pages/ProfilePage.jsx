@@ -109,10 +109,7 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount }) => {
             shorts={shorts}
             prices={prices}
             costBasis={costBasis}
-            portfolioHistory={portfolioHistory}
             portfolioValue={portfolioValue}
-            userData={userData}
-            user={user}
           />
 
           <ProfileSettings userData={userData} user={user} darkMode={darkMode} />

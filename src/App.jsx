@@ -1,14 +1,8 @@
 import * as Sentry from '@sentry/react';
-import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
   onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
   applyActionCode,
   signInWithCustomToken
 } from 'firebase/auth';
@@ -22,7 +16,6 @@ import {
   where,
   orderBy,
   limit,
-  getDocs,
   deleteDoc,
   deleteField
 } from 'firebase/firestore';
@@ -30,10 +23,8 @@ import { auth, db, executeTradeFunction, achievementAlertFunction, deleteAccount
 import { fireTradeConfetti } from './utils/confetti';
 import { ACHIEVEMENTS } from './constants/achievements';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
-import { CREWS, CREW_MAP, getWeekId } from './crews';
-import { containsProfanity, getProfanityMessage } from './utils/profanity';
+import { CREWS, CREW_MAP } from './crews';
 import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
-import LimitOrders from './components/LimitOrders';
 import MarketIndex from './components/MarketIndex';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
@@ -45,15 +36,12 @@ import EmailVerificationModal from './components/modals/EmailVerificationModal';
 
 // Lazy-loaded — only downloaded when the user actually opens them
 const AdminPanel        = lazy(() => import('./AdminPanel'));
-const LadderGame        = lazy(() => import('./components/LadderGame'));
 const AboutModal        = lazy(() => import('./components/modals/AboutModal'));
 const CrewSelectionModal = lazy(() => import('./components/modals/CrewSelectionModal'));
 const PinShopModal      = lazy(() => import('./components/modals/PinShopModal'));
 const DailyMissionsModal = lazy(() => import('./components/modals/DailyMissionsModal'));
-const AchievementsModal = lazy(() => import('./components/modals/AchievementsModal'));
 const MarginModal       = lazy(() => import('./components/modals/MarginModal'));
 const MarginTutorialModal = lazy(() => import('./components/modals/MarginTutorialModal'));
-const TradeActionModal  = lazy(() => import('./components/modals/TradeActionModal'));
 const ChartModal        = lazy(() => import('./components/modals/ChartModal'));
 const PortfolioModal    = lazy(() => import('./components/modals/PortfolioModal'));
 const TradeHistoryModal = lazy(() => import('./components/modals/TradeHistoryModal'));
@@ -63,13 +51,11 @@ const StockPage         = lazy(() => import('./pages/StockPage'));
 import CheckInButton from './components/CheckInButton';
 import CharacterCard from './components/CharacterCard';
 import ShortRiskAlert from './components/ShortRiskAlert';
-import { ToastNotification, ToastContainer } from './components/ToastNotification';
+import { ToastContainer } from './components/ToastNotification';
 import NotificationPanel from './components/NotificationPanel';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import PriceAlertModal from './components/modals/PriceAlertModal';
-import PortfolioAnalytics from './components/PortfolioAnalytics';
 import InstallPrompt from './components/InstallPrompt';
-import NewCharactersBoard from './components/NewCharactersBoard';
 import PredictionCard from './components/PredictionCard';
 import IPOHypeCard from './components/IPOHypeCard';
 import IPOActiveCard from './components/IPOActiveCard';
@@ -118,7 +104,7 @@ import {
   getTotalInvested,
 } from './utils/calculations';
 import { formatCurrency, formatChange } from './utils/formatters';
-import { toMillis, getWeekStart } from './utils/date';
+import { getWeekStart } from './utils/date';
 
 
 // ============================================
@@ -141,30 +127,11 @@ const getAccountAgeImpactFactor = (userData) => {
 // PREDICTION/IPO HELPERS
 // ============================================
 
-// Helper to get the start of the current prediction week (Wednesday)
-// Helper to get week identifier for persistence
-const getWeekIdentifier = () => {
-  return getWeekStart().toISOString().split('T')[0]; // e.g., "2026-01-22"
-};
-
 // Helper to get predictions identifier for detecting new predictions
 const getPredictionsIdentifier = (predictions) => {
   if (!predictions || predictions.length === 0) return 'none';
   // Create a simple hash based on prediction IDs
   return predictions.map(p => p.id).sort().join(',');
-};
-
-// Helper to load collapsed state from localStorage
-const loadCollapsedState = (key, weekOrPredictionsId) => {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return true; // Default to expanded
-    const { collapsed, identifier } = JSON.parse(stored);
-    // If the week/predictions have changed, reset to expanded
-    return identifier === weekOrPredictionsId ? collapsed : true;
-  } catch {
-    return true; // Default to expanded on error
-  }
 };
 
 // Helper to save collapsed state to localStorage
@@ -187,8 +154,6 @@ const saveCollapsedState = (key, collapsed, identifier) => {
 // ============================================
 // IPO ACTIVE CARD → moved to src/components/IPOActiveCard.jsx
 // ============================================
-
-const inputClass = 'bg-zinc-950 border-zinc-700 text-zinc-100';
 
 // ============================================
 // MAIN APP
@@ -513,7 +478,7 @@ export default function App() {
     } finally {
       setLoadingKey('trade', false);
     }
-  }, [user, userData, prices, marketData]);
+  }, [user, userData, prices, marketData, setLoadingKey, showNotification]);
 
   // Notification handlers
   const handleMarkNotificationRead = useCallback(async (notificationId) => {
@@ -898,7 +863,7 @@ export default function App() {
       lastPredictionsIdRef.current = predictionsId;
       setShowPredictions(true); // Auto-expand on new predictions
     }
-  }, [predictions]);
+  }, [predictions, setShowPredictions]);
 
   // Persist predictions collapse state
   useEffect(() => {
@@ -1046,7 +1011,7 @@ export default function App() {
     }
     
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
-  }, [user, userData, prices, activeIPOs, launchedTickers, showNotification]);
+  }, [user, userData, prices, activeIPOs, launchedTickers, showNotification, setTradeConfirmation]);
 
   // Watchlist toggle
   const toggleWatchlist = useCallback(async (ticker) => {
@@ -1070,7 +1035,7 @@ export default function App() {
     }
     setLimitOrderRequest({ ticker, action, mode: mode || 'limit' });
     setShowPortfolio(false); // Close portfolio modal
-  }, [user, userData, showNotification]);
+  }, [user, userData, showNotification, setLimitOrderRequest, setShowPortfolio]);
 
 
   // Sync portfolio value, history, and achievements via Cloud Function
@@ -1113,6 +1078,9 @@ export default function App() {
         }
       }).catch(err => console.error('Margin interest charge failed:', err));
     }
+    // Deliberately narrow deps: re-check only when the margin fields change,
+    // not on every userData write (holdings, missions, etc. update constantly).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.lastMarginInterestCharge]);
 
   // Bankruptcy notification system - remind every 5 minutes
@@ -1138,6 +1106,9 @@ export default function App() {
     const interval = setInterval(showBankruptcyReminder, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
+    // Deliberately narrow deps: the 5-minute reminder should re-arm only when
+    // cash changes, not on every userData write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userData?.cash, showNotification]);
 
   // Hide prediction from feed (admin only)
@@ -1159,7 +1130,7 @@ export default function App() {
       console.error('Failed to hide prediction:', err);
       showNotification('error', 'Failed to hide prediction');
     }
-  }, [user]);
+  }, [user, showNotification]);
 
   // DRIP toggle
   const handleToggleDrip = useCallback(async (ticker) => {
@@ -1168,9 +1139,6 @@ export default function App() {
     const isEnabled = !!(userData?.drip?.[ticker]);
     await updateDoc(userRef, { [`drip.${ticker}`]: isEnabled ? deleteField() : true });
   }, [user, userData]);
-
-  // Logout
-  const handleLogout = () => signOut(auth);
 
   // Delete account
   const handleDeleteAccount = useCallback(async (confirmUsername) => {
@@ -1360,7 +1328,7 @@ export default function App() {
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, activeIPOs, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, reviewChanges]);
+  }, [searchQuery, sortBy, prices, priceHistory, get24hChange, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, reviewChanges]);
 
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);

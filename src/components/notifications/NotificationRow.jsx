@@ -1,4 +1,3 @@
-import React from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { formatTimeAgo, formatCurrency } from '../../utils/formatters';
 import { getNotificationMeta } from '../../utils/notifications';

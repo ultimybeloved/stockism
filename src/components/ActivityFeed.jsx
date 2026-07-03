@@ -1,4 +1,3 @@
-import React from 'react';
 import { getThemeClasses } from '../utils/theme';
 
 const ActivityFeed = ({ activities, isOpen, onToggle, darkMode }) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db, createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';

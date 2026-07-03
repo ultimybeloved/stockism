@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 // Builds the portfolio chart series (sampled, anchored, and always ending at the
 // current value) plus the derived summary values the header needs. Extracted from
 // PortfolioModal so the modal stays a thin orchestrator.
-export function usePortfolioChartData(portfolioHistory, currentValue, timeRange) {
+export function usePortfolioChartData(portfolioHistory, currentValue) {
   const chartData = useMemo(() => {
     if (!portfolioHistory || portfolioHistory.length === 0) {
       // No history at all - create two points for a flat line
@@ -66,7 +66,8 @@ export function usePortfolioChartData(portfolioHistory, currentValue, timeRange)
     }
 
     return data;
-  }, [portfolioHistory, timeRange, currentValue]);
+    // timeRange isn't read here — the parent refetches portfolioHistory per range.
+  }, [portfolioHistory, currentValue]);
 
   const hasChartData = chartData.length >= 2; // Will always be true now
   const chartValues = hasChartData ? chartData.map(d => d.value) : [currentValue];

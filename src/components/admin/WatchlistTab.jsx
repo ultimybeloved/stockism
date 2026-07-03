@@ -1,4 +1,3 @@
-import React from 'react';
 import RecentSignups from './watchlist/RecentSignups';
 
 const WatchlistTab = ({

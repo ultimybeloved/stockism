@@ -1,4 +1,3 @@
-import React from 'react';
 import { CHARACTER_MAP } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';

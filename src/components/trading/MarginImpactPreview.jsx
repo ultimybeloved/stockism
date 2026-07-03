@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { formatCurrency } from '../../utils/formatters';
 import { calculateMarginStatus } from '../../utils/calculations';

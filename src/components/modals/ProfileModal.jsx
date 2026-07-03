@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { CREW_MAP } from '../../crews';
-import PinDisplay from '../common/PinDisplay';
 import { db, changeDisplayNameFunction } from '../../firebase';
 import { getCosmeticStyles } from '../../utils/cosmetics';
 import { updateDoc, doc } from 'firebase/firestore';

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, orderBy, limit, getDocs, startAfter, Timestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { collection, query, where, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { CHARACTER_MAP } from '../../characters';
@@ -24,7 +24,7 @@ const TradeHistoryModal = ({ onClose }) => {
   const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const inputClass = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-slate-900';
 
-  const fetchTrades = async (afterDoc = null) => {
+  const fetchTrades = useCallback(async (afterDoc = null) => {
     if (!user) return;
     try {
       const constraints = [
@@ -67,7 +67,7 @@ const TradeHistoryModal = ({ onClose }) => {
       console.error('Failed to fetch trades:', err);
       return [];
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     (async () => {
@@ -76,7 +76,7 @@ const TradeHistoryModal = ({ onClose }) => {
       setTrades(initial || []);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, fetchTrades]);
 
   const loadMore = async () => {
     if (!hasMore || loadingMore) return;

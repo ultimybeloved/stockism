@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';

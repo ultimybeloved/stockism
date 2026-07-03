@@ -1,10 +1,8 @@
-import React from 'react';
 
 const BotsTab = ({
   darkMode,
   textClass,
   mutedClass,
-  loading,
   prices,
   bots,
   botsLoading,

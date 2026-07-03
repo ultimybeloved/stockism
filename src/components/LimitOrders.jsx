@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, createLimitOrderFunction } from '../firebase';
 import { isWeeklyHalt } from '../utils/marketHours';
@@ -18,13 +18,7 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
 
   const { cardClass, textClass, mutedClass, inputClass } = getThemeClasses(darkMode);
 
-  useEffect(() => {
-    if (user) {
-      loadPendingOrders();
-    }
-  }, [user]);
-
-  const loadPendingOrders = async () => {
+  const loadPendingOrders = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -46,7 +40,13 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
     } catch (error) {
       console.error('Error loading orders:', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadPendingOrders();
+    }
+  }, [user, loadPendingOrders]);
 
   const handleCreateOrder = async () => {
     if (isWeeklyHalt()) {
@@ -113,7 +113,6 @@ const LimitOrders = ({ user, darkMode, prices, characters }) => {
   };
 
   const currentPrice = selectedTicker ? prices[selectedTicker] : 0;
-  const character = selectedTicker ? characters.find(c => c.ticker === selectedTicker) : null;
 
   return (
     <div className={`${cardClass} border rounded-sm p-4`}>

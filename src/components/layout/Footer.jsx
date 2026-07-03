@@ -19,7 +19,7 @@ const Footer = () => {
     }`}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-          {links.map((link, index) => (
+          {links.map((link) => (
             <React.Fragment key={link.href}>
               {link.external ? (
                 <a

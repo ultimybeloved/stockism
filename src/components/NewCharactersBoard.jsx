@@ -1,4 +1,3 @@
-import React from 'react';
 import { CHARACTERS } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 import { getWeekStart } from '../utils/date';

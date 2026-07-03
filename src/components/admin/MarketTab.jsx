@@ -1,13 +1,8 @@
-import React from 'react';
 
 const MarketTab = ({
   darkMode,
-  textClass,
   mutedClass,
   loading,
-  setLoading,
-  setMessage,
-  user,
   prices,
   marketHaltStatus,
   marketHaltReason,
