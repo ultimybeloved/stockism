@@ -11,15 +11,16 @@ Severity: CRITICAL / HIGH / MEDIUM / LOW.
 
 ## CRITICAL
 
-### C1. validateTrade wipes IP anti-manipulation history — FIXED (one step left)
+### C1. validateTrade wipes IP anti-manipulation history — FIXED (fully closed 2026-07-02)
 The old `validateTrade` callable overwrote the ipTracking doc without merge,
 destroying `tickerTradeHistory` and `recentTraders` — the data executeTrade uses
 for the IP-level 10% daily impact cap and the 2-accounts-per-IP cap. Anyone could
 call it before each trade to neuter both protections.
 - Status: the function was already deleted from the codebase (its watched-IP logic
   moved into `trackWatchedIpTrade` in watchlist.js, called from executeTrade).
-- **Remaining step: the old function is still deployed and callable in production.**
-  Run: `firebase functions:delete validateTrade --region us-central1 --force`
+- The deployed copy stayed live and callable in production until 2026-07-02, when
+  `firebase functions:delete validateTrade --region us-central1 --force` was run.
+  Verified via `firebase functions:list`: no orphaned functions remain in prod.
 
 ## HIGH
 
