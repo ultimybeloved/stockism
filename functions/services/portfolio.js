@@ -3,6 +3,9 @@
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
+// Modular import (not admin.firestore.FieldValue): the emulator sandbox strips
+// the namespaced statics, and this form works in both prod and sandbox.
+const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
@@ -95,12 +98,12 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
         proceeds += bid * shares;
         swept++;
 
-        updates[`holdings.${ticker}`] = admin.firestore.FieldValue.delete();
-        updates[`costBasis.${ticker}`] = admin.firestore.FieldValue.delete();
-        updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+        updates[`holdings.${ticker}`] = FieldValue.delete();
+        updates[`costBasis.${ticker}`] = FieldValue.delete();
+        updates[`lowestWhileHolding.${ticker}`] = FieldValue.delete();
         // Position is fully closed — drop the dividend cohort like the normal
         // sell path does (also resets the ETF firstHeldAt clock).
-        updates[`holdingCohorts.${ticker}`] = admin.firestore.FieldValue.delete();
+        updates[`holdingCohorts.${ticker}`] = FieldValue.delete();
       }
 
       if (swept === 0) {
@@ -109,8 +112,8 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
       }
 
       proceeds = round2(proceeds);
-      updates.cash = admin.firestore.FieldValue.increment(proceeds);
-      updates.lastTradeTime = admin.firestore.FieldValue.serverTimestamp();
+      updates.cash = FieldValue.increment(proceeds);
+      updates.lastTradeTime = FieldValue.serverTimestamp();
       transaction.update(userRef, updates);
 
       result = { swept, proceeds };
