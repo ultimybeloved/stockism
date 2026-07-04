@@ -1396,7 +1396,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={
               <div className={`min-h-screen ${bgClass} p-4`}>
-                <div className="max-w-6xl lg:max-w-[1720px] mx-auto">
+                <div className="max-w-6xl lg:max-w-none mx-auto">
                   {/* Sub-header buttons */}
                   <div className="flex flex-wrap gap-2 mb-4 justify-center">
                     <button
@@ -1490,10 +1490,11 @@ export default function App() {
           </div>
         )}
 
-        {/* Desktop: dashboard rail on the left with its own scroll, market on the
-            right. Mobile/tablet: everything stacks exactly as before. */}
+        {/* Desktop: market fills the left, dashboard rail pinned on the right with
+            its own scroll. Mobile/tablet: everything stacks exactly as before
+            (DOM order = mobile order; the order classes flip it on desktop). */}
         <div className="lg:flex lg:items-start lg:gap-6">
-        <aside className="lg:w-80 xl:w-96 lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1">
+        <aside className="lg:order-2 lg:w-96 2xl:w-[30rem] lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pl-1">
 
         {/* Weekly Predictions */}
         {predictions.some(p => p.type !== 'event') && (
@@ -1720,7 +1721,7 @@ export default function App() {
         </aside>
 
         {/* Market column */}
-        <div className="flex-1 min-w-0">
+        <div className="lg:order-1 flex-1 min-w-0">
 
         {/* Market Tab Toggle */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -1851,8 +1852,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Character Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+        {/* Character Grid — auto-fills as many ~300px+ columns as the screen allows */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
           {displayedCharacters.map(character => (
             <CharacterCard
               key={character.ticker}
