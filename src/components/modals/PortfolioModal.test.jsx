@@ -10,7 +10,6 @@ expect.extend(matchers);
 const h = vi.hoisted(() => ({ ctx: {} }));
 
 vi.mock('../../firebase', () => ({ db: {} }));
-vi.mock('../LimitOrders', () => ({ default: () => null }));
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
   query: vi.fn(),

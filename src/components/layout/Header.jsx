@@ -34,6 +34,18 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [showNewCharsPopout, setShowNewCharsPopout] = useState(false);
+  // Badge clears once the popout has been opened for the current batch of new
+  // characters; a new batch (different tickers) brings it back.
+  const newCharsId = newCharacters.map((c) => c.ticker).sort().join(',');
+  const [seenNewCharsId, setSeenNewCharsId] = useState(() => {
+    try { return localStorage.getItem('seenNewCharsId') || ''; } catch { return ''; }
+  });
+  const hasUnseenNewChars = newCharsId !== '' && newCharsId !== seenNewCharsId;
+  const openNewCharsPopout = () => {
+    setShowNewCharsPopout((prev) => !prev);
+    setSeenNewCharsId(newCharsId);
+    try { localStorage.setItem('seenNewCharsId', newCharsId); } catch { /* ignore */ }
+  };
   const [showPreMarketOrders, setShowPreMarketOrders] = useState(false);
   const [inPreMarket, setInPreMarket] = useState(isPreMarketWindow());
 
@@ -194,7 +206,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
             {newCharacters.length > 0 && (
               <div className="relative" ref={newCharsRef}>
                 <button
-                  onClick={() => setShowNewCharsPopout(prev => !prev)}
+                  onClick={openNewCharsPopout}
                   className={`p-2 rounded-md transition-colors relative ${
                     darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
                   }`}
@@ -202,9 +214,11 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                   title="New characters this week"
                 >
                   ✨
-                  <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
-                    {newCharacters.length}
-                  </span>
+                  {hasUnseenNewChars && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
+                      {newCharacters.length}
+                    </span>
+                  )}
                 </button>
 
                 {showNewCharsPopout && (

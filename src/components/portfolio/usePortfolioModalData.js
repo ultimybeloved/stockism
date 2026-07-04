@@ -40,9 +40,9 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
     loadPendingOrders();
   }, [user]);
 
+  // Confirmation is handled in PendingOrdersList with a two-step button,
+  // matching the pattern used elsewhere (no native confirm dialogs).
   const handleCancelOrder = async (orderId) => {
-    if (!confirm('Cancel this order?')) return;
-
     setLoadingOrders(true);
     try {
       await updateDoc(doc(db, 'limitOrders', orderId), {

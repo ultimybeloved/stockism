@@ -8,7 +8,7 @@ const CAP_DAY = CHECKIN_STREAK_REWARDS.length; // streak length where the reward
 const rewardForStreak = (streak) =>
   CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
 
-const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, darkMode, loading }) => {
+const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onSignIn, darkMode, loading }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [timeUntilReset, setTimeUntilReset] = useState('');
 
@@ -73,6 +73,24 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, dar
     statusLine = 'Check in to start your streak.';
   } else {
     statusLine = `Day ${claimStreak} of ${CAP_DAY}.`;
+  }
+
+  // Guests can't check in — show an honest sign-in prompt instead of a
+  // claim button and an empty streak ladder they can't use.
+  if (isGuest) {
+    return (
+      <div className="relative mt-2">
+        <p className={`text-[10px] leading-tight mb-1 text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+          {statusLine}
+        </p>
+        <button
+          onClick={onSignIn}
+          className="w-full py-1.5 text-xs font-semibold uppercase rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          Sign in to check in (+${rewardForStreak(1)})
+        </button>
+      </div>
+    );
   }
 
   return (

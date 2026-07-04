@@ -256,7 +256,9 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
           </div>
         </div>
 
-        {/* Portfolio Chart */}
+        {/* Portfolio Chart — hidden for brand-new accounts (no positions and no
+            history yet), where it would just be a flat placeholder line */}
+        {!(portfolioItems.length === 0 && shortItems.length === 0 && ipoItems.length === 0 && !loadingHistory && (portfolioHistory?.length || 0) < 2) && (
         <PortfolioChart
           chartData={chartData}
           minValue={minValue}
@@ -274,6 +276,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
           darkMode={darkMode}
           colorBlindMode={colorBlindMode}
         />
+        )}
 
         <div className="flex-1 overflow-y-auto p-4">
           {portfolioItems.length === 0 && shortItems.length === 0 && ipoItems.length === 0 ? (

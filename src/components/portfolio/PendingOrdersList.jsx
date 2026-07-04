@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { CHARACTER_MAP } from '../../characters';
 
 // Pending limit / stop-loss orders section of the portfolio modal (renders nothing
 // when there are no pending orders).
 const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }) => {
-  if (!orders || orders.length === 0) return null;
+  // Two-step cancel so a stray tap can't kill an order.
+  const [confirmingId, setConfirmingId] = useState(null);
   const { textClass, mutedClass } = getThemeClasses(darkMode);
+  if (!orders || orders.length === 0) return null;
 
   return (
     <div className="mt-6">
@@ -43,13 +46,32 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
                   </div>
                   <div className={`text-xs ${mutedClass}`}>{character?.name}</div>
                 </div>
-                <button
-                  onClick={() => onCancel(order.id)}
-                  disabled={loadingOrders}
-                  className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  Cancel
-                </button>
+                {confirmingId === order.id ? (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => { setConfirmingId(null); onCancel(order.id); }}
+                      disabled={loadingOrders}
+                      className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmingId(null)}
+                      disabled={loadingOrders}
+                      className={`px-2 py-1 text-xs font-semibold rounded-sm disabled:opacity-50 ${darkMode ? 'bg-zinc-700 text-zinc-200 hover:bg-zinc-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                    >
+                      Keep
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingId(order.id)}
+                    disabled={loadingOrders}
+                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">

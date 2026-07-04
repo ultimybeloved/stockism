@@ -1546,9 +1546,12 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'border-purple-500' : 'border-red-500') : ''}`}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Cash</p>
-            <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : textClass}`}>
+            <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : isGuest ? mutedClass : textClass}`}>
               {(activeUserData.cash || 0) < 0 ? '-' : ''}{formatCurrency(Math.abs(activeUserData.cash || 0))}
             </p>
+            {isGuest && (
+              <p className={`text-xs ${mutedClass}`}>Your starting cash when you sign up</p>
+            )}
             {(activeUserData.cash || 0) < 0 && !activeUserData.isBankrupt && (
               <p className="mt-2 text-xs text-amber-500">
                 Sell or close a position to clear this.
@@ -1586,6 +1589,7 @@ export default function App() {
               lastCheckin={userData?.lastCheckin}
               checkinStreak={userData?.checkinStreak || 0}
               onCheckin={handleDailyCheckin}
+              onSignIn={() => setShowLoginModal(true)}
               darkMode={darkMode}
               loading={actionLoading.checkin}
             />
