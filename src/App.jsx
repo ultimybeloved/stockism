@@ -1396,7 +1396,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={
               <div className={`min-h-screen ${bgClass} p-4`}>
-                <div className="max-w-6xl mx-auto">
+                <div className="max-w-6xl lg:max-w-[1720px] mx-auto">
                   {/* Sub-header buttons */}
                   <div className="flex flex-wrap gap-2 mb-4 justify-center">
                     <button
@@ -1490,6 +1490,11 @@ export default function App() {
           </div>
         )}
 
+        {/* Desktop: dashboard rail on the left with its own scroll, market on the
+            right. Mobile/tablet: everything stacks exactly as before. */}
+        <div className="lg:flex lg:items-start lg:gap-6">
+        <aside className="lg:w-80 xl:w-96 lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1">
+
         {/* Weekly Predictions */}
         {predictions.some(p => p.type !== 'event') && (
           <div className="mb-4">
@@ -1515,12 +1520,10 @@ export default function App() {
             </button>
             {showPredictions && (() => {
               const visiblePredictions = predictions.filter(p => p.type !== 'event' && !p.hidden && !p.cancelled && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
-              const colClass = [
-                'grid-cols-1',
-                'grid-cols-1 sm:grid-cols-2',
-                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
-              ][visiblePredictions.length - 1] || 'grid-cols-1';
+              // Single column at lg+ — the cards live in the sidebar rail there.
+              const colClass = visiblePredictions.length === 1
+                ? 'grid-cols-1'
+                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-1';
               return (
               <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
                 {visiblePredictions.map(prediction => {
@@ -1553,7 +1556,7 @@ export default function App() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 mb-4">
           <div className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'border-purple-500' : 'border-red-500') : ''}`}>
             <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Cash</p>
             <p className={`text-2xl font-bold ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500') : isGuest ? mutedClass : textClass}`}>
@@ -1714,6 +1717,11 @@ export default function App() {
           colorBlindMode={userData?.colorBlindMode}
         />
 
+        </aside>
+
+        {/* Market column */}
+        <div className="flex-1 min-w-0">
+
         {/* Market Tab Toggle */}
         <div className="flex flex-wrap gap-2 mb-3">
           <button
@@ -1844,7 +1852,7 @@ export default function App() {
         </div>
 
         {/* Character Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {displayedCharacters.map(character => (
             <CharacterCard
               key={character.ticker}
@@ -1901,6 +1909,9 @@ export default function App() {
             </div>
           </div>
         )}
+
+        </div>
+        </div>
                 </div>
               </div>
             } />
