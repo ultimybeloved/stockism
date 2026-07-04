@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { formatCurrency, formatChange } from '../../utils/formatters';
+import { formatCurrency, formatChange, formatAxisLabels } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 
 // Keys must match shared TIME_RANGES so the page can fetch history per range.
@@ -106,18 +106,23 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
       </div>
       <div className="relative">
         <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
-          {[0, 0.5, 1].map((ratio, i) => {
-            const y = padY + ratio * ch;
-            const value = maxChartValue - ratio * chartValueRange;
-            return (
-              <g key={i}>
-                <line x1={padX} y1={y} x2={svgWidth - padX} y2={y} stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-                <text x={padX - 5} y={y + 4} textAnchor="end" fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
-                  ${(value / 1000).toFixed(1)}k
-                </text>
-              </g>
-            );
-          })}
+          {(() => {
+            const ratios = [0, 0.5, 1];
+            const labels = formatAxisLabels(ratios.map((r) => maxChartValue - r * chartValueRange), { kilo: true });
+            return ratios.map((ratio, i) => {
+              const y = padY + ratio * ch;
+              return (
+                <g key={i}>
+                  <line x1={padX} y1={y} x2={svgWidth - padX} y2={y} stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+                  {labels[i] && (
+                    <text x={padX - 5} y={y + 4} textAnchor="end" fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
+                      {labels[i]}
+                    </text>
+                  )}
+                </g>
+              );
+            });
+          })()}
           <path d={chartAreaPath} fill={chartFill} />
           <path d={chartPathData} fill="none" stroke={chartStroke} strokeWidth="2" />
           {/* Start/end markers */}

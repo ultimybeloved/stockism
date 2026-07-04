@@ -70,6 +70,7 @@ const LoginModal = ({ onClose, darkMode }) => {
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     if (!email || !password) {
@@ -94,11 +95,13 @@ const LoginModal = ({ onClose, darkMode }) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await sendEmailVerification(userCredential.user);
         setError(''); // Clear any errors
-        // Show success message
-        alert('Verification email sent! Please check your inbox and verify your email before signing in.');
         // Sign out immediately so they can't bypass verification
         await signOut(auth);
-        setIsRegistering(false); // Switch to sign in mode
+        // Keep the modal open in sign-in mode with the instructions visible
+        setIsRegistering(false);
+        setSuccessMessage('Verification email sent! Check your inbox and verify your email, then sign in here.');
+        setLoading(false);
+        return;
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -248,6 +251,11 @@ const LoginModal = ({ onClose, darkMode }) => {
               {error}
             </div>
           )}
+          {successMessage && (
+            <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-sm text-sm">
+              {successMessage}
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}
@@ -309,6 +317,7 @@ const LoginModal = ({ onClose, darkMode }) => {
               } else {
                 setIsRegistering(!isRegistering);
                 setConfirmPassword('');
+                setSuccessMessage('');
               }
               setError('');
               setSuccessMessage('');

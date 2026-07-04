@@ -3,10 +3,10 @@ import CrewMissionsTab from '../missions/CrewMissionsTab';
 import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
-import { getThemeClasses } from '../../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
-const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
+const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, onOpenCrewSelection, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
   const { darkMode, userData, prices } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
@@ -309,7 +309,15 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
           ) : noCrew ? (
             <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
               <p className={`${mutedClass} mb-2`}>Join a crew to unlock missions!</p>
-              <p className={`text-xs ${mutedClass}`}>Crew missions give you bonus cash rewards.</p>
+              <p className={`text-xs ${mutedClass} mb-3`}>Crew missions give you bonus cash rewards.</p>
+              {onOpenCrewSelection && (
+                <button
+                  onClick={() => { onClose(); onOpenCrewSelection(); }}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
+                >
+                  🏴 Choose a Crew
+                </button>
+              )}
             </div>
           ) : activeTab === 'daily' ? (
             <>
@@ -369,9 +377,9 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
                   ) : (
-                    <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
+                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.emblem}</span>
                   )}
-                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>
@@ -440,9 +448,9 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
                   ) : (
-                    <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.emblem}</span>
+                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.emblem}</span>
                   )}
-                  <span style={{ color: CREW_MAP[userCrew]?.color }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>

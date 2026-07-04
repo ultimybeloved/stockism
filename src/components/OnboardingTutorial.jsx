@@ -6,7 +6,7 @@ const STEPS = [
     title: "Welcome to Stockism!",
     emoji: "📈",
     description:
-      "You start with $1,000 in cash. Trade Lookism characters like stocks — buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.",
+      "You start with $1,000 in cash. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.",
     spotlight: false,
   },
   {
@@ -70,14 +70,6 @@ export default function OnboardingTutorial({ onComplete }) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4">
-      {/* Skip button — top right */}
-      <button
-        onClick={onComplete}
-        className={`absolute top-4 right-4 text-sm ${subtleBtn} transition-colors cursor-pointer`}
-      >
-        Skip tutorial
-      </button>
-
       {/* Card */}
       <div
         className={`relative max-w-md w-full mx-auto rounded-sm shadow-xl p-6 ${card} transition-all duration-200 ${
@@ -88,6 +80,14 @@ export default function OnboardingTutorial({ onComplete }) {
             : "opacity-100 translate-x-0"
         }`}
       >
+        {/* Skip button — inside the card so it never overlaps the header */}
+        <button
+          onClick={onComplete}
+          className={`absolute top-3 right-4 text-xs ${subtleBtn} transition-colors cursor-pointer`}
+        >
+          Skip tutorial
+        </button>
+
         {/* Step indicator dots */}
         <div className="flex justify-center gap-2 mb-6">
           {STEPS.map((_, i) => (

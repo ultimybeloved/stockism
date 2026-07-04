@@ -7,7 +7,7 @@ import {
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
 } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
-import { getThemeClasses } from '../../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
 // Contribution fields stored booleans before June 2026; treat those as
@@ -98,12 +98,12 @@ export default function CrewMissionsTab() {
         {crewInfo?.icon ? (
           <img src={crewInfo.icon} alt="" className="w-4 h-4 object-contain" />
         ) : (
-          <span style={{ color: crewInfo?.color }}>{crewInfo?.emblem}</span>
+          <span style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>{crewInfo?.emblem}</span>
         )}
-        <span className={`text-xs font-semibold`} style={{ color: crewInfo?.color }}>
+        <span className={`text-xs font-semibold`} style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>
           {crewInfo?.name || crew}
         </span>
-        <span className={`text-xs ${mutedClass}`}>— resets Monday</span>
+        <span className={`text-xs ${mutedClass}`}>(resets Monday)</span>
       </div>
 
       {claimError && (

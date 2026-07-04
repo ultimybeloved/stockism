@@ -5,7 +5,7 @@ import { getCosmeticStyles } from '../../utils/cosmetics';
 import { updateDoc, doc } from 'firebase/firestore';
 import { formatCurrency } from '../../utils/formatters';
 import { validateUsername } from '../../utils/username';
-import { getThemeClasses } from '../../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 
 const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection, user, onDeleteAccount, prices, holdings, shorts, costBasis }) => {
   const [showCrewSection, setShowCrewSection] = useState(false);
@@ -156,7 +156,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   onClick={() => { setEditingName(true); setNewName(userData?.displayName || ''); setNameError(''); }}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
                 >
-                  ✏️ Change name — $10,000
+                  ✏️ Change name ($10,000)
                 </button>
               ) : (
                 <p className={`text-xs ${mutedClass}`}>Name change available in {daysUntilChange} day{daysUntilChange === 1 ? '' : 's'}</p>
@@ -210,7 +210,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   ) : (
                     <span className="text-xl">{crewData.emblem}</span>
                   )}
-                  <span className={`font-semibold ${textClass}`} style={{ color: crewData.color }}>
+                  <span className={`font-semibold ${textClass}`} style={{ color: getReadableCrewColor(crewData.color, darkMode) }}>
                     {crewData.name}
                   </span>
                   {userData.isCrewHead && (

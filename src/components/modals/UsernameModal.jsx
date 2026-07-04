@@ -96,7 +96,7 @@ const UsernameModal = ({ onComplete, darkMode }) => {
         </form>
 
         <p className={`text-xs ${mutedClass} mt-4 text-center`}>
-          🔒 Your Google account info is never stored or shared
+          🔒 Your account info is never stored or shared
         </p>
 
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>

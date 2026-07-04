@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
+import { formatAxisLabels } from '../utils/formatters';
 
 const TIME_RANGES = [
   { key: '1d', label: 'Today', hours: 24 },
@@ -65,6 +66,9 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
   const maxPrice = Math.max(...prices);
   const priceRange = maxPrice - minPrice || 1;
 
+  const gridRatios = [0, 0.25, 0.5, 0.75, 1];
+  const axisLabels = formatAxisLabels(gridRatios.map((r) => maxPrice - r * priceRange));
+
   const firstPrice = currentData[0]?.price || currentPrice;
   const lastPrice = currentData[currentData.length - 1]?.price || currentPrice;
   const isUp = lastPrice >= firstPrice;
@@ -120,17 +124,18 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
         onTouchEnd={() => { setHoveredPoint(null); onHover?.(null); }}
       >
         {/* Grid */}
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+        {gridRatios.map((ratio, i) => {
           const y = PAD_Y + ratio * CHART_H;
-          const price = maxPrice - ratio * priceRange;
           return (
             <g key={i}>
               <line x1={PAD_X} y1={y} x2={SVG_W - PAD_X} y2={y}
                 stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-              <text x={PAD_X - 8} y={y + 4} textAnchor="end"
-                fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
-                ${price.toFixed(0)}
-              </text>
+              {axisLabels[i] && (
+                <text x={PAD_X - 8} y={y + 4} textAnchor="end"
+                  fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
+                  {axisLabels[i]}
+                </text>
+              )}
             </g>
           );
         })}

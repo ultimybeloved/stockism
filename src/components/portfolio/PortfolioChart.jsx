@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatAxisLabels } from '../../utils/formatters';
 
 // The collapsible portfolio value chart (time-range buttons + interactive SVG).
 // Presentational: receives the prepared chartData and derived bounds, owns only
@@ -95,20 +95,25 @@ const PortfolioChart = ({
             className="w-full"
           >
             {/* Grid lines */}
-            {[0, 0.5, 1].map((ratio, i) => {
-              const y = paddingY + ratio * chartHeight;
-              const value = maxValue - ratio * valueRange;
-              return (
-                <g key={i}>
-                  <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
-                    stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-                  <text x={paddingX - 5} y={y + 4} textAnchor="end"
-                    fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
-                    ${(value / 1000).toFixed(1)}k
-                  </text>
-                </g>
-              );
-            })}
+            {(() => {
+              const ratios = [0, 0.5, 1];
+              const labels = formatAxisLabels(ratios.map((r) => maxValue - r * valueRange), { kilo: true });
+              return ratios.map((ratio, i) => {
+                const y = paddingY + ratio * chartHeight;
+                return (
+                  <g key={i}>
+                    <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
+                      stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+                    {labels[i] && (
+                      <text x={paddingX - 5} y={y + 4} textAnchor="end"
+                        fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
+                        {labels[i]}
+                      </text>
+                    )}
+                  </g>
+                );
+              });
+            })()}
 
             {/* Area fill */}
             <path d={areaPath} fill={fillColor} />

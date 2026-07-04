@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CREWS, CREW_MAP } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
-import { getThemeClasses } from '../../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
 const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading, selectLoading }) => {
@@ -11,6 +11,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
   const [leavingCrew, setLeavingCrew] = useState(false);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const crewColor = (hex) => getReadableCrewColor(hex, darkMode);
 
   const currentCrew = userData?.crew;
   const portfolioValue = userData?.portfolioValue || 0;
@@ -57,9 +58,9 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
               {CREW_MAP[currentCrew]?.icon ? (
                 <img src={CREW_MAP[currentCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
               ) : (
-                <span style={{ color: CREW_MAP[currentCrew]?.color }}>{CREW_MAP[currentCrew]?.emblem}</span>
+                <span style={{ color: crewColor(CREW_MAP[currentCrew]?.color) }}>{CREW_MAP[currentCrew]?.emblem}</span>
               )}
-              <span style={{ color: CREW_MAP[currentCrew]?.color }}>{CREW_MAP[currentCrew]?.name}</span>
+              <span style={{ color: crewColor(CREW_MAP[currentCrew]?.color) }}>{CREW_MAP[currentCrew]?.name}</span>
             </p>
           )}
           {!isGuest && !currentCrew && (
@@ -119,7 +120,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
                 <span className="text-4xl">{CREW_MAP[selectedCrew]?.emblem}</span>
               )}
             </div>
-            <h3 className={`text-xl font-bold mb-2 ${textClass}`} style={{ color: CREW_MAP[selectedCrew]?.color }}>
+            <h3 className={`text-xl font-bold mb-2 ${textClass}`} style={{ color: crewColor(CREW_MAP[selectedCrew]?.color) }}>
               {currentCrew ? `Switch to ${CREW_MAP[selectedCrew]?.name}?` : `Join ${CREW_MAP[selectedCrew]?.name}?`}
             </h3>
 
@@ -194,7 +195,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
                     ) : (
                       <span className="text-2xl">{crew.emblem}</span>
                     )}
-                    <span className={`font-bold ${textClass}`} style={{ color: crew.color }}>
+                    <span className={`font-bold ${textClass}`} style={{ color: crewColor(crew.color) }}>
                       {crew.name}
                     </span>
                   </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getThemeClasses } from '../../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 
 // Collapsible crew card, or a "Join a Crew" button when the user has no crew.
 const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelection }) => {
@@ -34,7 +34,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
           ) : (
             <span className="text-xl">{crewData.emblem}</span>
           )}
-          <span className={`font-semibold ${textClass}`} style={{ color: crewData.color }}>
+          <span className={`font-semibold ${textClass}`} style={{ color: getReadableCrewColor(crewData.color, darkMode) }}>
             {crewData.name}
           </span>
           {userData.isCrewHead && (

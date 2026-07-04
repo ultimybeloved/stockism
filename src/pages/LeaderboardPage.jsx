@@ -6,7 +6,7 @@ import { CREWS, CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
 import { COSMETIC_MAP } from '../constants/cosmetics';
-import { getThemeClasses } from '../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 
 const LeaderboardPage = () => {
   const { darkMode, user, userData } = useAppContext();
@@ -207,12 +207,12 @@ const LeaderboardPage = () => {
                           <Link
                             to={`/u/${(leader.displayName || '').toLowerCase()}`}
                             className="hover:underline"
-                            style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}
+                            style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}
                           >
                             {leader.displayName || 'Anonymous Trader'}
                           </Link>
                         ) : (
-                          <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? leader.crewHeadColor || crew.color : undefined) }}>
+                          <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}>
                             {leader.displayName || 'Anonymous Trader'}
                           </span>
                         )}

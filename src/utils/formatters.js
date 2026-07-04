@@ -77,6 +77,25 @@ export const formatTimeAgo = (ts) => {
 };
 
 /**
+ * Format a chart's y-axis gridline values as dollar labels.
+ * Starts at the coarsest precision and adds decimals until every label is
+ * distinct, so a tight price range never renders as "$85, $85, $85, $84".
+ * On perfectly flat data (all gridlines equal) only the middle label is kept.
+ * @param {number[]} values - Gridline values, in render order
+ * @param {{kilo?: boolean}} [opts] - kilo: render as "$3.0k" style
+ * @returns {string[]} One label per input value ('' = skip rendering)
+ */
+export const formatAxisLabels = (values, { kilo = false } = {}) => {
+  const fmt = (v, d) => (kilo ? `$${(v / 1000).toFixed(d)}k` : `$${v.toFixed(d)}`);
+  for (let d = kilo ? 1 : 0; d <= 2; d++) {
+    const labels = values.map((v) => fmt(v, d));
+    if (new Set(labels).size === labels.length) return labels;
+  }
+  const mid = Math.floor(values.length / 2);
+  return values.map((v, i) => (i === mid ? fmt(v, kilo ? 1 : 2) : ''));
+};
+
+/**
  * Round a number to 2 decimal places
  * @param {number} value - The value to round
  * @returns {number} Rounded value

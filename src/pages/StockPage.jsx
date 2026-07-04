@@ -6,7 +6,7 @@ import { CHARACTER_MAP, getDividendTier, CHARACTERS } from '../characters';
 import { CREWS } from '../crews';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, formatChange } from '../utils/formatters';
-import { getThemeClasses } from '../utils/theme';
+import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 import { DIVIDEND_RATES, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
@@ -157,7 +157,7 @@ const StockPage = ({ onTrade }) => {
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
                 {crew && (
                   <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
-                    style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: crew.color }}>
+                    style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: getReadableCrewColor(crew.color, darkMode) }}>
                     <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />{crew.name}
                   </span>
                 )}
@@ -238,7 +238,7 @@ const StockPage = ({ onTrade }) => {
           {stat('Base Price', formatCurrency(character.basePrice))}
           {dividendRate > 0
             ? stat('Dividend', `${(dividendRate * 100).toFixed(2)}% / week`, upColor)
-            : stat('Dividend', 'Growth — none', mutedClass)}
+            : stat('Dividend', 'Growth (none)', mutedClass)}
           {character.volatility && stat('Volatility', `${(character.volatility * 100).toFixed(1)}%`)}
         </div>
 

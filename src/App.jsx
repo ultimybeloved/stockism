@@ -570,10 +570,10 @@ export default function App() {
           console.error('Discord sign-in error:', error);
         });
     } else if (discordError) {
-      alert('Discord sign-in failed. Please try again or use a different sign-in method.');
+      showNotification('error', 'Discord sign-in failed. Please try again or use a different sign-in method.');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+  }, [showNotification]);
 
   // Listen to auth state
   useEffect(() => {
@@ -1981,6 +1981,7 @@ export default function App() {
           onClose={() => setShowDailyMissions(false)}
           onClaimReward={handleClaimMissionReward}
           onClaimWeeklyReward={handleClaimWeeklyMissionReward}
+          onOpenCrewSelection={() => setShowCrewSelection(true)}
           portfolioValue={portfolioValue}
           isGuest={isGuest}
           claimLoading={actionLoading.claimMission}
