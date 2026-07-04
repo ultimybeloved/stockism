@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   onAuthStateChanged,
   applyActionCode,
@@ -56,7 +56,6 @@ import NotificationPanel from './components/NotificationPanel';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import PriceAlertModal from './components/modals/PriceAlertModal';
 import InstallPrompt from './components/InstallPrompt';
-import PredictionCard from './components/PredictionCard';
 import IPOHypeCard from './components/IPOHypeCard';
 import IPOActiveCard from './components/IPOActiveCard';
 import { useModalManager } from './hooks/useModalManager';
@@ -102,7 +101,6 @@ import {
   calculateMarginStatus,
   calculatePortfolioValue,
   calculatePriceImpactDollars,
-  getTotalInvested,
 } from './utils/calculations';
 import { formatCurrency, formatChange } from './utils/formatters';
 import { getWeekStart } from './utils/date';
@@ -127,22 +125,6 @@ const getAccountAgeImpactFactor = (userData) => {
 // ============================================
 // PREDICTION/IPO HELPERS
 // ============================================
-
-// Helper to get predictions identifier for detecting new predictions
-const getPredictionsIdentifier = (predictions) => {
-  if (!predictions || predictions.length === 0) return 'none';
-  // Create a simple hash based on prediction IDs
-  return predictions.map(p => p.id).sort().join(',');
-};
-
-// Helper to save collapsed state to localStorage
-const saveCollapsedState = (key, collapsed, identifier) => {
-  try {
-    localStorage.setItem(key, JSON.stringify({ collapsed, identifier }));
-  } catch {
-    // Ignore localStorage errors
-  }
-};
 
 // ============================================
 // PREDICTION CARD COMPONENT → moved to src/components/PredictionCard.jsx
@@ -262,7 +244,6 @@ export default function App() {
     showDailyMissions, setShowDailyMissions,
     showAdmin, setShowAdmin,
     showNotificationPanel, setShowNotificationPanel,
-    showPredictions, setShowPredictions,
     showPriceAlertModal, setShowPriceAlertModal,
     tradeConfirmation, setTradeConfirmation,
     limitOrderRequest, setLimitOrderRequest,
@@ -848,35 +829,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Handle predictions collapse state - auto-expand when predictions change
-  const predictionsLoadedRef = useRef(false);
-  const lastPredictionsIdRef = useRef(null);
-
-  useEffect(() => {
-    if (predictions.length === 0) return;
-
-    const predictionsId = getPredictionsIdentifier(predictions);
-
-    // First time predictions load
-    if (!predictionsLoadedRef.current) {
-      predictionsLoadedRef.current = true;
-      lastPredictionsIdRef.current = predictionsId;
-      return; // Don't change state - useState already loaded from localStorage
-    }
-
-    // Check if predictions changed
-    if (lastPredictionsIdRef.current !== predictionsId) {
-      lastPredictionsIdRef.current = predictionsId;
-      setShowPredictions(true); // Auto-expand on new predictions
-    }
-  }, [predictions, setShowPredictions]);
-
-  // Persist predictions collapse state
-  useEffect(() => {
-    const predictionsId = getPredictionsIdentifier(predictions);
-    saveCollapsedState('showPredictions', showPredictions, predictionsId);
-  }, [showPredictions, predictions]);
-
   // Auto-process payouts when prediction is resolved
   useEffect(() => {
     const processPayouts = async () => {
@@ -1173,7 +1125,6 @@ export default function App() {
   const isGuest = !user;
 
   // Get user's bet for a prediction
-  const getUserBet = (predictionId) => activeUserData.bets?.[predictionId] || null;
 
   const portfolioValue = calculatePortfolioValue(activeUserData, prices);
 
@@ -1495,66 +1446,6 @@ export default function App() {
             (DOM order = mobile order; the order classes flip it on desktop). */}
         <div className="lg:flex lg:items-start lg:gap-6">
         <aside className="lg:order-2 lg:w-96 2xl:w-[30rem] lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pl-1">
-
-        {/* Weekly Predictions */}
-        {predictions.some(p => p.type !== 'event') && (
-          <div className="mb-4">
-            <button
-              onClick={() => setShowPredictions(!showPredictions)}
-              className={`w-full flex items-center justify-between px-4 py-3 mb-3 rounded-sm transition-all ${
-                darkMode
-                  ? 'bg-zinc-900/50 hover:bg-zinc-800/70 border border-zinc-800'
-                  : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
-              }`}
-            >
-              <span className={`text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
-                🔮 Weekly Predictions
-              </span>
-              <svg
-                className={`w-5 h-5 transition-transform ${showPredictions ? 'rotate-180' : ''} ${mutedClass}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showPredictions && (() => {
-              const visiblePredictions = predictions.filter(p => p.type !== 'event' && !p.hidden && !p.cancelled && (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)).slice(0, 4);
-              // Single column at lg+ — the cards live in the sidebar rail there.
-              const colClass = visiblePredictions.length === 1
-                ? 'grid-cols-1'
-                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-1';
-              return (
-              <div className={`grid ${colClass} gap-4 animate-fadeIn`}>
-                {visiblePredictions.map(prediction => {
-                  const totalInvested = getTotalInvested(activeUserData.holdings, activeUserData.costBasis, activeUserData.shorts);
-                  const betLimit = Math.min(totalInvested, userData?.cash || 0);
-
-                  return (
-                    <PredictionCard
-                      key={prediction.id}
-                      prediction={prediction}
-                      userBet={getUserBet(prediction.id)}
-                      onBet={handleBet}
-                      onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
-                      isGuest={isGuest}
-                      betLimit={betLimit}
-                      isAdmin={user && ADMIN_UIDS.includes(user.uid)}
-                      onHide={handleHidePrediction}
-                    />
-                  );
-                })}
-              </div>
-              );
-            })()}
-            <div className="mt-3 text-center">
-              <Link to="/predictions" className="text-sm font-semibold text-orange-500 hover:underline">
-                See all predictions &amp; long-term markets →
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 mb-4">

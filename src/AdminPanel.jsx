@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { doc, updateDoc, getDoc, setDoc, collection, getDocs, deleteDoc, arrayUnion } from 'firebase/firestore';
-import { db, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, auditUsernamesFunction, reconstructPortfolioHistoryFunction } from './firebase';
+import { db, broadcastNotificationFunction, triggerManualBackupFunction, listBackupsFunction, restoreBackupFunction, banUserFunction, ipoAnnouncementAlertFunction, removeAchievementFunction, reinstateUserFunction, adminSetCashFunction, adminTransferToLadderFunction, adminSetDiscordWallFunction, repairSpikeVictimsFunction, renameTickerFunction, setMarketHaltFunction, addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction, addWatchedIPFunction, getWatchlistFunction, getRecentSignupReportFunction, diagnoseTickerRollbackFunction, recoverTickerFunction, auditUserDropsFunction, runDividendPayoutNowFunction, auditUsernamesFunction, reconstructPortfolioHistoryFunction } from './firebase';
 import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from './constants/economy';
 import { triggerEventSettlementsFunction, cancelEventMarketFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
@@ -1003,6 +1003,17 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     setLoading(false);
   };
 
+  // Announce a new prediction/market through every user's notification bell.
+  // Fail-soft: the prediction is already created, a failed announcement only warns.
+  const announcePrediction = async (title, message, predictionId) => {
+    try {
+      await broadcastNotificationFunction({ title, message, predictionId });
+    } catch (err) {
+      console.error('Prediction announcement failed:', err);
+      showMessage('error', 'Prediction created, but the notification broadcast failed.');
+    }
+  };
+
   // Create new prediction
   const handleCreatePrediction = async () => {
     if (!question.trim()) {
@@ -1047,6 +1058,13 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         showMessage('success', opensAt
           ? `Created long-term market: "${question.trim()}" — opens ${new Date(opensAt).toLocaleString()}`
           : `Created long-term market: "${question.trim()}"`);
+        await announcePrediction(
+          '🔮 New long-term market!',
+          opensAt
+            ? `"${question.trim()}" opens ${new Date(opensAt).toLocaleString()}. Buy outcome shares on the Predictions page.`
+            : `"${question.trim()}" is live now. Buy outcome shares on the Predictions page.`,
+          eventMarket.id
+        );
         setQuestion('');
         setOptions(['Yes', 'No', '', '', '', '']);
         setOpenDelayHours(0);
@@ -1081,6 +1099,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       });
 
       showMessage('success', `Created prediction: "${question.trim()}"`);
+      await announcePrediction(
+        '🔮 New weekly prediction!',
+        `"${question.trim()}" is live. Place your bet on the Predictions page.`,
+        newId
+      );
       setQuestion('');
       setOptions(['Yes', 'No', '', '', '', '']);
       setDaysUntilEnd(7);

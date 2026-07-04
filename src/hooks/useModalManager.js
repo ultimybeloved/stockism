@@ -12,19 +12,6 @@ export function useModalManager() {
   const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  const [showPredictions, setShowPredictions] = useState(() => {
-    try {
-      const stored = localStorage.getItem('showPredictions');
-      if (stored) {
-        const { collapsed } = JSON.parse(stored);
-        return collapsed;
-      }
-    } catch {
-      // Ignore errors
-    }
-    return true; // Default to expanded
-  });
-
   const [showPriceAlertModal, setShowPriceAlertModal] = useState(null); // ticker string or null
   const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
   const [limitOrderRequest, setLimitOrderRequest] = useState(null); // { ticker, action }
@@ -43,7 +30,6 @@ export function useModalManager() {
     showDailyMissions, setShowDailyMissions,
     showAdmin, setShowAdmin,
     showNotificationPanel, setShowNotificationPanel,
-    showPredictions, setShowPredictions,
     showPriceAlertModal, setShowPriceAlertModal,
     tradeConfirmation, setTradeConfirmation,
     limitOrderRequest, setLimitOrderRequest,

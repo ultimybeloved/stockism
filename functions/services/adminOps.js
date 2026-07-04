@@ -2,6 +2,8 @@
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
+// Modular import — the emulator sandbox strips admin.firestore statics.
+const { Timestamp } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
@@ -112,16 +114,20 @@ exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (
   if (title.length > 100 || message.length > 1000) {
     throw new functions.https.HttpsError('invalid-argument', 'Title must be ≤ 100 chars and message ≤ 1000 chars.');
   }
+  // Optional: tag the notification with a prediction so tapping it routes to
+  // the Predictions page (used for new-prediction announcements).
+  const predictionId = (data.predictionId || '').toString().trim().slice(0, 100);
+  const notifData = predictionId ? { predictionId } : {};
 
   const usersSnap = await db.collection('users').get();
-  const createdAt = admin.firestore.FieldValue.serverTimestamp();
+  const createdAt = Timestamp.now();
   let sent = 0;
   let batch = db.batch();
   let pending = 0;
   for (const doc of usersSnap.docs) {
     if (doc.data().isBot) continue;
     const ref = db.collection('users').doc(doc.id).collection('notifications').doc();
-    batch.set(ref, { type: 'announcement', title, message, read: false, createdAt, data: {} });
+    batch.set(ref, { type: 'announcement', title, message, read: false, createdAt, data: notifData });
     sent++;
     pending++;
     if (pending >= 400) {
