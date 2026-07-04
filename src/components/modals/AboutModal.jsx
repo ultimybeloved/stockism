@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const AboutModal = ({ onClose }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const [activeTab, setActiveTab] = useState('about');
 
@@ -149,7 +151,7 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">Why is the spread different for ETFs?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  ETFs have a tighter spread (0.1% vs 0.2% for individual stocks) because they're diversified — holding a basket of stocks is less risky than holding a single one, so the trading cost is lower.
+                  ETFs have a tighter spread (0.1% vs 0.2% for individual stocks) because they're diversified. Holding a basket of stocks is less risky than holding a single one, so the trading cost is lower.
                 </p>
               </div>
 
@@ -166,7 +168,7 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-1">What is shorting?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Shorting lets you profit when a stock goes DOWN. You "borrow" shares, sell them,
-                  and hope to buy them back cheaper later. It's risky — if the price goes up instead,
+                  and hope to buy them back cheaper later. It's risky. If the price goes up instead,
                   you lose money. Requires 50% margin as collateral.
                 </p>
               </div>
@@ -221,9 +223,9 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">What we store in our game database:</h3>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
-                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Username</span> — The name YOU choose (not your Google name)</li>
-                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Game data</span> — Your cash balance, holdings, and trade history</li>
-                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Account ID</span> — A random ID to identify your account</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Username</span>: The name YOU choose (not your real name)</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Game data</span>: Your cash balance, holdings, and trade history</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Account ID</span>: A random ID to identify your account</li>
                 </ul>
               </div>
 
@@ -231,32 +233,32 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-2">What Firebase Authentication stores:</h3>
                 <p className={`text-sm ${mutedClass} mb-2`}>
                   Firebase (Google's service) handles login and stores your email to manage your account.
-                  This is standard for any website with login — it's how you can sign back in later.
+                  This is standard for any website with login. It's how you can sign back in later.
                 </p>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
-                  <li>• <span className={darkMode ? 'text-amber-400' : 'text-amber-600'}>📧 Email</span> — Stored by Firebase Auth (not our game database). Never visible to other players or used for marketing.</li>
+                  <li>• <span className={darkMode ? 'text-amber-400' : 'text-amber-600'}>📧 Email</span>: Stored by Firebase Auth (not our game database). Never visible to other players or used for marketing.</li>
                 </ul>
               </div>
 
               <div>
                 <h3 className="font-semibold text-orange-500 mb-2">What we DON'T store anywhere:</h3>
                 <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your real name</span> — We never save your Google display name</li>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your profile picture</span> — We never save your Google photo</li>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your password</span> — Google handles authentication securely</li>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your contacts or Google data</span> — We have no access</li>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Tracking cookies or analytics</span> — We don't use any</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your real name</span>: We never save the name from your sign-in account</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your profile picture</span>: We never save your sign-in photo</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your password</span>: Your sign-in provider handles authentication securely</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your contacts or account data</span>: We have no access</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Tracking cookies or analytics</span>: We don't use any</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="font-semibold text-orange-500 mb-2">About the Google Sign-In popup:</h3>
+                <h3 className="font-semibold text-orange-500 mb-2">About the sign-in popup:</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  When you sign in, Google shows a standard message saying we "could" access your name and
-                  profile picture. This is Google's default OAuth screen — it shows the <em>maximum possible</em> permissions, not what we actually use.
+                  When you sign in with Google, X, or Discord, they show a standard message saying we "could"
+                  access your name and profile picture. That screen shows the <em>maximum possible</em> permissions, not what we actually use.
                 </p>
                 <p className={`text-sm ${mutedClass} mt-2`}>
-                  In reality, our code immediately discards this information. We only use Google to verify
+                  In reality, our code immediately discards this information. We only use the sign-in to verify
                   you're a real person, then we ask you to create a username. That username is the only
                   identifier visible to other players.
                 </p>

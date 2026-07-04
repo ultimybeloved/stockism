@@ -5,8 +5,10 @@ import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../constants
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const [activeTab, setActiveTab] = useState('achievement'); // 'shop', 'achievement', 'cosmetics', 'manage' — defaults to achievements since the shop is empty
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }

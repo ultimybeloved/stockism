@@ -4,10 +4,13 @@ import { db, changeDisplayNameFunction } from '../../firebase';
 import { getCosmeticStyles } from '../../utils/cosmetics';
 import { updateDoc, doc } from 'firebase/firestore';
 import { formatCurrency } from '../../utils/formatters';
+import { calculatePortfolioValue } from '../../utils/calculations';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSelection, user, onDeleteAccount, prices, holdings, shorts, costBasis }) => {
+  useEscapeKey(onClose);
   const [showCrewSection, setShowCrewSection] = useState(false);
   const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=info, 2=confirm1, 3=confirm2, 4=confirm3, 5=final
   const [deleting, setDeleting] = useState(false);
@@ -25,7 +28,11 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
 
   // Calculate trading stats
   const joinDate = userData?.createdAt?.toDate?.() || null;
-  const peakPortfolio = userData?.peakPortfolioValue || 1000;
+  // Never show the synced peak below the live current value.
+  const peakPortfolio = Math.max(
+    userData?.peakPortfolioValue || 1000,
+    calculatePortfolioValue(userData, prices || {})
+  );
 
   // Find biggest holding by value
   let biggestHolding = null;
@@ -179,7 +186,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
                   disabled={nameSaving || !newName.trim()}
                   className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
                 >
-                  {nameSaving ? 'Saving…' : 'Confirm — $10,000'}
+                  {nameSaving ? 'Saving…' : 'Confirm ($10,000)'}
                 </button>
                 <button
                   onClick={() => { setEditingName(false); setNameError(''); }}

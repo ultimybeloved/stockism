@@ -5,10 +5,12 @@ import { formatCurrency } from '../../utils/formatters';
 import { CHARACTER_MAP } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const PAGE_SIZE = 30;
 
 const TradeHistoryModal = ({ onClose }) => {
+  useEscapeKey(onClose);
   const { darkMode, user, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [trades, setTrades] = useState([]);

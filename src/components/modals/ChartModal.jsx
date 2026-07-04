@@ -5,8 +5,10 @@ import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import PriceChart, { TIME_RANGES } from '../PriceChart';
 import { usePriceHistory } from '../../hooks/usePriceHistory';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);

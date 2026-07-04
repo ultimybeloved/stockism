@@ -17,6 +17,7 @@ import { createLimitOrderFunction } from '../../firebase';
 import MarginImpactPreview from '../trading/MarginImpactPreview';
 import { isWeeklyHalt, getMarketClosedState } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 // Helper: cumulative marginal price impact
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -33,6 +34,7 @@ const pruneAndSumTradeHistory = (entries, now) => {
 
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, onTrade, onClose, defaultToLimitOrder = false, haltInfo }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [amount, setAmount] = useState(1);

@@ -82,7 +82,7 @@ const ProfileHeader = ({ userData, darkMode }) => {
               disabled={nameSaving || !newName.trim()}
               className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
             >
-              {nameSaving ? 'Saving…' : 'Confirm — $10,000'}
+              {nameSaving ? 'Saving…' : 'Confirm ($10,000)'}
             </button>
             <button
               onClick={() => { setEditingName(false); setNameError(''); }}

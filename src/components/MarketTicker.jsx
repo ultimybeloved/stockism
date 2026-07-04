@@ -60,8 +60,8 @@ const MarketTicker = () => {
   const haltReason = marketData?.haltReason;
 
   const haltContent = manualHalt
-    ? `MARKET CLOSED — ${haltReason || 'Emergency halt in progress'}`
-    : `MARKET CLOSED — Chapter review in progress | Reopens in ${countdown}`;
+    ? `MARKET CLOSED: ${haltReason || 'Emergency halt in progress'}`
+    : `MARKET CLOSED: Chapter review in progress | Reopens in ${countdown}`;
 
   const normalContent = movers.length > 0
     ? movers.map(m => {
@@ -89,7 +89,7 @@ const MarketTicker = () => {
       ) : gracePeriod ? (
         <div className="w-full flex items-center justify-center h-full px-2">
           <span className="text-amber-100 text-xs font-bold tracking-wide text-center truncate">
-            Market just opened — auto-liquidations paused until {Math.floor((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) / 60)}:{String((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) % 60).padStart(2, '0')} UTC
+            Market just opened. Auto-liquidations paused until {Math.floor((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) / 60)}:{String((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) % 60).padStart(2, '0')} UTC
           </span>
         </div>
       ) : (

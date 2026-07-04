@@ -3,8 +3,10 @@ import { CREWS, CREW_MAP } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading, selectLoading }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const [selectedCrew, setSelectedCrew] = useState(null);
   const [confirming, setConfirming] = useState(false);

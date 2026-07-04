@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { getThemeClasses } from "../../utils/theme";
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 export default function PriceAlertModal({
   ticker,
@@ -10,6 +11,7 @@ export default function PriceAlertModal({
   onCreateAlert,
   onDeleteAlert,
 }) {
+  useEscapeKey(onClose);
   const [direction, setDirection] = useState("above");
   const [targetPrice, setTargetPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);

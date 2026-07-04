@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../utils/formatters';
+import { calculatePortfolioValue } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
 
 // Stats summary (trades / predictions / bets) and the trading-stats breakdown.
@@ -7,7 +8,12 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
   const joinDate = userData?.createdAt?.toDate?.() || null;
-  const peakPortfolio = userData?.peakPortfolioValue || 1000;
+  // The stored peak only updates on backend sync, so never show it below the
+  // live current value — a "peak" under the current number reads as broken.
+  const peakPortfolio = Math.max(
+    userData?.peakPortfolioValue || 1000,
+    calculatePortfolioValue(userData, prices || {})
+  );
 
   // Find biggest holding by value
   let biggestHolding = null;

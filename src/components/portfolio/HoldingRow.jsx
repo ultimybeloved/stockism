@@ -36,7 +36,7 @@ const HoldingRow = ({
               {item.tierRate > 0 && (
                 <span
                   className={`text-xs ${DIVIDEND_TIER_META[item.tier]?.color || 'text-zinc-400'}`}
-                  title={`${DIVIDEND_TIER_META[item.tier]?.label} — pays ${(item.tierRate * 100).toFixed(2)}% weekly on eligible shares`}
+                  title={`${DIVIDEND_TIER_META[item.tier]?.label}: pays ${(item.tierRate * 100).toFixed(2)}% weekly on eligible shares`}
                 >
                   {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label}
                 </span>
@@ -104,7 +104,7 @@ const HoldingRow = ({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className={`text-xs ${mutedClass} mb-1`}>
-                    {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier — pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
+                    {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier: pays {(item.tierRate * 100).toFixed(2)}% weekly on eligible shares
                   </div>
                   <div className={`text-sm ${textClass}`}>
                     {formatShares(item.eligibleShares)} / {formatShares(item.shares)} shares eligible
@@ -123,7 +123,7 @@ const HoldingRow = ({
                 {onToggleDrip && (
                   <button
                     onClick={() => onToggleDrip(item.ticker)}
-                    title={drip[item.ticker] ? 'DRIP on — dividends auto-buy more shares. Click to turn off.' : 'DRIP off — dividends pay as cash. Click to reinvest automatically.'}
+                    title={drip[item.ticker] ? 'DRIP on: dividends auto-buy more shares. Click to turn off.' : 'DRIP off: dividends pay as cash. Click to reinvest automatically.'}
                     className={`shrink-0 text-xs px-2 py-1 rounded font-semibold transition-colors ${
                       drip[item.ticker]
                         ? 'bg-emerald-600 text-white'

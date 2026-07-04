@@ -3,8 +3,10 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db, cancelPreMarketOrderFunction } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const MyPreMarketOrdersModal = ({ onClose }) => {
+  useEscapeKey(onClose);
   const { darkMode, user, showNotification } = useAppContext();
   const [orders, setOrders] = useState([]);
   const [cancelling, setCancelling] = useState(null);

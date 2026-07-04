@@ -8,6 +8,7 @@ import {
   hasExpandableDetail,
 } from '../utils/notifications';
 import NotificationRow from './notifications/NotificationRow';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 export default function NotificationPanel({
   darkMode,
@@ -18,6 +19,7 @@ export default function NotificationPanel({
   onClearAll,
   onDelete,
 }) {
+  useEscapeKey(onClose);
   const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
   const [expandedId, setExpandedId] = useState(null);

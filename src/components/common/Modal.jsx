@@ -3,7 +3,8 @@
 // Reusable modal wrapper with consistent styling
 // ============================================
 
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 let openModalCount = 0;
 
@@ -17,22 +18,16 @@ const Modal = ({
   showCloseButton = true,
   className = ''
 }) => {
-  // Handle escape key
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Escape' && onClose) {
-      onClose();
-    }
-  }, [onClose]);
+  // Escape closes the top-most modal only (shared stack across the app).
+  useEscapeKey(onClose, isOpen);
 
   useEffect(() => {
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
       openModalCount++;
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       if (isOpen) {
         openModalCount--;
         if (openModalCount === 0) {
@@ -40,7 +35,7 @@ const Modal = ({
         }
       }
     };
-  }, [isOpen, handleKeyDown]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

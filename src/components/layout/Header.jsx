@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { ADMIN_UIDS } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
+import { calculatePortfolioValue } from '../../utils/calculations';
 import { useAppContext } from '../../context/AppContext';
 import { isPreMarketWindow } from '../../utils/marketHours';
 import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
@@ -28,8 +29,15 @@ const LadderIcon = () => (
 );
 
 const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters = [] }) => {
-  const { darkMode, user, userData } = useAppContext();
+  const { darkMode, user, userData, prices } = useAppContext();
   const { textClass } = getThemeClasses(darkMode);
+  // Live value from current prices — the stored userData.portfolioValue only
+  // updates on the backend sync, so it can visibly disagree with the rest of
+  // the page while prices move.
+  const liveValue = useMemo(
+    () => (userData ? calculatePortfolioValue(userData, prices || {}) : 0),
+    [userData, prices]
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -302,7 +310,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                         ? 'text-white'
                         : userData?.colorBlindMode ? 'text-teal-600' : 'text-green-600'
                     }`}>
-                      {formatCurrency(userData?.portfolioValue || 0)}
+                      {formatCurrency(liveValue)}
                     </div>
                   </div>
                 </button>

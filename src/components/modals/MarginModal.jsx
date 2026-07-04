@@ -10,8 +10,10 @@ import {
 } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading, onReviewTutorial }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData, prices, priceHistory } = useAppContext();
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
@@ -213,7 +215,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                         <span className={mutedClass}>Credit Used</span>
                         <span className={utilTextColor}>
                           {atLimit
-                            ? `${formatCurrency(marginStatus.marginUsed)} — At limit`
+                            ? `${formatCurrency(marginStatus.marginUsed)} (at limit)`
                             : `${formatCurrency(marginStatus.marginUsed)} / ${formatCurrency(marginStatus.maxBorrowable)} (${utilizationPct}%)`
                           }
                         </span>

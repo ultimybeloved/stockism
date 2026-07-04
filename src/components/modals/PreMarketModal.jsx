@@ -7,8 +7,10 @@ import { calculatePriceImpactDollars, getBidAskPrices } from '../../utils/calcul
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../utils/marketHours';
 import { PRE_MARKET_MAX_BUY_BUFFER } from '../../constants/economy';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 'buy', onClose }) => {
+  useEscapeKey(onClose);
   const { darkMode, user, showNotification } = useAppContext();
   const [action, setAction] = useState(initialAction);
   const [shares, setShares] = useState(1);
@@ -134,7 +136,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
             <span className={mutedClass}>{formatCurrency(bid)} / {formatCurrency(ask)}</span>
           </div>
           <p className={`text-xs mt-1 ${mutedClass}`}>
-            Based on {allOrders.length} queued order{allOrders.length !== 1 ? 's' : ''} — updates live
+            Based on {allOrders.length} queued order{allOrders.length !== 1 ? 's' : ''} (updates live)
           </p>
         </div>
 

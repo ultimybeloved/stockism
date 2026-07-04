@@ -17,8 +17,10 @@ import { usePortfolioChartData } from '../portfolio/usePortfolioChartData';
 import { usePortfolioModalData } from '../portfolio/usePortfolioModalData';
 import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
 import { isWeeklyHalt } from '../../utils/marketHours';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
+  useEscapeKey(onClose);
   const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs = [], showNotification } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});

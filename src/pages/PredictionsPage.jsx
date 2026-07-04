@@ -35,6 +35,15 @@ const PredictionsPage = ({
     )
   );
 
+  // With only one or two markets (the common case), full 3-column tracks leave
+  // a lone narrow card stranded in a wide empty page — widen the cards instead.
+  const gridCols = (n) =>
+    n >= 3
+      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
+      : n === 2
+        ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl'
+        : 'grid grid-cols-1 gap-4 max-w-xl';
+
   const getUserBet = (id) => userData?.bets?.[id];
   const betLimit = Math.min(
     getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts),
@@ -63,7 +72,7 @@ const PredictionsPage = ({
           {eventMarkets.length === 0 ? (
             <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={gridCols(eventMarkets.length)}>
               {eventMarkets.map(m => (
                 <EventMarketCard
                   key={m.id}
@@ -88,7 +97,7 @@ const PredictionsPage = ({
           {weekly.length === 0 ? (
             <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={gridCols(weekly.length)}>
               {weekly.map(p => (
                 <PredictionCard
                   key={p.id}

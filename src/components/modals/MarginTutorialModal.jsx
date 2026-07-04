@@ -47,7 +47,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-700' : 'border-slate-200'} flex items-center justify-between shrink-0`}>
           <div>
             <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>
-              {reviewMode ? 'MARGIN SAFETY GUIDE' : 'REQUIRED READING — MARGIN TRADING'}
+              {reviewMode ? 'MARGIN SAFETY GUIDE' : 'REQUIRED READING: MARGIN TRADING'}
             </p>
             <h2 className={`text-base font-bold ${textClass} mt-0.5`}>
               {STEPS[step - 1].title}
@@ -171,7 +171,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>COORDINATED SHORTING</p>
-                  <p className={`text-sm ${textClass}`}>When multiple people short the same character at once, it can trigger a short squeeze — a spike in price that simultaneously liquidates everyone. We have seen this happen. The losses are instant and total.</p>
+                  <p className={`text-sm ${textClass}`}>When multiple people short the same character at once, it can trigger a short squeeze: a spike in price that simultaneously liquidates everyone. We have seen this happen. The losses are instant and total.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THE CAP</p>
@@ -282,7 +282,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               disabled={!reviewMode && !canFinish}
               className="flex-1 px-5 py-2 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {reviewMode ? 'Done' : 'I Understand — Continue to Margin'}
+              {reviewMode ? 'Done' : 'I Understand, Continue to Margin'}
             </button>
           )}
         </div>

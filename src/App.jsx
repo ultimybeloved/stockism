@@ -60,6 +60,7 @@ import PredictionCard from './components/PredictionCard';
 import IPOHypeCard from './components/IPOHypeCard';
 import IPOActiveCard from './components/IPOActiveCard';
 import { useModalManager } from './hooks/useModalManager';
+import { useEscapeKey } from './hooks/useEscapeKey';
 import { useMissionManagement } from './hooks/useMissionManagement';
 import { useMarginManagement } from './hooks/useMarginManagement';
 import { useCrewManagement } from './hooks/useCrewManagement';
@@ -269,6 +270,11 @@ export default function App() {
     selectedCharacter, setSelectedCharacter,
   } = useModalManager();
 
+  // The trade/bet confirmations are inline overlays (not components), so they
+  // join the Escape stack here; `enabled` registers them only while shown.
+  useEscapeKey(() => setTradeConfirmation(null), !!tradeConfirmation);
+  useEscapeKey(() => setBetConfirmation(null), !!betConfirmation);
+
   const [tradeAnimation, setTradeAnimation] = useState(null); // { ticker, action, timestamp }
   const [notifications, setNotifications] = useState([]); // Toast notification queue
   const [showMarginTutorialReview, setShowMarginTutorialReview] = useState(false);
@@ -388,7 +394,7 @@ export default function App() {
           console.log('[TRADE EXECUTED ON RETRY]', result.data);
         } catch (retryError) {
           console.error('[TRADE RETRY FAILED]', retryError);
-          showNotification('warning', 'Market was busy — please try again.');
+          showNotification('warning', 'Market was busy. Please try again.');
           setLoadingKey('trade', false);
           return;
         }

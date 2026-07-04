@@ -260,7 +260,7 @@ const StockPage = ({ onTrade }) => {
                 {dividendRate > 0 && (
                   <div className="flex justify-between items-center">
                     <span className={mutedClass}>DRIP</span>
-                    <button onClick={handleToggleDrip} title={drip[ticker] ? 'DRIP on — click to turn off' : 'DRIP off — click to reinvest'}
+                    <button onClick={handleToggleDrip} title={drip[ticker] ? 'DRIP on: click to turn off' : 'DRIP off: click to reinvest'}
                       className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${drip[ticker] ? 'bg-emerald-600 text-white' : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}>
                       {drip[ticker] ? 'ON' : 'OFF'}
                     </button>

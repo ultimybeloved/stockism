@@ -5,8 +5,10 @@ import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, onOpenCrewSelection, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
+  useEscapeKey(onClose);
   const { darkMode, userData, prices } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 

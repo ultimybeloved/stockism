@@ -45,7 +45,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
         <div className={`p-4 border-b ${darkMode ? 'border-zinc-700' : 'border-slate-200'} flex items-center justify-between shrink-0`}>
           <div>
             <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>
-              {reviewMode ? 'LADDER GAME GUIDE' : 'REQUIRED READING — LADDER GAME'}
+              {reviewMode ? 'LADDER GAME GUIDE' : 'REQUIRED READING: LADDER GAME'}
             </p>
             <h2 className={`text-base font-bold ${textClass} mt-0.5`}>
               {STEPS[step - 1].title}
