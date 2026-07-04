@@ -1,18 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const ToastNotification = ({ notification, onDismiss, darkMode }) => {
   const [isExiting, setIsExiting] = useState(false);
+  // Keep the latest onDismiss without restarting the timer: the container
+  // passes a fresh arrow function every render, and with it in the effect
+  // deps every app re-render (price ticks, countdowns) reset the 4s timer,
+  // so toasts never auto-dismissed on live screens.
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
 
   useEffect(() => {
     // Auto-dismiss after duration (longer for achievements)
     const duration = notification.type === 'achievement' ? 6000 : 4000;
     const timer = setTimeout(() => {
       setIsExiting(true);
-      setTimeout(onDismiss, 300); // Wait for exit animation
+      setTimeout(() => dismissRef.current(), 300); // Wait for exit animation
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [notification, onDismiss]);
+  }, [notification.id, notification.type]);
 
   const handleDismiss = () => {
     setIsExiting(true);

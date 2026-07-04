@@ -122,9 +122,11 @@ const LadderGame = ({ onClose }) => {
     };
   }, []);
 
-  // Show tutorial on mount for any user who hasn't completed v2
+  // Show tutorial on mount for any signed-in user who hasn't completed v2.
+  // Guests skip it — they can't play anyway, so they get a sign-in prompt on
+  // interaction instead of five pages of required reading first.
   useEffect(() => {
-    if (!userData?.ladderTutorial2Completed) {
+    if (user && !userData?.ladderTutorial2Completed) {
       setShowLadderTutorial(true);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -158,6 +160,10 @@ const LadderGame = ({ onClose }) => {
   const selectStart = (side) => {
     if (playing) return;
 
+    if (!user) {
+      showNotification('info', 'Sign in to play the ladder game!');
+      return;
+    }
     if (!userData?.ladderTutorial2Completed) {
       setShowLadderTutorial(true);
       return;

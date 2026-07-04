@@ -1336,7 +1336,8 @@ export default function App() {
     return filtered;
   }, [searchQuery, sortBy, prices, priceHistory, get24hChange, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, reviewChanges]);
 
-  const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
+  // Floor at 1 so an empty result set shows "1/1", not "1/0".
+  const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE));
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Styling - Orange/Yellow theme inspired by logo
@@ -1462,6 +1463,9 @@ export default function App() {
                       👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-orange-600 hover:underline">Sign in</button> to trade and save progress!
                     </div>
                   )}
+
+                  {/* Short margin warning — highest-stakes alert, keep at the top */}
+                  <ShortRiskAlert onOpenPortfolio={() => setShowPortfolio(true)} />
 
                   {/* IPO Announcements */}
         {activeIPOs.length > 0 && (
@@ -1839,8 +1843,6 @@ export default function App() {
           </div>
         </div>
 
-        <ShortRiskAlert onOpenPortfolio={() => setShowPortfolio(true)} />
-
         {/* Character Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayedCharacters.map(character => (
@@ -1871,6 +1873,17 @@ export default function App() {
             />
           ))}
         </div>
+
+        {/* Empty state for the grid */}
+        {displayedCharacters.length === 0 && (
+          <div className={`${cardClass} border rounded-sm p-8 text-center`}>
+            <p className={`text-sm ${mutedClass}`}>
+              {marketTab === 'watchlist' && !searchQuery
+                ? 'Your watchlist is empty. Tap the ☆ on any character to add it.'
+                : 'No characters match your search.'}
+            </p>
+          </div>
+        )}
 
         {/* Bottom Pagination */}
         {!showAll && totalPages > 1 && (

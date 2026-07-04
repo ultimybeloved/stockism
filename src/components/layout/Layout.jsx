@@ -4,9 +4,11 @@ import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
 import MarketTicker from '../MarketTicker';
 import { useAppContext } from '../../context/AppContext';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const Layout = ({ children, setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificationCount, onToggleNotifications, newCharacters }) => {
   const { darkMode } = useAppContext();
+  usePageTitle();
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-gray-50'}`}>
       <Header
