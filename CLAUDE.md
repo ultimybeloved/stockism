@@ -253,6 +253,7 @@ Quick reference so you know where to look and where to add things.
 | `src/constants/cosmetics.js` | Cosmetic item definitions |
 | `src/characters.js` | **Source of truth** for all character/ETF data — edit here only |
 | `src/components/admin/` | Admin panel split into focused components |
+| `src/hooks/admin/` | Admin panel state + handlers, one hook per domain — spread into tab components as props |
 | `src/components/modals/` | All modal components |
 | `src/components/layout/` | Header, Footer, MobileBottomNav, Layout wrapper |
 
@@ -314,7 +315,7 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
 - **`executeTrade` refactor** (`functions/services/trading.js`, ~1,600 lines): The function is a single Firestore transaction. Splitting it risks breaking atomicity with no integration tests to catch it. Leave it unless a specific bug requires touching it.
-- **`AdminPanel.jsx` split** (`src/AdminPanel.jsx`, ~4,400 lines): The admin panel contains complex interleaved state for every admin operation. The 13 tab components in `src/components/admin/` exist but the main file still carries most of the logic. Splitting it without integration tests risks breaking admin workflows. Admin usage is rare and by one person. Leave it unless actively broken.
+- ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.jsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.jsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - **`LadderGame.jsx` split** (`src/components/LadderGame.jsx`, ~1,510 lines): Contains game animation state, transfer modal, leaderboard modal, and Firebase logic all inline. Works correctly; splitting without a hook extraction plan risks subtle animation/timing bugs. Add a `useLadderGame.js` hook when new ladder features are needed.
 - **End-to-end trade tests**: Would require Firebase Emulator setup. ROI is low unless trade logic is being actively changed.
 - **TypeScript migration**: The codebase is plain JS. Don't start adding `.ts` files — a half-migrated codebase is worse than none.
