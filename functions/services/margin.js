@@ -100,6 +100,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       cash: BAILOUT_CASH,
       holdings: {},
       shorts: {},
+      hasOpenShorts: false,
       costBasis: {},
       portfolioValue: BAILOUT_CASH,
       marginEnabled: false,
@@ -278,7 +279,7 @@ exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
 
 /**
  * Server-side short margin call checker
- * Runs every 5 minutes - checks all users with active shorts
+ * Runs every 30 minutes - checks users flagged with hasOpenShorts
  * If equity ratio drops below 25%, force-covers the position
  * Uses 50% dampened price impact to prevent cascading short squeezes
  */
@@ -319,9 +320,41 @@ exports.checkShortMarginCalls = cf().pubsub
       }
       const prices = marketData.prices || {};
 
-      // Query all users - filter for shorts client-side since Firestore
-      // can't query on map key existence efficiently
-      const usersSnap = await db.collection('users').get();
+      // Users are found via the hasOpenShorts flag (maintained by executeTrade,
+      // the force-cover below, bailout, and the admin ban rollback) instead of
+      // downloading every user doc. The first run after deploy does a one-time
+      // full scan to backfill the flag, marked on the market doc.
+      let shortHolderDocs;
+      if (!marketData.shortsFlagBackfilledAt) {
+        const allUsers = await db.collection('users').get();
+        shortHolderDocs = [];
+        let batch = db.batch();
+        let pending = 0;
+        const flush = async () => {
+          if (pending > 0) { await batch.commit(); batch = db.batch(); pending = 0; }
+        };
+        for (const doc of allUsers.docs) {
+          const shorts = doc.data().shorts || {};
+          const has = Object.values(shorts).some(p => p && p.shares > 0);
+          if (has) {
+            shortHolderDocs.push(doc);
+            batch.update(doc.ref, { hasOpenShorts: true });
+            pending++;
+          } else if (doc.data().hasOpenShorts) {
+            batch.update(doc.ref, { hasOpenShorts: false });
+            pending++;
+          }
+          if (pending >= 400) await flush();
+        }
+        await flush();
+        await marketRef.update({ shortsFlagBackfilledAt: Date.now() });
+        console.log(`Backfilled hasOpenShorts flags: ${shortHolderDocs.length} short holders of ${allUsers.size} users`);
+      } else {
+        const flaggedSnap = await db.collection('users')
+          .where('hasOpenShorts', '==', true)
+          .get();
+        shortHolderDocs = flaggedSnap.docs;
+      }
 
       let liquidatedCount = 0;
       let checkedCount = 0;
@@ -329,14 +362,19 @@ exports.checkShortMarginCalls = cf().pubsub
       const COVERS_PER_TICKER_PER_CYCLE = 3; // Max forced covers per ticker per 5-min cycle
       const tickerCoverCount = {};
 
-      for (const userDoc of usersSnap.docs) {
+      for (const userDoc of shortHolderDocs) {
         const userData = userDoc.data();
         const shorts = userData.shorts || {};
         const shortEntries = Object.entries(shorts).filter(
           ([, pos]) => pos && pos.shares > 0
         );
 
-        if (shortEntries.length === 0) continue;
+        if (shortEntries.length === 0) {
+          // Stale flag (shorts already cleared) — self-heal so this user
+          // drops out of future queries.
+          await userDoc.ref.update({ hasOpenShorts: false }).catch(() => {});
+          continue;
+        }
         checkedCount++;
 
         for (const [ticker, position] of shortEntries) {
@@ -426,6 +464,7 @@ exports.checkShortMarginCalls = cf().pubsub
 
                 const userUpdates = {
                   shorts: updatedShorts,
+                  hasOpenShorts: Object.keys(updatedShorts).length > 0,
                   cash: newCash
                 };
 

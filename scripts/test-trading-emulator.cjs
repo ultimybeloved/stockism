@@ -17,6 +17,7 @@
 //   D. Short mechanics       E. Cover mechanics     F. Margin buys
 //   G. ETF & trailing        H. Throttles & anti-manipulation
 //   I. Bookkeeping & achievements
+//   J. Short margin-call scanner (checkShortMarginCalls + hasOpenShorts flag)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -28,10 +29,12 @@ const db = admin.firestore();
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
 const { executeTrade } = require('../functions/services/trading');
+const { checkShortMarginCalls } = require('../functions/services/margin');
 const {
   BASE_IMPACT, BASE_LIQUIDITY, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
+  SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
 } = require('../functions/constants');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
@@ -401,6 +404,7 @@ async function testShort() {
     pos && pos.shares === 5 && near(pos.costBasis, exp.exec) && near(pos.margin, margin) && pos.system === 'v2',
     JSON.stringify(pos));
   check('short: shortHistory stamped', (u.shortHistory?.[T] || []).length === 1, JSON.stringify(u.shortHistory));
+  check('short: hasOpenShorts flag set', u.hasOpenShorts === true, `${u.hasOpenShorts}`);
 
   // Adding to an existing short: weighted basis, accumulated margin
   await seedMarket({ [T]: 50 });
@@ -470,6 +474,7 @@ async function testCover() {
   check('cover: executes at ask', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
   check('cover: v2 payout = margin + P&L', near(u.cash, expCash), `${u.cash} vs ${expCash}`);
   check('cover: full cover removes the position', !(u.shorts && T in u.shorts), JSON.stringify(u.shorts));
+  check('cover: full cover clears hasOpenShorts flag', u.hasOpenShorts === false, `${u.hasOpenShorts}`);
   check('cover: COLD_BLOODED on profitable cover', (u.achievements || []).includes('COLD_BLOODED'),
     JSON.stringify(u.achievements));
   const tx = (u.transactionLog || [])[u.transactionLog.length - 1];
@@ -485,6 +490,7 @@ async function testCover() {
   const uP = await getUser('cov_part');
   check('cover: partial returns proportional margin', near(uP.cash, 160 + (90 - expP.exec) * 2) &&
     uP.shorts[T].shares === 3 && near(uP.shorts[T].margin, 240), JSON.stringify({ cash: uP.cash, pos: uP.shorts[T] }));
+  check('cover: partial cover keeps hasOpenShorts flag', uP.hasOpenShorts === true, `${uP.hasOpenShorts}`);
 
   // Over-cover rejected (clear the 3s cooldown left by the partial cover first)
   await db.collection('users').doc('cov_part').update({ lastTradeTime: admin.firestore.FieldValue.delete() });
@@ -761,6 +767,82 @@ async function testAchievements() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// J. SHORT MARGIN-CALL SCANNER
+// ════════════════════════════════════════════════════════════════════════════
+async function testMarginCallScanner() {
+  console.log('\nJ. Short margin-call scanner');
+
+  // The scanner no-ops during the Thursday market-open grace period; skip
+  // rather than report false failures if run in that window.
+  const d = new Date();
+  if (d.getUTCDay() === 4) {
+    const utcMins = d.getUTCHours() * 60 + d.getUTCMinutes();
+    if (utcMins >= WEEKLY_HALT_END_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES) {
+      console.log('  ⏭  skipped — Thursday market-open grace period active');
+      return;
+    }
+  }
+
+  const now = Date.now();
+  const nowTs = admin.firestore.Timestamp.fromMillis(now - HOUR);
+
+  // Seed only the tickers this section cares about: shorts on unpriced tickers
+  // from earlier sections are skipped by the scanner (no current price).
+  await seedMarket({ [T3]: 90, [T2]: 66 });
+
+  // Deeply underwater: equity = 500 − (90−50)×10 = 100; ratio 100/900 ≈ 0.11 < 0.25
+  await setUser('mc_under', { cash: 1000,
+    shorts: { [T3]: { shares: 10, costBasis: 50, margin: 500, openedAt: nowTs, system: 'v2' } } });
+  // At the money: equity = margin → ratio 1.0, healthy
+  await setUser('mc_healthy', { cash: 1000,
+    shorts: { [T2]: { shares: 5, costBasis: 66, margin: 330, openedAt: nowTs, system: 'v2' } } });
+  // Stale flag with no shorts — the backfill scan should clear it
+  await setUser('mc_stale', { cash: 100, shorts: {}, hasOpenShorts: true });
+
+  // Run 1: no backfill marker on the market doc yet → full-scan backfill path
+  await checkShortMarginCalls.run({}, {});
+
+  const mkt = await getMarket();
+  check('scanner: backfill marker written to market doc', !!mkt.shortsFlagBackfilledAt, JSON.stringify(mkt));
+
+  // Expected force-cover price: dampened sqrt impact, capped at 5%
+  const raw = 90 * BASE_IMPACT * Math.sqrt(10 / BASE_LIQUIDITY);
+  const capped = Math.min(raw * SHORT_MARGIN_DAMPENING_FACTOR, 90 * MAX_PRICE_CHANGE_PERCENT);
+  const coverPrice = round2(90 + capped);
+  const uU = await getUser('mc_under');
+  check('scanner: underwater short force-covered, flag cleared',
+    !(uU.shorts && T3 in uU.shorts) && uU.hasOpenShorts === false,
+    JSON.stringify({ shorts: uU.shorts, flag: uU.hasOpenShorts }));
+  const expCash = round2(1000 + 500 + (50 - coverPrice) * 10);
+  check('scanner: liquidation payout = margin + P&L at dampened price', near(uU.cash, expCash, 0.01),
+    `${uU.cash} vs ${expCash}`);
+  check('scanner: dampened impact applied to market price', near(mkt.prices[T3], coverPrice),
+    `${mkt.prices[T3]} vs ${coverPrice}`);
+  const liqTrades = await db.collection('trades')
+    .where('uid', '==', 'mc_under').get();
+  check('scanner: liquidation logged as margin_call_cover trade',
+    liqTrades.size === 1 && liqTrades.docs[0].data().action === 'margin_call_cover' && liqTrades.docs[0].data().automated === true,
+    `${liqTrades.size}`);
+
+  const uH = await getUser('mc_healthy');
+  check('scanner: healthy short untouched, flag backfilled to true',
+    uH.shorts[T2]?.shares === 5 && uH.hasOpenShorts === true,
+    JSON.stringify({ shorts: uH.shorts, flag: uH.hasOpenShorts }));
+  const uS = await getUser('mc_stale');
+  check('scanner: backfill clears stale flag', uS.hasOpenShorts === false, `${uS.hasOpenShorts}`);
+
+  // Run 2: marker present → flag-query path. A user with a stale flag created
+  // after the backfill must be self-healed out of the query set.
+  await setUser('mc_stale2', { cash: 100, shorts: {}, hasOpenShorts: true });
+  await checkShortMarginCalls.run({}, {});
+  const uS2 = await getUser('mc_stale2');
+  check('scanner: query path self-heals stale flags', uS2.hasOpenShorts === false, `${uS2.hasOpenShorts}`);
+  const uH2 = await getUser('mc_healthy');
+  check('scanner: healthy short survives the query-path run',
+    uH2.shorts[T2]?.shares === 5 && uH2.hasOpenShorts === true, JSON.stringify(uH2.shorts));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -777,6 +859,7 @@ async function main() {
   await testEtfTrailing();
   await testThrottles();
   await testAchievements();
+  await testMarginCallScanner();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

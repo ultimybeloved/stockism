@@ -61,6 +61,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       cash: rollbackCash,
       holdings: {},
       shorts: {},
+      hasOpenShorts: false,
       costBasis: {},
       portfolioValue: rollbackCash,
       lastPortfolioSnapshot: { timestamp: Date.now(), value: rollbackCash },

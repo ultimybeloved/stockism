@@ -812,6 +812,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         cash: newCash,
         holdings: newHoldings,
         shorts: newShorts,
+        // Queried by checkShortMarginCalls so the scanner doesn't have to read
+        // every user doc. Recomputed on every trade, so it self-heals.
+        hasOpenShorts: Object.keys(newShorts).length > 0,
         marginUsed: newMarginUsed,
         ...(marginLockUpdate ? { [`marginLockup.${ticker}`]: marginLockUpdate } : {}),
         tickerTradeHistory: updatedTickerTradeHistory,
