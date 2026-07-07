@@ -940,7 +940,10 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       const existingLog = userData.transactionLog || [];
       updates.transactionLog = [...existingLog, txLogEntry].slice(-100);
 
-      transaction.update(userRef, updates);
+      // NOTE: the user-doc write happens further down, after the achievement
+      // context block — that block still appends to `updates` (profitByTicker),
+      // and transaction.update() snapshots its data at call time, so calling it
+      // here would silently drop those fields.
 
       // Log trade
       const tradeRecord = {
@@ -1062,6 +1065,10 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           }
         }
       }
+
+      // Persist the user updates — must stay AFTER the achievement context block
+      // above, which appends fields (e.g. profitByTicker) to `updates`.
+      transaction.update(userRef, updates);
 
       // Warn if next short will trigger cooldown
       let shortWarning = null;

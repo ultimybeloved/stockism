@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"node scripts/test-rules-emulator.mjs\"",
     "test:ipcap": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-ipcap-emulator.mjs\"",
+    "test:trading": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-trading-emulator.cjs\"",
     "lint": "eslint src --ext .js,.jsx",
     "deploy:functions": "node scripts/deploy-functions.cjs"
   },
