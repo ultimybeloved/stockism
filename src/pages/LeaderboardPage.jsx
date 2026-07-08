@@ -5,7 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREWS, CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
-import { COSMETIC_MAP } from '../constants/cosmetics';
+import { getCosmeticStyles } from '../utils/cosmetics';
 import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 
 const LeaderboardPage = () => {
@@ -171,16 +171,13 @@ const LeaderboardPage = () => {
                 const displayRank = crewFilter === 'ALL' ? leader.rank : leader.crewRank;
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
                 const isCurrentUser = user && leader.id === user.uid;
-                const ac = leader.activeCosmetics || {};
-                const nameColorC = ac.nameColor ? COSMETIC_MAP[ac.nameColor] : null;
-                const rowGlowC = ac.rowGlow ? COSMETIC_MAP[ac.rowGlow] : null;
-                const rowBackdropC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
+                const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
 
                 return (
                   <div
                     key={leader.id}
                     ref={isCurrentUser ? userRowRef : null}
-                    className={`p-3 flex items-center gap-3 ${
+                    className={`relative p-3 flex items-center gap-3 ${rowClass} ${
                       displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''
                     } ${
                       isCurrentUser ? 'border-l-4' : ''
@@ -188,13 +185,11 @@ const LeaderboardPage = () => {
                     style={{
                       ...(isCurrentUser ? {
                         borderLeftColor: userCrewColor,
-                        backgroundColor: rowBackdropC ? (darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12`) : (darkMode ? `${userCrewColor}20` : `${userCrewColor}15`),
-                        boxShadow: rowGlowC ? `0 0 18px ${rowGlowC.color}50` : `inset 0 0 12px ${userCrewColor}30`,
-                        willChange: 'auto',
-                        contain: 'layout style paint',
+                        backgroundColor: backdropColor ? (darkMode ? `${backdropColor}18` : `${backdropColor}12`) : (darkMode ? `${userCrewColor}20` : `${userCrewColor}15`),
+                        boxShadow: glowColor ? `0 0 18px ${glowColor}50` : `inset 0 0 12px ${userCrewColor}30`,
                       } : {
-                        ...(rowGlowC ? { boxShadow: `0 0 18px ${rowGlowC.color}50` } : {}),
-                        ...(rowBackdropC ? { backgroundColor: darkMode ? `${rowBackdropC.color}18` : `${rowBackdropC.color}12` } : {}),
+                        ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
+                        ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
                       }),
                     }}
                   >
@@ -206,13 +201,13 @@ const LeaderboardPage = () => {
                         {leader.isPublic ? (
                           <Link
                             to={`/u/${(leader.displayName || '').toLowerCase()}`}
-                            className="hover:underline"
-                            style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}
+                            className={`hover:underline ${nameClass}`}
+                            style={nameClass ? undefined : { color: nameColor || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}
                           >
                             {leader.displayName || 'Anonymous Trader'}
                           </Link>
                         ) : (
-                          <span style={{ color: nameColorC?.color || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}>
+                          <span className={nameClass} style={nameClass ? undefined : { color: nameColor || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined) }}>
                             {leader.displayName || 'Anonymous Trader'}
                           </span>
                         )}
