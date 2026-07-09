@@ -2,13 +2,24 @@ import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, ipoAnnouncementAlertFunction } from '../../firebase';
 import { CHARACTERS } from '../../characters';
+import { getNextMarketOpen } from '../../utils/marketHours';
+import { formatUTCDateTime } from '../../utils/formatters';
+
+// <input type="datetime-local"> takes local time as "YYYY-MM-DDTHH:mm".
+const toLocalInputValue = (date) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+// A start time this far in the past still creates (starting immediately),
+// covering the gap between clicking the "Now" preset and clicking Create.
+const START_TIME_PAST_TOLERANCE_MS = 5 * 60 * 1000;
 
 // IPO tab: create/cancel IPOs and track eligible characters.
 export function useAdminIpo({ showMessage, setLoading }) {
   // IPO state
   const [ipoTicker, setIpoTicker] = useState('');
-  const [ipoHoursUntilStart, setIpoHoursUntilStart] = useState(24); // Hours until IPO buying starts (hype phase)
-  const [ipoMinutesUntilStart, setIpoMinutesUntilStart] = useState(0); // Extra minutes on top of the hype-phase hours
+  const [ipoStartAtInput, setIpoStartAtInput] = useState(() => toLocalInputValue(getNextMarketOpen())); // When IPO buying starts (hype phase runs from creation until then)
   const [ipoDurationHours, setIpoDurationHours] = useState(24); // How long IPO buying lasts
   const [ipoTotalShares, setIpoTotalShares] = useState(150); // Total shares available
   const [ipoMaxPerUser, setIpoMaxPerUser] = useState(10); // Max shares per user
@@ -72,14 +83,27 @@ export function useAdminIpo({ showMessage, setLoading }) {
       return;
     }
 
+    const startDate = new Date(ipoStartAtInput);
+    if (!ipoStartAtInput || isNaN(startDate.getTime())) {
+      showMessage('error', 'Pick a valid start date and time');
+      return;
+    }
+    const now = Date.now();
+    let ipoStartsAt = startDate.getTime();
+    if (ipoStartsAt <= now) {
+      if (now - ipoStartsAt > START_TIME_PAST_TOLERANCE_MS) {
+        showMessage('error', 'Start time is in the past');
+        return;
+      }
+      ipoStartsAt = now; // "Now" preset: start immediately
+    }
+
     setLoading(true);
     try {
       const ipoRef = doc(db, 'market', 'ipos');
       const snap = await getDoc(ipoRef);
       const currentList = snap.exists() ? (snap.data().list || []) : [];
 
-      const now = Date.now();
-      const ipoStartsAt = now + (ipoHoursUntilStart * 60 * 60 * 1000) + (ipoMinutesUntilStart * 60 * 1000);
       const ipoEndsAt = ipoStartsAt + (ipoDurationHours * 60 * 60 * 1000);
 
       const newIPO = {
@@ -121,7 +145,7 @@ export function useAdminIpo({ showMessage, setLoading }) {
         // Don't block IPO creation if Discord fails
       }
 
-      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying in ${ipoHoursUntilStart}h ${ipoMinutesUntilStart}m`);
+      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatUTCDateTime(ipoStartsAt)}`);
       setIpoTicker('');
       loadIPOs();
     } catch (err) {
@@ -153,9 +177,13 @@ export function useAdminIpo({ showMessage, setLoading }) {
     setLoading(false);
   };
 
+  // Start-time presets for the create form
+  const setIpoStartToNow = () => setIpoStartAtInput(toLocalInputValue(new Date()));
+  const setIpoStartToNextOpen = () => setIpoStartAtInput(toLocalInputValue(getNextMarketOpen()));
+
   return {
-    ipoTicker, setIpoTicker, ipoHoursUntilStart, setIpoHoursUntilStart,
-    ipoMinutesUntilStart, setIpoMinutesUntilStart, ipoDurationHours, setIpoDurationHours,
+    ipoTicker, setIpoTicker, ipoStartAtInput, setIpoStartAtInput,
+    setIpoStartToNow, setIpoStartToNextOpen, ipoDurationHours, setIpoDurationHours,
     ipoTotalShares, setIpoTotalShares, ipoMaxPerUser, setIpoMaxPerUser,
     ipoEligibleCharacters, activeIPOs, loadIPOs, handleCreateIPO, handleCancelIPO,
   };

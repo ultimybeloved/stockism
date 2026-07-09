@@ -96,6 +96,17 @@ export const formatAxisLabels = (values, { kilo = false } = {}) => {
 };
 
 /**
+ * Format an epoch-ms timestamp as "YYYY-MM-DD HH:mm UTC" (24-hour).
+ * @param {number} ms - Epoch milliseconds
+ * @returns {string} UTC date-time string
+ */
+export const formatUTCDateTime = (ms) => {
+  const d = new Date(ms);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+};
+
+/**
  * Round a number to 2 decimal places
  * @param {number} value - The value to round
  * @returns {number} Rounded value

@@ -111,6 +111,19 @@ export const getReviewChanges = (priceHistory, characters) => {
   return changes;
 };
 
+/**
+ * Next weekly market open (Thursday 21:00 UTC).
+ * If it's Thursday before 21:00 UTC, that's today; otherwise the coming Thursday.
+ */
+export const getNextMarketOpen = () => {
+  const next = new Date();
+  next.setUTCHours(21, 0, 0, 0);
+  while (next.getUTCDay() !== 4 || next.getTime() <= Date.now()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+};
+
 export const HALT_END_MINUTE = 1260; // 21:00 UTC
 export const PRE_MARKET_START_MINUTE = 1230; // 20:30 UTC
 export const GRACE_PERIOD_MINUTES = 30;

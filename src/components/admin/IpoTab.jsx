@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CHARACTERS } from '../../characters';
 import { initNewCharacterPricesFunction } from '../../firebase';
+import { formatUTCDateTime, formatTimeRemaining } from '../../utils/formatters';
 
 const IpoTab = ({
   darkMode,
@@ -10,10 +11,10 @@ const IpoTab = ({
   loading,
   ipoTicker,
   setIpoTicker,
-  ipoHoursUntilStart,
-  setIpoHoursUntilStart,
-  ipoMinutesUntilStart,
-  setIpoMinutesUntilStart,
+  ipoStartAtInput,
+  setIpoStartAtInput,
+  setIpoStartToNow,
+  setIpoStartToNextOpen,
   ipoDurationHours,
   setIpoDurationHours,
   ipoTotalShares,
@@ -27,6 +28,13 @@ const IpoTab = ({
   setMessage,
 }) => {
   const [initingPrices, setInitingPrices] = useState(false);
+
+  // Derived start-time info for the create form
+  const startDate = ipoStartAtInput ? new Date(ipoStartAtInput) : null;
+  const startValid = !!startDate && !isNaN(startDate.getTime());
+  const startMs = startValid ? startDate.getTime() : 0;
+  const startsImmediately = startValid && startMs <= Date.now();
+  const presetBtnClass = `text-xs px-2 py-1 rounded-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`;
 
   const handleInitPrices = async () => {
     setInitingPrices(true);
@@ -50,7 +58,7 @@ const IpoTab = ({
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
         <p className={`text-sm ${mutedClass}`}>
           🚀 <strong>IPO System:</strong> Create limited-time offerings for new characters.
-          <br />• Hype Phase (24h default): Announcement only, no buying
+          <br />• Hype Phase: from creation until your chosen start time. Announcement only, no buying
           <br />• IPO Window (24h default): configurable shares and per-user limits
           <br />• After IPO: Price jumps 15%, normal trading begins
         </p>
@@ -105,31 +113,22 @@ const IpoTab = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Hype Phase (until buying starts)</label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={ipoHoursUntilStart}
-                    onChange={e => setIpoHoursUntilStart(Math.max(0, parseInt(e.target.value) || 0))}
-                    min="0"
-                    className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                  />
-                  <p className={`text-xs ${mutedClass} mt-1 text-center`}>hours</p>
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={ipoMinutesUntilStart}
-                    onChange={e => setIpoMinutesUntilStart(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                    min="0"
-                    max="59"
-                    className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                  />
-                  <p className={`text-xs ${mutedClass} mt-1 text-center`}>minutes</p>
-                </div>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Buying Starts At (your local time)</label>
+              <input
+                type="datetime-local"
+                value={ipoStartAtInput}
+                onChange={e => setIpoStartAtInput(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+              />
+              <div className="flex gap-2 mt-1">
+                <button type="button" onClick={setIpoStartToNow} className={presetBtnClass}>Now</button>
+                <button type="button" onClick={setIpoStartToNextOpen} className={presetBtnClass}>Next market open (Thu 21:00 UTC)</button>
               </div>
-              <p className={`text-xs ${mutedClass} mt-1`}>0h 0m = IPO starts immediately</p>
+              <p className={`text-xs ${mutedClass} mt-1`}>
+                {!startValid ? 'Pick a date and time'
+                  : startsImmediately ? 'Buying starts immediately'
+                  : `${formatUTCDateTime(startMs)} (in ${formatTimeRemaining(startMs - Date.now())})`}
+              </p>
             </div>
             <div>
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>IPO Duration (hours)</label>
@@ -172,7 +171,7 @@ const IpoTab = ({
                 <strong>${ipoTicker}</strong> IPO will:
               </p>
               <ul className={`text-xs ${mutedClass} mt-1 space-y-1`}>
-                <li>• Hype phase: {ipoHoursUntilStart}h {ipoMinutesUntilStart}m (announcement)</li>
+                <li>• Buying opens: {!startValid ? 'pick a time' : startsImmediately ? 'immediately' : formatUTCDateTime(startMs)}</li>
                 <li>• IPO buying: {ipoDurationHours}h</li>
                 <li>• {ipoTotalShares} shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice} (max {ipoMaxPerUser}/user)</li>
                 <li>• After IPO: +15% price jump</li>
