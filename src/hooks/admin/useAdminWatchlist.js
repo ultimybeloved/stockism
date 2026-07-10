@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   getWatchlistFunction, getRecentSignupReportFunction, banUserFunction,
   addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction,
-  addWatchedIPFunction, auditUsernamesFunction,
+  addWatchedIPFunction, auditUsernamesFunction, getIpTrackingHealthFunction,
 } from '../../firebase';
 
 // Watchlist tab: IP/alt-account watchlist, signup reports, username audits.
@@ -21,6 +21,7 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
   const [watchLinkTarget, setWatchLinkTarget] = useState(null);
   const [watchAddIPValue, setWatchAddIPValue] = useState('');
   const [watchAddIPTarget, setWatchAddIPTarget] = useState(null);
+  const [ipHealth, setIpHealth] = useState(null);
 
   // ============================================
   // WATCHLIST HANDLERS
@@ -35,6 +36,17 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
       setWatchlistLoaded(true);
     } catch (err) {
       showMessage('error', 'Failed to load watchlist: ' + (err.message || 'Unknown error'));
+    }
+    setLoading(false);
+  };
+
+  const loadIpHealth = async () => {
+    setLoading(true);
+    try {
+      const result = await getIpTrackingHealthFunction();
+      setIpHealth(result.data);
+    } catch (err) {
+      showMessage('error', 'Failed to load defense health: ' + (err.message || 'Unknown error'));
     }
     setLoading(false);
   };
@@ -167,5 +179,6 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
     handleLinkAlt, watchAddIPTarget, setWatchAddIPTarget,
     watchAddIPValue, setWatchAddIPValue, handleAddWatchedIP,
     watchlistAlerts, loadWatchlist,
+    ipHealth, loadIpHealth,
   };
 }

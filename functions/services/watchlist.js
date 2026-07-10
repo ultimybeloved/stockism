@@ -5,7 +5,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { ADMIN_UID } = require('../constants');
+const { ADMIN_UID, THIRTY_DAYS_MS } = require('../constants');
 const { normalizeEmail, clusterBy } = require('../signupCluster');
 
 exports.addWatchedUser = cf().https.onCall(async (data, context) => {
@@ -339,6 +339,88 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
     clustersByIp: clusterBy(accounts, a => a.signupIp),
     clustersByDomain: clusterBy(accounts, a => a.emailDomain),
     clustersByGmail: clusterBy(accounts, a => a.normalizedEmail)
+  };
+});
+
+/**
+ * IP-tracking health report (admin, read-only). Answers "are the anti-alt
+ * defenses actually firing in production?" in one call:
+ *   - accounts-per-IP distribution from ipTracking (live + tombstoned deleted)
+ *   - watchlist_alerts counts by type over the last 30 days
+ *   - how many users have no usable signupIp (tells us whether the real
+ *     client IP reaches createUser at all)
+ *   - Discord-wall status: flagged accounts vs. how many have linked
+ * Writes nothing.
+ */
+exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  // 1. ipTracking distribution
+  const ipSnap = await db.collection('ipTracking').get();
+  const histogram = { 1: 0, 2: 0, 3: 0, '4+': 0 };
+  const multiAccountIPs = [];
+  let totalLiveAccounts = 0;
+  let totalTombstones = 0;
+  for (const doc of ipSnap.docs) {
+    const d = doc.data();
+    const live = Object.keys(d.accounts || {}).length;
+    const dead = Object.keys(d.deletedAccounts || {}).length;
+    totalLiveAccounts += live;
+    totalTombstones += dead;
+    if (live === 0) continue;
+    const bucket = live >= 4 ? '4+' : String(live);
+    histogram[bucket] = (histogram[bucket] || 0) + 1;
+    if (live >= 2) {
+      multiAccountIPs.push({ ip: doc.id.replace(/_/g, '.'), liveAccounts: live, deletedAccounts: dead });
+    }
+  }
+  multiAccountIPs.sort((a, b) => b.liveAccounts - a.liveAccounts);
+
+  // 2. Blocked/flagged alert counts, last 30 days
+  const cutoff = new Date(Date.now() - THIRTY_DAYS_MS);
+  const alertsSnap = await db.collection('watchlist_alerts')
+    .where('timestamp', '>=', cutoff)
+    .get();
+  const alertsByType = {};
+  for (const doc of alertsSnap.docs) {
+    const t = doc.data().type || 'other';
+    alertsByType[t] = (alertsByType[t] || 0) + 1;
+  }
+
+  // 3. signupIp coverage + Discord-wall status (light projection scan)
+  const usersSnap = await db.collection('users')
+    .select('signupIp', 'requiresDiscordLink', 'discordId', 'isBot')
+    .get();
+  let realUsers = 0;
+  let missingIp = 0;
+  let walledPending = 0;
+  let walledLifted = 0;
+  for (const doc of usersSnap.docs) {
+    const d = doc.data();
+    if (d.isBot) continue;
+    realUsers++;
+    if (!d.signupIp || d.signupIp === 'unknown') missingIp++;
+    if (d.requiresDiscordLink) {
+      if (d.discordId) walledLifted++;
+      else walledPending++;
+    }
+  }
+
+  return {
+    generatedAt: Date.now(),
+    ipTracking: {
+      trackedIPs: ipSnap.size,
+      totalLiveAccounts,
+      totalTombstones,
+      accountsPerIpHistogram: histogram,
+      multiAccountIPs: multiAccountIPs.slice(0, 20),
+    },
+    alertsLast30d: { total: alertsSnap.size, byType: alertsByType },
+    signupIpCoverage: { realUsers, missingIp, coveragePercent: realUsers > 0 ? Math.round((1 - missingIp / realUsers) * 100) : 0 },
+    discordWall: { pending: walledPending, lifted: walledLifted },
   };
 });
 
