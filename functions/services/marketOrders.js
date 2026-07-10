@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -230,8 +230,12 @@ const runMarketOpenProcessing = async (trigger) => {
               totalTrades: admin.firestore.FieldValue.increment(1)
             });
           } else {
+            // Clamp to sellable (holdings minus IPO/margin locks) — locks placed
+            // after the order was queued must not be sellable at the auction.
             const userShares = ud.holdings?.[order.ticker] || 0;
-            localFillShares = round2(Math.min(localFillShares, userShares));
+            const lockedNow = lockedShares(ud, order.ticker).total;
+            const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
+            localFillShares = round2(Math.min(localFillShares, sellableShares));
             if (localFillShares < 0.01) throw new Error('Insufficient shares');
 
             const newHoldings = Math.round((userShares - localFillShares) * 10000) / 10000;
@@ -335,10 +339,14 @@ const runMarketOpenProcessing = async (trigger) => {
 
         if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
         if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
+        // Locks re-checked at fill time: shares locked after the stop loss was
+        // placed (e.g. a margin buy) can't be sold by the sweep.
         const userShares = userData.holdings?.[order.ticker] || 0;
-        if (userShares < fillShares) {
-          if (order.allowPartialFills && userShares > 0) {
-            fillShares = userShares;
+        const lockedNow = lockedShares(userData, order.ticker).total;
+        const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
+        if (sellableShares < fillShares) {
+          if (order.allowPartialFills && sellableShares > 0) {
+            fillShares = sellableShares;
           } else {
             throw new Error('Insufficient shares');
           }

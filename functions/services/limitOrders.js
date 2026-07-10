@@ -184,16 +184,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
  * Check and Execute Limit Orders
  * Runs every 2 minutes to check if any pending limit orders should execute
  */
-exports.checkLimitOrders = cf().pubsub
-  .schedule('every 15 minutes')
-  .timeZone('UTC')
-  .onRun(async (context) => {
-    // Skip during weekly halt — don't execute pending orders
-    if (isWeeklyTradingHalt()) {
-      console.log('Skipping limit order check — weekly trading halt active');
-      return { success: true, skipped: true, reason: 'weekly_halt' };
-    }
-
+const runLimitOrderCheck = async () => {
     try {
       console.log('Checking limit orders...');
       const startTime = Date.now();
@@ -423,15 +414,20 @@ exports.checkLimitOrders = cf().pubsub
                   }
                 }
               } else if (effectiveType === 'SELL') {
+                // Locks are re-checked at fill time, not just at creation: shares
+                // locked AFTER the order was placed (e.g. a margin buy on the same
+                // ticker) must not be sellable through a fill or partial clamp.
                 const userShares = userData.holdings?.[order.ticker] || 0;
-                if (userShares < fillShares) {
-                  if (order.allowPartialFills) {
-                    if (userShares > 0) {
-                      fillShares = userShares;
-                      console.log(`Partial fill: only have ${userShares} shares`);
-                    } else {
-                      throw new Error('Insufficient shares');
-                    }
+                const lockedNow = lockedShares(userData, order.ticker).total;
+                const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
+                if (sellableShares < fillShares) {
+                  if (order.allowPartialFills && sellableShares > 0) {
+                    fillShares = sellableShares;
+                    console.log(`Partial fill: only ${sellableShares} sellable shares (${lockedNow} locked)`);
+                  } else if (userShares >= fillShares) {
+                    // Enough shares, but some are locked — defer, don't cancel;
+                    // locks expire well within the order's 30-day lifetime.
+                    throw new Error('Shares locked (IPO or margin hold)');
                   } else {
                     throw new Error('Insufficient shares');
                   }
@@ -684,7 +680,24 @@ exports.checkLimitOrders = cf().pubsub
       console.error('Limit order check failed:', error);
       return { success: false, error: error.message };
     }
+};
+
+exports.checkLimitOrders = cf().pubsub
+  .schedule('every 15 minutes')
+  .timeZone('UTC')
+  .onRun(async () => {
+    // Skip during weekly halt — don't execute pending orders. The time gate
+    // lives here (not in runLimitOrderCheck) so the emulator test can run the
+    // processing on any day; the admin-halt gate is data-driven and stays inside.
+    if (isWeeklyTradingHalt()) {
+      console.log('Skipping limit order check — weekly trading halt active');
+      return { success: true, skipped: true, reason: 'weekly_halt' };
+    }
+    return runLimitOrderCheck();
   });
+
+// Exposed for the emulator end-to-end test (scripts/test-limitorders-emulator.cjs)
+exports.runLimitOrderCheck = runLimitOrderCheck;
 
 // ============================================
 // SECURE OPERATIONS - Moved from client-side
