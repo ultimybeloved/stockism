@@ -1,14 +1,15 @@
 import { useMemo, useState, useEffect } from 'react';
-import { isWeeklyHalt, getHaltTimeRemaining, formatCountdown, isMarketOpenGracePeriod, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
+import { isWeeklyHalt, formatCountdown, isMarketOpenGracePeriod, getWeeklyHaltPhase, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
 import { useAppContext } from '../context/AppContext';
 
 const MarketTicker = () => {
   const { prices, priceHistory, marketData, darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [countdown, setCountdown] = useState('');
+  const [haltBanner, setHaltBanner] = useState(null); // { text, tone: 'red' | 'amber' }
   const [gracePeriod, setGracePeriod] = useState(isMarketOpenGracePeriod());
   const halted = isWeeklyHalt() || marketData?.marketHalted;
   const manualHalt = marketData?.marketHalted;
+  const haltReason = marketData?.haltReason;
 
   useEffect(() => {
     const check = () => setGracePeriod(isMarketOpenGracePeriod());
@@ -17,20 +18,31 @@ const MarketTicker = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Update countdown every 30s during halt
+  // Update the halt banner every 15s. The Thursday halt has three phases and
+  // the banner walks players through them: closed (pre-market countdown),
+  // queue open (place orders now), locked (auction about to run).
   useEffect(() => {
     if (!halted) return;
     const update = () => {
       if (manualHalt) {
-        setCountdown('');
+        setHaltBanner({ text: `MARKET CLOSED: ${haltReason || 'Emergency halt in progress'}`, tone: 'red' });
+        return;
+      }
+      const p = getWeeklyHaltPhase();
+      if (!p) return;
+      const t = formatCountdown(p.msToNext);
+      if (p.phase === 'closed') {
+        setHaltBanner({ text: `MARKET CLOSED: Chapter review · Pre-market opens in ${t}, queue orders early for the 21:00 UTC open`, tone: 'red' });
+      } else if (p.phase === 'queue') {
+        setHaltBanner({ text: `PRE-MARKET OPEN: Orders lock in ${t} · Queue buys/sells now, they fill at the 21:00 UTC open`, tone: 'amber' });
       } else {
-        setCountdown(formatCountdown(getHaltTimeRemaining()));
+        setHaltBanner({ text: `PRE-MARKET LOCKED: Queued orders are set · Market opens in ${t}`, tone: 'red' });
       }
     };
     update();
-    const interval = setInterval(update, 30000);
+    const interval = setInterval(update, 15000);
     return () => clearInterval(interval);
-  }, [halted, manualHalt]);
+  }, [halted, manualHalt, haltReason]);
 
   // Compute top movers
   const movers = useMemo(() => {
@@ -55,35 +67,21 @@ const MarketTicker = () => {
   }, [prices, priceHistory]);
 
   // Schedule info
-  const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC`;
+  const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC · Pre-market orders: Thu 20:30–20:55 UTC`;
 
-  const haltReason = marketData?.haltReason;
-
-  const haltContent = manualHalt
-    ? `MARKET CLOSED: ${haltReason || 'Emergency halt in progress'}`
-    : `MARKET CLOSED: Chapter review in progress | Reopens in ${countdown}`;
-
-  const normalContent = movers.length > 0
-    ? movers.map(m => {
-        const arrow = m.change >= 0 ? '▲' : '▼';
-        const sign = m.change >= 0 ? '+' : '';
-        return `${m.ticker} $${m.price.toFixed(2)} ${arrow}${sign}${m.change.toFixed(1)}%`;
-      }).join('   ·   ') + `   |   ${scheduleText}`
-    : scheduleText;
-
-  const content = halted ? haltContent : normalContent;
+  const preMarketTone = haltBanner?.tone === 'amber';
 
   return (
     <div className={`w-full overflow-hidden ${halted
-      ? 'bg-red-900/80 border-b border-red-700'
+      ? (preMarketTone ? 'bg-amber-700/80 border-b border-amber-600' : 'bg-red-900/80 border-b border-red-700')
       : gracePeriod
         ? 'bg-amber-700/80 border-b border-amber-600'
         : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
     }`} style={{ height: '32px' }}>
       {halted ? (
         <div className="w-full flex items-center justify-center h-full px-2">
-          <span className="text-red-200 text-xs font-bold tracking-wide text-center truncate">
-            {content}
+          <span className={`text-xs font-bold tracking-wide text-center truncate ${preMarketTone ? 'text-amber-100' : 'text-red-200'}`}>
+            {haltBanner?.text || 'MARKET CLOSED'}
           </span>
         </div>
       ) : gracePeriod ? (

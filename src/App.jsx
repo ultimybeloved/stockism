@@ -352,7 +352,7 @@ export default function App() {
     if (isWeeklyHalt() || marketData?.marketHalted) {
       showNotification('error', marketData?.marketHalted
         ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
-        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
+        : 'Market closed for chapter review. Queue a pre-market order from 20:30 UTC, trading resumes at 21:00 UTC.');
       return;
     }
     if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {

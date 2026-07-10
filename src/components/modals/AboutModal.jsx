@@ -127,6 +127,44 @@ const AboutModal = ({ onClose }) => {
           {activeTab === 'faq' && (
             <div className={`space-y-4 ${textClass}`}>
               <div>
+                <h3 className="font-semibold text-orange-500 mb-1">Why is the market closed on Thursdays?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  The market halts every Thursday from 13:00 to 21:00 UTC while new chapter events get priced in.
+                  Nobody can trade during the halt, so early chapter readers don't get an unfair edge.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">What is the pre-market?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  During the last stretch of the Thursday halt, from 20:30 to 20:55 UTC, you can queue buy and sell
+                  orders. At 20:55 orders lock in. All queued orders execute together in one opening auction, and the
+                  market reopens at 21:00 UTC. It's the way to act on the new chapter without waiting at your screen
+                  for the exact reopen second.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">What are limit orders and stop losses?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  A limit order buys or sells automatically when a stock hits your target price, even while you're
+                  offline. A stop loss sells automatically if the price drops to your trigger, protecting you from a
+                  crash. Set both from any character's trade menu. Pending orders are checked every 15 minutes and
+                  expire after 30 days.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">Why can't I sell some of my shares?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  Two kinds of temporary locks exist. Shares bought in an IPO are locked until shortly after the IPO
+                  ends, so the guaranteed launch bump can't be flipped instantly. Shares bought with borrowed margin
+                  money are locked for 36 hours. The trade screen shows how many of your shares are locked and when
+                  they free up.
+                </p>
+              </div>
+
+              <div>
                 <h3 className="font-semibold text-orange-500 mb-1">What's the "bid-ask spread"?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Just like real stock markets, there's a tiny gap between buy and sell prices (0.2% for stocks, 0.1% for ETFs).
@@ -180,7 +218,9 @@ const AboutModal = ({ onClose }) => {
                   at least 10 days to become eligible. Payouts run every Thursday right before the chapter halt, using
                   the pre-halt price snapshot. "Blue-chip" stocks pay the most, "Dividend" stocks pay moderately, ETFs
                   pay a middle rate, and "Growth" stocks don't pay (they're expected to go up in price instead).
-                  Check the Portfolio modal to see each holding's tier and projected weekly income.
+                  Check the Portfolio modal to see each holding's tier and projected weekly income. You can also turn
+                  on DRIP per stock in your portfolio to automatically reinvest each payout into more shares instead
+                  of taking cash.
                 </p>
               </div>
 

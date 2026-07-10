@@ -126,6 +126,7 @@ export const getNextMarketOpen = () => {
 
 export const HALT_END_MINUTE = 1260; // 21:00 UTC
 export const PRE_MARKET_START_MINUTE = 1230; // 20:30 UTC
+export const PRE_MARKET_LOCK_MINUTE = 1255; // 20:55 UTC
 export const GRACE_PERIOD_MINUTES = 30;
 
 export const isPreMarketWindow = () => {
@@ -140,7 +141,31 @@ export const isPreMarketLockout = () => {
   const now = new Date();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return utcMins >= 1255 && utcMins < HALT_END_MINUTE;
+  return utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < HALT_END_MINUTE;
+};
+
+/**
+ * Phase of the Thursday halt, for banner messaging.
+ * Returns null outside the weekly halt, otherwise { phase, msToNext } where
+ * phase is 'closed' (13:00-20:30, counting to the pre-market queue opening),
+ * 'queue' (20:30-20:55, counting to the order lock), or 'locked' (20:55-21:00,
+ * counting to the market open).
+ */
+export const getWeeklyHaltPhase = () => {
+  if (!isWeeklyHalt()) return null;
+  const now = new Date();
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const target = new Date(now);
+  if (utcMins < PRE_MARKET_START_MINUTE) {
+    target.setUTCHours(20, 30, 0, 0);
+    return { phase: 'closed', msToNext: Math.max(0, target.getTime() - now.getTime()) };
+  }
+  if (utcMins < PRE_MARKET_LOCK_MINUTE) {
+    target.setUTCHours(20, 55, 0, 0);
+    return { phase: 'queue', msToNext: Math.max(0, target.getTime() - now.getTime()) };
+  }
+  target.setUTCHours(21, 0, 0, 0);
+  return { phase: 'locked', msToNext: Math.max(0, target.getTime() - now.getTime()) };
 };
 
 export const getPreMarketTimeRemaining = () => {
@@ -166,7 +191,8 @@ export const isMarketOpenGracePeriod = () => {
 export const getMarketClosedState = (marketData) => {
   if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
   if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
-  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
+  // Weekly halt: say when orders can go in again, not just that it's closed
+  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: 'Closed · Pre-market 20:30 UTC' };
   return { closed: false, preMarket: false, label: 'Trade' };
 };
 
