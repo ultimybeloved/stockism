@@ -6,172 +6,20 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const {
-  isWeeklyTradingHalt,
-  WHALE_ALERT_SHARES_SOFT, WHALE_ALERT_PRICE_SOFT, WHALE_ALERT_SHARES_HARD,
-  CREW_MILESTONE_THRESHOLDS,
-} = require('../constants');
+const { isWeeklyTradingHalt, ADMIN_UID } = require('../constants');
 const { sendDiscordMessage, writeNotification, priceHistoryRef } = require('../helpers');
 
-// ─── Internal ────────────────────────────────────────────────────────────────
-
-function censorUsername(username) {
-  if (!username || username.length <= 2) return '***';
-  const first = username.charAt(0);
-  const last = username.charAt(username.length - 1);
-  const middle = '*'.repeat(Math.max(1, username.length - 2));
-  return `${first}${middle}${last}`;
-}
-
-// ─── Discord Alert Triggers (called from client after key events) ─────────────
-
-/**
- * Big Trade Alert - Triggered when large trades occur
- * Called from client after trade execution
- */
-exports.bigTradeAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { ticker, shares, price, totalValue, type } = data;
-
-  if ((shares >= WHALE_ALERT_SHARES_SOFT && price >= WHALE_ALERT_PRICE_SOFT) || shares >= WHALE_ALERT_SHARES_HARD) {
-    const embed = {
-      title: '🐋 Whale Alert',
-      description: `A significant ${type.toLowerCase()} order was executed`,
-      color: type === 'BUY' ? 0x44FF44 : 0xFF4444,
-      fields: [
-        { name: 'Stock', value: `**${ticker}**`, inline: true },
-        { name: 'Shares', value: shares.toLocaleString(), inline: true },
-        { name: 'Price', value: `$${price.toFixed(2)}`, inline: true },
-        { name: 'Total Value', value: `$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 2})}`, inline: false }
-      ],
-      timestamp: new Date().toISOString()
-    };
-    await sendDiscordMessage(null, [embed]);
-  }
-
-  return { success: true };
-});
-
-/**
- * Crew Milestone Alert - Called when crew reaches member milestone
- */
-exports.crewMilestoneAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { crewName, memberCount } = data;
-  if (CREW_MILESTONE_THRESHOLDS.includes(memberCount)) {
-    const embed = {
-      title: '🎉 Crew Milestone!',
-      description: `**${crewName}** has reached **${memberCount} members**!`,
-      color: 0xFFD700,
-      timestamp: new Date().toISOString()
-    };
-    await sendDiscordMessage(null, [embed]);
-  }
-
-  return { success: true };
-});
-
-/**
- * Prediction Result Alert - Called when prediction is resolved
- */
-exports.predictionResultAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { question, winningOption, totalBets, totalPayout, winners } = data;
-
-  const embed = {
-    title: '🔮 Prediction Resolved',
-    description: `**${question}**`,
-    color: 0x9B59B6,
-    fields: [
-      { name: 'Winning Outcome', value: `✅ ${winningOption}`, inline: false },
-      { name: 'Total Bets', value: totalBets.toString(), inline: true },
-      { name: 'Winners', value: winners.toString(), inline: true },
-      { name: 'Total Payout', value: `$${totalPayout.toLocaleString(undefined, {maximumFractionDigits: 2})}`, inline: true }
-    ],
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true };
-});
-
-/**
- * All-Time High Alert - Called when stock hits new ATH
- */
-exports.allTimeHighAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { ticker, price, previousHigh } = data;
-
-  const embed = {
-    title: '🎯 New All-Time High!',
-    description: `**${ticker}** just hit a new record`,
-    color: 0xFF6B35,
-    fields: [
-      { name: 'New High', value: `$${price.toFixed(2)}`, inline: true },
-      { name: 'Previous High', value: `$${previousHigh.toFixed(2)}`, inline: true },
-      { name: 'Gain', value: `+${(previousHigh > 0 ? ((price - previousHigh) / previousHigh) * 100 : 0).toFixed(1)}%`, inline: true }
-    ],
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true };
-});
-
-/**
- * Portfolio Milestone Alert - Called when user hits major portfolio milestone
- */
-exports.portfolioMilestoneAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { milestone } = data;
-  const milestones = {
-    10000: { emoji: '💎', label: '$10K Club' },
-    25000: { emoji: '🌟', label: '$25K Elite' },
-    50000: { emoji: '🚀', label: '$50K Legend' },
-    100000: { emoji: '👑', label: '$100K Royalty' }
-  };
-
-  const milestoneInfo = milestones[milestone];
-  if (milestoneInfo) {
-    const embed = {
-      title: `${milestoneInfo.emoji} Portfolio Milestone Achieved!`,
-      description: `A trader just joined the **${milestoneInfo.label}**`,
-      color: 0xFFD700,
-      timestamp: new Date().toISOString()
-    };
-    await sendDiscordMessage(null, [embed]);
-  }
-
-  return { success: true };
-});
+// ─── Discord Alert Triggers ──────────────────────────────────────────────────
 
 /**
  * IPO Announcement - Called when a new IPO is created
  */
 exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  // Only the admin panel creates IPOs, so only the admin may announce one —
+  // otherwise any user could post fake official announcements through the bot.
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
 
   const { ticker, characterName, ipoPrice, postIpoPrice, startsAt, endsAt, totalShares, maxPerUser } = data;
@@ -196,124 +44,6 @@ exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
   };
 
   await sendDiscordMessage(null, [embed]);
-  return { success: true };
-});
-
-/**
- * IPO Closing Results - Called when an IPO closes
- */
-exports.ipoClosingAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { ticker, characterName, participants, totalInvested, totalShares } = data;
-
-  const embed = {
-    color: 0x00FF00,
-    title: '📊 IPO CLOSED',
-    description: `**${characterName}** ($${ticker}) IPO has ended!`,
-    fields: [
-      { name: 'Participants', value: participants.toString(), inline: true },
-      { name: 'Total Invested', value: `$${totalInvested.toLocaleString(undefined, {maximumFractionDigits: 2})}`, inline: true },
-      { name: 'Shares Sold', value: totalShares.toLocaleString(), inline: true }
-    ],
-    footer: { text: 'Trading is now live at +15% from IPO price!' },
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true };
-});
-
-/**
- * Bankruptcy Alert - Called when a user goes bankrupt (censored name)
- */
-exports.bankruptcyAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  try {
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (!userDoc.exists) return { success: true };
-    const userData = userDoc.data();
-    if (!userData.isBankrupt && (userData.cash || 0) >= 0) {
-      console.log(`Bankruptcy alert rejected: ${context.auth.uid} is not bankrupt`);
-      return { success: true };
-    }
-
-    const actualValue = userData.portfolioValue || 0;
-    const censoredName = censorUsername(userData.displayName || 'Unknown');
-
-    const embed = {
-      color: 0xFF0000,
-      title: '💔 Trader Bankrupt',
-      description: `**${censoredName}** has gone bust`,
-      fields: [
-        { name: 'Final Portfolio Value', value: `$${actualValue.toFixed(2)}`, inline: true }
-      ],
-      footer: { text: 'Risk management is key!' },
-      timestamp: new Date().toISOString()
-    };
-
-    await sendDiscordMessage(null, [embed]);
-  } catch (e) {
-    console.error('Bankruptcy alert failed:', e);
-  }
-  return { success: true };
-});
-
-/**
- * Comeback Story Alert - Called when someone recovers from near-bankruptcy (censored name)
- */
-exports.comebackAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  try {
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (!userDoc.exists) return { success: true };
-    const userData = userDoc.data();
-    const actualValue = userData.portfolioValue || 0;
-
-    // Lowest recorded value from the permanent history subcollection
-    const lowSnap = await db.collection('users').doc(context.auth.uid)
-      .collection('portfolioHistory')
-      .orderBy('value', 'asc').limit(1).get();
-    const lowestHistorical = !lowSnap.empty
-      ? (lowSnap.docs[0].data().value ?? actualValue)
-      : actualValue;
-    const serverLowPoint = Math.min(lowestHistorical, actualValue);
-
-    if (serverLowPoint <= 0 || actualValue <= serverLowPoint * 1.5) {
-      return { success: true };
-    }
-
-    const gainPercent = ((actualValue - serverLowPoint) / serverLowPoint * 100).toFixed(0);
-    const censoredName = censorUsername(userData.displayName || 'Unknown');
-
-    const embed = {
-      color: 0x00FF00,
-      title: '🔥 Epic Comeback!',
-      description: `**${censoredName}** recovered from the brink!`,
-      fields: [
-        { name: 'Lowest Point', value: `$${serverLowPoint.toFixed(2)}`, inline: true },
-        { name: 'Current Value', value: `$${actualValue.toFixed(2)}`, inline: true },
-        { name: 'Recovery', value: `+${gainPercent}%`, inline: true }
-      ],
-      footer: { text: 'Never give up!' },
-      timestamp: new Date().toISOString()
-    };
-
-    await sendDiscordMessage(null, [embed]);
-  } catch (e) {
-    console.error('Comeback alert failed:', e);
-  }
   return { success: true };
 });
 
@@ -406,13 +136,42 @@ exports.priceThresholdAlert = cf().pubsub
 /**
  * Achievement Alert - Called when someone unlocks an achievement
  */
+// Server-side copy of the announceable achievements (subset of
+// src/constants/achievements.js). The embed text comes from here, never from
+// the client — otherwise any caller could post arbitrary text through the bot.
+const NOTEWORTHY_ACHIEVEMENTS = {
+  SHARK:           { name: 'Shark',            description: 'Execute a single trade worth $1,000+' },
+  BULL_RUN:        { name: 'Bull Run',         description: 'Sell a stock for 25%+ profit' },
+  DIAMOND_HANDS:   { name: 'Diamond Hands',    description: 'Hold through a 30% dip and recover to profit' },
+  COLD_BLOODED:    { name: 'Cold Blooded',     description: 'Profit from closing a short position' },
+  BROKE_100K:      { name: 'Six Figures',      description: 'Reach $100,000 portfolio value' },
+  BROKE_250K:      { name: 'Market Shark',     description: 'Reach $250,000 portfolio value' },
+  BROKE_500K:      { name: 'Untouchable',      description: 'Reach $500,000 portfolio value' },
+  BROKE_1M:        { name: 'First Million',    description: 'Reach $1,000,000 portfolio value' },
+  ORACLE:          { name: 'Oracle',           description: 'Win 3 prediction bets' },
+  PROPHET:         { name: 'Prophet',          description: 'Win 10 prediction bets' },
+  TOP_10:          { name: 'Contender',        description: 'Reach the top 10 on the leaderboard' },
+  TOP_3:           { name: 'Elite',            description: 'Reach the top 3 on the leaderboard' },
+  TOP_1:           { name: 'Champion',         description: 'Reach #1 on the leaderboard' },
+  CASINO_CHAMPION: { name: 'Casino Champion',  description: 'Place 1st on the Ladder Game leaderboard' },
+  DEDICATED_30:    { name: 'Devoted',          description: 'Check in 30 days total' },
+  DEDICATED_100:   { name: 'Legendary',        description: 'Check in 100 days total' },
+  MISSION_50:      { name: 'Mission Master',   description: 'Complete 50 daily missions' },
+  MISSION_100:     { name: 'Mission Legend',   description: 'Complete 100 daily missions' },
+};
+
 exports.achievementAlert = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
-  const { achievementId, achievementName, achievementDescription } = data;
+  const { achievementId } = data;
+
+  const noteworthy = NOTEWORTHY_ACHIEVEMENTS[achievementId];
+  if (!noteworthy) {
+    return { success: true, alerted: false };
+  }
 
   try {
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
@@ -427,128 +186,11 @@ exports.achievementAlert = cf().https.onCall(async (data, context) => {
     return { success: true, alerted: false };
   }
 
-  const noteworthyAchievements = [
-    'SHARK', 'BULL_RUN', 'DIAMOND_HANDS', 'COLD_BLOODED',
-    'PORTFOLIO_10K', 'PORTFOLIO_25K', 'PORTFOLIO_50K', 'PORTFOLIO_100K',
-    'ORACLE', 'PROPHET', 'TOP_10', 'TOP_3', 'CHAMPION',
-    'STREAK_30', 'STREAK_100', 'MISSION_50', 'MISSION_100'
-  ];
-
-  if (!noteworthyAchievements.includes(achievementId)) {
-    return { success: true, alerted: false };
-  }
-
   const embed = {
     title: '🏆 Achievement Unlocked',
-    description: `A trader just earned **${achievementName}**`,
+    description: `A trader just earned **${noteworthy.name}**`,
     color: 0xFFD700,
-    fields: [{ name: 'Description', value: achievementDescription, inline: false }],
-    timestamp: new Date().toISOString()
-  };
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true, alerted: true };
-});
-
-/**
- * Leaderboard Change Alert - Called when someone enters/exits top 10
- */
-exports.leaderboardChangeAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { changeType, newRank, portfolioValue } = data;
-
-  try {
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (!userDoc.exists) return { success: true, alerted: false };
-    const actualValue = userDoc.data().portfolioValue || 0;
-    if (typeof portfolioValue !== 'number' || Math.abs(actualValue - portfolioValue) > actualValue * 0.2) {
-      console.log(`Leaderboard alert rejected: claimed ${portfolioValue}, actual ${actualValue}`);
-      return { success: true, alerted: false };
-    }
-  } catch (e) {
-    console.error('Leaderboard alert validation failed:', e);
-    return { success: true, alerted: false };
-  }
-
-  let embed;
-  if (changeType === 'entered_top10') {
-    embed = {
-      title: '🔥 Leaderboard Shakeup',
-      description: `A trader just broke into the **Top 10**!`,
-      color: 0xFF6B35,
-      fields: [
-        { name: 'New Position', value: `#${newRank}`, inline: true },
-        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    };
-  } else if (changeType === 'new_leader') {
-    embed = {
-      title: '👑 New #1 Leader',
-      description: `The throne has a new ruler!`,
-      color: 0xFFD700,
-      fields: [
-        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    };
-  } else if (changeType === 'entered_top3') {
-    embed = {
-      title: '🥇 Top 3 Entry',
-      description: `A trader just climbed into the **Top 3**!`,
-      color: 0xC0C0C0,
-      fields: [
-        { name: 'New Position', value: `#${newRank}`, inline: true },
-        { name: 'Portfolio', value: `$${portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
-      ],
-      timestamp: new Date().toISOString()
-    };
-  } else {
-    return { success: true, alerted: false };
-  }
-
-  await sendDiscordMessage(null, [embed]);
-  return { success: true, alerted: true };
-});
-
-/**
- * Margin Liquidation Alert - Called when someone gets liquidated
- */
-exports.marginLiquidationAlert = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const { lossAmount, portfolioBefore, portfolioAfter } = data;
-
-  try {
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (!userDoc.exists) return { success: true, alerted: false };
-    const userData = userDoc.data();
-    const lastLiq = userData.lastLiquidation || 0;
-    if (Date.now() - lastLiq > 10 * 60 * 1000) {
-      console.log(`Liquidation alert rejected: no recent liquidation for ${context.auth.uid}`);
-      return { success: true, alerted: false };
-    }
-  } catch (e) {
-    console.error('Liquidation alert validation failed:', e);
-    return { success: true, alerted: false };
-  }
-
-  const embed = {
-    title: '💥 Margin Liquidation',
-    description: `A trader was just **LIQUIDATED**`,
-    color: 0xFF0000,
-    fields: [
-      { name: 'Portfolio Before', value: `$${portfolioBefore.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true },
-      { name: 'Portfolio After', value: `$${portfolioAfter.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true },
-      { name: 'Value Lost', value: `$${lossAmount.toLocaleString(undefined, {maximumFractionDigits: 0})}`, inline: true }
-    ],
+    fields: [{ name: 'Description', value: noteworthy.description, inline: false }],
     timestamp: new Date().toISOString()
   };
 

@@ -10,7 +10,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MIN_PRICE, DUST_MAX_VALUE, isWeeklyTradingHalt } = require('../constants');
-const { touchLastActive, lockedShares, reportError } = require('../helpers');
+const { touchLastActive, lockedShares, reportError, checkDiscordWall } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 const getSpread = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
@@ -61,6 +61,8 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
       if (userData.isBanned) {
         throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
       }
+      // Suspected-alt wall: a dust sweep converts shares to cash like any sell
+      checkDiscordWall(userData);
 
       const marketData = marketSnap.exists ? marketSnap.data() : {};
       if (marketData.marketHalted) {

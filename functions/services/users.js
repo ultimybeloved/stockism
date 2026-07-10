@@ -7,7 +7,7 @@ const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS, CHECKIN_STREAK_REWARDS, NAME_CHANGE_COST } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, sendDiscordMessage, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
+const { isBannedUsername, containsProfanity, validateUsernameFormat, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
@@ -728,6 +728,11 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     }
 
     const userData = userDoc.data();
+
+    // Banned accounts can't self-delete: deletion would erase the ban record
+    // and free the account up for a fresh-cash remake.
+    checkBanned(userData);
+
     const displayName = userData.displayName;
     const displayNameLower = userData.displayNameLower;
 
@@ -949,83 +954,3 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
   }
 });
 
-/**
- * Records and validates a completed trade (legacy - may be unused)
- * Logs for auditing, detects suspicious patterns
- */
-exports.recordTrade = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  // Verify authentication
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Must be logged in.'
-    );
-  }
-
-  const uid = context.auth.uid;
-  const { ticker, action, amount, price, totalValue, cashBefore, cashAfter, portfolioAfter } = data;
-
-  // Ban check
-  const userSnap = await db.collection('users').doc(uid).get();
-  if (userSnap.exists) checkBanned(userSnap.data());
-
-  try {
-    const now = admin.firestore.FieldValue.serverTimestamp();
-
-    // Record in transaction log
-    const tradeRecord = {
-      uid,
-      ticker,
-      action,
-      amount,
-      price,
-      totalValue,
-      cashBefore,
-      cashAfter,
-      portfolioAfter,
-      timestamp: now,
-      ip: context.rawRequest?.ip || 'unknown'
-    };
-
-    // Store in a separate trades collection for auditing
-    await db.collection('trades').add(tradeRecord);
-
-    // Check for suspicious patterns
-    const recentTradesSnap = await db.collection('trades')
-      .where('uid', '==', uid)
-      .where('timestamp', '>', new Date(Date.now() - 60000)) // Last minute
-      .get();
-
-    const tradeCount = recentTradesSnap.size;
-
-    // Flag suspicious activity (>10 trades per minute)
-    if (tradeCount > 10) {
-      console.warn(`SUSPICIOUS ACTIVITY: User ${uid} made ${tradeCount} trades in 1 minute`);
-
-      // Log to admin collection for review
-      await db.collection('admin').doc('suspicious_activity').set({
-        [uid]: {
-          timestamp: now,
-          tradeCount,
-          reason: 'Excessive trading frequency',
-          recentTrade: tradeRecord
-        }
-      }, { merge: true });
-
-      // Send Discord alert if configured
-      try {
-        await sendDiscordMessage(`⚠️ **Suspicious Activity Detected**\nUser: ${uid}\nTrades in 1 minute: ${tradeCount}\nAction: Manual review required`);
-      } catch (err) {
-        console.error('Failed to send Discord alert:', err);
-      }
-    }
-
-    return { success: true, recorded: true };
-
-  } catch (error) {
-    console.error('Trade recording error:', error);
-    // Don't throw - recording failure shouldn't block the trade
-    return { success: false, error: error.message };
-  }
-});

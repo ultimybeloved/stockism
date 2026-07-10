@@ -100,12 +100,7 @@ export const getLeaderboardFunction = httpsCallable(functions, 'getLeaderboard')
 export const getPublicProfileFunction = httpsCallable(functions, 'getPublicProfile');
 // Discord alert functions
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
-export const leaderboardChangeAlertFunction = httpsCallable(functions, 'leaderboardChangeAlert');
-export const marginLiquidationAlertFunction = httpsCallable(functions, 'marginLiquidationAlert');
 export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnouncementAlert');
-export const ipoClosingAlertFunction = httpsCallable(functions, 'ipoClosingAlert');
-export const bankruptcyAlertFunction = httpsCallable(functions, 'bankruptcyAlert');
-export const comebackAlertFunction = httpsCallable(functions, 'comebackAlert');
 // Data archiving functions
 export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
 export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');

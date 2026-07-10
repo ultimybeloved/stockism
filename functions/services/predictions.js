@@ -48,6 +48,13 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Betting has ended.');
     }
 
+    // Only real outcomes accepted — an arbitrary string would sit in the pools
+    // map as junk that skews totals and can never pay out.
+    const validOptions = prediction.options || ['Yes', 'No'];
+    if (!validOptions.includes(option)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Unknown option.');
+    }
+
     // Check cash
     if ((userData.cash || 0) < amount) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
