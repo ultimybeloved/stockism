@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall } = require('../helpers');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -59,6 +59,9 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   if (userData.isBanned) {
     throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
   }
+
+  // Suspected-alt wall: same gate as executeTrade, or queued orders bypass it
+  checkDiscordWall(userData);
 
   // Check if user is bankrupt or in debt
   if (userData.isBankrupt) {
@@ -284,6 +287,17 @@ exports.checkLimitOrders = cf().pubsub
               canceled++;
               continue;
             }
+            // Suspected-alt wall (user may have been flagged after placing the order)
+            if (orderUserData.requiresDiscordLink && !orderUserData.discordId) {
+              await db.collection('limitOrders').doc(orderId).update({
+                status: 'CANCELED',
+                cancelReason: 'Discord verification required',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              console.log(`Cancelled order ${orderId}: Discord verification required`);
+              canceled++;
+              continue;
+            }
           }
 
           const currentPrice = prices[order.ticker];
@@ -383,6 +397,10 @@ exports.checkLimitOrders = cf().pubsub
               // Check if user is bankrupt/in debt (could have changed since order was created)
               if (userData.isBankrupt || (userData.cash || 0) < 0) {
                 throw new Error('User is bankrupt or in debt');
+              }
+              // Suspected-alt wall (could have been flagged since order was created)
+              if (userData.requiresDiscordLink && !userData.discordId) {
+                throw new Error('Discord verification required');
               }
 
               // STOP_LOSS executes as a sell — normalize for validation/execution

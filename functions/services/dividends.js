@@ -76,13 +76,15 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
       const graduated = graduateCohort(cohorts[ticker], now);
 
       // Self-heal: if cohort sum doesn't match holdings, trust holdings.
+      // Compare rounded to 4 dp — share math is floating point, and epsilon
+      // noise would otherwise spawn a phantom pending bucket every run.
       const cohortSum = (graduated.eligible || 0)
         + graduated.pending.reduce((s, p) => s + (p.shares || 0), 0);
-      if (cohortSum !== shares) {
+      const missing = Math.round((shares - cohortSum) * 10000) / 10000;
+      if (missing !== 0) {
         // Difference is likely the backfill not yet run, or an admin edit.
         // Put any unaccounted shares into a fresh pending bucket so the 10-day
         // wait still applies (no retroactive free dividends).
-        const missing = shares - cohortSum;
         if (missing > 0) {
           graduated.pending.push({ shares: missing, availableAt: now + DIVIDEND_HOLD_MS });
         } else if (missing < 0) {

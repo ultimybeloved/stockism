@@ -105,6 +105,7 @@ const runMarketOpenProcessing = async (trigger) => {
       let failReason = null;
       if (!ud) failReason = 'User not found';
       else if (ud.isBanned) failReason = 'Account is banned';
+      else if (ud.requiresDiscordLink && !ud.discordId) failReason = 'Discord verification required';
       else if (ud.isBankrupt || (ud.cash || 0) < 0) failReason = 'Account is bankrupt or in debt';
       else if (CHARACTER_MAP[order.ticker]?.ipoRequired && !launchedTickers.includes(order.ticker)) failReason = 'Stock is still in IPO phase';
       if (failReason) { await failOrder(doc, order, failReason); continue; }
@@ -203,6 +204,7 @@ const runMarketOpenProcessing = async (trigger) => {
           feedDisplayName = ud.displayName || 'Anonymous';
           feedCrew = ud.crew || null;
           if (ud.isBanned) throw new Error('Account is banned');
+          if (ud.requiresDiscordLink && !ud.discordId) throw new Error('Discord verification required');
           if (ud.isBankrupt || (ud.cash || 0) < 0) throw new Error('Account is bankrupt or in debt');
 
           // Local variable resets correctly on each transaction retry.
@@ -332,6 +334,7 @@ const runMarketOpenProcessing = async (trigger) => {
         const freshPrice = freshMarketSnap.data().prices?.[order.ticker] || openingPrice;
 
         if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
+        if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
         const userShares = userData.holdings?.[order.ticker] || 0;
         if (userShares < fillShares) {
           if (order.allowPartialFills && userShares > 0) {
