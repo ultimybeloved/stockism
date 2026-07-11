@@ -5,9 +5,10 @@ import { isWeeklyHalt } from '../utils/marketHours';
 import PredictionCard from '../components/PredictionCard';
 import EventMarketCard from '../components/EventMarketCard';
 
-// Dedicated predictions page. Two sections: long-term event-share markets (the
-// new AMM-priced ones) and the weekly cash predictions. Both freeze during the
-// chapter-review halt so nobody can trade on an early chapter leak.
+// Dedicated predictions page. Two sections: weekly cash predictions and
+// long-term event-share markets (the AMM-priced ones) — weekly first on
+// mobile, side by side on desktop. Both freeze during the chapter-review
+// halt so nobody can trade on an early chapter leak.
 const PredictionsPage = ({
   predictions = [],
   isGuest,
@@ -35,15 +36,6 @@ const PredictionsPage = ({
     )
   );
 
-  // With only one or two markets (the common case), full 3-column tracks leave
-  // a lone narrow card stranded in a wide empty page — widen the cards instead.
-  const gridCols = (n) =>
-    n >= 3
-      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
-      : n === 2
-        ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl'
-        : 'grid grid-cols-1 gap-4 max-w-xl';
-
   const getUserBet = (id) => userData?.bets?.[id];
   const betLimit = Math.min(
     getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts),
@@ -63,57 +55,61 @@ const PredictionsPage = ({
           </div>
         )}
 
-        {/* Long-term event markets */}
-        <section className="mb-10">
-          <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Long-Term Markets</h2>
-          <p className={`text-xs mb-3 ${mutedClass}`}>
-            Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series confirms it.
-          </p>
-          {eventMarkets.length === 0 ? (
-            <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
-          ) : (
-            <div className={gridCols(eventMarkets.length)}>
-              {eventMarkets.map(m => (
-                <EventMarketCard
-                  key={m.id}
-                  market={m}
-                  position={eventPositions[m.id]}
-                  onBuy={onBuyEventShares}
-                  onSell={onSellEventShares}
-                  isGuest={isGuest}
-                  isHalted={isHalted}
-                  isAdmin={isAdmin}
-                  onHide={onHidePrediction}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        {/* Weekly first so it tops the page on mobile; side-by-side columns on
+            desktop so neither section strands cards in a wide empty row. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-10 items-start">
+          {/* Weekly predictions */}
+          <section>
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Weekly Predictions</h2>
+            <p className={`text-xs mb-3 ${mutedClass}`}>Cash bets that resolve each week.</p>
+            {weekly.length === 0 ? (
+              <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {weekly.map(p => (
+                  <PredictionCard
+                    key={p.id}
+                    prediction={p}
+                    userBet={getUserBet(p.id)}
+                    onBet={onBet}
+                    onRequestBet={onRequestBet}
+                    isGuest={isGuest}
+                    betLimit={betLimit}
+                    isAdmin={isAdmin}
+                    onHide={onHidePrediction}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
 
-        {/* Weekly predictions */}
-        <section className="mb-8">
-          <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Weekly Predictions</h2>
-          <p className={`text-xs mb-3 ${mutedClass}`}>Cash bets that resolve each week.</p>
-          {weekly.length === 0 ? (
-            <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
-          ) : (
-            <div className={gridCols(weekly.length)}>
-              {weekly.map(p => (
-                <PredictionCard
-                  key={p.id}
-                  prediction={p}
-                  userBet={getUserBet(p.id)}
-                  onBet={onBet}
-                  onRequestBet={onRequestBet}
-                  isGuest={isGuest}
-                  betLimit={betLimit}
-                  isAdmin={isAdmin}
-                  onHide={onHidePrediction}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+          {/* Long-term event markets */}
+          <section className="mb-8">
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Long-Term Markets</h2>
+            <p className={`text-xs mb-3 ${mutedClass}`}>
+              Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series confirms it.
+            </p>
+            {eventMarkets.length === 0 ? (
+              <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {eventMarkets.map(m => (
+                  <EventMarketCard
+                    key={m.id}
+                    market={m}
+                    position={eventPositions[m.id]}
+                    onBuy={onBuyEventShares}
+                    onSell={onSellEventShares}
+                    isGuest={isGuest}
+                    isHalted={isHalted}
+                    isAdmin={isAdmin}
+                    onHide={onHidePrediction}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
