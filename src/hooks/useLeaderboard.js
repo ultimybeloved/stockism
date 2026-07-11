@@ -27,7 +27,7 @@ const decorate = (entries) => entries.map((u, i) => ({
 // instantly and, for players outside the top 50, their rank fills in from a
 // background call. Slow path (doc stale/missing): the getLeaderboard callable
 // recomputes and republishes the doc for everyone else.
-export function useLeaderboard(sortBy, crewFilter, user) {
+export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
   const [leaders, setLeaders] = useState([]);
   const [userRank, setUserRank] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,9 @@ export function useLeaderboard(sortBy, crewFilter, user) {
       // Rank only exists server-side for the net-worth sort; in-list rank is
       // handled locally, so this is only for signed-in users outside the top 50.
       if (!user || sortBy !== 'value' || rankFromList(list) !== null) return;
+      // A rank inside a crew the user doesn't belong to is meaningless —
+      // the backend would still compute one, so don't ask for it.
+      if (crew && crew !== userCrew) return;
       getLeaderboardFunction(params)
         .then(res => {
           if (cancelled) return;
@@ -110,7 +113,7 @@ export function useLeaderboard(sortBy, crewFilter, user) {
 
     load();
     return () => { cancelled = true; };
-  }, [sortBy, crewFilter, user]);
+  }, [sortBy, crewFilter, user, userCrew]);
 
   return { leaders, userRank, loading };
 }

@@ -5,6 +5,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREWS, CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
+import LeaderboardPodium from '../components/leaderboard/LeaderboardPodium';
 import { getCosmeticStyles } from '../utils/cosmetics';
 import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 
@@ -12,16 +13,19 @@ const LeaderboardPage = () => {
   const { darkMode, user, userData } = useAppContext();
   const [crewFilter, setCrewFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('value');
-  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user);
+  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, divideClass } = getThemeClasses(darkMode);
+  const colorBlindMode = userData?.colorBlindMode || false;
+  const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
+  const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
 
   const getRankStyle = (rank) => {
     if (rank === 1) return 'text-yellow-500';
-    if (rank === 2) return 'text-zinc-400';
+    if (rank === 2) return darkMode ? 'text-zinc-400' : 'text-zinc-500';
     if (rank === 3) return 'text-amber-600';
     return mutedClass;
   };
@@ -33,9 +37,27 @@ const LeaderboardPage = () => {
     return `#${rank}`;
   };
 
-  const userInList = useMemo(
-    () => filteredLeaders.some(leader => user && leader.id === user.uid),
+  const userEntry = useMemo(
+    () => (user ? filteredLeaders.find(leader => leader.id === user.uid) : null),
     [filteredLeaders, user]
+  );
+  const userInList = !!userEntry;
+
+  // A rank only makes sense on the global board or the user's own crew board
+  const rankRelevant = crewFilter === 'ALL' || crewFilter === userData?.crew;
+
+  // Top 3 get the podium and the scrolling list starts at #4. With fewer than
+  // 3 players (tiny crew boards) the plain list covers everyone.
+  const showPodium = filteredLeaders.length >= 3;
+  const listLeaders = showPodium ? filteredLeaders.slice(3) : filteredLeaders;
+
+  // The value shown in the sticky bars must match what the list is sorted by
+  const userStickyValue = sortBy === 'weeklyGain' && userEntry ? (
+    <span className={(userEntry.weeklyGain || 0) >= 0 ? gainClass : lossClass}>
+      {(userEntry.weeklyGain || 0) >= 0 ? '+' : ''}{formatCurrency(userEntry.weeklyGain || 0)}
+    </span>
+  ) : (
+    formatCurrency(userData?.portfolioValue || 0)
   );
 
 
@@ -129,7 +151,7 @@ const LeaderboardPage = () => {
               onClick={() => setSortBy('weeklyGain')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortBy === 'weeklyGain'
-                  ? 'bg-emerald-600 text-white'
+                  ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
                   : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
               }`}
             >
@@ -140,7 +162,7 @@ const LeaderboardPage = () => {
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
           {/* Sticky Header - shown when user row has scrolled above viewport */}
-          {user && userRank && userInList && userRowPosition === 'above' && (
+          {user && userRank && rankRelevant && userInList && userRowPosition === 'above' && (
             <div
               className="sticky top-0 z-10 px-4 py-2 flex justify-between items-center border-b"
               style={{
@@ -153,7 +175,7 @@ const LeaderboardPage = () => {
                 <span style={{ color: userCrewColor }}>#{userRank}</span> {userData?.displayName}
               </div>
               <div className={`text-sm font-bold ${textClass}`}>
-                {formatCurrency(userData?.portfolioValue || 0)}
+                {userStickyValue}
               </div>
             </div>
           )}
@@ -166,8 +188,12 @@ const LeaderboardPage = () => {
               <p className="text-sm">Be the first to make your mark.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-700">
-              {filteredLeaders.map(leader => {
+            <>
+            {showPodium && (
+              <LeaderboardPodium leaders={filteredLeaders} sortBy={sortBy} user={user} userRowRef={userRowRef} />
+            )}
+            <div className={`divide-y ${divideClass}`}>
+              {listLeaders.map(leader => {
                 const displayRank = crewFilter === 'ALL' ? leader.rank : leader.crewRank;
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
                 const isCurrentUser = user && leader.id === user.uid;
@@ -225,7 +251,7 @@ const LeaderboardPage = () => {
                     <div className="text-right">
                       {sortBy === 'weeklyGain' ? (
                         <>
-                          <div className={`font-bold ${(leader.weeklyGain || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                          <div className={`font-bold ${(leader.weeklyGain || 0) >= 0 ? gainClass : lossClass}`}>
                             {(leader.weeklyGain || 0) >= 0 ? '+' : ''}{formatCurrency(leader.weeklyGain || 0)}
                           </div>
                           <div className={`text-xs ${mutedClass}`}>
@@ -240,10 +266,11 @@ const LeaderboardPage = () => {
                 );
               })}
             </div>
+            </>
           )}
 
           {/* Sticky Footer - shown when user row is below viewport */}
-          {user && userRank && !loading && (userRowPosition === 'below' || !userInList) && (
+          {user && userRank && rankRelevant && !loading && (userRowPosition === 'below' || !userInList) && (
             <div
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
@@ -257,7 +284,7 @@ const LeaderboardPage = () => {
                 <span className={`ml-2 ${mutedClass}`}>• {userData?.displayName}</span>
               </div>
               <div className={`text-sm font-bold ${textClass}`}>
-                {formatCurrency(userData?.portfolioValue || 0)}
+                {userStickyValue}
               </div>
             </div>
           )}

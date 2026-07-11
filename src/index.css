@@ -157,8 +157,39 @@ body {
 @keyframes cosGlowGold   { 0%,100% { box-shadow: 0 0 10px #f59e0b66; } 50% { box-shadow: 0 0 28px #f59e0bcc; } }
 @keyframes cosGlowViolet { 0%,100% { box-shadow: 0 0 10px #8b5cf666; } 50% { box-shadow: 0 0 28px #8b5cf6cc; } }
 
+/* ===== Leaderboard podium ===== */
+/* Gold sheen that periodically sweeps across the #1 podium card. It's a
+   dedicated overlay element (not a pseudo-element on the card) so it can't
+   collide with the cos-frame-* cosmetics, which own the card's ::before/::after.
+   The bar idles at translateX(-130%) (hidden by overflow), so when reduced
+   motion disables the animation nothing is left visible on the card. */
+.podium-sheen { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.podium-sheen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 55%;
+  background: linear-gradient(105deg, transparent, #fde68a55 45%, #fffbe688 50%, #fde68a55 55%, transparent);
+  transform: translateX(-130%) skewX(-18deg);
+  animation: podiumShimmer 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+/* Light mode: the card is already pale gold, so a strong sheen washes out the
+   winner's name mid-sweep — use a much fainter bar. */
+.podium-sheen-light::before {
+  background: linear-gradient(105deg, transparent, #f59e0b18 45%, #fbbf2426 50%, #f59e0b18 55%, transparent);
+}
+@keyframes podiumShimmer {
+  0%   { transform: translateX(-130%) skewX(-18deg); }
+  60%  { transform: translateX(310%) skewX(-18deg); }
+  100% { transform: translateX(310%) skewX(-18deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
   .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before,
-  .cos-glow-pulse-gold, .cos-glow-pulse-violet { animation: none; }
+  .cos-glow-pulse-gold, .cos-glow-pulse-violet,
+  .podium-sheen::before { animation: none; }
 }
