@@ -43,15 +43,16 @@ const PredictionsPage = ({
   );
   const eventPositions = userData?.eventPositions || {};
 
-  // Which group gets 2 of the 3 desktop card tracks: the one with more cards
-  // (weekly wins ties). Its cards flow 2-up; the other stacks in 1 track.
+  // Which group gets 2 of the 3 desktop tracks: the one with more cards
+  // (weekly wins ties). Inside each section, cards flow into as many
+  // ~340px columns as the section is wide — so bigger monitors get more
+  // columns automatically instead of wider cards or empty side margins.
   const weeklyWide = weekly.length >= 2 && weekly.length >= eventMarkets.length;
-  const wideCards = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
-  const narrowCards = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4';
+  const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4';
 
   return (
-    <div className={`min-h-screen ${bgClass} p-4`}>
-      <div className="max-w-6xl mx-auto">
+    <div className={`min-h-screen ${bgClass} p-4 sm:px-6`}>
+      <div>
         <h1 className={`text-2xl font-bold mb-1 ${textClass}`}>🔮 Predictions</h1>
         <p className={`text-sm mb-6 ${mutedClass}`}>Bet on what happens next in the series.</p>
 
@@ -63,8 +64,7 @@ const PredictionsPage = ({
 
         {/* Weekly first so it tops the page on mobile. Desktop is a 3-track
             grid: the group with more cards spans 2 tracks so its overflow
-            wraps sideways instead of stacking into one deep column. Tablets
-            (sm–lg) stack the sections full-width with cards 2-up. */}
+            wraps sideways instead of stacking into one deep column. */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10 items-start">
           {/* Weekly predictions */}
           <section className={weeklyWide ? 'lg:col-span-2' : ''}>
@@ -73,7 +73,7 @@ const PredictionsPage = ({
             {weekly.length === 0 ? (
               <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
             ) : (
-              <div className={weeklyWide ? wideCards : narrowCards}>
+              <div className={cardGrid}>
                 {weekly.map(p => (
                   <PredictionCard
                     key={p.id}
@@ -100,7 +100,7 @@ const PredictionsPage = ({
             {eventMarkets.length === 0 ? (
               <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
             ) : (
-              <div className={weeklyWide ? narrowCards : wideCards}>
+              <div className={cardGrid}>
                 {eventMarkets.map(m => (
                   <EventMarketCard
                     key={m.id}
