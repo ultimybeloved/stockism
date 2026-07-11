@@ -43,6 +43,12 @@ const PredictionsPage = ({
   );
   const eventPositions = userData?.eventPositions || {};
 
+  // Which group gets 2 of the 3 desktop card tracks: the one with more cards
+  // (weekly wins ties). Its cards flow 2-up; the other stacks in 1 track.
+  const weeklyWide = weekly.length >= 2 && weekly.length >= eventMarkets.length;
+  const wideCards = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+  const narrowCards = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4';
+
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl mx-auto">
@@ -55,17 +61,19 @@ const PredictionsPage = ({
           </div>
         )}
 
-        {/* Weekly first so it tops the page on mobile; side-by-side columns on
-            desktop so neither section strands cards in a wide empty row. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-10 items-start">
+        {/* Weekly first so it tops the page on mobile. Desktop is a 3-track
+            grid: the group with more cards spans 2 tracks so its overflow
+            wraps sideways instead of stacking into one deep column. Tablets
+            (sm–lg) stack the sections full-width with cards 2-up. */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10 items-start">
           {/* Weekly predictions */}
-          <section>
+          <section className={weeklyWide ? 'lg:col-span-2' : ''}>
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Weekly Predictions</h2>
             <p className={`text-xs mb-3 ${mutedClass}`}>Cash bets that resolve each week.</p>
             {weekly.length === 0 ? (
               <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className={weeklyWide ? wideCards : narrowCards}>
                 {weekly.map(p => (
                   <PredictionCard
                     key={p.id}
@@ -84,7 +92,7 @@ const PredictionsPage = ({
           </section>
 
           {/* Long-term event markets */}
-          <section className="mb-8">
+          <section className={weeklyWide ? '' : 'lg:col-span-2'}>
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Long-Term Markets</h2>
             <p className={`text-xs mb-3 ${mutedClass}`}>
               Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series confirms it.
@@ -92,7 +100,7 @@ const PredictionsPage = ({
             {eventMarkets.length === 0 ? (
               <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className={weeklyWide ? narrowCards : wideCards}>
                 {eventMarkets.map(m => (
                   <EventMarketCard
                     key={m.id}
