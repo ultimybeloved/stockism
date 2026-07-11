@@ -10,6 +10,7 @@ const {
   ADMIN_UID,
   STARTING_CASH,
   REINSTATE_CASH_DEFAULT,
+  COSMETIC_CATALOG,
 } = require('../constants');
 const { priceHistoryRef, appendPriceHistory } = require('../helpers');
 
@@ -93,6 +94,53 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   await userRef.update({ cash: Math.round(cash * 100) / 100 });
 
   return { success: true, userId, previousCash: prevCash, newCash: cash };
+});
+
+/**
+ * Admin grant/revoke a cosmetic on a user (for giveaways). No cash is charged.
+ * Revoking also unequips the cosmetic if it's the active one for its slot, so
+ * the user isn't left displaying something they no longer own.
+ */
+exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId, cosmeticId, revoke } = data || {};
+  const cosmetic = COSMETIC_CATALOG[cosmeticId];
+  if (!userId || !cosmetic) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cosmeticId required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  return db.runTransaction(async (transaction) => {
+    const userSnap = await transaction.get(userRef);
+    if (!userSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const owned = userSnap.data().ownedCosmetics || [];
+
+    if (revoke) {
+      if (!owned.includes(cosmeticId)) {
+        throw new functions.https.HttpsError('failed-precondition', 'User does not own this cosmetic');
+      }
+      const updates = { ownedCosmetics: admin.firestore.FieldValue.arrayRemove(cosmeticId) };
+      const active = userSnap.data().activeCosmetics || {};
+      if (active[cosmetic.type] === cosmeticId) {
+        updates[`activeCosmetics.${cosmetic.type}`] = admin.firestore.FieldValue.delete();
+      }
+      transaction.update(userRef, updates);
+      return { success: true, userId, cosmeticId, revoked: true };
+    }
+
+    if (owned.includes(cosmeticId)) {
+      throw new functions.https.HttpsError('already-exists', 'User already owns this cosmetic');
+    }
+    transaction.update(userRef, { ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId) });
+    return { success: true, userId, cosmeticId, granted: true };
+  });
 });
 
 /**

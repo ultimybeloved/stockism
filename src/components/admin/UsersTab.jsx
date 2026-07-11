@@ -1,5 +1,6 @@
 import { CHARACTERS } from '../../characters';
 import { ADMIN_UIDS } from '../../constants';
+import UserCosmeticsPanel from './UserCosmeticsPanel';
 
 const UsersTab = ({
   darkMode,
@@ -30,6 +31,8 @@ const UsersTab = ({
   handleSetCash,
   handleTransferToLadder,
   handleToggleDiscordWall,
+  handleGrantCosmetic,
+  handleRevokeCosmetic,
   handleChangeDisplayName,
   newDisplayName,
   setNewDisplayName,
@@ -565,6 +568,18 @@ const UsersTab = ({
               </div>
             </div>
           )}
+
+          {/* Cosmetics (give/revoke for giveaways) */}
+          <UserCosmeticsPanel
+            darkMode={darkMode}
+            textClass={textClass}
+            mutedClass={mutedClass}
+            inputClass={inputClass}
+            loading={loading}
+            selectedUser={selectedUser}
+            handleGrantCosmetic={handleGrantCosmetic}
+            handleRevokeCosmetic={handleRevokeCosmetic}
+          />
 
           {/* Display Name Editor */}
           <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>

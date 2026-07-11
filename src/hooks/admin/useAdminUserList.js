@@ -45,7 +45,9 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
           lowestWhileHolding: data.lowestWhileHolding || {},
           discordId: data.discordId || null,
           discordUsername: data.discordUsername || null,
-          requiresDiscordLink: data.requiresDiscordLink || false
+          requiresDiscordLink: data.requiresDiscordLink || false,
+          ownedCosmetics: data.ownedCosmetics || [],
+          activeCosmetics: data.activeCosmetics || {}
         });
       });
 

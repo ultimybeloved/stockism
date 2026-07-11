@@ -20,6 +20,7 @@ import { useAdminDividends } from './hooks/admin/useAdminDividends';
 import { useAdminWatchlist } from './hooks/admin/useAdminWatchlist';
 import { useAdminBadges } from './hooks/admin/useAdminBadges';
 import { useAdminUserOps } from './hooks/admin/useAdminUserOps';
+import { useAdminCosmetics } from './hooks/admin/useAdminCosmetics';
 import { useAdminDiagnostics } from './hooks/admin/useAdminDiagnostics';
 import { useAdminSpikeRepair } from './hooks/admin/useAdminSpikeRepair';
 import { useAdminMarketTools } from './hooks/admin/useAdminMarketTools';
@@ -67,6 +68,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // Domain hooks. Order matters only where one hook consumes another's state.
   const userList = useAdminUserList({ showMessage, setLoading, prices });
   const userOps = useAdminUserOps({ showMessage, setLoading, setSelectedUser: userList.setSelectedUser });
+  const cosmetics = useAdminCosmetics({ showMessage, setLoading, setSelectedUser: userList.setSelectedUser });
   const userDeletion = useAdminUserDeletion({
     showMessage, setLoading, prices,
     allUsers: userList.allUsers, setAllUsers: userList.setAllUsers,
@@ -215,6 +217,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               prices={prices}
               {...userList}
               {...userOps}
+              {...cosmetics}
               {...userDeletion}
               {...portfolioSync}
             />

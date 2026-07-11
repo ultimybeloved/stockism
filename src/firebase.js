@@ -137,6 +137,8 @@ export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
 export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTransferToLadder');
 // Admin: flag/clear the Discord-link wall on a user
 export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDiscordWall');
+// Admin: grant/revoke a cosmetic on a user (giveaways)
+export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data
