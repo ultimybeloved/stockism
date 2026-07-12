@@ -17,6 +17,22 @@ export const formatCurrency = (value) => {
 };
 
 /**
+ * Format a dollar amount compactly for tight spaces (e.g. "$2.45M", "$812K").
+ * Values under $1,000 fall back to full currency formatting.
+ * @param {number} value - The value to format
+ * @returns {string} Compact currency string
+ */
+export const formatCompactCurrency = (value) => {
+  const n = Number(value) || 0;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  const trim = (s) => s.replace(/\.?0+$/, '');
+  if (abs >= 1e6) return `${sign}$${trim((abs / 1e6).toFixed(2))}M`;
+  if (abs >= 1e3) return `${sign}$${trim((abs / 1e3).toFixed(1))}K`;
+  return formatCurrency(n);
+};
+
+/**
  * Format a percentage change with sign
  * @param {number} change - The percentage change value
  * @returns {string} Formatted change string with + or - prefix

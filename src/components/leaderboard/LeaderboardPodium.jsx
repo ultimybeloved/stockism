@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { CREW_MAP } from '../../crews';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCompactCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
 import { getCosmeticStyles } from '../../utils/cosmetics';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
@@ -55,31 +55,31 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
   return (
     <div
       ref={ref}
-      className={`relative min-w-0 border rounded-sm text-center px-2 ${
-        isFirst ? 'flex-[1.15] py-4' : 'flex-1 py-3'
+      className={`relative min-w-0 border rounded-sm text-center px-1.5 sm:px-2 ${
+        isFirst ? 'flex-[1.15] py-3 sm:py-4' : 'flex-1 py-2.5 sm:py-3'
       } ${darkMode ? placeStyle.dark : placeStyle.light} ${rowClass}`}
       style={style}
     >
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}
       <div className={isFirst ? 'text-3xl' : 'text-2xl'}>{placeStyle.medal}</div>
-      <div className={`font-semibold ${isFirst ? 'text-base' : 'text-sm'} ${textClass} flex items-center justify-center gap-1 min-w-0 mt-1`}>
+      <div className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} flex items-center justify-center gap-1 min-w-0 mt-1`}>
         {leader.isPublic ? (
           <Link
             to={`/u/${(leader.displayName || '').toLowerCase()}`}
-            className={`hover:underline truncate ${nameClass}`}
+            className={`hover:underline truncate min-w-0 ${nameClass}`}
             style={nameStyle}
           >
             {leader.displayName || 'Anonymous Trader'}
           </Link>
         ) : (
-          <span className={`truncate ${nameClass}`} style={nameStyle}>
+          <span className={`truncate min-w-0 ${nameClass}`} style={nameStyle}>
             {leader.displayName || 'Anonymous Trader'}
           </span>
         )}
-        {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
+        {leader.isPublic && <span className="text-xs shrink-0 hidden sm:inline" title="Public profile">🌐</span>}
         <PinDisplay userData={leader} size="sm" />
       </div>
-      <div className={`text-xs ${mutedClass} flex items-center justify-center gap-1 truncate`}>
+      <div className={`text-xs ${mutedClass} hidden sm:flex items-center justify-center gap-1 truncate`}>
         {crew && (crew.icon
           ? <img src={crew.icon} alt={crew.name} className="w-3.5 h-3.5 object-contain shrink-0" />
           : <span className="shrink-0">{crew.emblem}</span>
@@ -88,16 +88,16 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
       </div>
       {sortBy === 'weeklyGain' ? (
         <div className="mt-1">
-          <div className={`font-bold ${isFirst ? 'text-lg' : ''} ${gain >= 0 ? gainClass : lossClass}`}>
-            {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+          <div className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${gain >= 0 ? gainClass : lossClass}`}>
+            {gain >= 0 ? '+' : ''}{formatCompactCurrency(gain)}
           </div>
           <div className={`text-xs ${mutedClass}`}>
             {(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}{(leader.weeklyGainPercent || 0).toFixed(1)}%
           </div>
         </div>
       ) : (
-        <div className={`font-bold mt-1 ${isFirst ? 'text-lg' : ''} ${textClass}`}>
-          {formatCurrency(leader.portfolioValue || 0)}
+        <div className={`font-bold mt-1 ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${textClass}`}>
+          {formatCompactCurrency(leader.portfolioValue || 0)}
         </div>
       )}
     </div>
@@ -115,7 +115,7 @@ const LeaderboardPodium = ({ leaders, sortBy, user, userRowRef }) => {
     { leader: leaders[2], place: 3 },
   ];
   return (
-    <div className="flex items-end gap-2 p-3">
+    <div className="flex items-end gap-1.5 sm:gap-2 p-2 sm:p-3">
       {arrangement.map(({ leader, place }) => (
         <PodiumCard
           key={leader.id}
