@@ -1,17 +1,20 @@
-import EventMarketFields from './EventMarketFields';
+import PredictionCreateForm from './PredictionCreateForm';
+import PredictionExtendForm from './PredictionExtendForm';
 import { lmsrCost } from '../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
 
 // Weekly predictions track cash in a `pools` map; long-term (event) markets have
 // no pool — the money staked equals what the LMSR AMM has taken in net, which is
-// cost(q) - cost(all-zeros). marketValue picks the right one per market type.
+// cost(q) - cost(seedQ) (seedQ is all-zeros unless the market opened with
+// admin-set odds). marketValue picks the right one per market type.
 const sumPool = (p) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0);
 const eventStaked = (p) => {
   const outcomes = p.outcomes || [];
   const b = p.b || EVENT_AMM_LIQUIDITY;
   if (!outcomes.length || !b) return 0;
   const q = Array.isArray(p.q) && p.q.length === outcomes.length ? p.q : outcomes.map(() => 0);
-  return Math.max(0, lmsrCost(q, b) - lmsrCost(outcomes.map(() => 0), b));
+  const seedQ = Array.isArray(p.seedQ) && p.seedQ.length === outcomes.length ? p.seedQ : outcomes.map(() => 0);
+  return Math.max(0, lmsrCost(q, b) - lmsrCost(seedQ, b));
 };
 const marketValue = (p) => (p.cancelled ? 0 : p.type === 'event' ? eventStaked(p) : sumPool(p));
 const valueLabel = (p) => (p.type === 'event' ? 'Staked' : 'Pool');
@@ -46,6 +49,8 @@ const PredictionsTab = ({
   setSeedLiquidity,
   openDelayHours,
   setOpenDelayHours,
+  openingOdds,
+  setOpeningOdds,
   extendPredictionId,
   setExtendPredictionId,
   extendDays,
@@ -142,188 +147,50 @@ const PredictionsTab = ({
       )}
 
       {/* SECTION 2: Create New Prediction */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-        <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
-        <div className="space-y-3">
-          <div>
-            <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPredictionType('weekly')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'weekly' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
-              >
-                Weekly (cash)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPredictionType('event')}
-                className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'event' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
-              >
-                Long-Term (shares)
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
-            <input
-              type="text"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              placeholder=""
-              className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Options (2-6)</label>
-            <div className="space-y-2">
-              {options.map((opt, idx) => (
-                <input
-                  key={idx}
-                  type="text"
-                  value={opt}
-                  onChange={e => {
-                    const newOpts = [...options];
-                    newOpts[idx] = e.target.value;
-                    setOptions(newOpts);
-                  }}
-                  placeholder={idx < 2 ? `Option ${idx + 1} (required)` : `Option ${idx + 1} (optional)`}
-                  className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {predictionType !== 'event' ? (
-            <>
-              <div>
-                <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="1"
-                    max="14"
-                    value={daysUntilEnd}
-                    onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
-                    className="flex-1"
-                  />
-                  <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
-                </div>
-                <p className={`text-xs ${mutedClass} mt-1`}>
-                  Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="mayExtend"
-                  checked={mayExtend}
-                  onChange={e => setMayExtend(e.target.checked)}
-                  className="w-4 h-4 cursor-pointer"
-                />
-                <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
-                  ⏳ Result may need an extra week to confirm
-                </label>
-              </div>
-            </>
-          ) : (
-            <EventMarketFields
-              darkMode={darkMode}
-              mutedClass={mutedClass}
-              inputClass={inputClass}
-              seedLiquidity={seedLiquidity}
-              setSeedLiquidity={setSeedLiquidity}
-              openDelayHours={openDelayHours}
-              setOpenDelayHours={setOpenDelayHours}
-            />
-          )}
-
-          <button
-            onClick={handleCreatePrediction}
-            disabled={loading}
-            className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : (predictionType === 'event' ? '➕ Create Long-Term Market' : '➕ Create Prediction')}
-          </button>
-        </div>
-      </div>
+      <PredictionCreateForm
+        darkMode={darkMode}
+        textClass={textClass}
+        mutedClass={mutedClass}
+        inputClass={inputClass}
+        loading={loading}
+        question={question}
+        setQuestion={setQuestion}
+        options={options}
+        setOptions={setOptions}
+        daysUntilEnd={daysUntilEnd}
+        setDaysUntilEnd={setDaysUntilEnd}
+        mayExtend={mayExtend}
+        setMayExtend={setMayExtend}
+        endDate={endDate}
+        handleCreatePrediction={handleCreatePrediction}
+        predictionType={predictionType}
+        setPredictionType={setPredictionType}
+        seedLiquidity={seedLiquidity}
+        setSeedLiquidity={setSeedLiquidity}
+        openDelayHours={openDelayHours}
+        setOpenDelayHours={setOpenDelayHours}
+        openingOdds={openingOdds}
+        setOpeningOdds={setOpeningOdds}
+      />
 
       {/* SECTION 3: Extend/Reopen Prediction */}
       {predictions.length > 0 && (
-        <div className={`p-4 rounded-sm border-2 border-blue-500 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-          <h3 className={`font-semibold text-blue-500 mb-3`}>⏰ Extend/Reopen Prediction</h3>
-          <div className="space-y-3">
-            <div>
-              <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
-              <select
-                value={extendPredictionId}
-                onChange={e => setExtendPredictionId(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
-              >
-                <option value="">-- Choose prediction --</option>
-                {predictions.map(p => {
-                  const isClosed = p.endsAt < Date.now();
-                  const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
-                  return (
-                    <option key={p.id} value={p.id}>
-                      {status} - {p.question}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            {extendPredictionId && (
-              <>
-                <div>
-                  <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Extend By (Days)</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="1"
-                      max="14"
-                      value={extendDays}
-                      onChange={e => setExtendDays(parseInt(e.target.value))}
-                      className="flex-1"
-                    />
-                    <span className={`text-lg font-semibold ${textClass} w-20`}>{extendDays} days</span>
-                  </div>
-                  <p className={`text-xs ${mutedClass} mt-1`}>
-                    New deadline: {new Date(getEndTime(extendDays)).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="allowAdditionalBets"
-                    checked={allowAdditionalBets}
-                    onChange={e => setAllowAdditionalBets(e.target.checked)}
-                    className="w-4 h-4 cursor-pointer"
-                  />
-                  <label htmlFor="allowAdditionalBets" className={`text-sm cursor-pointer ${textClass}`}>
-                    Allow users to add to existing bets
-                  </label>
-                </div>
-                {allowAdditionalBets && (
-                  <p className={`text-xs ${mutedClass} pl-6`}>
-                    Users who already bet can add more money to their original choice (cannot change or remove)
-                  </p>
-                )}
-
-                <button
-                  onClick={handleExtendPrediction}
-                  disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-                >
-                  {loading ? 'Extending...' : '⏰ Extend Prediction'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <PredictionExtendForm
+          darkMode={darkMode}
+          textClass={textClass}
+          mutedClass={mutedClass}
+          inputClass={inputClass}
+          loading={loading}
+          predictions={predictions}
+          extendPredictionId={extendPredictionId}
+          setExtendPredictionId={setExtendPredictionId}
+          extendDays={extendDays}
+          setExtendDays={setExtendDays}
+          allowAdditionalBets={allowAdditionalBets}
+          setAllowAdditionalBets={setAllowAdditionalBets}
+          getEndTime={getEndTime}
+          handleExtendPrediction={handleExtendPrediction}
+        />
       )}
 
       {/* SECTION 4: All Predictions List */}

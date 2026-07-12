@@ -12,6 +12,7 @@ import {
   lmsrPrices,
   lmsrBuyCost,
   lmsrSellRefund,
+  lmsrSeedQ,
   niceStep,
   maxAffordableShares,
 } from './calculations';
@@ -313,6 +314,27 @@ describe('LMSR event-market pricing', () => {
     const collected = lmsrBuyCost([0, 0], b, 0, shares);
     const houseLoss = shares - collected; // payout minus what the AMM took in
     expect(houseLoss).toBeLessThanOrEqual(b * Math.log(2) + 1e-6);
+  });
+
+  it('lmsrSeedQ opens the market at the requested odds', () => {
+    const seed = lmsrSeedQ([10, 90], b);
+    const p = lmsrPrices(seed, b);
+    expect(p[0]).toBeCloseTo(0.10, 3);
+    expect(p[1]).toBeCloseTo(0.90, 3);
+  });
+
+  it('lmsrSeedQ returns all zeros for even odds', () => {
+    expect(lmsrSeedQ([50, 50], b)).toEqual([0, 0]);
+    expect(lmsrSeedQ([25, 25, 25, 25], b)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('lmsrSeedQ never goes negative (longshot pinned at 0)', () => {
+    const seed = lmsrSeedQ([5, 20, 75], b);
+    expect(Math.min(...seed)).toBe(0);
+    expect(seed.every((x) => x >= 0)).toBe(true);
+    const p = lmsrPrices(seed, b);
+    expect(p[0]).toBeCloseTo(0.05, 3);
+    expect(p[2]).toBeCloseTo(0.75, 3);
   });
 });
 

@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, broadcastNotificationFunction } from '../../firebase';
-import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR } from '../../constants/economy';
+import {
+  EVENT_AMM_LIQUIDITY, MS_PER_HOUR,
+  EVENT_OPENING_ODDS_MIN_PCT, EVENT_OPENING_ODDS_MAX_PCT,
+} from '../../constants/economy';
+import { lmsrSeedQ } from '../../utils/calculations';
 
 // Predictions tab: the create-new-prediction form (weekly cash + event AMM).
 export function useAdminPredictionCreate({ showMessage, setLoading }) {
@@ -25,6 +29,26 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
   const [predictionType, setPredictionType] = useState('weekly'); // 'weekly' (cash) | 'event' (long-term AMM)
   const [seedLiquidity, setSeedLiquidity] = useState(EVENT_AMM_LIQUIDITY);
   const [openDelayHours, setOpenDelayHours] = useState(0); // announce-before-open delay; 0 = open immediately
+  const [openingOdds, setOpeningOdds] = useState(['', '', '', '', '', '']); // % per option slot; all blank = even odds
+
+  // Opening odds for the filled-in option slots. Returns { pcts } (null = even
+  // odds) or { error }. Entered odds must all be present, in range, and sum to 100.
+  const resolveOpeningOdds = (pairs) => {
+    const entered = pairs.filter((p) => p.pct !== '' && p.pct !== null && p.pct !== undefined);
+    if (entered.length === 0) return { pcts: null };
+    if (entered.length < pairs.length) {
+      return { error: 'Set an opening % for every option (or clear them all for even odds).' };
+    }
+    const pcts = pairs.map((p) => Number(p.pct));
+    if (pcts.some((n) => !Number.isFinite(n) || n < EVENT_OPENING_ODDS_MIN_PCT || n > EVENT_OPENING_ODDS_MAX_PCT)) {
+      return { error: `Each opening % must be between ${EVENT_OPENING_ODDS_MIN_PCT} and ${EVENT_OPENING_ODDS_MAX_PCT}.` };
+    }
+    const sum = pcts.reduce((a, c) => a + c, 0);
+    if (Math.abs(sum - 100) > 0.01) {
+      return { error: `Opening odds must total 100% (currently ${Math.round(sum * 100) / 100}%).` };
+    }
+    return { pcts };
+  };
 
   // Announce a new prediction/market through every user's notification bell.
   // Fail-soft: the prediction is already created, a failed announcement only warns.
@@ -50,6 +74,20 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
       return;
     }
 
+    // Event markets: turn admin-entered opening odds into AMM seed quantities.
+    let seedQ = null;
+    if (predictionType === 'event') {
+      const pairs = options
+        .map((o, i) => ({ name: o.trim(), pct: String(openingOdds[i] ?? '').trim() }))
+        .filter((p) => p.name);
+      const { pcts, error } = resolveOpeningOdds(pairs);
+      if (error) {
+        showMessage('error', error);
+        return;
+      }
+      if (pcts) seedQ = lmsrSeedQ(pcts, Number(seedLiquidity) || EVENT_AMM_LIQUIDITY);
+    }
+
     setLoading(true);
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
@@ -61,13 +99,15 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
         const b = Number(seedLiquidity) || EVENT_AMM_LIQUIDITY;
         const delay = Number(openDelayHours) || 0;
         const opensAt = delay > 0 ? Date.now() + Math.round(delay * MS_PER_HOUR) : null;
+        const q0 = seedQ || cleanOptions.map(() => 0);
         const eventMarket = {
           id: `evt_${Date.now()}`,
           type: 'event',
           question: question.trim(),
           outcomes: cleanOptions,
           options: cleanOptions, // mirror so the admin list/resolve UI works unchanged
-          q: cleanOptions.map(() => 0),
+          q: q0,
+          seedQ: q0, // starting point; settlement measures the AMM's net take from here
           b,
           seededLiquidity: b,
           volume: 0,
@@ -91,6 +131,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
         setQuestion('');
         setOptions(['Yes', 'No', '', '', '', '']);
         setOpenDelayHours(0);
+        setOpeningOdds(['', '', '', '', '', '']);
         setLoading(false);
         return;
       }
@@ -142,6 +183,6 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
     question, setQuestion, options, setOptions, daysUntilEnd, setDaysUntilEnd,
     mayExtend, setMayExtend, endDate, getEndTime, handleCreatePrediction,
     predictionType, setPredictionType, seedLiquidity, setSeedLiquidity,
-    openDelayHours, setOpenDelayHours,
+    openDelayHours, setOpenDelayHours, openingOdds, setOpeningOdds,
   };
 }

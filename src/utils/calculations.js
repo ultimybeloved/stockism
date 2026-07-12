@@ -325,6 +325,15 @@ export const lmsrSellRefund = (q, b, idx, shares) => {
   after[idx] -= shares;
   return lmsrCost(q, b) - lmsrCost(after, b);
 };
+// Seed quantities that make a new market open at the given odds (percent per
+// outcome, summing to 100). Frontend-only: markets are created client-side in
+// the admin panel. Shifted so the smallest entry is 0 — player holdings of
+// outcome i equal q[i] - seed[i], so q can never fall below the seed and the
+// sell-side zero clamp in functions/services/eventMarket.js stays inert.
+export const lmsrSeedQ = (pcts, b) => {
+  const min = Math.min(...pcts);
+  return pcts.map((p) => Math.round(b * Math.log(p / min) * 100) / 100);
+};
 
 // A "nice" round increment for +/- steppers: ~5% of `limit`, snapped to 1/2/5 × a
 // power of ten (1, 2, 5, 10, 20, 50, ...). Always at least `min`. Lets the +/-

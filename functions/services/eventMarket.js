@@ -3,7 +3,8 @@
 // Each outcome is a share that redeems for $1 if it is the confirmed result and
 // $0 otherwise. Prices are quoted by a house-run LMSR automated market maker, so
 // players can always buy or sell, and the house's max loss per market is bounded
-// (b * ln(numOutcomes)). Admins create and resolve markets via direct writes in
+// (b * ln(1 / opening price of the winning outcome); b * ln(numOutcomes) when
+// odds open even). Admins create and resolve markets via direct writes in
 // the admin panel (same pattern as weekly predictions); buying, selling, and
 // settlement run here on the server.
 const functions = require('firebase-functions');
@@ -314,10 +315,14 @@ async function settleResolvedEventMarkets() {
     }
 
     // House accounting: net cash the AMM took in over the market's life is
-    // path-independent, so it equals cost(q) - cost(zeros).
+    // path-independent, so it equals cost(q) - cost(seedQ). seedQ is all-zeros
+    // unless the market was created with admin-set opening odds.
     const b = market.b || EVENT_AMM_LIQUIDITY;
     const q = Array.isArray(market.q) ? market.q : [];
-    const collected = q.length ? round2(lmsrCost(q, b) - lmsrCost(q.map(() => 0), b)) : 0;
+    const seedQ = (Array.isArray(market.seedQ) && market.seedQ.length === q.length)
+      ? market.seedQ
+      : q.map(() => 0);
+    const collected = q.length ? round2(lmsrCost(q, b) - lmsrCost(seedQ, b)) : 0;
     const houseCost = round2(totalPaid - collected);
 
     await db.runTransaction(async (tx) => {
