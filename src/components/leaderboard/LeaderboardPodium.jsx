@@ -62,29 +62,29 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
     >
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}
       <div className={isFirst ? 'text-3xl' : 'text-2xl'}>{placeStyle.medal}</div>
-      <div className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} flex items-center justify-center gap-1 min-w-0 mt-1`}>
+      {/* Name gets the full card width; pins/globe live on their own row below
+          so they can never squeeze the name into truncating early. */}
+      <div className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} truncate mt-1`}>
         {leader.isPublic ? (
           <Link
             to={`/u/${(leader.displayName || '').toLowerCase()}`}
-            className={`hover:underline truncate min-w-0 ${nameClass}`}
+            className={`hover:underline ${nameClass}`}
             style={nameStyle}
           >
             {leader.displayName || 'Anonymous Trader'}
           </Link>
         ) : (
-          <span className={`truncate min-w-0 ${nameClass}`} style={nameStyle}>
+          <span className={nameClass} style={nameStyle}>
             {leader.displayName || 'Anonymous Trader'}
           </span>
         )}
-        {leader.isPublic && <span className="text-xs shrink-0 hidden sm:inline" title="Public profile">🌐</span>}
-        <PinDisplay userData={leader} size="sm" />
       </div>
-      <div className={`text-xs ${mutedClass} hidden sm:flex items-center justify-center gap-1 truncate`}>
-        {crew && (crew.icon
-          ? <img src={crew.icon} alt={crew.name} className="w-3.5 h-3.5 object-contain shrink-0" />
-          : <span className="shrink-0">{crew.emblem}</span>
-        )}
-        <span className="truncate">{leader.holdingsCount || 0} characters</span>
+      <div className="flex items-center justify-center gap-1 flex-wrap">
+        <PinDisplay userData={leader} size="sm" />
+        {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
+      </div>
+      <div className={`text-xs ${mutedClass} truncate`}>
+        {leader.holdingsCount || 0} characters
       </div>
       {sortBy === 'weeklyGain' ? (
         <div className="mt-1">
