@@ -131,7 +131,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
               <div className={`w-28 sm:w-36 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={o}>
                 {o} {isWinner && '✓'}
               </div>
-              <div className="flex-1 h-4 bg-zinc-800 rounded-sm overflow-hidden">
+              <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                 <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${Math.round(prices[i] * 100)}%` }} />
               </div>
               <div className={`w-10 text-xs text-right ${mutedClass}`}>{Math.round(prices[i] * 100)}¢</div>
@@ -172,13 +172,13 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
 
       {/* Trade panel */}
       {!resolved && notYetOpen && (
-        <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
+        <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
           🔒 Opens in {formatCountdown(market.opensAt - nowTs)}
         </div>
       )}
 
       {!resolved && !notYetOpen && isHalted && (
-        <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
+        <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
           🔒 Closed for chapter review. Trading reopens at 21:00 UTC.
         </div>
       )}

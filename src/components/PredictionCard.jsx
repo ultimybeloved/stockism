@@ -108,7 +108,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
                 <div className={`w-32 sm:w-40 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
                   {option} {isWinner && '✓'}
                 </div>
-                <div className="flex-1 h-4 bg-zinc-800 rounded-sm overflow-hidden">
+                <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                   <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${percent}%` }} />
                 </div>
                 <div className={`w-10 text-xs text-right ${mutedClass}`}>{percent}%</div>
@@ -145,7 +145,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
       {isActive && !isGuest && (
         <>
           {hasExistingBet && !prediction.allowAdditionalBets ? (
-            <div className={`text-center py-2 text-sm ${mutedClass} bg-zinc-800/50 rounded-sm`}>
+            <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
               🔒 You've already placed a bet on this prediction
             </div>
           ) : !showBetUI ? (

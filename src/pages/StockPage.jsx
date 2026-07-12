@@ -208,7 +208,7 @@ const StockPage = ({ onTrade }) => {
             <div className="flex gap-1">
               {CHART_TYPES.map(t => (
                 <button key={t.key} onClick={() => setChartType(t.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-zinc-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
+                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
                   {t.label}
                 </button>
               ))}

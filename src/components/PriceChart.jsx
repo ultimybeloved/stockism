@@ -130,9 +130,11 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
             <g key={i}>
               <line x1={PAD_X} y1={y} x2={SVG_W - PAD_X} y2={y}
                 stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+              {/* The SVG scales down to ~57% on phones, so this renders near 7px
+                  there — don't shrink it below 13 or mobile loses the labels. */}
               {axisLabels[i] && (
                 <text x={PAD_X - 8} y={y + 4} textAnchor="end"
-                  fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
+                  fill={darkMode ? '#94a3b8' : '#64748b'} fontSize="13">
                   {axisLabels[i]}
                 </text>
               )}
