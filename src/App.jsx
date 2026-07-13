@@ -26,6 +26,7 @@ import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { CREWS, CREW_MAP } from './crews';
 import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
 import MarketIndex from './components/MarketIndex';
+import PredictionsTeaser from './components/PredictionsTeaser';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Eagerly-loaded modals (shown immediately / on critical auth flows)
@@ -1601,6 +1602,8 @@ export default function App() {
             })()}
           </div>
         </div>
+
+        <PredictionsTeaser predictions={predictions} />
 
         <MarketIndex
           prices={prices}

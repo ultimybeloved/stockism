@@ -187,9 +187,21 @@ body {
   100% { transform: translateX(310%) skewX(-18deg); }
 }
 
+/* ===== Predictions teaser (home page) ===== */
+/* Decorative odds bars that slowly drift between widths. Deliberately NOT the
+   real market bars: no labels or percentages, so they can't be mistaken for
+   live odds. Each bar has its own duration so they never move in sync. */
+@keyframes predDriftA { 0%, 100% { width: 64%; } 50% { width: 32%; } }
+@keyframes predDriftB { 0%, 100% { width: 36%; } 50% { width: 74%; } }
+@keyframes predDriftC { 0%, 100% { width: 52%; } 40% { width: 24%; } 75% { width: 60%; } }
+.pred-teaser-bar-a { width: 64%; animation: predDriftA 6s ease-in-out infinite; }
+.pred-teaser-bar-b { width: 36%; animation: predDriftB 7.4s ease-in-out infinite; }
+.pred-teaser-bar-c { width: 52%; animation: predDriftC 6.8s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
   .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before,
   .cos-glow-pulse-gold, .cos-glow-pulse-violet,
+  .pred-teaser-bar-a, .pred-teaser-bar-b, .pred-teaser-bar-c,
   .podium-sheen::before { animation: none; }
 }
