@@ -188,15 +188,17 @@ body {
 }
 
 /* ===== Predictions teaser (home page) ===== */
-/* Decorative odds bars that slowly drift between widths. Deliberately NOT the
-   real market bars: no labels or percentages, so they can't be mistaken for
-   live odds. Each bar has its own duration so they never move in sync. */
-@keyframes predDriftA { 0%, 100% { width: 64%; } 50% { width: 32%; } }
-@keyframes predDriftB { 0%, 100% { width: 36%; } 50% { width: 74%; } }
-@keyframes predDriftC { 0%, 100% { width: 52%; } 40% { width: 24%; } 75% { width: 60%; } }
-.pred-teaser-bar-a { width: 64%; animation: predDriftA 6s ease-in-out infinite; }
-.pred-teaser-bar-b { width: 36%; animation: predDriftB 7.4s ease-in-out infinite; }
-.pred-teaser-bar-c { width: 52%; animation: predDriftC 6.8s ease-in-out infinite; }
+/* Decorative odds bars. Deliberately NOT the real market bars: no labels or
+   percentages, so they can't be mistaken for live odds. The drift is
+   intentionally barely perceptible (a few % width over ~10s) — anything
+   bigger reads as obnoxious. Each bar has its own duration so they never
+   move in sync. */
+@keyframes predDriftA { 0%, 100% { width: 64%; } 50% { width: 59%; } }
+@keyframes predDriftB { 0%, 100% { width: 36%; } 50% { width: 41%; } }
+@keyframes predDriftC { 0%, 100% { width: 52%; } 50% { width: 48%; } }
+.pred-teaser-bar-a { width: 64%; animation: predDriftA 9s ease-in-out infinite; }
+.pred-teaser-bar-b { width: 36%; animation: predDriftB 11s ease-in-out infinite; }
+.pred-teaser-bar-c { width: 52%; animation: predDriftC 10s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
