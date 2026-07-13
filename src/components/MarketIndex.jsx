@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import SimpleLineChart from './charts/SimpleLineChart';
 import { db } from '../firebase';
@@ -195,8 +196,9 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
         </div>
       </div>
 
-      {/* Expanded chart modal */}
-      {expanded && <IndexChartModal
+      {/* Expanded chart modal — portaled to body so the sticky sidebar's
+          stacking context can't layer it under the market column */}
+      {expanded && createPortal(<IndexChartModal
         chartData={chartData}
         currentIndex={currentIndex}
         timeRange={timeRange}
@@ -206,7 +208,7 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
         darkMode={darkMode}
         colorBlindMode={colorBlindMode}
         onClose={() => { setExpanded(false); setHoveredPoint(null); }}
-      />}
+      />, document.body)}
     </>
   );
 };
