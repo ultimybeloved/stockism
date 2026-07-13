@@ -81,7 +81,88 @@ const {
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   IPO_PRICE_JUMP,
   DISCORD_RELINK_COOLDOWN_MS,
+  CREW_MEMBERS,
+  ALL_CREW_TICKERS,
+  ANIMAL_TICKERS,
+  UNDERDOG_PRICE_THRESHOLD,
 } = require('./constants');
+
+// Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
+const getWeekId = (now = new Date()) => {
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
+  return weekStart.toISOString().split('T')[0];
+};
+
+// Mission/stat credit for a filled trade — shared by executeTrade, limit-order
+// fills, and the pre-market auction so queued orders count the same as live
+// trades. Returns { updates, animalProfitTotal }: `updates` is a field-path
+// fragment that must be merged into the SAME user write as the balance change;
+// `animalProfitTotal` is non-null only on an animal-ticker sell with a cost
+// basis (executeTrade feeds it to the achievement context).
+// `marketPrice` is the pre-impact market price (underdog check), while
+// `executionPrice` is what the user actually paid/received per share.
+const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue, executionPrice, marketPrice, now = Date.now() }) => {
+  const todayDate = new Date(now).toISOString().split('T')[0];
+  const weekId = getWeekId(new Date(now));
+  const updates = {
+    totalTrades: admin.firestore.FieldValue.increment(1),
+    [`dailyMissions.${todayDate}.tradesCount`]: admin.firestore.FieldValue.increment(1),
+    [`dailyMissions.${todayDate}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
+    [`weeklyMissions.${weekId}.tradeValue`]: admin.firestore.FieldValue.increment(totalValue),
+    [`weeklyMissions.${weekId}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
+    [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
+    [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
+  };
+  let animalProfitTotal = null;
+
+  if (action === 'buy') {
+    updates[`dailyMissions.${todayDate}.boughtAny`] = true;
+
+    const userCrew = userData.crew;
+    if (userCrew) {
+      const crewMembers = CREW_MEMBERS[userCrew] || [];
+      if (crewMembers.includes(ticker)) {
+        updates[`dailyMissions.${todayDate}.boughtCrewMember`] = true;
+        updates[`dailyMissions.${todayDate}.crewSharesBought`] = admin.firestore.FieldValue.increment(shares);
+      }
+      if (!crewMembers.includes(ticker) && ALL_CREW_TICKERS.has(ticker)) {
+        updates[`dailyMissions.${todayDate}.boughtRival`] = true;
+      }
+    }
+    if (marketPrice < UNDERDOG_PRICE_THRESHOLD) {
+      updates[`dailyMissions.${todayDate}.boughtUnderdog`] = true;
+    }
+
+    // Lowest price while holding (for Diamond Hands achievement)
+    const currentHoldings = userData.holdings?.[ticker] || 0;
+    const currentLowest = userData.lowestWhileHolding?.[ticker];
+    const newLowest = currentHoldings === 0
+      ? executionPrice
+      : Math.min(currentLowest || executionPrice, executionPrice);
+    updates[`lowestWhileHolding.${ticker}`] = Math.round(newLowest * 100) / 100;
+  }
+
+  if (action === 'sell') {
+    updates[`dailyMissions.${todayDate}.soldAny`] = true;
+
+    // Animal Instinct: track cumulative profit from animal characters
+    if (ANIMAL_TICKERS.has(ticker)) {
+      const costBasis = userData.costBasis?.[ticker] || 0;
+      if (costBasis > 0) {
+        const profitThisSell = Math.max(0, (executionPrice - costBasis) * shares);
+        const pbt = userData.profitByTicker || {};
+        const newTickerProfit = (pbt[ticker] || 0) + profitThisSell;
+        updates[`profitByTicker.${ticker}`] = newTickerProfit;
+        animalProfitTotal = newTickerProfit +
+          [...ANIMAL_TICKERS].filter(t => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
+      }
+    }
+  }
+
+  return { updates, animalProfitTotal };
+};
 
 // Apply the +15% price jump + launch for any IPO that has ended (or sold out)
 // but hasn't jumped yet. Shared by the 5-minute scheduler (predictions.js) and
@@ -602,6 +683,8 @@ module.exports = {
   decrementCohort,
   graduateCohort,
   calculateMarginalImpact,
+  getWeekId,
+  buildTradeCreditUpdates,
   applyDueIPOJumps,
   priceHistoryRef,
   appendPriceHistory,

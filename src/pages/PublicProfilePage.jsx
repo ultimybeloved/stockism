@@ -260,7 +260,7 @@ const PublicProfilePage = () => {
 
       {/* Admin panel */}
       {viewerIsAdmin && profile.adminData && (
-        <AdminPanel data={profile.adminData} darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} cardClass={cardClass} />
+        <AdminPanel data={profile.adminData} darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
       )}
     </div>
   );

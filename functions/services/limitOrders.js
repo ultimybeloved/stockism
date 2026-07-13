@@ -7,7 +7,8 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall, buildTradeCreditUpdates } = require('../helpers');
+const { updateCrewMissionProgress } = require('./crewMissions');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -333,6 +334,7 @@ const runLimitOrderCheck = async () => {
           const remainingShares = totalShares - alreadyFilled;
           let fillShares = remainingShares;
           let executedPrice = 0;
+          let tradeValue = 0;
           let feedDisplayName = '';
           let feedCrew = null;
 
@@ -503,13 +505,21 @@ const runLimitOrderCheck = async () => {
                 updatedLimitHistory[order.ticker][limitAction] = updatedLimitHistory[order.ticker][limitAction].filter(e => e.ts > cutoff);
                 updatedLimitHistory[order.ticker][limitAction].push(limitTradeEntry);
 
+                // Mission/stat credit — same fields executeTrade writes, so
+                // limit fills count toward missions like regular trades.
+                const { updates: creditUpdates } = buildTradeCreditUpdates({
+                  userData, ticker: order.ticker, action: 'buy', shares: fillShares,
+                  totalValue: totalCost, executionPrice: executedPrice, marketPrice: freshPrice, now
+                });
+                tradeValue = totalCost;
+
                 transaction.update(userRef, {
                   cash: admin.firestore.FieldValue.increment(-totalCost),
                   [`holdings.${order.ticker}`]: newHoldings,
                   [`costBasis.${order.ticker}`]: Math.round(newCostBasis * 100) / 100,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1),
-                  tickerTradeHistory: updatedLimitHistory
+                  tickerTradeHistory: updatedLimitHistory,
+                  ...creditUpdates
                 });
 
                 // Apply price impact to market (only if there's actual impact)
@@ -549,12 +559,20 @@ const runLimitOrderCheck = async () => {
                 updatedLimitHistory[order.ticker][limitAction] = updatedLimitHistory[order.ticker][limitAction].filter(e => e.ts > cutoff);
                 updatedLimitHistory[order.ticker][limitAction].push(limitTradeEntry);
 
+                // Mission/stat credit — same fields executeTrade writes, so
+                // limit fills count toward missions like regular trades.
+                const { updates: creditUpdates } = buildTradeCreditUpdates({
+                  userData, ticker: order.ticker, action: 'sell', shares: fillShares,
+                  totalValue: totalRevenue, executionPrice: executedPrice, marketPrice: freshPrice, now
+                });
+                tradeValue = totalRevenue;
+
                 const updates = {
                   cash: admin.firestore.FieldValue.increment(totalRevenue),
                   [`holdings.${order.ticker}`]: newHoldings,
                   lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-                  totalTrades: admin.firestore.FieldValue.increment(1),
-                  tickerTradeHistory: updatedLimitHistory
+                  tickerTradeHistory: updatedLimitHistory,
+                  ...creditUpdates
                 };
 
                 if (newHoldings <= 0) {
@@ -637,6 +655,12 @@ const runLimitOrderCheck = async () => {
           });
 
           const feedAction = order.type === 'BUY' ? 'buy' : order.type === 'COVER' ? 'cover' : 'sell';
+
+          // Crew mission progress (fire-and-forget, same as executeTrade)
+          if (feedCrew && (feedAction === 'buy' || feedAction === 'sell')) {
+            updateCrewMissionProgress(feedCrew, order.userId, feedAction, fillShares, order.ticker, tradeValue);
+          }
+
           const feedMsg = order.type === 'STOP_LOSS'
             ? `sold ${fillShares} $${order.ticker} via stop loss`
             : order.type === 'BUY'

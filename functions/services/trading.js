@@ -5,10 +5,10 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
-  BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, CREW_MEMBERS,
+  BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   isWeeklyTradingHalt, MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
-  ALL_CREW_TICKERS, ANIMAL_TICKERS, SHORT_CONCENTRATION_CAP,
+  ALL_CREW_TICKERS, SHORT_CONCENTRATION_CAP,
   SHORT_MARGIN_RATIO, ADMIN_UID, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED,
   TICKER_COOLDOWN_MS, MARGIN_SELL_LOCKUP_MS, UNIFIER_FULL_SHARE_MIN,
 } = require('../constants');
@@ -16,6 +16,7 @@ const {
   checkBanned,
   checkDiscordWall,
   calculateMarginalImpact,
+  buildTradeCreditUpdates,
   getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
   addPendingShares,
@@ -91,7 +92,6 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     const userRef = db.collection('users').doc(uid);
     const marketRef = db.collection('market').doc('current');
     const now = admin.firestore.Timestamp.now().toMillis();
-    const todayDate = new Date().toISOString().split('T')[0];
 
     // Execute trade in atomic transaction (maxAttempts:1 prevents phantom retries
     // where the first attempt commits but a retry sees post-trade state and fails)
@@ -793,13 +793,6 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         updatedTickerTradeHistory[trailingTicker][trailingAction].push(entry);
       }
 
-      // Compute week ID for weekly missions (Monday-based)
-      const nowDate = new Date();
-      const weekStart = new Date(nowDate);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-      if (weekStart > nowDate) weekStart.setDate(weekStart.getDate() - 7);
-      const weekId = weekStart.toISOString().split('T')[0];
-
       // NaN guard — never write corrupted data to Firestore
       if (isNaN(newCash) || isNaN(executionPrice) || isNaN(totalCost) || isNaN(newPrice)) {
         throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid numeric result');
@@ -807,6 +800,13 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
 
       // Compute final trade count for this action (after appending new entry)
       const finalTradeCount = updatedTickerTradeHistory[ticker]?.[action]?.length || 0;
+
+      // Mission progress (server-side — blocks client spoofing). Shared with
+      // limit-order and pre-market fills so every fill path counts the same.
+      const { updates: creditUpdates, animalProfitTotal } = buildTradeCreditUpdates({
+        userData, ticker, action, shares: amount, totalValue: totalCost,
+        executionPrice, marketPrice: currentPrice, now
+      });
 
       const updates = {
         cash: newCash,
@@ -819,14 +819,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         ...(marginLockUpdate ? { [`marginLockup.${ticker}`]: marginLockUpdate } : {}),
         tickerTradeHistory: updatedTickerTradeHistory,
         lastTradeTime: admin.firestore.Timestamp.now(),
-        // Mission progress (server-side — blocks client spoofing)
-        totalTrades: admin.firestore.FieldValue.increment(1),
-        [`dailyMissions.${todayDate}.tradesCount`]: admin.firestore.FieldValue.increment(1),
-        [`dailyMissions.${todayDate}.tradeVolume`]: admin.firestore.FieldValue.increment(amount),
-        [`weeklyMissions.${weekId}.tradeValue`]: admin.firestore.FieldValue.increment(totalCost),
-        [`weeklyMissions.${weekId}.tradeVolume`]: admin.firestore.FieldValue.increment(amount),
-        [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
-        [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
+        ...creditUpdates
       };
 
       // ANTI-MANIPULATION: Track ticker trade times for buy/short cooldown
@@ -836,7 +829,6 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
 
       if (action === 'buy') {
         updates[`lastBuyTime.${ticker}`] = admin.firestore.Timestamp.now();
-        updates[`dailyMissions.${todayDate}.boughtAny`] = true;
 
         // Cost basis tracking
         const currentHoldings = holdings[ticker] || 0;
@@ -855,34 +847,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           newCohort.firstHeldAt = existingCohort?.firstHeldAt || now;
         }
         updates[`holdingCohorts.${ticker}`] = newCohort;
-
-        // Lowest price while holding (for Diamond Hands achievement)
-        const currentLowest = userData.lowestWhileHolding?.[ticker];
-        const newLowest = currentHoldings === 0
-          ? executionPrice
-          : Math.min(currentLowest || executionPrice, executionPrice);
-        updates[`lowestWhileHolding.${ticker}`] = Math.round(newLowest * 100) / 100;
-
-        // Crew-specific mission fields
-        const userCrew = userData.crew;
-        if (userCrew) {
-          const crewMembers = CREW_MEMBERS[userCrew] || [];
-          if (crewMembers.includes(ticker)) {
-            updates[`dailyMissions.${todayDate}.boughtCrewMember`] = true;
-            updates[`dailyMissions.${todayDate}.crewSharesBought`] = admin.firestore.FieldValue.increment(amount);
-          }
-          if (!crewMembers.includes(ticker) && ALL_CREW_TICKERS.has(ticker)) {
-            updates[`dailyMissions.${todayDate}.boughtRival`] = true;
-          }
-        }
-        // Underdog check (price < $20)
-        if (currentPrice < 20) {
-          updates[`dailyMissions.${todayDate}.boughtUnderdog`] = true;
-        }
       }
 
       if (action === 'sell') {
-        updates[`dailyMissions.${todayDate}.soldAny`] = true;
         // Clear cost basis if selling all shares
         const totalHoldings = newHoldings[ticker] || 0;
         if (totalHoldings <= 0) {
@@ -943,10 +910,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       const existingLog = userData.transactionLog || [];
       updates.transactionLog = [...existingLog, txLogEntry].slice(-100);
 
-      // NOTE: the user-doc write happens further down, after the achievement
-      // context block — that block still appends to `updates` (profitByTicker),
-      // and transaction.update() snapshots its data at call time, so calling it
-      // here would silently drop those fields.
+      // NOTE: the user-doc write happens further down — transaction.update()
+      // snapshots its data at call time, so anything appended to `updates`
+      // after that call would be silently dropped.
 
       // Log trade
       const tradeRecord = {
@@ -1047,14 +1013,10 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
           const allTimeHigh = Math.max(...tickerHistory.map(h => h.price));
           achievementCtx.soldAtAllTimeHigh = executionPrice >= allTimeHigh;
         }
-        // Animal Instinct: track cumulative profit from animal characters
-        if (ANIMAL_TICKERS.has(ticker) && costBasis > 0) {
-          const profitThisSell = Math.max(0, (executionPrice - costBasis) * amount);
-          const pbt = userData.profitByTicker || {};
-          const newTickerProfit = (pbt[ticker] || 0) + profitThisSell;
-          updates[`profitByTicker.${ticker}`] = newTickerProfit;
-          achievementCtx.animalProfit = newTickerProfit +
-            [...ANIMAL_TICKERS].filter(t => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
+        // Animal Instinct: cumulative animal-character profit — computed (and
+        // written to profitByTicker) by buildTradeCreditUpdates above.
+        if (animalProfitTotal !== null) {
+          achievementCtx.animalProfit = animalProfitTotal;
         }
       }
       if (action === 'cover') {
@@ -1069,8 +1031,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         }
       }
 
-      // Persist the user updates — must stay AFTER the achievement context block
-      // above, which appends fields (e.g. profitByTicker) to `updates`.
+      // Persist the user updates (single write — see NOTE above).
       transaction.update(userRef, updates);
 
       // Warn if next short will trigger cooldown

@@ -51,7 +51,6 @@ export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single 
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
-export const SHORT_INTEREST_RATE = 0.001; // 0.1% daily interest on short positions
 export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
@@ -95,7 +94,6 @@ export const LADDER_WITHDRAW_PROFIT_BRACKETS = [
 // Anti-manipulation: New Account Impact Reduction
 export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days
 export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0, ramps to 100%
-export const MAX_ACCOUNTS_PER_IP = 4; // Max unique accounts trading from same IP per hour
 
 // Admin user IDs - only these users can see the Admin button
 export const ADMIN_UIDS = [

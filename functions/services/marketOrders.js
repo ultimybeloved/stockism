@@ -7,7 +7,8 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates } = require('../helpers');
+const { updateCrewMissionProgress } = require('./crewMissions');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -221,13 +222,20 @@ const runMarketOpenProcessing = async (trigger) => {
             const newCostBasis = currentHoldings > 0
               ? round2(((currentCostBasis * currentHoldings) + (executionPrice * localFillShares)) / newHoldings)
               : executionPrice;
+            // Mission/stat credit — same fields executeTrade writes, so
+            // pre-market fills count toward missions like regular trades.
+            const { updates: creditUpdates } = buildTradeCreditUpdates({
+              userData: ud, ticker: order.ticker, action: 'buy', shares: localFillShares,
+              totalValue: executionPrice * localFillShares, executionPrice,
+              marketPrice: prices.openingPrice
+            });
             transaction.update(userRef, {
               cash: admin.firestore.FieldValue.increment(-executionPrice * localFillShares),
               [`holdings.${order.ticker}`]: newHoldings,
               [`costBasis.${order.ticker}`]: newCostBasis,
               [`lastBuyTime.${order.ticker}`]: admin.firestore.Timestamp.now(),
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-              totalTrades: admin.firestore.FieldValue.increment(1)
+              ...creditUpdates
             });
           } else {
             // Clamp to sellable (holdings minus IPO/margin locks) — locks placed
@@ -239,10 +247,17 @@ const runMarketOpenProcessing = async (trigger) => {
             if (localFillShares < 0.01) throw new Error('Insufficient shares');
 
             const newHoldings = Math.round((userShares - localFillShares) * 10000) / 10000;
+            // Mission/stat credit — same fields executeTrade writes, so
+            // pre-market fills count toward missions like regular trades.
+            const { updates: creditUpdates } = buildTradeCreditUpdates({
+              userData: ud, ticker: order.ticker, action: 'sell', shares: localFillShares,
+              totalValue: executionPrice * localFillShares, executionPrice,
+              marketPrice: prices.openingPrice
+            });
             const updates = {
               cash: admin.firestore.FieldValue.increment(executionPrice * localFillShares),
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-              totalTrades: admin.firestore.FieldValue.increment(1)
+              ...creditUpdates
             };
             if (newHoldings <= 0) {
               updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
@@ -265,6 +280,11 @@ const runMarketOpenProcessing = async (trigger) => {
 
           fillShares = localFillShares;
         });
+
+        // Crew mission progress (fire-and-forget, same as executeTrade)
+        if (feedCrew) {
+          updateCrewMissionProgress(feedCrew, order.userId, order.action, fillShares, order.ticker, executionPrice * fillShares);
+        }
 
         const partialNote = fillShares < order.shares ? ` (filled ${fillShares} of ${order.shares})` : '';
         await writeNotification(order.userId, {

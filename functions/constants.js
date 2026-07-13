@@ -105,6 +105,7 @@ const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 min — freshness window for t
 // MARGIN
 // ============================================
 const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
+const MARGIN_CASH_MINIMUM  = 2000;   // min cash to enable margin — keep in sync with src/constants/economy.js
 const CREW_SWITCH_PENALTY  = 0.15;   // 15% of portfolio value lost on crew switch
 const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
@@ -158,6 +159,9 @@ Object.values(CREWS).forEach((c) => { CREW_MEMBERS[c.id] = c.members; });
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
 
 const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
+
+// Buys below this price count for the Underdog Investor daily mission.
+const UNDERDOG_PRICE_THRESHOLD = 20;
 
 // ============================================
 // LEADERBOARD
@@ -347,6 +351,7 @@ module.exports = {
   CHECKIN_STREAK_REWARDS,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,
+  MARGIN_CASH_MINIMUM,
   CREW_SWITCH_PENALTY,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
@@ -368,6 +373,7 @@ module.exports = {
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
+  UNDERDOG_PRICE_THRESHOLD,
   FOURTEEN_DAYS_MS,
   ACTIVE_USER_WINDOW_MS,
   UNIFIER_FULL_SHARE_MIN,

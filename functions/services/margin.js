@@ -7,7 +7,7 @@ const { CHARACTERS } = require('../characters');
 const {
   ADMIN_UID, isWeeklyTradingHalt,
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS, THIRTY_DAYS_MS,
-  MARGIN_INTEREST_RATE, CREW_SWITCH_PENALTY, BAILOUT_CASH,
+  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_SWITCH_PENALTY, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
@@ -213,10 +213,9 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
     checkDiscordWall(userData);
 
     if (enable) {
-      // Check eligibility: $2000 min cash
       const isAdmin = uid === ADMIN_UID;
-      if (!isAdmin && (userData.cash || 0) < 2000) {
-        throw new functions.https.HttpsError('failed-precondition', 'Need $2,000 minimum cash.');
+      if (!isAdmin && (userData.cash || 0) < MARGIN_CASH_MINIMUM) {
+        throw new functions.https.HttpsError('failed-precondition', `Need $${MARGIN_CASH_MINIMUM.toLocaleString()} minimum cash.`);
       }
       transaction.update(userRef, {
         marginEnabled: true,
