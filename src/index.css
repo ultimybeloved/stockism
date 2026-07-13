@@ -189,16 +189,32 @@ body {
 
 /* ===== Predictions teaser (home page) ===== */
 /* Decorative odds bars. Deliberately NOT the real market bars: no labels or
-   percentages, so they can't be mistaken for live odds. The drift is
-   intentionally barely perceptible (a few % width over ~10s) — anything
-   bigger reads as obnoxious. Each bar has its own duration so they never
-   move in sync. */
-@keyframes predDriftA { 0%, 100% { width: 64%; } 50% { width: 59%; } }
-@keyframes predDriftB { 0%, 100% { width: 36%; } 50% { width: 41%; } }
-@keyframes predDriftC { 0%, 100% { width: 52%; } 50% { width: 48%; } }
-.pred-teaser-bar-a { width: 64%; animation: predDriftA 9s ease-in-out infinite; }
-.pred-teaser-bar-b { width: 36%; animation: predDriftB 11s ease-in-out infinite; }
-.pred-teaser-bar-c { width: 52%; animation: predDriftC 10s ease-in-out infinite; }
+   percentages, so they can't be mistaken for live odds. Motion pattern is
+   "odds ticking in": each bar sits still for ~5-7s, then moves to a new
+   width in ~0.4s, holds there, repeats. Constant drift read as obnoxious.
+   Different cycle lengths + negative delays keep the ticks interleaved so
+   the bars never jump at the same moment. */
+@keyframes predStepA {
+  0%, 30%   { width: 62%; }
+  32%, 63%  { width: 44%; }
+  65%, 97%  { width: 71%; }
+  99%, 100% { width: 62%; }
+}
+@keyframes predStepB {
+  0%, 33%   { width: 38%; }
+  35%, 64%  { width: 55%; }
+  66%, 97%  { width: 30%; }
+  99%, 100% { width: 38%; }
+}
+@keyframes predStepC {
+  0%, 31%   { width: 52%; }
+  33%, 65%  { width: 40%; }
+  67%, 97%  { width: 61%; }
+  99%, 100% { width: 52%; }
+}
+.pred-teaser-bar-a { width: 62%; animation: predStepA 18s ease-in-out -3s infinite; }
+.pred-teaser-bar-b { width: 38%; animation: predStepB 16s ease-in-out -9s infinite; }
+.pred-teaser-bar-c { width: 52%; animation: predStepC 20s ease-in-out -14s infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
