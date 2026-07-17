@@ -53,41 +53,10 @@ export const SPACING = {
 };
 
 // ===== Rarity tier tokens =====
-// The card frame treatment (border, glow, accent line, brackets) lives in
-// src/index.css (.rarity-* rules; the --tier-* variables there are the single
-// source of truth for tier hues). These are the matching in-JSX tokens:
-// a display label plus badge chip classes per tier, both themes.
-export const RARITY_META = {
-  common: {
-    label: 'Common',
-    chipDark:  'bg-zinc-800 text-zinc-400 border-zinc-600/50',
-    chipLight: 'bg-slate-100 text-slate-600 border-slate-300',
-  },
-  uncommon: {
-    label: 'Uncommon',
-    chipDark:  'bg-green-900/40 text-green-300 border-green-500/40',
-    chipLight: 'bg-green-100 text-green-700 border-green-300',
-  },
-  rare: {
-    label: 'Rare',
-    chipDark:  'bg-blue-900/40 text-blue-300 border-blue-500/40',
-    chipLight: 'bg-blue-100 text-blue-700 border-blue-300',
-  },
-  epic: {
-    label: 'Epic',
-    chipDark:  'bg-purple-900/40 text-purple-300 border-purple-500/40',
-    chipLight: 'bg-purple-100 text-purple-700 border-purple-300',
-  },
-  legendary: {
-    label: 'Legendary',
-    chipDark:  'bg-gradient-to-r from-amber-500 to-yellow-400 text-zinc-950 border-yellow-300',
-    chipLight: 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-950 border-amber-400',
-  },
-};
-
-// Which tiers show a name chip on the card. Lower tiers keep just the frame
-// trim so the grid stays quiet and the top of the ladder stays desirable.
-export const RARITY_LABELED_TIERS = ['rare', 'epic', 'legendary'];
+// The tier treatment is entirely visual — border, glow, accent line, and
+// legendary brackets — and lives in src/index.css (.rarity-* rules; the
+// --tier-* variables there are the single source of truth for tier hues).
+// There are no text labels; the frame carries the tier on its own.
 
 // Legendary frames tick once per 6s cycle (legendaryTick in index.css).
 // Stagger each card by a hash of its ticker so several legendaries on screen

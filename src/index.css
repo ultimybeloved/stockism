@@ -80,14 +80,14 @@ body {
 /* ===== Card rarity tiers =====
    Tier is assigned by market rank in src/utils/rarity.js (top few = legendary),
    so the ramp scales itself as prices move. The --tier-* variables below are the
-   single source of truth for tier hues; the matching badge chip tokens live in
-   RARITY_META in src/utils/theme.js. Even Common gets a subtle trim, so a card
-   never looks like its styling failed to load.
+   single source of truth for tier hues. Even Common gets a subtle trim, so a card
+   never looks like its styling failed to load. The tier is shown purely through
+   the frame — no text labels.
 
-   Each step up adds exactly one signature cue, so tiers read apart at a glance:
+   Each step up escalates the frame, so tiers read apart at a glance:
    - common:    quiet slate trim
    - uncommon:  green trim + top accent line
-   - rare:      blue trim + accent line + name chip (chip = RarityBadge.jsx)
+   - rare:      blue trim + accent line + stronger glow
    - epic:      purple trim + two-tone accent line + faint inner wash
    - legendary: gold trim + corner brackets + inner wash + hold-then-tick glow
 

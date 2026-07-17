@@ -5,7 +5,6 @@ import { getThemeClasses, getRarityStagger, SPACING } from '../utils/theme';
 import { rarityClassFor } from '../utils/rarity';
 import SimpleLineChart from './charts/SimpleLineChart';
 import ShortRiskTag from './ShortRiskTag';
-import RarityBadge from './RarityBadge';
 import TradeActionModal from './modals/TradeActionModal';
 import PreMarketModal from './modals/PreMarketModal';
 import { CREWS } from '../crews';
@@ -228,7 +227,6 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               <div className="flex items-center gap-1">
                 <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
-                {!isETF && <RarityBadge tier={rarityTier} />}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
               {!isETF && (characterCrew || characterEtfs.length > 0) && (
