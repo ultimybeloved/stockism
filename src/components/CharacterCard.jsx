@@ -12,7 +12,7 @@ import { useAppContext } from '../context/AppContext';
 import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
 
 const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
-  const { darkMode, user, userData, prices, priceHistory, marketData } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, marketData, rarityTiers } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
@@ -172,16 +172,10 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const isUp = chartChange >= 0;
   const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
-  // Card rarity tier based on price (ETFs excluded)
-  const getRarityClass = () => {
-    if (isETF) return '';
-    if (price >= 120) return 'rarity-legendary';
-    if (price >= 75) return 'rarity-epic';
-    if (price >= 40) return 'rarity-rare';
-    if (price >= 15) return 'rarity-uncommon';
-    return '';
-  };
-  const rarityClass = getRarityClass();
+  // Card rarity tier by market standing (ETFs have no tier). See utils/rarity.js —
+  // the ranking is computed once in App and shared via context.
+  const rarityTier = isETF ? null : rarityTiers?.[character.ticker];
+  const rarityClass = rarityTier ? `rarity-${rarityTier}` : '';
 
   return (
     <>

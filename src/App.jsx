@@ -23,6 +23,7 @@ import { auth, db, executeTradeFunction, achievementAlertFunction, deleteAccount
 import { fireTradeConfetti } from './utils/confetti';
 import { ACHIEVEMENTS } from './constants/achievements';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
+import { computeRarityTiers } from './utils/rarity';
 import { CREWS, CREW_MAP } from './crews';
 import { isWeeklyHalt, getReviewChanges } from './utils/marketHours';
 import MarketIndex from './components/MarketIndex';
@@ -1296,6 +1297,10 @@ export default function App() {
   const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
 
+  // Rarity tiers by market standing — computed once here so every card shares the
+  // same ranking instead of each re-ranking the whole roster. See utils/rarity.js.
+  const rarityTiers = useMemo(() => computeRarityTiers(CHARACTERS, prices), [prices]);
+
   // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
   const contextValue = useMemo(() => ({
     darkMode,
@@ -1312,8 +1317,9 @@ export default function App() {
     showNotification,
     activeIPOs,
     ipoRestrictedTickers,
-    launchedTickers
-  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers]);
+    launchedTickers,
+    rarityTiers
+  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers, rarityTiers]);
 
   if (loading) {
     return (
