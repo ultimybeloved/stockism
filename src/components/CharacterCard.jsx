@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
-import { getThemeClasses } from '../utils/theme';
+import { getThemeClasses, getRarityStagger, SPACING } from '../utils/theme';
+import { rarityClassFor } from '../utils/rarity';
 import SimpleLineChart from './charts/SimpleLineChart';
 import ShortRiskTag from './ShortRiskTag';
+import RarityBadge from './RarityBadge';
 import TradeActionModal from './modals/TradeActionModal';
 import PreMarketModal from './modals/PreMarketModal';
 import { CREWS } from '../crews';
@@ -72,10 +74,8 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
     }
   };
 
-  const cardClass = darkMode
-    ? `bg-zinc-900 border-zinc-800 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`
-    : `bg-white border-amber-200 ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass: themeCardClass, textClass, mutedClass, ghostBtnClass, raisedClass } = getThemeClasses(darkMode);
+  const cardClass = `${themeCardClass} ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
 
   const getSentimentColor = () => {
     const positiveColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -173,13 +173,20 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
   // Card rarity tier by market standing (ETFs have no tier). See utils/rarity.js —
-  // the ranking is computed once in App and shared via context.
+  // the ranking is computed once in App and shared via context. Tiered cards get
+  // their frame + depth from .rarity-* in index.css; untiered (ETF) cards fall
+  // back to the standard elevation token so they don't look flat next to them.
   const rarityTier = isETF ? null : rarityTiers?.[character.ticker];
-  const rarityClass = rarityTier ? `rarity-${rarityTier}` : '';
+  const frameClass = rarityClassFor(rarityTier) || raisedClass;
+  // Legendary frames tick every few seconds; offset each card by ticker so
+  // multiple legendaries on screen never tick together.
+  const rarityStyle = rarityTier === 'legendary'
+    ? { '--rarity-stagger': getRarityStagger(character.ticker) }
+    : undefined;
 
   return (
     <>
-      <div className={`${cardClass} border rounded-sm p-4 transition-all relative ${rarityClass} ${
+      <div style={rarityStyle} className={`${cardClass} border rounded-sm ${SPACING.cardPad} transition-all relative ${frameClass} ${
         tradeAnimation
           ? tradeAnimation.big
             ? 'animate-trade-gold'
@@ -221,6 +228,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               <div className="flex items-center gap-1">
                 <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
+                {!isETF && <RarityBadge tier={rarityTier} />}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
               {!isETF && (characterCrew || characterEtfs.length > 0) && (
@@ -298,7 +306,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
             className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
               isHalted || marketClosed
                 ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed'
-                : darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'
+                : ghostBtnClass
             }`}
           >
             {isHalted ? 'Trading Halted' : marketState.label}

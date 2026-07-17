@@ -77,26 +77,152 @@ body {
 .animate-trade-sell { animation: tradeSell 0.6s ease-out; }
 .animate-trade-gold { animation: tradeGold 0.8s ease-out; }
 
-/* Card rarity tier trims — one distinct color per tier so every step reads apart.
+/* ===== Card rarity tiers =====
    Tier is assigned by market rank in src/utils/rarity.js (top few = legendary),
-   so the ramp scales itself as prices move. Even Common gets a subtle trim, so a
-   card never looks like its styling failed to load. */
-.rarity-common   { box-shadow: 0 0 4px rgba(148, 163, 184, 0.15); border-color: rgba(148, 163, 184, 0.40) !important; }
-.rarity-uncommon { box-shadow: 0 0 6px rgba(34, 197, 94, 0.28);   border-color: rgba(34, 197, 94, 0.50) !important; }
-.rarity-rare     { box-shadow: 0 0 8px rgba(59, 130, 246, 0.30);  border-color: rgba(59, 130, 246, 0.55) !important; }
-.rarity-epic     { box-shadow: 0 0 11px rgba(168, 85, 247, 0.40); border-color: rgba(168, 85, 247, 0.60) !important; }
+   so the ramp scales itself as prices move. The --tier-* variables below are the
+   single source of truth for tier hues; the matching badge chip tokens live in
+   RARITY_META in src/utils/theme.js. Even Common gets a subtle trim, so a card
+   never looks like its styling failed to load.
 
-/* Legendary holds a static gold trim, then a quick sheen "tick" every 6s rather
-   than the old constant shimmer (see feedback: ambient motion should hold-then-tick).
-   The base rule below is also the reduced-motion fallback. */
+   Each step up adds exactly one signature cue, so tiers read apart at a glance:
+   - common:    quiet slate trim
+   - uncommon:  green trim + top accent line
+   - rare:      blue trim + accent line + name chip (chip = RarityBadge.jsx)
+   - epic:      purple trim + two-tone accent line + faint inner wash
+   - legendary: gold trim + corner brackets + inner wash + hold-then-tick glow
+
+   Every box-shadow here is composed with Tailwind's ring variables so the
+   owned (blue) / shorted (orange) ring-1 indicators still render on tiered
+   cards instead of being clobbered. */
+:root {
+  --tier-common:       148 163 184; /* slate-400 */
+  --tier-uncommon:      34 197  94; /* green-500 */
+  --tier-rare:          59 130 246; /* blue-500 */
+  --tier-epic:         168  85 247; /* purple-500 */
+  --tier-epic-hi:      217  70 239; /* fuchsia-500 — epic accent's second hue */
+  --tier-legendary:    234 179   8; /* yellow-500 */
+  --tier-legendary-hi: 253 224  71; /* yellow-300 — tick highlight */
+}
+
+.rarity-common {
+  border-color: rgb(var(--tier-common) / 0.40);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    0 1px 2px rgb(0 0 0 / 0.10);
+}
+.rarity-uncommon {
+  border-color: rgb(var(--tier-uncommon) / 0.50);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    0 1px 3px rgb(0 0 0 / 0.12), 0 0 6px rgb(var(--tier-uncommon) / 0.22);
+}
+.rarity-rare {
+  border-color: rgb(var(--tier-rare) / 0.55);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    0 2px 6px rgb(0 0 0 / 0.14), 0 0 10px rgb(var(--tier-rare) / 0.26);
+}
+.rarity-epic {
+  border-color: rgb(var(--tier-epic) / 0.65);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    0 3px 10px rgb(0 0 0 / 0.16), 0 0 14px rgb(var(--tier-epic) / 0.32);
+}
+
+/* Hover lift — interaction feedback only, not ambient motion. The card already
+   carries transition-all, so this animates smoothly and settles instantly. */
+.rarity-common:hover, .rarity-uncommon:hover, .rarity-rare:hover,
+.rarity-epic:hover, .rarity-legendary:hover {
+  transform: translateY(-1px);
+}
+
+/* Top accent line (uncommon and up): a short gradient hairline centered on the
+   top edge, like the metallic trim on a collectible card frame. */
+.rarity-uncommon::after, .rarity-rare::after,
+.rarity-epic::after, .rarity-legendary::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--tier-uncommon) / 0.85), transparent);
+}
+.rarity-rare::after {
+  background: linear-gradient(90deg, transparent, rgb(var(--tier-rare) / 0.90), transparent);
+}
+.rarity-epic::after {
+  background: linear-gradient(90deg, transparent,
+    rgb(var(--tier-epic) / 0.95) 35%, rgb(var(--tier-epic-hi) / 0.95) 65%, transparent);
+}
+.rarity-legendary::after {
+  background: linear-gradient(90deg, transparent, rgb(var(--tier-legendary-hi) / 0.95), transparent);
+}
+
+/* Inner wash (epic + legendary): a faint tinted glow falling from the top edge,
+   the "foil" hint. Kept below 10% alpha so text contrast is untouched. */
+.rarity-epic::before, .rarity-legendary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 55% at 50% 0%, rgb(var(--tier-epic) / 0.07), transparent 60%);
+}
+
+/* Legendary corner brackets: four gold L-marks framing the card. Drawn as
+   paired 14x2px / 2x14px gradient strips anchored in each corner. */
+.rarity-legendary::before {
+  --lg-wash: radial-gradient(120% 55% at 50% 0%, rgb(var(--tier-legendary) / 0.08), transparent 60%);
+  --lg-mark: linear-gradient(rgb(var(--tier-legendary) / 0.85), rgb(var(--tier-legendary) / 0.85));
+  background-image: var(--lg-wash),
+    var(--lg-mark), var(--lg-mark), var(--lg-mark), var(--lg-mark),
+    var(--lg-mark), var(--lg-mark), var(--lg-mark), var(--lg-mark);
+  background-position: center top,
+    left top, left top, right top, right top,
+    left bottom, left bottom, right bottom, right bottom;
+  background-size: 100% 100%,
+    14px 2px, 2px 14px, 14px 2px, 2px 14px,
+    14px 2px, 2px 14px, 14px 2px, 2px 14px;
+  background-repeat: no-repeat;
+}
+
+/* Legendary holds a static gold trim, then a quick glow "tick" (~0.4s up, ~0.4s
+   down) once per 6s cycle rather than a constant shimmer (see feedback: ambient
+   motion should hold-then-tick). --rarity-stagger is set per card in
+   CharacterCard.jsx so several legendaries never tick at the same moment.
+   The base declarations below are also the reduced-motion fallback. */
 @keyframes legendaryTick {
-  0%, 80%, 100% { border-color: #eab308; box-shadow: 0 0 8px rgba(234, 179, 8, 0.35); }
-  88%           { border-color: #fde047; box-shadow: 0 0 18px rgba(250, 204, 21, 0.60); }
+  0%, 86%, 100% {
+    border-color: rgb(var(--tier-legendary) / 0.90);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+      0 4px 14px rgb(0 0 0 / 0.18), 0 0 14px rgb(var(--tier-legendary) / 0.35);
+  }
+  93% {
+    border-color: rgb(var(--tier-legendary-hi));
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+      0 4px 14px rgb(0 0 0 / 0.18), 0 0 24px rgb(var(--tier-legendary-hi) / 0.60);
+  }
 }
 .rarity-legendary {
-  border-color: #eab308;
-  box-shadow: 0 0 8px rgba(234, 179, 8, 0.35);
+  border-color: rgb(var(--tier-legendary) / 0.90);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    0 4px 14px rgb(0 0 0 / 0.18), 0 0 14px rgb(var(--tier-legendary) / 0.35);
   animation: legendaryTick 6s ease-in-out infinite;
+  animation-delay: var(--rarity-stagger, 0s);
+}
+
+/* A trade flash and the legendary tick both live on `animation`, so a trade on
+   a legendary card must run both or the later rule cancels the other. */
+.rarity-legendary.animate-trade-buy {
+  animation: tradeBuy 0.6s ease-out, legendaryTick 6s ease-in-out infinite;
+  animation-delay: 0s, var(--rarity-stagger, 0s);
+}
+.rarity-legendary.animate-trade-sell {
+  animation: tradeSell 0.6s ease-out, legendaryTick 6s ease-in-out infinite;
+  animation-delay: 0s, var(--rarity-stagger, 0s);
+}
+.rarity-legendary.animate-trade-gold {
+  animation: tradeGold 0.8s ease-out, legendaryTick 6s ease-in-out infinite;
+  animation-delay: 0s, var(--rarity-stagger, 0s);
 }
 
 /* Hide scrollbar for horizontal scroll containers */
@@ -232,5 +358,8 @@ body {
   .cos-glow-pulse-gold, .cos-glow-pulse-violet,
   .pred-teaser-bar-a, .pred-teaser-bar-b, .pred-teaser-bar-c,
   .podium-sheen::before,
-  .rarity-legendary { animation: none; }
+  .rarity-legendary,
+  .rarity-legendary.animate-trade-buy,
+  .rarity-legendary.animate-trade-sell,
+  .rarity-legendary.animate-trade-gold { animation: none; }
 }

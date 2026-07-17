@@ -1294,7 +1294,7 @@ export default function App() {
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Styling - Orange/Yellow theme inspired by logo
-  const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle } = getThemeClasses(darkMode);
+  const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle, ghostBtnClass, raisedClass } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
 
   // Rarity tiers by market standing — computed once here so every card shares the
@@ -1630,7 +1630,7 @@ export default function App() {
             className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
               marketTab === 'stocks'
                 ? 'bg-amber-500 text-white'
-                : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+                : `border ${ghostBtnClass}`
             }`}
           >
             Stocks
@@ -1640,7 +1640,7 @@ export default function App() {
             className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
               marketTab === 'etfs'
                 ? 'bg-purple-600 text-white'
-                : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+                : `border ${ghostBtnClass}`
             }`}
           >
             ETFs
@@ -1651,7 +1651,7 @@ export default function App() {
               className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
                 marketTab === 'watchlist'
                   ? 'bg-yellow-500 text-white'
-                  : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`
+                  : `border ${ghostBtnClass}`
               }`}
             >
               Watchlist
@@ -1718,7 +1718,7 @@ export default function App() {
         </div>
 
         {/* Controls */}
-        <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
+        <div className={`${cardClass} ${raisedClass} border rounded-sm p-4 mb-4`}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
               className={`px-3 py-2 text-sm rounded-sm border ${inputClassStyle}`}>
@@ -1736,17 +1736,17 @@ export default function App() {
               className={`px-3 py-2 text-sm rounded-sm border ${inputClassStyle}`} />
             <div className="flex items-center justify-center gap-2">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={showAll || currentPage === 1}
-                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
+                className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
                 Prev
               </button>
               <span className={`text-sm ${mutedClass}`}>{currentPage}/{totalPages}</span>
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={showAll || currentPage === totalPages}
-                className={`px-3 py-2 text-sm rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
+                className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
                 Next
               </button>
             </div>
             <button onClick={() => setShowAll(!showAll)}
-              className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}`}>
+              className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}>
               {showAll ? 'Show Pages' : 'Show All'}
             </button>
           </div>
@@ -1799,12 +1799,12 @@ export default function App() {
           <div className={`${cardClass} border rounded-sm p-4 mt-4`}>
             <div className="flex justify-center items-center gap-4">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
+                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
                 Previous
               </button>
               <span className={`text-sm ${mutedClass}`}>Page {currentPage} of {totalPages}</span>
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}>
+                className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
                 Next
               </button>
             </div>
@@ -1956,7 +1956,7 @@ export default function App() {
               <button
                 onClick={() => setShowBailout(false)}
                 disabled={actionLoading.bailout}
-                className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'} disabled:opacity-50`}
+                className={`flex-1 py-2 rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
               >
                 Cancel
               </button>

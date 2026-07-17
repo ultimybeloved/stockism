@@ -20,7 +20,86 @@ export const getThemeClasses = (darkMode) => ({
   divideClass: darkMode ? 'divide-zinc-700'              : 'divide-amber-200',
   // Borders standalone
   borderClass: darkMode ? 'border-zinc-700'              : 'border-amber-200',
+
+  // --- Elevation ---
+  // Ambient depth for cards/panels that sit on the page background.
+  // Pair with cardClass + `border`. Rarity-tiered cards get their own
+  // shadows from index.css (.rarity-*) and don't need this.
+  raisedClass: darkMode ? 'shadow-md shadow-black/40'    : 'shadow-sm shadow-amber-900/10',
+
+  // --- Accent ---
+  // Brand accent for tickers, links, and highlights.
+  accentClass:      'text-orange-600',
+  accentHoverClass: 'hover:text-orange-500',
+
+  // --- Buttons ---
+  // Quiet bordered button (tabs, pagination, secondary actions).
+  // Pair with `border` + your own padding/rounding at the call site.
+  ghostBtnClass: darkMode
+    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+    : 'border-amber-200 text-zinc-600 hover:bg-amber-50',
+
+  // --- Chips/tags ---
+  // Small neutral tag fill (filters, counts, metadata).
+  chipClass: darkMode ? 'bg-zinc-800 text-zinc-300'      : 'bg-slate-200 text-zinc-600',
 });
+
+// Spacing rhythm — shared paddings/gaps so sections breathe evenly.
+// Use these instead of ad-hoc p-*/mb-*/gap-* when laying out cards and grids.
+export const SPACING = {
+  cardPad:    'p-4',   // standard card interior
+  sectionGap: 'mb-4',  // vertical gap between page sections
+  gridGap:    'gap-4', // gap inside card grids
+};
+
+// ===== Rarity tier tokens =====
+// The card frame treatment (border, glow, accent line, brackets) lives in
+// src/index.css (.rarity-* rules; the --tier-* variables there are the single
+// source of truth for tier hues). These are the matching in-JSX tokens:
+// a display label plus badge chip classes per tier, both themes.
+export const RARITY_META = {
+  common: {
+    label: 'Common',
+    chipDark:  'bg-zinc-800 text-zinc-400 border-zinc-600/50',
+    chipLight: 'bg-slate-100 text-slate-600 border-slate-300',
+  },
+  uncommon: {
+    label: 'Uncommon',
+    chipDark:  'bg-green-900/40 text-green-300 border-green-500/40',
+    chipLight: 'bg-green-100 text-green-700 border-green-300',
+  },
+  rare: {
+    label: 'Rare',
+    chipDark:  'bg-blue-900/40 text-blue-300 border-blue-500/40',
+    chipLight: 'bg-blue-100 text-blue-700 border-blue-300',
+  },
+  epic: {
+    label: 'Epic',
+    chipDark:  'bg-purple-900/40 text-purple-300 border-purple-500/40',
+    chipLight: 'bg-purple-100 text-purple-700 border-purple-300',
+  },
+  legendary: {
+    label: 'Legendary',
+    chipDark:  'bg-gradient-to-r from-amber-500 to-yellow-400 text-zinc-950 border-yellow-300',
+    chipLight: 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-950 border-amber-400',
+  },
+};
+
+// Which tiers show a name chip on the card. Lower tiers keep just the frame
+// trim so the grid stays quiet and the top of the ladder stays desirable.
+export const RARITY_LABELED_TIERS = ['rare', 'epic', 'legendary'];
+
+// Legendary frames tick once per 6s cycle (legendaryTick in index.css).
+// Stagger each card by a hash of its ticker so several legendaries on screen
+// never tick at the same moment (ambient motion must never move in unison).
+export const getRarityStagger = (ticker = '') => {
+  let hash = 0;
+  for (let i = 0; i < ticker.length; i++) {
+    hash = (hash * 31 + ticker.charCodeAt(i)) >>> 0; // simple string hash
+  }
+  // Spread delays across 0.0-4.9s of the cycle in 0.1s steps.
+  return `${(hash % 50) / 10}s`;
+};
 
 // Crew brand colors range from pure white (Hostel) to near-black (Workers,
 // God Dog), so using them raw as text color can make a name invisible against
