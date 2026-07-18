@@ -1,8 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
-import { CHARACTER_MAP, getDividendTier } from '../../characters';
+import { useState, useMemo } from 'react';
+import { CHARACTER_MAP } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
-import { DIVIDEND_RATES } from '../../constants/economy';
-import { getShortLiquidationPrice } from '../../utils/calculations';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
 import PortfolioChart from '../portfolio/PortfolioChart';
@@ -15,6 +13,7 @@ import DustCleanupBanner from '../portfolio/DustCleanupBanner';
 import { useDustCleanup } from '../../hooks/useDustCleanup';
 import { usePortfolioChartData } from '../portfolio/usePortfolioChartData';
 import { usePortfolioModalData } from '../portfolio/usePortfolioModalData';
+import { buildPortfolioItems, buildShortItems } from '../portfolio/buildPositionItems';
 import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
 import { isWeeklyHalt } from '../../utils/marketHours';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -60,79 +59,10 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     usePortfolioModalData(user, timeRange, showNotification);
 
   // Helper to get price from 24h ago
-  const getPrice24hAgo = useCallback((ticker) => {
-    const history = priceHistory?.[ticker] || [];
-    if (history.length === 0) return prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
-
-    const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].timestamp <= dayAgo) {
-        return history[i].price;
-      }
-    }
-    return history[0]?.price || prices[ticker] || 0;
-  }, [priceHistory, prices]);
-
-  const portfolioItems = useMemo(() => {
-    const now = Date.now();
-    return Object.entries(holdings)
-      .filter(([_, shares]) => shares > 0)
-      .map(([ticker, shares]) => {
-        const character = CHARACTER_MAP[ticker];
-        const currentPrice = prices[ticker] || character?.basePrice || 0;
-        const value = currentPrice * shares;
-        const avgCost = costBasis?.[ticker] || character?.basePrice || currentPrice;
-        const totalCost = avgCost * shares;
-
-        // Total return (from avg cost)
-        const totalReturnDollar = value - totalCost;
-        const totalReturnPercent = totalCost > 0 ? ((value - totalCost) / totalCost) * 100 : 0;
-
-        // Today's return (from 24h ago price)
-        const price24hAgo = getPrice24hAgo(ticker);
-        const value24hAgo = price24hAgo * shares;
-        const todayReturnDollar = value - value24hAgo;
-        const todayReturnPercent = value24hAgo > 0 ? ((value - value24hAgo) / value24hAgo) * 100 : 0;
-
-        // Dividend eligibility — graduates any pending entries past their availableAt.
-        const tier = getDividendTier(ticker, dividendTierOverrides);
-        const tierRate = DIVIDEND_RATES[tier] || 0;
-        const cohort = holdingCohorts?.[ticker];
-        let eligibleShares = 0;
-        let soonestReadyMs = null;
-        if (cohort) {
-          eligibleShares = cohort.eligible || 0;
-          for (const p of (cohort.pending || [])) {
-            if ((p.availableAt || 0) <= now) {
-              eligibleShares += p.shares || 0;
-            } else if (soonestReadyMs === null || p.availableAt < soonestReadyMs) {
-              soonestReadyMs = p.availableAt;
-            }
-          }
-        }
-        const weeklyDividend = eligibleShares * currentPrice * tierRate;
-
-        return {
-          ticker,
-          shares,
-          character,
-          currentPrice,
-          value,
-          avgCost,
-          totalCost,
-          totalReturnDollar,
-          totalReturnPercent,
-          todayReturnDollar,
-          todayReturnPercent,
-          tier,
-          tierRate,
-          eligibleShares,
-          soonestReadyMs,
-          weeklyDividend,
-        };
-      })
-      .sort((a, b) => b.value - a.value);
-  }, [holdings, prices, costBasis, holdingCohorts, dividendTierOverrides, getPrice24hAgo]);
+  const portfolioItems = useMemo(
+    () => buildPortfolioItems({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides }),
+    [holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides]
+  );
 
   const totalWeeklyDividends = useMemo(
     () => portfolioItems.reduce((sum, item) => sum + (item.weeklyDividend || 0), 0),
@@ -146,46 +76,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
   );
   const { dustItems, dustTotal, sweeping, handleSweep } = useDustCleanup(portfolioItems, showNotification);
 
-  const shortItems = useMemo(() => {
-    return Object.entries(shorts || {})
-      .filter(([_, position]) => position && position.shares > 0)
-      .map(([ticker, position]) => {
-        const character = CHARACTER_MAP[ticker];
-        const currentPrice = prices[ticker] || character?.basePrice || position.costBasis || position.entryPrice || 0;
-        const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
-        const shares = Number(position.shares) || 0;
-        const margin = Number(position.margin) || 0;
-
-        // P/L calculation: profit when price goes down
-        const profitPerShare = entryPrice - currentPrice;
-        const totalPL = profitPerShare * shares;
-        const totalPLPercent = entryPrice > 0 ? (profitPerShare / entryPrice) * 100 : 0;
-
-        // Current equity in the position
-        const equity = margin + totalPL;
-        const safeEquity = isNaN(equity) ? margin : equity;
-        const equityRatio = currentPrice > 0 && shares > 0 ? safeEquity / (currentPrice * shares) : 1;
-        const positionValue = safeEquity;
-
-        return {
-          ticker,
-          character,
-          shares,
-          entryPrice,
-          currentPrice,
-          margin,
-          totalPL: isNaN(totalPL) ? 0 : totalPL,
-          totalPLPercent: isNaN(totalPLPercent) ? 0 : totalPLPercent,
-          equity: safeEquity,
-          equityRatio: isNaN(equityRatio) ? 1 : equityRatio,
-          positionValue,
-          value: positionValue, // alias so sortHoldings('value') works on shorts too
-          liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
-          openedAt: position.openedAt
-        };
-      })
-      .sort((a, b) => b.positionValue - a.positionValue);
-  }, [shorts, prices]);
+  const shortItems = useMemo(() => buildShortItems({ shorts, prices }), [shorts, prices]);
 
   // Same search + sort treatment for shorts as the long-positions list.
   const visibleShorts = useMemo(
