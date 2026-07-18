@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
-import { db, deleteAccountFunction, claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { computeRarityTiers } from './utils/rarity';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -38,6 +38,8 @@ import { useModalManager } from './hooks/useModalManager';
 import { useAuthUser } from './hooks/useAuthUser';
 import { useMarketData } from './hooks/useMarketData';
 import { useUserAlerts } from './hooks/useUserAlerts';
+import { useUserActions } from './hooks/useUserActions';
+import { useAccountMaintenance } from './hooks/useAccountMaintenance';
 import { useTradeManagement } from './hooks/useTradeManagement';
 import { useMissionManagement } from './hooks/useMissionManagement';
 import { useMarginManagement } from './hooks/useMarginManagement';
@@ -64,32 +66,10 @@ import { AppProvider } from './context/AppContext';
 import { getThemeClasses } from './utils/theme';
 
 // Import from new modular structure
-import {
-  ADMIN_UIDS,
-  UNVERIFIED_STARTING_CASH,
-  BAILOUT_CASH,
-  PORTFOLIO_SYNC_MIN_INTERVAL_MS,
-} from './constants';
+import { ADMIN_UIDS, UNVERIFIED_STARTING_CASH } from './constants';
 import { calculatePortfolioValue } from './utils/calculations';
-import { formatCurrency } from './utils/formatters';
 import { getWeekStart } from './utils/date';
 
-
-// ============================================
-// PREDICTION/IPO HELPERS
-// ============================================
-
-// ============================================
-// PREDICTION CARD COMPONENT → moved to src/components/PredictionCard.jsx
-// ============================================
-
-// ============================================
-// IPO HYPE CARD → moved to src/components/IPOHypeCard.jsx
-// ============================================
-
-// ============================================
-// IPO ACTIVE CARD → moved to src/components/IPOActiveCard.jsx
-// ============================================
 
 // ============================================
 // MAIN APP
@@ -279,192 +259,15 @@ export default function App() {
     showNotification, setLoadingKey, setTradeConfirmation, setTradeAnimation,
   });
 
-  const handleOnboardingComplete = useCallback(async () => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, 'users', user.uid), { onboardingComplete: true });
-    } catch (err) {
-      console.error('Failed to complete onboarding:', err);
-    }
-  }, [user]);
+  // One-shot user actions (watchlist, DRIP, deletion, tutorial/onboarding flags)
+  const {
+    toggleWatchlist, handleLimitOrderRequest, handleHidePrediction,
+    handleToggleDrip, handleDeleteAccount, handleMarginTutorialComplete,
+    handleOnboardingComplete,
+  } = useUserActions({ user, userData, showNotification, setLimitOrderRequest, setShowPortfolio });
 
-  // Auto-process payouts when prediction is resolved
-  useEffect(() => {
-    const processPayouts = async () => {
-      if (!user || !userData || !userData.bets) return;
-
-      for (const prediction of predictions) {
-        if (!prediction.resolved || prediction.payoutsProcessed) continue;
-
-        const userBet = userData.bets[prediction.id];
-        if (!userBet || userBet.paid) continue;
-
-        try {
-          const result = await claimPredictionPayoutFunction({ predictionId: prediction.id });
-          const { won, payout } = result.data;
-
-          if (won) {
-            // Win surfaces as a persistent bell notification (written server-side), not a toast
-            console.log(`[Payout] Processed winning bet for prediction ${prediction.id}: +${payout}`);
-          } else {
-            console.log(`[Payout] Processed losing bet for prediction ${prediction.id}`);
-          }
-        } catch (error) {
-          console.error(`[Payout] Failed to process payout for prediction ${prediction.id}:`, error);
-        }
-      }
-    };
-
-    processPayouts();
-  }, [user, userData, predictions]);
-
-  // Watchlist toggle
-  const toggleWatchlist = useCallback(async (ticker) => {
-    if (!user || !userData) return;
-    const current = userData.watchlist || [];
-    const updated = current.includes(ticker)
-      ? current.filter(t => t !== ticker)
-      : [...current, ticker];
-    try {
-      await updateDoc(doc(db, 'users', user.uid), { watchlist: updated });
-    } catch (err) {
-      console.error('Failed to update watchlist:', err);
-    }
-  }, [user, userData]);
-
-  // Handle limit order request from portfolio
-  const handleLimitOrderRequest = useCallback((ticker, action, mode) => {
-    if (!user || !userData) {
-      showNotification('info', 'Sign in to start trading!');
-      return;
-    }
-    setLimitOrderRequest({ ticker, action, mode: mode || 'limit' });
-    setShowPortfolio(false); // Close portfolio modal
-  }, [user, userData, showNotification, setLimitOrderRequest, setShowPortfolio]);
-
-
-  // Sync portfolio value, history, and achievements via Cloud Function
-  // (these fields are blocked from client-side writes by security rules).
-  // Debounced, with a minimum interval: the sync's own write updates userData,
-  // which re-arms this effect — without the floor every active client would
-  // call the backend roughly every 30 seconds for the whole session.
-  const lastPortfolioSyncRef = useRef(0);
-  useEffect(() => {
-    if (!user || !userData || Object.keys(prices).length === 0) return;
-
-    const timeout = setTimeout(async () => {
-      if (Date.now() - lastPortfolioSyncRef.current < PORTFOLIO_SYNC_MIN_INTERVAL_MS) return;
-      lastPortfolioSyncRef.current = Date.now();
-      try {
-        await syncPortfolioFunction();
-      } catch (error) {
-        console.error('[PORTFOLIO SYNC ERROR]', error);
-      }
-    }, 30000);
-
-    return () => clearTimeout(timeout);
-  }, [user, userData, prices]);
-
-  // Daily margin interest (charged at midnight or on login)
-  useEffect(() => {
-    if (!user || !userData || !userData.marginEnabled) return;
-
-    const marginUsed = userData.marginUsed || 0;
-    if (marginUsed <= 0) return;
-
-    const lastInterestCharge = userData.lastMarginInterestCharge || 0;
-    const now = Date.now();
-    const oneDayMs = 24 * 60 * 60 * 1000;
-
-    if (now - lastInterestCharge >= oneDayMs) {
-      chargeMarginInterestFunction({}).then(result => {
-        if (result.data.charged > 0) {
-          console.log(`Margin interest charged: ${formatCurrency(result.data.charged)}`);
-        }
-      }).catch(err => console.error('Margin interest charge failed:', err));
-    }
-    // Deliberately narrow deps: re-check only when the margin fields change,
-    // not on every userData write (holdings, missions, etc. update constantly).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userData?.marginEnabled, userData?.marginUsed, userData?.lastMarginInterestCharge]);
-
-  // Bankruptcy notification system - remind every 5 minutes
-  useEffect(() => {
-    if (!user || !userData) return;
-
-    const cash = userData.cash || 0;
-    if (cash >= 0) return; // cash is fine
-
-    const showBankruptcyReminder = () => {
-      const debtAmount = Math.abs(cash);
-      if (userData.isBankrupt) {
-        showNotification('warning', `💸 You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`);
-      } else {
-        showNotification('warning', `💸 You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`);
-      }
-    };
-
-    // Show immediately on login/becoming bankrupt
-    showBankruptcyReminder();
-
-    // Then every 5 minutes
-    const interval = setInterval(showBankruptcyReminder, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-    // Deliberately narrow deps: the 5-minute reminder should re-arm only when
-    // cash changes, not on every userData write.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userData?.cash, showNotification]);
-
-  // Hide prediction from feed (admin only)
-  const handleHidePrediction = useCallback(async (predictionId) => {
-    if (!user || !ADMIN_UIDS.includes(user.uid)) return;
-
-    try {
-      const predictionsRef = doc(db, 'predictions', 'current');
-      const snap = await getDoc(predictionsRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        const updatedList = (data.list || []).map(p =>
-          p.id === predictionId ? { ...p, hidden: true } : p
-        );
-        await updateDoc(predictionsRef, { list: updatedList });
-        showNotification('success', 'Prediction hidden from feed');
-      }
-    } catch (err) {
-      console.error('Failed to hide prediction:', err);
-      showNotification('error', 'Failed to hide prediction');
-    }
-  }, [user, showNotification]);
-
-  // DRIP toggle
-  const handleToggleDrip = useCallback(async (ticker) => {
-    if (!user) return;
-    const userRef = doc(db, 'users', user.uid);
-    const isEnabled = !!(userData?.drip?.[ticker]);
-    await updateDoc(userRef, { [`drip.${ticker}`]: isEnabled ? deleteField() : true });
-  }, [user, userData]);
-
-  // Delete account
-  const handleDeleteAccount = useCallback(async (confirmUsername) => {
-    if (!user) return;
-
-    try {
-      // Call Cloud Function to delete account
-      await deleteAccountFunction({ confirmUsername });
-      showNotification('success', 'Account deleted successfully');
-    } catch (err) {
-      console.error('Failed to delete account:', err);
-      const errorMessage = err?.message || 'Failed to delete account. Please try again.';
-      showNotification('error', errorMessage);
-      throw err;
-    }
-  }, [user, showNotification]);
-
-  const handleMarginTutorialComplete = async () => {
-    if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), { marginTutorialCompleted: true });
-  };
+  // Background account upkeep (payout claims, portfolio sync, interest, debt reminders)
+  useAccountMaintenance({ user, userData, prices, predictions, showNotification });
 
   // Guest data
   const guestData = { cash: UNVERIFIED_STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: UNVERIFIED_STARTING_CASH };
