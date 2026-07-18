@@ -1,25 +1,7 @@
-import * as Sentry from '@sentry/react';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import {
-  onAuthStateChanged,
-  applyActionCode,
-  signInWithCustomToken
-} from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  deleteDoc,
-  deleteField
-} from 'firebase/firestore';
-import { auth, db, deleteAccountFunction, claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction, createPriceAlertFunction, deletePriceAlertFunction } from './firebase';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { db, deleteAccountFunction, claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction } from './firebase';
 import { CHARACTERS, CHARACTER_MAP } from './characters';
 import { computeRarityTiers } from './utils/rarity';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -53,6 +35,9 @@ import BetConfirmModal from './components/modals/BetConfirmModal';
 import BailoutModal from './components/modals/BailoutModal';
 import InstallPrompt from './components/InstallPrompt';
 import { useModalManager } from './hooks/useModalManager';
+import { useAuthUser } from './hooks/useAuthUser';
+import { useMarketData } from './hooks/useMarketData';
+import { useUserAlerts } from './hooks/useUserAlerts';
 import { useTradeManagement } from './hooks/useTradeManagement';
 import { useMissionManagement } from './hooks/useMissionManagement';
 import { useMarginManagement } from './hooks/useMarginManagement';
@@ -83,7 +68,6 @@ import {
   ADMIN_UIDS,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,
-  IPO_TOTAL_SHARES,
   PORTFOLIO_SYNC_MIN_INTERVAL_MS,
 } from './constants';
 import { calculatePortfolioValue } from './utils/calculations';
@@ -145,13 +129,6 @@ function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
-  const [prices, setPrices] = useState({});
-  const [priceHistory, setPriceHistory] = useState({});
-  const [marketData, setMarketData] = useState(null);
-  const [dividendTierOverrides, setDividendTierOverrides] = useState({});
-  const [launchedTickers, setLaunchedTickers] = useState([]);
   const [darkMode, setDarkMode] = useState(() => {
     // Initialize from localStorage if available
     try {
@@ -184,7 +161,6 @@ export default function App() {
     });
   }, [user]);
 
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const setLoadingKey = useCallback((key, value) => {
     setActionLoading(prev => ({ ...prev, [key]: value }));
@@ -222,12 +198,31 @@ export default function App() {
   const handleViewChart = (character, defaultTimeRange = '1d') => {
     setSelectedCharacter({ character, defaultTimeRange });
   };
-  const [needsUsername, setNeedsUsername] = useState(false);
-  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
-  const [predictions, setPredictions] = useState([]);
-  const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
-  const [userNotifications, setUserNotifications] = useState([]);
-  const [priceAlerts, setPriceAlerts] = useState([]); // user's active price alerts
+  // Helper to show toast notification
+  const showNotification = useCallback((type, message, image = null) => {
+    const id = Date.now() + Math.random();
+    setNotifications(prev => [...prev, { id, type, message, image }].slice(-5)); // Max 5 toasts
+  }, []);
+
+  // Helper to dismiss notification
+  const dismissNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // Auth state + user doc subscription (and auth-adjacent URL flows)
+  const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc } = useAuthUser({ setDarkMode, showNotification });
+
+  // Global market subscriptions: prices, chart history, IPOs, predictions
+  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions } = useMarketData();
+
+  // Bell notifications + price alerts (subscriptions and handlers)
+  const {
+    userNotifications, priceAlerts,
+    handleMarkNotificationRead, handleMarkAllNotificationsRead,
+    handleClearAllNotifications, handleDeleteNotification,
+    handleCreatePriceAlert, handleDeletePriceAlert,
+  } = useUserAlerts({ user, showNotification });
+
   // Compute new characters for header notification
   const newCharactersWithData = useMemo(() => {
     const weekStart = getWeekStart();
@@ -268,18 +263,7 @@ export default function App() {
     }
   }, [userData]);
 
-  // Helper to show toast notification
-  const showNotification = useCallback((type, message, image = null) => {
-    const id = Date.now() + Math.random();
-    setNotifications(prev => [...prev, { id, type, message, image }].slice(-5)); // Max 5 toasts
-  }, []);
-
-  // Helper to dismiss notification
-  const dismissNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
-  // Business-logic hooks — called here, after showNotification + all state are defined
+  // Business-logic hooks — called here, after showNotification + all state are defined  // Business-logic hooks — called here, after showNotification + all state are defined
   // These receive state directly because App.jsx IS the context provider (can't consume its own context)
   const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey });
   const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending });
@@ -295,68 +279,6 @@ export default function App() {
     showNotification, setLoadingKey, setTradeConfirmation, setTradeAnimation,
   });
 
-  // Notification handlers
-  const handleMarkNotificationRead = useCallback(async (notificationId) => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, 'users', user.uid, 'notifications', notificationId), { read: true });
-    } catch (err) {
-      console.error('Failed to mark notification read:', err);
-    }
-  }, [user]);
-
-  // Both act on the exact ids the panel passes (scoped to the active filter tab),
-  // so "Clear" / "Mark Read" only touch what the user is actually looking at.
-  const handleMarkAllNotificationsRead = useCallback(async (ids) => {
-    if (!user || !ids?.length) return;
-    try {
-      await Promise.all(ids.map(id =>
-        updateDoc(doc(db, 'users', user.uid, 'notifications', id), { read: true })
-      ));
-    } catch (err) {
-      console.error('Failed to mark notifications read:', err);
-    }
-  }, [user]);
-
-  const handleClearAllNotifications = useCallback(async (ids) => {
-    if (!user || !ids?.length) return;
-    try {
-      await Promise.all(ids.map(id =>
-        deleteDoc(doc(db, 'users', user.uid, 'notifications', id))
-      ));
-    } catch (err) {
-      console.error('Failed to clear notifications:', err);
-    }
-  }, [user]);
-
-  const handleDeleteNotification = useCallback(async (notificationId) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'users', user.uid, 'notifications', notificationId));
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
-    }
-  }, [user]);
-
-  const handleCreatePriceAlert = useCallback(async ({ ticker, targetPrice, direction }) => {
-    try {
-      await createPriceAlertFunction({ ticker, targetPrice, direction });
-      showNotification('success', `Price alert set for $${ticker}`);
-      return true;
-    } catch (err) {
-      showNotification('error', err.message || 'Failed to create alert');
-      return false;
-    }
-  }, [showNotification]);
-
-  const handleDeletePriceAlert = useCallback(async (alertId) => {
-    try {
-      await deletePriceAlertFunction({ alertId });
-    } catch (err) {
-      showNotification('error', err.message || 'Failed to delete alert');
-    }
-  }, [showNotification]);
-
   const handleOnboardingComplete = useCallback(async () => {
     if (!user) return;
     try {
@@ -365,297 +287,6 @@ export default function App() {
       console.error('Failed to complete onboarding:', err);
     }
   }, [user]);
-
-  // Ref to store user data listener unsubscribe function
-  const userDataUnsubscribeRef = useRef(null);
-
-  // Handle Discord OAuth redirect
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const discordToken = params.get('discord_token');
-    const discordError = params.get('discord_error');
-
-    if (discordToken) {
-      // Sign in with custom token from Discord OAuth
-      signInWithCustomToken(auth, discordToken)
-        .then(() => {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        })
-        .catch((error) => {
-          console.error('Discord sign-in error:', error);
-        });
-    } else if (discordError) {
-      showNotification('error', 'Discord sign-in failed. Please try again or use a different sign-in method.');
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [showNotification]);
-
-  // Listen to auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Clean up previous user data listener
-      if (userDataUnsubscribeRef.current) {
-        userDataUnsubscribeRef.current();
-        userDataUnsubscribeRef.current = null;
-      }
-
-      setUser(firebaseUser);
-      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email } : null);
-      if (firebaseUser) {
-        // Check if email is verified (only for email/password providers)
-        const isEmailProvider = firebaseUser.providerData.some(p => p.providerId === 'password');
-        if (isEmailProvider && !firebaseUser.emailVerified) {
-          // Email not verified - block access
-          setNeedsEmailVerification(true);
-          setNeedsUsername(false);
-          setUserData(null);
-          setLoading(false);
-          return;
-        }
-
-        setNeedsEmailVerification(false);
-
-        // Listen to user data
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userDocRef);
-
-        if (!userSnap.exists()) {
-          // New user - prompt for username (don't auto-create yet)
-          setNeedsUsername(true);
-          setUserData(null);
-        } else {
-          setNeedsUsername(false);
-          const data = userSnap.data();
-          setUserData(data);
-
-          // Sync dark mode from Firestore if user has a saved preference
-          if (data.darkMode !== undefined) {
-            setDarkMode(data.darkMode);
-            localStorage.setItem('stockism_darkMode', data.darkMode);
-          }
-
-          // Subscribe to user data changes - store unsubscribe for cleanup
-          userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
-            if (snap.exists()) setUserData(snap.data());
-          });
-        }
-      } else {
-        setUserData(null);
-        setNeedsUsername(false);
-        setNeedsEmailVerification(false);
-      }
-      setLoading(false);
-    });
-    return () => {
-      unsubscribe();
-      // Clean up user data listener on unmount
-      if (userDataUnsubscribeRef.current) {
-        userDataUnsubscribeRef.current();
-      }
-    };
-  }, []);
-
-  // Subscribe to user notifications
-  useEffect(() => {
-    if (!user) { setUserNotifications([]); return; }
-    const notifQuery = query(
-      collection(db, 'users', user.uid, 'notifications'),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    const unsub = onSnapshot(notifQuery, (snap) => {
-      const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setUserNotifications(notifs);
-    }, (err) => {
-      console.error('Notification subscription error:', err);
-    });
-    return () => unsub();
-  }, [user]);
-
-  // Subscribe to user price alerts
-  useEffect(() => {
-    if (!user) { setPriceAlerts([]); return; }
-    const alertsQuery = query(
-      collection(db, 'users', user.uid, 'priceAlerts'),
-      where('triggered', '==', false)
-    );
-    const unsub = onSnapshot(alertsQuery, (snap) => {
-      setPriceAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => {
-      console.error('Price alerts subscription error:', err);
-    });
-    return () => unsub();
-  }, [user]);
-
-  // Handle Firebase email action codes (verification links)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
-    const oobCode = urlParams.get('oobCode');
-
-    if (mode === 'verifyEmail' && oobCode) {
-      applyActionCode(auth, oobCode)
-        .then(() => {
-          // Verification successful - reload user and redirect
-          if (auth.currentUser) {
-            auth.currentUser.reload().then(() => {
-              // Clear URL params and reload to update state
-              window.history.replaceState({}, '', window.location.pathname);
-              window.location.reload();
-            });
-          } else {
-            window.history.replaceState({}, '', window.location.pathname);
-            window.location.reload();
-          }
-        })
-        .catch((error) => {
-          console.error('Email verification failed:', error);
-          // Could show error to user - link expired or already used
-        });
-    }
-  }, []);
-
-  // Listen to global market data. Chart history lives in its own doc
-  // (market/priceHistory) and is fetched ONCE below — the live subscription
-  // only carries the small prices doc, so every price tick no longer pushes
-  // the full chart history for every stock to every player.
-  const prevPricesRef = useRef(null);
-  useEffect(() => {
-    const marketRef = doc(db, 'market', 'current');
-
-    const unsubscribe = onSnapshot(marketRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        // Merge stored prices with basePrices for any new characters
-        const storedPrices = data.prices || {};
-        const launched = data.launchedTickers || [];
-        const mergedPrices = {};
-        CHARACTERS.forEach(c => {
-          // Only include character if it doesn't require IPO, or if it's been launched
-          if (!c.ipoRequired || launched.includes(c.ticker)) {
-            mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
-          }
-        });
-        setPrices(mergedPrices);
-        setMarketData(data);
-        setLaunchedTickers(launched);
-
-        // Extend local chart history from live ticks (the server appends the
-        // same points to market/priceHistory; these local ones just keep the
-        // charts moving without re-downloading history).
-        const prev = prevPricesRef.current;
-        if (prev) {
-          const ts = Date.now();
-          const changed = Object.entries(mergedPrices)
-            .filter(([t, p]) => prev[t] !== undefined && prev[t] !== p);
-          if (changed.length > 0) {
-            setPriceHistory(prevHist => {
-              const next = { ...prevHist };
-              changed.forEach(([t, p]) => {
-                next[t] = [...(next[t] || []), { timestamp: ts, price: p }].slice(-2000);
-              });
-              return next;
-            });
-          }
-        }
-        prevPricesRef.current = mergedPrices;
-      } else {
-        // Market doc missing (fresh environment) — show base prices; the
-        // backend owns market initialization.
-        const initialPrices = {};
-        CHARACTERS.forEach(c => {
-          if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
-        });
-        setPrices(initialPrices);
-        setLaunchedTickers([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Listen to dividend tier overrides (admin-editable config doc)
-  useEffect(() => {
-    const ref = doc(db, 'dividendConfig', 'tierOverrides');
-    const unsubscribe = onSnapshot(ref, (snap) => {
-      if (snap.exists()) {
-        setDividendTierOverrides(snap.data().tiers || {});
-      } else {
-        setDividendTierOverrides({});
-      }
-    }, (err) => {
-      // Missing doc is fine — fall back to hardcoded defaults.
-      console.warn('dividendConfig/tierOverrides subscription:', err?.message);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Fetch chart history once per session from its own doc. Live ticks keep it
-  // current locally (see the market subscription above); merging preserves any
-  // points that arrived before this fetch resolved.
-  useEffect(() => {
-    let cancelled = false;
-    getDoc(doc(db, 'market', 'priceHistory'))
-      .then(snap => {
-        if (cancelled || !snap.exists()) return;
-        const fetched = snap.data() || {};
-        setPriceHistory(prevLocal => {
-          const merged = {};
-          const tickers = new Set([...Object.keys(fetched), ...Object.keys(prevLocal)]);
-          tickers.forEach(t => {
-            const base = Array.isArray(fetched[t]) ? fetched[t] : [];
-            const seen = new Set(base.map(p => p.timestamp));
-            const extra = (prevLocal[t] || []).filter(p => !seen.has(p.timestamp));
-            merged[t] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
-          });
-          return merged;
-        });
-      })
-      .catch(err => console.error('Failed to load price history:', err));
-    return () => { cancelled = true; };
-  }, []);
-
-  // Listen to IPO data
-  useEffect(() => {
-    const ipoRef = doc(db, 'market', 'ipos');
-    
-    const unsubscribe = onSnapshot(ipoRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const ipos = data.list || [];
-        const now = Date.now();
-        
-        // Filter to only show active IPOs (in hype or buying phase)
-        const activeOnes = ipos.filter(ipo => {
-          const inHypePhase = now < ipo.ipoStartsAt;
-          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
-          return inHypePhase || inBuyingPhase;
-        });
-        
-        setActiveIPOs(activeOnes);
-
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Listen to predictions
-  useEffect(() => {
-    const predictionsRef = doc(db, 'predictions', 'current');
-    
-    const unsubscribe = onSnapshot(predictionsRef, (snap) => {
-      if (snap.exists()) {
-        setPredictions(snap.data().list || []);
-      } else {
-        // No predictions document - just show empty state
-        // Only admins can create predictions via Admin Panel
-        setPredictions([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   // Auto-process payouts when prediction is resolved
   useEffect(() => {
@@ -967,20 +598,7 @@ export default function App() {
           {needsUsername && user && (
             <UsernameModal
               user={user}
-              onComplete={async () => {
-                setNeedsUsername(false);
-                // Refresh user data
-                const userDocRef = doc(db, 'users', user.uid);
-                const userSnap = await getDoc(userDocRef);
-                if (userSnap.exists()) {
-                  setUserData(userSnap.data());
-                  // Subscribe to changes (clean up any existing listener first)
-                  userDataUnsubscribeRef.current?.();
-                  userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
-                    if (snap.exists()) setUserData(snap.data());
-                  });
-                }
-              }}
+              onComplete={() => adoptUserDoc(user.uid)}
               darkMode={darkMode}
             />
           )}
