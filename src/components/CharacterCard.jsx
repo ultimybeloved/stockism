@@ -225,7 +225,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="flex items-center gap-1">
-                <p className="text-orange-600 font-mono text-sm font-semibold">${character.ticker}</p>
+                <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
@@ -336,7 +336,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               </button>
               <button
                 onClick={() => { setTradeAction('short'); setShowTradeMenu(false); }}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 ${darkMode ? 'text-orange-400 hover:bg-orange-900/30' : 'text-orange-600 hover:bg-orange-50'}`}
+                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 ${darkMode ? 'text-orange-400 hover:bg-orange-900/30' : 'text-orange-500 hover:bg-orange-50'}`}
               >
                 Short
               </button>
@@ -350,7 +350,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
             </div>
             <button
               onClick={() => setShowTradeMenu(false)}
-              className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-600`}
+              className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-500`}
             >
               Cancel
             </button>

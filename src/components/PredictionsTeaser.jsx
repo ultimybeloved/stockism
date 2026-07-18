@@ -39,11 +39,11 @@ const PredictionsTeaser = ({ predictions = [] }) => {
       <div className="flex justify-between items-center mb-3">
         <p className={`text-xs font-semibold uppercase ${mutedClass}`}>🔮 Predictions</p>
         {openWeekly.length > 0 ? (
-          <span className="text-xs font-semibold text-orange-600">
+          <span className="text-xs font-semibold text-orange-500">
             {openWeekly.length} live bet{openWeekly.length !== 1 ? 's' : ''} →
           </span>
         ) : (
-          <span className="text-xs font-semibold text-orange-600 group-hover:translate-x-0.5 transition-transform">→</span>
+          <span className="text-xs font-semibold text-orange-500 group-hover:translate-x-0.5 transition-transform">→</span>
         )}
       </div>
 
@@ -70,7 +70,7 @@ const PredictionsTeaser = ({ predictions = [] }) => {
       ) : (
         <p className={`text-sm ${textClass}`}>Bet on what happens next in the story.</p>
       )}
-      <p className="text-xs font-semibold text-orange-600 mt-1 group-hover:underline">Place your bets</p>
+      <p className="text-xs font-semibold text-orange-500 mt-1 group-hover:underline">Place your bets</p>
     </button>
   );
 };

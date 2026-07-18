@@ -47,7 +47,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🏴 {isGuest ? 'Crews' : 'Crew'}</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
           </div>
           {isGuest && (
             <p className={`text-sm text-amber-500 mt-1`}>

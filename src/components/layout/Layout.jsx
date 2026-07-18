@@ -10,7 +10,7 @@ const Layout = ({ children, setDarkMode, onShowAdminPanel, isGuest, onShowLogin,
   const { darkMode } = useAppContext();
   usePageTitle();
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-amber-50'}`}>
       <Header
         setDarkMode={setDarkMode}
         onShowAdminPanel={onShowAdminPanel}

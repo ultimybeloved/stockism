@@ -109,7 +109,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
     <header className={`sticky top-0 z-40 border-b shadow-sm ${
       darkMode
         ? 'bg-zinc-900 border-zinc-800'
-        : 'bg-white border-gray-200'
+        : 'bg-white border-amber-200'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-16">
@@ -133,12 +133,10 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                 onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActivePage(link.path)
-                    ? darkMode
-                      ? 'bg-orange-600 text-white'
-                      : 'bg-orange-500 text-white'
+                    ? 'bg-orange-600 text-white'
                     : darkMode
                       ? 'text-zinc-300 hover:bg-zinc-800'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-zinc-600 hover:bg-amber-50'
                 }`}
               >
                 <span className="mr-1">{link.icon}</span>
@@ -170,7 +168,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
             <button
               onClick={() => setDarkMode(!darkMode)}
               className={`p-2 rounded-md transition-colors ${
-                darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
               }`}
               aria-label="Toggle dark mode"
             >
@@ -184,7 +182,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                 className={`px-2 py-1 text-xs font-semibold rounded-sm border transition-colors ${
                   darkMode
                     ? 'border-orange-500 text-orange-400 hover:bg-orange-500/20'
-                    : 'border-orange-500 text-orange-600 hover:bg-orange-50'
+                    : 'border-orange-500 text-orange-500 hover:bg-orange-50'
                 }`}
                 title="My pre-market orders"
               >
@@ -197,7 +195,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
               <button
                 onClick={onToggleNotifications}
                 className={`p-2 rounded-md transition-colors relative ${
-                  darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                  darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
                 }`}
                 aria-label="Notifications"
               >
@@ -216,7 +214,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                 <button
                   onClick={openNewCharsPopout}
                   className={`p-2 rounded-md transition-colors relative ${
-                    darkMode ? 'hover:bg-zinc-800' : 'hover:bg-gray-100'
+                    darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
                   }`}
                   aria-label="New characters this week"
                   title="New characters this week"
@@ -272,7 +270,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                 className={`p-2 rounded-md transition-colors ${
                   darkMode
                     ? 'hover:bg-zinc-800 text-red-400'
-                    : 'hover:bg-gray-100 text-red-600'
+                    : 'hover:bg-amber-50 text-red-600'
                 }`}
                 aria-label="Admin Panel"
                 title="Admin Panel"
@@ -288,12 +286,10 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                   onClick={() => navigate(isActivePage('/profile') ? '/' : '/profile')}
                   className={`flex items-center space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage('/profile')
-                      ? darkMode
-                        ? 'bg-orange-600 text-white'
-                        : 'bg-orange-500 text-white'
+                      ? 'bg-orange-600 text-white'
                       : darkMode
                         ? 'text-zinc-300 hover:bg-zinc-800'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        : 'text-zinc-600 hover:bg-amber-50'
                   }`}
                 >
                   <span className="text-base sm:text-lg">👤</span>
@@ -301,7 +297,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                     <div className={`text-[10px] sm:text-xs ${
                       isActivePage('/profile')
                         ? 'text-white/70'
-                        : darkMode ? 'text-zinc-400' : 'text-gray-600'
+                        : darkMode ? 'text-zinc-400' : 'text-zinc-600'
                     }`}>
                       {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
                     </div>
@@ -319,8 +315,8 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
                   onClick={handleSignOut}
                   className={`px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                     userData?.colorBlindMode
-                      ? (darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-gray-600 hover:bg-gray-100')
-                      : (darkMode ? 'text-red-400 hover:bg-zinc-800' : 'text-red-600 hover:bg-gray-100')
+                      ? (darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-amber-50')
+                      : (darkMode ? 'text-red-400 hover:bg-zinc-800' : 'text-red-600 hover:bg-amber-50')
                   }`}
                 >
                   Sign Out
@@ -330,7 +326,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
               <button
                 onClick={onShowLogin}
                 className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  darkMode ? 'text-green-400 hover:bg-zinc-800' : 'text-green-600 hover:bg-gray-100'
+                  darkMode ? 'text-green-400 hover:bg-zinc-800' : 'text-green-600 hover:bg-amber-50'
                 }`}
               >
                 Sign In

@@ -1398,7 +1398,7 @@ export default function App() {
                   {/* Guest Banner */}
                   {isGuest && (
                     <div className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                      👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-orange-600 hover:underline">Sign in</button> to trade and save progress!
+                      👋 Browsing as guest. <button onClick={() => setShowLoginModal(true)} className="font-semibold text-orange-500 hover:underline">Sign in</button> to trade and save progress!
                     </div>
                   )}
 
@@ -1515,7 +1515,7 @@ export default function App() {
                   <p className={`text-xs ${changePercent30d != null ? colors30d.text : mutedClass}`}>
                     {changePercent30d != null && (changePercent30d >= 0 ? '▲ ' : '▼ ')}
                     {changePercent30d != null ? `${formatChange(changePercent30d)} 30d` : ''}
-                    {!isGuest && <span className="text-orange-600 ml-2">→ View chart</span>}
+                    {!isGuest && <span className="text-orange-500 ml-2">→ View chart</span>}
                   </p>
                 </>
               );
@@ -1527,7 +1527,7 @@ export default function App() {
               {!isGuest && (
                 <button
                   onClick={() => setShowPortfolio(true)}
-                  className="text-xs text-orange-600 hover:text-orange-500"
+                  className="text-xs text-orange-500 hover:text-orange-500"
                 >
                   View All →
                 </button>

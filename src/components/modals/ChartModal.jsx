@@ -42,7 +42,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-orange-600 font-mono text-lg font-semibold">${character.ticker}</span>
+                <span className="text-orange-500 font-mono text-lg font-semibold">${character.ticker}</span>
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
                 <Link
                   to={`/stock/${character.ticker}`}
@@ -71,7 +71,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
                 )}
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
           </div>
         </div>
 

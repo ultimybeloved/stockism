@@ -152,7 +152,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
               </h2>
               <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
           </div>
 
           {/* Name change */}

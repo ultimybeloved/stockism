@@ -33,7 +33,7 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
               {earnedAchievements.length} / {allAchievements.length} unlocked
             </p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">

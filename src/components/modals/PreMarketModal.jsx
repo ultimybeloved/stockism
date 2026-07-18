@@ -106,7 +106,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
             <h3 className={`text-lg font-bold ${textClass}`}>Pre-Market Queue</h3>
             <p className={`text-sm ${mutedClass}`}>{character.name} (${character.ticker})</p>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-600`}>✕</button>
+          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>✕</button>
         </div>
 
         <div className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}>
@@ -217,7 +217,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
           </div>
         )}
 
-        <button onClick={onClose} className={`w-full py-2 text-sm ${mutedClass} hover:text-orange-600`}>Close</button>
+        <button onClick={onClose} className={`w-full py-2 text-sm ${mutedClass} hover:text-orange-500`}>Close</button>
       </div>
     </div>
   );

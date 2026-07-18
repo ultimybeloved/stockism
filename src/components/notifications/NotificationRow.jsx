@@ -91,7 +91,7 @@ export default function NotificationRow({
           {canExpand && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleExpand(notification.id); }}
-              className="mt-1 text-[11px] text-orange-600 hover:text-orange-500 font-semibold"
+              className="mt-1 text-[11px] text-orange-500 hover:text-orange-500 font-semibold"
             >
               {expanded ? 'Show less' : 'Show details'}
             </button>

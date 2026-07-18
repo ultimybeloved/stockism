@@ -145,7 +145,7 @@ const LoginModal = ({ onClose, darkMode }) => {
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div className={`${modalShellClass} relative max-w-md p-6`} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+        <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
 
         <h2 className={`text-lg font-semibold mb-6 ${textClass}`}>
           {isForgotPassword ? 'Reset Password' : (isRegistering ? 'Create Account' : 'Sign In')}
@@ -259,7 +259,7 @@ const LoginModal = ({ onClose, darkMode }) => {
               <button
                 type="button"
                 onClick={() => { setIsForgotPassword(true); setError(''); }}
-                className={`text-xs ${mutedClass} hover:text-orange-600`}
+                className={`text-xs ${mutedClass} hover:text-orange-500`}
               >
                 Forgot password?
               </button>
@@ -313,7 +313,7 @@ const LoginModal = ({ onClose, darkMode }) => {
               setError('');
               setSuccessMessage('');
             }}
-            className={`text-sm ${mutedClass} hover:text-orange-600`}
+            className={`text-sm ${mutedClass} hover:text-orange-500`}
           >
             {isForgotPassword ? 'Back to sign in' : (isRegistering ? 'Already have an account? Sign in with email' : "Don't have an account? Register")}
           </button>

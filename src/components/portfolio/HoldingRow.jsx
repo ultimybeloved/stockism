@@ -31,7 +31,7 @@ const HoldingRow = ({
         <div className="flex justify-between items-center">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
+              <span className="text-orange-500 font-mono font-semibold">${item.ticker}</span>
               <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
               {item.tierRate > 0 && (
                 <span
@@ -193,7 +193,7 @@ const HoldingRow = ({
             <button
               onClick={(e) => { e.stopPropagation(); onLimitSell && onLimitSell(item.ticker, 'sell', 'stopLoss'); }}
               className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
-                darkMode ? 'border-orange-600 text-orange-400 hover:bg-orange-950' : 'border-orange-600 text-orange-600 hover:bg-orange-50'
+                darkMode ? 'border-orange-600 text-orange-400 hover:bg-orange-950' : 'border-orange-600 text-orange-500 hover:bg-orange-50'
               }`}
             >
               Stop Loss

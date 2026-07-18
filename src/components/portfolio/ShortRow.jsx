@@ -34,8 +34,8 @@ const ShortRow = ({
         <div className="flex justify-between items-center">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-600'}`}>SHORT</span>
+              <span className="text-orange-500 font-mono font-semibold">${item.ticker}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-500'}`}>SHORT</span>
               <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
               <span className={`text-xs ${mutedClass}`}>
                 {isExpanded ? '▼' : '▶'}

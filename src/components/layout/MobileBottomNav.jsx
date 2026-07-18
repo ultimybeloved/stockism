@@ -75,7 +75,7 @@ const MobileBottomNav = () => {
       } ${
         darkMode
           ? 'bg-zinc-900 border-zinc-800'
-          : 'bg-white border-gray-200'
+          : 'bg-white border-amber-200'
       }`}
     >
       <div className="flex items-center justify-around h-16">
@@ -87,12 +87,10 @@ const MobileBottomNav = () => {
             )}
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActivePage(item.path)
-                ? darkMode
-                  ? 'text-orange-400'
-                  : 'text-orange-600'
+                ? 'text-orange-500'
                 : darkMode
                   ? 'text-zinc-400'
-                  : 'text-gray-600'
+                  : 'text-zinc-600'
             }`}
           >
             <span className="text-2xl mb-1">{item.icon}</span>

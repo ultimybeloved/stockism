@@ -19,7 +19,7 @@ const IpoHoldingsList = ({ items, darkMode }) => {
             <div className="flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-orange-600 font-mono font-semibold">${item.ticker}</span>
+                  <span className="text-orange-500 font-mono font-semibold">${item.ticker}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>IPO</span>
                   <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
                 </div>

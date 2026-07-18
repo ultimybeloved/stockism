@@ -153,7 +153,7 @@ const StockPage = ({ onTrade }) => {
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-orange-600 font-mono text-xl font-bold">${ticker}</span>
+                <span className="text-orange-500 font-mono text-xl font-bold">${ticker}</span>
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
                 {crew && (
                   <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
@@ -289,7 +289,7 @@ const StockPage = ({ onTrade }) => {
               {memberOfETFs.map(etf => (
                 <button key={etf.ticker} onClick={() => navigate(`/stock/${etf.ticker}`)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
-                  <span className="text-orange-600 font-mono text-xs font-bold">${etf.ticker}</span>
+                  <span className="text-orange-500 font-mono text-xs font-bold">${etf.ticker}</span>
                   <span className={`text-xs ${mutedClass}`}>{etf.name}</span>
                 </button>
               ))}
@@ -310,7 +310,7 @@ const StockPage = ({ onTrade }) => {
                 return (
                   <button key={t} onClick={() => navigate(`/stock/${t}`)}
                     className={`flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}>
-                    <span className="text-orange-600 font-mono text-xs font-semibold">${t}</span>
+                    <span className="text-orange-500 font-mono text-xs font-semibold">${t}</span>
                     <div className="text-right">
                       <div className={`text-xs font-semibold ${textClass}`}>{formatCurrency(prices[t] || 0)}</div>
                       <div className={`text-[10px] ${tChange >= 0 ? upColor : downColor}`}>{tChange >= 0 ? '▲' : '▼'} {formatChange(Math.abs(tChange))}</div>

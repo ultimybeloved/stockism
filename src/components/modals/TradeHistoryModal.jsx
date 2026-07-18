@@ -214,7 +214,7 @@ const TradeHistoryModal = ({ onClose }) => {
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
                 CSV
               </button>
-              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>&times;</button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>&times;</button>
             </div>
           </div>
 
@@ -329,7 +329,7 @@ const TradeHistoryModal = ({ onClose }) => {
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-orange-600 font-mono text-sm font-semibold">${trade.ticker}</span>
+                          <span className="text-orange-500 font-mono text-sm font-semibold">${trade.ticker}</span>
                           <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>{trade.action}</span>
                         </div>
                         {char && <p className={`text-xs ${mutedClass}`}>{char.name}</p>}

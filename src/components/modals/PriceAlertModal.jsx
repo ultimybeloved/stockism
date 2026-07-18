@@ -72,7 +72,7 @@ export default function PriceAlertModal({
           </div>
           <button
             onClick={onClose}
-            className={`${mutedClass} hover:text-orange-600 text-xl`}
+            className={`${mutedClass} hover:text-orange-500 text-xl`}
           >
             ✕
           </button>
@@ -81,7 +81,7 @@ export default function PriceAlertModal({
         {/* Current Price */}
         <div className={`text-sm ${mutedClass} mb-4`}>
           Current Price:{" "}
-          <span className="text-orange-600 font-semibold">
+          <span className="text-orange-500 font-semibold">
             ${currentPrice?.toFixed(2) ?? "—"}
           </span>
         </div>

@@ -92,7 +92,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🎨 Customization</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
           </div>
           <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-orange-500 font-semibold">{formatCurrency(cash)}</span></p>
         </div>

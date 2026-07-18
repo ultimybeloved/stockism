@@ -35,9 +35,10 @@ export const getThemeClasses = (darkMode) => {
   raisedClass: darkMode ? 'shadow-md shadow-black/40'    : 'shadow-sm shadow-amber-900/10',
 
   // --- Accent ---
-  // Brand accent for tickers, links, and highlights.
-  accentClass:      'text-orange-600',
-  accentHoverClass: 'hover:text-orange-500',
+  // Brand accent for tickers, links, and highlights. Text accents are
+  // orange-500 everywhere; filled buttons stay bg-orange-600.
+  accentClass:      'text-orange-500',
+  accentHoverClass: 'hover:text-orange-400',
 
   // --- Buttons ---
   // Quiet bordered button (tabs, pagination, secondary actions).

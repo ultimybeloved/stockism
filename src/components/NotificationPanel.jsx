@@ -56,18 +56,18 @@ export default function NotificationPanel({
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
           <h3 className={`font-semibold text-sm ${textClass}`}>
-            Notifications{unreadCount > 0 && <span className="text-orange-600"> ({unreadCount})</span>}
+            Notifications{unreadCount > 0 && <span className="text-orange-500"> ({unreadCount})</span>}
           </h3>
           <div className="flex items-center gap-2">
             <button
               onClick={() => onMarkAllRead(visibleUnreadIds)}
-              className="text-xs text-orange-600 hover:text-orange-500 font-semibold transition-colors"
+              className="text-xs text-orange-500 hover:text-orange-500 font-semibold transition-colors"
             >
               Mark {scope} Read
             </button>
             <button
               onClick={() => onClearAll(visibleIds)}
-              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-600`}
+              className={`text-xs font-semibold transition-colors ${mutedClass} hover:text-orange-500`}
             >
               Clear {scope}
             </button>

@@ -253,7 +253,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
                   Trade History
                 </button>
               )}
-              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>&times;</button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>&times;</button>
             </div>
           </div>
         </div>

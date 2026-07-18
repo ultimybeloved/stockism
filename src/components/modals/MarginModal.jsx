@@ -75,7 +75,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
             <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
             <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
+          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">

@@ -342,7 +342,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
             <h3 className={`text-lg font-bold ${textClass}`}>{config.title} ${character.ticker}</h3>
             <p className={`text-sm ${mutedClass}`}>{character.name}</p>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-600`}>✕</button>
+          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>✕</button>
         </div>
 
         {/* Price info */}
