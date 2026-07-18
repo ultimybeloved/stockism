@@ -207,7 +207,7 @@ const AboutModal = ({ onClose }) => {
                 <p className={`text-sm ${mutedClass}`}>
                   Shorting lets you profit when a stock goes DOWN. You "borrow" shares, sell them,
                   and hope to buy them back cheaper later. It's risky. If the price goes up instead,
-                  you lose money. Requires 50% margin as collateral.
+                  you lose money. Requires full collateral: you deposit the stock's current value, dollar for dollar.
                 </p>
               </div>
 
