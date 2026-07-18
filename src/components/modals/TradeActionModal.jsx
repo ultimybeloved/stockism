@@ -1,37 +1,15 @@
 import { useState } from 'react';
-import {
-  BASE_LIQUIDITY,
-  MIN_PRICE,
-  SHORT_MARGIN_REQUIREMENT,
-  MAX_TRADES_PER_TICKER_24H
-} from '../../constants';
+import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
-import {
-  calculatePortfolioValue,
-  calculatePriceImpactDollars,
-  getBidAskPrices,
-  calculateMarginStatus
-} from '../../utils/calculations';
+import { getDynamicPrices, getMaxShares, getTradeCount } from '../../utils/tradeLimits';
 import { createLimitOrderFunction } from '../../firebase';
 import MarginImpactPreview from '../trading/MarginImpactPreview';
+import TradeAmountInput from '../trading/TradeAmountInput';
+import LimitOrderControls from '../trading/LimitOrderControls';
 import { isWeeklyHalt, getMarketClosedState } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
-
-// Helper: cumulative marginal price impact
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-const pruneAndSumTradeHistory = (entries, now) => {
-  const cutoff = now - TWENTY_FOUR_HOURS_MS;
-  const recent = (entries || []).filter(e => e.ts > cutoff);
-  const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
-  const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
-  // count = real trades only. Synthetic ETF trailing entries (shares: 0) feed the
-  // impact cap but must NOT count toward the 10-trades-per-ticker cap.
-  const realCount = recent.reduce((n, e) => n + ((e.shares || 0) > 0 ? 1 : 0), 0);
-  return { recent, totalShares, totalImpact, count: realCount };
-};
-
 
 const TradeActionModal = ({ character, action, price, holdings, shortPosition, userCash, onTrade, onClose, defaultToLimitOrder = false, haltInfo }) => {
   useEscapeKey(onClose);
@@ -60,132 +38,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     }
   };
 
-  // Get cumulative volume for this ticker+action from rolling 24h history
-  const getCumulativeVolume = (act) => {
-    const now = Date.now();
-    const history = userData?.tickerTradeHistory?.[character.ticker]?.[act] || [];
-    const { totalShares } = pruneAndSumTradeHistory(history, now);
-    return totalShares;
-  };
-
-  // Get trade count for this ticker+action from rolling 24h history
-  const getTradeCount = (act) => {
-    const now = Date.now();
-    const history = userData?.tickerTradeHistory?.[character.ticker]?.[act] || [];
-    const { count } = pruneAndSumTradeHistory(history, now);
-    return count;
-  };
-
-  // Calculate dynamic prices
-  const getDynamicPrices = (amt, act) => {
-    const liquidity = character.liquidity || BASE_LIQUIDITY;
-    const cumVol = getCumulativeVolume(act);
-    const impact = calculatePriceImpactDollars(price, amt, liquidity, cumVol);
-
-    if (act === 'buy' || act === 'cover') {
-      const newMid = price + impact;
-      return getBidAskPrices(newMid, character.isETF);
-    } else {
-      const newMid = Math.max(MIN_PRICE, price - impact);
-      return getBidAskPrices(newMid, character.isETF);
-    }
-  };
-
-  // Get buying power
-  const getBuyingPower = () => {
-    let buyingPower = userCash;
-    if (userData && prices) {
-      const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
-      if (marginStatus.enabled && marginStatus.availableMargin > 0) {
-        // Use the full available margin, matching what the backend allows. (This
-        // was Math.min(cash, availableMargin) — a no-op under the old cash-based
-        // model, but it throttled buying power once margin scaled with portfolio.)
-        buyingPower += marginStatus.availableMargin;
-      }
-    }
-    return buyingPower;
-  };
-
-  const formatShares = (n) => {
-    if (n === 0) return '0';
-    const rounded = Math.round(n * 100) / 100;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  };
-
-  // Calculate max shares for this specific action
-  const getMaxShares = () => {
-    if (action === 'buy') {
-      // Check trade count limit first
-      const buyCount = getTradeCount('buy');
-      if (buyCount >= MAX_TRADES_PER_TICKER_24H) return 0;
-
-      const buyingPower = getBuyingPower();
-      if (buyingPower <= 0) return 0;
-      let low = 1, high = Math.floor(buyingPower / (price * 0.5)), maxAffordable = 0;
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const { ask } = getDynamicPrices(mid, 'buy');
-        const cost = ask * mid;
-        if (cost <= buyingPower) {
-          maxAffordable = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-
-      // Fine-tune fractional: check if 0.1 increments beyond integer max fit
-      let fractionalBonus = 0;
-      for (let f = 1; f <= 9; f++) {
-        const candidate = maxAffordable + f * 0.1;
-        const { ask } = getDynamicPrices(candidate, 'buy');
-        if (ask * candidate <= buyingPower) fractionalBonus = f * 0.1;
-        else break;
-      }
-
-      return Math.max(0, Math.round((maxAffordable + fractionalBonus) * 100) / 100);
-    } else if (action === 'sell') {
-      // Check trade count limit first
-      const sellCount = getTradeCount('sell');
-      if (sellCount >= MAX_TRADES_PER_TICKER_24H) return 0;
-      // Locked shares (IPO / margin holds) aren't sellable; mirror the server.
-      const lockNow = Date.now();
-      const lockedOf = (lock) => (lock && lockNow < (lock.until || 0)) ? (lock.shares || 0) : 0;
-      const lockedSell = lockedOf(userData?.ipoLockup?.[character.ticker]) + lockedOf(userData?.marginLockup?.[character.ticker]);
-      return Math.max(0, (holdings || 0) - lockedSell);
-    } else if (action === 'short') {
-      // Check trade count limit first
-      const shortCount = getTradeCount('short');
-      if (shortCount >= MAX_TRADES_PER_TICKER_24H) return 0;
-
-      // Max short is capped by portfolio equity (prevents leverage spiral)
-      const portfolioEquity = userData && prices ? calculatePortfolioValue(userData, prices) : userCash;
-      if (portfolioEquity <= 0) return 0;
-
-      // Total short margin (existing + new) can't exceed portfolio equity
-      const shorts = userData?.shorts || {};
-      const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
-        sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
-      const availableForShorts = Math.max(0, portfolioEquity - existingShortMargin);
-      if (availableForShorts <= 0) return 0;
-
-      const marginPerShare = price * SHORT_MARGIN_REQUIREMENT;
-      const maxByEquity = marginPerShare > 0 ? Math.floor((availableForShorts / marginPerShare) * 100) / 100 : 0;
-      // v2: must also have enough cash for the margin deposit
-      const maxByCash = marginPerShare > 0 ? Math.floor((userCash / marginPerShare) * 100) / 100 : 0;
-      let maxAffordable = Math.min(maxByEquity, maxByCash);
-      maxAffordable = Math.max(0, Math.min(maxAffordable, 10000));
-
-      return maxAffordable;
-    } else if (action === 'cover') {
-      const coverCount = getTradeCount('cover');
-      if (coverCount >= MAX_TRADES_PER_TICKER_24H) return 0;
-      return shortPosition?.shares || 0;
-    }
-    return 1;
-  };
-
-  const maxSharesFractional = getMaxShares();
+  const maxSharesFractional = getMaxShares({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory });
   const maxSharesWhole = Math.floor(maxSharesFractional);
   // Active margin lock on this ticker (for the sell-side note below).
   const _mLock = userData?.marginLockup?.[character.ticker];
@@ -196,7 +49,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const maxShares = (partialShares || action === 'sell' || action === 'cover')
     ? maxSharesFractional
     : maxSharesWhole;
-  const { bid, ask, spread } = getDynamicPrices(amount || 1, action);
+  const { bid, ask, spread } = getDynamicPrices(character, price, amount || 1, action, userData);
 
   const getActionConfig = () => {
     const buyColors = getColors(true);   // Buy colors (green/teal)
@@ -277,6 +130,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
 
   const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
   const marketClosed = getMarketClosedState(marketData).closed;
+  const tradeCount = getTradeCount(userData, character.ticker, action);
 
   const handleSubmit = async () => {
     const minAmount = (partialShares || action === 'sell' || action === 'cover') ? 0.01 : 1;
@@ -367,180 +221,25 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           </div>
         </div>
 
-        {/* Amount input */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className={`text-sm font-semibold ${textClass}`}>Shares</label>
-            <label className={`flex items-center gap-1.5 text-xs ${mutedClass} cursor-pointer select-none`}>
-              <input
-                type="checkbox"
-                checked={partialShares}
-                onChange={(e) => {
-                  setPartialShares(e.target.checked);
-                  if (!e.target.checked) setAmount(Math.max(1, Math.floor(amount || 1)));
-                }}
-                className="cursor-pointer"
-              />
-              Partial shares
-            </label>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => partialShares
-                ? setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)
-                : setAmount(Math.max(0, (amount || 1) - 1))}
-              className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
-            >
-              -
-            </button>
-            <input
-              type="number"
-              min="0"
-              max={maxShares}
-              step={partialShares ? '0.01' : '1'}
-              value={amount === '' ? '' : amount}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === '') {
-                  setAmount('');
-                } else {
-                  const num = partialShares
-                    ? Math.round(parseFloat(val) * 100) / 100
-                    : parseInt(val);
-                  if (!isNaN(num)) {
-                    setAmount(Math.min(maxShares, Math.max(0, num)));
-                  }
-                }
-              }}
-              onBlur={() => {
-                if (amount === '' || amount < 0) {
-                  setAmount(maxShares > 0 ? (partialShares ? 0.01 : 1) : 0);
-                }
-              }}
-              className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
-            />
-            <button
-              onClick={() => partialShares
-                ? setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))
-                : setAmount(Math.min(maxShares, (amount || 0) + 1))}
-              className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
-            >
-              +
-            </button>
-            <button
-              onClick={() => setAmount(maxShares)}
-              className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
-              disabled={maxShares === 0}
-            >
-              Max
-            </button>
-          </div>
-          {maxShares === 0 && (
-            <p className="text-xs text-red-500 mt-1">
-              {action === 'sell'
-                ? (marginLockedShares > 0 ? 'Your shares are locked from a recent margin buy' : 'No shares owned')
-                : action === 'cover' ? 'No short position' : 'Insufficient funds'}
-            </p>
-          )}
-          {maxShares > 0 && (
-            <p className={`text-xs ${mutedClass} mt-1`}>Max: {formatShares(maxShares)} shares</p>
-          )}
-          {action === 'sell' && marginLockedShares > 0 && (
-            <p className="text-xs text-amber-500 mt-1">
-              🔒 {formatShares(marginLockedShares)} share{marginLockedShares === 1 ? '' : 's'} locked from a margin buy (~{marginLockHours}h left)
-            </p>
-          )}
-        </div>
+        <TradeAmountInput
+          action={action}
+          amount={amount} setAmount={setAmount}
+          partialShares={partialShares} setPartialShares={setPartialShares}
+          maxShares={maxShares}
+          marginLockedShares={marginLockedShares}
+          marginLockHours={marginLockHours}
+        />
 
-        {/* Limit Order / Stop Loss Options (only for buy/sell — short/cover not supported) */}
+        {/* Limit / stop-loss options (only for buy/sell — short/cover not supported) */}
         {(action === 'buy' || action === 'sell') && (
-          <div className="mb-4 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isLimitOrder}
-                onChange={(e) => {
-                  setIsLimitOrder(e.target.checked);
-                  if (e.target.checked) {
-                    setIsStopLoss(false);
-                    setLimitPrice(price.toFixed(2));
-                  }
-                }}
-                className="w-4 h-4"
-              />
-              <span className={`text-sm font-semibold ${textClass}`}>Place as limit order</span>
-            </label>
-            {action === 'sell' && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isStopLoss}
-                  onChange={(e) => {
-                    setIsStopLoss(e.target.checked);
-                    if (e.target.checked) {
-                      setIsLimitOrder(false);
-                      setLimitPrice(price.toFixed(2));
-                    }
-                  }}
-                  className="w-4 h-4"
-                />
-                <span className={`text-sm font-semibold ${textClass}`}>Place as stop loss</span>
-              </label>
-            )}
-            <p className={`text-xs ${mutedClass} ml-6`}>
-              {isStopLoss
-                ? 'Auto-sells when price drops to your stop price (30-day expiration)'
-                : isLimitOrder
-                  ? 'Order will execute when price conditions are met (30-day expiration)'
-                  : action === 'sell'
-                    ? 'Limit order sells when price rises. Stop loss sells when price drops.'
-                    : 'Order will execute when price drops to your limit price.'}
-            </p>
-          </div>
-        )}
-
-        {/* Limit Order / Stop Loss Settings */}
-        {(isLimitOrder || isStopLoss) && (
-          <div className={`p-3 rounded-sm mb-4 space-y-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
-            <div>
-              <label className={`block text-sm font-semibold mb-1 ${textClass}`}>
-                {isStopLoss ? 'Stop Price' : 'Limit Price'}
-                <span className={`ml-2 text-xs ${mutedClass}`}>
-                  (Current: {formatCurrency(price)})
-                </span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={limitPrice}
-                onChange={(e) => setLimitPrice(e.target.value)}
-                placeholder="0.00"
-                className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
-              />
-              <p className={`text-xs ${mutedClass} mt-1`}>
-                {isStopLoss
-                  ? 'Sells when price drops to or below this price'
-                  : action === 'buy' || action === 'cover'
-                    ? 'Order executes when price drops to or below this price'
-                    : 'Order executes when price rises to or above this price'}
-              </p>
-            </div>
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allowPartialFills}
-                  onChange={(e) => setAllowPartialFills(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <span className={`text-sm ${textClass}`}>Allow partial fills</span>
-              </label>
-              <p className={`text-xs ${mutedClass} mt-1 ml-6`}>
-                If unchecked, order only executes if all shares can be traded
-              </p>
-            </div>
-          </div>
+          <LimitOrderControls
+            action={action}
+            price={price}
+            isLimitOrder={isLimitOrder} setIsLimitOrder={setIsLimitOrder}
+            isStopLoss={isStopLoss} setIsStopLoss={setIsStopLoss}
+            limitPrice={limitPrice} setLimitPrice={setLimitPrice}
+            allowPartialFills={allowPartialFills} setAllowPartialFills={setAllowPartialFills}
+          />
         )}
 
         {/* Total (only show for immediate trades) */}
@@ -560,27 +259,16 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           <MarginImpactPreview cost={config.total} userCash={userCash} />
         )}
 
-        {/* Daily impact cap warnings (buy/short only) */}
-        {/* Trade count warnings (all actions) */}
-        {(() => {
-          const count = getTradeCount(action);
-
-          if (count >= MAX_TRADES_PER_TICKER_24H) {
-            return (
-              <div className="mb-3 p-2 rounded-sm bg-red-900/40 border border-red-500/50 text-red-300 text-xs font-semibold text-center">
-                Daily trading limit reached for ${character.ticker} ({count}/{MAX_TRADES_PER_TICKER_24H} {action}s used)
-              </div>
-            );
-          }
-          if (count >= 7) {
-            return (
-              <div className="mb-3 p-2 rounded-sm bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 text-xs text-center">
-                {count}/{MAX_TRADES_PER_TICKER_24H} {action}s used on ${character.ticker} (rolling 24h)
-              </div>
-            );
-          }
-          return null;
-        })()}
+        {/* Trade count warnings (rolling 24h per-ticker cap) */}
+        {tradeCount >= MAX_TRADES_PER_TICKER_24H ? (
+          <div className="mb-3 p-2 rounded-sm bg-red-900/40 border border-red-500/50 text-red-300 text-xs font-semibold text-center">
+            Daily trading limit reached for ${character.ticker} ({tradeCount}/{MAX_TRADES_PER_TICKER_24H} {action}s used)
+          </div>
+        ) : tradeCount >= 7 ? (
+          <div className="mb-3 p-2 rounded-sm bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 text-xs text-center">
+            {tradeCount}/{MAX_TRADES_PER_TICKER_24H} {action}s used on ${character.ticker} (rolling 24h)
+          </div>
+        ) : null}
 
         {/* Action buttons */}
         <div className="flex gap-2">
