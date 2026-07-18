@@ -29,16 +29,16 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
-  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
-        className={`w-full max-w-3xl ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
+        className={`${modalShellClass} max-w-3xl overflow-hidden`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         </div>
 
         {/* Time Range Selector */}
-        <div className={`px-4 py-2 border-b ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
+        <div className={`px-4 py-2 border-b ${cardEdgeClass} ${darkMode ? 'bg-zinc-900/50' : 'bg-amber-50'}`}>
           <div className="flex gap-1">
             {TIME_RANGES.map(r => (
               <button
@@ -107,7 +107,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         </div>
 
         {/* Stats Footer */}
-        <div className={`p-4 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-t ${cardEdgeClass}`}>
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Open</div>

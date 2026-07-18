@@ -18,7 +18,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   const eligibility = checkMarginEligibility(userData, isAdmin);
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
@@ -65,12 +65,12 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
-        className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}
+        className={`${modalShellClass} max-w-md overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} flex justify-between items-center`}>
+        <div className={`p-4 border-b ${cardEdgeClass} flex justify-between items-center`}>
           <div>
             <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
             <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>

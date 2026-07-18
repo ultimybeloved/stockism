@@ -18,7 +18,7 @@ const LeaderboardPage = () => {
   const userRowRef = useRef(null);
   const [userRowPosition, setUserRowPosition] = useState('unknown');
 
-  const { cardClass, textClass, mutedClass, divideClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -99,7 +99,7 @@ const LeaderboardPage = () => {
   return (
     <div className="max-w-2xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}>
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <h2 className={`text-lg font-semibold ${textClass} mb-3`}>🏆 Leaderboard</h2>
 
           {/* Crew Filter */}
@@ -109,7 +109,7 @@ const LeaderboardPage = () => {
               className={`px-2 py-1.5 text-xs rounded-full font-semibold transition-colors ${
                 crewFilter === 'ALL'
                   ? 'bg-orange-600 text-white'
-                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                  : chipClass
               }`}
             >
               All
@@ -121,7 +121,7 @@ const LeaderboardPage = () => {
                 className={`px-2 py-1.5 text-xs rounded-full font-semibold flex items-center justify-center gap-1 truncate transition-colors ${
                   crewFilter === crew.id
                     ? 'text-white'
-                    : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                    : chipClass
                 }`}
                 style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
               >

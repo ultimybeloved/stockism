@@ -23,7 +23,7 @@ const TradeHistoryModal = ({ onClose }) => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } = getThemeClasses(darkMode);
   const inputClass = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-slate-900';
 
   const fetchTrades = useCallback(async (afterDoc = null) => {
@@ -202,11 +202,11 @@ const TradeHistoryModal = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-lg ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-lg overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
 
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>Trade History</h2>
             <div className="flex items-center gap-2">
@@ -354,7 +354,7 @@ const TradeHistoryModal = ({ onClose }) => {
               })}
               {hasMore && (
                 <button onClick={loadMore} disabled={loadingMore}
-                  className={`w-full py-2 text-sm font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'} disabled:opacity-50`}>
+                  className={`w-full py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
                   {loadingMore ? 'Loading...' : 'Load More'}
                 </button>
               )}

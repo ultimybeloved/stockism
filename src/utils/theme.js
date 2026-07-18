@@ -1,9 +1,13 @@
 // Central theme class definitions.
 // All components call getThemeClasses(darkMode) instead of repeating these ternaries.
 
-export const getThemeClasses = (darkMode) => ({
+export const getThemeClasses = (darkMode) => {
+  // Shared building block: card surface (also the modal shell surface).
+  const card = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+
+  return {
   // Card/panel containers
-  cardClass:   darkMode ? 'bg-zinc-900 border-zinc-800'  : 'bg-white border-amber-200',
+  cardClass:   card,
   // Page/section background
   bgClass:     darkMode ? 'bg-zinc-950'                  : 'bg-amber-50',
   // Primary text
@@ -20,6 +24,9 @@ export const getThemeClasses = (darkMode) => ({
   divideClass: darkMode ? 'divide-zinc-700'              : 'divide-amber-200',
   // Borders standalone
   borderClass: darkMode ? 'border-zinc-700'              : 'border-amber-200',
+  // Border color matching the card edge (modal header/footer dividers).
+  // Pair with border-b/border-t at the call site.
+  cardEdgeClass: darkMode ? 'border-zinc-800'            : 'border-amber-200',
 
   // --- Elevation ---
   // Ambient depth for cards/panels that sit on the page background.
@@ -42,7 +49,18 @@ export const getThemeClasses = (darkMode) => ({
   // --- Chips/tags ---
   // Small neutral tag fill (filters, counts, metadata).
   chipClass: darkMode ? 'bg-zinc-800 text-zinc-300'      : 'bg-slate-200 text-zinc-600',
-});
+
+  // --- Modal shell ---
+  // Fullscreen scrim + centering. Add a z-index at the call site (z-50 for
+  // normal modals; walls/tutorials that sit above everything go higher).
+  overlayClass:      'fixed inset-0 bg-black/60 flex items-center justify-center p-4',
+  // Darker scrim for blocking walls and tutorials that demand full focus.
+  overlayHeavyClass: 'fixed inset-0 bg-black/70 flex items-center justify-center p-4',
+  // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
+  // scrolls) at the call site.
+  modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
+  };
+};
 
 // Spacing rhythm — shared paddings/gaps so sections breathe evenly.
 // Use these instead of ad-hoc p-*/mb-*/gap-* when laying out cards and grids.

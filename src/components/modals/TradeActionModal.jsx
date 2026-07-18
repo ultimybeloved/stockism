@@ -45,7 +45,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   // Color blind friendly colors for price indicators (bid/ask displays)
   const getColors = (isPositive) => {
@@ -334,8 +334,8 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`${cardClass} border rounded-sm p-4 max-w-md w-full`} onClick={e => e.stopPropagation()}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} p-4 max-w-md`} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div>

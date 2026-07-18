@@ -14,7 +14,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);
 
-  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   const ownedPins = userData?.ownedShopPins || [];
   const displayedShopPins = userData?.displayedShopPins || [];
@@ -85,11 +85,11 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
 
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🎨 Customization</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
@@ -98,7 +98,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
         </div>
 
         {/* Tabs */}
-        <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`flex border-b ${cardEdgeClass}`}>
           {['shop', 'achievement', 'cosmetics', 'manage'].map(tab => (
             <button
               key={tab}

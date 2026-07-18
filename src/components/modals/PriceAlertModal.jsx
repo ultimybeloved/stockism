@@ -17,13 +17,7 @@ export default function PriceAlertModal({
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  const cardClass = darkMode
-    ? "bg-zinc-900 border-zinc-800 text-zinc-100"
-    : "bg-white border-amber-200 text-slate-900";
-  const { mutedClass } = getThemeClasses(darkMode);
-  const inputClass = darkMode
-    ? "bg-zinc-950 border-zinc-800 text-zinc-100"
-    : "bg-white border-amber-200 text-slate-900";
+  const { textClass, mutedClass, inputClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   const parsedTarget = parseFloat(targetPrice);
   const isValid = !isNaN(parsedTarget) && parsedTarget > 0;
@@ -63,11 +57,11 @@ export default function PriceAlertModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      className={`${overlayClass} z-50`}
       onClick={onClose}
     >
       <div
-        className={`${cardClass} border rounded-sm p-4 max-w-md w-full`}
+        className={`${modalShellClass} ${textClass} p-4 max-w-md`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -37,11 +37,11 @@ const EmailVerificationModal = ({ user, darkMode, userData }) => {
     }
   };
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, ghostBtnClass } = getThemeClasses(darkMode);
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-      <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6`}>
+    <div className={`${overlayClass} z-50`}>
+      <div className={`${modalShellClass} max-w-md p-6`}>
         <div className="text-center mb-6">
           <div className="text-5xl mb-3">📧</div>
           <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Verify Your Email</h2>
@@ -80,9 +80,7 @@ const EmailVerificationModal = ({ user, darkMode, userData }) => {
           <button
             onClick={handleResendVerification}
             disabled={loading}
-            className={`w-full py-2.5 px-4 rounded-sm border ${
-              darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-slate-700 hover:bg-amber-50'
-            } disabled:opacity-50`}
+            className={`w-full py-2.5 px-4 rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
           >
             {loading ? 'Sending...' : 'Resend Verification Email'}
           </button>

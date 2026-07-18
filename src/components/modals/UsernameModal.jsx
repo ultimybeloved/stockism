@@ -47,14 +47,11 @@ const UsernameModal = ({ onComplete, darkMode }) => {
     setLoading(false);
   };
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
-  const inputClass = darkMode
-    ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
-    : 'bg-white border-amber-200 text-slate-900';
+  const { textClass, mutedClass, inputClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-      <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6`}>
+    <div className={`${overlayHeavyClass} z-50`}>
+      <div className={`${modalShellClass} max-w-md p-6`}>
         <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Welcome to Stockism! 🎉</h2>
         <p className={`text-sm ${mutedClass} mb-6`}>
           Choose a username for the leaderboard. This is the only name other players will see.

@@ -8,16 +8,16 @@ const AboutModal = ({ onClose }) => {
   const { darkMode, userData } = useAppContext();
   const [activeTab, setActiveTab] = useState('about');
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const linkClass = 'text-orange-500 hover:text-orange-400 underline';
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>About Stockism</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
@@ -25,7 +25,7 @@ const AboutModal = ({ onClose }) => {
         </div>
 
         {/* Tabs */}
-        <div className={`flex border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`flex border-b ${cardEdgeClass}`}>
           {[
             { key: 'about', label: '📖 About' },
             { key: 'faq', label: '❓ FAQ' },

@@ -1294,7 +1294,7 @@ export default function App() {
   const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Styling - Orange/Yellow theme inspired by logo
-  const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle, ghostBtnClass, raisedClass } = getThemeClasses(darkMode);
+  const { bgClass, cardClass, mutedClass, borderClass, inputClass: inputClassStyle, ghostBtnClass, chipClass, raisedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
 
   // Rarity tiers by market standing — computed once here so every card shares the
@@ -1359,22 +1359,14 @@ export default function App() {
                   <div className="flex flex-wrap gap-2 mb-4 justify-center">
                     <button
                       onClick={() => setShowDailyMissions(true)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
-                        darkMode
-                          ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`}
                     >
                       📋 Missions
                     </button>
                     {user && !isGuest && (
                       <button
                         onClick={() => setShowPinShop(true)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
-                          darkMode
-                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`}
                       >
                         🎨 Customization
                       </button>
@@ -1382,11 +1374,7 @@ export default function App() {
                     {(!userData?.crew || isGuest) && (
                       <button
                         onClick={() => setShowCrewSelection(true)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
-                          darkMode
-                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`}
                       >
                         👥 Crews
                       </button>
@@ -1394,22 +1382,14 @@ export default function App() {
                     {user && !isGuest && (
                       <button
                         onClick={() => setShowLending(true)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
-                          darkMode
-                            ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`}
                       >
                         💰 Margin
                       </button>
                     )}
                     <button
                       onClick={() => setShowAbout(true)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${
-                        darkMode
-                          ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`}
                     >
                       ℹ️ About
                     </button>
@@ -1678,7 +1658,7 @@ export default function App() {
             className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
               crewFilter === 'ALL'
                 ? 'bg-orange-600 text-white'
-                : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                : chipClass
             }`}
           >
             All Crews
@@ -1689,7 +1669,7 @@ export default function App() {
               className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
                 crewFilter === userData.crew
                   ? 'text-white'
-                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                  : chipClass
               }`}
               style={crewFilter === userData.crew ? { backgroundColor: CREW_MAP[userData.crew]?.color || '#f97316' } : {}}
             >
@@ -1703,7 +1683,7 @@ export default function App() {
               className={`px-2.5 py-1 text-xs rounded-full font-semibold flex items-center gap-1 transition-colors ${
                 crewFilter === crew.id
                   ? 'text-white'
-                  : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'
+                  : chipClass
               }`}
               style={crewFilter === crew.id ? { backgroundColor: crew.color, color: crew.color === '#FFFFFF' || crew.color === '#f3c404' || crew.color === '#f3c803' ? '#000' : '#fff' } : {}}
             >
@@ -1926,9 +1906,9 @@ export default function App() {
         />
       )}
       {showBailout && !isGuest && userData?.isBankrupt && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowBailout(false)}>
+        <div className={`${overlayClass} z-50`} onClick={() => setShowBailout(false)}>
           <div
-            className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6`}
+            className={`${modalShellClass} max-w-md p-6`}
             onClick={e => e.stopPropagation()}
           >
             <div className="text-center mb-4">
@@ -2060,9 +2040,9 @@ export default function App() {
 
       {/* Trade Confirmation Modal */}
       {tradeConfirmation && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]" onClick={() => setTradeConfirmation(null)}>
-          <div 
-            className={`w-full max-w-sm ${darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'} border rounded-sm shadow-xl p-5`}
+        <div className={`${overlayClass} z-[60]`} onClick={() => setTradeConfirmation(null)}>
+          <div
+            className={`${modalShellClass} max-w-sm p-5`}
             onClick={e => e.stopPropagation()}
           >
             <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>
@@ -2102,7 +2082,7 @@ export default function App() {
               <button
                 onClick={() => setTradeConfirmation(null)}
                 disabled={actionLoading.trade}
-                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'} disabled:opacity-50`}
+                className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'} disabled:opacity-50`}
               >
                 Cancel
               </button>
@@ -2127,9 +2107,9 @@ export default function App() {
 
       {/* Bet Confirmation Modal */}
       {betConfirmation && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]" onClick={() => setBetConfirmation(null)}>
-          <div 
-            className={`w-full max-w-sm ${darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'} border rounded-sm shadow-xl p-5`}
+        <div className={`${overlayClass} z-[60]`} onClick={() => setBetConfirmation(null)}>
+          <div
+            className={`${modalShellClass} max-w-sm p-5`}
             onClick={e => e.stopPropagation()}
           >
             <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>
@@ -2153,7 +2133,7 @@ export default function App() {
               <button
                 onClick={() => setBetConfirmation(null)}
                 disabled={actionLoading.placeBet}
-                className={`flex-1 py-2 rounded-sm font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'} disabled:opacity-50`}
+                className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'} disabled:opacity-50`}
               >
                 Cancel
               </button>

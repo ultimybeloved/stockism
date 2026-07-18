@@ -15,15 +15,15 @@ export default function DiscordWallModal() {
   // Only walls a logged-in, flagged, not-yet-linked account.
   if (!user || !userData?.requiresDiscordLink || userData?.discordId) return null;
 
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
 
   const startLink = () => {
     window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className={`max-w-md w-full p-6 rounded-lg border text-center ${darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'}`}>
+    <div className={`${overlayHeavyClass} z-[100] backdrop-blur-sm`}>
+      <div className={`${modalShellClass} max-w-md p-6 text-center`}>
         <div className="text-4xl mb-3">🔗</div>
         <h2 className={`text-xl font-bold mb-2 ${textClass}`}>Link Discord to continue</h2>
         <p className={`text-sm mb-5 ${mutedClass}`}>

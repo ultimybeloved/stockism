@@ -2,7 +2,7 @@ import { ACHIEVEMENTS } from '../../constants/achievements';
 import { getThemeClasses } from '../../utils/theme';
 
 const AchievementsModal = ({ onClose, darkMode, userData }) => {
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);
@@ -21,12 +21,12 @@ const AchievementsModal = ({ onClose, darkMode, userData }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
-        className={`w-full max-w-2xl max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
+        className={`${modalShellClass} max-w-2xl max-h-[85vh] overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} flex justify-between items-center`}>
+        <div className={`p-4 border-b ${cardEdgeClass} flex justify-between items-center`}>
           <div>
             <h2 className={`text-xl font-bold ${textClass}`}>🏆 Achievements</h2>
             <p className={`text-sm ${mutedClass}`}>

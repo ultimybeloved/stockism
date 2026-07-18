@@ -217,7 +217,7 @@ const IndexChartModal = ({
   chartData, currentIndex, timeRange, setTimeRange,
   hoveredPoint, setHoveredPoint, darkMode, colorBlindMode, onClose
 }) => {
-  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   if (chartData.length < 2) return null;
 
@@ -263,10 +263,10 @@ const IndexChartModal = ({
   const rangeLabel = TIME_RANGES.find(t => t.key === timeRange)?.label;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-3xl ${cardClass} border rounded-sm shadow-xl overflow-hidden`} onClick={e => e.stopPropagation()}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-3xl overflow-hidden`} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">
             <div>
               <div className={`text-xs font-semibold tracking-wider mb-1 ${mutedClass}`}>STOCKISM MARKET INDEX</div>

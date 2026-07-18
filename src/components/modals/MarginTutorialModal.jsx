@@ -21,7 +21,7 @@ const CHECKS = [
 
 const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
   const { darkMode } = useAppContext();
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState(Array(CHECKS.length).fill(false));
   const [confirmText, setConfirmText] = useState('');
@@ -38,13 +38,13 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className={`${overlayHeavyClass} z-50`} onClick={onClose}>
       <div
-        className={`w-full max-w-lg max-h-[90vh] ${cardClass} border rounded-sm shadow-xl flex flex-col`}
+        className={`${modalShellClass} max-w-lg max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-700' : 'border-slate-200'} flex items-center justify-between shrink-0`}>
+        <div className={`p-4 border-b ${cardEdgeClass} flex items-center justify-between shrink-0`}>
           <div>
             <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>
               {reviewMode ? 'MARGIN SAFETY GUIDE' : 'REQUIRED READING: MARGIN TRADING'}

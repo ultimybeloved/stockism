@@ -19,7 +19,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   const [allOrders, setAllOrders] = useState([]);
   const [countdown, setCountdown] = useState('');
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   // Countdown to 21:00 UTC
   useEffect(() => {
@@ -98,8 +98,8 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`${cardClass} border rounded-sm p-4 max-w-md w-full`} onClick={e => e.stopPropagation()}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} p-4 max-w-md`} onClick={e => e.stopPropagation()}>
 
         <div className="flex justify-between items-start mb-3">
           <div>

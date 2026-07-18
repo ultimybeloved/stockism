@@ -12,7 +12,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   const { darkMode, userData, prices } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
-  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   const today = getTodayDateString();
   const weekId = getWeekId();
@@ -220,12 +220,12 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   const noCrew = !userCrew;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl overflow-hidden`}
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-md overflow-hidden`}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>📋 Missions</h2>
             <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-600 text-xl`}>×</button>
@@ -233,7 +233,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
         </div>
 
         {/* Tabs */}
-        <div className={`grid grid-cols-3 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`grid grid-cols-3 border-b ${cardEdgeClass}`}>
           <button
             onClick={() => setActiveTab('daily')}
             className={`py-2.5 text-sm font-semibold transition-colors ${

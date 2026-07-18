@@ -54,7 +54,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     }
   };
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } = getThemeClasses(darkMode);
 
   const { pendingOrders, loadingOrders, handleCancelOrder, portfolioHistory, loadingHistory } =
     usePortfolioModalData(user, timeRange, showNotification);
@@ -229,11 +229,11 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
     usePortfolioChartData(portfolioHistory, currentValue);
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-2xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
 
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <div>
               <h2 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h2>
@@ -249,7 +249,7 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
             <div className="flex items-center gap-2">
               {onOpenTradeHistory && (
                 <button onClick={onOpenTradeHistory}
-                  className={`px-2 py-1 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-amber-200 text-zinc-600 hover:bg-amber-50'}`}>
+                  className={`px-2 py-1 text-xs font-semibold rounded-sm border ${ghostBtnClass}`}>
                   Trade History
                 </button>
               )}

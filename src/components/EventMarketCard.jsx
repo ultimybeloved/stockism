@@ -11,7 +11,7 @@ import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 // buy or sell any time, except when the market is frozen during chapter review.
 const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = false, isAdmin = false, onHide }) => {
   const { darkMode, userData } = useAppContext();
-  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
 
   const colorBlindMode = userData?.colorBlindMode || false;
   const outcomeColors = [
@@ -220,14 +220,14 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
           <div className="flex gap-2">
             <button
               onClick={() => setMode('buy')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${mode === 'buy' ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${mode === 'buy' ? 'bg-orange-600 text-white' : chipClass}`}
             >
               Buy
             </button>
             <button
               onClick={() => setMode('sell')}
               disabled={ownedSelected <= 0}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm disabled:opacity-40 ${mode === 'sell' ? 'bg-orange-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm disabled:opacity-40 ${mode === 'sell' ? 'bg-orange-600 text-white' : chipClass}`}
             >
               Sell
             </button>
@@ -238,11 +238,11 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
             <div className={`text-xs ${mutedClass} mb-1`}>Shares</div>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShares(s => Math.max(0, (Number(s) || 0) - shareStep))}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'}`}>
                 -{shareStep}
               </button>
               <button type="button" onClick={() => setShares(s => Math.min(currentMax, (Number(s) || 0) + shareStep))}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'}`}>
                 +{shareStep}
               </button>
               <button type="button" onClick={() => setShares(currentMax)} disabled={!(currentMax > 0)}
@@ -282,7 +282,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
             <button
               onClick={() => { setShowTrade(false); setShares(10); }}
               disabled={submitting}
-              className={`flex-1 py-2 text-sm font-semibold rounded-sm disabled:opacity-50 ${darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-sm disabled:opacity-50 ${chipClass}`}
             >
               Cancel
             </button>

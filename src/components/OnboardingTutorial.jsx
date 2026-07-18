@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAppContext } from '../context/AppContext';
+import { getThemeClasses } from '../utils/theme';
 
 const STEPS = [
   {
@@ -69,17 +70,17 @@ export default function OnboardingTutorial({ onComplete }) {
     [step, animating]
   );
 
-  const card = darkMode ? "bg-zinc-900 text-zinc-100" : "bg-white text-slate-900";
+  const { textClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
   const subtleText = darkMode ? "text-zinc-400" : "text-slate-600";
   const subtleBtn = darkMode
     ? "text-zinc-400 hover:text-zinc-200"
     : "text-slate-500 hover:text-slate-700";
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4">
+    <div className={`${overlayHeavyClass} z-[100]`}>
       {/* Card */}
       <div
-        className={`relative max-w-md w-full mx-auto rounded-sm shadow-xl p-6 ${card} transition-all duration-200 ${
+        className={`relative ${modalShellClass} ${textClass} max-w-md mx-auto p-6 transition-all duration-200 ${
           animating
             ? direction > 0
               ? "opacity-0 translate-x-4"

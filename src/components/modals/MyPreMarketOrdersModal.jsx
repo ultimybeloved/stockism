@@ -10,7 +10,7 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
   const { darkMode, user, showNotification } = useAppContext();
   const [orders, setOrders] = useState([]);
   const [cancelling, setCancelling] = useState(null);
-  const { cardClass, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   useEffect(() => {
     if (!user) return;
@@ -55,10 +55,9 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
   const sells = orders.filter(o => o.action === 'sell');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
-        className={`relative w-full max-w-md rounded-sm shadow-xl ${cardClass}`}
+        className={`${modalShellClass} relative max-w-md`}
         onClick={e => e.stopPropagation()}
       >
         <div className={`flex items-center justify-between px-4 py-3 border-b ${borderClass}`}>

@@ -10,7 +10,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
 
-  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
   const betStep = niceStep(betLimit, 1);
 
   const timeRemaining = prediction.endsAt - Date.now();
@@ -237,7 +237,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
               )}
               <div className="flex gap-2">
                 <button onClick={() => { setShowBetUI(false); setSelectedOption(null); }}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}>
+                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${chipClass}`}>
                   Cancel
                 </button>
                 <button onClick={handlePlaceBet} disabled={!selectedOption || betAmount <= 0}

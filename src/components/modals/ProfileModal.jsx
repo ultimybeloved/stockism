@@ -19,7 +19,7 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
-  const { cardClass, textClass, mutedClass, subtleClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, subtleClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   const bets = userData?.bets || {};
   const predictionWins = userData?.predictionWins || 0;
@@ -133,13 +133,13 @@ const ProfileModal = ({ onClose, darkMode, userData, predictions, onOpenCrewSele
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
-        className={`w-full max-w-lg max-h-[85vh] ${cardClass} border rounded-sm shadow-xl overflow-hidden flex flex-col`}
+        className={`${modalShellClass} max-w-lg max-h-[85vh] overflow-hidden flex flex-col`}
         onClick={e => e.stopPropagation()}
       >
         <div
-          className={`relative p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} ${rowClass}`}
+          className={`relative p-4 border-b ${cardEdgeClass} ${rowClass}`}
           style={{
             ...(glowColor     ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
             ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
