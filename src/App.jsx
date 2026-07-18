@@ -142,25 +142,6 @@ export default function App() {
     return true; // Default to dark mode
   });
 
-  // Handler to toggle dark mode and persist to localStorage + Firestore
-  const handleToggleDarkMode = useCallback(() => {
-    setDarkMode(prev => {
-      const newValue = !prev;
-      // Save to localStorage immediately
-      localStorage.setItem('stockism_darkMode', newValue);
-
-      // Save to Firestore for signed-in users
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        updateDoc(userDocRef, { darkMode: newValue }).catch(err => {
-          console.error('Failed to save dark mode preference:', err);
-        });
-      }
-
-      return newValue;
-    });
-  }, [user]);
-
   const [actionLoading, setActionLoading] = useState({});
   const setLoadingKey = useCallback((key, value) => {
     setActionLoading(prev => ({ ...prev, [key]: value }));
@@ -222,6 +203,25 @@ export default function App() {
     handleClearAllNotifications, handleDeleteNotification,
     handleCreatePriceAlert, handleDeletePriceAlert,
   } = useUserAlerts({ user, showNotification });
+
+  // Handler to toggle dark mode and persist to localStorage + Firestore
+  const handleToggleDarkMode = useCallback(() => {
+    setDarkMode(prev => {
+      const newValue = !prev;
+      // Save to localStorage immediately
+      localStorage.setItem('stockism_darkMode', newValue);
+
+      // Save to Firestore for signed-in users
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        updateDoc(userDocRef, { darkMode: newValue }).catch(err => {
+          console.error('Failed to save dark mode preference:', err);
+        });
+      }
+
+      return newValue;
+    });
+  }, [user]);
 
   // Compute new characters for header notification
   const newCharactersWithData = useMemo(() => {
