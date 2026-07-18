@@ -30,6 +30,11 @@ const {
 } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
+// House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
+// round DOWN. Round-to-nearest would let scripted micro-sells skim up to half a
+// cent per call from the AMM. The epsilon guards floating-point noise.
+const ceilCent = (n) => Math.ceil((n - 1e-9) * 100) / 100;
+const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
 
 // Throw if event-market trading is currently frozen. Mirrors stock trading: the
 // market freezes during the weekly chapter-review halt and any admin halt, so
@@ -97,7 +102,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
       ? market.q.slice()
       : outcomes.map(() => 0);
 
-    const cost = round2(lmsrBuyCost(q, b, oi, qty));
+    const cost = ceilCent(lmsrBuyCost(q, b, oi, qty));
     if (cost < EVENT_MIN_BUYIN) {
       throw new functions.https.HttpsError('failed-precondition', `Minimum buy is $${EVENT_MIN_BUYIN}.`);
     }
@@ -209,7 +214,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
       ? market.q.slice()
       : outcomes.map(() => 0);
 
-    const refund = round2(lmsrSellRefund(q, b, oi, qty));
+    const refund = floorCent(lmsrSellRefund(q, b, oi, qty));
     q[oi] = Math.max(0, Math.round((q[oi] - qty) * 100) / 100);
     const updatedList = list.slice();
     updatedList[idx] = { ...market, q, volume: round2((market.volume || 0) + refund) };

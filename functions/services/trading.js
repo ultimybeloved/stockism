@@ -72,17 +72,18 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     );
   }
 
-  // Anti-manipulation: Block shorting if user has a pending SELL or STOP_LOSS limit order on same ticker
+  // Anti-manipulation: Block shorting if user has a live SELL or STOP_LOSS limit
+  // order on the same ticker. PARTIALLY_FILLED orders are still live and count.
+  // (Type is filtered in code — a second 'in' clause isn't allowed in one query.)
   if (action === 'short') {
-    const pendingSells = await db.collection('limitOrders')
+    const liveOrders = await db.collection('limitOrders')
       .where('userId', '==', uid)
       .where('ticker', '==', ticker)
-      .where('status', '==', 'PENDING')
-      .where('type', 'in', ['SELL', 'STOP_LOSS'])
-      .limit(1)
+      .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
       .get();
+    const hasLiveSell = liveOrders.docs.some(d => ['SELL', 'STOP_LOSS'].includes(d.data().type));
 
-    if (!pendingSells.empty) {
+    if (hasLiveSell) {
       throw new functions.https.HttpsError('failed-precondition',
         'Cannot short while you have a pending sell order on this stock.');
     }

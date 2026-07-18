@@ -408,12 +408,19 @@ const runMarketOpenProcessing = async (trigger) => {
         });
 
         const newHoldings = Math.round(((userData.holdings?.[order.ticker] || 0) - fillShares) * 10000) / 10000;
+        // Mission/stat credit — same fields executeTrade writes (includes the
+        // totalTrades increment), so sweep fills count like regular trades.
+        const { updates: creditUpdates } = buildTradeCreditUpdates({
+          userData, ticker: order.ticker, action: 'sell', shares: fillShares,
+          totalValue: executedPrice * fillShares, executionPrice: executedPrice,
+          marketPrice: freshPrice, now
+        });
         const updates = {
           cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
           [`holdings.${order.ticker}`]: newHoldings,
           lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-          totalTrades: admin.firestore.FieldValue.increment(1),
-          tickerTradeHistory: updatedHistory
+          tickerTradeHistory: updatedHistory,
+          ...creditUpdates
         };
         if (newHoldings <= 0) {
           updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
@@ -439,6 +446,10 @@ const runMarketOpenProcessing = async (trigger) => {
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
       });
+      // Crew mission progress (fire-and-forget, same as executeTrade)
+      if (feedCrew) {
+        updateCrewMissionProgress(feedCrew, order.userId, 'sell', fillShares, order.ticker, executedPrice * fillShares);
+      }
       await writeNotification(order.userId, {
         type: 'trade',
         title: 'Stop Loss Filled',

@@ -19,7 +19,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid);
-  const { crewId, isSwitch } = data;
+  const { crewId } = data;
 
   if (!crewId || typeof crewId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid crew ID.');
@@ -68,8 +68,10 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 
       let totalTaken = 0;
 
-      // Apply 15% penalty if switching crews (only read market prices when needed)
-      if (isSwitch && userData.crew) {
+      // Apply 15% penalty if switching crews. Derived server-side — the client
+      // must not be able to skip the penalty by claiming this isn't a switch.
+      const isSwitch = !!userData.crew;
+      if (isSwitch) {
         const marketRef = db.collection('market').doc('current');
         const marketDoc = await transaction.get(marketRef);
         const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
@@ -83,8 +85,10 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 
         Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
           if (shares > 0) {
-            const sharesToTake = Math.floor(shares * penaltyRate);
-            const sharesToKeep = shares - sharesToTake;
+            // Fractional take, rounded to 2 dp — a whole-share floor would let
+            // positions under ~7 shares dodge the penalty entirely.
+            const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
+            const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
             newHoldings[ticker] = sharesToKeep;
             holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
           }
@@ -101,7 +105,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 
       transaction.update(userRef, updateData);
 
-      return { success: true, totalTaken, isSwitch: !!(isSwitch && userData.crew) };
+      return { success: true, totalTaken, isSwitch };
     });
 
     return result;

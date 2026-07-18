@@ -160,13 +160,14 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
     // 15% cash penalty
     const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
 
-    // 15% holdings penalty (floor to never take more than 15%)
+    // 15% holdings penalty. Fractional take, rounded to 2 dp — a whole-share
+    // floor would let positions under ~7 shares dodge the penalty entirely.
     const newHoldings = {};
     let holdingsValueTaken = 0;
     Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
       if (shares > 0) {
-        const sharesToTake = Math.floor(shares * penaltyRate);
-        const sharesToKeep = shares - sharesToTake;
+        const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
+        const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
         newHoldings[ticker] = sharesToKeep;
         holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
       }
