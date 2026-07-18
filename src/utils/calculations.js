@@ -15,7 +15,8 @@ import {
   MARGIN_CALL_THRESHOLD,
   MARGIN_LIQUIDATION_THRESHOLD,
   SHORT_MARGIN_CALL_THRESHOLD,
-  SHORT_MARGIN_WARNING_THRESHOLD
+  SHORT_MARGIN_WARNING_THRESHOLD,
+  SHORT_MARGIN_REQUIREMENT
 } from '../constants/economy';
 import { CHARACTER_MAP } from '../characters';
 
@@ -76,6 +77,39 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
  * @param {number} shares - shares shorted
  * @returns {number|null} force-cover price, or null for an empty position
  */
+/**
+ * Estimated cash total for a prospective trade (confirmation preview).
+ * Mirrors the backend execution math: impact-adjusted bid/ask, full short
+ * collateral, and v2 cover margin return. ageFactor scales impact down for
+ * new accounts.
+ */
+export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition }) => {
+  const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
+  if (action === 'buy') {
+    const { ask } = getBidAskPrices(price + priceImpact, isETF);
+    return ask * amount;
+  }
+  if (action === 'sell') {
+    const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), isETF);
+    return bid * amount;
+  }
+  if (action === 'short') {
+    const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), isETF);
+    return bid * amount * SHORT_MARGIN_REQUIREMENT; // collateral deposited
+  }
+  if (action === 'cover') {
+    const { ask } = getBidAskPrices(price + priceImpact, isETF);
+    if (shortPosition?.system === 'v2') {
+      const costBasis = shortPosition.costBasis || 0;
+      const totalMargin = shortPosition.margin || 0;
+      const marginBack = shortPosition.shares > 0 ? (totalMargin / shortPosition.shares) * amount : 0;
+      return marginBack + (costBasis - ask) * amount;
+    }
+    return ask * amount;
+  }
+  return price * amount;
+};
+
 export const getShortLiquidationPrice = (margin, entryPrice, shares) => {
   if (!shares || shares <= 0) return null;
   return (margin + entryPrice * shares) / (shares * (1 + SHORT_MARGIN_CALL_THRESHOLD));
