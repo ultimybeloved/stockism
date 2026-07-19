@@ -38,7 +38,7 @@ const HoldingRow = ({
                   className={`text-xs ${DIVIDEND_TIER_META[item.tier]?.color || 'text-zinc-400'}`}
                   title={`${DIVIDEND_TIER_META[item.tier]?.label}: pays ${(item.tierRate * 100).toFixed(2)}% weekly on eligible shares. Shares held longer pay more, up to 1.5x after 8 weeks.`}
                 >
-                  {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label}
+                  {DIVIDEND_TIER_META[item.tier]?.label}
                 </span>
               )}
               <span className={`text-xs ${mutedClass}`}>
@@ -104,7 +104,7 @@ const HoldingRow = ({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className={`text-xs ${mutedClass} mb-1`}>
-                    {DIVIDEND_TIER_META[item.tier]?.emoji} {DIVIDEND_TIER_META[item.tier]?.label} tier: pays {(item.tierRate * 100).toFixed(2)}% weekly. Shares held longer pay more, up to 1.5x after 8 weeks.
+                    {DIVIDEND_TIER_META[item.tier]?.label} tier: pays {(item.tierRate * 100).toFixed(2)}% weekly. Shares held longer pay more, up to 1.5x after 8 weeks.
                   </div>
                   <div className={`text-sm ${textClass}`}>
                     {formatShares(item.eligibleShares)} / {formatShares(item.shares)} shares eligible

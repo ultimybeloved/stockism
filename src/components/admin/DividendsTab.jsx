@@ -55,12 +55,12 @@ const DividendsTab = ({
       <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Weekly Base Rates (auto from rarity tier)</h3>
         <div className={`text-xs ${mutedClass} grid grid-cols-3 gap-2`}>
-          <div>⭐ Legendary: <span className={textClass}>{(DIVIDEND_RATES.legendary * 100).toFixed(2)}%</span></div>
-          <div>💜 Epic: <span className={textClass}>{(DIVIDEND_RATES.epic * 100).toFixed(2)}%</span></div>
-          <div>🔷 Rare: <span className={textClass}>{(DIVIDEND_RATES.rare * 100).toFixed(2)}%</span></div>
-          <div>🌿 Uncommon: <span className={textClass}>{(DIVIDEND_RATES.uncommon * 100).toFixed(2)}%</span></div>
-          <div>🪨 Common: <span className={textClass}>{(DIVIDEND_RATES.common * 100).toFixed(2)}%</span></div>
-          <div>📊 ETF: <span className={textClass}>{(DIVIDEND_RATES.etf * 100).toFixed(2)}%</span></div>
+          <div>Legendary: <span className={textClass}>{(DIVIDEND_RATES.legendary * 100).toFixed(2)}%</span></div>
+          <div>Epic: <span className={textClass}>{(DIVIDEND_RATES.epic * 100).toFixed(2)}%</span></div>
+          <div>Rare: <span className={textClass}>{(DIVIDEND_RATES.rare * 100).toFixed(2)}%</span></div>
+          <div>Uncommon: <span className={textClass}>{(DIVIDEND_RATES.uncommon * 100).toFixed(2)}%</span></div>
+          <div>Common: <span className={textClass}>{(DIVIDEND_RATES.common * 100).toFixed(2)}%</span></div>
+          <div>ETF: <span className={textClass}>{(DIVIDEND_RATES.etf * 100).toFixed(2)}%</span></div>
         </div>
         <div className={`text-xs ${mutedClass} mt-2`}>
           Loyalty ladder on top: shares pay nothing for 10 days, then 1x, 1.25x after 4 weeks, 1.5x after 8 weeks.

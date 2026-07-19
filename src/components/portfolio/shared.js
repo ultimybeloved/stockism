@@ -2,12 +2,12 @@
 
 // Tier names and colors follow the card rarity tiers (see src/index.css).
 export const DIVIDEND_TIER_META = {
-  legendary: { label: 'Legendary', emoji: '⭐', color: 'text-amber-500' },
-  epic:      { label: 'Epic',      emoji: '💜', color: 'text-purple-500' },
-  rare:      { label: 'Rare',      emoji: '🔷', color: 'text-blue-500' },
-  uncommon:  { label: 'Uncommon',  emoji: '🌿', color: 'text-emerald-500' },
-  common:    { label: 'Common',    emoji: '🪨', color: 'text-zinc-400' },
-  etf:       { label: 'ETF',       emoji: '📊', color: 'text-sky-500' },
+  legendary: { label: 'Legendary', color: 'text-amber-500' },
+  epic:      { label: 'Epic',      color: 'text-purple-500' },
+  rare:      { label: 'Rare',      color: 'text-blue-500' },
+  uncommon:  { label: 'Uncommon',  color: 'text-emerald-500' },
+  common:    { label: 'Common',    color: 'text-zinc-400' },
+  etf:       { label: 'ETF',       color: 'text-sky-500' },
 };
 
 export const formatShares = (n) => {

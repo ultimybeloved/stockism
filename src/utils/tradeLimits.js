@@ -51,10 +51,11 @@ export const getDynamicPrices = (character, price, amt, act, userData) => {
   return getBidAskPrices(Math.max(MIN_PRICE, price - impact), character.isETF);
 };
 
-// Cash plus any available margin
-export const getBuyingPower = (userCash, userData, prices, priceHistory) => {
+// Cash plus any available margin (margin only when includeMargin is true —
+// the trade modal keeps it opt-in so Max defaults to cash)
+export const getBuyingPower = (userCash, userData, prices, priceHistory, includeMargin = true) => {
   let buyingPower = userCash;
-  if (userData && prices) {
+  if (includeMargin && userData && prices) {
     const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
     if (marginStatus.enabled && marginStatus.availableMargin > 0) {
       // Use the full available margin, matching what the backend allows. (This
@@ -68,13 +69,13 @@ export const getBuyingPower = (userCash, userData, prices, priceHistory) => {
 
 // Max shares available for this action, honoring trade-count caps, locks,
 // buying power (buy), and short collateral limits.
-export const getMaxShares = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory }) => {
+export const getMaxShares = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin = true }) => {
   const ticker = character.ticker;
   if (action === 'buy') {
     // Check trade count limit first
     if (getTradeCount(userData, ticker, 'buy') >= MAX_TRADES_PER_TICKER_24H) return 0;
 
-    const buyingPower = getBuyingPower(userCash, userData, prices, priceHistory);
+    const buyingPower = getBuyingPower(userCash, userData, prices, priceHistory, includeMargin);
     if (buyingPower <= 0) return 0;
     // Binary search; the /0.5 just over-estimates the upper bound, which is safe.
     let low = 1, high = Math.floor(buyingPower / (price * 0.5)), maxAffordable = 0;

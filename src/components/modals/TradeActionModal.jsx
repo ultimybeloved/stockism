@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import { calculateMarginStatus } from '../../utils/calculations';
 import { getDynamicPrices, getMaxShares, getTradeCount } from '../../utils/tradeLimits';
 import { createLimitOrderFunction } from '../../firebase';
 import MarginImpactPreview from '../trading/MarginImpactPreview';
@@ -22,6 +23,8 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
   const [limitPrice, setLimitPrice] = useState((price || 0).toFixed(2));
   const [allowPartialFills, setAllowPartialFills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Max defaults to cash only; margin buying power is opt-in via the checkbox.
+  const [useMarginMax, setUseMarginMax] = useState(false);
 
   const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
@@ -38,7 +41,20 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
     }
   };
 
-  const maxSharesFractional = getMaxShares({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory });
+  const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
+  const marginAvailable = action === 'buy' && marginStatus.enabled ? Math.max(0, marginStatus.availableMargin) : 0;
+
+  const maxSharesFractional = getMaxShares({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin: useMarginMax });
+
+  const handleToggleMarginMax = (checked) => {
+    setUseMarginMax(checked);
+    if (!checked) {
+      // Margin turned off: clamp the entered amount back to what cash covers.
+      const cashMax = getMaxShares({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin: false });
+      const capped = partialShares ? cashMax : Math.floor(cashMax);
+      if (amount > capped) setAmount(capped);
+    }
+  };
   const maxSharesWhole = Math.floor(maxSharesFractional);
   // Active margin lock on this ticker (for the sell-side note below).
   const _mLock = userData?.marginLockup?.[character.ticker];
@@ -229,6 +245,19 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           marginLockedShares={marginLockedShares}
           marginLockHours={marginLockHours}
         />
+
+        {/* Margin is opt-in: Max stays cash-only unless this is ticked */}
+        {action === 'buy' && marginAvailable > 0 && (
+          <label className={`flex items-center gap-2 text-xs ${mutedClass} cursor-pointer select-none -mt-2 mb-4`}>
+            <input
+              type="checkbox"
+              checked={useMarginMax}
+              onChange={(e) => handleToggleMarginMax(e.target.checked)}
+              className="cursor-pointer"
+            />
+            Include margin buying power ({formatCurrency(marginAvailable)} available to borrow)
+          </label>
+        )}
 
         {/* Limit / stop-loss options (only for buy/sell — short/cover not supported) */}
         {(action === 'buy' || action === 'sell') && (
