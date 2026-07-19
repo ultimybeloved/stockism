@@ -92,6 +92,17 @@ const NAME_CHANGE_COST = 10000;        // cash cost to change display name (chan
 // Anti-manipulation: cooldown between buy/short on the same ticker by one user.
 const TICKER_COOLDOWN_MS = 10000;      // 10 seconds
 
+// Anti-manipulation: executeTrade throttle windows.
+const TRADE_COOLDOWN_MS = 3000;               // min gap between any two trades by one user
+const TRADE_HOLD_PERIOD_MS = 45 * 1000;       // min hold before a position can be sold/covered
+const MAX_TRADES_PER_TICKER_HOUR = 15;        // buy/short velocity cap per ticker per hour
+const TRADE_BURST_LIMIT = 3;                  // max buys or shorts per ticker per burst window
+const TRADE_BURST_WINDOW_MS = 5 * 60 * 1000;  // 5 minutes
+// After this many shorts on one ticker inside the rolling window, further
+// shorts must wait for the oldest one to age out.
+const MAX_SHORTS_BEFORE_COOLDOWN = 3;
+const SHORT_COOLDOWN_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
+
 // Daily check-in streak rewards. Index 0 = day 1. The reward escalates with the
 // consecutive-day check-in streak, then caps at the last value forever (as long
 // as the streak isn't broken). The streak itself is already tracked as
@@ -348,6 +359,13 @@ module.exports = {
   BAILOUT_CASH,
   NAME_CHANGE_COST,
   TICKER_COOLDOWN_MS,
+  TRADE_COOLDOWN_MS,
+  TRADE_HOLD_PERIOD_MS,
+  MAX_TRADES_PER_TICKER_HOUR,
+  TRADE_BURST_LIMIT,
+  TRADE_BURST_WINDOW_MS,
+  MAX_SHORTS_BEFORE_COOLDOWN,
+  SHORT_COOLDOWN_WINDOW_MS,
   CHECKIN_STREAK_REWARDS,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,
