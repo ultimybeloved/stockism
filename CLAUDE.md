@@ -269,7 +269,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/helpers.js` | Shared utility functions used by multiple services |
 | `functions/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
 | `functions/botTrader.js` | Bot trading scheduler |
-| `functions/services/trading.js` | executeTrade, validateTrade — the most critical file, treat with care |
+| `functions/services/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
 | `functions/services/users.js` | createUser, changeDisplayName, deleteAccount, dailyCheckin |
 | `functions/services/market.js` | Price updates, market summaries, halt management |
 | `functions/services/leaderboard.js` | Rankings, leaderboard computation |
@@ -316,7 +316,7 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
-- **`executeTrade` refactor** (`functions/services/trading.js`, ~1,600 lines): The function is a single Firestore transaction. Splitting it risks breaking atomicity with no integration tests to catch it. Leave it unless a specific bug requires touching it.
+- ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/services/trading.js` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (129 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/index.js`.
 - ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.jsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.jsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.jsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.js` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.jsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - **End-to-end trade tests**: Would require Firebase Emulator setup. ROI is low unless trade logic is being actively changed.
