@@ -2,7 +2,7 @@
 // Display math only — the backend owns the real numbers.
 
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
-import { DIVIDEND_RATES } from '../../constants/economy';
+import { DIVIDEND_RATES, dividendWeightedShares } from '../../constants/economy';
 import { getShortLiquidationPrice } from '../../utils/calculations';
 
 // Price at-or-before 24h ago for "today's return"; falls back to oldest point.
@@ -18,7 +18,7 @@ const price24hAgoOf = (priceHistory, ticker, currentPrice) => {
   return history[0].price;
 };
 
-export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides }) => {
+export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides, rarityTiers }) => {
   const now = Date.now();
   return Object.entries(holdings)
     .filter(([_, shares]) => shares > 0)
@@ -39,8 +39,9 @@ export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis,
       const todayReturnDollar = value - value24hAgo;
       const todayReturnPercent = value24hAgo > 0 ? ((value - value24hAgo) / value24hAgo) * 100 : 0;
 
-      // Dividend eligibility — graduates any pending entries past their availableAt.
-      const tier = getDividendTier(ticker, dividendTierOverrides);
+      // Dividend estimate — base yield from the stock's market-standing tier,
+      // each purchase lot weighted by its loyalty-ladder multiplier.
+      const tier = getDividendTier(ticker, rarityTiers, dividendTierOverrides);
       const tierRate = DIVIDEND_RATES[tier] || 0;
       const cohort = holdingCohorts?.[ticker];
       let eligibleShares = 0;
@@ -55,7 +56,7 @@ export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis,
           }
         }
       }
-      const weeklyDividend = eligibleShares * currentPrice * tierRate;
+      const weeklyDividend = dividendWeightedShares(cohort, now) * currentPrice * tierRate;
 
       return {
         ticker,

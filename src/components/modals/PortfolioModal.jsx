@@ -20,7 +20,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTradeHistory, ipoPurchases = {}, holdingCohorts = {}, dividendTierOverrides = {}, drip = {}, onToggleDrip }) => {
   useEscapeKey(onClose);
-  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs = [], showNotification } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs = [], showNotification, rarityTiers } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState({});
   const [coverAmounts, setCoverAmounts] = useState({});
@@ -60,8 +60,8 @@ const PortfolioModal = ({ currentValue, onClose, onTrade, onLimitSell, onOpenTra
 
   // Helper to get price from 24h ago
   const portfolioItems = useMemo(
-    () => buildPortfolioItems({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides }),
-    [holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides]
+    () => buildPortfolioItems({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides, rarityTiers }),
+    [holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides, rarityTiers]
   );
 
   const totalWeeklyDividends = useMemo(

@@ -7,7 +7,7 @@ import { CREWS } from '../crews';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
-import { DIVIDEND_RATES, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
+import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
 import { usePriceHistory } from '../hooks/usePriceHistory';
@@ -21,7 +21,7 @@ const CHART_TYPES = [
 const StockPage = ({ onTrade }) => {
   const { ticker } = useParams();
   const navigate = useNavigate();
-  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData } = useAppContext();
+  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, rarityTiers } = useAppContext();
   const { fullHistory } = usePriceHistory(ticker);
   const colorBlindMode = userData?.colorBlindMode || false;
   const marketClosed = getMarketClosedState(marketData).closed;
@@ -86,13 +86,12 @@ const StockPage = ({ onTrade }) => {
   const cc = (pct) => pct >= 0 ? upColor : downColor;
   const cd = (pct) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
 
-  const dividendTier = character ? getDividendTier(ticker) : 'growth';
+  const dividendTier = character ? getDividendTier(ticker, rarityTiers) : 'none';
   const dividendRate = DIVIDEND_RATES[dividendTier] || 0;
   const cohort = userData?.holdingCohorts?.[ticker];
-  const eligibleShares = cohort
-    ? (cohort.eligible || 0) + (cohort.pending || []).filter(p => (p.availableAt || 0) <= Date.now()).reduce((s, p) => s + (p.shares || 0), 0)
-    : 0;
-  const weeklyDividend = eligibleShares * currentPrice * dividendRate;
+  // Loyalty-weighted estimate: matured shares at the top multiplier, each
+  // pending lot at its own rung (0 while inside the 10-day hold).
+  const weeklyDividend = dividendWeightedShares(cohort, Date.now()) * currentPrice * dividendRate;
 
   const positionValue = positionShares * currentPrice;
   const positionCost = avgCost * positionShares;
@@ -238,8 +237,7 @@ const StockPage = ({ onTrade }) => {
           {stat('Base Price', formatCurrency(character.basePrice))}
           {dividendRate > 0
             ? stat('Dividend', `${(dividendRate * 100).toFixed(2)}% / week`, upColor)
-            : stat('Dividend', 'Growth (none)', mutedClass)}
-          {character.volatility && stat('Volatility', `${(character.volatility * 100).toFixed(1)}%`)}
+            : stat('Dividend', 'None', mutedClass)}
         </div>
 
         {/* Your Position */}

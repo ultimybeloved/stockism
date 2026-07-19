@@ -9,22 +9,20 @@ const db = admin.firestore();
 // ============================================
 // DIVIDEND SYSTEM CONSTANTS
 // ============================================
-const DIVIDEND_HOLD_DAYS = 10;
-const DIVIDEND_HOLD_MS = DIVIDEND_HOLD_DAYS * 24 * 60 * 60 * 1000;
-const DIVIDEND_RATES = {
-  'blue-chip': 0.010,
-  'dividend':  0.005,
-  'etf':       0.007,
-  'growth':    0,
-};
+// Rates, hold gate, and loyalty ladder live in characters.js (synced from
+// src/characters.js) so frontend and backend always agree.
+const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS } = require('./characters');
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
-// Eligible = shares held >= 10 days and ready to earn dividends.
-// Pending = shares within the 10-day waiting period.
+// Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
+// hold gate), then earns its loyalty-ladder multiplier from its age, and is
+// folded into `eligible` (= fully matured, top multiplier) at 8 weeks.
 // Invariant: eligible + sum(pending.shares) === holdings[ticker].
+// Cohorts may carry extra fields (e.g. firstHeldAt for the Dividend Demon
+// achievement) — every helper must preserve them, not rebuild bare objects.
 const addPendingShares = (cohort, shares, now) => {
   const c = cohort && typeof cohort === 'object'
-    ? { eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
+    ? { ...cohort, eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
     : { eligible: 0, pending: [] };
   c.pending.push({ shares, availableAt: now + DIVIDEND_HOLD_MS });
   return c;
@@ -55,19 +53,22 @@ const decrementCohort = (cohort, shares) => {
   }
 
   if (eligible === 0 && pending.length === 0) return null;
-  return { eligible, pending };
+  return { ...cohort, eligible, pending };
 };
 
-// Promote any pending entries past their availableAt into eligible.
+// Fold fully matured pending lots (held past the top loyalty rung) into
+// eligible. Lots between the hold gate and full maturity stay pending so their
+// age keeps driving the ladder multiplier.
 const graduateCohort = (cohort, now) => {
   if (!cohort) return { eligible: 0, pending: [] };
   let eligible = cohort.eligible || 0;
   const stillPending = [];
   for (const p of (cohort.pending || [])) {
-    if ((p.availableAt || 0) <= now) eligible += (p.shares || 0);
+    const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
+    if (now - acquiredAt >= DIVIDEND_MATURE_MS) eligible += (p.shares || 0);
     else stillPending.push(p);
   }
-  return { eligible, pending: stillPending };
+  return { ...cohort, eligible, pending: stillPending };
 };
 
 // Cumulative marginal impact: makes splitting trades give same impact as bulk
@@ -673,10 +674,8 @@ const lockedShares = (userData, ticker, now = Date.now()) => {
 };
 
 module.exports = {
-  DIVIDEND_HOLD_DAYS,
   lockedShares,
   DIVIDEND_HOLD_MS,
-  DIVIDEND_RATES,
   getLastActiveMs,
   touchLastActive,
   addPendingShares,

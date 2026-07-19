@@ -292,7 +292,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
       )}
 
             {activeTab === 'dividends' && (
-        <DividendsTab {...common} {...dividends} />
+        <DividendsTab {...common} {...dividends} prices={prices} />
       )}
 
         </div>

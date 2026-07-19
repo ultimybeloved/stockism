@@ -115,7 +115,7 @@ stockism/
 │   ├── utils/                    # Utility functions (formatters, calculations)
 │   ├── App.jsx                   # Main app component (437KB, massive file)
 │   ├── AdminPanel.jsx            # Admin panel (234KB, 5200+ lines)
-│   ├── characters.js             # Character data (tickers, base prices, volatility)
+│   ├── characters.js             # Character data (tickers, base prices, rarity + dividend system)
 │   ├── crews.js                  # Crew data, missions, shop items
 │   ├── firebase.js               # Firebase config & Cloud Function exports
 │   ├── index.css                 # Global Tailwind styles
@@ -217,7 +217,7 @@ Response back to User
 - **`src/App.jsx`** - Main app logic, routing, trading system (437KB - HUGE file)
 - **`src/AdminPanel.jsx`** - Admin interface, 9 tabs for game management (234KB)
 - **`src/firebase.js`** - Firebase initialization, Cloud Function exports
-- **`src/characters.js`** - 90+ characters with tickers, base prices, volatility
+- **`src/characters.js`** - 150+ characters with tickers and base prices, plus the shared rarity-tier and dividend math (synced to functions/)
 - **`src/crews.js`** - 9 crews (Big Deal, Hostel, Workers, Allied, WTJC, God Dog, Fist Gang, Secret Friends, Yamazaki), daily/weekly missions, shop items
 
 ### Backend Functions

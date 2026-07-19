@@ -5,11 +5,15 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { getDividendTier } = require('../characters');
+const {
+  CHARACTERS,
+  computeRarityTiers,
+  getDividendRate,
+  dividendWeightedShares,
+} = require('../characters');
 const { ADMIN_UID } = require('../constants');
 const {
   DIVIDEND_HOLD_MS,
-  DIVIDEND_RATES,
   graduateCohort,
   addPendingShares,
   writeNotification,
@@ -35,7 +39,10 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
   const overridesDoc = await db.collection('dividendConfig').doc('tierOverrides').get();
   const tierOverrides = overridesDoc.exists ? (overridesDoc.data().tiers || {}) : {};
 
-  const rateFor = (ticker) => DIVIDEND_RATES[getDividendTier(ticker, tierOverrides)] || 0;
+  // Base yield follows market standing: rank the roster on the same frozen
+  // snapshot the payout prices come from.
+  const rarityTiers = computeRarityTiers(CHARACTERS, snapshotPrices);
+  const rateFor = (ticker) => getDividendRate(ticker, rarityTiers, tierOverrides);
 
   const now = Date.now();
   const usersSnap = await db.collection('users').get();
@@ -103,10 +110,13 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
       cohortUpdates[ticker] = graduated;
 
-      if (rate > 0 && graduated.eligible > 0) {
+      // Loyalty-weighted share count: matured `eligible` at the top multiplier,
+      // each pending lot at its own rung (0 while inside the hold gate).
+      const weightedShares = dividendWeightedShares(graduated, now);
+      if (rate > 0 && weightedShares > 0) {
         const price = snapshotPrices[ticker] || 0;
         if (price > 0) {
-          const payout = Math.round(graduated.eligible * price * rate * 100) / 100;
+          const payout = Math.round(weightedShares * price * rate * 100) / 100;
           if (payout > 0) {
             stats.tickerTotals[ticker] = (stats.tickerTotals[ticker] || 0) + payout;
             if (drip[ticker] && price > 0) {
@@ -221,8 +231,9 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 /**
  * Weekly dividend payout — Thursday 12:58 UTC
  * Runs ~3 minutes after savePreHaltPrices captures the frozen snapshot.
- * Pays holders of 'blue-chip' / 'dividend' / ETF stocks whose shares have
- * cleared the 10-day holding period.
+ * Every stock pays: base yield from its market-standing tier (ETFs flat),
+ * multiplied per purchase lot by the loyalty ladder once the lot clears the
+ * 10-day holding period.
  */
 exports.payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
   .pubsub
