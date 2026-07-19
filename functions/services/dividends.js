@@ -110,8 +110,9 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
       cohortUpdates[ticker] = graduated;
 
-      // Loyalty-weighted share count: matured `eligible` at the top multiplier,
-      // each pending lot at its own rung (0 while inside the hold gate).
+      // Loyalty-weighted share count: matured `eligible` aged from the ladder
+      // epoch (see dividendWeightedShares in characters.js), each pending lot
+      // at its own rung (0 while inside the hold gate).
       const weightedShares = dividendWeightedShares(graduated, now);
       if (rate > 0 && weightedShares > 0) {
         const price = snapshotPrices[ticker] || 0;
