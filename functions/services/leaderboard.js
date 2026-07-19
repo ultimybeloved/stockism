@@ -17,7 +17,39 @@ const LEADERBOARD_FIELDS = [
   'holdings', 'displayCrewPin', 'displayedAchievementPins', 'achievements',
   'displayedShopPins', 'previousDisplayName', 'nameChangedAt',
   'activeCosmetics', 'isPublic', 'isBot', 'portfolioSnapshot7d',
+  // Ownership lists — fetched only to validate the display fields below;
+  // never included in the payload sent to clients.
+  'ownedShopPins', 'ownedCosmetics',
 ];
+
+// Players write displayedShopPins / displayedAchievementPins / activeCosmetics
+// directly from the client (they're on the user-doc rules allowlist), so
+// nothing stops a raw Firestore write from flaunting pins or paid cosmetics
+// the player never earned/bought — or from stuffing junk types that would
+// crash rendering clients. Every public payload runs through this filter:
+// only owned/earned items survive, and malformed values collapse to empties.
+const asArray = (v) => (Array.isArray(v) ? v : []);
+const sanitizeDisplayFields = (userData) => {
+  const achievements = asArray(userData.achievements);
+  const ownedPins = asArray(userData.ownedShopPins);
+  const ownedCosmetics = asArray(userData.ownedCosmetics);
+  const active = userData.activeCosmetics;
+  let activeCosmetics = null;
+  if (active && typeof active === 'object' && !Array.isArray(active)) {
+    activeCosmetics = {};
+    for (const [slot, id] of Object.entries(active)) {
+      // null = explicitly unequipped (kept); anything else must be owned.
+      if (id == null || (typeof id === 'string' && ownedCosmetics.includes(id))) {
+        activeCosmetics[slot] = id;
+      }
+    }
+  }
+  return {
+    displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
+    displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
+    activeCosmetics,
+  };
+};
 
 // Caller's rank via count aggregations (~1 read per 1000 counted) instead of
 // reading one doc per higher-ranked user. Bots are subtracted with a second
@@ -93,14 +125,12 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
             crewHeadColor: userData.crewHeadColor || null,
             holdingsCount,
             displayCrewPin: userData.displayCrewPin || null,
-            displayedAchievementPins: userData.displayedAchievementPins || [],
-            achievements: userData.achievements || [],
-            displayedShopPins: userData.displayedShopPins || [],
+            ...sanitizeDisplayFields(userData),
+            achievements: asArray(userData.achievements),
             weeklyGain,
             weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100,
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
-            activeCosmetics: userData.activeCosmetics || null,
             isPublic: userData.isPublic || false,
           });
         });
@@ -145,12 +175,10 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
             crewHeadColor: userData.crewHeadColor || null,
             holdingsCount: holdingsCount,
             displayCrewPin: userData.displayCrewPin || null,
-            displayedAchievementPins: userData.displayedAchievementPins || [],
-            achievements: userData.achievements || [],
-            displayedShopPins: userData.displayedShopPins || [],
+            ...sanitizeDisplayFields(userData),
+            achievements: asArray(userData.achievements),
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
-            activeCosmetics: userData.activeCosmetics || null,
             isPublic: userData.isPublic || false,
           });
         });
@@ -310,10 +338,8 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     crew: userData.crew || null,
     isCrewHead: userData.isCrewHead || false,
     crewHeadColor: userData.crewHeadColor || null,
-    activeCosmetics: userData.activeCosmetics || null,
+    ...sanitizeDisplayFields(userData),
     displayCrewPin: userData.displayCrewPin || null,
-    displayedAchievementPins: userData.displayedAchievementPins || [],
-    displayedShopPins: userData.displayedShopPins || [],
     portfolioValue: userData.portfolioValue || 0,
     holdingsCount: holdingTickers.length,
     rank,
@@ -324,7 +350,7 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     totalShortValue,
     portfolioHistory,
     adminData,
-    achievements: userData.achievements || [],
+    achievements: asArray(userData.achievements),
     stats: {
       totalTrades: userData.totalTrades || 0,
       predictionWins: userData.predictionWins || 0,

@@ -26,9 +26,11 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     }
   }
 
-  // Achievement pins (only show if user still has the achievement)
-  const achievementPins = userData.displayedAchievementPins || [];
-  const earnedAchievements = userData.achievements || [];
+  // Achievement pins (only show if user still has the achievement).
+  // Array.isArray guards throughout: these fields are client-writable, so a
+  // malformed value must never crash every viewer's render.
+  const achievementPins = Array.isArray(userData.displayedAchievementPins) ? userData.displayedAchievementPins : [];
+  const earnedAchievements = Array.isArray(userData.achievements) ? userData.achievements : [];
   achievementPins.forEach((achId, idx) => {
     const achievement = ACHIEVEMENTS[achId];
     if (achievement && earnedAchievements.includes(achId)) {
@@ -42,11 +44,14 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     }
   });
 
-  // Shop pins
-  const shopPins = userData.displayedShopPins || [];
+  // Shop pins. Server payloads (leaderboard/public profile) arrive pre-filtered
+  // to owned pins; when the full user doc is present (own header), enforce
+  // ownership here too so unowned pins never render anywhere.
+  const shopPins = Array.isArray(userData.displayedShopPins) ? userData.displayedShopPins : [];
+  const ownedShopPins = Array.isArray(userData.ownedShopPins) ? userData.ownedShopPins : null;
   shopPins.forEach((pinId, idx) => {
     const pin = SHOP_PINS[pinId];
-    if (pin) {
+    if (pin && (!ownedShopPins || ownedShopPins.includes(pinId))) {
       pins.push(
         <span key={`shop-${idx}`} title={pin.name} className={`inline-flex items-center ${sizeClass}`}>
           <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />

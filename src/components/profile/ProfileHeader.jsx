@@ -37,7 +37,7 @@ const ProfileHeader = ({ userData, darkMode }) => {
     setNameSaving(false);
   };
 
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics);
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics, userData?.ownedCosmetics);
 
   return (
     <div
