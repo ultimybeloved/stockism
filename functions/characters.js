@@ -530,6 +530,15 @@ export const DIVIDEND_LOYALTY_LADDER = [
 export const DIVIDEND_MAX_MULTIPLIER = DIVIDEND_LOYALTY_LADDER[0].multiplier;
 export const DIVIDEND_MATURE_MS = DIVIDEND_LOYALTY_LADDER[0].minDays * 24 * 60 * 60 * 1000;
 
+// When the loyalty ladder launched. `eligible` shares from before this date
+// have unknown exact ages (the old system only tracked the 10-day gate), so
+// they are treated as bought DIVIDEND_HOLD_DAYS before the epoch — the minimum
+// they could have been held — and climb the ladder from there. No free 1.5x.
+// Shares that genuinely mature (56d) fold into `eligible` no earlier than the
+// epoch ladder reaches 1.5x, so this stamp never underpays a real graduate.
+export const DIVIDEND_LADDER_EPOCH = Date.UTC(2026, 6, 19); // 2026-07-19 00:00 UTC
+const LEGACY_ELIGIBLE_ACQUIRED_AT = DIVIDEND_LADDER_EPOCH - DIVIDEND_HOLD_MS;
+
 export const dividendMultiplierForAgeMs = (ageMs) => {
   const days = ageMs / (24 * 60 * 60 * 1000);
   const rung = DIVIDEND_LOYALTY_LADDER.find((r) => days >= r.minDays);
@@ -555,13 +564,15 @@ export const getDividendRate = (ticker, rarityTiers, overrides) =>
 
 /**
  * Multiplier-weighted share count for one holding cohort at `now`.
- * `eligible` shares are fully matured (grandfathered at the top multiplier);
- * each pending lot uses its own age, derived from availableAt - the hold gate.
- * Weekly dividend = weightedShares × price × rate.
+ * `eligible` shares are aged from the ladder epoch (see above): legacy shares
+ * climb the ladder from their minimum provable age instead of getting 1.5x
+ * for free, and genuine 56-day graduates land after the epoch ladder is
+ * already at 1.5x. Each pending lot uses its own age, derived from
+ * availableAt - the hold gate. Weekly dividend = weightedShares × price × rate.
  */
 export const dividendWeightedShares = (cohort, now) => {
   if (!cohort) return 0;
-  let weighted = (cohort.eligible || 0) * DIVIDEND_MAX_MULTIPLIER;
+  let weighted = (cohort.eligible || 0) * dividendMultiplierForAgeMs(now - LEGACY_ELIGIBLE_ACQUIRED_AT);
   for (const p of (cohort.pending || [])) {
     const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
     weighted += (p.shares || 0) * dividendMultiplierForAgeMs(now - acquiredAt);

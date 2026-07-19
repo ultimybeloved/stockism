@@ -3,6 +3,7 @@ import {
   DIVIDEND_RATES,
   DIVIDEND_HOLD_MS,
   DIVIDEND_MAX_MULTIPLIER,
+  DIVIDEND_LADDER_EPOCH,
   dividendMultiplierForAgeMs,
   dividendWeightedShares,
   getDividendTier,
@@ -10,6 +11,7 @@ import {
 } from '../characters';
 
 const DAY = 24 * 60 * 60 * 1000;
+// Far enough past the ladder epoch that legacy eligible shares are fully aged.
 const NOW = 1_800_000_000_000;
 
 // A lot bought `daysAgo` days ago, as the trade path stamps it.
@@ -37,9 +39,21 @@ describe('dividendWeightedShares', () => {
     expect(dividendWeightedShares(undefined, NOW)).toBe(0);
   });
 
-  it('pays eligible (fully matured) shares at the top multiplier', () => {
+  it('pays eligible shares at the top multiplier once the epoch ladder matures', () => {
     expect(dividendWeightedShares({ eligible: 10, pending: [] }, NOW))
       .toBe(10 * DIVIDEND_MAX_MULTIPLIER);
+  });
+
+  it('climbs legacy eligible shares from the ladder epoch instead of granting 1.5x', () => {
+    const cohort = { eligible: 10, pending: [] };
+    // At the epoch they are exactly 10 days old (minimum provable age): 1.0x.
+    expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH)).toBe(10 * 1.0);
+    // 28-day rung hits 18 days after the epoch.
+    expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH + 17 * DAY)).toBe(10 * 1.0);
+    expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH + 18 * DAY)).toBe(10 * 1.25);
+    // 56-day rung hits 46 days after the epoch.
+    expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH + 45 * DAY)).toBe(10 * 1.25);
+    expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH + 46 * DAY)).toBe(10 * 1.5);
   });
 
   it('weights each pending lot by its own age', () => {
