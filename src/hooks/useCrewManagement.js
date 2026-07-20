@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { switchCrewFunction, leaveCrewFunction } from '../firebase';
-import { CREW_MAP } from '../crews';
+import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 
 export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
@@ -12,11 +12,15 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
     setLoadingKey('selectCrew', true);
     try {
       if (isSwitch && userData.crew) {
+        const oldCrewId = userData.crew;
         const result = await switchCrewFunction({ crewId, isSwitch: true });
         const { totalTaken } = result.data;
-        setUserData(prev => prev ? { ...prev, crew: crewId, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
+        setUserData(prev => prev ? {
+          ...prev, crew: crewId, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now(),
+          crewLockouts: { ...(prev.crewLockouts || {}), [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000 }
+        } : prev);
         const crew = CREW_MAP[crewId];
-        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (15% penalty)`);
+        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)`);
       } else {
         await switchCrewFunction({ crewId, isSwitch: false });
         setUserData(prev => prev ? { ...prev, crew: crewId } : prev);
@@ -42,10 +46,14 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
     setLoadingKey('leaveCrew', true);
     try {
       const oldCrew = CREW_MAP[userData.crew];
+      const oldCrewId = userData.crew;
       const result = await leaveCrewFunction({});
       const totalTaken = result.data.totalTaken;
-      setUserData(prev => prev ? { ...prev, crew: null, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now() } : prev);
-      showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (15% penalty). You cannot join a new crew for 24 hours.`);
+      setUserData(prev => prev ? {
+        ...prev, crew: null, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now(),
+        crewLockouts: { ...(prev.crewLockouts || {}), [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000 }
+      } : prev);
+      showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty). You cannot join a new crew for 24 hours, or rejoin ${oldCrew?.name || 'this crew'} for ${CREW_REJOIN_LOCKOUT_DAYS} days.`);
     } catch (err) {
       console.error('Failed to leave crew:', err);
       showNotification('error', 'Failed to leave crew');

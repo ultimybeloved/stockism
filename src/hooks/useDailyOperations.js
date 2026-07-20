@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { dailyCheckinFunction, bailoutFunction } from '../firebase';
 import { fireDailyRewardConfetti } from '../utils/confetti';
-import { CREW_MAP } from '../crews';
+import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import { getTodayDateString, toUTCDateString } from '../utils/date';
 import { BAILOUT_CASH } from '../constants';
@@ -51,13 +51,13 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
       const result = await bailoutFunction({});
       setUserData(prev => {
         if (!prev) return prev;
-        const exiled = [...(prev.exiledCrews || [])];
-        if (currentCrew && !exiled.includes(currentCrew)) exiled.push(currentCrew);
-        return { ...prev, cash: BAILOUT_CASH, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, exiledCrews: exiled };
+        const lockouts = { ...(prev.crewLockouts || {}) };
+        if (currentCrew) lockouts[currentCrew] = Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000;
+        return { ...prev, cash: BAILOUT_CASH, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, crewLockouts: lockouts };
       });
       if (result.data.hadCrew) {
         const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
-        showNotification('warning', `Bailout accepted. You've been exiled from ${crewName} and all previous crews. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
+        showNotification('warning', `Bailout accepted. You can't rejoin ${crewName} for ${CREW_REJOIN_LOCKOUT_DAYS} days. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       } else {
         showNotification('success', `Bailout accepted. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       }

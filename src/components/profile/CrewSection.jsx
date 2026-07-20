@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CREW_SWITCH_PENALTY } from '../../crews';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 
 // Collapsible crew card, or a "Join a Crew" button when the user has no crew.
@@ -53,7 +54,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
             onClick={onOpenCrewSelection}
             className={`w-full py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
           >
-            Switch Crew (15% penalty)
+            Switch Crew ({Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)
           </button>
         </div>
       )}

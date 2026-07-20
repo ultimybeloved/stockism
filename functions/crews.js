@@ -431,7 +431,38 @@ export const PIN_SLOT_COSTS = {
 };
 
 // ============================================
-// CREW DIVIDEND RATE
+// UNDERDOG BONUS
 // ============================================
 
-export const CREW_DIVIDEND_RATE = 0.01; // 1% daily dividend on crew member holdings
+// Crews with fewer active players earn a reward multiplier for the following
+// week. Computed every Monday by weeklyCrewRankings from last week's activity
+// (trades, mission claims, or check-ins) and stored in the public
+// market/crewStats doc:
+//   multiplier = 1 + ((maxActive - crewActive) / maxActive) * (MAX - 1)
+// The most active crew gets 1x; an empty crew gets the full max. It applies to
+// daily, weekly, and crew mission payouts. Because it recomputes weekly, an
+// influx of new members shrinks the bonus on its own — no cap juggling needed.
+export const CREW_UNDERDOG_MULT_MAX = 2;
+
+// Read a crew's current multiplier off the market/crewStats doc.
+// Falls back to 1x when the doc hasn't been computed yet.
+export const getCrewMultiplier = (crewStats, crewId) => {
+  const m = crewStats?.multipliers?.[crewId];
+  return typeof m === 'number' && m >= 1 ? Math.min(m, CREW_UNDERDOG_MULT_MAX) : 1;
+};
+
+// ============================================
+// LEAVE PENALTY + REJOIN LOCKOUT
+// ============================================
+
+// Portfolio share (cash + holdings) taken when leaving or switching crews.
+// Single source of truth for backend (via functions/constants.js) and all
+// frontend warning text. Was 0.15 until 2026-07-19; lowered alongside the
+// crew overhaul so players can migrate to underdog crews.
+export const CREW_SWITCH_PENALTY = 0.05;
+
+// Leaving a crew locks you out of that specific crew for 30 days (stored on
+// the user doc as crewLockouts: { crewId: expiresAtMs }). This replaced the
+// old permanent exile, which made every crew choice one-way and trapped
+// players in dead crews forever.
+export const CREW_REJOIN_LOCKOUT_DAYS = 30;

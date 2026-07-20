@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import {
   CREW_MAP, getWeekId, CREW_MISSION_REWARDS, CREW_CONTRIB,
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
+  getCrewMultiplier,
 } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
@@ -48,7 +49,7 @@ const CREW_MISSIONS = [
 ];
 
 export default function CrewMissionsTab() {
-  const { darkMode, userData, user } = useAppContext();
+  const { darkMode, userData, user, crewStats } = useAppContext();
   const { cardClass: _, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const [missionData, setMissionData] = useState(null);
   const [claiming, setClaiming] = useState(null);
@@ -90,6 +91,8 @@ export default function CrewMissionsTab() {
 
   const data = missionData || {};
   const crewInfo = CREW_MAP[crew];
+  // Underdog bonus: displayed rewards match what the server pays on claim.
+  const crewMultiplier = getCrewMultiplier(crewStats, crew);
 
   return (
     <div className="space-y-3">
@@ -104,6 +107,9 @@ export default function CrewMissionsTab() {
           {crewInfo?.name || crew}
         </span>
         <span className={`text-xs ${mutedClass}`}>(resets Monday)</span>
+        {crewMultiplier > 1 && (
+          <span className="text-xs text-orange-500 font-semibold ml-auto">🔥 x{crewMultiplier} underdog bonus</span>
+        )}
       </div>
 
       {claimError && (
@@ -139,7 +145,7 @@ export default function CrewMissionsTab() {
                 <p className={`text-xs ${mutedClass}`}>{mission.description}</p>
               </div>
               <span className={`text-sm font-bold shrink-0 ${isClaimed || canClaim ? 'text-blue-500' : mutedClass}`}>
-                +{formatCurrency(mission.reward)}
+                +{formatCurrency(Math.round(mission.reward * crewMultiplier))}
               </span>
             </div>
 

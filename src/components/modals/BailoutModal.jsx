@@ -33,8 +33,7 @@ const BailoutModal = ({ onConfirm, onCancel, loading }) => {
           <p>Accept a bailout to clear your debt and restart with <strong className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>{formatCurrency(BAILOUT_CASH)}</strong>.</p>
           <p className="text-amber-500 font-semibold">⚠️ Consequences:</p>
           <ul className="list-disc ml-5 space-y-1">
-            <li>You will be <strong>permanently exiled</strong> from your current crew</li>
-            <li>You can <strong>never rejoin</strong> any crew you've been part of</li>
+            <li>You will be <strong>removed from your crew</strong> and can't rejoin it for <strong>30 days</strong></li>
             <li>All holdings and shorts will be cleared</li>
           </ul>
         </div>

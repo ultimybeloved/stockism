@@ -6,6 +6,7 @@
 const {
   CREWS, CREW_MISSION_REWARDS, CREW_CONTRIB,
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
+  CREW_UNDERDOG_MULT_MAX, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY,
 } = require('./crews');
 
 // ============================================
@@ -117,7 +118,8 @@ const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 min — freshness window for t
 // ============================================
 const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
 const MARGIN_CASH_MINIMUM  = 2000;   // min cash to enable margin — keep in sync with src/constants/economy.js
-const CREW_SWITCH_PENALTY  = 0.15;   // 15% of portfolio value lost on crew switch
+// CREW_SWITCH_PENALTY comes from crews.js (single source shared with the frontend)
+const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.js)
 const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
 const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
@@ -371,6 +373,9 @@ module.exports = {
   MARGIN_INTEREST_RATE,
   MARGIN_CASH_MINIMUM,
   CREW_SWITCH_PENALTY,
+  CREW_REJOIN_LOCKOUT_MS,
+  CREW_UNDERDOG_MULT_MAX,
+  CREWS,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
   LADDER_GAME_MAX_BALANCE,

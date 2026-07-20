@@ -10,6 +10,7 @@ const {
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
   CREW_MISSION_REWARDS, CREW_CONTRIB,
 } = require('../constants');
+const { getCrewMultiplier } = require('../crews');
 const { checkBanned, checkDiscordWall, writeNotification, touchLastActive } = require('../helpers');
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
@@ -143,7 +144,10 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   if (!complete) throw new functions.https.HttpsError('failed-precondition', reason || 'Mission not yet complete.');
   if (!contributed) throw new functions.https.HttpsError('failed-precondition', 'You have not contributed to this mission.');
 
-  const reward = CREW_MISSION_REWARDS[missionId];
+  // Scaled by the crew's underdog multiplier for this week.
+  const crewStatsSnap = await db.collection('market').doc('crewStats').get();
+  const crewMultiplier = getCrewMultiplier(crewStatsSnap.exists ? crewStatsSnap.data() : null, crew);
+  const reward = Math.round(CREW_MISSION_REWARDS[missionId] * crewMultiplier);
   const userRef = db.collection('users').doc(uid);
 
   await db.runTransaction(async (tx) => {

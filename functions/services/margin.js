@@ -7,7 +7,7 @@ const { CHARACTERS } = require('../characters');
 const {
   ADMIN_UID, isWeeklyTradingHalt,
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS, THIRTY_DAYS_MS,
-  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_SWITCH_PENALTY, BAILOUT_CASH,
+  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
@@ -91,12 +91,8 @@ exports.bailout = cf().https.onCall(async (data, context) => {
     }
 
     const currentCrew = userData.crew;
-    const crewHistory = userData.crewHistory || [];
-    const updatedHistory = currentCrew && !crewHistory.includes(currentCrew)
-      ? [...crewHistory, currentCrew]
-      : crewHistory;
 
-    transaction.update(userRef, {
+    const bailoutUpdates = {
       cash: BAILOUT_CASH,
       holdings: {},
       shorts: {},
@@ -111,19 +107,23 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       crewJoinedAt: null,
       isCrewHead: false,
       crewHeadColor: null,
-      crewHistory: updatedHistory,
       lastBailout: Date.now(),
       shortHistory: {},
       lowestWhileHolding: {},
       tickerTradeHistory: {}
-    });
+    };
+    // A bailout kicks you from your crew; lock rejoining it for 30 days.
+    if (currentCrew) {
+      bailoutUpdates[`crewLockouts.${currentCrew}`] = Date.now() + CREW_REJOIN_LOCKOUT_MS;
+    }
+    transaction.update(userRef, bailoutUpdates);
 
     return { success: true, hadCrew: !!currentCrew };
   });
 });
 
 /**
- * Leave crew with 15% penalty
+ * Leave crew with the portfolio penalty (CREW_SWITCH_PENALTY, currently 5%)
  */
 exports.leaveCrew = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -157,11 +157,11 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
     const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
     const penaltyRate = CREW_SWITCH_PENALTY;
 
-    // 15% cash penalty
+    // Cash penalty
     const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
 
-    // 15% holdings penalty. Fractional take, rounded to 2 dp — a whole-share
-    // floor would let positions under ~7 shares dodge the penalty entirely.
+    // Holdings penalty. Fractional take, rounded to 2 dp — a whole-share
+    // floor would let small positions dodge the penalty entirely.
     const newHoldings = {};
     let holdingsValueTaken = 0;
     Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
@@ -184,7 +184,9 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
       cash: newCash,
       holdings: newHoldings,
       portfolioValue: Math.max(0, newPortfolioValue),
-      lastCrewChange: Date.now()
+      lastCrewChange: Date.now(),
+      // Lock the crew being left for 30 days.
+      [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS
     });
 
     return { success: true, totalTaken, crewLeft: userData.crew };

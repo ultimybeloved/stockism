@@ -23,7 +23,7 @@ Players start with **$1,000** in cash and compete to build the highest portfolio
 - **Anti-Manipulation** — New accounts have reduced price impact for their first 3 days. Max 10 trades per ticker per 24h. Max 10% cumulative price impact per user per ticker per day.
 
 ### Crews
-- **Join a Crew** — Align with one of 9 crews. Switching costs 15% of your portfolio value.
+- **Join a Crew** — Align with one of 9 crews. Switching costs 5% of your portfolio value and locks you out of the old crew for 30 days. Less active crews pay a weekly underdog bonus (up to 2x) on mission rewards.
 - **Daily Missions** — 3 missions per day tied to your crew. Rewards range from $75–$200.
 - **Weekly Missions** — 2 harder missions per week. Rewards range from $400–$1,000. Can be rerolled once per week before claiming any reward.
 - **Crew Dividends** — Earn 1% daily on the value of holdings in your crew's member stocks.
@@ -78,7 +78,7 @@ The market halts every **Thursday 13:00–21:00 UTC** for chapter review. No tra
 | Short margin call threshold | 25% equity |
 | Margin daily interest | 0.5% |
 | Margin liquidation threshold | 25% equity |
-| Crew switch penalty | 15% of portfolio |
+| Crew switch penalty | 5% of portfolio |
 | IPO shares available | 150 total, 10 per user |
 | IPO price jump on launch | 15% |
 | Dividend hold requirement | 10 days |

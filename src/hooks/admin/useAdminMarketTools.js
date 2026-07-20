@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db, setMarketHaltFunction } from '../../firebase';
+import { db, setMarketHaltFunction, triggerWeeklyCrewRankingsFunction } from '../../firebase';
 import { CHARACTER_MAP } from '../../characters';
 import { MIN_PRICE } from '../../constants';
 import { priceHistoryDocRef } from './adminShared';
@@ -159,8 +159,24 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
     setLoading(false);
   };
 
+  // Recompute crew underdog multipliers now (writes market/crewStats).
+  // skipDiscord=true only refreshes the stats doc without posting rankings.
+  const runCrewRankings = async (skipDiscord) => {
+    setLoading(true);
+    try {
+      const result = await triggerWeeklyCrewRankingsFunction({ skipDiscord: !!skipDiscord });
+      const mults = result.data?.multipliers || {};
+      const summary = Object.entries(mults).map(([id, m]) => `${id} x${m}`).join(', ');
+      showMessage('success', `Crew stats updated. ${summary}`);
+    } catch (err) {
+      console.error('Crew rankings run failed:', err);
+      showMessage('error', 'Failed to run crew rankings: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   return {
-    marketHaltStatus, marketHaltReason, haltReasonInput, setHaltReasonInput, updateMarketHalt,
+    marketHaltStatus, marketHaltReason, haltReasonInput, setHaltReasonInput, updateMarketHalt, runCrewRankings,
     showPriceModal, setShowPriceModal, priceModalSearch, setPriceModalSearch,
     selectedPriceCharacter, setSelectedPriceCharacter,
     priceAdjustPercent, setPriceAdjustPercent, handleModalPriceAdjustment,

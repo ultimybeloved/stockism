@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import CrewMissionsTab from '../missions/CrewMissionsTab';
-import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions } from '../../crews';
+import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions, getCrewMultiplier } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
 import { getDailyMissionProgress, getWeeklyMissionProgress, getDaysUntilWeeklyReset } from '../../utils/missionProgress';
@@ -10,7 +10,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, onOpenCrewSelection, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
   useEscapeKey(onClose);
-  const { darkMode, userData, prices } = useAppContext();
+  const { darkMode, userData, prices, crewStats } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
@@ -26,10 +26,15 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   const rerollSeed = userData?.weeklyMissions?.[weekId]?.rerollSeed || 0;
   const hasRerolled = !!userData?.weeklyMissions?.[weekId]?.rerolled;
 
+  // Underdog bonus: rewards shown (and paid by the server) are the base
+  // amounts times this week's crew multiplier from market/crewStats.
+  const crewMultiplier = getCrewMultiplier(crewStats, userCrew);
+
   const todaysMissions = getDailyMissions(today, userCrew, rerollSeed);
 
   const missions = todaysMissions.map(mission => ({
     ...mission,
+    reward: Math.round(mission.reward * crewMultiplier),
     ...getDailyMissionProgress(mission, { holdings: userData?.holdings || {}, dailyProgress, crewMembers }),
     claimed: dailyProgress.claimed?.[mission.id] || false
   }));
@@ -47,6 +52,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
 
   const weeklyMissions = thisWeeksMissions.map(mission => ({
     ...mission,
+    reward: Math.round(mission.reward * crewMultiplier),
     ...getWeeklyMissionProgress(mission, { holdings: userData?.holdings || {}, weeklyProgress, prices, crewMembers, portfolioValue }),
     claimed: weeklyProgress.claimed?.[mission.id] || false
   }));
@@ -137,6 +143,15 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
             {hasRerolled && (
               <span className={`text-xs ${mutedClass} italic`}>Rerolled ✓</span>
             )}
+          </div>
+        )}
+
+        {/* Underdog bonus banner */}
+        {!isGuest && !noCrew && crewMultiplier > 1 && (
+          <div className={`px-4 py-1.5 ${darkMode ? 'bg-orange-900/30' : 'bg-orange-100'} border-b border-orange-500/30`}>
+            <p className="text-orange-500 text-xs text-center font-semibold">
+              🔥 Underdog bonus: all mission rewards x{crewMultiplier} this week
+            </p>
           </div>
         )}
 

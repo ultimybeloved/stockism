@@ -14,6 +14,7 @@ export function useMarketData() {
   const [launchedTickers, setLaunchedTickers] = useState([]);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [predictions, setPredictions] = useState([]);
+  const [crewStats, setCrewStats] = useState(null); // weekly underdog multipliers + active counts
 
   // Listen to global market data. Chart history lives in its own doc
   // (market/priceHistory) and is fetched ONCE below — the live subscription
@@ -115,6 +116,14 @@ export function useMarketData() {
     return () => { cancelled = true; };
   }, []);
 
+  // Fetch crew stats once per session — the doc only changes on Monday's
+  // weekly recompute, so a live subscription would be wasted reads.
+  useEffect(() => {
+    getDoc(doc(db, 'market', 'crewStats'))
+      .then(snap => { if (snap.exists()) setCrewStats(snap.data()); })
+      .catch(err => console.warn('Failed to load crew stats:', err?.message));
+  }, []);
+
   // Listen to IPO data
   useEffect(() => {
     const ipoRef = doc(db, 'market', 'ipos');
@@ -156,5 +165,5 @@ export function useMarketData() {
     return () => unsubscribe();
   }, []);
 
-  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions };
+  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats };
 }

@@ -168,5 +168,7 @@ export const auditUsernamesFunction = httpsCallable(functions, 'migrateUsernames
 export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
 // Admin: initialize prices for new characters
 export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewCharacterPrices');
+// Admin: recompute crew underdog multipliers (+ optionally re-post Discord rankings)
+export const triggerWeeklyCrewRankingsFunction = httpsCallable(functions, 'triggerWeeklyCrewRankings');
 
 export default app;

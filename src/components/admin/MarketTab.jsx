@@ -9,6 +9,7 @@ const MarketTab = ({
   haltReasonInput,
   setHaltReasonInput,
   updateMarketHalt,
+  runCrewRankings,
 }) => {
   return (
     <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
@@ -51,6 +52,31 @@ const MarketTab = ({
             className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
           >
             Resume Market
+          </button>
+        </div>
+      </div>
+
+      {/* Crew stats recompute */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Crew Rankings & Underdog Bonus</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Recomputes each crew's active-player count and reward multiplier from last week's activity.
+          Runs automatically Mondays 01:30 UTC; use this to seed or fix it.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => runCrewRankings(true)}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            Refresh Multipliers Only
+          </button>
+          <button
+            onClick={() => runCrewRankings(false)}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-sm hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Recompute + Post to Discord
           </button>
         </div>
       </div>

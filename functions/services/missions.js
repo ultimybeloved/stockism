@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CREW_MEMBERS } = require('../constants');
-const { getDailyMissions, getCrewWeeklyMissions, DAILY_MISSIONS, WEEKLY_MISSIONS } = require('../crews');
+const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier, DAILY_MISSIONS, WEEKLY_MISSIONS } = require('../crews');
 const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 
 // Server-side mission completion verification
@@ -86,11 +86,13 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
   const userRef = db.collection('users').doc(uid);
 
   const marketRef = db.collection('market').doc('current');
+  const crewStatsRef = db.collection('market').doc('crewStats');
 
   return db.runTransaction(async (transaction) => {
-    const [userDoc, marketDoc] = await Promise.all([
+    const [userDoc, marketDoc, crewStatsDoc] = await Promise.all([
       transaction.get(userRef),
-      transaction.get(marketRef)
+      transaction.get(marketRef),
+      transaction.get(crewStatsRef)
     ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
@@ -131,8 +133,10 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
     }
 
-    // Server-defined reward (ignoring client-provided values entirely).
-    const reward = assignedMission.reward;
+    // Server-defined reward (ignoring client-provided values entirely),
+    // scaled by the crew's underdog multiplier for this week.
+    const crewMultiplier = getCrewMultiplier(crewStatsDoc.exists ? crewStatsDoc.data() : null, userData.crew);
+    const reward = Math.round(assignedMission.reward * crewMultiplier);
 
     // Verify mission is actually completed server-side
     if (type === 'daily') {
