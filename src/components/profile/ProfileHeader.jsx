@@ -4,9 +4,10 @@ import { getCosmeticStyles } from '../../utils/cosmetics';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
-// Profile card header: display name (with cosmetics) and the name-change form.
-// Owns the name-edit state and the 2-week cooldown logic.
-const ProfileHeader = ({ userData, darkMode }) => {
+// Profile card header: display name (with cosmetics), the customization
+// shortcut, and the name-change form. Owns the name-edit state and the 2-week
+// cooldown logic.
+const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
@@ -53,7 +54,15 @@ const ProfileHeader = ({ userData, darkMode }) => {
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 
       {!editingName ? (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {onOpenCustomization && (
+            <button
+              onClick={onOpenCustomization}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
+            >
+              🎨 Customize
+            </button>
+          )}
           {canChangeName ? (
             <button
               onClick={() => { setEditingName(true); setNewName(userData?.displayName || ''); setNameError(''); }}

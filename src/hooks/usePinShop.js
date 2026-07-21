@@ -26,8 +26,10 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
         }
       } else if (action === 'buySlot') {
         await purchasePinFunction({ action: 'buySlot', slotType: payload });
-        const slotKey = payload === 'shop' ? 'shopPinSlots' : 'achievementPinSlots';
-        setUserData(prev => prev ? { ...prev, [slotKey]: (prev[slotKey] || 3) + 1, cash: (prev.cash || 0) - (cost || 0) } : prev);
+        // Mirror the backend's field: it sets the extraShopSlot /
+        // extraAchievementSlot boolean, which is what the slot math reads.
+        const slotKey = payload === 'shop' ? 'extraShopSlot' : 'extraAchievementSlot';
+        setUserData(prev => prev ? { ...prev, [slotKey]: true, cash: (prev.cash || 0) - (cost || 0) } : prev);
         showNotification('success', `Unlocked extra ${payload} pin slot!`);
       }
     } catch (err) {

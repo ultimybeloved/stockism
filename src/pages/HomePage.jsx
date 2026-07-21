@@ -26,7 +26,6 @@ const HomePage = ({
   onClearLimitOrderRequest,
   onSetAlert,
   onShowMissions,
-  onShowPinShop,
   onShowCrews,
   onShowMargin,
   onShowAbout,
@@ -52,11 +51,6 @@ const HomePage = ({
           <button onClick={onShowMissions} className={subHeaderBtnClass}>
             📋 Missions
           </button>
-          {user && !isGuest && (
-            <button onClick={onShowPinShop} className={subHeaderBtnClass}>
-              🎨 Customization
-            </button>
-          )}
           {(!userData?.crew || isGuest) && (
             <button onClick={onShowCrews} className={subHeaderBtnClass}>
               👥 Crews

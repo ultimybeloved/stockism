@@ -1,14 +1,20 @@
 import { useAppContext } from '../context/AppContext';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { getThemeClasses } from '../utils/theme';
+import { getMaxAchievementSlots, toggleDisplayedPin } from '../utils/pinSlots';
 
-const AchievementsPage = () => {
+const AchievementsPage = ({ onPinAction }) => {
   const { darkMode, userData } = useAppContext();
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);
+  // Earned achievements can be worn as pins next to your name. Same data and
+  // slot rules as the customization modal's My Look tab.
+  const displayedPins = (userData?.displayedAchievementPins || []).filter(id => earnedAchievements.includes(id));
+  const maxSlots = getMaxAchievementSlots(userData);
+  const canWearPins = !!userData && !!onPinAction;
 
   // Group achievements by category
   const categories = {
@@ -31,6 +37,11 @@ const AchievementsPage = () => {
           <p className={`text-sm ${mutedClass}`}>
             {earnedAchievements.length} / {allAchievements.length} unlocked
           </p>
+          {canWearPins && (
+            <p className={`text-xs ${mutedClass} mt-1`}>
+              📌 Wearing {displayedPins.length}/{maxSlots} as pins next to your name. Tap Wear on an earned achievement to show it off.
+            </p>
+          )}
         </div>
 
         <div className="p-4 space-y-6">
@@ -65,6 +76,25 @@ const AchievementsPage = () => {
                           <div className={`text-xs ${mutedClass}`}>
                             {earned ? achievement.description : achievement.hint}
                           </div>
+                          {earned && canWearPins && (() => {
+                            const isWorn = displayedPins.includes(id);
+                            const slotsFull = !isWorn && displayedPins.length >= maxSlots;
+                            return (
+                              <button
+                                onClick={() => !slotsFull && onPinAction('setAchievementPins', toggleDisplayedPin(displayedPins, id, maxSlots), 0)}
+                                disabled={slotsFull}
+                                className={`mt-1.5 px-2 py-0.5 text-xs font-semibold rounded-sm border ${
+                                  isWorn
+                                    ? 'border-orange-500 text-orange-500 bg-orange-500/10'
+                                    : slotsFull
+                                      ? (darkMode ? 'border-zinc-700 text-zinc-600 cursor-not-allowed' : 'border-slate-200 text-slate-400 cursor-not-allowed')
+                                      : (darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500')
+                                }`}
+                              >
+                                {isWorn ? '📌 Wearing ✓' : slotsFull ? '📌 Slots full' : '📌 Wear'}
+                              </button>
+                            );
+                          })()}
                         </div>
                         {earned && <span className={`text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>✓</span>}
                       </div>

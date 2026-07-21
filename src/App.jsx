@@ -361,7 +361,6 @@ export default function App() {
                 onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
                 onSetAlert={(ticker) => setShowPriceAlertModal(ticker)}
                 onShowMissions={() => setShowDailyMissions(true)}
-                onShowPinShop={() => setShowPinShop(true)}
                 onShowCrews={() => setShowCrewSelection(true)}
                 onShowMargin={() => setShowLending(true)}
                 onShowAbout={() => setShowAbout(true)}
@@ -371,7 +370,7 @@ export default function App() {
               />
             } />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/achievements" element={<AchievementsPage onPinAction={isGuest ? undefined : handlePinAction} />} />
             <Route path="/ladder" element={<LadderPage />} />
             <Route path="/predictions" element={
               <PredictionsPage
@@ -385,7 +384,7 @@ export default function App() {
                 onSellEventShares={handleSellEventShares}
               />
             } />
-            <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} />} />
+            <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} onOpenCustomization={() => setShowPinShop(true)} />} />
             <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
             <Route path="/u/:username" element={<PublicProfilePage />} />
             <Route path="/stock/:ticker" element={<StockPage onTrade={requestTrade} />} />
@@ -449,6 +448,7 @@ export default function App() {
           onPurchase={handlePinAction}
           onPurchaseCosmetic={handlePurchaseCosmetic}
           onEquipCosmetic={handleEquipCosmetic}
+          portfolioValue={portfolioValue}
           purchaseLoading={actionLoading.pinAction}
         />
       )}
