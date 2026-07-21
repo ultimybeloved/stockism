@@ -39,7 +39,7 @@ const AchievementsPage = ({ onPinAction }) => {
           </p>
           {canWearPins && (
             <p className={`text-xs ${mutedClass} mt-1`}>
-              📌 Wearing {displayedPins.length}/{maxSlots} as pins next to your name. Tap Wear on an earned achievement to show it off.
+              📌 Equipped {displayedPins.length}/{maxSlots} as pins next to your name. Tap Equip on an earned achievement to show it off.
             </p>
           )}
         </div>
@@ -91,7 +91,7 @@ const AchievementsPage = ({ onPinAction }) => {
                                       : (darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500')
                                 }`}
                               >
-                                {isWorn ? '📌 Wearing ✓' : slotsFull ? '📌 Slots full' : '📌 Wear'}
+                                {isWorn ? '📌 Equipped ✓' : slotsFull ? '📌 Slots full' : '📌 Equip'}
                               </button>
                             );
                           })()}

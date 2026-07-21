@@ -361,6 +361,7 @@ export default function App() {
                 onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
                 onSetAlert={(ticker) => setShowPriceAlertModal(ticker)}
                 onShowMissions={() => setShowDailyMissions(true)}
+                onShowPinShop={() => setShowPinShop(true)}
                 onShowCrews={() => setShowCrewSelection(true)}
                 onShowMargin={() => setShowLending(true)}
                 onShowAbout={() => setShowAbout(true)}

@@ -17,6 +17,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
   const [purchasing, setPurchasing] = useState(false);
+  const [tryOn, setTryOn] = useState(null); // shop cosmetic being previewed on the row
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const cash = userData?.cash || 0;
@@ -51,14 +52,14 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
           <p className={`text-sm ${mutedClass}`}>Cash: <span className="text-orange-500 font-semibold">{formatCurrency(cash)}</span></p>
         </div>
 
-        <RowPreview portfolioValue={portfolioValue} />
+        <RowPreview portfolioValue={portfolioValue} tryOn={tryOn} />
 
         {/* Tabs */}
         <div className={`flex border-b ${cardEdgeClass} mt-3`}>
           {[['look', '✨ My Look'], ['shop', '🛒 Shop']].map(([tab, label]) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { setActiveTab(tab); setTryOn(null); }}
               className={`flex-1 py-2 text-xs font-semibold ${
                 activeTab === tab
                   ? 'text-orange-500 border-b-2 border-orange-500'
@@ -83,6 +84,7 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
               cash={cash}
               onEquipCosmetic={onEquipCosmetic}
               onRequestPurchase={setConfirmPurchase}
+              onTryOn={setTryOn}
             />
           )}
         </div>

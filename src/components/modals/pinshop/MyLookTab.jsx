@@ -70,7 +70,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }) => {
                 </div>
               );
             })}
-            <p className={`text-xs ${mutedClass}`}>Tap to wear one, tap again to take it off.</p>
+            <p className={`text-xs ${mutedClass}`}>Tap to equip one, tap again to take it off.</p>
           </div>
         ) : (
           <p className={`text-sm ${mutedClass}`}>Nothing owned yet. Grab something in the Shop tab!</p>

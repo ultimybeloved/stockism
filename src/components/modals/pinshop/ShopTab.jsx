@@ -16,7 +16,7 @@ const PULSE_PREFIX = 'glow_pulse_';
 const toPulse = (id) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('glow_', PULSE_PREFIX));
 const toStandard = (id) => id.replace(PULSE_PREFIX, 'glow_');
 
-const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase }) => {
+const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const ownedCosmetics = userData?.ownedCosmetics || [];
@@ -34,11 +34,13 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase }) => {
 
   const switchGlowVariant = (variant) => {
     setGlowVariant(variant);
-    setSelectedId(sel => {
-      if (!sel || COSMETIC_MAP[sel]?.type !== 'rowGlow') return sel;
-      const paired = variant === 'pulse' ? toPulse(sel) : toStandard(sel);
-      return COSMETIC_MAP[paired] ? paired : sel;
-    });
+    if (selectedId && COSMETIC_MAP[selectedId]?.type === 'rowGlow') {
+      const paired = variant === 'pulse' ? toPulse(selectedId) : toStandard(selectedId);
+      if (COSMETIC_MAP[paired]) {
+        setSelectedId(paired);
+        onTryOn(COSMETIC_MAP[paired]);
+      }
+    }
   };
 
   const pinCollections = getActiveShopPins();
@@ -128,7 +130,11 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase }) => {
                 return (
                   <button
                     key={cosmetic.id}
-                    onClick={() => setSelectedId(selected ? null : cosmetic.id)}
+                    onClick={() => {
+                      const next = selected ? null : cosmetic.id;
+                      setSelectedId(next);
+                      onTryOn(next ? cosmetic : null);
+                    }}
                     title={cosmetic.name}
                     className={`relative w-9 h-9 rounded-full border-2 p-0.5 ${selected ? 'border-orange-500' : 'border-transparent'}`}
                   >

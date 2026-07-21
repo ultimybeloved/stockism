@@ -9,15 +9,23 @@ import PinDisplay from '../../common/PinDisplay';
 // effects + name color/class + PinDisplay), so what shows here is what every
 // other player sees. Reads straight from userData, so it updates the moment
 // anything is equipped or purchased.
-const RowPreview = ({ portfolioValue }) => {
+const RowPreview = ({ portfolioValue, tryOn }) => {
   const { darkMode, userData, holdings } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics, userData?.ownedCosmetics);
+  // `tryOn` is a shop item being browsed: layer it over the equipped set so the
+  // row previews it before purchase. The owned filter is skipped for try-ons
+  // (they aren't owned yet — that's the point); display-only, nothing persists.
+  const actives = tryOn
+    ? { ...(userData?.activeCosmetics || {}), [tryOn.type]: tryOn.id }
+    : userData?.activeCosmetics;
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(actives, tryOn ? null : userData?.ownedCosmetics);
   const holdingsCount = Object.values(holdings || {}).filter(s => s > 0).length;
 
   return (
     <div className="px-4 pt-3">
-      <p className={`text-[10px] uppercase tracking-wide font-semibold ${mutedClass} mb-1`}>Your row on the leaderboard</p>
+      <p className={`text-[10px] uppercase tracking-wide font-semibold ${mutedClass} mb-1`}>
+        {tryOn ? <>Previewing: <span className="text-orange-500">{tryOn.name}</span></> : 'Your row on the leaderboard'}
+      </p>
       <div
         className={`relative p-3 flex items-center gap-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'} ${rowClass}`}
         style={{
