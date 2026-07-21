@@ -287,11 +287,22 @@ body {
 .cos-frame-electric::after  { box-shadow: inset 0 0 14px #3b82f640; }
 .cos-frame-gold::after      { box-shadow: inset 0 0 14px #f59e0b40; }
 
-/* Pulsing glow auras. */
-.cos-glow-pulse-gold   { animation: cosGlowGold 2s ease-in-out infinite; }
-.cos-glow-pulse-violet { animation: cosGlowViolet 2s ease-in-out infinite; }
-@keyframes cosGlowGold   { 0%,100% { box-shadow: 0 0 10px #f59e0b66; } 50% { box-shadow: 0 0 28px #f59e0bcc; } }
-@keyframes cosGlowViolet { 0%,100% { box-shadow: 0 0 10px #8b5cf666; } 50% { box-shadow: 0 0 28px #8b5cf6cc; } }
+/* Pulsing glow auras. One shared keyframe; each color class only sets --cgp.
+   Colors mirror the standard rowGlow entries in src/constants/cosmetics.js. */
+.cos-glow-pulse-gold     { --cgp: #f59e0b; }
+.cos-glow-pulse-crimson  { --cgp: #ef4444; }
+.cos-glow-pulse-neon     { --cgp: #34d399; }
+.cos-glow-pulse-pink     { --cgp: #ec4899; }
+.cos-glow-pulse-sapphire { --cgp: #3b82f6; }
+.cos-glow-pulse-violet   { --cgp: #8b5cf6; }
+.cos-glow-pulse-cyan     { --cgp: #06b6d4; }
+.cos-glow-pulse-orange   { --cgp: #f97316; }
+.cos-glow-pulse-silver   { --cgp: #e5e7eb; }
+[class*='cos-glow-pulse-'] { animation: cosGlowPulse 2s ease-in-out infinite; }
+@keyframes cosGlowPulse {
+  0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--cgp) 40%, transparent); }
+  50%      { box-shadow: 0 0 28px color-mix(in srgb, var(--cgp) 80%, transparent); }
+}
 
 /* ===== Leaderboard podium ===== */
 /* Gold sheen that periodically sweeps across the #1 podium card. It's a
@@ -355,11 +366,15 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cos-name-shimmer, .cos-name-rainbow, .cos-name-aurora,
   .cos-frame-ember::before, .cos-frame-frost::before, .cos-frame-electric::before, .cos-frame-gold::before,
-  .cos-glow-pulse-gold, .cos-glow-pulse-violet,
   .pred-teaser-bar-a, .pred-teaser-bar-b, .pred-teaser-bar-c,
   .podium-sheen::before,
   .rarity-legendary,
   .rarity-legendary.animate-trade-buy,
   .rarity-legendary.animate-trade-sell,
   .rarity-legendary.animate-trade-gold { animation: none; }
+  /* Pulse glows fall back to a steady glow instead of vanishing. */
+  [class*='cos-glow-pulse-'] {
+    animation: none;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--cgp) 55%, transparent);
+  }
 }

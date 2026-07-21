@@ -48,9 +48,16 @@ export const COSMETICS = [
   { id: 'frame_electric', name: 'Live Wire',    type: 'rowFrame', color: '#3B82F6', price: 90000,  rarity: 'epic',      effectClass: 'cos-frame-electric', description: 'An electric current races around your row.' },
   { id: 'frame_gold',     name: 'Gilded Frame', type: 'rowFrame', color: '#F59E0B', price: 120000, rarity: 'legendary', effectClass: 'cos-frame-gold',     description: 'A molten gold border crowns your row.' },
 
-  // Animated glows
-  { id: 'glow_pulse_gold',   name: 'Pulsing Gold',     type: 'rowGlow', color: '#F59E0B', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-gold',   description: 'A gold aura that pulses around your row.' },
-  { id: 'glow_pulse_violet', name: 'Pulsing Amethyst', type: 'rowGlow', color: '#8B5CF6', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-violet', description: 'A violet aura that pulses around your row.' },
+  // Animated glows — one pulsing variant per standard glow color
+  { id: 'glow_pulse_gold',     name: 'Pulsing Gold',      type: 'rowGlow', color: '#F59E0B', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-gold',     description: 'A gold aura that pulses around your row.' },
+  { id: 'glow_pulse_crimson',  name: 'Pulsing Crimson',   type: 'rowGlow', color: '#EF4444', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-crimson',  description: 'A blood red aura that pulses around your row.' },
+  { id: 'glow_pulse_neon',     name: 'Pulsing Neon',      type: 'rowGlow', color: '#34D399', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-neon',     description: 'A neon green aura that pulses around your row.' },
+  { id: 'glow_pulse_pink',     name: 'Pulsing Fuchsia',   type: 'rowGlow', color: '#EC4899', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-pink',     description: 'A pink aura that pulses around your row.' },
+  { id: 'glow_pulse_sapphire', name: 'Pulsing Electric',  type: 'rowGlow', color: '#3B82F6', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-sapphire', description: 'An electric blue aura that pulses around your row.' },
+  { id: 'glow_pulse_violet',   name: 'Pulsing Amethyst',  type: 'rowGlow', color: '#8B5CF6', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-violet',   description: 'A violet aura that pulses around your row.' },
+  { id: 'glow_pulse_cyan',     name: 'Pulsing Frostfire', type: 'rowGlow', color: '#06B6D4', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-cyan',     description: 'A cyan aura that pulses around your row.' },
+  { id: 'glow_pulse_orange',   name: 'Pulsing Ember',     type: 'rowGlow', color: '#F97316', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-orange',   description: 'An orange aura that pulses around your row.' },
+  { id: 'glow_pulse_silver',   name: 'Pulsing Starlight', type: 'rowGlow', color: '#E5E7EB', price: 50000, rarity: 'rare', effectClass: 'cos-glow-pulse-silver',   description: 'A silver aura that pulses around your row.' },
 ];
 
 export const COSMETIC_MAP = Object.fromEntries(COSMETICS.map(c => [c.id, c]));

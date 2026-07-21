@@ -308,8 +308,15 @@ const COSMETIC_CATALOG = {
   frame_frost:        { type: 'rowFrame',    price: 80000  },
   frame_electric:     { type: 'rowFrame',    price: 90000  },
   frame_gold:         { type: 'rowFrame',    price: 120000 },
-  glow_pulse_gold:    { type: 'rowGlow',     price: 50000  },
-  glow_pulse_violet:  { type: 'rowGlow',     price: 50000  },
+  glow_pulse_gold:     { type: 'rowGlow',    price: 50000  },
+  glow_pulse_crimson:  { type: 'rowGlow',    price: 50000  },
+  glow_pulse_neon:     { type: 'rowGlow',    price: 50000  },
+  glow_pulse_pink:     { type: 'rowGlow',    price: 50000  },
+  glow_pulse_sapphire: { type: 'rowGlow',    price: 50000  },
+  glow_pulse_violet:   { type: 'rowGlow',    price: 50000  },
+  glow_pulse_cyan:     { type: 'rowGlow',    price: 50000  },
+  glow_pulse_orange:   { type: 'rowGlow',    price: 50000  },
+  glow_pulse_silver:   { type: 'rowGlow',    price: 50000  },
 };
 
 // Hard ceiling on how many copies of any one function can run at the same time.
