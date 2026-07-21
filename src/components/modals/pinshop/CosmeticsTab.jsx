@@ -1,4 +1,5 @@
-import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../constants/cosmetics';
+import { useState } from 'react';
+import { COSMETICS, COSMETIC_MAP, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../constants/cosmetics';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
@@ -9,15 +10,46 @@ const CosmeticsTab = ({ cash, onEquipCosmetic, onRequestPurchase }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const ownedCosmetics = userData?.ownedCosmetics || [];
   const activeCosmetics = userData?.activeCosmetics || {};
+  // Row glows come in a standard and a pulsing variant of every color. Showing
+  // all 18 at once is overwhelming, so a toggle switches the section between
+  // the two sets (paired by color, one card position each). Opens on whichever
+  // set holds the player's equipped glow so it's never hidden.
+  const [glowVariant, setGlowVariant] = useState(() =>
+    COSMETIC_MAP[activeCosmetics.rowGlow]?.effectClass ? 'pulse' : 'standard'
+  );
+
+  const glowToggleBtn = (variant, label) => (
+    <button
+      onClick={() => setGlowVariant(variant)}
+      className={`px-3 py-1 text-xs font-semibold rounded-sm ${
+        glowVariant === variant
+          ? 'bg-orange-600 text-white'
+          : darkMode ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'bg-slate-100 text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="space-y-6">
       <p className={`text-xs ${mutedClass}`}>Cosmetics apply visual effects to your leaderboard row, visible to all players. One active per type.</p>
       {COSMETIC_TYPES.map(type => (
         <div key={type}>
-          <h3 className={`font-semibold ${textClass} mb-3`}>{COSMETIC_TYPE_LABELS[type]}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className={`font-semibold ${textClass}`}>{COSMETIC_TYPE_LABELS[type]}</h3>
+            {type === 'rowGlow' && (
+              <div className="flex gap-1">
+                {glowToggleBtn('standard', 'Standard')}
+                {glowToggleBtn('pulse', 'Pulsing')}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {COSMETICS.filter(c => c.type === type).map(cosmetic => {
+            {COSMETICS.filter(c =>
+              c.type === type &&
+              (type !== 'rowGlow' || (glowVariant === 'pulse' ? !!c.effectClass : !c.effectClass))
+            ).map(cosmetic => {
               const owned = ownedCosmetics.includes(cosmetic.id);
               const active = activeCosmetics[type] === cosmetic.id;
               const canAfford = cash >= cosmetic.price;
