@@ -9,11 +9,18 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
   const sizeClass = size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base';
   const imgSize = size === 'sm' ? 'h-4' : size === 'md' ? 'h-5' : 'h-6';
 
-  // Crew pin - shown if user has a crew and displayCrewPin is not false
+  // Crew pin - shown if user has a crew and displayCrewPin is not false.
+  // Crew heads get a crown in front and always show the pin (the backend
+  // ignores their hide toggle anyway).
   if (userData.crew) {
     const crew = CREW_MAP[userData.crew];
     if (crew) {
-      const shouldShowCrewPin = userData.displayCrewPin !== false;
+      if (userData.isCrewHead) {
+        pins.push(
+          <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>👑</span>
+        );
+      }
+      const shouldShowCrewPin = userData.isCrewHead || userData.displayCrewPin !== false;
       if (shouldShowCrewPin) {
         pins.push(
           <span key="crew" title={crew.name} className={`inline-flex items-center ${sizeClass}`}>

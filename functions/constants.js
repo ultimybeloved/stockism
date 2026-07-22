@@ -319,6 +319,15 @@ const COSMETIC_CATALOG = {
   glow_pulse_silver:   { type: 'rowGlow',    price: 50000  },
 };
 
+// Crew head ("top dog") — assigned automatically every Monday by
+// weeklyCrewRankings: best weekly PERCENTAGE gain among a crew's active
+// members (percentage, not dollars, so whales can't sit on the crown).
+// The baseline floor stops near-zero accounts from farming huge percentages.
+// Dynasty weeks = the streak that earns DYNASTY, and the reign length that
+// makes dethroning someone count as USURPER.
+const CREW_HEAD_MIN_BASELINE = 1000;
+const CREW_HEAD_DYNASTY_WEEKS = 4;
+
 // Hard ceiling on how many copies of any one function can run at the same time.
 // Bounds how fast cost can pile up if a function is flooded (deliberate abuse or a
 // bug) without affecting normal play. Lower = safer on cost; too low could throttle
@@ -382,6 +391,8 @@ module.exports = {
   CREW_SWITCH_PENALTY,
   CREW_REJOIN_LOCKOUT_MS,
   CREW_UNDERDOG_MULT_MAX,
+  CREW_HEAD_MIN_BASELINE,
+  CREW_HEAD_DYNASTY_WEEKS,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,

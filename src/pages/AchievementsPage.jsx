@@ -26,6 +26,7 @@ const AchievementsPage = ({ onPinAction }) => {
     'Dedication': ['DEDICATED_7', 'DEDICATED_14', 'DEDICATED_30', 'DEDICATED_100'],
     'Missions': ['MISSION_10', 'MISSION_50', 'MISSION_100'],
     'Leaderboard': ['TOP_10', 'TOP_3', 'TOP_1'],
+    'Crew': ['CROWNED', 'DYNASTY', 'USURPER'],
     'Community': ['DISCORD_LINKED']
   };
 

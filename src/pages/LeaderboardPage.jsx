@@ -198,12 +198,15 @@ const LeaderboardPage = () => {
                 const crew = leader.crew ? CREW_MAP[leader.crew] : null;
                 const isCurrentUser = user && leader.id === user.uid;
                 const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
+                // Crew heads get a crew-colored pulsing aura, but a purchased
+                // glow cosmetic always wins — the crown never hides paid looks.
+                const crownGlow = leader.isCrewHead && crew && !leader.activeCosmetics?.rowGlow;
 
                 return (
                   <div
                     key={leader.id}
                     ref={isCurrentUser ? userRowRef : null}
-                    className={`relative p-3 flex items-center gap-3 ${rowClass} ${
+                    className={`relative p-3 flex items-center gap-3 ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''} ${
                       displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''
                     } ${
                       isCurrentUser ? 'border-l-4' : ''
@@ -217,6 +220,7 @@ const LeaderboardPage = () => {
                         ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
                         ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
                       }),
+                      ...(crownGlow ? { '--cgp': crew.color } : {}),
                     }}
                   >
                     <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>

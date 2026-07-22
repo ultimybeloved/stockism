@@ -3,10 +3,11 @@
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, CREWS, CREW_UNDERDOG_MULT_MAX } = require('../constants');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, priceHistoryRef, getWeekId } = require('../helpers');
 
 
@@ -232,6 +233,10 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         };
       });
 
+      // Users flagged as crew head who no longer belong to a (valid) crew —
+      // their crown is stale and gets cleared in the rotation below.
+      const staleHeads = [];
+
       usersSnapshot.forEach(doc => {
         const user = doc.data();
         const crew = user.crew;
@@ -242,17 +247,29 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
           // Weekly gain from the rolling 7-day reference snapshot
           // (portfolio history lives in a subcollection now, not on the doc)
           const snap7d = user.portfolioSnapshot7d;
-          const gain = (snap7d && snap7d.value > 0) ? portfolioValue - snap7d.value : 0;
+          const baseline = (snap7d && snap7d.value > 0) ? snap7d.value : 0;
+          const gain = baseline > 0 ? portfolioValue - baseline : 0;
           const active = wasActiveLastWeek(user);
 
           const c = crews[crew];
-          c.members.push({ username: user.displayName, portfolioValue, gain, active });
+          c.members.push({
+            uid: doc.id,
+            username: user.displayName,
+            portfolioValue, gain, active, baseline,
+            gainPercent: baseline > 0 ? (gain / baseline) * 100 : 0,
+            isBankrupt: !!user.isBankrupt,
+            wasHead: !!user.isCrewHead,
+            headStreak: user.crewHeadStreak || 0,
+            achievements: Array.isArray(user.achievements) ? user.achievements : [],
+          });
           c.totalValue += portfolioValue;
           c.weeklyGain += gain;
           if (active) {
             c.activeCount += 1;
             c.activeGain += gain;
           }
+        } else if (user.isCrewHead && !user.isBot) {
+          staleHeads.push(doc.id);
         }
       });
 
@@ -269,6 +286,66 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         multipliers[c.id] = Math.round(Math.min(CREW_UNDERDOG_MULT_MAX, Math.max(1, raw)) * 100) / 100;
       });
 
+      // ── Crew head rotation ("top dog") ─────────────────────────────────
+      // The crown goes to the crew member with the best weekly PERCENTAGE
+      // gain among last week's active members. Percentage keeps it whale-fair;
+      // the baseline floor stops near-zero accounts from farming absurd
+      // percentages. No eligible member = vacant crown that week.
+      const heads = {};          // crewId -> { uid, displayName, gainPercent }
+      const userUpdates = [];    // [{ uid, update, note }]
+      Object.values(crews).forEach((c) => {
+        const prevHead = c.members.find((m) => m.wasHead) || null;
+        const eligible = c.members.filter((m) =>
+          m.active && !m.isBankrupt && m.baseline >= CREW_HEAD_MIN_BASELINE
+        );
+        const winner = eligible.length > 0
+          ? eligible.reduce((best, m) => (m.gainPercent > best.gainPercent ? m : best))
+          : null;
+
+        if (winner) {
+          const kept = prevHead && prevHead.uid === winner.uid;
+          const newStreak = kept ? prevHead.headStreak + 1 : 1;
+          heads[c.id] = { uid: winner.uid, displayName: winner.username || 'Anonymous', gainPercent: Math.round(winner.gainPercent * 10) / 10 };
+
+          const newAch = [];
+          if (!winner.achievements.includes('CROWNED')) newAch.push('CROWNED');
+          if (newStreak >= CREW_HEAD_DYNASTY_WEEKS && !winner.achievements.includes('DYNASTY')) newAch.push('DYNASTY');
+          if (!kept && prevHead && prevHead.headStreak >= CREW_HEAD_DYNASTY_WEEKS && !winner.achievements.includes('USURPER')) newAch.push('USURPER');
+
+          const update = { isCrewHead: true, crewHeadStreak: newStreak };
+          if (newAch.length > 0) update.achievements = FieldValue.arrayUnion(...newAch);
+          userUpdates.push({
+            uid: winner.uid,
+            update,
+            note: {
+              type: 'system',
+              title: `👑 Crew Head of ${c.name}`,
+              message: kept
+                ? `You kept the crown. ${newStreak} weeks running.`
+                : `Best gain in your crew last week (+${heads[c.id].gainPercent}%). The crown is yours.`,
+            },
+          });
+
+          if (prevHead && !kept) {
+            userUpdates.push({
+              uid: prevHead.uid,
+              update: { isCrewHead: false, crewHeadStreak: 0 },
+              note: {
+                type: 'system',
+                title: 'Crown lost',
+                message: `${winner.username || 'A crewmate'} took the top spot in ${c.name} this week.`,
+              },
+            });
+          }
+        } else if (prevHead) {
+          // Vacant week: nobody qualified, the old crown comes off quietly.
+          userUpdates.push({ uid: prevHead.uid, update: { isCrewHead: false, crewHeadStreak: 0 }, note: null });
+        }
+      });
+      staleHeads.forEach((uid) => {
+        userUpdates.push({ uid, update: { isCrewHead: false, crewHeadStreak: 0 }, note: null });
+      });
+
       // Write the stats doc BEFORE the Discord send so a webhook failure
       // can't leave the week without multipliers.
       await db.collection('market').doc('crewStats').set({
@@ -278,7 +355,19 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         activeCounts,
         memberCounts,
         multipliers,
+        heads,
       });
+
+      // Apply crown updates. Isolated so one bad user doc can't take down
+      // the multipliers (already written) or the Discord post.
+      for (const { uid, update, note } of userUpdates) {
+        try {
+          await db.collection('users').doc(uid).update(update);
+          if (note) await writeNotification(uid, note);
+        } catch (err) {
+          console.error(`Crew head update failed for ${uid}:`, err.message);
+        }
+      }
 
       // Rank by average weekly gain per active member; crews with no active
       // members sink to the bottom.
@@ -305,10 +394,13 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
         const avgText = crew.avgActiveGain === null ? 'n/a' : fmtMoney(crew.avgActiveGain);
         const mult = multipliers[crew.id];
+        const head = heads[crew.id];
+        const headText = head ? `👑 ${head.displayName} (${head.gainPercent >= 0 ? '+' : ''}${head.gainPercent}%)` : 'Vacant';
 
         return {
           name: `${idx + 1}. ${crew.emblem} ${crew.name}`,
-          value: `**Active Members:** ${crew.activeCount} of ${crew.members.length}\n` +
+          value: `**Crew Head:** ${headText}\n` +
+                 `**Active Members:** ${crew.activeCount} of ${crew.members.length}\n` +
                  `**Avg Gain per Active Member:** ${avgText}\n` +
                  `**Crew Weekly Gain:** ${fmtMoney(crew.weeklyGain)}\n` +
                  `**Total Value:** $${crew.totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}\n` +
@@ -321,7 +413,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       const embed = {
         color: 0x5865F2, // Discord blurple
         title: '⚔️ Weekly Crew Rankings',
-        description: '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in.*',
+        description: '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The best weekly % gain in each crew takes the crown.*',
         fields: fields,
         footer: {
           text: 'Reward bonus applies to daily, weekly, and crew mission payouts. It recalculates every Monday from crew activity.'

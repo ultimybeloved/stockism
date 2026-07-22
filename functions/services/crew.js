@@ -66,7 +66,11 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
       const updateData = {
         crew: crewId,
         crewJoinedAt: now,
-        crewHistory: admin.firestore.FieldValue.arrayUnion(crewId)
+        crewHistory: admin.firestore.FieldValue.arrayUnion(crewId),
+        // The crown never travels: it's earned per crew by the weekly
+        // rotation, so any crew change strips it immediately.
+        isCrewHead: false,
+        crewHeadStreak: 0,
       };
 
       let totalTaken = 0;

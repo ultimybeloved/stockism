@@ -362,6 +362,29 @@ export const ACHIEVEMENTS = {
     description: 'Earn $250 combined profit from Ryan, Eden, Miro, or Enu',
     hint: 'The animals are worth investing in'
   },
+
+  // Crew crown — granted by the weekly crew head rotation (backend)
+  CROWNED: {
+    id: 'CROWNED',
+    name: 'Crowned',
+    emoji: '👑',
+    description: 'Become crew head',
+    hint: 'Post the best weekly gain in your crew'
+  },
+  DYNASTY: {
+    id: 'DYNASTY',
+    name: 'Dynasty',
+    emoji: '⚜️',
+    description: 'Hold the crew crown 4 weeks in a row',
+    hint: 'Stay on top for a month straight'
+  },
+  USURPER: {
+    id: 'USURPER',
+    name: 'Usurper',
+    emoji: '🗡️',
+    description: 'Take the crown from a crew head who held it 4+ weeks',
+    hint: 'End a dynasty'
+  },
 };
 
 // Achievement IDs for easy checking

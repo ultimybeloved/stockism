@@ -39,6 +39,8 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
   const placeStyle = PLACE_STYLES[place];
   const isFirst = place === 1;
+  // Crew-colored pulsing aura for crew heads; purchased glows always win.
+  const crownGlow = leader.isCrewHead && crew && !leader.activeCosmetics?.rowGlow;
 
   const style = {};
   if (backdropColor) style.backgroundColor = darkMode ? `${backdropColor}18` : `${backdropColor}12`;
@@ -46,6 +48,7 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
   if (glowColor) shadows.push(`0 0 18px ${glowColor}50`);
   if (isCurrentUser) shadows.push(`0 0 0 2px ${userCrewColor}`);
   if (shadows.length) style.boxShadow = shadows.join(', ');
+  if (crownGlow) style['--cgp'] = crew.color;
 
   const nameStyle = nameClass ? undefined : {
     color: nameColor || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined),
@@ -57,7 +60,7 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
       ref={ref}
       className={`relative min-w-0 border rounded-sm text-center px-1.5 sm:px-2 ${
         isFirst ? 'flex-[1.15] py-3 sm:py-4' : 'flex-1 py-2.5 sm:py-3'
-      } ${darkMode ? placeStyle.dark : placeStyle.light} ${rowClass}`}
+      } ${darkMode ? placeStyle.dark : placeStyle.light} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
       style={style}
     >
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}

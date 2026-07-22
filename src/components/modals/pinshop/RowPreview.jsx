@@ -2,6 +2,7 @@ import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { useAppContext } from '../../../context/AppContext';
+import { CREW_MAP } from '../../../crews';
 import PinDisplay from '../../common/PinDisplay';
 
 // Live preview of the user's leaderboard row. Uses the exact cosmetic layering
@@ -20,6 +21,10 @@ const RowPreview = ({ portfolioValue, tryOn }) => {
     : userData?.activeCosmetics;
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(actives, tryOn ? null : userData?.ownedCosmetics);
   const holdingsCount = Object.values(holdings || {}).filter(s => s > 0).length;
+  // Crew heads see their crew-colored crown aura here too, unless a glow
+  // cosmetic is equipped (or being tried on) — purchased glows always win.
+  const crew = userData?.crew ? CREW_MAP[userData.crew] : null;
+  const crownGlow = userData?.isCrewHead && crew && !actives?.rowGlow;
 
   return (
     <div className="px-4 pt-3">
@@ -27,10 +32,11 @@ const RowPreview = ({ portfolioValue, tryOn }) => {
         {tryOn ? <>Previewing: <span className="text-orange-500">{tryOn.name}</span></> : 'Your row on the leaderboard'}
       </p>
       <div
-        className={`relative p-3 flex items-center gap-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'} ${rowClass}`}
+        className={`relative p-3 flex items-center gap-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
         style={{
           ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
           ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
+          ...(crownGlow ? { '--cgp': crew.color } : {}),
         }}
       >
         <div className={`w-10 text-center font-bold ${mutedClass}`}>#?</div>

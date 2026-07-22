@@ -298,6 +298,9 @@ body {
 .cos-glow-pulse-cyan     { --cgp: #06b6d4; }
 .cos-glow-pulse-orange   { --cgp: #f97316; }
 .cos-glow-pulse-silver   { --cgp: #e5e7eb; }
+/* cos-glow-pulse-crew (crew-head crown aura) has no color rule on purpose:
+   the row sets --cgp inline to its crew color. It still matches the shared
+   animation + reduced-motion selectors below. */
 [class*='cos-glow-pulse-'] { animation: cosGlowPulse 2s ease-in-out infinite; }
 @keyframes cosGlowPulse {
   0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--cgp) 40%, transparent); }
