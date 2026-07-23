@@ -204,6 +204,9 @@ export const CHARACTERS = [
   { name: "Kenji Gonda", ticker: "KMSH", basePrice: 12.5, dateAdded: "2026-07-02T00:01:00" },
   { name: "Reiji Madarame", ticker: "SUMO", basePrice: 12.5, dateAdded: "2026-07-02T00:02:00" },
 
+  // New characters added 2026-07-23
+  { name: "Shinji Yamazaki", ticker: "OYA", basePrice: 85, dateAdded: "2026-07-23T00:00:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
@@ -300,14 +303,14 @@ export const CHARACTERS = [
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA"],
     trailingFactors: [
-      { ticker: "GUN", coefficient: 0.073 }, { ticker: "SHNG", coefficient: 0.073 },
-      { ticker: "SHRO", coefficient: 0.073 }, { ticker: "SHKO", coefficient: 0.073 },
-      { ticker: "HIKO", coefficient: 0.073 }, { ticker: "SOMI", coefficient: 0.073 },
-      { ticker: "YADV", coefficient: 0.073 }, { ticker: "REI", coefficient: 0.073 },
-      { ticker: "IJA", coefficient: 0.073 }, { ticker: "KMSH", coefficient: 0.073 },
-      { ticker: "SUMO", coefficient: 0.073 }
+      { ticker: "GUN", coefficient: 0.067 }, { ticker: "SHNG", coefficient: 0.067 },
+      { ticker: "SHRO", coefficient: 0.067 }, { ticker: "SHKO", coefficient: 0.067 },
+      { ticker: "HIKO", coefficient: 0.067 }, { ticker: "SOMI", coefficient: 0.067 },
+      { ticker: "YADV", coefficient: 0.067 }, { ticker: "REI", coefficient: 0.067 },
+      { ticker: "IJA", coefficient: 0.067 }, { ticker: "KMSH", coefficient: 0.067 },
+      { ticker: "SUMO", coefficient: 0.067 }, { ticker: "OYA", coefficient: 0.067 }
     ]
   },
   {
