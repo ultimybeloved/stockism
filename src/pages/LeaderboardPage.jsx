@@ -12,7 +12,11 @@ import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 const LeaderboardPage = () => {
   const { darkMode, user, userData } = useAppContext();
   const [crewFilter, setCrewFilter] = useState('ALL');
-  const [sortBy, setSortBy] = useState('value');
+  // Two-level sort control: Net Worth vs Top Gainers, and within gainers a
+  // $/% flick that remembers its last setting.
+  const [sortMode, setSortMode] = useState('value'); // 'value' | 'gain'
+  const [gainUnit, setGainUnit] = useState('$');     // '$' | '%'
+  const sortBy = sortMode === 'value' ? 'value' : (gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain');
   const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
   const scrollContainerRef = useRef(null);
   const userRowRef = useRef(null);
@@ -141,25 +145,43 @@ const LeaderboardPage = () => {
 
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
-            {[
-              ['value', 'Net Worth'],
-              ['weeklyGain', 'Gainers $'],
-              ['weeklyGainPercent', 'Gainers %'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setSortBy(key)}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                  sortBy === key
-                    ? key === 'value'
-                      ? 'bg-orange-600 text-white'
-                      : `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
-                    : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            <button
+              onClick={() => setSortMode('value')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                sortMode === 'value'
+                  ? 'bg-orange-600 text-white'
+                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+              }`}
+            >
+              Net Worth
+            </button>
+            <button
+              onClick={() => setSortMode('gain')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                sortMode === 'gain'
+                  ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
+                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+              }`}
+            >
+              Top Gainers
+            </button>
+            {sortMode === 'gain' && (
+              <div className="flex gap-1">
+                {['$', '%'].map(unit => (
+                  <button
+                    key={unit}
+                    onClick={() => setGainUnit(unit)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-sm transition-colors ${
+                      gainUnit === unit
+                        ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
+                        : darkMode ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200' : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {unit}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
