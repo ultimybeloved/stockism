@@ -264,6 +264,53 @@ const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
   return false;
 };
 
+// Which stocks did the admin physically change during a chapter review, and by
+// how much. Reads the same 'admin_adjust' tag isPriceProtected uses, so stocks
+// that only moved by trailing ('trailing'), by a trade, or by a bot (both
+// untagged) are left out entirely.
+//
+// The reported before/after are both real prices the admin set: `before` is the
+// point immediately preceding their first adjustment, `after` is their last
+// adjustment. That strips any trailing bump a stock picked up from a DIFFERENT
+// stock's adjustment in the same session.
+//
+// Keep in sync with getReviewChanges in src/utils/marketHours.js.
+const getAdminReviewAdjustments = (priceHistory, start, end, fallbackPrices = {}) => {
+  const changes = {};
+
+  for (const [ticker, history] of Object.entries(priceHistory || {})) {
+    if (!Array.isArray(history) || history.length === 0) continue;
+
+    const inWindow = (e) => e && e.source === 'admin_adjust' &&
+      e.timestamp >= start && e.timestamp <= end;
+
+    const firstIdx = history.findIndex(inWindow);
+    if (firstIdx === -1) continue; // admin never touched this one
+
+    // Last point before the first admin adjustment — what the price was when
+    // the admin started. Falls back to the pre-halt snapshot if the adjustment
+    // is the very first point this ticker has.
+    const before = firstIdx > 0
+      ? history[firstIdx - 1].price
+      : fallbackPrices[ticker];
+
+    let after = null;
+    for (const entry of history) {
+      if (inWindow(entry)) after = entry.price;
+    }
+
+    if (before == null || after == null || before <= 0 || before === after) continue;
+
+    changes[ticker] = {
+      before,
+      after,
+      change: ((after - before) / before) * 100
+    };
+  }
+
+  return changes;
+};
+
 // Anti-manipulation: brand-new accounts move the market less, ramping from
 // NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
 // ramp window. Mirrors getAccountAgeImpactFactor in src/App.jsx — keep in sync.
@@ -688,6 +735,7 @@ module.exports = {
   priceHistoryRef,
   appendPriceHistory,
   isPriceProtected,
+  getAdminReviewAdjustments,
   getAccountAgeImpactFactor,
   getTotalInvested,
   lmsrCost,

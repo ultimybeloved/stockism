@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef } = require('../helpers');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../constants');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getAdminReviewAdjustments } = require('../helpers');
 
 
 // Builds and posts the daily market summary Discord embed. Shared by the
@@ -209,8 +209,12 @@ exports.savePreHaltPrices = cf().pubsub
   });
 
 /**
- * Chapter review recap - posts Discord alert every Thursday at 21:05 UTC
- * Compares pre-halt prices to current prices after admin adjustments
+ * Chapter review recap - posts Discord alert every Thursday at 20:30 UTC
+ *
+ * Lists ONLY the stocks the admin physically adjusted during the review, at the
+ * amount they adjusted them by. Stocks that merely trailed one of those
+ * adjustments, and anything moved by a trade or a bot, are excluded — see
+ * getAdminReviewAdjustments. Adjustments made after this runs are not announced.
  */
 exports.chapterReviewRecap = cf().pubsub
   .schedule('30 20 * * 4')
@@ -237,38 +241,40 @@ exports.chapterReviewRecap = cf().pubsub
 
       const afterPrices = marketSnap.data().prices || {};
 
+      // This week's halt window (runs on Thursday, so it's today 13:00–21:00 UTC)
+      const runAt = new Date();
+      const dayStart = Date.UTC(runAt.getUTCFullYear(), runAt.getUTCMonth(), runAt.getUTCDate());
+      const haltStart = dayStart + WEEKLY_HALT_START_MINUTE * 60 * 1000;
+      const haltEnd = dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000;
+
+      const histSnap = await priceHistoryRef().get();
+      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
+
+      // Only what the admin actually changed. The pre-halt snapshot is the
+      // fallback "before" for a ticker whose adjustment is its first ever point.
+      const adjustments = getAdminReviewAdjustments(priceHistory, haltStart, haltEnd, beforePrices);
+
       // Build ETF ticker set from CHARACTERS
       const etfTickers = new Set(CHARACTERS.filter(c => c.isETF).map(c => c.ticker));
 
-      // Compute changes per ticker (stocks split into gainers/losers, ETFs tracked separately)
+      // Split into gainers/losers; a directly adjusted ETF is tracked separately
       const gainers = [];
       const losers = [];
       const etfMovements = [];
-      let unchangedCount = 0;
 
-      for (const [ticker, afterPrice] of Object.entries(afterPrices)) {
-        const beforePrice = beforePrices[ticker];
-        if (beforePrice == null) continue;
-
-        const pctChange = beforePrice > 0
-          ? ((afterPrice - beforePrice) / beforePrice) * 100
-          : 0;
-
+      for (const [ticker, adj] of Object.entries(adjustments)) {
+        const entry = { ticker, ...adj };
         if (etfTickers.has(ticker)) {
-          if (Math.abs(pctChange) >= 0.01) {
-            etfMovements.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
-          }
-          continue;
-        }
-
-        if (Math.abs(pctChange) < 0.01) {
-          unchangedCount++;
-        } else if (pctChange > 0) {
-          gainers.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
+          etfMovements.push(entry);
+        } else if (adj.change > 0) {
+          gainers.push(entry);
         } else {
-          losers.push({ ticker, before: beforePrice, after: afterPrice, change: pctChange });
+          losers.push(entry);
         }
       }
+
+      // Every stock the admin left alone this review
+      const unchangedCount = CHARACTERS.filter(c => !c.isETF && !adjustments[c.ticker]).length;
 
       gainers.sort((a, b) => b.change - a.change);
       losers.sort((a, b) => a.change - b.change);
@@ -305,12 +311,20 @@ exports.chapterReviewRecap = cf().pubsub
       const formatLine = (s) =>
         `**${s.ticker}**  $${s.before.toFixed(2)} → $${s.after.toFixed(2)}  (${s.change > 0 ? '+' : ''}${s.change.toFixed(1)}%)`;
 
+      // Discord caps a field value at 1024 chars; ~45 chars a line leaves room.
+      const MAX_LINES = 20;
+      const formatList = (list) => {
+        const shown = list.slice(0, MAX_LINES).map(formatLine).join('\n');
+        const extra = list.length - MAX_LINES;
+        return extra > 0 ? `${shown}\n…and ${extra} more` : shown;
+      };
+
       const fields = [];
 
       if (gainers.length > 0) {
         fields.push({
           name: '📈 Price Increases',
-          value: gainers.slice(0, 10).map(formatLine).join('\n'),
+          value: formatList(gainers),
           inline: false
         });
       }
@@ -318,12 +332,12 @@ exports.chapterReviewRecap = cf().pubsub
       if (losers.length > 0) {
         fields.push({
           name: '📉 Price Decreases',
-          value: losers.slice(0, 10).map(formatLine).join('\n'),
+          value: formatList(losers),
           inline: false
         });
       }
 
-      if (gainers.length === 0 && losers.length === 0) {
+      if (gainers.length === 0 && losers.length === 0 && etfMovements.length === 0) {
         fields.push({
           name: '➖ No Changes',
           value: 'No price adjustments were made this week.',
@@ -340,11 +354,7 @@ exports.chapterReviewRecap = cf().pubsub
       if (etfMovements.length > 0) {
         fields.push({
           name: '🧺 ETF Movements',
-          value: etfMovements
-            .sort((a, b) => b.change - a.change)
-            .slice(0, 15)
-            .map(formatLine)
-            .join('\n'),
+          value: formatList(etfMovements.sort((a, b) => b.change - a.change)),
           inline: false
         });
       }

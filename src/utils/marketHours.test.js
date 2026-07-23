@@ -125,6 +125,61 @@ describe('getReviewChanges', () => {
     };
     expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
   });
+
+  it('excludes a trailing bump that lands after the admin adjustment', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const priceHistory = {
+      JAKE: [
+        { timestamp: start - 60 * 60 * 1000, price: 100 },
+        { timestamp: start + 30 * 60 * 1000, price: 120, source: 'admin_adjust' },
+        { timestamp: start + 45 * 60 * 1000, price: 126, source: 'trailing' }, // from another stock
+      ],
+    };
+    const changes = getReviewChanges(priceHistory, [{ ticker: 'JAKE' }]);
+    expect(changes.JAKE.newPrice).toBe(120); // not 126
+    expect(changes.JAKE.percentChange).toBeCloseTo(20);
+  });
+
+  it('ignores tickers that only trailed', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const priceHistory = {
+      YAMA: [
+        { timestamp: start - 60 * 60 * 1000, price: 80 },
+        { timestamp: start + 30 * 60 * 1000, price: 84, source: 'trailing' },
+      ],
+    };
+    expect(getReviewChanges(priceHistory, [{ ticker: 'YAMA' }])).toEqual({});
+  });
+
+  it('spans from before the first adjustment to the last one', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const priceHistory = {
+      JAKE: [
+        { timestamp: start - 60 * 60 * 1000, price: 100 },
+        { timestamp: start + 10 * 60 * 1000, price: 110, source: 'admin_adjust' },
+        { timestamp: start + 20 * 60 * 1000, price: 130, source: 'admin_adjust' },
+      ],
+    };
+    const changes = getReviewChanges(priceHistory, [{ ticker: 'JAKE' }]);
+    expect(changes.JAKE.oldPrice).toBe(100);
+    expect(changes.JAKE.newPrice).toBe(130);
+    expect(changes.JAKE.percentChange).toBeCloseTo(30);
+  });
+
+  it('ignores an adjustment from a previous week', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const priceHistory = {
+      JAKE: [
+        { timestamp: start - 7 * 24 * 60 * 60 * 1000, price: 100, source: 'admin_adjust' },
+        { timestamp: start - 60 * 60 * 1000, price: 115 },
+      ],
+    };
+    expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
+  });
 });
 
 describe('formatCountdown', () => {

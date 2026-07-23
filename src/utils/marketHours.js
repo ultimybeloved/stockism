@@ -64,9 +64,17 @@ export const getMostRecentHaltWindow = () => {
 };
 
 /**
- * Given priceHistory map and characters list, detect which tickers changed
- * during the most recent Thursday halt window.
+ * Given priceHistory map and characters list, detect which tickers the admin
+ * physically changed during the most recent Thursday halt window.
  * Returns Map: ticker -> { oldPrice, newPrice, percentChange }
+ *
+ * Only stocks the admin manually adjusted appear — not trailers, trades, or
+ * bots. The reported prices are both ones the admin actually set: oldPrice is
+ * the point just before their first adjustment, newPrice is their last. That
+ * strips any trailing bump a stock picked up from a DIFFERENT stock's
+ * adjustment in the same session.
+ *
+ * Keep in sync with getAdminReviewAdjustments in functions/helpers.js.
  */
 export const getReviewChanges = (priceHistory, characters) => {
   const { start, end } = getMostRecentHaltWindow();
@@ -81,30 +89,26 @@ export const getReviewChanges = (priceHistory, characters) => {
     const history = priceHistory[char.ticker];
     if (!history || history.length === 0) continue;
 
-    // Only show stocks the admin manually adjusted — not trailers or automatic movements
-    const hasAdminAdjust = history.some(
-      e => e.source === 'admin_adjust' && e.timestamp >= start && e.timestamp <= end
-    );
-    if (!hasAdminAdjust) continue;
+    const inWindow = (e) => e && e.source === 'admin_adjust' &&
+      e.timestamp >= start && e.timestamp <= end;
 
-    // Find price just before halt started (last entry before start)
-    let preBefore = null;
-    // Find price at end of halt (last entry at or before end)
-    let postAfter = null;
+    const firstIdx = history.findIndex(inWindow);
+    if (firstIdx === -1) continue; // admin never touched this one
 
+    const oldPrice = firstIdx > 0 ? history[firstIdx - 1].price : null;
+
+    let newPrice = null;
     for (const entry of history) {
-      if (entry.timestamp < start) preBefore = entry.price;
-      if (entry.timestamp <= end) postAfter = entry.price;
+      if (inWindow(entry)) newPrice = entry.price;
     }
 
-    if (preBefore == null || postAfter == null) continue;
-    if (preBefore === postAfter) continue;
+    if (oldPrice == null || newPrice == null) continue;
+    if (oldPrice <= 0 || oldPrice === newPrice) continue;
 
-    const pctChange = ((postAfter - preBefore) / preBefore) * 100;
     changes[char.ticker] = {
-      oldPrice: preBefore,
-      newPrice: postAfter,
-      percentChange: pctChange
+      oldPrice,
+      newPrice,
+      percentChange: ((newPrice - oldPrice) / oldPrice) * 100
     };
   }
 
