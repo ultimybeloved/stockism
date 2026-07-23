@@ -5,7 +5,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS } = require('../constants');
+const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS, LEADERBOARD_PERCENT_MIN_BASELINE } = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -69,7 +69,9 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
   try {
     const { crew, sortBy = 'value' } = data || {};
-    const cacheKey = crew ? (sortBy === 'weeklyGain' ? `weeklyGain_${crew}` : crew) : (sortBy === 'weeklyGain' ? 'weeklyGain' : 'global');
+    // Two weekly-gain sorts: 'weeklyGain' (dollars) and 'weeklyGainPercent'.
+    const gainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
+    const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : (gainSort ? sortBy : 'global');
     const docRef = db.collection('leaderboard').doc(cacheKey);
 
     // Layer 1: in-memory cache (this warm instance). Layer 2: the shared
@@ -88,13 +90,18 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
       }
     }
     if (!leaderboard) {
-      if (sortBy === 'weeklyGain') {
+      if (gainSort) {
         let query = db.collection('users');
         if (crew) {
           query = query.where('crew', '==', crew);
         }
-        // Get a reasonable set to calculate gains from
-        query = query.orderBy('portfolioValue', 'desc').limit(200).select(...LEADERBOARD_FIELDS);
+        // Dollar-gain board: top 200 by value is a fine pool (big dollar gains
+        // need big portfolios). Percent board: full scan — its whole point is
+        // surfacing small accounts that a value-ordered pool would exclude.
+        if (sortBy === 'weeklyGain') {
+          query = query.orderBy('portfolioValue', 'desc').limit(200);
+        }
+        query = query.select(...LEADERBOARD_FIELDS);
 
         const snapshot = await query.get();
         const twoWeeksAgo = Date.now() - FOURTEEN_DAYS_MS;
@@ -108,6 +115,10 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
 
           const currentValue = userData.portfolioValue || 0;
           const valueSevenDaysAgo = userData.portfolioSnapshot7d.value;
+
+          // Percent board only: baseline floor keeps near-zero accounts from
+          // topping the board with meaningless huge percentages.
+          if (sortBy === 'weeklyGainPercent' && valueSevenDaysAgo < LEADERBOARD_PERCENT_MIN_BASELINE) return;
 
           const weeklyGain = currentValue - valueSevenDaysAgo;
           const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
@@ -135,8 +146,10 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
           });
         });
 
-        // Sort by weekly gain descending
-        allUsers.sort((a, b) => b.weeklyGain - a.weeklyGain);
+        // Sort by weekly gain descending (dollars or percent)
+        allUsers.sort((a, b) => sortBy === 'weeklyGainPercent'
+          ? b.weeklyGainPercent - a.weeklyGainPercent
+          : b.weeklyGain - a.weeklyGain);
         leaderboard = allUsers.slice(0, 50);
       } else {
         // Build query - use composite index for crew filtering
@@ -201,9 +214,11 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
       const callerIndex = leaderboard.findIndex(entry => entry.userId === context.auth.uid);
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
-      } else if (sortBy !== 'weeklyGain') {
+      } else if (!gainSort) {
         // Caller is outside top 50 — count aggregation instead of reading one
-        // doc per higher-ranked user (that scaled with the caller's rank)
+        // doc per higher-ranked user (that scaled with the caller's rank).
+        // Only for the net-worth sort: the aggregation ranks by portfolioValue,
+        // which would be a wrong answer for either weekly-gain board.
         try {
           const callerDoc = await db.collection('users').doc(context.auth.uid).select('isBot', 'portfolioValue').get();
           if (callerDoc.exists && !callerDoc.data().isBot) {

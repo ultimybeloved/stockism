@@ -17,7 +17,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     if (crew) {
       if (userData.isCrewHead) {
         pins.push(
-          <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>👑</span>
+          <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>🔱</span>
         );
       }
       const shouldShowCrewPin = userData.isCrewHead || userData.displayCrewPin !== false;

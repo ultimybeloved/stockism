@@ -319,7 +319,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
             update,
             note: {
               type: 'system',
-              title: `👑 Crew Head of ${c.name}`,
+              title: `🔱 Crew Head of ${c.name}`,
               message: kept
                 ? `You kept the crown. ${newStreak} weeks running.`
                 : `Best gain in your crew last week (+${heads[c.id].gainPercent}%). The crown is yours.`,
@@ -395,7 +395,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         const avgText = crew.avgActiveGain === null ? 'n/a' : fmtMoney(crew.avgActiveGain);
         const mult = multipliers[crew.id];
         const head = heads[crew.id];
-        const headText = head ? `👑 ${head.displayName} (${head.gainPercent >= 0 ? '+' : ''}${head.gainPercent}%)` : 'Vacant';
+        const headText = head ? `🔱 ${head.displayName} (${head.gainPercent >= 0 ? '+' : ''}${head.gainPercent}%)` : 'Vacant';
 
         return {
           name: `${idx + 1}. ${crew.emblem} ${crew.name}`,

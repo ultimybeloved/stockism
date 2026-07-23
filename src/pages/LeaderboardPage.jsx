@@ -51,10 +51,14 @@ const LeaderboardPage = () => {
   const showPodium = filteredLeaders.length >= 3;
   const listLeaders = showPodium ? filteredLeaders.slice(3) : filteredLeaders;
 
+  const isGainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
+  const fmtPct = (p) => `${(p || 0) >= 0 ? '+' : ''}${(p || 0).toFixed(1)}%`;
+  const fmtGain = (g) => `${(g || 0) >= 0 ? '+' : ''}${formatCurrency(g || 0)}`;
+
   // The value shown in the sticky bars must match what the list is sorted by
-  const userStickyValue = sortBy === 'weeklyGain' && userEntry ? (
+  const userStickyValue = isGainSort && userEntry ? (
     <span className={(userEntry.weeklyGain || 0) >= 0 ? gainClass : lossClass}>
-      {(userEntry.weeklyGain || 0) >= 0 ? '+' : ''}{formatCurrency(userEntry.weeklyGain || 0)}
+      {sortBy === 'weeklyGainPercent' ? fmtPct(userEntry.weeklyGainPercent) : fmtGain(userEntry.weeklyGain)}
     </span>
   ) : (
     formatCurrency(userData?.portfolioValue || 0)
@@ -137,26 +141,25 @@ const LeaderboardPage = () => {
 
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => setSortBy('value')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                sortBy === 'value'
-                  ? 'bg-orange-600 text-white'
-                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-              }`}
-            >
-              Net Worth
-            </button>
-            <button
-              onClick={() => setSortBy('weeklyGain')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                sortBy === 'weeklyGain'
-                  ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
-                  : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-              }`}
-            >
-              Top Gainers
-            </button>
+            {[
+              ['value', 'Net Worth'],
+              ['weeklyGain', 'Gainers $'],
+              ['weeklyGainPercent', 'Gainers %'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSortBy(key)}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                  sortBy === key
+                    ? key === 'value'
+                      ? 'bg-orange-600 text-white'
+                      : `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
+                    : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -253,13 +256,13 @@ const LeaderboardPage = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      {sortBy === 'weeklyGain' ? (
+                      {isGainSort ? (
                         <>
                           <div className={`font-bold ${(leader.weeklyGain || 0) >= 0 ? gainClass : lossClass}`}>
-                            {(leader.weeklyGain || 0) >= 0 ? '+' : ''}{formatCurrency(leader.weeklyGain || 0)}
+                            {sortBy === 'weeklyGainPercent' ? fmtPct(leader.weeklyGainPercent) : fmtGain(leader.weeklyGain)}
                           </div>
                           <div className={`text-xs ${mutedClass}`}>
-                            {(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}{(leader.weeklyGainPercent || 0).toFixed(1)}%
+                            {sortBy === 'weeklyGainPercent' ? fmtGain(leader.weeklyGain) : fmtPct(leader.weeklyGainPercent)}
                           </div>
                         </>
                       ) : (

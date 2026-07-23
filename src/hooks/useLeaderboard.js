@@ -11,9 +11,10 @@ import { LEADERBOARD_DOC_FRESH_MS } from '../constants';
 const sessionCache = {}; // key -> { leaders, callerRank, callerRankUid, fetchedAt }
 
 // Must mirror the backend cacheKey in functions/services/leaderboard.js
+const isGainSort = (sortBy) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
 const docKey = (sortBy, crew) =>
-  crew ? (sortBy === 'weeklyGain' ? `weeklyGain_${crew}` : crew)
-       : (sortBy === 'weeklyGain' ? 'weeklyGain' : 'global');
+  crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew)
+       : (isGainSort(sortBy) ? sortBy : 'global');
 
 const decorate = (entries) => entries.map((u, i) => ({
   rank: i + 1,

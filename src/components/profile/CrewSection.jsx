@@ -39,7 +39,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
             {crewData.name}
           </span>
           {userData.isCrewHead && (
-            <span className="text-amber-400">👑</span>
+            <span title="Crew Head">🔱</span>
           )}
         </div>
         <span className={mutedClass}>{showCrewSection ? '▼' : '▶'}</span>

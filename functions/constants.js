@@ -328,6 +328,11 @@ const COSMETIC_CATALOG = {
 const CREW_HEAD_MIN_BASELINE = 1000;
 const CREW_HEAD_DYNASTY_WEEKS = 4;
 
+// Minimum 7-day-ago portfolio value to appear on the percent-gain leaderboard.
+// Same rationale as CREW_HEAD_MIN_BASELINE: a $50 account doubling up must not
+// outrank real portfolios with a meaningless percentage.
+const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
+
 // Hard ceiling on how many copies of any one function can run at the same time.
 // Bounds how fast cost can pile up if a function is flooded (deliberate abuse or a
 // bug) without affecting normal play. Lower = safer on cost; too low could throttle
@@ -393,6 +398,7 @@ module.exports = {
   CREW_UNDERDOG_MULT_MAX,
   CREW_HEAD_MIN_BASELINE,
   CREW_HEAD_DYNASTY_WEEKS,
+  LEADERBOARD_PERCENT_MIN_BASELINE,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,

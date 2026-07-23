@@ -89,13 +89,17 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
       <div className={`text-xs ${mutedClass} truncate`}>
         {leader.holdingsCount || 0} characters
       </div>
-      {sortBy === 'weeklyGain' ? (
+      {sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent' ? (
         <div className="mt-1">
           <div className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${gain >= 0 ? gainClass : lossClass}`}>
-            {gain >= 0 ? '+' : ''}{formatCompactCurrency(gain)}
+            {sortBy === 'weeklyGainPercent'
+              ? `${(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}${(leader.weeklyGainPercent || 0).toFixed(1)}%`
+              : `${gain >= 0 ? '+' : ''}${formatCompactCurrency(gain)}`}
           </div>
           <div className={`text-xs ${mutedClass}`}>
-            {(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}{(leader.weeklyGainPercent || 0).toFixed(1)}%
+            {sortBy === 'weeklyGainPercent'
+              ? `${gain >= 0 ? '+' : ''}${formatCompactCurrency(gain)}`
+              : `${(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}${(leader.weeklyGainPercent || 0).toFixed(1)}%`}
           </div>
         </div>
       ) : (

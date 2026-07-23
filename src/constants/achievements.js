@@ -367,7 +367,7 @@ export const ACHIEVEMENTS = {
   CROWNED: {
     id: 'CROWNED',
     name: 'Crowned',
-    emoji: '👑',
+    emoji: '🫅',
     description: 'Become crew head',
     hint: 'Post the best weekly gain in your crew'
   },
