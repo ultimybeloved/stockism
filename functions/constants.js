@@ -333,6 +333,15 @@ const CREW_HEAD_DYNASTY_WEEKS = 4;
 // outrank real portfolios with a meaningless percentage.
 const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
 
+// Max LIVE price-history points kept per ticker in market/priceHistory. The
+// limit that matters is Firestore's ~40k index entries PER DOCUMENT, shared by
+// all ~150 tickers: at ~20k total points the doc rejected every append and
+// trades failed ("too many index entries", 2026-07-22 incident). 60/ticker
+// bounds the doc to ~9k points worst case. Older points are ARCHIVED (moved,
+// never deleted) to market/current/price_history/{ticker}; charts merge the
+// archive back in, so trimming costs nothing visible.
+const PRICE_HISTORY_LIVE_MAX = 60;
+
 // Hard ceiling on how many copies of any one function can run at the same time.
 // Bounds how fast cost can pile up if a function is flooded (deliberate abuse or a
 // bug) without affecting normal play. Lower = safer on cost; too low could throttle
@@ -399,6 +408,7 @@ module.exports = {
   CREW_HEAD_MIN_BASELINE,
   CREW_HEAD_DYNASTY_WEEKS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
+  PRICE_HISTORY_LIVE_MAX,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,

@@ -10,6 +10,7 @@ const MarketTab = ({
   setHaltReasonInput,
   updateMarketHalt,
   runCrewRankings,
+  runArchivePriceHistory,
 }) => {
   return (
     <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
@@ -79,6 +80,22 @@ const MarketTab = ({
             Recompute + Post to Discord
           </button>
         </div>
+      </div>
+
+      {/* Price history archive */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Price History Archive</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Moves old chart points out of the live price doc into the permanent archive. Charts keep all
+          their data. Runs automatically every day; press this if trades fail with an index-entries error.
+        </p>
+        <button
+          onClick={runArchivePriceHistory}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          Archive Old Price Points
+        </button>
       </div>
 
       {/* Info */}

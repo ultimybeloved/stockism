@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db, setMarketHaltFunction, triggerWeeklyCrewRankingsFunction } from '../../firebase';
+import { db, setMarketHaltFunction, triggerWeeklyCrewRankingsFunction, archivePriceHistoryFunction } from '../../firebase';
 import { CHARACTER_MAP } from '../../characters';
 import { MIN_PRICE } from '../../constants';
 import { priceHistoryDocRef } from './adminShared';
@@ -175,8 +175,28 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
     setLoading(false);
   };
 
+  // Move old price points from the live market/priceHistory doc into the
+  // per-ticker archive. Charts merge the archive back in, so nothing visible
+  // changes. Run this if trades ever fail with "too many index entries".
+  const runArchivePriceHistory = async () => {
+    setLoading(true);
+    try {
+      const result = await archivePriceHistoryFunction({});
+      if (result.data?.success) {
+        showMessage('success', `Archived old points for ${result.data.archivedTickers} tickers.`);
+      } else {
+        showMessage('error', 'Archive failed: ' + (result.data?.error || 'unknown error'));
+      }
+    } catch (err) {
+      console.error('Archive run failed:', err);
+      showMessage('error', 'Archive failed: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   return {
     marketHaltStatus, marketHaltReason, haltReasonInput, setHaltReasonInput, updateMarketHalt, runCrewRankings,
+    runArchivePriceHistory,
     showPriceModal, setShowPriceModal, priceModalSearch, setPriceModalSearch,
     selectedPriceCharacter, setSelectedPriceCharacter,
     priceAdjustPercent, setPriceAdjustPercent, handleModalPriceAdjustment,

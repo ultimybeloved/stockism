@@ -2,14 +2,19 @@
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
-const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE } = require('../constants');
+const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } = require('../constants');
 const { priceHistoryRef } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
 async function doArchivePriceHistory(ticker = null) {
-  const MAX_HISTORY_SIZE = 1000;
+  // Per-ticker cap on the LIVE doc. The real constraint is the whole
+  // document's ~40k index-entry limit shared by all tickers — see the
+  // constant's comment. Was 1000, which let the doc grow until Firestore
+  // rejected every trade's history append (2026-07-22 incident).
+  const MAX_HISTORY_SIZE = PRICE_HISTORY_LIVE_MAX;
   // Live history lives in its own doc; older points are MOVED (never deleted)
   // to the permanent archive at market/current/price_history/{ticker}.
   const marketRef = db.collection('market').doc('current');
@@ -24,6 +29,14 @@ async function doArchivePriceHistory(ticker = null) {
   const tickersToArchive = ticker ? [ticker] : Object.keys(priceHistory);
   let archivedCount = 0;
 
+  // Archive docs are written per ticker, but every live-doc trim is collected
+  // into ONE final update: fewer round trips (the first post-incident run
+  // touches dozens of tickers and must finish inside the function timeout)
+  // and the live doc shrinks atomically. Archive-before-trim order means a
+  // failure mid-run only leaves points duplicated in both docs — harmless,
+  // the chart merge de-dupes by timestamp.
+  const liveTrims = {};
+
   for (const t of tickersToArchive) {
     const history = priceHistory[t] || [];
 
@@ -37,16 +50,17 @@ async function doArchivePriceHistory(ticker = null) {
 
       await archiveRef.set({
         history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        lastUpdated: FieldValue.serverTimestamp()
       });
 
-      await histRef.update({
-        [t]: toKeep
-      });
-
+      liveTrims[t] = toKeep;
       archivedCount++;
-      console.log(`Archived ${toArchive.length} entries for ${t}, kept ${toKeep.length} recent entries`);
+      console.log(`Archived ${toArchive.length} entries for ${t}, keeping ${toKeep.length} recent entries`);
     }
+  }
+
+  if (archivedCount > 0) {
+    await histRef.update(liveTrims);
   }
 
   return { success: true, archivedTickers: archivedCount, message: `Archived ${archivedCount} tickers` };
