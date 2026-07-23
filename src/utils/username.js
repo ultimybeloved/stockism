@@ -13,6 +13,7 @@ export function validateUsername(name) {
   if (name.length < 3) return 'Username must be at least 3 characters';
   if (name.length > 20) return 'Username must be 20 characters or less';
   if (!/^[a-zA-Z0-9_]+$/.test(name)) return 'Username can only contain letters, numbers, and underscores';
+  if (!/[a-zA-Z]/.test(name)) return 'Username must include at least one letter';
   if ((name.match(/[a-zA-Z0-9]/g) || []).length < 3) return 'Username must include at least 3 letters or numbers';
   if ((name.match(/_/g) || []).length > 2 || name.includes('__') || name.startsWith('_') || name.endsWith('_')) {
     return 'Username can have at most 2 underscores, not repeated or at the start or end';

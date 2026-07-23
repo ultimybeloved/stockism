@@ -552,6 +552,9 @@ function validateUsernameFormat(name) {
   if (!/^[a-zA-Z0-9_]+$/.test(name)) {
     throw new functions.https.HttpsError('invalid-argument', 'Username can only contain letters, numbers, and underscores.');
   }
+  if (!/[a-zA-Z]/.test(name)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Username must include at least one letter.');
+  }
   if ((name.match(/[a-zA-Z0-9]/g) || []).length < 3) {
     throw new functions.https.HttpsError('invalid-argument', 'Username must include at least 3 letters or numbers.');
   }
