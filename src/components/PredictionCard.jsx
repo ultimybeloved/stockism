@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../utils/theme';
-import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
+import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../utils/formatters';
 import { niceStep } from '../utils/calculations';
 import { useAppContext } from '../context/AppContext';
 
@@ -36,6 +36,14 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
     const myShare = newMyPool > 0 ? amount / newMyPool : 0;
     return myShare * (otherPools + newMyPool);
   };
+
+  // Odds are quoted against the amount the player is about to stake, so the number can
+  // never promise a return the pool wouldn't actually pay. Floor of 1 avoids /0.
+  const previewBet = Math.max(1, betAmount || 0);
+  const getOptionMultiplier = (option) => calculatePayout(option, previewBet) / previewBet;
+  // Hidden on resolved/ended cards (the pools are history) and on an empty pool (every
+  // option would read a meaningless 1.00x).
+  const showOdds = isActive && totalPool > 0;
 
   const handlePlaceBet = () => {
     if (selectedOption && betAmount > 0) {
@@ -96,7 +104,10 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
       </div>
 
       <div className="mb-3">
-        <div className={`text-xs ${mutedClass} mb-2`}>Pool: {formatCurrency(totalPool)}</div>
+        <div className={`flex justify-between items-baseline gap-2 text-xs ${mutedClass} mb-2`}>
+          <span>Pool: {formatCurrency(totalPool)}</span>
+          {showOdds && <span className="opacity-70">payout on a ${previewBet.toLocaleString('en-US')} bet</span>}
+        </div>
         <div className="space-y-2">
           {options.map((option, idx) => {
             const percent = getOptionPercent(option);
@@ -105,17 +116,27 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
             const isWinner = prediction.resolved && winningOutcomes.includes(option);
             return (
               <div key={option} className="flex items-center gap-2">
-                <div className={`w-32 sm:w-40 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
+                <div className={`w-28 sm:w-40 shrink-0 truncate text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
                   {option} {isWinner && '✓'}
                 </div>
                 <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                   <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${percent}%` }} />
                 </div>
-                <div className={`w-10 text-xs text-right ${mutedClass}`}>{percent}%</div>
+                <div className="w-16 text-right leading-tight">
+                  <div className={`text-xs ${mutedClass}`}>{percent}%</div>
+                  {showOdds && (
+                    <div className="text-xs font-semibold text-orange-500">
+                      {formatMultiplier(getOptionMultiplier(option))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+        {isActive && totalPool === 0 && (
+          <div className={`text-xs ${mutedClass} mt-2`}>No bets yet. Odds appear once money is in.</div>
+        )}
       </div>
 
       {userBet && (
@@ -128,9 +149,11 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
             // Calculate current potential payout
             const myPool = pools[userBet.option] || 0;
             const potentialPayout = myPool > 0 ? (userBet.amount / myPool) * totalPool : userBet.amount;
+            const potentialMultiplier = userBet.amount > 0 ? potentialPayout / userBet.amount : 1;
             return (
               <div className={`text-xs mt-1 ${mutedClass}`}>
                 Current potential: <span className="text-orange-500 font-semibold">{formatCurrency(potentialPayout)}</span>
+                <span className="opacity-70"> ({formatMultiplier(potentialMultiplier)})</span>
               </div>
             );
           })()}
@@ -233,6 +256,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
               {selectedOption && betAmount > 0 && (
                 <div className={`text-sm ${mutedClass}`}>
                   Potential payout: <span className="text-orange-500 font-semibold">{formatCurrency(calculatePayout(selectedOption, betAmount))}</span>
+                  <span className="opacity-70"> ({formatMultiplier(calculatePayout(selectedOption, betAmount) / betAmount)})</span>
                 </div>
               )}
               <div className="flex gap-2">

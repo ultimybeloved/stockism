@@ -44,6 +44,20 @@ export const formatChange = (change) => {
 };
 
 /**
+ * Format a payout multiplier (e.g. "2.20x", "21.5x", "150x"). Precision drops as the
+ * number grows so long odds stay readable in a narrow column.
+ * @param {number} value - The multiplier
+ * @returns {string} Formatted multiplier string
+ */
+export const formatMultiplier = (value) => {
+  const x = Number(value);
+  if (!Number.isFinite(x) || x < 0) return '0x';
+  if (x < 10) return `${x.toFixed(2)}x`;
+  if (x < 100) return `${x.toFixed(1)}x`;
+  return `${Math.round(x)}x`;
+};
+
+/**
  * Format large numbers with K/M suffix
  * @param {number} num - The number to format
  * @returns {string} Formatted number string
