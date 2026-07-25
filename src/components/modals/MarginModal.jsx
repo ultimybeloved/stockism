@@ -3,6 +3,7 @@ import {
   MARGIN_INTEREST_RATE,
   MARGIN_CALL_GRACE_PERIOD
 } from '../../constants';
+import MarginStatusBars from './margin/MarginStatusBars';
 import { formatCurrency } from '../../utils/formatters';
 import {
   checkMarginEligibility,
@@ -169,64 +170,10 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   </span>
                 </div>
 
-                {/* Equity Ratio Bar */}
-                <div className="mb-3">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className={mutedClass}>Equity Ratio</span>
-                    <span className={getStatusColor(marginStatus.status)}>
-                      {(marginStatus.equityRatio * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        marginStatus.equityRatio > 0.65 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
-                        marginStatus.equityRatio > 0.40 ? 'bg-amber-500' :
-                        marginStatus.equityRatio > 0.30 ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
-                      }`}
-                      style={{ width: `${Math.min(100, marginStatus.equityRatio * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs mt-1">
-                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>0%</span>
-                    <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>30%</span>
-                    <span className="text-orange-500">40%</span>
-                    <span className={mutedClass}>65%</span>
-                    <span className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>100%</span>
-                  </div>
-                </div>
-
-                {/* Debt Utilization Bar */}
-                {marginStatus.marginUsed > 0 && (() => {
-                  const atLimit = marginStatus.marginUsed >= marginStatus.maxBorrowable || marginStatus.maxBorrowable <= 0;
-                  const utilization = atLimit ? 1 : marginStatus.marginUsed / marginStatus.maxBorrowable;
-                  const utilizationPct = (utilization * 100).toFixed(0);
-                  const utilColor = utilization < 0.5 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
-                    : utilization < 0.75 ? 'bg-amber-500'
-                    : utilization < 1 ? 'bg-orange-500'
-                    : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500');
-                  const utilTextColor = utilization < 0.5 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
-                    : utilization < 0.75 ? 'text-amber-500'
-                    : utilization < 1 ? 'text-orange-500'
-                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500');
-                  return (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className={mutedClass}>Credit Used</span>
-                        <span className={utilTextColor}>
-                          {atLimit
-                            ? `${formatCurrency(marginStatus.marginUsed)} (at limit)`
-                            : `${formatCurrency(marginStatus.marginUsed)} / ${formatCurrency(marginStatus.maxBorrowable)} (${utilizationPct}%)`
-                          }
-                        </span>
-                      </div>
-                      <div className={`h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`}>
-                        <div className={`h-full rounded-full transition-all ${utilColor}`}
-                          style={{ width: `${utilizationPct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })()}
+                <MarginStatusBars
+                  marginStatus={marginStatus}
+                  statusColorClass={getStatusColor(marginStatus.status)}
+                />
 
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
