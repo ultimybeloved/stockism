@@ -114,7 +114,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
       // numbers are very different and both are worth posting.
       const realPlayers = users.filter(u => !u.isBot && !u.isBanned);
       const activeToday = realPlayers.filter(u => getLastActiveMs(u) > dayAgo).length;
-      const activeThisMonth = realPlayers.filter(u => getLastActiveMs(u) > now - ACTIVE_USER_WINDOW_MS).length;
+      const activeInWindow = realPlayers.filter(u => getLastActiveMs(u) > now - ACTIVE_USER_WINDOW_MS).length;
 
       const topTraders = Object.entries(traderActivity)
         .sort((a, b) => b[1] - a[1])
@@ -128,7 +128,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
         fields: [
           {
             name: '📈 Market Activity',
-            value: `${tradeCount} trades • $${totalVolume.toFixed(2)} volume`,
+            value: `${tradeCount} trades • $${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} volume`,
             inline: false
           },
           {
@@ -171,7 +171,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
           `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : (u.cash || 0)), 0)).toLocaleString()}`,
           `Traded today: ${Object.keys(traderActivity).length}`,
           `Players active today: ${activeToday}`,
-          `Active in the last ${ACTIVE_USER_WINDOW_DAYS} days: ${activeThisMonth}`,
+          `Active in the last ${ACTIVE_USER_WINDOW_DAYS} days: ${activeInWindow}`,
         ].join('\n'),
         inline: false
       });

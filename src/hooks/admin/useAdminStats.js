@@ -53,8 +53,10 @@ export function useAdminStats({ showMessage, prices }) {
         const data = doc.data();
         totalUsers++;
         
-        // Activity tracking — same definition the Discord summary uses
-        const lastActiveMs = getLastActiveMs(data);
+        // Activity tracking — same definition the Discord summary uses.
+        // Bots are excluded: they get a lastActive stamp when they are created,
+        // which would otherwise count them as active players for two weeks.
+        const lastActiveMs = data.isBot ? 0 : getLastActiveMs(data);
         if (lastActiveMs > oneDayAgo) activeUsers24h++;
         if (lastActiveMs > oneWeekAgo) activeUsers7d++;
         
