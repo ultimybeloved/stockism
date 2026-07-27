@@ -70,13 +70,10 @@ async function runWeeklyMarketSummary() {
         });
       });
 
-      // Active users — opened the app (or traded, checked in, took any action)
-      // within the window. Real players only: bots and banned accounts are out.
-      const realPlayers = users.filter(u => !u.isBot && !u.isBanned);
+      // Active users — opened the app, traded, checked in, or took any other
+      // action within the window
       const activeCutoff = now - ACTIVE_USER_WINDOW_MS;
-      const activeUsers = realPlayers.filter(u => getLastActiveMs(u) >= activeCutoff).length;
-      const activeThisWeek = realPlayers.filter(u => getLastActiveMs(u) >= weekAgo).length;
-      const totalPlayers = realPlayers.length;
+      const activeUsers = users.filter(u => !u.isBot && getLastActiveMs(u) >= activeCutoff).length;
 
       // Top portfolios — bots are excluded from all user-facing rankings
       const topPortfolios = users
@@ -92,7 +89,7 @@ async function runWeeklyMarketSummary() {
         fields: [
           {
             name: '📊 Weekly Activity',
-            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${activeThisWeek} players active this week\n${activeUsers} active in the last ${ACTIVE_USER_WINDOW_DAYS} days\n${totalPlayers} players all time`,
+            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${activeUsers} active users (last ${ACTIVE_USER_WINDOW_DAYS} days)`,
             inline: false
           },
           {
@@ -120,7 +117,7 @@ async function runWeeklyMarketSummary() {
       };
 
       await sendDiscordMessage(null, [embed]);
-      return { posted: true, activeThisWeek, activeUsers, totalPlayers, weeklyTrades };
+      return { posted: true, activeUsers, weeklyTrades };
     } catch (error) {
       console.error('Error in weeklyMarketSummary:', error);
       return { posted: false, error: error.message };
@@ -168,7 +165,7 @@ exports.weeklyLeaderboard = cf().pubsub
       const traders = [];
       usersSnapshot.forEach(doc => {
         const user = doc.data();
-        if (!user.isBot && !user.isBanned && getLastActiveMs(user) >= activeCutoff) activeCount++;
+        if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
         // Bots are excluded from all user-facing rankings
         if (!user.isBankrupt && !user.isBot) {
           traders.push({
@@ -191,7 +188,7 @@ exports.weeklyLeaderboard = cf().pubsub
         title: '🏆 Weekly Leaderboard',
         description: leaderboardText,
         footer: {
-          text: `Active players (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`
+          text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`
         },
         timestamp: new Date().toISOString()
       };

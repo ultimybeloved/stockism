@@ -32,7 +32,7 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
       const result = await triggerWeeklyMarketSummaryFunction({});
       const d = result.data || {};
       if (d.posted) {
-        showMessage('success', `Posted to Discord. ${d.activeThisWeek} active this week, ${d.activeUsers} active this month, ${d.totalPlayers} players total.`);
+        showMessage('success', `Weekly report posted. ${d.weeklyTrades} trades, ${d.activeUsers} active users.`);
       } else {
         showMessage('error', 'Summary failed: ' + (d.error || 'unknown error'));
       }
