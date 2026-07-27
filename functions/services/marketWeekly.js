@@ -11,15 +11,14 @@ const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRI
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, priceHistoryRef, getWeekId } = require('../helpers');
 
 
-exports.weeklyMarketSummary = cf().pubsub
-  .schedule('0 0 * * 1')
-  .timeZone('UTC')
-  .onRun(async (context) => {
+// Builds and posts the weekly market report. Read-only apart from the Discord
+// post, so it is safe to re-run by hand (see triggerWeeklyMarketSummary).
+async function runWeeklyMarketSummary() {
     try {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();
 
-      if (!marketSnap.exists) return null;
+      if (!marketSnap.exists) return { posted: false, error: 'No market data.' };
 
       const marketData = marketSnap.data();
       const prices = marketData.prices || {};
@@ -119,12 +118,32 @@ exports.weeklyMarketSummary = cf().pubsub
       };
 
       await sendDiscordMessage(null, [embed]);
-      return null;
+      return { posted: true, activeThisWeek, activeUsers, totalPlayers, weeklyTrades };
     } catch (error) {
       console.error('Error in weeklyMarketSummary:', error);
-      return null;
+      return { posted: false, error: error.message };
     }
+}
+
+exports.weeklyMarketSummary = cf().pubsub
+  .schedule('0 0 * * 1')
+  .timeZone('UTC')
+  .onRun(async () => {
+    await runWeeklyMarketSummary();
+    return null;
   });
+
+/**
+ * Admin-only manual re-run of the weekly market report. Posts the same embed to
+ * Discord immediately. Nothing else is written, so extra runs are harmless.
+ */
+exports.triggerWeeklyMarketSummary = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+  return runWeeklyMarketSummary();
+});
 
 /**
  * Weekly Leaderboard - Runs Mondays at 01:00 UTC

@@ -10,6 +10,7 @@ const MarketTab = ({
   setHaltReasonInput,
   updateMarketHalt,
   runCrewRankings,
+  runMarketSummary,
   runArchivePriceHistory,
 }) => {
   return (
@@ -80,6 +81,22 @@ const MarketTab = ({
             Recompute + Post to Discord
           </button>
         </div>
+      </div>
+
+      {/* Weekly market report */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Weekly Market Report</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Posts the weekly report to Discord: trades, volume, active players, top movers and top portfolios.
+          Runs automatically Mondays 00:00 UTC. Nothing is saved, so you can post it again any time.
+        </p>
+        <button
+          onClick={runMarketSummary}
+          disabled={loading}
+          className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-sm hover:bg-indigo-700 disabled:opacity-50"
+        >
+          Post Report to Discord
+        </button>
       </div>
 
       {/* Price history archive */}

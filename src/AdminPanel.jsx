@@ -24,6 +24,7 @@ import { useAdminCosmetics } from './hooks/admin/useAdminCosmetics';
 import { useAdminDiagnostics } from './hooks/admin/useAdminDiagnostics';
 import { useAdminSpikeRepair } from './hooks/admin/useAdminSpikeRepair';
 import { useAdminMarketTools } from './hooks/admin/useAdminMarketTools';
+import { useAdminScheduledJobs } from './hooks/admin/useAdminScheduledJobs';
 import { useAdminStats } from './hooks/admin/useAdminStats';
 import { useAdminHolders } from './hooks/admin/useAdminHolders';
 import { useAdminBots } from './hooks/admin/useAdminBots';
@@ -86,6 +87,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const diagnostics = useAdminDiagnostics({ setMessage });
   const spikeRepair = useAdminSpikeRepair({ showMessage });
   const marketTools = useAdminMarketTools({ setMessage, showMessage, setLoading, prices, marketData });
+  const scheduledJobs = useAdminScheduledJobs({ showMessage, setLoading });
   const stats = useAdminStats({ showMessage, prices });
   const holders = useAdminHolders({ showMessage, prices });
   const bots = useAdminBots({ showMessage, setLoading });
@@ -278,7 +280,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
             {/* MARKET TAB */}
       {activeTab === 'market' && (
-        <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} />
+        <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} />
       )}
 
             {/* WATCHLIST TAB */}

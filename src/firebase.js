@@ -170,5 +170,7 @@ export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'rec
 export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewCharacterPrices');
 // Admin: recompute crew underdog multipliers (+ optionally re-post Discord rankings)
 export const triggerWeeklyCrewRankingsFunction = httpsCallable(functions, 'triggerWeeklyCrewRankings');
+// Admin: re-post the weekly market report to Discord now
+export const triggerWeeklyMarketSummaryFunction = httpsCallable(functions, 'triggerWeeklyMarketSummary');
 
 export default app;
