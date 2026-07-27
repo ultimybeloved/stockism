@@ -7,7 +7,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, TRADE_TX_TYPES, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, priceHistoryRef, getWeekId } = require('../helpers');
 
 
@@ -61,7 +61,9 @@ async function runWeeklyMarketSummary() {
       users.forEach(user => {
         const txLog = user.transactionLog || [];
         txLog.forEach(tx => {
-          if ((tx.type === 'BUY' || tx.type === 'SELL') && tx.timestamp > weekAgo) {
+          // Shorts count as trades; volume stays cash-based (buys and sells),
+          // since short entries don't store a cash figure.
+          if (TRADE_TX_TYPES.has(tx.type) && tx.timestamp > weekAgo) {
             weeklyVolume += tx.totalCost || tx.totalRevenue || 0;
             weeklyTrades++;
           }

@@ -186,6 +186,10 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const ACTIVE_USER_WINDOW_MS = THIRTY_DAYS_MS;
 const ACTIVE_USER_WINDOW_DAYS = Math.round(ACTIVE_USER_WINDOW_MS / (24 * 60 * 60 * 1000));
 
+// transactionLog entry types that count as a trade. Shorts belong here: leaving
+// them out undercounted both trade totals and the number of people trading.
+const TRADE_TX_TYPES = new Set(['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE']);
+
 // ============================================
 // ACHIEVEMENTS
 // ============================================
@@ -438,6 +442,7 @@ module.exports = {
   FOURTEEN_DAYS_MS,
   ACTIVE_USER_WINDOW_MS,
   ACTIVE_USER_WINDOW_DAYS,
+  TRADE_TX_TYPES,
   UNIFIER_FULL_SHARE_MIN,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,

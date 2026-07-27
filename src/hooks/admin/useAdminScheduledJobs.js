@@ -1,6 +1,7 @@
 import {
   triggerWeeklyCrewRankingsFunction,
   triggerWeeklyMarketSummaryFunction,
+  triggerDailyMarketSummaryFunction,
   archivePriceHistoryFunction,
 } from '../../firebase';
 
@@ -42,6 +43,24 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
+  // Post the daily market report to Discord now. Skips recording the daily
+  // index point, so a manual run can't double-count it.
+  const runDailyMarketSummary = async () => {
+    setLoading(true);
+    try {
+      const result = await triggerDailyMarketSummaryFunction({});
+      if (result.data?.success) {
+        showMessage('success', 'Daily report posted to Discord.');
+      } else {
+        showMessage('error', 'Daily report failed: ' + (result.data?.error || 'unknown error'));
+      }
+    } catch (err) {
+      console.error('Daily summary run failed:', err);
+      showMessage('error', 'Failed to post daily report: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   // Move old price points from the live market/priceHistory doc into the
   // per-ticker archive. Charts merge the archive back in, so nothing visible
   // changes. Run this if trades ever fail with "too many index entries".
@@ -61,5 +80,5 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-  return { runCrewRankings, runMarketSummary, runArchivePriceHistory };
+  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runArchivePriceHistory };
 }

@@ -11,6 +11,7 @@ const MarketTab = ({
   updateMarketHalt,
   runCrewRankings,
   runMarketSummary,
+  runDailyMarketSummary,
   runArchivePriceHistory,
 }) => {
   return (
@@ -83,20 +84,30 @@ const MarketTab = ({
         </div>
       </div>
 
-      {/* Weekly market report */}
+      {/* Market reports */}
       <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Weekly Market Report</h4>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Reports</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
-          Posts the weekly report to Discord: trades, volume, active players, top movers and top portfolios.
-          Runs automatically Mondays 00:00 UTC. Nothing is saved, so you can post it again any time.
+          Posts a report to Discord: trades, volume, player counts, top movers. The daily one runs
+          automatically at market close, the weekly one Mondays 00:00 UTC. Nothing is saved, so you can
+          post either again any time.
         </p>
-        <button
-          onClick={runMarketSummary}
-          disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-sm hover:bg-indigo-700 disabled:opacity-50"
-        >
-          Post Report to Discord
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={runDailyMarketSummary}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            Post Daily Report
+          </button>
+          <button
+            onClick={runMarketSummary}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-sm hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Post Weekly Report
+          </button>
+        </div>
       </div>
 
       {/* Price history archive */}
