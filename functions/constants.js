@@ -180,7 +180,11 @@ const UNDERDOG_PRICE_THRESHOLD = 20;
 // LEADERBOARD
 // ============================================
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-const ACTIVE_USER_WINDOW_MS = FOURTEEN_DAYS_MS; // a user counts as "active" if they acted within this window
+// A user counts as "active" if they opened the app or did anything in this
+// window. 30 days is the standard monthly-active window — the old 14-day one
+// undercounted the regulars who check in every couple of weeks.
+const ACTIVE_USER_WINDOW_MS = THIRTY_DAYS_MS;
+const ACTIVE_USER_WINDOW_DAYS = Math.round(ACTIVE_USER_WINDOW_MS / (24 * 60 * 60 * 1000));
 
 // ============================================
 // ACHIEVEMENTS
@@ -433,6 +437,7 @@ module.exports = {
   UNDERDOG_PRICE_THRESHOLD,
   FOURTEEN_DAYS_MS,
   ACTIVE_USER_WINDOW_MS,
+  ACTIVE_USER_WINDOW_DAYS,
   UNIFIER_FULL_SHARE_MIN,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,

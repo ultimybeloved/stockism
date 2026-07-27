@@ -691,12 +691,19 @@ function toMs(ts) {
   return 0;
 }
 
-// Most-recent activity for a user, used by the active-user metric. Takes the
-// max of the broad lastActive stamp plus the pre-existing lastTradeTime /
-// lastCheckin so existing active players count immediately after deploy.
+// Most-recent activity for a user, used by the active-user metric.
+//
+// "Active" means opened the app, not just traded. lastSynced is the widest net:
+// every signed-in client calls syncPortfolio ~30s into a session, so it stamps
+// for lurkers who log in, look at charts, and never place an order — the
+// players the old action-only count silently dropped. The rest are fallbacks so
+// nobody is missed: lastActive (any write action), plus the older lastTradeTime
+// / lastCheckin stamps for accounts that predate it. Signups stamp lastActive
+// at creation, so brand-new accounts are covered too.
 function getLastActiveMs(userData) {
   if (!userData) return 0;
   return Math.max(
+    toMs(userData.lastSynced),
     toMs(userData.lastActive),
     toMs(userData.lastTradeTime),
     toMs(userData.lastCheckin)

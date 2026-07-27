@@ -7,7 +7,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, priceHistoryRef, getWeekId } = require('../helpers');
 
 
@@ -69,9 +69,13 @@ exports.weeklyMarketSummary = cf().pubsub
         });
       });
 
-      // Active users — acted (traded, checked in, or any other action) within the window
+      // Active users — opened the app (or traded, checked in, took any action)
+      // within the window. Real players only: bots and banned accounts are out.
+      const realPlayers = users.filter(u => !u.isBot && !u.isBanned);
       const activeCutoff = now - ACTIVE_USER_WINDOW_MS;
-      const activeUsers = users.filter(u => !u.isBot && getLastActiveMs(u) >= activeCutoff).length;
+      const activeUsers = realPlayers.filter(u => getLastActiveMs(u) >= activeCutoff).length;
+      const activeThisWeek = realPlayers.filter(u => getLastActiveMs(u) >= weekAgo).length;
+      const totalPlayers = realPlayers.length;
 
       // Top portfolios — bots are excluded from all user-facing rankings
       const topPortfolios = users
@@ -87,7 +91,7 @@ exports.weeklyMarketSummary = cf().pubsub
         fields: [
           {
             name: '📊 Weekly Activity',
-            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${activeUsers} active users (last 14 days)`,
+            value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, {maximumFractionDigits: 0})} total volume\n${activeThisWeek} players active this week\n${activeUsers} active in the last ${ACTIVE_USER_WINDOW_DAYS} days\n${totalPlayers} players all time`,
             inline: false
           },
           {
@@ -143,7 +147,7 @@ exports.weeklyLeaderboard = cf().pubsub
       const traders = [];
       usersSnapshot.forEach(doc => {
         const user = doc.data();
-        if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
+        if (!user.isBot && !user.isBanned && getLastActiveMs(user) >= activeCutoff) activeCount++;
         // Bots are excluded from all user-facing rankings
         if (!user.isBankrupt && !user.isBot) {
           traders.push({
@@ -166,7 +170,7 @@ exports.weeklyLeaderboard = cf().pubsub
         title: '🏆 Weekly Leaderboard',
         description: leaderboardText,
         footer: {
-          text: `Total Active Users (last 14 days): ${activeCount}`
+          text: `Active players (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`
         },
         timestamp: new Date().toISOString()
       };

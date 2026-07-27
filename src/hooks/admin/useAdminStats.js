@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { CHARACTERS } from '../../characters';
+import { getLastActiveMs } from '../../utils/activity';
 
 // Stats tab: aggregate market statistics.
 export function useAdminStats({ showMessage, prices }) {
@@ -52,9 +53,8 @@ export function useAdminStats({ showMessage, prices }) {
         const data = doc.data();
         totalUsers++;
         
-        // Activity tracking
-        const lastActive = data.lastTradeTime || data.lastCheckin || 0;
-        const lastActiveMs = lastActive?.toMillis ? lastActive.toMillis() : (lastActive || 0);
+        // Activity tracking — same definition the Discord summary uses
+        const lastActiveMs = getLastActiveMs(data);
         if (lastActiveMs > oneDayAgo) activeUsers24h++;
         if (lastActiveMs > oneWeekAgo) activeUsers7d++;
         
