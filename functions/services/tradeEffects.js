@@ -12,7 +12,7 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS,
 } = require('../constants');
 const { writeNotification, writeFeedEntry, reportError } = require('../helpers');
-const { updateCrewMissionProgress } = require('./crewMissions');
+const { updateCrewMissionProgress } = require('./crewMissionProgress');
 const { trackWatchedIpTrade } = require('./watchlist');
 
 // Compute achievement context inside the transaction (the caller has all the

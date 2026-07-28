@@ -65,23 +65,12 @@ You are the **sole developer** of this codebase. The user (Darth YG) is a non-te
 
 ## Before Deploying Backend Functions
 
-Always verify every service file imports everything it uses from `functions/constants.js`. Run this check before any `firebase deploy`:
+Run `npm run check:functions` before any `firebase deploy`. It exits non-zero and prints what to fix if either check fails:
 
-```bash
-node -e "
-const fs=require('fs');
-const c=Object.keys(require('./functions/constants'));
-fs.readdirSync('functions/services').filter(f=>f.endsWith('.js')).forEach(f=>{
-  const s=fs.readFileSync('functions/services/'+f,'utf8');
-  const m=s.match(/\{([^}]+)\}\s*=\s*require\('\.\.\/constants'\)/);
-  const imp=m?m[1]:'';
-  const miss=c.filter(k=>!imp.includes(k)&&new RegExp('\\b'+k+'\\b').test(s)&&!new RegExp('const '+k+'\\b').test(s));
-  if(miss.length)console.log(f+': MISSING '+miss.join(', '));
-});
-"
-```
+1. **Export purity** — `functions/index.js` must export only real Cloud Functions. Service files sometimes export an internal helper so a sibling service or an emulator test can drive it; those must not reach index.js. Shared helpers go in `functions/helpers.js` or an internal module index.js doesn't require.
+2. **Constants imports** — every service file must import everything it uses from `functions/constants.js`. A missing import throws in production on whichever code path touches it.
 
-If it prints anything, add the missing imports before deploying. Silent output = clean.
+Silent success = clean.
 
 \## Cost \& Token Efficiency Rules
 
@@ -264,6 +253,7 @@ Quick reference so you know where to look and where to add things.
 | Path | What lives here |
 |---|---|
 | `functions/index.js` | Re-exports only — ≤40 lines, never add logic here |
+| `functions/registerService.js` | The re-export filter: copies only real Cloud Functions onto index.js's exports, so leaked helpers/constants can't masquerade as deployable functions |
 | `functions/sentry.js` | Sentry error monitoring init — required by index.js at startup |
 | `functions/constants.js` | All backend economy constants — add new ones here |
 | `functions/helpers.js` | Shared utility functions used by multiple services |

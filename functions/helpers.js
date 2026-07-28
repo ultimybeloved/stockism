@@ -795,6 +795,21 @@ function touchLastActive(uid) {
 // Both are { shares, until } maps on the user doc; a lock counts only while
 // unexpired. Used by every sell path (executeTrade, limit orders, pre-market)
 // so the lockups are enforced consistently and can't be dodged by one route.
+// A user's rank via count aggregations (~1 read per 1000 counted) instead of
+// reading one doc per higher-ranked user. Bots are subtracted with a second
+// count so ranks match the bot-free leaderboard. Shared by getLeaderboard and
+// the Discord bot's /profile so the two can't report different ranks.
+const countRankAbove = async (value, crew) => {
+  let above = db.collection('users').where('portfolioValue', '>', value);
+  let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', value);
+  if (crew) {
+    above = above.where('crew', '==', crew);
+    botsAbove = botsAbove.where('crew', '==', crew);
+  }
+  const [aboveSnap, botsSnap] = await Promise.all([above.count().get(), botsAbove.count().get()]);
+  return Math.max(0, aboveSnap.data().count - botsSnap.data().count) + 1;
+};
+
 const lockedShares = (userData, ticker, now = Date.now()) => {
   const ipo = userData?.ipoLockup?.[ticker];
   const margin = userData?.marginLockup?.[ticker];
@@ -805,6 +820,7 @@ const lockedShares = (userData, ticker, now = Date.now()) => {
 
 module.exports = {
   lockedShares,
+  countRankAbove,
   DIVIDEND_HOLD_MS,
   getLastActiveMs,
   recordTrade,

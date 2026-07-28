@@ -8,7 +8,7 @@ const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
 const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall, buildTradeCreditUpdates, recordTrade } = require('../helpers');
-const { updateCrewMissionProgress } = require('./crewMissions');
+const { updateCrewMissionProgress } = require('./crewMissionProgress');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);

@@ -16,7 +16,20 @@ const {
   DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
   DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef } = require('../helpers');
+const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError } = require('../helpers');
+const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
+
+// Edit a deferred interaction reply. Discord kills any interaction that has not
+// been acknowledged within 3 seconds — and a cold start on this project loads
+// every service file, which can eat most of that on its own. So every branch
+// below acknowledges immediately with a "thinking..." (type 5) and then edits
+// the real content in through here.
+const editDeferredReply = (appId, token, payload) =>
+  axios.patch(
+    `https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`,
+    payload,
+    { headers: { 'Content-Type': 'application/json' } }
+  );
 
 function weightedRandom(values, weights) {
   const total = weights.reduce((a, b) => a + b, 0);
@@ -135,6 +148,32 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
     return res.json({ type: InteractionResponseType.PONG });
   }
 
+  // Handle slash commands (/leaderboard, /profile, /price, /portfolio, /missions, /buy).
+  // These are read-only and installable in partner servers — see discordCommands.js.
+  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+    const commandName = interaction.data && interaction.data.name;
+    const appId = interaction.application_id;
+    const interactionToken = interaction.token;
+
+    // Acknowledge inside the 3-second window, then do the reads.
+    res.json({ type: 5, data: isPrivate(commandName) ? { flags: EPHEMERAL } : {} });
+
+    const editOriginal = (payload) => editDeferredReply(appId, interactionToken, payload);
+
+    try {
+      const payload = await handleSlashCommand(interaction);
+      await editOriginal(payload || { content: 'That command is not available right now.' });
+    } catch (error) {
+      reportError(error, { where: 'discordSlashCommand', command: commandName });
+      try {
+        await editOriginal({ content: 'Something went wrong. Try again in a moment.' });
+      } catch (editError) {
+        console.error('Failed to report slash command error to Discord:', editError);
+      }
+    }
+    return;
+  }
+
   // Handle button clicks
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
     const customId = interaction.data?.custom_id;
@@ -158,14 +197,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
       // Send deferred ephemeral response immediately (avoids 3-second timeout)
       res.json({ type: 5, data: { flags: 64 } });
 
-      // Helper to edit the deferred response via webhook
-      const editOriginal = async (payload) => {
-        await axios.patch(
-          `https://discord.com/api/v10/webhooks/${appId}/${interactionToken}/messages/@original`,
-          payload,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-      };
+      const editOriginal = (payload) => editDeferredReply(appId, interactionToken, payload);
 
       try {
         // Find user with this discordId

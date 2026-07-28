@@ -51,19 +51,8 @@ const sanitizeDisplayFields = (userData) => {
   };
 };
 
-// Caller's rank via count aggregations (~1 read per 1000 counted) instead of
-// reading one doc per higher-ranked user. Bots are subtracted with a second
-// count so ranks match the bot-free leaderboard.
-const countRankAbove = async (value, crew) => {
-  let above = db.collection('users').where('portfolioValue', '>', value);
-  let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', value);
-  if (crew) {
-    above = above.where('crew', '==', crew);
-    botsAbove = botsAbove.where('crew', '==', crew);
-  }
-  const [aboveSnap, botsSnap] = await Promise.all([above.count().get(), botsAbove.count().get()]);
-  return Math.max(0, aboveSnap.data().count - botsSnap.data().count) + 1;
-};
+// Rank counting lives in helpers.js — shared with the Discord bot's /profile.
+const { countRankAbove } = require('../helpers');
 
 exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);

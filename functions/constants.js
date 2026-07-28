@@ -260,6 +260,24 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 
 // ============================================
+// DISCORD SLASH COMMANDS (discordCommands.js)
+// ============================================
+// The bot is installable in partner servers, so command traffic comes from
+// people we don't control. Per-user cooldown keeps a spam loop in one server
+// from burning the Firestore free tier. Held in instance memory only — a cold
+// start clears it, which is fine because the cap exists to blunt sustained
+// spam, not to be an exact quota.
+const DISCORD_COMMAND_COOLDOWN_MS = 3 * 1000;
+// Public site URL. Slash-command replies deep-link back here (this is the whole
+// point of the "trade on the website" buttons).
+const SITE_URL = 'https://stockism.app';
+// How many leaderboard rows a /leaderboard reply shows. Discord embeds get
+// unreadable past ~10 lines on mobile.
+const DISCORD_LEADERBOARD_ROWS = 10;
+// How many holdings a /portfolio reply shows before it summarises the rest.
+const DISCORD_PORTFOLIO_ROWS = 8;
+
+// ============================================
 // DISCORD DAILY DROP (loot roll in discordInteractions.js)
 // ============================================
 // "High tier" is defined at roll time by LIVE price (not basePrice, which has
@@ -466,6 +484,10 @@ module.exports = {
   CREW_CONTRIB,
   ADMIN_UID,
   DISCORD_DAILY_DROP_CHANNEL,
+  DISCORD_COMMAND_COOLDOWN_MS,
+  DISCORD_LEADERBOARD_ROWS,
+  DISCORD_PORTFOLIO_ROWS,
+  SITE_URL,
   DAILY_DROP_JACKPOT_CHANCE,
   DAILY_DROP_HIGH_TIER_FRACTION,
   DAILY_DROP_HIGH_TIER_CAP,

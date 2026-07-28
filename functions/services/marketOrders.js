@@ -8,7 +8,7 @@ const db = admin.firestore();
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
 const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade } = require('../helpers');
-const { updateCrewMissionProgress } = require('./crewMissions');
+const { updateCrewMissionProgress } = require('./crewMissionProgress');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
