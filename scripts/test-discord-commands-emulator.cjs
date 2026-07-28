@@ -90,15 +90,40 @@ async function seed() {
       { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
     ],
   });
+  const crew = Object.keys(require('../functions/constants').CREW_MEMBERS)[0];
   await db.collection('users').doc('u1').set({
     discordId: 'discord-linked-1',
     displayName: 'Alpha',
     cash: 5000,
     portfolioValue: 50000,
-    crew: Object.keys(require('../functions/constants').CREW_MEMBERS)[0],
+    crew,
     holdings: { [TICKER_A]: 100, [CHARACTERS[1].ticker]: 50 },
     achievements: ['DISCORD_LINKED'],
     isPublic: true,
+    isBot: false,
+  });
+  // Second linked account so privacy checks get a caller that has not already
+  // spent its per-user cooldown earlier in this run.
+  await db.collection('users').doc('u2').set({
+    discordId: 'discord-linked-2',
+    displayName: 'Beta',
+    cash: 777,
+    portfolioValue: 42000,
+    crew,
+    holdings: { [TICKER_A]: 10 },
+    achievements: ['DISCORD_LINKED'],
+    isPublic: false,
+    isBot: false,
+  });
+  await db.collection('users').doc('u3').set({
+    discordId: 'discord-linked-3',
+    displayName: 'Gamma',
+    cash: 1234,
+    portfolioValue: 31000,
+    crew,
+    holdings: { [TICKER_A]: 5 },
+    achievements: [],
+    isPublic: false,
     isBot: false,
   });
 }
@@ -147,6 +172,31 @@ async function run() {
   // Seeded 100 -> 120.50 = +20.50%
   check('/price shows the correct move since chapter open', /\+20\.50%/.test(JSON.stringify(priced)),
     JSON.stringify(priced.embeds[0].fields));
+
+  console.log('\n--- /profile privacy ---');
+  // Seeded cash is 5000. Everything /profile shows is already public on the
+  // site; cash is not, and /profile can be aimed at anyone.
+  const prof = await handleSlashCommand(interaction('profile', [], 'discord-linked-2'));
+  const profText = JSON.stringify(prof);
+  check('/profile does not show cash', !/Cash/i.test(profText), profText);
+  check('/profile does not leak the cash figure', !/777\.00/.test(profText), profText);
+  check('/profile still shows net worth', /Net worth/.test(profText));
+  check('/profile still shows rank', /Rank/.test(profText));
+  check('/profile still shows achievements', /Achievements/.test(profText));
+  check('/profile has no dead link button', !prof.components || prof.components.length === 0,
+    JSON.stringify(prof.components));
+
+  // Viewing someone else must not expose their cash either.
+  const otherProf = await handleSlashCommand({
+    type: 2, application_id: 'a', token: 't',
+    data: { name: 'profile', options: [{ name: 'user', value: 'discord-linked-1' }] },
+    member: { user: { id: 'someone-else' } },
+  });
+  check('/profile @other does not show cash', !/Cash/i.test(JSON.stringify(otherProf)));
+
+  // The caller's own private portfolio still shows cash - different context.
+  const ownPortfolio = await handleSlashCommand(interaction('portfolio', [], 'discord-linked-3'));
+  check('/portfolio still shows the caller their own cash', /Cash/.test(JSON.stringify(ownPortfolio)));
 
   console.log('\n--- Markdown injection via echoed input ---');
   const inject = await handleSlashCommand(

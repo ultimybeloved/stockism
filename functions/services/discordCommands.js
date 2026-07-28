@@ -207,15 +207,22 @@ const cmdProfile = async (interaction) => {
   const distinct = Object.values(holdings).filter((s) => s > 0).length;
   const achievements = Array.isArray(data.achievements) ? data.achievements.length : 0;
 
+  // Cash is deliberately NOT shown. Everything here is already public on the
+  // site (net worth, rank, holding count, crew, achievements), but cash is not,
+  // and /profile can be pointed at anyone — so showing it would leak how much
+  // dry powder a rival has. /portfolio shows cash because that reply is private
+  // and only ever about the caller's own account.
   const fields = [
     { name: 'Net worth', value: money(value), inline: true },
     { name: 'Rank', value: `#${rank}`, inline: true },
-    { name: 'Cash', value: money(data.cash), inline: true },
     { name: 'Stocks held', value: `${distinct}`, inline: true },
     { name: 'Achievements', value: `${achievements}`, inline: true },
   ];
   if (data.crew) fields.push({ name: 'Crew', value: `${data.crew}`, inline: true });
 
+  // No button: the in-depth site profile only exists if the player has opted
+  // into a public profile, so a link would dead-end on the homepage for most
+  // people. Better no button than a useless one.
   const name = data.displayName || 'Anonymous';
   return {
     embeds: [{
@@ -223,11 +230,6 @@ const cmdProfile = async (interaction) => {
       title: `${data.isCrewHead ? '👑 ' : ''}${name}`,
       fields,
     }],
-    components: [buttonRow(
-      linkButton('View profile', data.isPublic && data.displayName
-        ? `${SITE_URL}/u/${encodeURIComponent(data.displayName)}`
-        : SITE_URL, '👤'),
-    )],
   };
 };
 
