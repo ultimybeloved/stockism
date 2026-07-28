@@ -5,7 +5,7 @@ import { useAppContext } from '../../context/AppContext';
 const Footer = () => {
   const { darkMode } = useAppContext();
   const links = [
-    { href: 'https://discord.gg/yxw94uNrYv', label: 'Discord', external: true },
+    { href: 'https://discord.gg/hpVm8nQMvY', label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },
     { href: '/terms.html', label: 'Terms of Service', external: true },
     { href: '/privacy.html', label: 'Privacy Policy', external: true }

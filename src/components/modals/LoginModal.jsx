@@ -328,7 +328,7 @@ const LoginModal = ({ onClose, darkMode }) => {
             Privacy Policy
           </a>
           {' • '}
-          <a href="https://discord.gg/yxw94uNrYv" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
+          <a href="https://discord.gg/hpVm8nQMvY" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 underline">
             Discord
           </a>
           {' • '}

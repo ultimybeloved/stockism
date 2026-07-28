@@ -103,7 +103,7 @@ const MarketTicker = () => {
           <>
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
               <a
-                href="https://discord.gg/yxw94uNrYv"
+                href="https://discord.gg/hpVm8nQMvY"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
@@ -133,7 +133,7 @@ const MarketTicker = () => {
             {/* Duplicate for seamless loop */}
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
               <a
-                href="https://discord.gg/yxw94uNrYv"
+                href="https://discord.gg/hpVm8nQMvY"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"

@@ -87,7 +87,7 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-2">Join the Community</h3>
                 <div className="flex gap-3">
                   <a
-                    href="https://discord.gg/yxw94uNrYv"
+                    href="https://discord.gg/hpVm8nQMvY"
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-indigo-500 hover:bg-indigo-600'} text-white text-sm font-medium`}
