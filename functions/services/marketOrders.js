@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissions');
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -237,6 +237,22 @@ const runMarketOpenProcessing = async (trigger) => {
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
               ...creditUpdates
             });
+
+            // Same trade record executeTrade writes, so the fill shows up in
+            // the player's trade history and the market reports.
+            const buyTotal = executionPrice * localFillShares;
+            recordTrade(transaction, {
+              uid: order.userId,
+              ticker: order.ticker,
+              action: 'buy',
+              amount: localFillShares,
+              price: executionPrice,
+              totalValue: buyTotal,
+              orderId: doc.id,
+              cashBefore: ud.cash || 0,
+              cashAfter: round2((ud.cash || 0) - buyTotal),
+              source: 'premarket',
+            });
           } else {
             // Clamp to sellable (holdings minus IPO/margin locks) — locks placed
             // after the order was queued must not be sellable at the auction.
@@ -267,6 +283,22 @@ const runMarketOpenProcessing = async (trigger) => {
               updates[`holdings.${order.ticker}`] = newHoldings;
             }
             transaction.update(userRef, updates);
+
+            // Same trade record executeTrade writes, so the fill shows up in
+            // the player's trade history and the market reports.
+            const sellTotal = executionPrice * localFillShares;
+            recordTrade(transaction, {
+              uid: order.userId,
+              ticker: order.ticker,
+              action: 'sell',
+              amount: localFillShares,
+              price: executionPrice,
+              totalValue: sellTotal,
+              orderId: doc.id,
+              cashBefore: ud.cash || 0,
+              cashAfter: round2((ud.cash || 0) + sellTotal),
+              source: 'premarket',
+            });
           }
 
           // Mark the order done atomically with the balance change.
@@ -428,6 +460,24 @@ const runMarketOpenProcessing = async (trigger) => {
           updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
         }
         transaction.update(userRef, updates);
+
+        // Same trade record executeTrade writes, so the fill shows up in the
+        // player's trade history and the market reports.
+        const sweepTotal = executedPrice * fillShares;
+        recordTrade(transaction, {
+          uid: order.userId,
+          ticker: order.ticker,
+          action: 'sell',
+          amount: fillShares,
+          price: executedPrice,
+          priceImpact: freshPrice > 0 ? effectiveImpact / freshPrice : 0,
+          totalValue: sweepTotal,
+          cashBefore: userData.cash || 0,
+          cashAfter: round2((userData.cash || 0) + sweepTotal),
+          source: 'stop_loss',
+          orderId: orderDoc.id,
+        });
+
         if (effectiveImpact > 0) {
           transaction.update(marketRef, {
             [`prices.${order.ticker}`]: newMarketPrice

@@ -3,6 +3,7 @@ import {
   triggerWeeklyMarketSummaryFunction,
   triggerDailyMarketSummaryFunction,
   archivePriceHistoryFunction,
+  backfillFillTradeRecordsFunction,
 } from '../../firebase';
 
 // Manual re-runs of jobs that normally fire on a schedule. Used by the Market
@@ -80,5 +81,20 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runArchivePriceHistory };
+  // One-off repair: writes trade records for old limit/stop-loss/pre-market
+  // fills. Deterministic ids make repeat runs harmless.
+  const runBackfillFillTrades = async () => {
+    setLoading(true);
+    try {
+      const result = await backfillFillTradeRecordsFunction({});
+      const { limitOrders, preMarketOrders } = result.data || {};
+      showMessage('success', `Backfilled ${limitOrders?.written || 0} limit/stop-loss fills and ${preMarketOrders?.written || 0} pre-market fills.`);
+    } catch (err) {
+      console.error('Fill backfill failed:', err);
+      showMessage('error', 'Backfill failed: ' + err.message);
+    }
+    setLoading(false);
+  };
+
+  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runArchivePriceHistory, runBackfillFillTrades };
 }

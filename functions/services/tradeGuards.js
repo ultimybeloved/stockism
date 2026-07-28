@@ -11,6 +11,7 @@ const {
   MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, ADMIN_UID,
   TICKER_COOLDOWN_MS, TRADE_COOLDOWN_MS,
   MAX_TRADES_PER_TICKER_HOUR, TRADE_BURST_LIMIT, TRADE_BURST_WINDOW_MS,
+  TRADE_RECORD_ACTIONS,
 } = require('../constants');
 
 // Validate inputs - finite, bounded, max 2 decimal places — and reject trades
@@ -156,6 +157,23 @@ function assertCooldowns(userData, ticker, action, now) {
   }
 }
 
+// Counts only trades the player placed by hand.
+//
+// The trades collection also holds automated fills (limit orders, stop losses,
+// the pre-market auction — all tagged with `source`), dividend payouts and
+// forced margin closes. None of those are someone hammering the buy button, and
+// counting them would lock a player out of a ticker because their own stop loss
+// fired. Fills are still bounded by the 24h per-ticker cap and the daily
+// price-impact cap, which they check for themselves at fill time.
+function countManualTrades(snap, action = null) {
+  return snap.docs.filter((d) => {
+    const t = d.data();
+    if (t.source) return false;
+    if (!TRADE_RECORD_ACTIONS.has(t.action)) return false;
+    return action ? t.action === action : true;
+  }).length;
+}
+
 // Trade velocity: hourly cap and 5-minute burst limit per ticker. Only
 // rate-limits position-opening actions (buy/short) — closing positions
 // (sell/cover) should never be blocked. Plain (non-transactional) queries.
@@ -170,7 +188,7 @@ async function assertVelocityLimits(uid, ticker, action, now) {
     .where('timestamp', '>', oneHourAgo)
     .get();
 
-  const tradesInLastHour = recentTickerTradesSnap.size;
+  const tradesInLastHour = countManualTrades(recentTickerTradesSnap);
 
   if (tradesInLastHour >= MAX_TRADES_PER_TICKER_HOUR) {
     throw new functions.https.HttpsError(
@@ -185,7 +203,7 @@ async function assertVelocityLimits(uid, ticker, action, now) {
     .where('ticker', '==', ticker)
     .where('timestamp', '>', fiveMinAgo)
     .get();
-  const burstCount = burstTradesSnap.docs.filter(d => d.data().action === action).length;
+  const burstCount = countManualTrades(burstTradesSnap, action);
 
   if (burstCount >= TRADE_BURST_LIMIT) {
     throw new functions.https.HttpsError(

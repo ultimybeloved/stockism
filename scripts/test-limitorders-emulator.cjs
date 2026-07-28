@@ -33,6 +33,7 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 const { runLimitOrderCheck } = require('../functions/services/limitOrders');
+const { runFillBackfill } = require('../functions/services/tradeBackfill');
 const { calculateMarginalImpact } = require('../functions/helpers');
 const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/constants');
 const { CHARACTER_MAP } = require('../functions/characters');
@@ -192,7 +193,63 @@ async function main() {
   const thPending = th.filter(o => o.status === 'PENDING').length;
   check('per-ticker throttle: exactly 3 filled, 1 deferred', thFilled === 3 && thPending === 1, th.map(o => o.status).join(','));
 
-  // ── 14. Only the intentional deferrals remain PENDING ──────────────────
+  // ── 14. Fills write trade records ──────────────────────────────────────
+  // These fills used to move money without leaving anything in the trades
+  // collection, so they were invisible in the player's own trade history and in
+  // the daily/weekly market reports.
+  const tradesFor = async (uid) => (await db.collection('trades').where('uid', '==', uid).get()).docs.map(x => x.data());
+
+  const buyTrades = await tradesFor('lo_buyer');
+  const buyTrade = buyTrades[0] || {};
+  check('BUY fill wrote one trade record',
+    buyTrades.length === 1 && buyTrade.action === 'buy' && buyTrade.amount === 10,
+    JSON.stringify(buyTrades));
+  check('BUY record tagged source=limit with matching price',
+    buyTrade.source === 'limit' && Math.abs((buyTrade.price || 0) - expectedAsk) < 0.011,
+    JSON.stringify(buyTrade));
+  check('BUY record carries cashAfter (portfolio rebuild needs it)',
+    typeof buyTrade.cashAfter === 'number' && Math.abs(buyTrade.cashAfter - buyer.cash) < 0.25,
+    `record=${buyTrade.cashAfter} user=${buyer.cash}`);
+
+  const sellTrades = await tradesFor('lo_seller');
+  check('SELL fill wrote a sell record tagged source=limit',
+    sellTrades.length === 1 && sellTrades[0].action === 'sell' && sellTrades[0].source === 'limit',
+    JSON.stringify(sellTrades));
+
+  const stopTrades = await tradesFor('lo_stopper');
+  check('STOP_LOSS fill tagged source=stop_loss, not limit',
+    stopTrades.length === 1 && stopTrades[0].source === 'stop_loss' && stopTrades[0].action === 'sell',
+    JSON.stringify(stopTrades));
+
+  const deferredTrades = await tradesFor('lo_deferrer');
+  check('deferred order wrote no trade record', deferredTrades.length === 0, JSON.stringify(deferredTrades));
+
+  // ── 15. Backfill never duplicates a fill it already has ────────────────
+  // Every fill in this run was recorded live, so the backfill has nothing to do.
+  // If it writes anything here, players would see the same trade twice.
+  const tradeCountBefore = (await db.collection('trades').get()).size;
+  const firstPass = await runFillBackfill();
+  const afterFirst = (await db.collection('trades').get()).size;
+  check('backfill skips fills already recorded live',
+    afterFirst === tradeCountBefore && firstPass.limitOrders.written === 0,
+    `${tradeCountBefore} -> ${afterFirst}, ${JSON.stringify(firstPass)}`);
+  check('buyer still has exactly one record after backfill',
+    (await tradesFor('lo_buyer')).length === 1, 'duplicate written');
+
+  // An old fill with no record: strip the live one, then the backfill restores it.
+  const legacy = (await db.collection('trades').where('uid', '==', 'lo_seller').get()).docs[0];
+  await legacy.ref.delete();
+  const secondPass = await runFillBackfill();
+  const restored = await tradesFor('lo_seller');
+  check('backfill restores a fill that has no record',
+    secondPass.limitOrders.written === 1 && restored.length === 1 && restored[0].source === 'limit',
+    JSON.stringify(restored));
+  const thirdPass = await runFillBackfill();
+  check('re-running after a backfill adds nothing',
+    thirdPass.limitOrders.written === 0 && (await tradesFor('lo_seller')).length === 1,
+    JSON.stringify(thirdPass));
+
+  // ── 16. Only the intentional deferrals remain PENDING ──────────────────
   const leftover = await db.collection('limitOrders').where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']).get();
   const leftoverIds = leftover.docs.map(x => x.id).sort();
   // Expected: lo_d_defer, lo_k_lockH, one throttled order. lo_l_lockS stays

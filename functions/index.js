@@ -16,6 +16,7 @@ Object.assign(exports, require('./services/marketOrders'));
 Object.assign(exports, require('./services/marketWeekly'));
 Object.assign(exports, require('./services/admin'));
 Object.assign(exports, require('./services/adminOps'));
+Object.assign(exports, require('./services/tradeBackfill'));
 Object.assign(exports, require('./services/alerts'));
 Object.assign(exports, require('./services/discord'));
 Object.assign(exports, require('./services/discordInteractions'));

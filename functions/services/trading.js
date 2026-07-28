@@ -26,6 +26,7 @@ const {
   pruneAndSumTradeHistory,
   priceHistoryRef,
   appendPriceHistory,
+  recordTrade,
 } = require('../helpers');
 const {
   validateTradeInput, assertNoLiveSellOrders, assertMarketTradable,
@@ -218,8 +219,8 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         executionPrice, totalCost, currentPrice,
       });
 
-      // Log trade
-      const tradeRecord = {
+      // Log trade — no `source`, which is what marks it as manually placed
+      recordTrade(transaction, {
         uid,
         ticker,
         action,
@@ -229,11 +230,8 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         totalValue: totalCost,
         cashBefore: cash,
         cashAfter: newCash,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        ip
-      };
-      const tradeRef = db.collection('trades').doc();
-      transaction.set(tradeRef, tradeRecord);
+        ip,
+      });
 
       // ANTI-MANIPULATION: Save IP-level tickerTradeHistory
       if (ipTrackingRef) {

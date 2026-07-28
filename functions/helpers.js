@@ -712,6 +712,41 @@ function getLastActiveMs(userData) {
   );
 }
 
+// Writes one record to the trades collection, inside the caller's transaction.
+//
+// This collection is the canonical record of a trade: the player's own Trade
+// History reads it, the daily/weekly market reports count it, and
+// reconstructPortfolioHistory replays it (which is why cashAfter is worth
+// passing — records without it are skipped there).
+//
+// `source` marks a fill that the player didn't place by hand ('limit',
+// 'stop_loss', 'premarket'). Trades placed through executeTrade leave it unset,
+// and that absence is what the velocity guards use to tell the two apart.
+function recordTrade(transaction, {
+  uid, ticker, action, amount, price, priceImpact = 0, totalValue,
+  cashBefore = null, cashAfter = null, source = null, ip = null, orderId = null,
+}) {
+  const record = {
+    uid,
+    ticker,
+    action,
+    amount,
+    price,
+    priceImpact,
+    totalValue,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    ip,
+  };
+  if (cashBefore !== null) record.cashBefore = cashBefore;
+  if (cashAfter !== null) record.cashAfter = cashAfter;
+  if (source) record.source = source;
+  // Which order produced this fill. The backfill uses it to skip orders that
+  // already have a record, so it can never duplicate a live fill.
+  if (orderId) record.orderId = orderId;
+
+  transaction.set(db.collection('trades').doc(), record);
+}
+
 // Trades and cash volume in a window, for the daily and weekly market reports.
 //
 // Sourced from the trades collection rather than each user's transactionLog:
@@ -772,6 +807,7 @@ module.exports = {
   lockedShares,
   DIVIDEND_HOLD_MS,
   getLastActiveMs,
+  recordTrade,
   sumMarketActivity,
   touchLastActive,
   addPendingShares,

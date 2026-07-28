@@ -172,5 +172,7 @@ export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewC
 export const triggerWeeklyCrewRankingsFunction = httpsCallable(functions, 'triggerWeeklyCrewRankings');
 // Admin: re-post the weekly market report to Discord now
 export const triggerWeeklyMarketSummaryFunction = httpsCallable(functions, 'triggerWeeklyMarketSummary');
+// Admin: write the trade records that old limit/stop-loss/pre-market fills never wrote
+export const backfillFillTradeRecordsFunction = httpsCallable(functions, 'backfillFillTradeRecords');
 
 export default app;

@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall, buildTradeCreditUpdates } = require('../helpers');
+const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, touchLastActive, lockedShares, appendPriceHistory, checkDiscordWall, buildTradeCreditUpdates, recordTrade } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissions');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
@@ -398,6 +398,8 @@ const runLimitOrderCheck = async () => {
 
               // STOP_LOSS executes as a sell — normalize for validation/execution
               const effectiveType = order.type === 'STOP_LOSS' ? 'SELL' : order.type;
+              // Tags the trade record so the player can see why it happened
+              const fillSource = order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit';
 
               // Validate user has sufficient funds/shares
               if (effectiveType === 'BUY') {
@@ -522,6 +524,22 @@ const runLimitOrderCheck = async () => {
                   ...creditUpdates
                 });
 
+                // Same trade record executeTrade writes, so the fill shows up in
+                // the player's trade history and the market reports.
+                recordTrade(transaction, {
+                  uid: order.userId,
+                  ticker: order.ticker,
+                  action: 'buy',
+                  amount: fillShares,
+                  price: executedPrice,
+                  priceImpact: limitImpactPercent,
+                  totalValue: totalCost,
+                  cashBefore: userData.cash,
+                  cashAfter: Math.round((userData.cash - totalCost) * 100) / 100,
+                  source: fillSource,
+                  orderId,
+                });
+
                 // Apply price impact to market (only if there's actual impact)
                 if (effectiveImpact > 0) {
                   transaction.update(marketRef, {
@@ -582,6 +600,22 @@ const runLimitOrderCheck = async () => {
                 }
 
                 transaction.update(userRef, updates);
+
+                // Same trade record executeTrade writes, so the fill shows up in
+                // the player's trade history and the market reports.
+                recordTrade(transaction, {
+                  uid: order.userId,
+                  ticker: order.ticker,
+                  action: 'sell',
+                  amount: fillShares,
+                  price: executedPrice,
+                  priceImpact: limitImpactPercent,
+                  totalValue: totalRevenue,
+                  cashBefore: userData.cash,
+                  cashAfter: Math.round((userData.cash + totalRevenue) * 100) / 100,
+                  source: fillSource,
+                  orderId,
+                });
 
                 // Apply price impact to market (only if there's actual impact)
                 if (effectiveImpact > 0) {

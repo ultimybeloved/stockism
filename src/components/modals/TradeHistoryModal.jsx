@@ -88,6 +88,14 @@ const TradeHistoryModal = ({ onClose }) => {
     setLoadingMore(false);
   };
 
+  // Trades that filled on their own. Without a label these look like trades the
+  // player never made.
+  const SOURCE_LABELS = {
+    limit: 'limit order',
+    stop_loss: 'stop loss',
+    premarket: 'pre-market',
+  };
+
   const getActionColor = (action) => {
     if (action === 'buy' || action === 'cover' || action === 'dividend') {
       return colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -331,6 +339,9 @@ const TradeHistoryModal = ({ onClose }) => {
                         <div className="flex items-center gap-2">
                           <span className="text-orange-500 font-mono text-sm font-semibold">${trade.ticker}</span>
                           <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>{trade.action}</span>
+                          {SOURCE_LABELS[trade.source] && (
+                            <span className={`text-xs ${mutedClass}`}>{SOURCE_LABELS[trade.source]}</span>
+                          )}
                         </div>
                         {char && <p className={`text-xs ${mutedClass}`}>{char.name}</p>}
                       </div>

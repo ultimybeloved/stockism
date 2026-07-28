@@ -12,6 +12,7 @@ const MarketTab = ({
   runCrewRankings,
   runMarketSummary,
   runDailyMarketSummary,
+  runBackfillFillTrades,
   runArchivePriceHistory,
 }) => {
   return (
@@ -108,6 +109,23 @@ const MarketTab = ({
             Post Weekly Report
           </button>
         </div>
+      </div>
+
+      {/* Missing fill history */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Backfill Old Fill History</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Limit orders, stop losses and pre-market orders used to fill without writing anything to trade
+          history, so players cannot see those trades. This adds the missing entries. Running it twice
+          does nothing the second time, so it is safe to press again.
+        </p>
+        <button
+          onClick={runBackfillFillTrades}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-sm hover:bg-blue-700 disabled:opacity-50"
+        >
+          Backfill Fill History
+        </button>
       </div>
 
       {/* Price history archive */}
