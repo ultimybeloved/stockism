@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, TRADE_TX_TYPES } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getAdminReviewAdjustments, getLastActiveMs } = require('../helpers');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getAdminReviewAdjustments, getLastActiveMs, sumMarketActivity } = require('../helpers');
 
 
 // Builds and posts the daily market summary Discord embed. Shared by the
@@ -90,24 +90,10 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
         console.error('index history record failed:', e.message);
       }
 
-      // Calculate trading volume (from transaction logs). Shorts count as
-      // trades — they were missing from this tally, so anyone who only shorted
-      // or covered that day was invisible here. Volume stays cash-based
-      // (buys and sells), since short entries don't store a cash figure.
-      let totalVolume = 0;
-      let tradeCount = 0;
-      const traderActivity = {};
-
-      users.forEach(user => {
-        const txLog = user.transactionLog || [];
-        txLog.forEach(tx => {
-          if (!TRADE_TX_TYPES.has(tx.type) || tx.timestamp <= dayAgo) return;
-          totalVolume += tx.totalCost || tx.totalRevenue || 0;
-          tradeCount++;
-          // Bots count toward market volume but not trader rankings
-          if (!user.isBot) traderActivity[user.id] = (traderActivity[user.id] || 0) + 1;
-        });
-      });
+      // Trading volume and counts. Bots count toward market volume but never
+      // toward trader rankings — they aren't in the trades collection at all.
+      const { trades: tradeCount, volume: totalVolume, tradesByUid: traderActivity } =
+        await sumMarketActivity({ sinceMs: dayAgo, users });
 
       // Headcounts. "Traded today" is a subset of the players who showed up —
       // most people check prices far more often than they trade, so the two
@@ -116,7 +102,12 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
       const activeToday = realPlayers.filter(u => getLastActiveMs(u) > dayAgo).length;
       const activeInWindow = realPlayers.filter(u => getLastActiveMs(u) > now - ACTIVE_USER_WINDOW_MS).length;
 
+      // Banned accounts are kept out of the counts and the ranking the same way
+      // bots are.
+      const nameByUid = new Map(realPlayers.map(u => [u.id, u.displayName || 'Anonymous']));
+      const tradedToday = Object.keys(traderActivity).filter(uid => nameByUid.has(uid)).length;
       const topTraders = Object.entries(traderActivity)
+        .filter(([uid]) => nameByUid.has(uid))
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3);
 
@@ -160,7 +151,9 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
       if (topTraders.length > 0) {
         embed.fields.push({
           name: '⚡ Most Active Traders',
-          value: topTraders.map(([, count], i) => `#${i + 1}: ${count} trades`).join('\n'),
+          value: topTraders.map(([uid, count], i) =>
+            `${i + 1}. ${nameByUid.get(uid)} - ${count} ${count === 1 ? 'trade' : 'trades'}`
+          ).join('\n'),
           inline: false
         });
       }
@@ -169,7 +162,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
         name: '💰 Market Stats',
         value: [
           `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : (u.cash || 0)), 0)).toLocaleString()}`,
-          `Traded today: ${Object.keys(traderActivity).length}`,
+          `Traded today: ${tradedToday}`,
           `Players active today: ${activeToday}`,
           `Active in the last ${ACTIVE_USER_WINDOW_DAYS} days: ${activeInWindow}`,
         ].join('\n'),

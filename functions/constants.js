@@ -189,6 +189,11 @@ const ACTIVE_USER_WINDOW_DAYS = Math.round(ACTIVE_USER_WINDOW_MS / (24 * 60 * 60
 // them out undercounted both trade totals and the number of people trading.
 const TRADE_TX_TYPES = new Set(['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE']);
 
+// `action` values in the trades collection that count as a player trade. That
+// collection also holds dividend payouts and forced margin closes, which are
+// not trades anyone placed.
+const TRADE_RECORD_ACTIONS = new Set(['buy', 'sell', 'short', 'cover']);
+
 // ============================================
 // ACHIEVEMENTS
 // ============================================
@@ -442,6 +447,7 @@ module.exports = {
   ACTIVE_USER_WINDOW_MS,
   ACTIVE_USER_WINDOW_DAYS,
   TRADE_TX_TYPES,
+  TRADE_RECORD_ACTIONS,
   UNIFIER_FULL_SHARE_MIN,
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,

@@ -86,6 +86,8 @@ const {
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
   UNDERDOG_PRICE_THRESHOLD,
+  TRADE_TX_TYPES,
+  TRADE_RECORD_ACTIONS,
 } = require('./constants');
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
@@ -710,6 +712,42 @@ function getLastActiveMs(userData) {
   );
 }
 
+// Trades and cash volume in a window, for the daily and weekly market reports.
+//
+// Sourced from the trades collection rather than each user's transactionLog:
+// that log only keeps a user's last 100 entries, so summing it undercounts
+// anyone with a busy week. This query has no such cap. Bots don't write trade
+// records, so their activity is still read from their logs — the cap can bite
+// there on a 7-day window, but bots only affect volume, not player counts.
+//
+// Returns per-player trade counts too, so callers can rank the top traders.
+async function sumMarketActivity({ sinceMs, users = [] }) {
+  const snap = await db.collection('trades').where('timestamp', '>', new Date(sinceMs)).get();
+
+  let trades = 0;
+  let volume = 0;
+  const tradesByUid = {};
+
+  snap.forEach((doc) => {
+    const t = doc.data();
+    if (!TRADE_RECORD_ACTIONS.has(t.action)) return; // skip dividends / forced margin closes
+    trades++;
+    volume += t.totalValue || 0;
+    if (t.uid) tradesByUid[t.uid] = (tradesByUid[t.uid] || 0) + 1;
+  });
+
+  users.forEach((u) => {
+    if (!u.isBot) return;
+    (u.transactionLog || []).forEach((tx) => {
+      if (!TRADE_TX_TYPES.has(tx.type) || !(tx.timestamp > sinceMs)) return;
+      trades++;
+      volume += tx.totalCost || tx.totalRevenue || 0;
+    });
+  });
+
+  return { trades, volume, tradesByUid };
+}
+
 // Fire-and-forget activity stamp. Called from player-action callables so the
 // active-user metric reflects all actions, not just trades/check-ins. Never
 // awaited — it must not affect the action's success.
@@ -734,6 +772,7 @@ module.exports = {
   lockedShares,
   DIVIDEND_HOLD_MS,
   getLastActiveMs,
+  sumMarketActivity,
   touchLastActive,
   addPendingShares,
   decrementCohort,
