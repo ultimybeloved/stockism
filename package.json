@@ -14,6 +14,7 @@
     "check:functions": "node scripts/check-function-exports.cjs",
     "discord:commands": "node scripts/register-discord-commands.cjs",
     "test:discord": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-discord-commands-emulator.cjs\"",
+    "test:discord:endpoint": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-discord-endpoint-emulator.cjs\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"node scripts/test-rules-emulator.mjs\"",

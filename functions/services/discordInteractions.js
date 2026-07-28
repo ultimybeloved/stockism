@@ -15,6 +15,7 @@ const {
   DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
   DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
   DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
+  DIRECT_REPLY_BUDGET_MS,
 } = require('../constants');
 const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError } = require('../helpers');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
@@ -30,6 +31,11 @@ const editDeferredReply = (appId, token, payload) =>
     payload,
     { headers: { 'Content-Type': 'application/json' } }
   );
+
+// Flipped after this instance has served one interaction. Used to decide whether
+// there is enough headroom left in Discord's 3s deadline to answer directly
+// instead of deferring — see the slash-command branch below.
+let servedARequest = false;
 
 function weightedRandom(values, weights) {
   const total = weights.reduce((a, b) => a + b, 0);
@@ -154,17 +160,44 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
     const commandName = interaction.data && interaction.data.name;
     const appId = interaction.application_id;
     const interactionToken = interaction.token;
-
-    // Acknowledge inside the 3-second window, then do the reads.
-    res.json({ type: 5, data: isPrivate(commandName) ? { flags: EPHEMERAL } : {} });
+    const flags = isPrivate(commandName) ? { flags: EPHEMERAL } : {};
 
     const editOriginal = (payload) => editDeferredReply(appId, interactionToken, payload);
+    const work = handleSlashCommand(interaction).catch((error) => {
+      reportError(error, { where: 'discordSlashCommand', command: commandName });
+      return { content: 'Something went wrong. Try again in a moment.' };
+    });
+
+    // Deferring costs an extra round-trip to Discord and shows a "thinking..."
+    // flicker. On a warm instance the reads finish well inside the 3s deadline,
+    // so race the work against a budget: if it wins, answer in one shot; if it
+    // does not, we are still inside the window and fall back to deferring.
+    // The first request on a cold instance always defers — it has just paid the
+    // module-load cost and has the least headroom left.
+    let payload = null;
+    if (servedARequest) {
+      payload = await Promise.race([
+        work,
+        new Promise((resolve) => setTimeout(() => resolve(null), DIRECT_REPLY_BUDGET_MS)),
+      ]);
+    }
+    servedARequest = true;
+
+    if (payload) {
+      res.json({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { ...payload, ...flags },
+      });
+      return;
+    }
+
+    res.json({ type: 5, data: flags });
 
     try {
-      const payload = await handleSlashCommand(interaction);
-      await editOriginal(payload || { content: 'That command is not available right now.' });
+      const deferred = await work;
+      await editOriginal(deferred || { content: 'That command is not available right now.' });
     } catch (error) {
-      reportError(error, { where: 'discordSlashCommand', command: commandName });
+      reportError(error, { where: 'discordSlashCommandDeferred', command: commandName });
       try {
         await editOriginal({ content: 'Something went wrong. Try again in a moment.' });
       } catch (editError) {

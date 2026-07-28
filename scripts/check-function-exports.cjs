@@ -43,6 +43,30 @@ if (leaked.length > 0) {
   console.log(`Export purity: OK (${Object.keys(exports_).length} exports, all Cloud Functions)`);
 }
 
+// --- 1b. Lazy-load scan coverage -------------------------------------------
+
+// serviceLoader.js finds a function's owning file by regex-scanning sources for
+// `exports.<name> =` rather than requiring them, so a function declared some
+// other way would not be found. That is fail-open (it falls back to loading
+// everything, costing startup time but never breaking), but it silently loses
+// the cold-start win — so flag it here instead of letting it rot.
+const scanFinds = (name) => fs.readdirSync(SERVICES_DIR)
+  .filter((f) => f.endsWith('.js'))
+  .some((f) => new RegExp(`^exports\\.${name}\\s*=`, 'm')
+    .test(fs.readFileSync(path.join(SERVICES_DIR, f), 'utf8')));
+
+const unscannable = Object.keys(exports_)
+  .filter((name) => name !== 'botTrader' && !scanFinds(name));
+
+if (unscannable.length > 0) {
+  problems += unscannable.length;
+  console.log('Functions serviceLoader cannot locate by source scan:');
+  unscannable.forEach((k) => console.log(`  ${k}`));
+  console.log('  -> declare them as `exports.<name> = ...` at the start of a line\n');
+} else {
+  console.log('Lazy-load scan: OK (every function locatable without loading it)');
+}
+
 // --- 2. Constants imports ---------------------------------------------------
 
 const constantNames = Object.keys(require(path.join(FUNCTIONS_DIR, 'constants.js')));

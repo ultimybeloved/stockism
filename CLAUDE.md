@@ -253,7 +253,8 @@ Quick reference so you know where to look and where to add things.
 | Path | What lives here |
 |---|---|
 | `functions/index.js` | Re-exports only — ≤40 lines, never add logic here |
-| `functions/registerService.js` | The re-export filter: copies only real Cloud Functions onto index.js's exports, so leaked helpers/constants can't masquerade as deployable functions |
+| `functions/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
+| `functions/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
 | `functions/sentry.js` | Sentry error monitoring init — required by index.js at startup |
 | `functions/constants.js` | All backend economy constants — add new ones here |
 | `functions/helpers.js` | Shared utility functions used by multiple services |

@@ -268,6 +268,10 @@ const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 // start clears it, which is fine because the cap exists to blunt sustained
 // spam, not to be an exact quota.
 const DISCORD_COMMAND_COOLDOWN_MS = 3 * 1000;
+// How long a warm instance will wait for a command's reads before giving up and
+// deferring instead. Discord hard-kills any interaction not acknowledged within
+// 3s, so this must leave comfortable room for the response to travel back.
+const DIRECT_REPLY_BUDGET_MS = 1200;
 // Public site URL. Slash-command replies deep-link back here (this is the whole
 // point of the "trade on the website" buttons).
 const SITE_URL = 'https://stockism.app';
@@ -485,6 +489,7 @@ module.exports = {
   ADMIN_UID,
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_COMMAND_COOLDOWN_MS,
+  DIRECT_REPLY_BUDGET_MS,
   DISCORD_LEADERBOARD_ROWS,
   DISCORD_PORTFOLIO_ROWS,
   SITE_URL,
