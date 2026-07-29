@@ -106,6 +106,20 @@ const runLimitOrderCheck = async () => {
           const orderUserDoc = await db.collection('users').doc(order.userId).get();
           if (orderUserDoc.exists) {
             const orderUserData = orderUserDoc.data();
+            // Banned after the order was placed. createLimitOrder blocks banned
+            // users from placing NEW orders, but orders already on the book kept
+            // filling — a ban left the queued lane open. The pre-market auction
+            // has always checked this (marketOrders.js); this lane did not.
+            if (orderUserData.isBanned) {
+              await db.collection('limitOrders').doc(orderId).update({
+                status: 'CANCELED',
+                cancelReason: 'Account is banned',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              console.log(`Cancelled order ${orderId}: account banned`);
+              canceled++;
+              continue;
+            }
             if (orderUserData.isBankrupt || (orderUserData.cash || 0) < 0) {
               await db.collection('limitOrders').doc(orderId).update({
                 status: 'CANCELED',
@@ -224,6 +238,10 @@ const runLimitOrderCheck = async () => {
                 throw new Error('Price no longer meets limit condition');
               }
 
+              // Banned (could have happened between the outer check and here)
+              if (userData.isBanned) {
+                throw new Error('Account is banned');
+              }
               // Check if user is bankrupt/in debt (could have changed since order was created)
               if (userData.isBankrupt || (userData.cash || 0) < 0) {
                 throw new Error('User is bankrupt or in debt');

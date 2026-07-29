@@ -11,6 +11,49 @@ const { ADMIN_UID } = require('../constants');
 const { sendDiscordMessage, priceHistoryRef } = require('../helpers');
 
 /**
+ * Cancel every open order a banned user left on the books.
+ *
+ * The ban itself wipes holdings and resets cash, so a surviving order is either
+ * selling shares that no longer exist or spending the rollback cash. The fill
+ * paths reject banned users now, but leaving the orders PENDING means the sweep
+ * re-reads and re-cancels them every cycle and the player still sees them as
+ * live in their order list. Clear them at ban time instead.
+ *
+ * @param {string} userId - Banned user's ID
+ * @returns {Promise<{limit: number, preMarket: number}>} counts cancelled
+ */
+const cancelOpenOrders = async (userId) => {
+  const counts = { limit: 0, preMarket: 0 };
+  const stamp = admin.firestore.FieldValue.serverTimestamp();
+
+  const [limitSnap, preMarketSnap] = await Promise.all([
+    db.collection('limitOrders')
+      .where('userId', '==', userId)
+      .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
+      .get(),
+    db.collection('preMarketOrders')
+      .where('userId', '==', userId)
+      .where('status', '==', 'PENDING')
+      .get()
+  ]);
+
+  if (limitSnap.empty && preMarketSnap.empty) return counts;
+
+  const batch = db.batch();
+  limitSnap.docs.forEach((doc) => {
+    batch.update(doc.ref, { status: 'CANCELED', cancelReason: 'Account is banned', updatedAt: stamp });
+    counts.limit++;
+  });
+  preMarketSnap.docs.forEach((doc) => {
+    batch.update(doc.ref, { status: 'CANCELED', cancelReason: 'Account is banned', updatedAt: stamp });
+    counts.preMarket++;
+  });
+  await batch.commit();
+
+  return counts;
+};
+
+/**
  * Admin function to ban a user and rollback fraudulent gains
  * @param {string} userId - User ID to ban
  * @param {number} rollbackCash - Cash amount to reset to (default: 1000)
@@ -81,12 +124,26 @@ exports.banUser = cf().https.onCall(async (data, context) => {
     // Record the rollback in the permanent history subcollection
     await userRef.collection('portfolioHistory').add({ timestamp: Date.now(), value: rollbackCash });
 
+    // Pull their open orders off the books — the wipe above just destroyed the
+    // shares and cash those orders were written against.
+    let cancelled = { limit: 0, preMarket: 0 };
+    try {
+      cancelled = await cancelOpenOrders(userId);
+    } catch (err) {
+      // The ban itself already committed; a failure here is recoverable (the
+      // fill paths reject banned users) so don't fail the whole call.
+      console.error('Failed to cancel open orders for banned user:', err);
+    }
+
     // Log to console
-    console.log(`USER BANNED: ${displayName} (${userId}) - Reason: ${reason}`);
+    console.log(`USER BANNED: ${displayName} (${userId}) - Reason: ${reason} - cancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`);
 
     // Send Discord alert
     try {
-      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}`);
+      const orderNote = (cancelled.limit + cancelled.preMarket) > 0
+        ? `\nCancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`
+        : '';
+      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`);
     } catch (err) {
       console.error('Failed to send Discord alert:', err);
     }

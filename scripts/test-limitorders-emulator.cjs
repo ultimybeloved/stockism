@@ -12,6 +12,7 @@
 //   4. SELL fills at bid, position cleared, cash credited
 //   5. STOP_LOSS fills below its trigger (exempt from the bid>=limit rule)
 //   6. Walled user's order (requiresDiscordLink, no discordId) is CANCELED
+//   6b. Banned user's order is CANCELED (ban placed after the order)
 //   7. Bankrupt user's order is CANCELED
 //   8. Order past expiresAt is EXPIRED
 //   9. SHORT order type is CANCELED (unsupported)
@@ -72,6 +73,9 @@ async function main() {
     lo_stopper:    { cash: 0, holdings: { [T_STOP]: 20 } },
     lo_deferrer:   { cash: 100000, holdings: {} },
     lo_walled:     { cash: 100000, holdings: {}, requiresDiscordLink: true },
+    // Banned AFTER placing the order: createLimitOrder blocks new orders, but
+    // orders already on the book used to keep filling every cycle.
+    lo_banned:     { cash: 100000, holdings: { [T_BUY]: 50 }, isBanned: true },
     lo_bankrupt:   { cash: 5000, holdings: {}, isBankrupt: true },
     lo_expired:    { cash: 5000, holdings: {} },
     lo_shorter:    { cash: 5000, holdings: {} },
@@ -98,6 +102,9 @@ async function main() {
     { id: 'lo_c_stop',   userId: 'lo_stopper',    ticker: T_STOP,     type: 'STOP_LOSS', shares: 20, limitPrice: round2(P(T_STOP) * 1.1) }, // above current -> triggers now
     { id: 'lo_d_defer',  userId: 'lo_deferrer',   ticker: T_DEFER,    type: 'BUY',       shares: 50, limitPrice: P(T_DEFER) }, // triggers, but ask after impact+spread > limit
     { id: 'lo_e_wall',   userId: 'lo_walled',     ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
+    // Both directions: a ban must stop the queued lane whichever way it points
+    { id: 'lo_e2_banB',  userId: 'lo_banned',     ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
+    { id: 'lo_e3_banS',  userId: 'lo_banned',     ticker: T_BUY,      type: 'SELL',      shares: 50, limitPrice: round2(P(T_BUY) * 0.5) },
     { id: 'lo_f_bank',   userId: 'lo_bankrupt',   ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
     { id: 'lo_g_exp',    userId: 'lo_expired',    ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2), expiresAt: now - 1000 },
     { id: 'lo_h_short',  userId: 'lo_shorter',    ticker: T_BUY,      type: 'SHORT',     shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
@@ -166,6 +173,17 @@ async function main() {
   // ── 6-11. Cancellations ────────────────────────────────────────────────
   const e = await get('lo_e_wall');
   check('walled user order CANCELED', e.status === 'CANCELED' && /Discord/.test(e.cancelReason || ''), JSON.stringify(e));
+  const e2 = await get('lo_e2_banB');
+  check('banned user BUY order CANCELED', e2.status === 'CANCELED' && /banned/i.test(e2.cancelReason || ''), JSON.stringify(e2));
+  const e3 = await get('lo_e3_banS');
+  check('banned user SELL order CANCELED', e3.status === 'CANCELED' && /banned/i.test(e3.cancelReason || ''), JSON.stringify(e3));
+  const bannedUser = await getUser('lo_banned');
+  check('banned user cash and holdings untouched by the sweep',
+    bannedUser.cash === 100000 && bannedUser.holdings[T_BUY] === 50,
+    `cash=${bannedUser.cash} holdings=${JSON.stringify(bannedUser.holdings)}`);
+  const bannedTrades = (await db.collection('trades').where('uid', '==', 'lo_banned').get()).size;
+  check('banned user fill wrote no trade record', bannedTrades === 0, `${bannedTrades} records`);
+
   const f = await get('lo_f_bank');
   check('bankrupt user order CANCELED', f.status === 'CANCELED' && /bankrupt/i.test(f.cancelReason || ''), JSON.stringify(f));
   const g = await get('lo_g_exp');
