@@ -56,9 +56,35 @@ async function deployBatch(names, batchNum, total) {
   return false;
 }
 
+// Deploying every function is the exception, not the default: each one is a
+// separate Cloud Build, and a full redeploy for a localized change wastes the
+// daily free build tier and spikes the cost forecast. Pass the functions you
+// actually changed:
+//   node scripts/deploy-functions.cjs --only executeTrade,claimMissionReward
+// Batching still applies, so a long list won't trip the deploy rate limit.
+function requestedNames(allNames) {
+  const flag = process.argv.indexOf('--only');
+  if (flag === -1) return allNames;
+
+  const asked = (process.argv[flag + 1] || '')
+    .split(',').map(s => s.trim().replace(/^functions:/, '')).filter(Boolean);
+  if (asked.length === 0) {
+    console.error('--only needs a comma-separated list of function names');
+    process.exit(1);
+  }
+
+  const unknown = asked.filter(n => !allNames.includes(n));
+  if (unknown.length > 0) {
+    console.error(`Unknown function name(s): ${unknown.join(', ')}`);
+    console.error('Check spelling against functions/services/*.js exports.');
+    process.exit(1);
+  }
+  return asked.sort();
+}
+
 async function main() {
-  const allNames = getFunctionNames();
-  console.log(`Found ${allNames.length} functions total`);
+  const allNames = requestedNames(getFunctionNames());
+  console.log(`Deploying ${allNames.length} function(s)`);
 
   const batches = [];
   for (let i = 0; i < allNames.length; i += BATCH_SIZE) {

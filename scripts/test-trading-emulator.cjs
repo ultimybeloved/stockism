@@ -19,6 +19,7 @@
 //   I. Bookkeeping & achievements
 //   J. Short margin-call scanner (checkShortMarginCalls + hasOpenShorts flag)
 //   K. Long margin lending scanner (checkMarginLending liquidation + margin call)
+//   L. Bailout wipe (share locks must not outlive the shares they locked)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -31,12 +32,14 @@ const db = admin.firestore();
 // binds to the emulator.
 const { executeTrade } = require('../functions/services/trading');
 const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/marginScanners');
+const { bailout } = require('../functions/services/margin');
 const {
   BASE_IMPACT, BASE_LIQUIDITY, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
+  BAILOUT_CASH,
 } = require('../functions/constants');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
@@ -925,6 +928,50 @@ async function testMarginLendingScanner() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// L. BAILOUT WIPE
+// ════════════════════════════════════════════════════════════════════════════
+// A bailout destroys every position, so the share locks pointing at those
+// positions have to go too. Left behind, lockedShares() keeps counting them and
+// the player cannot sell shares they buy AFTER the bailout — the sell guard in
+// tradeActions.js compares `amount > holdings - locks.total`, so a stale lock of
+// 50 against a fresh holding of 10 makes everything unsellable for 36 hours.
+async function testBailoutWipe() {
+  console.log('\nL. Bailout wipe');
+
+  await seedMarket({ [T]: 80 });
+  const soon = Date.now() + 12 * HOUR;
+
+  await setUser('bail_locked', {
+    cash: 0,
+    isBankrupt: true,
+    holdings: { [T]: 50 },
+    costBasis: { [T]: 80 },
+    marginLockup: { [T]: { shares: 50, until: soon } },
+    ipoLockup: { [IPOT]: { shares: 5, until: soon } },
+  });
+
+  await bailout.run({}, { auth: { uid: 'bail_locked' } });
+  const u = await getUser('bail_locked');
+
+  check('bailout: positions wiped and cash reset',
+    Object.keys(u.holdings || {}).length === 0 && u.cash === BAILOUT_CASH,
+    JSON.stringify({ h: u.holdings, cash: u.cash }));
+  check('bailout: margin lock cleared with the shares it locked',
+    Object.keys(u.marginLockup || {}).length === 0, JSON.stringify(u.marginLockup));
+  check('bailout: IPO lock cleared with the shares it locked',
+    Object.keys(u.ipoLockup || {}).length === 0, JSON.stringify(u.ipoLockup));
+
+  // The real symptom: buy fresh shares post-bailout and they must be sellable.
+  await ok({ ticker: T, action: 'buy', amount: 10 }, 'bail_locked');
+  // Clear the unrelated post-buy timers so this checks the LOCK, not the cooldowns.
+  await db.collection('users').doc('bail_locked')
+    .update({ lastBuyTime: {}, lastTradeTime: 0 });
+  const sellErr = await err({ ticker: T, action: 'sell', amount: 5 }, 'bail_locked');
+  check('bailout: shares bought after a bailout are sellable', sellErr === null,
+    sellErr || 'no error');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -943,6 +990,7 @@ async function main() {
   await testAchievements();
   await testMarginCallScanner();
   await testMarginLendingScanner();
+  await testBailoutWipe();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

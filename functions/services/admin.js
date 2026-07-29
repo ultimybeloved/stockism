@@ -65,6 +65,11 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       shorts: {},
       hasOpenShorts: false,
       costBasis: {},
+      // Clear the share locks along with the shares they referred to — a lock left
+      // pointing at destroyed shares blocks selling anything rebought on that
+      // ticker if the account is ever reinstated (reinstateUser only adds cash).
+      marginLockup: {},
+      ipoLockup: {},
       portfolioValue: rollbackCash,
       lastPortfolioSnapshot: { timestamp: Date.now(), value: rollbackCash },
       marginUsed: 0,

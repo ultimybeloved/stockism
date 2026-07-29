@@ -95,6 +95,12 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       shorts: {},
       hasOpenShorts: false,
       costBasis: {},
+      // The shares these locks referred to are destroyed above, so the locks must
+      // go with them. Left behind, lockedShares() still counts them and blocks the
+      // player from selling shares they buy AFTER the bailout ("50 margin-locked"
+      // against a holding of 10), until the stale lock expires hours later.
+      marginLockup: {},
+      ipoLockup: {},
       portfolioValue: BAILOUT_CASH,
       marginEnabled: false,
       marginUsed: 0,
