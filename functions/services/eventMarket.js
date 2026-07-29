@@ -27,9 +27,9 @@ const {
   lmsrSellRefund,
   getTotalInvested,
   touchLastActive,
+  round2,
 } = require('../helpers');
 
-const round2 = (n) => Math.round(n * 100) / 100;
 // House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
 // round DOWN. Round-to-nearest would let scripted micro-sells skim up to half a
 // cent per call from the AMM. The epsilon guards floating-point noise.

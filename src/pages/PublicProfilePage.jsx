@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { getPublicProfileFunction } from '../firebase';
 import { CREW_MAP } from '../crews';
-import { CHARACTERS } from '../characters';
+import { CHARACTER_MAP } from '../characters';
 import { getCosmeticStyles } from '../utils/cosmetics';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { formatCurrency } from '../utils/formatters';
@@ -11,8 +11,6 @@ import PinDisplay from '../components/common/PinDisplay';
 import SimpleLineChart from '../components/charts/SimpleLineChart';
 import { getThemeClasses } from '../utils/theme';
 import { ADMIN_UIDS } from '../constants/economy';
-
-const CHARACTER_MAP = Object.fromEntries(CHARACTERS.map(c => [c.ticker, c]));
 
 const PublicProfilePage = () => {
   const { username } = useParams();

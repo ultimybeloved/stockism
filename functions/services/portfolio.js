@@ -10,9 +10,8 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MIN_PRICE, DUST_MAX_VALUE, isWeeklyTradingHalt } = require('../constants');
-const { touchLastActive, lockedShares, reportError, checkDiscordWall } = require('../helpers');
+const { touchLastActive, lockedShares, reportError, checkDiscordWall, round2 } = require('../helpers');
 
-const round2 = (n) => Math.round(n * 100) / 100;
 const getSpread = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 /**

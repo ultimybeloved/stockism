@@ -7,7 +7,7 @@ const { CHARACTERS } = require('../characters');
 const {
   ADMIN_UID, isWeeklyTradingHalt,
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS, THIRTY_DAYS_MS,
-  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
+  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, ANIMAL_TICKERS,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
@@ -133,77 +133,6 @@ exports.bailout = cf().https.onCall(async (data, context) => {
     transaction.update(userRef, bailoutUpdates);
 
     return { success: true, hadCrew: !!currentCrew };
-  });
-});
-
-/**
- * Leave crew with the portfolio penalty (CREW_SWITCH_PENALTY, currently 5%)
- */
-exports.leaveCrew = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-  }
-
-  const uid = context.auth.uid;
-  touchLastActive(uid);
-  const userRef = db.collection('users').doc(uid);
-  const marketRef = db.collection('market').doc('current');
-
-  return db.runTransaction(async (transaction) => {
-    const [userDoc, marketDoc] = await Promise.all([
-      transaction.get(userRef),
-      transaction.get(marketRef)
-    ]);
-
-    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-
-    const userData = userDoc.data();
-    checkBanned(userData);
-    checkDiscordWall(userData);
-    if (!userData.crew) {
-      throw new functions.https.HttpsError('failed-precondition', 'Not in a crew.');
-    }
-    if ((userData.cash || 0) < 0) {
-      throw new functions.https.HttpsError('failed-precondition', 'Cannot leave crew while in debt.');
-    }
-
-    const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
-    const penaltyRate = CREW_SWITCH_PENALTY;
-
-    // Cash penalty
-    const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
-
-    // Holdings penalty. Fractional take, rounded to 2 dp — a whole-share
-    // floor would let small positions dodge the penalty entirely.
-    const newHoldings = {};
-    let holdingsValueTaken = 0;
-    Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
-      if (shares > 0) {
-        const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
-        const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
-        newHoldings[ticker] = sharesToKeep;
-        holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
-      }
-    });
-
-    const totalTaken = ((userData.cash || 0) - newCash) + holdingsValueTaken;
-    const newPortfolioValue = (userData.portfolioValue || 0) - totalTaken;
-
-    transaction.update(userRef, {
-      crew: null,
-      crewJoinedAt: null,
-      isCrewHead: false,
-      crewHeadColor: null,
-      cash: newCash,
-      holdings: newHoldings,
-      portfolioValue: Math.max(0, newPortfolioValue),
-      lastCrewChange: Date.now(),
-      // Lock the crew being left for 30 days.
-      [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS
-    });
-
-    return { success: true, totalTaken, crewLeft: userData.crew };
   });
 });
 

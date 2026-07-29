@@ -6,6 +6,10 @@ const axios = require('axios');
 const { reportError } = require('./sentry');
 const db = admin.firestore();
 
+// Round to cents. Money is stored as a plain number, so anything that lands in a
+// cash/price field goes through this. Was copy-pasted into four files.
+const round2 = (n) => Math.round(n * 100) / 100;
+
 // ============================================
 // DIVIDEND SYSTEM CONSTANTS
 // ============================================
@@ -144,7 +148,7 @@ const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue,
     const newLowest = currentHoldings === 0
       ? executionPrice
       : Math.min(currentLowest || executionPrice, executionPrice);
-    updates[`lowestWhileHolding.${ticker}`] = Math.round(newLowest * 100) / 100;
+    updates[`lowestWhileHolding.${ticker}`] = round2(newLowest);
   }
 
   if (action === 'sell') {
@@ -212,7 +216,7 @@ const applyDueIPOJumps = async () => {
       const ipo = ipos[i];
       const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
       if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
-        const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
+        const newPrice = round2(ipo.basePrice * (1 + IPO_PRICE_JUMP));
         marketUpdates[`prices.${ipo.ticker}`] = newPrice;
         historyPoints[ipo.ticker] = { timestamp: now, price: newPrice };
         tickersToLaunch.push(ipo.ticker);
@@ -819,6 +823,7 @@ const lockedShares = (userData, ticker, now = Date.now()) => {
 };
 
 module.exports = {
+  round2,
   lockedShares,
   countRankAbove,
   DIVIDEND_HOLD_MS,
