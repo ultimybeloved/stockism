@@ -30,6 +30,7 @@ require('./serviceLoader')(exports, __dirname, [
   './services/eventMarket',
   './services/archiving',
   './services/margin',
+  './services/marginScanners',
   './services/crew',
   './services/portfolio',
   './services/preMarket',

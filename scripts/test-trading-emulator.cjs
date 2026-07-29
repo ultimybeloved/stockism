@@ -30,7 +30,7 @@ const db = admin.firestore();
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
 const { executeTrade } = require('../functions/services/trading');
-const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/margin');
+const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/marginScanners');
 const {
   BASE_IMPACT, BASE_LIQUIDITY, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
