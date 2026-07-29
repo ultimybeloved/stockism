@@ -18,6 +18,7 @@
 //   G. ETF & trailing        H. Throttles & anti-manipulation
 //   I. Bookkeeping & achievements
 //   J. Short margin-call scanner (checkShortMarginCalls + hasOpenShorts flag)
+//   K. Long margin lending scanner (checkMarginLending liquidation + margin call)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -29,12 +30,13 @@ const db = admin.firestore();
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
 const { executeTrade } = require('../functions/services/trading');
-const { checkShortMarginCalls } = require('../functions/services/margin');
+const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/margin');
 const {
   BASE_IMPACT, BASE_LIQUIDITY, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
 } = require('../functions/constants');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
@@ -843,6 +845,86 @@ async function testMarginCallScanner() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// K. LONG MARGIN LENDING SCANNER
+// ════════════════════════════════════════════════════════════════════════════
+// checkMarginLending force-sells a whole portfolio, so it gets pinned down here.
+// The liquidation transaction re-reads BOTH the user and the market, and re-checks
+// the equity ratio before selling — prices move constantly while the scan works
+// through users, and without that re-check someone who recovered mid-scan was
+// still wiped out at prices that no longer existed.
+async function testMarginLendingScanner() {
+  console.log('\nK. Long margin lending scanner');
+
+  await seedMarket({ [T3]: 90, [T2]: 66 });
+
+  // Every user carried over from earlier sections is invisible to this scan
+  // unless marginEnabled is true; the three below are the whole test set.
+  //
+  // Underwater: gross = 100 cash + 10×90 = 1000; ratio = (1000−800)/1000 = 0.20
+  await setUser('ml_under', {
+    cash: 100, holdings: { [T3]: 10 }, costBasis: { [T3]: 90 },
+    marginEnabled: true, marginUsed: 800,
+  });
+  // Margin-call zone: ratio = (1000−720)/1000 = 0.28 — call, but no liquidation
+  await setUser('ml_call', {
+    cash: 100, holdings: { [T3]: 10 }, costBasis: { [T3]: 90 },
+    marginEnabled: true, marginUsed: 720,
+  });
+  // Healthy: gross = 1000 + 330 = 1330; ratio = (1330−100)/1330 ≈ 0.92
+  await setUser('ml_healthy', {
+    cash: 1000, holdings: { [T2]: 5 }, costBasis: { [T2]: 66 },
+    marginEnabled: true, marginUsed: 100,
+  });
+
+  check('lending: seeded ratios straddle the thresholds',
+    0.20 <= LONG_MARGIN_LIQUIDATION_THRESHOLD
+    && 0.28 > LONG_MARGIN_LIQUIDATION_THRESHOLD && 0.28 <= LONG_MARGIN_CALL_THRESHOLD,
+    `liq=${LONG_MARGIN_LIQUIDATION_THRESHOLD} call=${LONG_MARGIN_CALL_THRESHOLD}`);
+
+  await checkMarginLending.run({}, {});
+
+  // Liquidated: everything sold at the forced-sale discount off the CURRENT price
+  const recovered = 10 * 90 * (1 - MARGIN_LIQUIDATION_SLIPPAGE);
+  const expCash = round2(100 + recovered - 800);
+  const uU = await getUser('ml_under');
+  check('lending: underwater portfolio fully sold', uU.holdings[T3] === 0, JSON.stringify(uU.holdings));
+  check('lending: payout = cash + holdings at slippage price − debt', near(uU.cash, expCash, 0.01),
+    `${uU.cash} vs ${expCash}`);
+  check('lending: debt cleared and margin switched off',
+    uU.marginUsed === 0 && uU.marginEnabled === false && uU.marginCallAt === null,
+    JSON.stringify({ used: uU.marginUsed, on: uU.marginEnabled, call: uU.marginCallAt }));
+  check('lending: solvent after liquidation, not flagged bankrupt',
+    expCash > 0 && !uU.isBankrupt, `${uU.cash} bankrupt=${uU.isBankrupt}`);
+  const liqTrades = await db.collection('trades').where('uid', '==', 'ml_under').get();
+  check('lending: liquidation logged as margin_liquidation trade',
+    liqTrades.size === 1 && liqTrades.docs[0].data().action === 'margin_liquidation'
+    && liqTrades.docs[0].data().automated === true,
+    `${liqTrades.size}`);
+
+  // Margin call: warned on the clock, but holdings and debt left alone
+  const uC = await getUser('ml_call');
+  check('lending: margin-call user keeps holdings and debt',
+    uC.holdings[T3] === 10 && uC.marginUsed === 720, JSON.stringify(uC.holdings));
+  check('lending: margin-call grace clock started', typeof uC.marginCallAt === 'number' && uC.marginCallAt > 0,
+    `${uC.marginCallAt}`);
+
+  // Healthy: untouched entirely
+  const uH = await getUser('ml_healthy');
+  check('lending: healthy margin user untouched',
+    uH.holdings[T2] === 5 && uH.marginUsed === 100 && uH.marginEnabled === true,
+    JSON.stringify({ h: uH.holdings, used: uH.marginUsed }));
+
+  // Re-run: the liquidated user now has no debt, so the scan must skip them
+  // entirely rather than liquidate (and re-announce) an already-empty account.
+  await checkMarginLending.run({}, {});
+  const uU2 = await getUser('ml_under');
+  check('lending: second run does not re-liquidate a cleared account',
+    near(uU2.cash, expCash, 0.01), `${uU2.cash} vs ${expCash}`);
+  const liqTrades2 = await db.collection('trades').where('uid', '==', 'ml_under').get();
+  check('lending: no duplicate liquidation trade on second run', liqTrades2.size === 1, `${liqTrades2.size}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -860,6 +942,7 @@ async function main() {
   await testThrottles();
   await testAchievements();
   await testMarginCallScanner();
+  await testMarginLendingScanner();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

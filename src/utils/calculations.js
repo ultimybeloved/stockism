@@ -16,7 +16,8 @@ import {
   MARGIN_LIQUIDATION_THRESHOLD,
   SHORT_MARGIN_CALL_THRESHOLD,
   SHORT_MARGIN_WARNING_THRESHOLD,
-  SHORT_MARGIN_REQUIREMENT
+  SHORT_MARGIN_REQUIREMENT,
+  LEGACY_SHORT_MARGIN_RATIO
 } from '../constants/economy';
 import { CHARACTER_MAP } from '../characters';
 
@@ -116,22 +117,43 @@ export const getShortLiquidationPrice = (margin, entryPrice, shares) => {
 };
 
 /**
+ * Collateral backing a short. Falls back to the rate the position was opened at
+ * when `margin` is missing, matching depositedMargin() in functions/services/
+ * margin.js — the server force-covers on this number, so a different guess here
+ * shows the player a risk bar the server disagrees with.
+ * @param {Object} position - short position ({ shares, margin, costBasis/entryPrice, system })
+ * @returns {number}
+ */
+export const getShortMargin = (position) => {
+  const stored = Number(position?.margin) || 0;
+  if (stored > 0) return stored;
+  const shares = Number(position?.shares) || 0;
+  const entryPrice = Number(position?.costBasis || position?.entryPrice) || 0;
+  const ratio = (position?.system || 'v2') === 'v2'
+    ? SHORT_MARGIN_REQUIREMENT
+    : LEGACY_SHORT_MARGIN_RATIO;
+  return entryPrice * shares * ratio;
+};
+
+/**
  * Risk snapshot for an open short at the current price. Mirrors the equity-ratio
  * check in checkShortMarginCalls (functions/services/margin.js).
  * @param {Object} position - short position ({ shares, margin, costBasis/entryPrice })
  * @param {number} currentPrice
- * @returns {{equityRatio:number, liquidationPrice:number|null, isAtRisk:boolean, isCritical:boolean}|null}
+ * @returns {{equityRatio:number, equity:number, margin:number, liquidationPrice:number|null, isAtRisk:boolean, isCritical:boolean}|null}
  */
 export const getShortRisk = (position, currentPrice) => {
   if (!position || !(Number(position.shares) > 0)) return null;
   const shares = Number(position.shares) || 0;
   const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
-  const margin = Number(position.margin) || 0;
+  const margin = getShortMargin(position);
   const equity = margin + (entryPrice - currentPrice) * shares;
   const positionValue = currentPrice * shares;
   const equityRatio = positionValue > 0 ? equity / positionValue : 1;
   return {
     equityRatio,
+    equity,
+    margin,
     liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
     isAtRisk: equityRatio < SHORT_MARGIN_WARNING_THRESHOLD,
     isCritical: equityRatio < SHORT_MARGIN_CALL_THRESHOLD,

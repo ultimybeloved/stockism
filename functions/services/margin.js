@@ -12,9 +12,23 @@ const {
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
+  SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO, MARGIN_LIQUIDATION_SLIPPAGE,
+  FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
   UNIFIER_FULL_SHARE_MIN,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, writeNotification, sendDiscordMessage, reportError, touchLastActive, appendPriceHistory } = require('../helpers');
+
+// Collateral a short position was opened with. Current (v2) shorts are 100%
+// collateral; pre-v2 shorts were half. Only used when the stored `margin` field
+// is missing or zero — guessing low here understates equity and force-covers a
+// healthy position, so the guess must match the system that opened it.
+const depositedMargin = (position, costBasis) => {
+  if (position.margin > 0) return position.margin;
+  const ratio = (position.system || 'v2') === 'v2'
+    ? SHORT_MARGIN_RATIO
+    : LEGACY_SHORT_MARGIN_RATIO;
+  return costBasis * position.shares * ratio;
+};
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -346,7 +360,7 @@ exports.checkShortMarginCalls = cf().pubsub
             batch.update(doc.ref, { hasOpenShorts: false });
             pending++;
           }
-          if (pending >= 400) await flush();
+          if (pending >= FIRESTORE_BATCH_SIZE) await flush();
         }
         await flush();
         await marketRef.update({ shortsFlagBackfilledAt: Date.now() });
@@ -361,7 +375,6 @@ exports.checkShortMarginCalls = cf().pubsub
       let liquidatedCount = 0;
       let checkedCount = 0;
       let throttledCount = 0;
-      const COVERS_PER_TICKER_PER_CYCLE = 3; // Max forced covers per ticker per 5-min cycle
       const tickerCoverCount = {};
 
       for (const userDoc of shortHolderDocs) {
@@ -383,14 +396,15 @@ exports.checkShortMarginCalls = cf().pubsub
           const currentPrice = prices[ticker];
           if (!currentPrice) continue;
 
-          // Throttle: max 3 forced covers per ticker per cycle to prevent cascading spikes
-          if ((tickerCoverCount[ticker] || 0) >= COVERS_PER_TICKER_PER_CYCLE) {
+          // Blast-radius cap: forced covers compound price upward, so only a few
+          // per ticker per run (see FORCED_COVERS_PER_TICKER_PER_CYCLE).
+          if ((tickerCoverCount[ticker] || 0) >= FORCED_COVERS_PER_TICKER_PER_CYCLE) {
             throttledCount++;
-            continue; // Will be picked up in next 5-minute cycle
+            continue; // Picked up on the next run of this scan
           }
 
           const costBasis = position.costBasis || position.entryPrice || currentPrice;
-          const marginDeposited = position.margin || (costBasis * position.shares * 0.5);
+          const marginDeposited = depositedMargin(position, costBasis);
 
           // Calculate equity: margin deposited minus unrealized loss
           const unrealizedLoss = (currentPrice - costBasis) * position.shares;
@@ -401,32 +415,35 @@ exports.checkShortMarginCalls = cf().pubsub
           if (equityRatio < SHORT_MARGIN_CALL_THRESHOLD) {
             // Force-cover this position
             try {
-              await db.runTransaction(async (transaction) => {
+              // Reports whether it actually covered: the guards below can decide
+              // the position is fine, and a skipped position must not be counted,
+              // charged against the per-ticker cap, or announced to the user.
+              const didCover = await db.runTransaction(async (transaction) => {
                 // Re-read latest data inside transaction
                 const freshUserDoc = await transaction.get(db.collection('users').doc(userDoc.id));
                 const freshMarketDoc = await transaction.get(marketRef);
 
-                if (!freshUserDoc.exists || !freshMarketDoc.exists) return;
+                if (!freshUserDoc.exists || !freshMarketDoc.exists) return false;
 
                 const freshUserData = freshUserDoc.data();
                 const freshShorts = freshUserData.shorts || {};
                 const freshPosition = freshShorts[ticker];
 
-                if (!freshPosition || freshPosition.shares <= 0) return;
+                if (!freshPosition || freshPosition.shares <= 0) return false;
 
                 const freshPrices = freshMarketDoc.data().prices || {};
                 const freshPrice = freshPrices[ticker];
-                if (!freshPrice) return;
+                if (!freshPrice) return false;
 
                 // Re-check equity ratio with fresh data
                 const freshCostBasis = freshPosition.costBasis || freshPosition.entryPrice || freshPrice;
-                const freshMargin = freshPosition.margin || (freshCostBasis * freshPosition.shares * 0.5);
+                const freshMargin = depositedMargin(freshPosition, freshCostBasis);
                 const freshLoss = (freshPrice - freshCostBasis) * freshPosition.shares;
                 const freshEquity = freshMargin - freshLoss;
                 const freshPositionValue = freshPrice * freshPosition.shares;
                 const freshEquityRatio = freshPositionValue > 0 ? freshEquity / freshPositionValue : 0;
 
-                if (freshEquityRatio >= SHORT_MARGIN_CALL_THRESHOLD) return; // No longer underwater
+                if (freshEquityRatio >= SHORT_MARGIN_CALL_THRESHOLD) return false; // No longer underwater
 
                 // Calculate dampened price impact for forced cover (50% reduced)
                 const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / BASE_LIQUIDITY);
@@ -501,18 +518,21 @@ exports.checkShortMarginCalls = cf().pubsub
                 });
 
                 console.log(`Liquidated ${userDoc.id}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`);
+                return true;
               });
 
-              liquidatedCount++;
-              tickerCoverCount[ticker] = (tickerCoverCount[ticker] || 0) + 1;
+              if (didCover) {
+                liquidatedCount++;
+                tickerCoverCount[ticker] = (tickerCoverCount[ticker] || 0) + 1;
 
-              // Notify user about margin call liquidation
-              await writeNotification(userDoc.id, {
-                type: 'margin',
-                title: 'Margin Call - Position Liquidated',
-                message: `Your short on $${ticker} (${position.shares} shares) was force-covered due to low equity.`,
-                data: { ticker }
-              });
+                // Notify user about margin call liquidation
+                await writeNotification(userDoc.id, {
+                  type: 'margin',
+                  title: 'Margin Call - Position Liquidated',
+                  message: `Your short on $${ticker} (${position.shares} shares) was force-covered due to low equity.`,
+                  data: { ticker }
+                });
+              }
             } catch (error) {
               console.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
             }
@@ -878,7 +898,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Check Margin Lending - Scheduled every 5 minutes
+ * Check Margin Lending - Scheduled every 30 minutes
  * Monitors users with margin debt and auto-liquidates if equity drops too low
  */
 exports.checkMarginLending = cf().pubsub
@@ -946,22 +966,51 @@ exports.checkMarginLending = cf().pubsub
         if (equityRatio <= LONG_MARGIN_LIQUIDATION_THRESHOLD) {
           // AUTO-LIQUIDATION
           try {
-            await db.runTransaction(async (transaction) => {
-              const freshUserDoc = await transaction.get(db.collection('users').doc(userDoc.id));
-              if (!freshUserDoc.exists) return;
+            // Reports whether it actually liquidated: the guards below can decide
+            // this user is fine, and a skipped user must not be counted or
+            // announced as liquidated.
+            const didLiquidate = await db.runTransaction(async (transaction) => {
+              // Re-read the market as well as the user. `prices` above was read
+              // once before this loop started, and every trade on the site moves
+              // a price — without this, a portfolio that recovered while the scan
+              // was working through earlier users still gets wiped, and the sale
+              // is credited at prices that no longer exist. Same guard the short
+              // scanner already applies before force-covering.
+              const [freshUserDoc, freshMarketDoc] = await Promise.all([
+                transaction.get(db.collection('users').doc(userDoc.id)),
+                transaction.get(marketRef),
+              ]);
+              if (!freshUserDoc.exists || !freshMarketDoc.exists) return false;
 
               const freshData = freshUserDoc.data();
               const freshMarginUsed = freshData.marginUsed || 0;
-              if (freshMarginUsed <= 0) return;
+              if (freshMarginUsed <= 0) return false;
 
               const freshHoldings = freshData.holdings || {};
+              const freshPrices = freshMarketDoc.data().prices || {};
+
+              // Re-check the ratio that triggered this. If they climbed back over
+              // the liquidation line, leave them alone.
+              let freshHoldingsValue = 0;
+              Object.entries(freshHoldings).forEach(([ticker, shares]) => {
+                if (shares > 0) freshHoldingsValue += (freshPrices[ticker] || 0) * shares;
+              });
+              const freshGross = (freshData.cash || 0) + freshHoldingsValue;
+              const freshRatio = freshGross > 0
+                ? (freshGross - freshMarginUsed) / freshGross
+                : 0;
+              if (freshRatio > LONG_MARGIN_LIQUIDATION_THRESHOLD) {
+                console.log(`Skipping ${userDoc.id}: recovered to ${(freshRatio * 100).toFixed(1)}% equity before liquidation ran`);
+                return false;
+              }
+
               let totalRecovered = 0;
               const updateData = {};
 
-              // Sell ALL positions with 5% slippage
+              // Sell ALL positions at the forced-liquidation discount
               Object.entries(freshHoldings).forEach(([ticker, shares]) => {
                 if (shares > 0) {
-                  const sellValue = (prices[ticker] || 0) * shares * 0.95;
+                  const sellValue = (freshPrices[ticker] || 0) * shares * (1 - MARGIN_LIQUIDATION_SLIPPAGE);
                   totalRecovered += sellValue;
                   updateData[`holdings.${ticker}`] = 0;
                   updateData[`costBasis.${ticker}`] = 0;
@@ -999,19 +1048,22 @@ exports.checkMarginLending = cf().pubsub
               });
 
               console.log(`Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`);
+              return true;
             });
 
-            liquidatedCount++;
+            if (didLiquidate) {
+              liquidatedCount++;
 
-            // Send Discord alert
-            try {
-              await sendDiscordMessage(null, [{
-                title: '💥 Margin Liquidation',
-                description: 'A trader was just **LIQUIDATED** by the margin system',
-                color: 0xFF0000,
-                timestamp: new Date().toISOString()
-              }]);
-            } catch (e) { reportError(e, { where: 'margin liquidation alert' }); }
+              // Send Discord alert
+              try {
+                await sendDiscordMessage(null, [{
+                  title: '💥 Margin Liquidation',
+                  description: 'A trader was just **LIQUIDATED** by the margin system',
+                  color: 0xFF0000,
+                  timestamp: new Date().toISOString()
+                }]);
+              } catch (e) { reportError(e, { where: 'margin liquidation alert' }); }
+            }
 
           } catch (error) {
             console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);

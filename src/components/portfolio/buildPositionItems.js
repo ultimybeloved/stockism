@@ -3,7 +3,7 @@
 
 import { CHARACTER_MAP, getDividendTier } from '../../characters';
 import { DIVIDEND_RATES, dividendWeightedShares } from '../../constants/economy';
-import { getShortLiquidationPrice } from '../../utils/calculations';
+import { getShortRisk } from '../../utils/calculations';
 
 // Price at-or-before 24h ago for "today's return"; falls back to oldest point.
 const price24hAgoOf = (priceHistory, ticker, currentPrice) => {
@@ -88,17 +88,17 @@ export const buildShortItems = ({ shorts, prices }) => {
       const currentPrice = prices[ticker] || character?.basePrice || position.costBasis || position.entryPrice || 0;
       const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
       const shares = Number(position.shares) || 0;
-      const margin = Number(position.margin) || 0;
 
       // P/L calculation: profit when price goes down
       const profitPerShare = entryPrice - currentPrice;
       const totalPL = profitPerShare * shares;
       const totalPLPercent = entryPrice > 0 ? (profitPerShare / entryPrice) * 100 : 0;
 
-      // Current equity in the position
-      const equity = margin + totalPL;
-      const safeEquity = isNaN(equity) ? margin : equity;
-      const equityRatio = currentPrice > 0 && shares > 0 ? safeEquity / (currentPrice * shares) : 1;
+      // Equity, collateral and liquidation price all come from getShortRisk so
+      // this row and the risk warnings elsewhere cannot drift apart.
+      const risk = getShortRisk(position, currentPrice) || {};
+      const margin = risk.margin || 0;
+      const safeEquity = isNaN(risk.equity) ? margin : risk.equity;
       const positionValue = safeEquity;
 
       return {
@@ -111,10 +111,10 @@ export const buildShortItems = ({ shorts, prices }) => {
         totalPL: isNaN(totalPL) ? 0 : totalPL,
         totalPLPercent: isNaN(totalPLPercent) ? 0 : totalPLPercent,
         equity: safeEquity,
-        equityRatio: isNaN(equityRatio) ? 1 : equityRatio,
+        equityRatio: isNaN(risk.equityRatio) ? 1 : risk.equityRatio,
         positionValue,
         value: positionValue, // alias so sortHoldings('value') works on shorts too
-        liquidationPrice: getShortLiquidationPrice(margin, entryPrice, shares),
+        liquidationPrice: risk.liquidationPrice ?? null,
         openedAt: position.openedAt
       };
     })

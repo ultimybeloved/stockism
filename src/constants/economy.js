@@ -51,6 +51,11 @@ export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single 
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
+// Collateral rate to assume when a short position has no stored `margin` value.
+// Mirrors LEGACY_SHORT_MARGIN_RATIO in functions/constants.js — the risk bars and
+// the server's force-cover check must agree, or a player sees a healthy position
+// the server is about to liquidate.
+export const LEGACY_SHORT_MARGIN_RATIO = 0.5; // pre-v2 shorts were half-collateral
 export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
