@@ -197,6 +197,25 @@ async function run() {
   // The caller's own private portfolio still shows cash - different context.
   const ownPortfolio = await handleSlashCommand(interaction('portfolio', [], 'discord-linked-3'));
   check('/portfolio still shows the caller their own cash', /Cash/.test(JSON.stringify(ownPortfolio)));
+  // /portfolio must not claim a "net worth" - that number lives on /profile and
+  // comes from a different (stored, daily-synced) source. Two commands reporting
+  // two different net worths for one player is the bug this guards.
+  check('/portfolio does not report a competing net worth',
+    !/Net worth/i.test(JSON.stringify(ownPortfolio)), JSON.stringify(ownPortfolio));
+
+  console.log('\n--- Net worth agrees with rank and leaderboard ---');
+  // u2 is seeded with a stored portfolioValue of 42000 that deliberately does
+  // NOT match holdings x prices. /profile must report the stored figure, because
+  // its rank and the website leaderboard are both derived from that same field.
+  // Recomputing live produced a net worth on a different scale from its own rank.
+  // Reuses the /profile reply fetched in the privacy block above - calling again
+  // would hit the per-user cooldown and return "Slow down" instead of a profile.
+  check('/profile reports the same net worth the leaderboard ranks on',
+    /42,000\.00/.test(profText), profText);
+
+  console.log('\n--- Crew shows a readable name, not the raw id ---');
+  check('/profile does not show a raw crew id',
+    !/[A-Z]{2,}_[A-Z]{2,}/.test(profText), profText);
 
   console.log('\n--- Markdown injection via echoed input ---');
   const inject = await handleSlashCommand(

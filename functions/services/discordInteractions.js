@@ -176,10 +176,14 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
     // module-load cost and has the least headroom left.
     let payload = null;
     if (servedARequest) {
+      // The timer is cleared on the fast path so a won race does not leave a
+      // pending handle keeping the instance awake after the reply is sent.
+      let timer;
       payload = await Promise.race([
         work,
-        new Promise((resolve) => setTimeout(() => resolve(null), DIRECT_REPLY_BUDGET_MS)),
+        new Promise((resolve) => { timer = setTimeout(() => resolve(null), DIRECT_REPLY_BUDGET_MS); }),
       ]);
+      clearTimeout(timer);
     }
     servedARequest = true;
 

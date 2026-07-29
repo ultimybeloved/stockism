@@ -86,8 +86,13 @@ fs.readdirSync(SERVICES_DIR)
   .forEach((file) => {
     const raw = fs.readFileSync(path.join(SERVICES_DIR, file), 'utf8');
     const source = stripNonCode(raw);
-    const match = raw.match(/\{([^}]+)\}\s*=\s*require\('\.\.\/constants'\)/);
-    const imported = match ? match[1] : '';
+    // Collect EVERY destructured require, not just the one from '../constants'.
+    // Several names constants.js re-exports actually originate elsewhere (CREWS
+    // and the crew mission values come from crews.js), so a file importing one
+    // from its real source is correct and must not be reported as missing.
+    const imported = [...raw.matchAll(/\{([^}]+)\}\s*=\s*require\(/g)]
+      .map((m) => m[1])
+      .join(',');
     const missing = constantNames.filter((name) =>
       !imported.includes(name)
       && new RegExp(`\\b${name}\\b`).test(source)

@@ -23,7 +23,7 @@ const {
   DISCORD_COMMAND_COOLDOWN_MS, DISCORD_LEADERBOARD_ROWS, DISCORD_PORTFOLIO_ROWS,
   SITE_URL, LEADERBOARD_CACHE_TTL,
 } = require('../constants');
-const { getDailyMissions, getCrewWeeklyMissions } = require('../crews');
+const { getDailyMissions, getCrewWeeklyMissions, CREWS } = require('../crews');
 const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('./missionChecks');
 const { countRankAbove, getWeekId } = require('../helpers');
 
@@ -51,7 +51,7 @@ const safeEcho = (input, max = 60) => {
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const rankLabel = (i) => MEDALS[i] || `\`#${String(i + 1).padStart(2, ' ')}\``;
+const rankLabel = (i) => MEDALS[i] || `\`#${i + 1}\``;
 
 const CHAR_BY_TICKER = new Map(CHARACTERS.map((c) => [c.ticker.toUpperCase(), c]));
 
@@ -124,13 +124,6 @@ const findUserByDiscordId = async (discordId) => {
   return snap.empty ? null : { uid: snap.docs[0].id, data: snap.docs[0].data() };
 };
 
-const portfolioValue = (userData, prices) => {
-  const holdings = userData.holdings || {};
-  const held = Object.entries(holdings)
-    .reduce((sum, [t, s]) => sum + (s > 0 ? s * (prices[t] || 0) : 0), 0);
-  return (userData.cash || 0) + held;
-};
-
 // ---------------------------------------------------------------------------
 // /leaderboard
 // ---------------------------------------------------------------------------
@@ -199,8 +192,12 @@ const cmdProfile = async (interaction) => {
   }
 
   const { data } = found;
-  const { prices } = await readMarket();
-  const value = portfolioValue(data, prices);
+  // Use the STORED portfolioValue, not a live recompute. The rank query compares
+  // against this same field, and so does the website's leaderboard — recomputing
+  // from live prices produced a net worth on a different scale from the rank
+  // sitting next to it (and from the leaderboard). syncAllPortfolios refreshes
+  // the field daily; matching the site matters more here than being fresher.
+  const value = data.portfolioValue || 0;
   const rank = await countRankAbove(value, null);
 
   const holdings = data.holdings || {};
@@ -218,7 +215,13 @@ const cmdProfile = async (interaction) => {
     { name: 'Stocks held', value: `${distinct}`, inline: true },
     { name: 'Achievements', value: `${achievements}`, inline: true },
   ];
-  if (data.crew) fields.push({ name: 'Crew', value: `${data.crew}`, inline: true });
+  // Crews are stored by id (BIG_DEAL); show the human name and emblem instead.
+  const crew = CREWS[data.crew];
+  if (crew) {
+    fields.push({ name: 'Crew', value: `${crew.emblem || ''} ${crew.name}`.trim(), inline: true });
+  } else if (data.crew) {
+    fields.push({ name: 'Crew', value: safeEcho(data.crew, 32), inline: true });
+  }
 
   // No button: the in-depth site profile only exists if the player has opted
   // into a public profile, so a link would dead-end on the homepage for most
@@ -275,7 +278,7 @@ const cmdPrice = async (interaction) => {
 
   const fields = [{ name: 'Price', value: money(price), inline: true }];
   if (change != null) {
-    fields.push({ name: 'Since chapter open', value: `${arrow} ${signedPct(change)}`, inline: true });
+    fields.push({ name: 'Since last chapter', value: `${arrow} ${signedPct(change)}`, inline: true });
   }
 
   return {
@@ -312,7 +315,13 @@ const cmdPortfolio = async (interaction) => {
     }))
     .sort((a, b) => b.value - a.value);
 
-  const total = portfolioValue(data, prices);
+  // Deliberately NOT labelled "net worth". /profile shows net worth from the
+  // stored portfolioValue field, because that is what its rank and the website
+  // leaderboard are computed from, and that field only refreshes daily. Showing
+  // a live-recomputed "net worth" here too would mean the same player gets two
+  // different net worths from two commands. So this reply stays purely live and
+  // self-consistent: these rows, priced now, plus cash.
+  const holdingsValue = rows.reduce((sum, r) => sum + r.value, 0);
   const shown = rows.slice(0, DISCORD_PORTFOLIO_ROWS);
   const rest = rows.slice(DISCORD_PORTFOLIO_ROWS);
 
@@ -335,7 +344,7 @@ const cmdPortfolio = async (interaction) => {
       title: '💼 Your Portfolio',
       description,
       fields: [
-        { name: 'Net worth', value: money(total), inline: true },
+        { name: 'Holdings value', value: money(holdingsValue), inline: true },
         { name: 'Cash', value: money(data.cash), inline: true },
       ],
     }],
