@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useUserRowPosition } from '../hooks/useUserRowPosition';
+import { getRankEmoji, getRankStyle } from '../utils/leaderboardRank';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREWS, CREW_MAP } from '../crews';
 import { formatCurrency } from '../utils/formatters';
@@ -18,28 +20,13 @@ const LeaderboardPage = () => {
   const [gainUnit, setGainUnit] = useState('$');     // '$' | '%'
   const sortBy = sortMode === 'value' ? 'value' : (gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain');
   const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
-  const scrollContainerRef = useRef(null);
-  const userRowRef = useRef(null);
-  const [userRowPosition, setUserRowPosition] = useState('unknown');
+  const { scrollContainerRef, userRowRef, userRowPosition } = useUserRowPosition([filteredLeaders, user]);
 
   const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
 
-  const getRankStyle = (rank) => {
-    if (rank === 1) return 'text-yellow-500';
-    if (rank === 2) return darkMode ? 'text-zinc-400' : 'text-zinc-500';
-    if (rank === 3) return 'text-amber-600';
-    return mutedClass;
-  };
-
-  const getRankEmoji = (rank) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
-  };
 
   const userEntry = useMemo(
     () => (user ? filteredLeaders.find(leader => leader.id === user.uid) : null),
@@ -68,39 +55,6 @@ const LeaderboardPage = () => {
     formatCurrency(userData?.portfolioValue || 0)
   );
 
-
-  // Track whether user's row has scrolled above or below the visible area
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    const userRow = userRowRef.current;
-
-    if (!container || !userRow) {
-      setUserRowPosition('unknown');
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setUserRowPosition('visible');
-        } else {
-          const rowRect = entry.boundingClientRect;
-          const containerRect = entry.rootBounds;
-          setUserRowPosition(rowRect.bottom < containerRect.top ? 'above' : 'below');
-        }
-      },
-      {
-        root: container,
-        threshold: [0, 0.1]
-      }
-    );
-
-    observer.observe(userRow);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [filteredLeaders, user]);
 
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
 
@@ -248,7 +202,7 @@ const LeaderboardPage = () => {
                       ...(crownGlow ? { '--cgp': crew.color } : {}),
                     }}
                   >
-                    <div className={`w-10 text-center font-bold ${getRankStyle(displayRank)}`}>
+                    <div className={`w-10 text-center font-bold ${getRankStyle(displayRank, darkMode, mutedClass)}`}>
                       {getRankEmoji(displayRank)}
                     </div>
                     <div className="flex-1 min-w-0">

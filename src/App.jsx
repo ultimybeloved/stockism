@@ -2,38 +2,18 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { CHARACTERS, CHARACTER_MAP } from './characters';
+import { CHARACTERS } from './characters';
 import { computeRarityTiers } from './utils/rarity';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import AppModals from './components/AppModals';
 
 // Eagerly-loaded modals (shown immediately / on critical auth flows)
-import LoginModal from './components/modals/LoginModal';
 import DiscordWallModal from './components/modals/DiscordWallModal';
-import UsernameModal from './components/modals/UsernameModal';
-import EmailVerificationModal from './components/modals/EmailVerificationModal';
 
 // Lazy-loaded — only downloaded when the user actually opens them
-const AdminPanel        = lazy(() => import('./AdminPanel'));
-const AboutModal        = lazy(() => import('./components/modals/AboutModal'));
-const CrewSelectionModal = lazy(() => import('./components/modals/CrewSelectionModal'));
-const PinShopModal      = lazy(() => import('./components/modals/PinShopModal'));
-const DailyMissionsModal = lazy(() => import('./components/modals/DailyMissionsModal'));
-const MarginModal       = lazy(() => import('./components/modals/MarginModal'));
-const MarginTutorialModal = lazy(() => import('./components/modals/MarginTutorialModal'));
-const ChartModal        = lazy(() => import('./components/modals/ChartModal'));
-const PortfolioModal    = lazy(() => import('./components/modals/PortfolioModal'));
-const TradeHistoryModal = lazy(() => import('./components/modals/TradeHistoryModal'));
 const StockPage         = lazy(() => import('./pages/StockPage'));
 
 // Import other components
-import { ToastContainer } from './components/ToastNotification';
-import NotificationPanel from './components/NotificationPanel';
-import OnboardingTutorial from './components/OnboardingTutorial';
-import PriceAlertModal from './components/modals/PriceAlertModal';
-import TradeConfirmModal from './components/modals/TradeConfirmModal';
-import BetConfirmModal from './components/modals/BetConfirmModal';
-import BailoutModal from './components/modals/BailoutModal';
-import InstallPrompt from './components/InstallPrompt';
 import { useModalManager } from './hooks/useModalManager';
 import { useAuthUser } from './hooks/useAuthUser';
 import { useMarketData } from './hooks/useMarketData';
@@ -397,195 +377,77 @@ export default function App() {
           {/* Global Modals - rendered outside Routes */}
           {/* Suspense: lazy modals show nothing while their chunk loads (acceptable — they need a user action first) */}
           <Suspense fallback={null}>
-          {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} darkMode={darkMode} />}
-          {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} userData={userData} />}
-          {needsUsername && user && (
-            <UsernameModal
-              user={user}
-              onComplete={() => adoptUserDoc(user.uid)}
-              darkMode={darkMode}
-            />
-          )}
-          {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
-          {showLending && !isGuest && !userData?.marginTutorialCompleted && (
-            <MarginTutorialModal
-              onClose={() => setShowLending(false)}
-              onComplete={handleMarginTutorialComplete}
-            />
-          )}
-          {showLending && !isGuest && userData?.marginTutorialCompleted && (
-            <MarginModal
-              onClose={() => setShowLending(false)}
-              onEnableMargin={handleEnableMargin}
-              onDisableMargin={handleDisableMargin}
-              onRepayMargin={handleRepayMargin}
-              isAdmin={user && ADMIN_UIDS.includes(user.uid)}
-              enableLoading={actionLoading.enableMargin}
-              disableLoading={actionLoading.disableMargin}
-              repayLoading={actionLoading.repayMargin}
-              onReviewTutorial={() => setShowMarginTutorialReview(true)}
-            />
-          )}
-          {showMarginTutorialReview && (
-            <MarginTutorialModal
-              onClose={() => setShowMarginTutorialReview(false)}
-              onComplete={() => setShowMarginTutorialReview(false)}
-              reviewMode
-            />
-          )}
-          {showCrewSelection && (
-        <CrewSelectionModal
-          onClose={() => setShowCrewSelection(false)}
-          onSelect={handleCrewSelect}
-          onLeave={handleCrewLeave}
-          isGuest={isGuest}
-          leaveLoading={actionLoading.leaveCrew}
-          selectLoading={actionLoading.selectCrew}
-        />
-      )}
-      {showPinShop && !isGuest && (
-        <PinShopModal
-          onClose={() => setShowPinShop(false)}
-          onPurchase={handlePinAction}
-          onPurchaseCosmetic={handlePurchaseCosmetic}
-          onEquipCosmetic={handleEquipCosmetic}
-          portfolioValue={portfolioValue}
-          purchaseLoading={actionLoading.pinAction}
-        />
-      )}
-      {showDailyMissions && (
-        <DailyMissionsModal
-          onClose={() => setShowDailyMissions(false)}
-          onClaimReward={handleClaimMissionReward}
-          onClaimWeeklyReward={handleClaimWeeklyMissionReward}
-          onOpenCrewSelection={() => setShowCrewSelection(true)}
-          portfolioValue={portfolioValue}
-          isGuest={isGuest}
-          claimLoading={actionLoading.claimMission}
-          claimWeeklyLoading={actionLoading.claimWeeklyMission}
-          onRerollMissions={handleRerollMissions}
-          rerollLoading={actionLoading.rerollMissions}
-        />
-      )}
-      {showBailout && !isGuest && userData?.isBankrupt && (
-        <BailoutModal
-          onCancel={() => setShowBailout(false)}
-          onConfirm={async () => {
-            await handleBailout();
-            setShowBailout(false);
-          }}
-          loading={actionLoading.bailout}
-        />
-      )}
-      {showAdmin && (
-        <AdminPanel
-          user={user}
-          predictions={predictions}
-          prices={prices}
-          darkMode={darkMode}
-          marketData={marketData}
-          onClose={() => setShowAdmin(false)}
-        />
-      )}
-      
-      {/* Notification Panel */}
-      {showNotificationPanel && user && (
-        <NotificationPanel
-          darkMode={darkMode}
-          notifications={userNotifications}
-          onClose={() => setShowNotificationPanel(false)}
-          onMarkRead={handleMarkNotificationRead}
-          onMarkAllRead={handleMarkAllNotificationsRead}
-          onClearAll={handleClearAllNotifications}
-          onDelete={handleDeleteNotification}
-        />
-      )}
-
-      {/* Onboarding Tutorial */}
-      {user && userData && !userData.onboardingComplete && (
-        <OnboardingTutorial
-          onComplete={handleOnboardingComplete}
-        />
-      )}
-
-      {/* Price Alert Modal */}
-      {showPriceAlertModal && (
-        <PriceAlertModal
-          ticker={showPriceAlertModal}
-          currentPrice={prices[showPriceAlertModal] || 0}
-          characterName={CHARACTER_MAP[showPriceAlertModal]?.name || showPriceAlertModal}
-          darkMode={darkMode}
-          onClose={() => setShowPriceAlertModal(null)}
-          user={user}
-          existingAlerts={priceAlerts.filter(a => a.ticker === showPriceAlertModal)}
-          onCreateAlert={handleCreatePriceAlert}
-          onDeleteAlert={handleDeletePriceAlert}
-        />
-      )}
-
-      {/* PWA Install Prompt */}
-      <InstallPrompt darkMode={darkMode} />
-      
-      {/* Toast Notifications */}
-      <ToastContainer
-        notifications={notifications}
-        onDismiss={dismissNotification}
-        darkMode={darkMode}
-      />
-      
-      {showPortfolio && !isGuest && (
-        <PortfolioModal
-          currentValue={portfolioValue}
-          onClose={() => setShowPortfolio(false)}
-          onTrade={requestTrade}
-          onLimitSell={handleLimitOrderRequest}
-          onOpenTradeHistory={() => { setShowPortfolio(false); setShowTradeHistory(true); }}
-          ipoPurchases={userData?.ipoPurchases || {}}
-          holdingCohorts={activeUserData.holdingCohorts || {}}
-          dividendTierOverrides={dividendTierOverrides}
-          drip={userData?.drip || {}}
-          onToggleDrip={handleToggleDrip}
-        />
-      )}
-      {showTradeHistory && !isGuest && (
-        <TradeHistoryModal
-          onClose={() => setShowTradeHistory(false)}
-        />
-      )}
-      {selectedCharacter && (
-        <ChartModal
-          character={selectedCharacter.character || selectedCharacter}
-          currentPrice={prices[(selectedCharacter.character || selectedCharacter).ticker] || (selectedCharacter.character || selectedCharacter).basePrice}
-          onClose={() => setSelectedCharacter(null)}
-          defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
-        />
-      )}
-
-      {/* Trade Confirmation Modal */}
-      {tradeConfirmation && (
-        <TradeConfirmModal
-          confirmation={tradeConfirmation}
-          onCancel={() => setTradeConfirmation(null)}
-          onConfirm={async () => {
-            await handleTrade(tradeConfirmation.ticker, tradeConfirmation.action, tradeConfirmation.amount);
-            setTradeConfirmation(null);
-          }}
-          loading={actionLoading.trade}
-        />
-      )}
-
-      {/* Bet Confirmation Modal */}
-      {betConfirmation && (
-        <BetConfirmModal
-          confirmation={betConfirmation}
-          onCancel={() => setBetConfirmation(null)}
-          onConfirm={async () => {
-            await handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
-            setBetConfirmation(null);
-          }}
-          loading={actionLoading.placeBet}
-        />
-      )}
+          <AppModals
+            actionLoading={actionLoading}
+            activeUserData={activeUserData}
+            adoptUserDoc={adoptUserDoc}
+            betConfirmation={betConfirmation}
+            dismissNotification={dismissNotification}
+            dividendTierOverrides={dividendTierOverrides}
+            handleBailout={handleBailout}
+            handleBet={handleBet}
+            handleClaimMissionReward={handleClaimMissionReward}
+            handleClaimWeeklyMissionReward={handleClaimWeeklyMissionReward}
+            handleClearAllNotifications={handleClearAllNotifications}
+            handleCreatePriceAlert={handleCreatePriceAlert}
+            handleCrewLeave={handleCrewLeave}
+            handleCrewSelect={handleCrewSelect}
+            handleDeleteNotification={handleDeleteNotification}
+            handleDeletePriceAlert={handleDeletePriceAlert}
+            handleDisableMargin={handleDisableMargin}
+            handleEnableMargin={handleEnableMargin}
+            handleEquipCosmetic={handleEquipCosmetic}
+            handleLimitOrderRequest={handleLimitOrderRequest}
+            handleMarginTutorialComplete={handleMarginTutorialComplete}
+            handleMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+            handleMarkNotificationRead={handleMarkNotificationRead}
+            handleOnboardingComplete={handleOnboardingComplete}
+            handlePinAction={handlePinAction}
+            handlePurchaseCosmetic={handlePurchaseCosmetic}
+            handleRepayMargin={handleRepayMargin}
+            handleRerollMissions={handleRerollMissions}
+            handleToggleDrip={handleToggleDrip}
+            handleTrade={handleTrade}
+            isGuest={isGuest}
+            needsEmailVerification={needsEmailVerification}
+            needsUsername={needsUsername}
+            notifications={notifications}
+            portfolioValue={portfolioValue}
+            priceAlerts={priceAlerts}
+            requestTrade={requestTrade}
+            selectedCharacter={selectedCharacter}
+            setBetConfirmation={setBetConfirmation}
+            setSelectedCharacter={setSelectedCharacter}
+            setShowAbout={setShowAbout}
+            setShowAdmin={setShowAdmin}
+            setShowBailout={setShowBailout}
+            setShowCrewSelection={setShowCrewSelection}
+            setShowDailyMissions={setShowDailyMissions}
+            setShowLending={setShowLending}
+            setShowLoginModal={setShowLoginModal}
+            setShowMarginTutorialReview={setShowMarginTutorialReview}
+            setShowNotificationPanel={setShowNotificationPanel}
+            setShowPinShop={setShowPinShop}
+            setShowPortfolio={setShowPortfolio}
+            setShowPriceAlertModal={setShowPriceAlertModal}
+            setShowTradeHistory={setShowTradeHistory}
+            setTradeConfirmation={setTradeConfirmation}
+            showAbout={showAbout}
+            showAdmin={showAdmin}
+            showBailout={showBailout}
+            showCrewSelection={showCrewSelection}
+            showDailyMissions={showDailyMissions}
+            showLending={showLending}
+            showLoginModal={showLoginModal}
+            showMarginTutorialReview={showMarginTutorialReview}
+            showNotificationPanel={showNotificationPanel}
+            showPinShop={showPinShop}
+            showPortfolio={showPortfolio}
+            showPriceAlertModal={showPriceAlertModal}
+            showTradeHistory={showTradeHistory}
+            tradeConfirmation={tradeConfirmation}
+            userNotifications={userNotifications}
+          />
 
           </Suspense>
       </Layout>

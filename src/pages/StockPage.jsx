@@ -1,17 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, updateDoc, deleteField } from 'firebase/firestore';
-import { db } from '../firebase';
-import { CHARACTER_MAP, getDividendTier, CHARACTERS } from '../characters';
-import { CREWS } from '../crews';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
-import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
-import { usePriceHistory } from '../hooks/usePriceHistory';
 import { getMarketClosedState } from '../utils/marketHours';
+import { useStockPageData } from '../hooks/useStockPageData';
 
 const CHART_TYPES = [
   { key: 'area', label: 'Area' },
@@ -21,8 +16,7 @@ const CHART_TYPES = [
 const StockPage = ({ onTrade }) => {
   const { ticker } = useParams();
   const navigate = useNavigate();
-  const { darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, rarityTiers } = useAppContext();
-  const { fullHistory } = usePriceHistory(ticker);
+  const { darkMode, user, userData, prices, priceHistory, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const marketClosed = getMarketClosedState(marketData).closed;
   const [timeRange, setTimeRange] = useState('1d');
@@ -31,75 +25,20 @@ const StockPage = ({ onTrade }) => {
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
 
-  const character = CHARACTER_MAP[ticker];
+  const {
+    character, currentPrice, positionShares, shortPosition, avgCost,
+    spread, bidPrice, askPrice, drip, handleToggleDrip, priceStats,
+    dividendRate, weeklyDividend, positionPL, positionPLPct,
+    crew, memberOfETFs,
+  } = useStockPageData(ticker, timeRange);
+
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
-
-  const currentPrice = prices[ticker] || character?.basePrice || 0;
-  const positionShares = holdings?.[ticker] || 0;
-  const shortPosition = shorts?.[ticker];
-  const avgCost = costBasis?.[ticker] || 0;
-  const spread = character?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
-  const bidPrice = currentPrice * (1 - spread / 2);
-  const askPrice = currentPrice * (1 + spread / 2);
-
-  const drip = userData?.drip || {};
-  const handleToggleDrip = async () => {
-    if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), {
-      [`drip.${ticker}`]: drip[ticker] ? deleteField() : true,
-    });
-  };
-
-  const priceStats = useMemo(() => {
-    const range = TIME_RANGES.find(r => r.key === timeRange);
-    const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
-    const filtered = fullHistory.filter(p => p.timestamp >= cutoff);
-    const ago30d = Date.now() - 30 * 86400000;
-    const ago7d = Date.now() - 7 * 86400000;
-    const ago52w = Date.now() - 365 * 86400000;
-    const f30d = fullHistory.filter(p => p.timestamp >= ago30d);
-    const f7d = fullHistory.filter(p => p.timestamp >= ago7d);
-    const f52w = fullHistory.filter(p => p.timestamp >= ago52w);
-
-    const px = (arr) => arr.map(p => p.price);
-    const hi = (arr) => arr.length ? Math.max(...px(arr)) : currentPrice;
-    const lo = (arr) => arr.length ? Math.min(...px(arr)) : currentPrice;
-
-    const first = filtered[0]?.price || currentPrice;
-    const change = first > 0 ? ((currentPrice - first) / first) * 100 : 0;
-    const price7dAgo = f7d[0]?.price || currentPrice;
-    const change7d = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
-    const price30dAgo = f30d[0]?.price || currentPrice;
-    const change30d = price30dAgo > 0 ? ((currentPrice - price30dAgo) / price30dAgo) * 100 : 0;
-
-    return {
-      first, change, change7d, change30d,
-      high: hi(filtered), low: lo(filtered),
-      high30d: hi(f30d), low30d: lo(f30d),
-      high52w: hi(f52w), low52w: lo(f52w),
-    };
-  }, [fullHistory, timeRange, currentPrice]);
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
   const cc = (pct) => pct >= 0 ? upColor : downColor;
   const cd = (pct) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
-
-  const dividendTier = character ? getDividendTier(ticker, rarityTiers) : 'none';
-  const dividendRate = DIVIDEND_RATES[dividendTier] || 0;
-  const cohort = userData?.holdingCohorts?.[ticker];
-  // Loyalty-weighted estimate: matured shares at the top multiplier, each
-  // pending lot at its own rung (0 while inside the 10-day hold).
-  const weeklyDividend = dividendWeightedShares(cohort, Date.now()) * currentPrice * dividendRate;
-
-  const positionValue = positionShares * currentPrice;
-  const positionCost = avgCost * positionShares;
-  const positionPL = positionValue - positionCost;
-  const positionPLPct = positionCost > 0 ? (positionPL / positionCost) * 100 : 0;
-
-  const crew = !character?.isETF ? Object.values(CREWS).find(c => c.members.includes(ticker)) : null;
-  const memberOfETFs = !character?.isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(ticker)) : [];
 
   const stat = (label, value, cls = textClass) => (
     <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>

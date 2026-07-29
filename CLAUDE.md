@@ -223,10 +223,11 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `src/App.jsx` | Router, top-level subscriptions, modal rendering — nothing else |
+| `src/App.jsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/components/AppModals.jsx` |
+| `src/components/AppModals.jsx` | Every modal's render condition. App.jsx still owns the state and handlers; values already in context are read from context, not drilled |
 | `src/context/AppContext.jsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
 | `src/hooks/useModalManager.js` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
-| `src/hooks/useTradeManagement.js` | handleTrade — trade execution, retry logic, achievement checks |
+| `src/hooks/useTradeManagement.js` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
 | `src/hooks/useMissionManagement.js` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
 | `src/hooks/useMarginManagement.js` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
 | `src/hooks/useCrewManagement.js` | handleCrewSelect, handleCrewLeave |
@@ -234,7 +235,7 @@ Quick reference so you know where to look and where to add things.
 | `src/hooks/useIPOManagement.js` | handleBuyIPO |
 | `src/hooks/useDailyOperations.js` | handleDailyCheckin, handleBailout |
 | `src/hooks/usePinShop.js` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
-| `src/utils/calculations.js` | All price/portfolio math — canonical, do not duplicate |
+| `src/utils/calculations.js` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
 | `src/utils/theme.js` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
 | `src/utils/formatters.js` | Currency, number, percentage formatting |
 | `src/utils/marketHours.js` | Halt detection, countdown logic |

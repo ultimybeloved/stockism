@@ -17,7 +17,9 @@ import {
   SHORT_MARGIN_CALL_THRESHOLD,
   SHORT_MARGIN_WARNING_THRESHOLD,
   SHORT_MARGIN_REQUIREMENT,
-  LEGACY_SHORT_MARGIN_RATIO
+  LEGACY_SHORT_MARGIN_RATIO,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR
 } from '../constants/economy';
 import { CHARACTER_MAP } from '../characters';
 
@@ -416,4 +418,21 @@ export const maxAffordableShares = (q, b, idx, budget) => {
     else hi = mid - 1;
   }
   return lo;
+};
+
+/**
+ * Reduced price impact for new accounts (anti-manipulation). Mirrors
+ * getAccountAgeImpactFactor in functions/helpers.js — change both together.
+ * @param {Object} userData
+ * @returns {number} multiplier in [NEW_ACCOUNT_MIN_IMPACT_FACTOR, 1]
+ */
+export const getAccountAgeImpactFactor = (userData) => {
+  if (!userData?.createdAt) return 1;
+  const createdMs = typeof userData.createdAt?.toMillis === 'function'
+    ? userData.createdAt.toMillis()
+    : typeof userData.createdAt === 'number' ? userData.createdAt : Date.parse(userData.createdAt);
+  if (!createdMs || isNaN(createdMs)) return 1;
+  const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
+  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
+  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
 };

@@ -1,45 +1,12 @@
 import { useCallback } from 'react';
-import * as Sentry from '@sentry/react';
-import { executeTradeFunction, achievementAlertFunction, syncPortfolioFunction } from '../firebase';
+import { executeTradeFunction } from '../firebase';
 import { fireTradeConfetti } from '../utils/confetti';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { CHARACTER_MAP } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
-import { estimateTradeTotal } from '../utils/calculations';
-import { NEW_ACCOUNT_IMPACT_PERIOD_DAYS, NEW_ACCOUNT_MIN_IMPACT_FACTOR } from '../constants';
-
-// Reduced price impact for new accounts (anti-manipulation).
-const getAccountAgeImpactFactor = (userData) => {
-  if (!userData?.createdAt) return 1;
-  const createdMs = typeof userData.createdAt?.toMillis === 'function'
-    ? userData.createdAt.toMillis()
-    : typeof userData.createdAt === 'number' ? userData.createdAt : Date.parse(userData.createdAt);
-  if (!createdMs || isNaN(createdMs)) return 1;
-  const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
-  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
-  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
-};
-
-// Server-side achievement check via syncPortfolio (these fields are blocked
-// from client writes by security rules).
-const checkAndAwardAchievements = async () => {
-  try {
-    const result = await syncPortfolioFunction();
-    return result.data?.newAchievements || [];
-  } catch (error) {
-    console.error('[ACHIEVEMENT CHECK ERROR]', error);
-    return [];
-  }
-};
-
-const sendAchievementAlert = (id, achievement) => {
-  try {
-    achievementAlertFunction({ achievementId: id, achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e));
-  } catch (e) {
-    Sentry.captureException(e);
-  }
-};
+import { estimateTradeTotal, getAccountAgeImpactFactor } from '../utils/calculations';
+import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
 
 // Trade execution (with contention retry + result toasts) and the
 // pre-execution confirmation request with estimated totals.
