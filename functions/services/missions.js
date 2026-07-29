@@ -3,8 +3,10 @@
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
+const { CHECKIN_STREAK_REWARDS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../crews');
 const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 
@@ -286,3 +288,154 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
 /**
  * Place a prediction bet
  */
+
+// Daily check-in reward. Lives here rather than users.js because the streak it
+// pays out on is the same daily-reward loop as the missions above.
+exports.dailyCheckin = cf().https.onCall(async (data, context) => {
+    requireAppCheck(context);
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  const uid = context.auth.uid;
+  const { ladderTopUp } = data; // Boolean flag for first-time ladder initialization
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const userRef = db.collection('users').doc(uid);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'User not found.');
+      }
+
+      const userData = userDoc.data();
+      checkBanned(userData);
+      checkDiscordWall(userData);
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+
+      // Handle both string (old format) and Timestamp (new format)
+      let lastCheckinDate = null;
+      if (userData.lastCheckin) {
+        if (typeof userData.lastCheckin === 'string') {
+          // Old format: "Mon Jan 27 2025" from toDateString()
+          // Convert to YYYY-MM-DD for comparison
+          const parsedDate = new Date(userData.lastCheckin);
+          if (!isNaN(parsedDate.getTime())) {
+            lastCheckinDate = parsedDate.toISOString().split('T')[0];
+          }
+        } else if (typeof userData.lastCheckin.toDate === 'function') {
+          // New format: Firestore Timestamp
+          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0];
+        } else if (userData.lastCheckin.seconds) {
+          // Fallback: Plain timestamp object with seconds
+          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0];
+        }
+      }
+
+      // Check if already checked in today
+      if (lastCheckinDate === today) {
+        throw new functions.https.HttpsError('failed-precondition', 'Already checked in today.');
+      }
+
+      // Calculate streak
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+      const currentStreak = userData.checkinStreak || 0;
+      const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
+      const maxCheckinStreak = Math.max(userData.maxCheckinStreak || 0, newStreak);
+
+      // Streak-based reward: escalates with the consecutive-day streak, then caps.
+      const rewardIndex = Math.min(newStreak - 1, CHECKIN_STREAK_REWARDS.length - 1);
+      const checkinReward = CHECKIN_STREAK_REWARDS[rewardIndex];
+
+      // Compute week ID for weekly missions
+      const weekStartDate = new Date(now);
+      weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1);
+      if (weekStartDate > now) weekStartDate.setDate(weekStartDate.getDate() - 7);
+      const checkinWeekId = weekStartDate.toISOString().split('T')[0];
+
+      // Update user document
+      const updates = {
+        cash: (userData.cash || 0) + checkinReward,
+        lastCheckin: Timestamp.now(),
+        checkinStreak: newStreak,
+        maxCheckinStreak,
+        totalCheckins: (userData.totalCheckins || 0) + 1,
+        // Mission tracking (server-side)
+        [`dailyMissions.${today}.checkedIn`]: true,
+        [`weeklyMissions.${checkinWeekId}.checkinDays.${today}`]: true
+      };
+
+      // Ladder game: $500 start for new players, top up to $100 if below for existing
+      const ladderRef = db.collection('ladderGameUsers').doc(uid);
+      const ladderDoc = await transaction.get(ladderRef);
+      let ladderTopUpAmount = 0;
+
+      if (!ladderDoc.exists) {
+        // New player — initialize with $500. The whole grant is non-withdrawable
+        // "house chips": it can be played but not cashed out to main cash, so the
+        // check-in stake can't be looped into free spendable cash via the ladder.
+        ladderTopUpAmount = 500;
+        updates.ladderGameInitialized = true;
+        transaction.set(ladderRef, {
+          uid,
+          displayName: userData.displayName || 'Anonymous',
+          balance: 500,
+          nonWithdrawable: 500,
+          totalDeposited: 0,
+          totalWon: 0,
+          totalLost: 0,
+          gamesPlayed: 0,
+          wins: 0,
+          losses: 0,
+          currentStreak: 0,
+          bestStreak: 0,
+          lastPlayed: null,
+          createdAt: FieldValue.serverTimestamp()
+        });
+      } else {
+        // Existing player — top up to $100 if below. The topped-up amount is also
+        // non-withdrawable so it can fund play but never be cashed out.
+        const ladderBalance = ladderDoc.data().balance || 0;
+        if (ladderBalance < 100) {
+          ladderTopUpAmount = 100 - ladderBalance;
+          transaction.update(ladderRef, {
+            balance: 100,
+            nonWithdrawable: FieldValue.increment(ladderTopUpAmount)
+          });
+        }
+      }
+
+      // Append check-in to transaction log
+      const existingLog = userData.transactionLog || [];
+      const checkinEntry = {
+        type: 'CHECKIN',
+        timestamp: Date.now(),
+        bonus: checkinReward,
+        cashBefore: userData.cash || 0,
+        cashAfter: (userData.cash || 0) + checkinReward
+      };
+      updates.transactionLog = [...existingLog, checkinEntry].slice(-100);
+
+      transaction.update(userRef, updates);
+
+      return {
+        success: true,
+        reward: checkinReward,
+        newStreak,
+        ladderTopUpAmount,
+        totalCheckins: updates.totalCheckins
+      };
+    });
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    console.error('Daily checkin error:', error);
+    throw new functions.https.HttpsError('internal', 'Checkin failed: ' + error.message);
+  }
+});

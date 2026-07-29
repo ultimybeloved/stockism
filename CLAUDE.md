@@ -125,7 +125,7 @@ These rules exist because we spent significant effort cleaning up a codebase tha
 | Any hook (`src/hooks/`) | 200 lines | Split by concern |
 | `src/App.jsx` | 500 lines | Stop and refactor before adding more |
 | Any backend service (`functions/services/`) | 600 lines | Split by sub-domain |
-| `functions/index.js` | 30 lines | It is a re-exporter only — never add logic here |
+| `functions/index.js` | 15 lines | Re-exporter only. The service list lives in `functions/servicePaths.js` — never add logic here |
 
 If a new feature would push a file past its limit, **split the file first, then add the feature.** Never ask permission to do this — it is part of the job.
 
@@ -158,8 +158,9 @@ If a new feature would push a file past its limit, **split the file first, then 
 ### Backend: Where Code Lives
 
 **Service files** (`functions/services/`)
-- Each file owns one domain: trading, users, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminOps, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, crew
-- Adding a new Cloud Function: find the right service file and append to it. If none fits, create `functions/services/<newdomain>.js` and add `Object.assign(exports, require('./services/<newdomain>'))` to `functions/index.js`
+- Each file owns one domain: trading, users, userProfile, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminBackups, adminOps, adminRepair, adminMigrate, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, marginScanners, portfolio, crew
+- Adding a new Cloud Function: find the right service file and append to it. If none fits, create `functions/services/<newdomain>.js` and add `'./services/<newdomain>'` to the list in `functions/servicePaths.js`
+- Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in `servicePaths.js`
 - Never add Cloud Function logic directly to `functions/index.js`
 
 **Shared constants** (`functions/constants.js`)
@@ -209,7 +210,7 @@ Before committing any feature or fix, scan for:
 - [ ] No `darkMode={darkMode}` props passed to components that use `useAppContext()`
 - [ ] No inline numeric economy values — all named constants
 - [ ] No file past its line limit
-- [ ] `functions/index.js` is still a pure re-exporter (≤30 lines)
+- [ ] `functions/index.js` is still a pure re-exporter (≤15 lines; services listed in `servicePaths.js`)
 - [ ] If characters changed: ran `npm run sync:chars` and committed both files
 
 ---
@@ -252,7 +253,8 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `functions/index.js` | Re-exports only — ≤40 lines, never add logic here |
+| `functions/index.js` | Re-exports only — ≤15 lines, never add logic here |
+| `functions/servicePaths.js` | The list of service files index.js loads. Add new services here; never internal modules |
 | `functions/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
 | `functions/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
 | `functions/sentry.js` | Sentry error monitoring init — required by index.js at startup |
@@ -261,7 +263,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
 | `functions/botTrader.js` | Bot trading scheduler |
 | `functions/services/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
-| `functions/services/users.js` | createUser, changeDisplayName, deleteAccount, dailyCheckin |
+| `functions/services/users.js` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
+| `functions/services/userProfile.js` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
 | `functions/services/market.js` | Price updates, market summaries, halt management |
 | `functions/services/leaderboard.js` | Rankings, leaderboard computation |
 | `functions/services/dividends.js` | Dividend payouts |
@@ -269,12 +272,17 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/discord.js` | Discord OAuth and account linking (≤352 lines) |
 | `functions/services/discordInteractions.js` | Discord slash command webhook handler |
 | `functions/services/discordAdmin.js` | Discord-triggered admin diagnostics and recovery tools |
-| `functions/services/admin.js` | Ban/reinstate/cash operations |
-| `functions/services/adminOps.js` | Repair/recovery/diagnostic tools |
-| `functions/services/margin.js` | Margin lending, short margin calls, bailout |
-| `functions/services/crew.js` | Crew switching |
-| `functions/services/limitOrders.js` | Limit order creation and processing |
-| `functions/services/missions.js` | Daily/weekly mission logic |
+| `functions/services/admin.js` | banUser, fixBasePriceCliffs, createBots |
+| `functions/services/adminBackups.js` | Market backup/restore/retention (restoreBackup overwrites live data) |
+| `functions/services/adminOps.js` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles |
+| `functions/services/adminRepair.js` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
+| `functions/services/adminMigrate.js` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
+| `functions/services/margin.js` | User-facing margin actions: repay, bailout, toggle, interest |
+| `functions/services/marginScanners.js` | The two scheduled liquidation scanners (checkShortMarginCalls, checkMarginLending). Covered by test:trading sections J and K |
+| `functions/services/portfolio.js` | syncPortfolio, sweepDustPositions |
+| `functions/services/crew.js` | switchCrew, leaveCrew |
+| `functions/services/limitOrders.js` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.js` (internal) |
+| `functions/services/missions.js` | Daily/weekly mission logic + dailyCheckin |
 | `functions/services/predictions.js` | Prediction markets, IPO price jumps |
 | `functions/services/ladderGame.js` | Ladder game mechanics and leaderboard |
 | `functions/services/watchlist.js` | IP watchlist, fraud detection |
