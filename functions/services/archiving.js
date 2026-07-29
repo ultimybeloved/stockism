@@ -113,21 +113,9 @@ exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
   }
 });
 
-// Clean up old alertedThresholds (Discord alert cooldowns don't need long-term storage)
-exports.cleanupAlertedThresholds = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
-  // Admin-only: prevents unauthorized cleanup of alert state
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
-
-  try {
-    return await doCleanupAlertedThresholds();
-  } catch (error) {
-    console.error('Cleanup error:', error);
-    return { success: false, error: error.message };
-  }
-});
+// Alert-cooldown cleanup has no callable form on purpose: scheduledArchiving
+// below runs doCleanupAlertedThresholds() every 24h, so a manual trigger would
+// only be doing the same job a few hours early.
 
 // Scheduled function: Auto-archive every 6 hours
 exports.scheduledArchiving = cf().pubsub

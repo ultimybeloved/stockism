@@ -11,6 +11,7 @@ const StatsTab = ({
   handleCleanupBasePrices,
   handleSyncPricesToHistory,
   handleResetAllPrices,
+  handleFixPriceCliffs,
   orphanScanComplete,
   orphanedUsers,
   scanForOrphanedUsers,
@@ -32,6 +33,14 @@ const StatsTab = ({
               title="Remove recent base price entries from history"
             >
               {loading ? '...' : '🧹 Cleanup Base Prices'}
+            </button>
+            <button
+              onClick={handleFixPriceCliffs}
+              disabled={loading}
+              className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
+              title="Remove the false starting jump from any chart that has one"
+            >
+              {loading ? '...' : '📉 Fix Chart Cliffs'}
             </button>
             <button
               onClick={handleSyncPricesToHistory}

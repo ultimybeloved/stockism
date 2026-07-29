@@ -103,7 +103,6 @@ export const achievementAlertFunction = httpsCallable(functions, 'achievementAle
 export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnouncementAlert');
 // Data archiving functions
 export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
-export const cleanupAlertedThresholdsFunction = httpsCallable(functions, 'cleanupAlertedThresholds');
 // Secure operations
 export const claimMissionRewardFunction = httpsCallable(functions, 'claimMissionReward');
 export const rerollMissionsFunction = httpsCallable(functions, 'rerollMissions');

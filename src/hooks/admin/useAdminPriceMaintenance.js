@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db, fixBasePriceCliffsFunction } from '../../firebase';
 import { CHARACTERS } from '../../characters';
 import { priceHistoryDocRef } from './adminShared';
 
@@ -127,5 +127,29 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
   };
 
 
-  return { handleCleanupBasePrices, handleSyncPricesToHistory, handleResetAllPrices };
+  // Drop a chart's first point when it sits >2% away from the second one.
+  // Data loss can leave a ticker starting at its base price with a jump to the
+  // first real price, which reads as a cliff on the chart that never happened.
+  const handleFixPriceCliffs = async () => {
+    if (!window.confirm('Scan charts for base-price cliffs and remove them?\n\nThis drops the first history point on any ticker that jumps more than 2% to its second point.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data } = await fixBasePriceCliffsFunction({});
+      if (data.tickersFixed === 0) {
+        showMessage('info', `No cliffs found — all ${data.tickersSkipped} charts look clean.`);
+      } else {
+        const names = (data.fixed || []).map(f => `${f.ticker} (${f.percentChange}%)`).join(', ');
+        showMessage('success', `✅ Fixed ${data.tickersFixed} chart${data.tickersFixed === 1 ? '' : 's'}: ${names}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('error', 'Failed to fix price cliffs: ' + err.message);
+    }
+    setLoading(false);
+  };
+
+  return { handleCleanupBasePrices, handleSyncPricesToHistory, handleResetAllPrices, handleFixPriceCliffs };
 }

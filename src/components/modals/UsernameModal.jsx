@@ -1,13 +1,49 @@
-import { useState } from 'react';
-import { createUserFunction } from '../../firebase';
+import { useState, useEffect } from 'react';
+import { createUserFunction, checkUsernameFunction } from '../../firebase';
 import { containsProfanity, getProfanityMessage } from '../../utils/profanity';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
+
+// Wait this long after the last keystroke before asking the server. Without it
+// every character typed would be its own function call.
+const CHECK_DEBOUNCE_MS = 600;
 
 const UsernameModal = ({ onComplete, darkMode }) => {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // null = nothing to say yet, otherwise 'checking' | 'available' | 'taken'
+  const [availability, setAvailability] = useState(null);
+
+  const trimmedName = username.trim();
+  // Only ask the server about names that already pass the local rules — a name
+  // failing format or profanity is rejected anyway, so checking it wastes a call.
+  const locallyValid = trimmedName.length > 0
+    && !validateUsername(trimmedName)
+    && !containsProfanity(trimmedName);
+
+  useEffect(() => {
+    if (!locallyValid) {
+      setAvailability(null);
+      return;
+    }
+
+    setAvailability('checking');
+    let stale = false;
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await checkUsernameFunction({ displayName: trimmedName });
+        // A slower earlier request must not overwrite a newer answer
+        if (!stale) setAvailability(data.available ? 'available' : 'taken');
+      } catch {
+        // Availability is a convenience — createUser is the real gate, so a
+        // failed check just goes quiet rather than blocking signup.
+        if (!stale) setAvailability(null);
+      }
+    }, CHECK_DEBOUNCE_MS);
+
+    return () => { stale = true; clearTimeout(timer); };
+  }, [trimmedName, locallyValid]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +61,10 @@ const UsernameModal = ({ onComplete, darkMode }) => {
     }
     if (containsProfanity(trimmed)) {
       setError(getProfanityMessage());
+      return;
+    }
+    if (availability === 'taken') {
+      setError('This username is already taken. Please choose another.');
       return;
     }
 
@@ -72,6 +112,17 @@ const UsernameModal = ({ onComplete, darkMode }) => {
               autoFocus
               maxLength={20}
             />
+            {availability && (
+              <p className={`text-xs mt-1 font-semibold ${
+                availability === 'available' ? 'text-green-500'
+                  : availability === 'taken' ? 'text-red-500'
+                  : mutedClass
+              }`}>
+                {availability === 'checking' && 'Checking availability...'}
+                {availability === 'available' && '✓ That name is free'}
+                {availability === 'taken' && '✗ That name is taken'}
+              </p>
+            )}
             <p className={`text-xs ${mutedClass} mt-1`}>
               3-20 characters. At least 3 letters or numbers. Up to 2 underscores, not at the start or end.
             </p>
@@ -85,7 +136,7 @@ const UsernameModal = ({ onComplete, darkMode }) => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || availability === 'taken'}
             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2.5 px-4 rounded-sm text-sm uppercase tracking-wide transition-colors disabled:opacity-50"
           >
             {loading ? 'Creating account...' : 'Start Trading'}

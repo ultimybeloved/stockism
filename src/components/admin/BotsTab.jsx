@@ -3,13 +3,31 @@ const BotsTab = ({
   darkMode,
   textClass,
   mutedClass,
+  loading,
   prices,
   bots,
   botsLoading,
   handleDeleteBot,
+  handleCreateBots,
 }) => {
   return (
     <div className="space-y-4">
+      <div className={`p-3 rounded-sm ${darkMode ? 'bg-purple-900/20' : 'bg-purple-50'}`}>
+        <div className="flex justify-between items-center gap-3">
+          <p className={`text-sm ${mutedClass}`}>
+            🤖 Bot traders. Creating is safe to repeat, existing bots are skipped.
+          </p>
+          <button
+            onClick={handleCreateBots}
+            disabled={loading}
+            className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50 whitespace-nowrap"
+            title="Create any missing bots from the standard roster"
+          >
+            {loading ? '...' : '➕ Create Bots'}
+          </button>
+        </div>
+      </div>
+
       {/* Bot List */}
       {bots.length > 0 && (
         <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
