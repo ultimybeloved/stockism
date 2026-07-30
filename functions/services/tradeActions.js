@@ -12,6 +12,7 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
 } = require('../constants');
 const { calculateMarginalImpact, lockedShares } = require('../helpers');
+const { exitLoyaltyDiscount } = require('../characters');
 
 function computeBuy({
   ticker, amount, now, currentPrice, prices, effectiveSpread, ageImpactFactor,
@@ -135,8 +136,17 @@ function computeSell({
   const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
 
+  // The market takes the full impact — a big exit still shows on the chart.
   const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
-  const executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
+
+  // Exit loyalty: a long-held position is priced against a reduced impact, so
+  // the seller keeps more without the market being told a smaller story. At a
+  // 0 discount sellerMid === newPrice and this is the original math exactly.
+  const loyaltyDiscount = exitLoyaltyDiscount(userData.holdingCohorts?.[ticker], amount, now);
+  const sellerImpact = priceImpact * (1 - loyaltyDiscount);
+  const sellerMid = Math.max(MIN_PRICE, Math.round((currentPrice - sellerImpact) * 100) / 100);
+
+  const executionPrice = Math.max(MIN_PRICE, sellerMid * (1 - effectiveSpread / 2)); // Bid price
   const totalCost = executionPrice * amount;
 
   // Execute sell

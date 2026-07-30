@@ -10,8 +10,9 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }) => {
   const { borderClass, chipClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
 
-  const { ticker, action, amount, total } = confirmation;
+  const { ticker, action, amount, total, exitDiscount = 0 } = confirmation;
   const isDebit = action === 'buy' || action === 'short' || (action === 'cover' && total < 0);
+  const loyaltyPercent = Math.round(exitDiscount * 100);
 
   return (
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
@@ -41,6 +42,14 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }) => {
             <span>{action === 'short' ? 'Margin/Share:' : 'Est. Price/Share:'}</span>
             <span className="font-semibold">{formatCurrency(Math.abs(total) / amount)}</span>
           </div>
+          {loyaltyPercent > 0 && (
+            <div className="flex justify-between">
+              <span>Long-hold discount:</span>
+              <span className={`font-semibold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                {loyaltyPercent}% off price impact
+              </span>
+            </div>
+          )}
           <div className={`flex justify-between pt-2 border-t ${borderClass}`}>
             <span className="font-semibold">{action === 'short' ? 'Margin Cost:' : action === 'cover' ? (total < 0 ? 'Est. Cost:' : 'Est. Return:') : 'Est. Total:'}</span>
             <span className={`font-bold ${

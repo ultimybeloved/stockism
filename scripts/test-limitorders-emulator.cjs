@@ -37,7 +37,7 @@ const { runLimitOrderCheck } = require('../functions/services/limitOrders');
 const { runFillBackfill } = require('../functions/services/tradeBackfill');
 const { calculateMarginalImpact } = require('../functions/helpers');
 const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/constants');
-const { CHARACTER_MAP } = require('../functions/characters');
+const { CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
 
 const IPO_TICKER = 'EUNH'; // ipoRequired: true in characters.js, not launched in seed
 
@@ -59,8 +59,8 @@ async function main() {
     const c = CHARACTER_MAP[t];
     return c && !c.isETF && !c.ipoRequired && prices[t] > 1;
   });
-  if (usable.length < 6) throw new Error(`Only ${usable.length} usable tickers — re-seed the emulator`);
-  const [T_BUY, T_SELL, T_STOP, T_DEFER, T_LIMITCAP, T_THROTTLE] = usable;
+  if (usable.length < 7) throw new Error(`Only ${usable.length} usable tickers — re-seed the emulator`);
+  const [T_BUY, T_SELL, T_STOP, T_DEFER, T_LIMITCAP, T_THROTTLE, T_LOYAL] = usable;
   const P = (t) => prices[t];
   console.log(`Tickers: buy=${T_BUY}($${P(T_BUY)}) sell=${T_SELL}($${P(T_SELL)}) stop=${T_STOP} defer=${T_DEFER} cap=${T_LIMITCAP} throttle=${T_THROTTLE}`);
 
@@ -84,6 +84,10 @@ async function main() {
     // 10 held, 6 locked by an "IPO lockup" that started after the order was placed
     lo_lockedHard: { cash: 0, holdings: { [T_SELL]: 10 }, ipoLockup: { [T_SELL]: { shares: 6, until: now + 3600000 } } },
     lo_lockedSoft: { cash: 0, holdings: { [T_STOP]: 10 }, marginLockup: { [T_STOP]: { shares: 6, until: now + 3600000 } } },
+    // 8-week-old lot: the fill must price against a reduced impact while the
+    // market still takes the full one.
+    lo_loyal: { cash: 0, holdings: { [T_LOYAL]: 30 },
+      holdingCohorts: { [T_LOYAL]: { eligible: 0, pending: [{ shares: 30, availableAt: now - 60 * 86400000 + DIVIDEND_HOLD_MS }] } } },
     lo_th1: { cash: 100000, holdings: {} },
     lo_th2: { cash: 100000, holdings: {} },
     lo_th3: { cash: 100000, holdings: {} },
@@ -112,6 +116,7 @@ async function main() {
     { id: 'lo_j_cap',    userId: 'lo_capped',     ticker: T_LIMITCAP, type: 'BUY',       shares: 1,  limitPrice: round2(P(T_LIMITCAP) * 1.2) },
     { id: 'lo_k_lockH',  userId: 'lo_lockedHard', ticker: T_SELL,     type: 'SELL',      shares: 10, limitPrice: round2(P(T_SELL) * 0.5) },
     { id: 'lo_l_lockS',  userId: 'lo_lockedSoft', ticker: T_STOP,     type: 'SELL',      shares: 10, limitPrice: round2(P(T_STOP) * 0.5), allowPartialFills: true },
+    { id: 'lo_q_loyal',  userId: 'lo_loyal',      ticker: T_LOYAL,    type: 'SELL',      shares: 30, limitPrice: round2(P(T_LOYAL) * 0.5) },
     { id: 'lo_m_th1',    userId: 'lo_th1',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
     { id: 'lo_n_th2',    userId: 'lo_th2',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
     { id: 'lo_o_th3',    userId: 'lo_th3',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
@@ -204,6 +209,25 @@ async function main() {
   check('locked shares, partials allowed -> clamped to 4 unlocked', l.status === 'PARTIALLY_FILLED' && l.filledShares === 4, JSON.stringify(l));
   const lockedSoftUser = await getUser('lo_lockedSoft');
   check('locked-soft user keeps the 6 locked shares', lockedSoftUser.holdings[T_STOP] === 6, JSON.stringify(lockedSoftUser.holdings));
+
+  // ── 12b. Exit loyalty on a limit fill ──────────────────────────────────
+  // Same rule as the regular sell path: the market takes the full impact, the
+  // long-term holder is priced against a reduced one. If these two ever drift
+  // apart, the same position pays different fees depending on which lane it
+  // exits through.
+  const impactLoyal = calculateMarginalImpact(P(T_LOYAL), 30, 0);
+  const fullPriceLoyal = round2(Math.max(0.01, P(T_LOYAL) - impactLoyal));
+  const sellerMidLoyal = round2(Math.max(0.01, P(T_LOYAL) - impactLoyal * (1 - 0.40)));
+  const expectedLoyalBid = round2(sellerMidLoyal * (1 - BID_ASK_SPREAD / 2));
+  const q = await get('lo_q_loyal');
+  check(`8-week holder fills at the discounted bid ($${expectedLoyalBid})`,
+    q.status === 'FILLED' && Math.abs(q.executedPrice - expectedLoyalBid) < 0.011, JSON.stringify(q));
+  const postLoyal = (await marketRef.get()).data().prices[T_LOYAL];
+  check(`market still took the FULL impact ($${P(T_LOYAL)} -> $${fullPriceLoyal})`,
+    Math.abs(postLoyal - fullPriceLoyal) < 0.011, `got ${postLoyal}, seller mid was ${sellerMidLoyal}`);
+  check('discounted fill pays more than the undiscounted one would',
+    expectedLoyalBid > round2(fullPriceLoyal * (1 - BID_ASK_SPREAD / 2)),
+    `${expectedLoyalBid} vs ${round2(fullPriceLoyal * (1 - BID_ASK_SPREAD / 2))}`);
 
   // ── 13. Per-ticker throttle ────────────────────────────────────────────
   const th = await Promise.all(['lo_m_th1', 'lo_n_th2', 'lo_o_th3', 'lo_p_th4'].map(get));

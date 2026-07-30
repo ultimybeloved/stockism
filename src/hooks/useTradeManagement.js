@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { executeTradeFunction } from '../firebase';
 import { fireTradeConfetti } from '../utils/confetti';
 import { ACHIEVEMENTS } from '../constants/achievements';
-import { CHARACTER_MAP } from '../characters';
+import { CHARACTER_MAP, exitLoyaltyDiscount } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
 import { estimateTradeTotal, getAccountAgeImpactFactor } from '../utils/calculations';
@@ -156,7 +156,10 @@ export function useTradeManagement({
 
     const price = prices[ticker] || asset?.basePrice || 0;
 
-    // Estimated total (with new-account impact reduction)
+    // Estimated total (with new-account impact reduction and exit loyalty)
+    const exitDiscount = action === 'sell'
+      ? exitLoyaltyDiscount(userData.holdingCohorts?.[ticker], amount, Date.now())
+      : 0;
     const total = estimateTradeTotal({
       action,
       price,
@@ -164,9 +167,10 @@ export function useTradeManagement({
       isETF: asset?.isETF || false,
       ageFactor: getAccountAgeImpactFactor(userData),
       shortPosition: userData.shorts?.[ticker],
+      exitDiscount,
     });
 
-    setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name });
+    setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name, exitDiscount });
   }, [user, userData, prices, activeIPOs, launchedTickers, showNotification, setTradeConfirmation]);
 
   return { handleTrade, requestTrade };

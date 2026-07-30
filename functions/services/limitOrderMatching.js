@@ -13,7 +13,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CHARACTERS, CHARACTER_MAP } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP, exitLoyaltyDiscount } = require('../characters');
 const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, isWeeklyTradingHalt, NINETY_DAYS_MS, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
 const { calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, writeNotification, writeFeedEntry, lockedShares, appendPriceHistory, buildTradeCreditUpdates, recordTrade } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
@@ -407,9 +407,15 @@ const runLimitOrderCheck = async () => {
 
                 console.log(`Executed BUY: ${fillShares} ${order.ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
               } else if (effectiveType === 'SELL') {
-                // Price goes DOWN on sell
+                // Price goes DOWN on sell — the market takes the full impact
                 const newMarketPrice = Math.max(0.01, Math.round((freshPrice - effectiveImpact) * 100) / 100);
-                const bidPrice = newMarketPrice * (1 - limitSpread / 2);
+
+                // Exit loyalty, same rule as tradeActions.computeSell: a long-held
+                // position is priced against a reduced impact. The limit check below
+                // uses this price because it's what the seller actually receives.
+                const limitLoyalty = exitLoyaltyDiscount(userData.holdingCohorts?.[order.ticker], fillShares, now);
+                const sellerMid = Math.max(0.01, Math.round((freshPrice - effectiveImpact * (1 - limitLoyalty)) * 100) / 100);
+                const bidPrice = sellerMid * (1 - limitSpread / 2);
                 executedPrice = Math.round(bidPrice * 100) / 100;
 
                 // Limit semantics for SELL only: never fill below the user's

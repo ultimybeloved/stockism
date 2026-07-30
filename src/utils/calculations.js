@@ -86,14 +86,17 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
  * collateral, and v2 cover margin return. ageFactor scales impact down for
  * new accounts.
  */
-export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition }) => {
+export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0 }) => {
   const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
   if (action === 'buy') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);
     return ask * amount;
   }
   if (action === 'sell') {
-    const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), isETF);
+    // Exit loyalty prices the seller against a reduced impact — mirrors
+    // computeSell in functions/services/tradeActions.js.
+    const sellerImpact = priceImpact * (1 - exitDiscount);
+    const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - sellerImpact), isETF);
     return bid * amount;
   }
   if (action === 'short') {

@@ -41,6 +41,7 @@ const {
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
+const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS } = require('../functions/characters');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
 // SOPH / CROC / XIAO: no trailingFactors, not a constituent of any ETF.
@@ -110,12 +111,15 @@ const buyMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD }
   const exec = newPrice * (1 + spread / 2);
   return { impact, newPrice, exec, cost: exec * amount };
 };
-const sellMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD, capRemaining = Infinity } = {}) => {
+// `discount` is the exit-loyalty fraction: the market still moves by the full
+// impact (newPrice), but the seller is priced against a reduced one (sellerMid).
+const sellMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD, capRemaining = Infinity, discount = 0 } = {}) => {
   let impact = impactOf(price, amount, cum, factor);
   impact = Math.min(impact, price * capRemaining);
   const newPrice = Math.max(0.01, round2(price - impact));
-  const exec = Math.max(0.01, newPrice * (1 - spread / 2));
-  return { impact, newPrice, exec, proceeds: exec * amount };
+  const sellerMid = Math.max(0.01, round2(price - impact * (1 - discount)));
+  const exec = Math.max(0.01, sellerMid * (1 - spread / 2));
+  return { impact, newPrice, sellerMid, exec, proceeds: exec * amount };
 };
 
 const todayDate = () => new Date().toISOString().split('T')[0];
@@ -321,13 +325,18 @@ async function testSell() {
   await setUser('sell_gold', { cash: 1000, holdings: { [T]: 10 }, costBasis: { [T]: 80 },
     holdingCohorts: { [T]: { eligible: 10, pending: [] } } });
 
-  const exp = sellMath(80, 4);
+  // These 10 shares sit in `eligible`, which carries the ladder-epoch stamp, so
+  // the discount they earn drifts upward as that stamp ages. Ask the real
+  // function rather than hardcoding a number that changes on a calendar date —
+  // section M pins the ladder values themselves with fixed lot ages.
+  const goldDiscount = exitLoyaltyDiscount({ eligible: 10, pending: [] }, 4, Date.now());
+  const exp = sellMath(80, 4, { discount: goldDiscount });
   const r = await ok({ ticker: T, action: 'sell', amount: 4 }, 'sell_gold');
   const u = await getUser('sell_gold');
   const m = await getMarket();
   check('sell: price drops by impact', near(r.newPrice, exp.newPrice) && near(m.prices[T], exp.newPrice),
     `${r.newPrice} vs ${exp.newPrice}`);
-  check('sell: executes at bid (newPrice - half spread)', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
+  check('sell: executes at bid (seller mid - half spread)', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
   check('sell: cash credited exactly', near(u.cash, 1000 + exp.proceeds), `${u.cash} vs ${1000 + exp.proceeds}`);
   check('sell: holdings decremented', u.holdings[T] === 6, JSON.stringify(u.holdings));
   check('sell: cost basis untouched on partial sell', u.costBasis[T] === 80, `${u.costBasis[T]}`);
@@ -972,6 +981,99 @@ async function testBailoutWipe() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// M. EXIT LOYALTY DISCOUNT
+// ════════════════════════════════════════════════════════════════════════════
+// Long-held shares are sold against a reduced price impact. The defining rule
+// is that the MARKET still takes the full hit: two identical sales, one by a
+// long-term holder and one by a fresh buyer, must move the price by exactly the
+// same amount and differ only in what the seller is paid. Anything else would
+// let a patient whale unwind a position without the chart showing it, which is
+// the hole that makes off-market share swaps a wealth-transfer exploit.
+async function testExitLoyalty() {
+  console.log('\nM. Exit loyalty discount');
+
+  const DAY = 24 * HOUR;
+  // A pending lot `ageDays` old right now
+  const agedLot = (shares, ageDays) => ({ shares, availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS });
+  const base = { cash: 1000, holdings: { [T]: 20 }, costBasis: { [T]: 80 } };
+
+  // ── Fresh holder: no discount, original math exactly ──────────────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('loy_fresh', { ...base, holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, 1)] } } });
+  const expFresh = sellMath(80, 10, { discount: 0 });
+  const rFresh = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_fresh');
+  const uFresh = await getUser('loy_fresh');
+  const mFresh = (await getMarket()).prices[T];
+  check('loyalty: a day-old position gets no discount',
+    near(rFresh.executionPrice, expFresh.exec), `${rFresh.executionPrice} vs ${expFresh.exec}`);
+  check('loyalty: fresh sale is the original math unchanged',
+    near(uFresh.cash, 1000 + expFresh.proceeds), `${uFresh.cash} vs ${1000 + expFresh.proceeds}`);
+
+  // ── Mature holder: same sale, same ticker, same price ─────────────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('loy_mature', { ...base, holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, 60)] } } });
+  const expMature = sellMath(80, 10, { discount: 0.40 });
+  const rMature = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_mature');
+  const uMature = await getUser('loy_mature');
+  const mMature = (await getMarket()).prices[T];
+
+  check('loyalty: 8-week position sells at the 40% rung',
+    near(rMature.executionPrice, expMature.exec), `${rMature.executionPrice} vs ${expMature.exec}`);
+  check('loyalty: mature seller is paid more than the fresh one',
+    uMature.cash > uFresh.cash, `mature=${uMature.cash} fresh=${uFresh.cash}`);
+
+  // The whole point of the design:
+  check('loyalty: market price moves the SAME for both sellers',
+    near(mFresh, mMature) && near(mMature, expMature.newPrice),
+    `fresh=${mFresh} mature=${mMature} expected=${expMature.newPrice}`);
+  check('loyalty: reported newPrice is the full-impact price, not the seller price',
+    near(rMature.newPrice, expMature.newPrice) && rMature.newPrice < expMature.sellerMid,
+    `newPrice=${rMature.newPrice} sellerMid=${expMature.sellerMid}`);
+
+  // ── Middle rungs ──────────────────────────────────────────────────────────
+  for (const [ageDays, rung] of [[15, 0.10], [30, 0.25]]) {
+    await seedMarket({ [T]: 80 });
+    await setUser(`loy_${ageDays}`, { ...base, holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, ageDays)] } } });
+    const expRung = sellMath(80, 10, { discount: rung });
+    const rRung = await ok({ ticker: T, action: 'sell', amount: 10 }, `loy_${ageDays}`);
+    check(`loyalty: ${ageDays}-day position sells at the ${rung * 100}% rung`,
+      near(rRung.executionPrice, expRung.exec), `${rRung.executionPrice} vs ${expRung.exec}`);
+  }
+
+  // ── Mixed ages are weighted, not rounded up to the oldest lot ─────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('loy_mixed', {
+    cash: 1000, holdings: { [T]: 100 }, costBasis: { [T]: 80 },
+    holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(10, 60), agedLot(90, 1)] } },
+  });
+  // Selling 50: oldest-first takes the 10 mature shares, then 40 fresh ones.
+  const mixedDiscount = (10 * 0.40 + 40 * 0) / 50;
+  const expMixed = sellMath(80, 50, { discount: mixedDiscount });
+  const rMixed = await ok({ ticker: T, action: 'sell', amount: 50 }, 'loy_mixed');
+  check('loyalty: mixed position is weighted by how many shares are actually old',
+    near(rMixed.executionPrice, expMixed.exec), `${rMixed.executionPrice} vs ${expMixed.exec}`);
+
+  // ── No cohort record at all → no discount, no crash ───────────────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('loy_nocohort', { cash: 1000, holdings: { [T]: 20 }, costBasis: { [T]: 80 } });
+  const expNone = sellMath(80, 10, { discount: 0 });
+  const rNone = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_nocohort');
+  check('loyalty: a holding with no cohort record sells at full impact',
+    near(rNone.executionPrice, expNone.exec), `${rNone.executionPrice} vs ${expNone.exec}`);
+
+  // ── Shorts never get it: you are not exiting a long-held position ─────────
+  await seedMarket({ [T]: 80 });
+  await setUser('loy_shorter', {
+    cash: 100000, holdings: {}, shorts: {},
+    holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(500, 60)] } },
+  });
+  const expShort = sellMath(80, 5); // no discount
+  const rShort = await ok({ ticker: T, action: 'short', amount: 5 }, 'loy_shorter');
+  check('loyalty: opening a short ignores the cohort entirely',
+    near(rShort.executionPrice, expShort.exec), `${rShort.executionPrice} vs ${expShort.exec}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -991,6 +1093,7 @@ async function main() {
   await testMarginCallScanner();
   await testMarginLendingScanner();
   await testBailoutWipe();
+  await testExitLoyalty();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

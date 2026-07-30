@@ -548,6 +548,27 @@ export const dividendMultiplierForAgeMs = (ageMs) => {
   return rung ? rung.multiplier : 0;
 };
 
+// Exit loyalty: the same rungs as the dividend ladder, paying out as a discount
+// on the price impact a seller charges themselves. Holding longer means both a
+// bigger dividend and a cheaper way out, so players learn one set of ages.
+//
+// The discount never reaches 1. A seller who could exit at zero impact would be
+// able to unload any size without the market registering it, which is the hole
+// that makes off-market share swaps a wealth-transfer exploit. Leaving a large
+// position always has to cost something.
+export const EXIT_LOYALTY_LADDER = [
+  { minDays: 56, discount: 0.40 },  // 8+ weeks
+  { minDays: 28, discount: 0.25 },  // 4-8 weeks
+  { minDays: DIVIDEND_HOLD_DAYS, discount: 0.10 },
+];
+export const EXIT_LOYALTY_MAX_DISCOUNT = EXIT_LOYALTY_LADDER[0].discount;
+
+export const exitDiscountForAgeMs = (ageMs) => {
+  const days = ageMs / (24 * 60 * 60 * 1000);
+  const rung = EXIT_LOYALTY_LADDER.find((r) => days >= r.minDays);
+  return rung ? rung.discount : 0;
+};
+
 /**
  * Resolve a ticker's dividend tier name. `rarityTiers` is the output of
  * computeRarityTiers for whatever price set applies (live or snapshot);
@@ -566,19 +587,59 @@ export const getDividendRate = (ticker, rarityTiers, overrides) =>
   DIVIDEND_RATES[getDividendTier(ticker, rarityTiers, overrides)] || 0;
 
 /**
- * Multiplier-weighted share count for one holding cohort at `now`.
+ * One cohort's lots as {shares, ageMs}, oldest first — the same order
+ * decrementCohort consumes them in, so anything walking this list sees the
+ * shares a sale would actually take.
+ *
  * `eligible` shares are aged from the ladder epoch (see above): legacy shares
- * climb the ladder from their minimum provable age instead of getting 1.5x
- * for free, and genuine 56-day graduates land after the epoch ladder is
- * already at 1.5x. Each pending lot uses its own age, derived from
- * availableAt - the hold gate. Weekly dividend = weightedShares × price × rate.
+ * climb the ladder from their minimum provable age instead of getting the top
+ * rung for free, and genuine 56-day graduates land after the epoch ladder has
+ * already topped out. Each pending lot uses its own age, derived from
+ * availableAt - the hold gate.
+ *
+ * Both the dividend weighting and the exit discount read ages through here.
+ * Two walks would eventually disagree about the same shares.
  */
-export const dividendWeightedShares = (cohort, now) => {
-  if (!cohort) return 0;
-  let weighted = (cohort.eligible || 0) * dividendMultiplierForAgeMs(now - LEGACY_ELIGIBLE_ACQUIRED_AT);
-  for (const p of (cohort.pending || [])) {
-    const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
-    weighted += (p.shares || 0) * dividendMultiplierForAgeMs(now - acquiredAt);
+export const cohortLots = (cohort, now) => {
+  if (!cohort) return [];
+  const lots = [];
+  if ((cohort.eligible || 0) > 0) {
+    lots.push({ shares: cohort.eligible, ageMs: now - LEGACY_ELIGIBLE_ACQUIRED_AT });
   }
-  return weighted;
+  const pending = [...(cohort.pending || [])].sort((a, b) => (a.availableAt || 0) - (b.availableAt || 0));
+  for (const p of pending) {
+    if (!((p.shares || 0) > 0)) continue;
+    lots.push({ shares: p.shares, ageMs: now - ((p.availableAt || 0) - DIVIDEND_HOLD_MS) });
+  }
+  return lots;
+};
+
+/**
+ * Multiplier-weighted share count for one holding cohort at `now`.
+ * Weekly dividend = weightedShares × price × rate.
+ */
+export const dividendWeightedShares = (cohort, now) =>
+  cohortLots(cohort, now).reduce(
+    (sum, lot) => sum + lot.shares * dividendMultiplierForAgeMs(lot.ageMs), 0);
+
+/**
+ * Weighted exit discount for selling `shares` out of one cohort, as a 0..1
+ * fraction of the seller's own price impact.
+ *
+ * Lots are consumed oldest first, matching decrementCohort, so a player holding
+ * 100 mature shares and 10,000 fresh ones gets the mature rate on 100 shares
+ * and nothing on the rest. Shares with no cohort record (a self-heal gap, or an
+ * admin edit) count as brand new and earn nothing, which is the safe direction.
+ */
+export const exitLoyaltyDiscount = (cohort, shares, now) => {
+  if (!(shares > 0)) return 0;
+  let remaining = shares;
+  let weighted = 0;
+  for (const lot of cohortLots(cohort, now)) {
+    if (remaining <= 0) break;
+    const take = Math.min(lot.shares, remaining);
+    weighted += take * exitDiscountForAgeMs(lot.ageMs);
+    remaining -= take;
+  }
+  return weighted / shares;
 };
