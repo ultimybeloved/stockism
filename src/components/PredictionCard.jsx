@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../utils/formatters';
 import { niceStep } from '../utils/calculations';
+import { isWeeklyHalt } from '../utils/marketHours';
 import { useAppContext } from '../context/AppContext';
 
 const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode, userData, marketData } = useAppContext();
+  // Betting closes with the market, same as trading. Mirrors placeBet's guards.
+  const bettingHalted = isWeeklyHalt() || !!marketData?.marketHalted;
   const [betAmount, setBetAmount] = useState(50);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showBetUI, setShowBetUI] = useState(false);
@@ -167,7 +170,13 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
 
       {isActive && !isGuest && (
         <>
-          {hasExistingBet && !prediction.allowAdditionalBets ? (
+          {bettingHalted ? (
+            <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
+              {marketData?.marketHalted
+                ? `⏸️ Betting paused: ${marketData.haltReason || 'market halted'}`
+                : '⏸️ Betting is closed for chapter review. Reopens at 21:00 UTC.'}
+            </div>
+          ) : hasExistingBet && !prediction.allowAdditionalBets ? (
             <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
               🔒 You've already placed a bet on this prediction
             </div>

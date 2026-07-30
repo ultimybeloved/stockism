@@ -4,7 +4,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const { isWeeklyTradingHalt, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
+const { isWeeklyTradingHalt, CHAPTER_REVIEW_HALT_MSG, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
 const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
@@ -21,13 +21,22 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet data.');
   }
 
+  // Weekly bets close with the market. Event shares and IPO shares have always
+  // checked this; the cash-bet lane never did, so betting stayed open all the
+  // way through chapter review.
+  if (isWeeklyTradingHalt()) {
+    throw new functions.https.HttpsError('failed-precondition', CHAPTER_REVIEW_HALT_MSG);
+  }
+
   const userRef = db.collection('users').doc(uid);
   const predictionsRef = db.collection('predictions').doc('current');
+  const marketRef = db.collection('market').doc('current');
 
   return db.runTransaction(async (transaction) => {
-    const [userDoc, predictionsDoc] = await Promise.all([
+    const [userDoc, predictionsDoc, marketDoc] = await Promise.all([
       transaction.get(userRef),
-      transaction.get(predictionsRef)
+      transaction.get(predictionsRef),
+      transaction.get(marketRef)
     ]);
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
@@ -36,6 +45,12 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     const userData = userDoc.data();
     checkBanned(userData);
     checkDiscordWall(userData);
+    // Admin emergency halt, checked inside the transaction like the event
+    // markets do so a halt landing mid-bet still stops it.
+    if (marketDoc.exists && marketDoc.data().marketHalted) {
+      throw new functions.https.HttpsError('failed-precondition',
+        marketDoc.data().haltReason || CHAPTER_REVIEW_HALT_MSG);
+    }
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
 

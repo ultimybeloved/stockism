@@ -2,11 +2,30 @@ import { useCallback } from 'react';
 import { placeBetFunction, buyEventSharesFunction, sellEventSharesFunction } from '../firebase';
 import { formatCurrency } from '../utils/formatters';
 import { getTotalInvested } from '../utils/calculations';
+import { isWeeklyHalt } from '../utils/marketHours';
 
-export function usePredictionManagement({ user, userData, predictions, showNotification, setUserData, setLoadingKey }) {
+export function usePredictionManagement({ user, userData, predictions, marketData, showNotification, setUserData, setLoadingKey }) {
+  // Every prediction lane closes with the market. Mirrors the server checks in
+  // predictions.js and eventMarket.js so a click fails here with a readable
+  // message instead of bouncing off a Cloud Function.
+  const haltMessage = useCallback(() => {
+    if (marketData?.marketHalted) {
+      return `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`;
+    }
+    if (isWeeklyHalt()) {
+      return 'Betting is closed for chapter review. It reopens at 21:00 UTC.';
+    }
+    return null;
+  }, [marketData]);
+
   const handleBet = useCallback(async (predictionId, option, amount) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to place bets!');
+      return;
+    }
+    const halted = haltMessage();
+    if (halted) {
+      showNotification('error', halted);
       return;
     }
     if (userData.cash < amount) {
@@ -54,13 +73,18 @@ export function usePredictionManagement({ user, userData, predictions, showNotif
     } finally {
       setLoadingKey('placeBet', false);
     }
-  }, [user, userData, predictions, showNotification, setUserData, setLoadingKey]);
+  }, [user, userData, predictions, haltMessage, showNotification, setUserData, setLoadingKey]);
 
   // Long-term event-share markets (AMM-priced). Cash and positions reconcile from
   // the user-doc subscription; we optimistically nudge cash for snappy feedback.
   const handleBuyEventShares = useCallback(async (marketId, outcome, shares) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to trade!');
+      return null;
+    }
+    const haltedBuy = haltMessage();
+    if (haltedBuy) {
+      showNotification('error', haltedBuy);
       return null;
     }
     setLoadingKey('eventTrade', true);
@@ -78,11 +102,16 @@ export function usePredictionManagement({ user, userData, predictions, showNotif
     } finally {
       setLoadingKey('eventTrade', false);
     }
-  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+  }, [user, userData, haltMessage, showNotification, setUserData, setLoadingKey]);
 
   const handleSellEventShares = useCallback(async (marketId, outcome, shares) => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to trade!');
+      return null;
+    }
+    const haltedSell = haltMessage();
+    if (haltedSell) {
+      showNotification('error', haltedSell);
       return null;
     }
     setLoadingKey('eventTrade', true);
@@ -99,7 +128,7 @@ export function usePredictionManagement({ user, userData, predictions, showNotif
     } finally {
       setLoadingKey('eventTrade', false);
     }
-  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+  }, [user, userData, haltMessage, showNotification, setUserData, setLoadingKey]);
 
   return { handleBet, handleBuyEventShares, handleSellEventShares };
 }

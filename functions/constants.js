@@ -82,6 +82,10 @@ const isWeeklyTradingHalt = () => {
   return utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE;
 };
 
+// Shared by every side-game that closes with the market (event shares, weekly
+// bets, IPO shares). One string so the halt never explains itself two ways.
+const CHAPTER_REVIEW_HALT_MSG = 'Market closed for chapter review. Trading resumes at 21:00 UTC.';
+
 // ============================================
 // ECONOMY
 // ============================================
@@ -451,6 +455,7 @@ module.exports = {
   PRE_MARKET_MAX_BUY_BUFFER,
   SHORT_CONCENTRATION_CAP,
   isWeeklyTradingHalt,
+  CHAPTER_REVIEW_HALT_MSG,
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,

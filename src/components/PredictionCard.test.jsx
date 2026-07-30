@@ -8,12 +8,20 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-const h = vi.hoisted(() => ({ ctx: {} }));
+const h = vi.hoisted(() => ({ ctx: {}, halted: false }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => h.ctx }));
+// Pinned rather than read off the real clock: these odds assertions would
+// otherwise fail every Thursday between 13:00 and 21:00 UTC, when the card
+// swaps the bet UI for the chapter-review notice.
+vi.mock('../utils/marketHours', async (importOriginal) => ({
+  ...(await importOriginal()),
+  isWeeklyHalt: () => h.halted,
+}));
 
 import PredictionCard from './PredictionCard';
 
-h.ctx = { darkMode: false, userData: { colorBlindMode: false } };
+const baseCtx = () => ({ darkMode: false, userData: { colorBlindMode: false }, marketData: {} });
+h.ctx = baseCtx();
 
 const HOUR = 60 * 60 * 1000;
 
@@ -30,7 +38,7 @@ const makePrediction = (pools, overrides = {}) => ({
 const renderCard = (prediction, props = {}) =>
   render(<PredictionCard prediction={prediction} betLimit={1000} {...props} />);
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); h.halted = false; h.ctx = baseCtx(); });
 
 describe('PredictionCard payout odds', () => {
   it('pays the underdog more than the favorite', () => {
@@ -82,5 +90,35 @@ describe('PredictionCard payout odds', () => {
       userBet: { option: 'Yes', amount: 100 },
     });
     expect(screen.getByText(/3\.33x/)).toBeInTheDocument();
+  });
+});
+
+// Betting has to close with the market. A prediction created during chapter
+// review used to keep a live Place Bet button all the way through the halt.
+describe('PredictionCard while betting is closed', () => {
+  it('replaces the bet button with the chapter-review notice', () => {
+    h.halted = true;
+    renderCard(makePrediction({ Yes: 500, No: 500 }));
+    expect(screen.getByText(/closed for chapter review/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /place bet/i })).not.toBeInTheDocument();
+  });
+
+  it('names the reason during an admin halt', () => {
+    h.ctx = { ...baseCtx(), marketData: { marketHalted: true, haltReason: 'Emergency maintenance' } };
+    renderCard(makePrediction({ Yes: 500, No: 500 }));
+    expect(screen.getByText(/Emergency maintenance/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /place bet/i })).not.toBeInTheDocument();
+  });
+
+  it('still shows the odds so people can see where the pool stands', () => {
+    h.halted = true;
+    renderCard(makePrediction({ Yes: 900, No: 100 }));
+    expect(screen.getByText('7.00x')).toBeInTheDocument();
+  });
+
+  it('leaves the bet button alone when the market is open', () => {
+    renderCard(makePrediction({ Yes: 500, No: 500 }));
+    expect(screen.getByRole('button', { name: /place bet/i })).toBeInTheDocument();
+    expect(screen.queryByText(/closed for chapter review/i)).not.toBeInTheDocument();
   });
 });

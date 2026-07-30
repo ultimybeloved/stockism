@@ -14,6 +14,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const {
   isWeeklyTradingHalt,
+  CHAPTER_REVIEW_HALT_MSG,
   EVENT_AMM_LIQUIDITY,
   EVENT_MIN_BUYIN,
   ADMIN_UID,
@@ -39,7 +40,8 @@ const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
 // Throw if event-market trading is currently frozen. Mirrors stock trading: the
 // market freezes during the weekly chapter-review halt and any admin halt, so
 // nobody who reads the new chapter early can trade on it before everyone else.
-const HALT_MSG = 'Market closed for chapter review. Trading resumes at 21:00 UTC.';
+// Message lives in constants.js — weekly bets and IPO shares say the same thing.
+const HALT_MSG = CHAPTER_REVIEW_HALT_MSG;
 
 /**
  * Buy event shares of one outcome at the current AMM price.
