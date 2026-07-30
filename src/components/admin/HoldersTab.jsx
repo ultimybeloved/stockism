@@ -1,4 +1,6 @@
 import { CHARACTERS } from '../../characters';
+import PositionSummary from './holders/PositionSummary';
+import ShortsList from './holders/ShortsList';
 
 const HoldersTab = ({
   darkMode,
@@ -10,6 +12,8 @@ const HoldersTab = ({
   setHoldersTicker,
   holdersData,
   setHoldersData,
+  shortsData,
+  setShortsData,
   holdersLoading,
   loadHolders,
 }) => {
@@ -17,7 +21,7 @@ const HoldersTab = ({
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-purple-50'}`}>
         <p className={`text-sm ${mutedClass}`}>
-          📊 View all users who hold shares of a specific character. Click a character to see their holders.
+          📊 View every long holder and short seller of a character. Click a character to load both sides.
         </p>
       </div>
 
@@ -67,13 +71,15 @@ const HoldersTab = ({
         <div>
           <div className="flex justify-between items-center mb-2">
             <h3 className={`font-semibold ${textClass}`}>
-              ${holdersTicker} - {CHARACTERS.find(c => c.ticker === holdersTicker)?.name} ({holdersData.length} holders)
+              ${holdersTicker} - {CHARACTERS.find(c => c.ticker === holdersTicker)?.name} ({holdersData.length} holders
+              {shortsData.length > 0 && <span className="text-red-400">, {shortsData.length} short</span>})
             </h3>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setHoldersTicker('');
                   setHoldersData([]);
+                  setShortsData([]);
                 }}
                 className="px-3 py-1 text-xs bg-slate-600 hover:bg-slate-700 text-white rounded-sm"
               >
@@ -90,34 +96,17 @@ const HoldersTab = ({
           </div>
 
           {holdersLoading ? (
-            <p className={`text-center py-4 ${mutedClass}`}>Loading holders...</p>
-          ) : holdersData.length === 0 ? (
-            <p className={`text-center py-4 ${mutedClass}`}>No one holds ${holdersTicker}</p>
+            <p className={`text-center py-4 ${mutedClass}`}>Loading positions...</p>
+          ) : holdersData.length === 0 && shortsData.length === 0 ? (
+            <p className={`text-center py-4 ${mutedClass}`}>Nobody is long or short ${holdersTicker}</p>
           ) : (
             <>
-              {/* Summary */}
-              <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className={`text-xs ${mutedClass}`}>Holders</p>
-                    <p className={`font-bold ${textClass}`}>{holdersData.length}</p>
-                  </div>
-                  <div>
-                    <p className={`text-xs ${mutedClass}`}>Total Shares</p>
-                    <p className={`font-bold ${textClass}`}>
-                      {holdersData.reduce((sum, h) => sum + h.shares, 0)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-xs ${mutedClass}`}>Total Value</p>
-                    <p className={`font-bold text-green-500`}>
-                      ${holdersData.reduce((sum, h) => sum + h.value, 0).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <PositionSummary {...{ darkMode, textClass, mutedClass, holdersData, shortsData }} />
 
               {/* Holders List */}
+              {holdersData.length === 0 ? (
+                <p className={`text-center py-3 text-sm ${mutedClass}`}>No long holders</p>
+              ) : (
               <div className="space-y-1 max-h-80 overflow-y-auto">
                 {holdersData.map((holder, idx) => (
                   <div
@@ -144,6 +133,9 @@ const HoldersTab = ({
                   </div>
                 ))}
               </div>
+              )}
+
+              <ShortsList {...{ darkMode, textClass, mutedClass, shortsData }} />
             </>
           )}
         </div>

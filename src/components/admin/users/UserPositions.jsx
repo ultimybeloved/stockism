@@ -30,7 +30,7 @@ const UserPositions = ({ darkMode, textClass, mutedClass, prices, selectedUser }
                     <span className={`ml-2 text-xs ${mutedClass}`}>{shareCount} shares</span>
                   </div>
                   <span className={`font-bold ${unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {unrealizedPL >= 0 ? '+' : ''}${unrealizedPL.toFixed(2)}
+                    {unrealizedPL >= 0 ? '+' : '-'}${Math.abs(unrealizedPL).toFixed(2)}
                   </span>
                 </div>
                 <div className={`text-xs ${mutedClass} mt-1`}>
@@ -65,7 +65,7 @@ const UserPositions = ({ darkMode, textClass, mutedClass, prices, selectedUser }
                     <span className={`ml-2 text-xs ${mutedClass}`}>{shortData.shares} shares short</span>
                   </div>
                   <span className={`font-bold ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                    {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
                   </span>
                 </div>
                 <div className={`text-xs ${mutedClass} mt-1`}>
