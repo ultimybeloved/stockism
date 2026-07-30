@@ -5,7 +5,78 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } = require('../constants');
-const { priceHistoryRef } = require('../helpers');
+const { priceHistoryRef, writeNotification } = require('../helpers');
+const {
+  loyaltyTierFor, LOYALTY_TIER_LABEL,
+  dividendMultiplierForAgeMs, exitDiscountForAgeMs,
+} = require('../characters');
+
+// ─── Loyalty tier-up detection ───────────────────────────────────────────────
+
+/**
+ * Compare a user's current loyalty tiers against the last ones they were told
+ * about. Returns the new map plus whatever levelled up since.
+ *
+ * Tier drops (sold the old shares, rebought fresh) are recorded silently so the
+ * player can be congratulated again when they climb back.
+ */
+const diffLoyaltyTiers = (userData, now) => {
+  const holdings = userData.holdings || {};
+  const cohorts = userData.holdingCohorts || {};
+  const previous = userData.loyaltyTierNotified;
+  const current = {};
+  const upgrades = [];
+
+  for (const [ticker, shares] of Object.entries(holdings)) {
+    if (!(shares > 0)) continue;
+    const { tier, shares: tierShares } = loyaltyTierFor(cohorts[ticker], now);
+    if (tier <= 0) continue;
+    current[ticker] = tier;
+    if (previous && tier > (previous[ticker] || 0)) {
+      upgrades.push({ ticker, tier, shares: tierShares });
+    }
+  }
+
+  const changed = !previous
+    || Object.keys(current).length !== Object.keys(previous).length
+    || Object.entries(current).some(([t, v]) => previous[t] !== v);
+
+  // No previous map means this user has never been scanned. Record where they
+  // stand without announcing it, otherwise the first run after deploy fires at
+  // every existing player at once.
+  return { current, upgrades: previous ? upgrades : [], changed };
+};
+
+const buildLoyaltyNotification = (upgrades) => {
+  const day = 24 * 60 * 60 * 1000;
+  const reward = (tier) => {
+    const mult = dividendMultiplierForAgeMs(tier * day);
+    const off = Math.round(exitDiscountForAgeMs(tier * day) * 100);
+    return { mult, off };
+  };
+
+  if (upgrades.length === 1) {
+    const { ticker, tier, shares } = upgrades[0];
+    const { mult, off } = reward(tier);
+    return {
+      type: 'loyalty',
+      title: `$${ticker} hit the ${LOYALTY_TIER_LABEL[tier]} tier`,
+      message: `${shares} share${shares === 1 ? '' : 's'} now earn ${mult}x dividends and sell with ${off}% off price impact.`,
+      data: { ticker, tiers: { [ticker]: tier } },
+    };
+  }
+
+  const tiers = {};
+  for (const u of upgrades) tiers[u.ticker] = u.tier;
+  return {
+    type: 'loyalty',
+    title: `${upgrades.length} holdings levelled up`,
+    message: upgrades
+      .map((u) => `$${u.ticker} → ${LOYALTY_TIER_LABEL[u.tier]}`)
+      .join(', ') + '.',
+    data: { tiers },
+  };
+};
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
@@ -172,6 +243,8 @@ exports.syncAllPortfolios = cf().pubsub
 
       let syncedCount = 0;
       let errorCount = 0;
+      let loyaltyNotified = 0;
+      const loyaltyWrites = [];
       let batch = db.batch();
       let batchCount = 0;
 
@@ -221,11 +294,18 @@ exports.syncAllPortfolios = cf().pubsub
             }
           }
 
+          // Loyalty tier-ups ride along on this scan: it already holds the whole
+          // user doc, so detection costs no extra reads. Bots are skipped for
+          // notifications only — their portfolio sync above is untouched.
+          const loyalty = userData.isBot
+            ? { current: {}, upgrades: [], changed: false }
+            : diffLoyaltyTiers(userData, startTime);
+
           // Only update if different from stored value (avoid unnecessary writes)
           const storedValue = userData.portfolioValue || 0;
           const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01 || marginInterest > 0;
 
-          if (isDifferent) {
+          if (isDifferent || loyalty.changed) {
             const userRef = db.collection('users').doc(userId);
             const updateFields = {
               portfolioValue: portfolioValue,
@@ -235,7 +315,21 @@ exports.syncAllPortfolios = cf().pubsub
               updateFields.marginUsed = marginUsed + marginInterest;
               updateFields.lastMarginInterestCharge = startTime;
             }
+            if (loyalty.changed) {
+              updateFields.loyaltyTierNotified = loyalty.current;
+            }
             batch.update(userRef, updateFields);
+
+            if (loyalty.upgrades.length > 0) {
+              // Collected rather than fired and forgotten: the container can be
+              // frozen the moment this handler returns, which would drop the
+              // write. Awaited together after the loop.
+              loyaltyWrites.push(
+                writeNotification(userId, buildLoyaltyNotification(loyalty.upgrades))
+                  .catch(err => console.error('Loyalty notification failed for', userId, err))
+              );
+              loyaltyNotified++;
+            }
             batchCount++;
             syncedCount++;
 
@@ -260,6 +354,11 @@ exports.syncAllPortfolios = cf().pubsub
         console.log(`Committed final batch of ${batchCount} updates`);
       }
 
+      if (loyaltyWrites.length > 0) {
+        await Promise.all(loyaltyWrites);
+        console.log(`Sent ${loyaltyNotified} loyalty tier-up notification(s)`);
+      }
+
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
       const result = {
         success: true,
@@ -267,6 +366,7 @@ exports.syncAllPortfolios = cf().pubsub
         synced: syncedCount,
         skipped: usersSnapshot.size - syncedCount - errorCount,
         errors: errorCount,
+        loyaltyNotified,
         elapsedSeconds: elapsed
       };
 

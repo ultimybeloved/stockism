@@ -1,6 +1,7 @@
 import { getThemeClasses } from '../../utils/theme';
 import { formatTimeAgo, formatCurrency } from '../../utils/formatters';
 import { getNotificationMeta } from '../../utils/notifications';
+import { LOYALTY_TIER_LABEL } from '../../characters';
 
 // Left-border accent per notification color key. Kept here (not in theme.js)
 // because it's specific to this row's accent strip.
@@ -38,6 +39,8 @@ export default function NotificationRow({
 
   const breakdown = data.breakdown && Object.entries(data.breakdown);
   const reinvested = data.reinvestedBreakdown && Object.entries(data.reinvestedBreakdown);
+  // Loyalty tiers are day labels, not money, so they get their own row style.
+  const tiers = data.tiers && Object.entries(data.tiers);
 
   return (
     <div
@@ -71,7 +74,7 @@ export default function NotificationRow({
             {notification.message}
           </p>
 
-          {expanded && (breakdown?.length > 0 || reinvested?.length > 0) && (
+          {expanded && (breakdown?.length > 0 || reinvested?.length > 0 || tiers?.length > 0) && (
             <div className={`mt-2 space-y-0.5 text-[11px] ${mutedClass}`}>
               {breakdown?.map(([ticker, amount]) => (
                 <div key={`c-${ticker}`} className="flex justify-between">
@@ -83,6 +86,12 @@ export default function NotificationRow({
                 <div key={`r-${ticker}`} className="flex justify-between">
                   <span>${ticker} (reinvested)</span>
                   <span>{formatCurrency(amount)}</span>
+                </div>
+              ))}
+              {tiers?.map(([ticker, tier]) => (
+                <div key={`t-${ticker}`} className="flex justify-between">
+                  <span>${ticker}</span>
+                  <span>{LOYALTY_TIER_LABEL[tier] || `${tier} days`}</span>
                 </div>
               ))}
             </div>

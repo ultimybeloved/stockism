@@ -10,7 +10,9 @@ import {
   exitDiscountForAgeMs,
   dividendWeightedShares,
   cohortLots,
+  loyaltyTierFor,
   EXIT_LOYALTY_MAX_DISCOUNT,
+  LOYALTY_NOTIFY_MIN_SHARES,
   DIVIDEND_HOLD_MS,
   DIVIDEND_HOLD_DAYS,
   DIVIDEND_LADDER_EPOCH,
@@ -108,6 +110,42 @@ describe('exitLoyaltyDiscount', () => {
   it('ignores empty pending buckets', () => {
     const withEmpties = cohort(0, [{ shares: 0, availableAt: NOW }, lot(100, 60)]);
     expect(exitLoyaltyDiscount(withEmpties, 100, NOW)).toBe(0.40);
+  });
+});
+
+describe('loyaltyTierFor', () => {
+  it('reports no tier below the first rung', () => {
+    expect(loyaltyTierFor(cohort(0, [lot(100, 5)]), NOW)).toEqual({ tier: 0, shares: 0 });
+    expect(loyaltyTierFor(null, NOW)).toEqual({ tier: 0, shares: 0 });
+    expect(loyaltyTierFor(cohort(0, []), NOW)).toEqual({ tier: 0, shares: 0 });
+  });
+
+  it('reports each rung with the shares that reached it', () => {
+    expect(loyaltyTierFor(cohort(0, [lot(100, 15)]), NOW)).toEqual({ tier: DIVIDEND_HOLD_DAYS, shares: 100 });
+    expect(loyaltyTierFor(cohort(0, [lot(100, 30)]), NOW)).toEqual({ tier: 28, shares: 100 });
+    expect(loyaltyTierFor(cohort(0, [lot(100, 60)]), NOW)).toEqual({ tier: 56, shares: 100 });
+  });
+
+  it('reports the highest rung reached, not an average', () => {
+    // 10 mature + 900 fresh: the holding HAS reached 8 weeks, on 10 shares.
+    const mixed = cohort(0, [lot(10, 60), lot(900, 1)]);
+    expect(loyaltyTierFor(mixed, NOW)).toEqual({ tier: 56, shares: 10 });
+  });
+
+  it('sums every lot at or above the reported rung', () => {
+    const spread = cohort(0, [lot(10, 90), lot(15, 60), lot(40, 30)]);
+    expect(loyaltyTierFor(spread, NOW)).toEqual({ tier: 56, shares: 25 });
+  });
+
+  it('falls to a lower rung when the top one is below the dust threshold', () => {
+    const dust = cohort(0, [lot(LOYALTY_NOTIFY_MIN_SHARES / 2, 60), lot(50, 30)]);
+    expect(loyaltyTierFor(dust, NOW)).toEqual({ tier: 28, shares: 50.5 });
+  });
+
+  it('ages the eligible bucket from the ladder epoch', () => {
+    expect(loyaltyTierFor(cohort(100), LEGACY_ACQUIRED_AT + 5 * DAY)).toEqual({ tier: 0, shares: 0 });
+    expect(loyaltyTierFor(cohort(100), LEGACY_ACQUIRED_AT + 30 * DAY)).toEqual({ tier: 28, shares: 100 });
+    expect(loyaltyTierFor(cohort(100), LEGACY_ACQUIRED_AT + 60 * DAY)).toEqual({ tier: 56, shares: 100 });
   });
 });
 

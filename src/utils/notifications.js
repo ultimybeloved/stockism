@@ -6,7 +6,7 @@
 // Per-type display metadata. `colorKey` maps to a small palette in the row
 // component so we never inline duplicate theme strings here.
 // Notification types written by the backend (functions/helpers.js writeNotification):
-// trade, alert, achievement, margin, system, dividend.
+// trade, alert, achievement, margin, system, dividend, loyalty.
 export const NOTIFICATION_META = {
   trade:       { icon: '📈', colorKey: 'green',   category: 'Trades' },
   alert:       { icon: '🔔', colorKey: 'blue',    category: 'Alerts' },
@@ -14,6 +14,7 @@ export const NOTIFICATION_META = {
   margin:      { icon: '⚠️', colorKey: 'amber',   category: 'Alerts' },
   achievement: { icon: '🏆', colorKey: 'gold',    category: 'Rewards' },
   dividend:    { icon: '💰', colorKey: 'emerald', category: 'Rewards' },
+  loyalty:     { icon: '🎖️', colorKey: 'gold',    category: 'Rewards' },
   system:      { icon: '💵', colorKey: 'violet',  category: 'Rewards' },
 };
 
@@ -47,5 +48,7 @@ export const hasExpandableDetail = (notification) => {
   const data = notification?.data || {};
   if (data.breakdown && Object.keys(data.breakdown).length > 0) return true;
   if (data.reinvestedBreakdown && Object.keys(data.reinvestedBreakdown).length > 0) return true;
+  // A loyalty digest only has more to show when several holdings levelled up.
+  if (data.tiers && Object.keys(data.tiers).length > 1) return true;
   return (notification?.message || '').length > 90;
 };

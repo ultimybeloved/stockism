@@ -569,6 +569,14 @@ export const exitDiscountForAgeMs = (ageMs) => {
   return rung ? rung.discount : 0;
 };
 
+// Both ladders sit on the same day boundaries, so a holding crossing one is
+// always crossing the other at the same moment. Notifications treat that as one
+// event and quote both rewards.
+export const LOYALTY_TIERS = [56, 28, DIVIDEND_HOLD_DAYS]; // descending
+export const LOYALTY_TIER_LABEL = { 56: '8 weeks', 28: '4 weeks', [DIVIDEND_HOLD_DAYS]: '10 days' };
+// Below this, a levelled-up position isn't worth telling anyone about.
+export const LOYALTY_NOTIFY_MIN_SHARES = 1;
+
 /**
  * Resolve a ticker's dividend tier name. `rarityTiers` is the output of
  * computeRarityTiers for whatever price set applies (live or snapshot);
@@ -642,4 +650,25 @@ export const exitLoyaltyDiscount = (cohort, shares, now) => {
     remaining -= take;
   }
   return weighted / shares;
+};
+
+/**
+ * The loyalty rung a holding has reached: the highest tier where the player
+ * holds at least LOYALTY_NOTIFY_MIN_SHARES that old. Returns tier 0 below the
+ * first rung.
+ *
+ * Reads ages through cohortLots for the same reason everything else does — a
+ * second age walk would eventually disagree with the rewards it announces.
+ */
+export const loyaltyTierFor = (cohort, now) => {
+  const lots = cohortLots(cohort, now);
+  const day = 24 * 60 * 60 * 1000;
+  for (const tier of LOYALTY_TIERS) {
+    const shares = lots.reduce(
+      (sum, lot) => sum + (lot.ageMs / day >= tier ? lot.shares : 0), 0);
+    if (shares >= LOYALTY_NOTIFY_MIN_SHARES) {
+      return { tier, shares: Math.round(shares * 10000) / 10000 };
+    }
+  }
+  return { tier: 0, shares: 0 };
 };
