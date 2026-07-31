@@ -1,6 +1,7 @@
 'use strict';
 
-const { cf } = require('../fnConfig');
+const { cf, requireAppCheck } = require('../fnConfig');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
@@ -259,6 +260,46 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
   }
 });
 
+// Builds the drop post. Shared by the schedule and the admin re-run so a
+// manually posted drop is byte-for-byte the same message players normally get.
+const buildDailyDropMessage = () => ({
+  embeds: [{
+    title: '🎁 Daily Free Stock Drop!',
+    description: 'Click the button below to claim your free daily stock(s)!\n\n' +
+      '**How it works:**\n' +
+      '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
+      '• On top of that you get **bonus shares** of cheaper characters\n' +
+      '• Hit the **jackpot** (3% chance) for a big legendary haul\n\n' +
+      '*Your Discord must be linked to your Stockism account to claim.*',
+    color: 0x00D166,
+    footer: { text: 'Resets daily • One claim per user' }
+  }],
+  components: [
+    {
+      type: 1, // Action Row
+      components: [
+        {
+          type: 2, // Button
+          style: 1, // Primary (blurple)
+          label: '🎲 Claim Free Stock',
+          custom_id: 'claim_daily_stock'
+        },
+        {
+          type: 2, // Button
+          style: 2, // Secondary (gray)
+          label: '📋 View Last Claim',
+          custom_id: 'view_last_claim'
+        }
+      ]
+    }
+  ],
+});
+
+const postDailyDrop = async () => {
+  const { embeds, components } = buildDailyDropMessage();
+  await sendDiscordMessage(null, embeds, DISCORD_DAILY_DROP_CHANNEL, components);
+};
+
 /**
  * Daily scheduled function — posts the claim button to Discord.
  * Runs at 10 AM Eastern (14:00 UTC) every day.
@@ -267,42 +308,33 @@ exports.dailyFreeStock = cf().pubsub
   .schedule('0 14 * * *')
   .timeZone('UTC')
   .onRun(async () => {
-    const embed = {
-      title: '🎁 Daily Free Stock Drop!',
-      description: 'Click the button below to claim your free daily stock(s)!\n\n' +
-        '**How it works:**\n' +
-        '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
-        '• On top of that you get **bonus shares** of cheaper characters\n' +
-        '• Hit the **jackpot** (3% chance) for a big legendary haul\n\n' +
-        '*Your Discord must be linked to your Stockism account to claim.*',
-      color: 0x00D166,
-      footer: { text: 'Resets daily • One claim per user' }
-    };
-
-    const components = [
-      {
-        type: 1, // Action Row
-        components: [
-          {
-            type: 2, // Button
-            style: 1, // Primary (blurple)
-            label: '🎲 Claim Free Stock',
-            custom_id: 'claim_daily_stock'
-          },
-          {
-            type: 2, // Button
-            style: 2, // Secondary (gray)
-            label: '📋 View Last Claim',
-            custom_id: 'view_last_claim'
-          }
-        ]
-      }
-    ];
-
-    await sendDiscordMessage(null, [embed], DISCORD_DAILY_DROP_CHANNEL, components);
-    console.log('Daily free stock claim message posted to channel 1483767343581761658');
+    await postDailyDrop();
+    console.log(`Daily free stock claim message posted to channel ${DISCORD_DAILY_DROP_CHANNEL}`);
     return null;
   });
+
+/**
+ * Manual re-run of the daily drop (admin only).
+ *
+ * NOT idempotent, unlike the market-report triggers: every drop message is a
+ * separately claimable 72-hour window, so posting a second one hands every
+ * linked player another full claim. That is the point (event drops), but it
+ * doubles the day's payout — the admin button warns before firing.
+ */
+exports.triggerDailyFreeStock = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  try {
+    await postDailyDrop();
+    return { success: true };
+  } catch (error) {
+    console.error('Error in triggerDailyFreeStock:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 /**
  * Discord Interactions Webhook — handles button clicks for daily stock claim.

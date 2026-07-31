@@ -12,6 +12,7 @@ const MarketTab = ({
   runCrewRankings,
   runMarketSummary,
   runDailyMarketSummary,
+  runDailyFreeStock,
   runBackfillFillTrades,
   runArchivePriceHistory,
 }) => {
@@ -109,6 +110,23 @@ const MarketTab = ({
             Post Weekly Report
           </button>
         </div>
+      </div>
+
+      {/* Free stock drop */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Free Stock Drop</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Posts an extra drop to Discord on top of the automatic one at 14:00 UTC. Every linked player
+          gets another claim, worth about $400 each on average, and it stays claimable for 72 hours.
+          Use this for events, not routinely.
+        </p>
+        <button
+          onClick={runDailyFreeStock}
+          disabled={loading}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Post Drop Now
+        </button>
       </div>
 
       {/* Missing fill history */}

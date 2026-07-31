@@ -4,6 +4,7 @@ import {
   triggerDailyMarketSummaryFunction,
   archivePriceHistoryFunction,
   backfillFillTradeRecordsFunction,
+  triggerDailyFreeStockFunction,
 } from '../../firebase';
 
 // Manual re-runs of jobs that normally fire on a schedule. Used by the Market
@@ -62,6 +63,31 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
+  // Post an extra free-stock drop to Discord now. Unlike the report buttons
+  // this one gives every linked player another claim, so it asks first.
+  const runDailyFreeStock = async () => {
+    const ok = window.confirm(
+      'Post another free stock drop?\n\n' +
+      'Every linked player gets a second claim today, worth about $400 each on average. ' +
+      'The drop stays claimable for 72 hours.'
+    );
+    if (!ok) return;
+
+    setLoading(true);
+    try {
+      const result = await triggerDailyFreeStockFunction({});
+      if (result.data?.success) {
+        showMessage('success', 'Drop posted to Discord.');
+      } else {
+        showMessage('error', 'Drop failed: ' + (result.data?.error || 'unknown error'));
+      }
+    } catch (err) {
+      console.error('Daily drop post failed:', err);
+      showMessage('error', 'Failed to post drop: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   // Move old price points from the live market/priceHistory doc into the
   // per-ticker archive. Charts merge the archive back in, so nothing visible
   // changes. Run this if trades ever fail with "too many index entries".
@@ -96,5 +122,5 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runArchivePriceHistory, runBackfillFillTrades };
+  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock, runArchivePriceHistory, runBackfillFillTrades };
 }
