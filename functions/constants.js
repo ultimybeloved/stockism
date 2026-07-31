@@ -317,19 +317,47 @@ const DISCORD_LEADERBOARD_ROWS = 10;
 const DISCORD_PORTFOLIO_ROWS = 8;
 
 // ============================================
-// DISCORD DAILY DROP (loot roll in discordInteractions.js)
+// DISCORD DAILY DROP (loot roll in dailyDropRoll.js)
 // ============================================
-// "High tier" is defined at roll time by LIVE price (not basePrice, which has
-// drifted way below current prices). The priciest fraction of tradeable stocks
-// is high tier. In a NORMAL roll a high-tier stock is capped at 1 share so a
-// lucky draw can't make someone rich; jackpots are drawn only from high tier.
+// Every claim draws from TWO tables. The roster has grown a long cheap tail
+// (over a third of it trades under $25), and when one flat pool fed the whole
+// roll most days paid out a single share of a $10 character. So the cheap end
+// now rides on top of the real pull instead of replacing it:
+//
+//   BONUS table  cheapest tiers, several shares, paid on every claim
+//   CORE table   the actual pull, drawn from the mid tiers
+//   JACKPOT      3% of claims, replaces the core pull with a legendary haul
+//
+// Tiers come from computeRarityTiers (src/characters.js), which ranks by LIVE
+// price rather than basePrice and re-sorts itself as the market moves. New
+// cheap characters therefore route themselves into the bonus table with no
+// maintenance here. Legendary is deliberately absent from the core table —
+// a single legendary share outvalues a whole good roll, so it stays a jackpot
+// prize and the everyday payout stays predictable.
+//
+// Calibrated against live prices 2026-07-31: mean $394/claim, typical $299,
+// worst 10% of claims still clear $187. Re-run scripts/sim-daily-drop.cjs
+// after changing any weight below.
 const DAILY_DROP_JACKPOT_CHANCE = 0.03;            // 3% of claims are jackpots
-const DAILY_DROP_HIGH_TIER_FRACTION = 0.25;        // priciest 25% by live price = high tier
-const DAILY_DROP_HIGH_TIER_CAP = 1;                // max shares of a high-tier stock in a normal roll
-const DAILY_DROP_NORMAL_SHARE_VALUES = [1, 2, 3, 4];
-const DAILY_DROP_NORMAL_SHARE_WEIGHTS = [55, 30, 11, 4]; // total shares, heavily weighted to 1-2
-const DAILY_DROP_NORMAL_VARIETY_VALUES = [1, 2, 3];
-const DAILY_DROP_NORMAL_VARIETY_WEIGHTS = [70, 25, 5];   // how many different stocks
+
+// Bonus table — the cheap end of the roster, added to every single claim.
+const DAILY_DROP_BONUS_TIERS = ['common', 'uncommon'];
+const DAILY_DROP_BONUS_SHARE_VALUES = [3, 4, 5, 6, 7];
+const DAILY_DROP_BONUS_SHARE_WEIGHTS = [20, 30, 25, 17, 8];
+const DAILY_DROP_BONUS_VARIETY_VALUES = [1, 2, 3];   // how many different stocks
+const DAILY_DROP_BONUS_VARIETY_WEIGHTS = [30, 45, 25];
+
+// Core table — the main pull. Share counts are per-tier so an epic pull can't
+// hand out as many shares as a rare one.
+const DAILY_DROP_CORE_TIER_VALUES = ['rare', 'epic'];
+const DAILY_DROP_CORE_TIER_WEIGHTS = [55, 45];
+const DAILY_DROP_CORE_SHARE_VALUES = { rare: [2, 3, 4], epic: [1, 2, 3] };
+const DAILY_DROP_CORE_SHARE_WEIGHTS = { rare: [35, 40, 25], epic: [35, 45, 20] };
+const DAILY_DROP_CORE_VARIETY_VALUES = [1, 2];
+const DAILY_DROP_CORE_VARIETY_WEIGHTS = [70, 30];
+
+// Jackpot — the only way a legendary drops.
+const DAILY_DROP_JACKPOT_TIERS = ['legendary', 'epic'];
 const DAILY_DROP_JACKPOT_SHARES_MIN = 6;
 const DAILY_DROP_JACKPOT_SHARES_MAX = 10;
 const DAILY_DROP_JACKPOT_VARIETY_MIN = 3;
@@ -535,12 +563,18 @@ module.exports = {
   DISCORD_PORTFOLIO_ROWS,
   SITE_URL,
   DAILY_DROP_JACKPOT_CHANCE,
-  DAILY_DROP_HIGH_TIER_FRACTION,
-  DAILY_DROP_HIGH_TIER_CAP,
-  DAILY_DROP_NORMAL_SHARE_VALUES,
-  DAILY_DROP_NORMAL_SHARE_WEIGHTS,
-  DAILY_DROP_NORMAL_VARIETY_VALUES,
-  DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
+  DAILY_DROP_BONUS_TIERS,
+  DAILY_DROP_BONUS_SHARE_VALUES,
+  DAILY_DROP_BONUS_SHARE_WEIGHTS,
+  DAILY_DROP_BONUS_VARIETY_VALUES,
+  DAILY_DROP_BONUS_VARIETY_WEIGHTS,
+  DAILY_DROP_CORE_TIER_VALUES,
+  DAILY_DROP_CORE_TIER_WEIGHTS,
+  DAILY_DROP_CORE_SHARE_VALUES,
+  DAILY_DROP_CORE_SHARE_WEIGHTS,
+  DAILY_DROP_CORE_VARIETY_VALUES,
+  DAILY_DROP_CORE_VARIETY_WEIGHTS,
+  DAILY_DROP_JACKPOT_TIERS,
   DAILY_DROP_JACKPOT_SHARES_MIN,
   DAILY_DROP_JACKPOT_SHARES_MAX,
   DAILY_DROP_JACKPOT_VARIETY_MIN,

@@ -271,9 +271,9 @@ exports.dailyFreeStock = cf().pubsub
       title: '🎁 Daily Free Stock Drop!',
       description: 'Click the button below to claim your free daily stock(s)!\n\n' +
         '**How it works:**\n' +
-        '• You get 1-5 random shares of random characters\n' +
-        '• Lucky rolls get even more variety\n' +
-        '• Hit the **jackpot** (super rare!) for 6-10 shares across multiple characters\n\n' +
+        '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
+        '• On top of that you get **bonus shares** of cheaper characters\n' +
+        '• Hit the **jackpot** (3% chance) for a big legendary haul\n\n' +
         '*Your Discord must be linked to your Stockism account to claim.*',
       color: 0x00D166,
       footer: { text: 'Resets daily • One claim per user' }

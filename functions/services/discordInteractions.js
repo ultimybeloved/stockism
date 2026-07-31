@@ -6,19 +6,13 @@ const axios = require('axios');
 const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
 const {
-  ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
-  ADMIN_PRICE_PROTECTION_MS,
-  DAILY_DROP_JACKPOT_CHANCE, DAILY_DROP_HIGH_TIER_FRACTION, DAILY_DROP_HIGH_TIER_CAP,
-  DAILY_DROP_NORMAL_SHARE_VALUES, DAILY_DROP_NORMAL_SHARE_WEIGHTS,
-  DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS,
-  DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
-  DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
-  DIRECT_REPLY_BUDGET_MS,
+  BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
+  ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS,
 } = require('../constants');
 const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError } = require('../helpers');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
+const { rollDailyStock } = require('./dailyDropRoll');
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
 // been acknowledged within 3 seconds — and a cold start on this project loads
@@ -37,88 +31,16 @@ const editDeferredReply = (appId, token, payload) =>
 // instead of deferring — see the slash-command branch below.
 let servedARequest = false;
 
-function weightedRandom(values, weights) {
-  const total = weights.reduce((a, b) => a + b, 0);
-  let roll = Math.random() * total;
-  for (let i = 0; i < values.length; i++) {
-    roll -= weights[i];
-    if (roll <= 0) return values[i];
-  }
-  return values[values.length - 1];
-}
-
-function randInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// Hands out `totalShares` round-robin across the selected stocks, but never
-// gives a stock more than its cap. Leftover shares (when every pick is capped)
-// are simply not awarded. Zero-share picks are dropped from the result.
-function distributeShares(selectedStocks, prices, totalShares, capFor) {
-  const picks = selectedStocks.map(stock => ({
-    ticker: stock.ticker,
-    name: stock.name,
-    shares: 0,
-    currentPrice: prices[stock.ticker] || stock.basePrice,
-    _cap: capFor(stock),
-  }));
-  let remaining = totalShares;
-  let progressed = true;
-  while (remaining > 0 && progressed) {
-    progressed = false;
-    for (const p of picks) {
-      if (remaining <= 0) break;
-      if (p.shares < p._cap) { p.shares += 1; remaining -= 1; progressed = true; }
-    }
-  }
-  return picks.filter(p => p.shares > 0).map(({ _cap, ...p }) => p);
-}
-
-async function rollDailyStock() {
-  const isJackpot = Math.random() < DAILY_DROP_JACKPOT_CHANCE;
-
-  const marketDoc = await db.collection('market').doc('current').get();
-  const prices = marketDoc.data()?.prices || {};
-  const launchedTickers = marketDoc.data()?.launchedTickers || [];
-  const tradeableChars = CHARACTERS.filter(c =>
-    !c.ipoRequired || launchedTickers.includes(c.ticker)
-  ).filter(c => prices[c.ticker] != null);
-  if (tradeableChars.length === 0) return { picks: [], isJackpot: false };
-
-  // "High tier" = the priciest slice by LIVE price (basePrice has drifted far
-  // below current prices, so live price is the only honest measure of value).
-  const byPrice = [...tradeableChars].sort((a, b) => (prices[b.ticker] || 0) - (prices[a.ticker] || 0));
-  const highCount = Math.max(1, Math.round(byPrice.length * DAILY_DROP_HIGH_TIER_FRACTION));
-  const highTierPool = byPrice.slice(0, highCount);
-  const highTierTickers = new Set(highTierPool.map(c => c.ticker));
-
-  const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-
-  if (isJackpot) {
-    // Jackpot is drawn entirely from high-tier stocks and stays generous.
-    const totalShares = randInt(DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX);
-    const varietyCount = Math.min(
-      randInt(DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX),
-      highTierPool.length,
-      totalShares
-    );
-    const selected = shuffle(highTierPool).slice(0, varietyCount);
-    const picks = distributeShares(selected, prices, totalShares, () => totalShares);
-    return { picks, isJackpot: true };
-  }
-
-  // Normal roll: few shares, and any high-tier stock is capped at 1 — you can
-  // still hit it, you just can't stack value off a lucky draw.
-  const totalShares = weightedRandom(DAILY_DROP_NORMAL_SHARE_VALUES, DAILY_DROP_NORMAL_SHARE_WEIGHTS);
-  const varietyCount = Math.min(
-    weightedRandom(DAILY_DROP_NORMAL_VARIETY_VALUES, DAILY_DROP_NORMAL_VARIETY_WEIGHTS),
-    totalShares,
-    tradeableChars.length
-  );
-  const selected = shuffle(tradeableChars).slice(0, varietyCount);
-  const picks = distributeShares(selected, prices, totalShares,
-    (c) => highTierTickers.has(c.ticker) ? DAILY_DROP_HIGH_TIER_CAP : totalShares);
-  return { picks, isJackpot: false };
+// Render a claim's picks split by drop table. `priceFor` differs by caller: the
+// claim path shows post-impact prices, "view last claim" the stored ones.
+function formatDropPicks(picks, priceFor) {
+  const line = (p) => `**${p.name}** ($${p.ticker}) x${p.shares} ($${(p.shares * priceFor(p)).toFixed(2)})`;
+  const main = picks.filter(p => p.group !== 'bonus');
+  const bonus = picks.filter(p => p.group === 'bonus');
+  // Claims made before the two-table split have no group tag, so one of these
+  // comes back empty. Fall back to a flat list rather than an empty heading.
+  if (!main.length || !bonus.length) return picks.map(line).join('\n');
+  return `**Main pull**\n${main.map(line).join('\n')}\n\n**Bonus shares**\n${bonus.map(line).join('\n')}`;
 }
 
 exports.discordInteractions = cf().https.onRequest(async (req, res) => {
@@ -300,8 +222,15 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           }
         }
 
+        // One market read serves both the roll (which needs live prices to
+        // rank the drop tiers) and the buy-side price impact applied below.
+        const marketRef = db.collection('market').doc('current');
+        const marketDoc = await marketRef.get();
+        const prices = marketDoc.data()?.prices || {};
+        const launchedTickers = marketDoc.data()?.launchedTickers || [];
+
         // Roll the loot
-        const { picks, isJackpot } = await rollDailyStock();
+        const { picks, isJackpot } = rollDailyStock(prices, launchedTickers);
 
         if (picks.length === 0) {
           await editOriginal({
@@ -309,11 +238,6 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           });
           return;
         }
-
-        // Fetch current market prices for buy-side price impact
-        const marketRef = db.collection('market').doc('current');
-        const marketDoc = await marketRef.get();
-        const prices = marketDoc.data()?.prices || {};
 
         // Award the shares in a transaction with a FRESH read of holdings —
         // the query read above is seconds stale by now, and a concurrent trade
@@ -333,7 +257,8 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
                 ticker: p.ticker,
                 name: p.name,
                 shares: p.shares,
-                currentPrice: p.currentPrice
+                currentPrice: p.currentPrice,
+                group: p.group
               })),
               isJackpot,
               claimedAt: new Date().toISOString()
@@ -389,12 +314,9 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
         // Build response embed (using post-impact prices)
         const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
-        const stockList = picks.map(p => {
-          const displayPrice = newPrices[p.ticker] || p.currentPrice;
-          return `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * displayPrice).toFixed(2)})`;
-        }).join('\n');
-
-        const totalValue = picks.reduce((sum, p) => sum + (p.shares * (newPrices[p.ticker] || p.currentPrice)), 0);
+        const priceFor = (p) => newPrices[p.ticker] || p.currentPrice;
+        const stockList = formatDropPicks(picks, priceFor);
+        const totalValue = picks.reduce((sum, p) => sum + (p.shares * priceFor(p)), 0);
 
         // Send web notification
         await writeNotification(uid, {
@@ -477,9 +399,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         }
 
         const totalShares = lastResult.picks.reduce((sum, p) => sum + p.shares, 0);
-        const stockList = lastResult.picks.map(p =>
-          `**${p.name}** ($${p.ticker}) — ${p.shares} share${p.shares > 1 ? 's' : ''} (worth $${(p.shares * p.currentPrice).toFixed(2)})`
-        ).join('\n');
+        const stockList = formatDropPicks(lastResult.picks, (p) => p.currentPrice);
         const totalValue = lastResult.picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
 
         const claimedDate = lastResult.claimedAt
