@@ -295,6 +295,46 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 
 // ============================================
+// DISCORD CREW HEAD ROLES (discordRoles.js)
+// ============================================
+// Every Monday the weekly crew rankings crown a head per crew. These roles
+// make that visible in Discord: the head wears their crew's role, which colors
+// their name (and shows the crew icon beside it if the server is Boost Level
+// 2 — colors work at any level, icons silently don't below 2).
+//
+// The bot NEVER creates or edits roles. The roles are made by hand in Discord
+// with whatever name/color/icon we want; the bot only adds and removes
+// assignments, so its permission stays at Manage Roles alone. Its own role
+// must sit ABOVE these in the hierarchy or Discord rejects every call with 403.
+//
+// Guild and role IDs live here rather than .env because they are not secrets
+// (every server member can see them) and a mistyped ID is invisible forever in
+// a gitignored file but obvious in a diff. The bot TOKEN stays in .env.
+//
+// A blank role ID disables that crew entirely — no add, no remove. All blank
+// (the default) no-ops the whole feature, so this ships safely before the
+// Discord side is set up.
+const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID || '';
+const CREW_HEAD_ROLE_IDS = {
+  ALLIED: '',
+  BIG_DEAL: '',
+  FIST_GANG: '',
+  GOD_DOG: '',
+  SECRET_FRIENDS: '',
+  HOSTEL: '',
+  WTJC: '',
+  WORKERS: '',
+  YAMAZAKI: '',
+};
+// Discord snowflakes are 17-20 digits. Catches a truncated paste, the single
+// likeliest setup mistake.
+const DISCORD_SNOWFLAKE_PATTERN = /^\d{17,20}$/;
+const DISCORD_API_TIMEOUT_MS = 10000;        // per request
+const DISCORD_ROLE_CALL_SPACING_MS = 300;    // polite gap between role writes
+const DISCORD_ROLE_SYNC_BUDGET_MS = 25000;   // whole-sync wall clock ceiling
+const DISCORD_ROLE_RETRY_MAX_MS = 5000;      // longest 429 retry_after we wait out
+
+// ============================================
 // DISCORD SLASH COMMANDS (discordCommands.js)
 // ============================================
 // The bot is installable in partner servers, so command traffic comes from
@@ -431,17 +471,20 @@ const COSMETIC_CATALOG = {
 };
 
 // Crew head ("top dog") — assigned automatically every Monday by
-// weeklyCrewRankings: best weekly PERCENTAGE gain among a crew's active
-// members (percentage, not dollars, so whales can't sit on the crown).
-// The baseline floor stops near-zero accounts from farming huge percentages.
+// weeklyCrewRankings: the biggest PORTFOLIO among a crew's active members.
+// It used to be best weekly percentage gain, which players found confusing —
+// a small account having one good week outranked the crew's actual
+// heavyweight, and the crown changed hands for reasons nobody could see.
+// Wealth is the obvious reading of "crew head", so that is what it is now.
+// The crown carries no payout, only cosmetics, so ranking by size hands
+// whales no economic advantage.
 // Dynasty weeks = the streak that earns DYNASTY, and the reign length that
 // makes dethroning someone count as USURPER.
-const CREW_HEAD_MIN_BASELINE = 1000;
 const CREW_HEAD_DYNASTY_WEEKS = 4;
 
-// Minimum 7-day-ago portfolio value to appear on the percent-gain leaderboard.
-// Same rationale as CREW_HEAD_MIN_BASELINE: a $50 account doubling up must not
-// outrank real portfolios with a meaningless percentage.
+// Minimum 7-day-ago portfolio value to appear on the percent-gain leaderboard:
+// a $50 account doubling up must not outrank real portfolios with a
+// meaningless percentage.
 const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
 
 // Max LIVE price-history points kept per ticker in market/priceHistory. The
@@ -517,7 +560,6 @@ module.exports = {
   CREW_SWITCH_PENALTY,
   CREW_REJOIN_LOCKOUT_MS,
   CREW_UNDERDOG_MULT_MAX,
-  CREW_HEAD_MIN_BASELINE,
   CREW_HEAD_DYNASTY_WEEKS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
   PRICE_HISTORY_LIVE_MAX,
@@ -571,6 +613,13 @@ module.exports = {
   CREW_CONTRIB,
   ADMIN_UID,
   DISCORD_DAILY_DROP_CHANNEL,
+  DISCORD_GUILD_ID,
+  CREW_HEAD_ROLE_IDS,
+  DISCORD_SNOWFLAKE_PATTERN,
+  DISCORD_API_TIMEOUT_MS,
+  DISCORD_ROLE_CALL_SPACING_MS,
+  DISCORD_ROLE_SYNC_BUDGET_MS,
+  DISCORD_ROLE_RETRY_MAX_MS,
   DISCORD_COMMAND_COOLDOWN_MS,
   DIRECT_REPLY_BUDGET_MS,
   DISCORD_LEADERBOARD_ROWS,

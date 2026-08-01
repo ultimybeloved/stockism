@@ -1,17 +1,8 @@
 'use strict';
 
 const { cf } = require('../fnConfig');
-const axios = require('axios');
-const { sendDiscordMessage, reportError } = require('../helpers');
+const { sendDiscordMessage, reportError, discordApi } = require('../helpers');
 const { DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
-
-async function getDiscord(path, token) {
-  return axios.get(`https://discord.com/api/v10${path}`, {
-    headers: { Authorization: `Bot ${token}` },
-    validateStatus: () => true,
-    timeout: 10000,
-  });
-}
 
 /**
  * Scheduled self-check for the Discord Updates bot. Verifies the bot token is valid and
@@ -35,7 +26,7 @@ exports.discordHealthCheck = cf().pubsub
 
     // 1. Is the token valid at all?
     try {
-      const me = await getDiscord('/users/@me', token);
+      const me = await discordApi('get', '/users/@me');
       if (me.status !== 200) {
         problems.push(`Bot token rejected by Discord (status ${me.status})`);
       }
@@ -53,7 +44,7 @@ exports.discordHealthCheck = cf().pubsub
     const reachable = [];
     for (const id of channelIds) {
       try {
-        const r = await getDiscord(`/channels/${id}`, token);
+        const r = await discordApi('get', `/channels/${id}`);
         if (r.status === 200) {
           reachable.push(id);
         } else {

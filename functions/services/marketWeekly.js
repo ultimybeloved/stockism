@@ -7,8 +7,9 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_MIN_BASELINE, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, sumMarketActivity, priceHistoryRef, getWeekId } = require('../helpers');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, sumMarketActivity, priceHistoryRef, getWeekId, reportError } = require('../helpers');
+const { syncCrewHeadRoles, preflightCrewRoles } = require('./discordRoles');
 
 
 // Builds and posts the weekly market report. Read-only apart from the Discord
@@ -266,8 +267,10 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
           c.members.push({
             uid: doc.id,
             username: user.displayName,
-            portfolioValue, gain, active, baseline,
-            gainPercent: baseline > 0 ? (gain / baseline) * 100 : 0,
+            portfolioValue, gain, active,
+            // Only ever used to hand out the crew head Discord role. MUST NOT
+            // reach market/crewStats — that doc is world-readable.
+            discordId: user.discordId || null,
             isBankrupt: !!user.isBankrupt,
             wasHead: !!user.isCrewHead,
             headStreak: user.crewHeadStreak || 0,
@@ -298,25 +301,27 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       });
 
       // ── Crew head rotation ("top dog") ─────────────────────────────────
-      // The crown goes to the crew member with the best weekly PERCENTAGE
-      // gain among last week's active members. Percentage keeps it whale-fair;
-      // the baseline floor stops near-zero accounts from farming absurd
-      // percentages. No eligible member = vacant crown that week.
-      const heads = {};          // crewId -> { uid, displayName, gainPercent }
+      // The crown goes to the crew member with the biggest PORTFOLIO among
+      // last week's active members. Staying active is still required, so a
+      // dormant account can't sit on the crown forever. No eligible member =
+      // vacant crown that week.
+      const heads = {};          // crewId -> { uid, displayName, portfolioValue }
+      // Kept SEPARATE from `heads` on purpose: `heads` is written verbatim to
+      // market/crewStats, which anyone can read. Discord IDs stay private.
+      const headDiscordIds = {}; // crewId -> discordId | null
       const userUpdates = [];    // [{ uid, update, note }]
       Object.values(crews).forEach((c) => {
         const prevHead = c.members.find((m) => m.wasHead) || null;
-        const eligible = c.members.filter((m) =>
-          m.active && !m.isBankrupt && m.baseline >= CREW_HEAD_MIN_BASELINE
-        );
+        const eligible = c.members.filter((m) => m.active && !m.isBankrupt);
         const winner = eligible.length > 0
-          ? eligible.reduce((best, m) => (m.gainPercent > best.gainPercent ? m : best))
+          ? eligible.reduce((best, m) => (m.portfolioValue > best.portfolioValue ? m : best))
           : null;
 
         if (winner) {
           const kept = prevHead && prevHead.uid === winner.uid;
           const newStreak = kept ? prevHead.headStreak + 1 : 1;
-          heads[c.id] = { uid: winner.uid, displayName: winner.username || 'Anonymous', gainPercent: Math.round(winner.gainPercent * 10) / 10 };
+          heads[c.id] = { uid: winner.uid, displayName: winner.username || 'Anonymous', portfolioValue: Math.round(winner.portfolioValue * 100) / 100 };
+          headDiscordIds[c.id] = winner.discordId || null;
 
           const newAch = [];
           if (!winner.achievements.includes('CROWNED')) newAch.push('CROWNED');
@@ -333,7 +338,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
               title: `🔱 Crew Head of ${c.name}`,
               message: kept
                 ? `You kept the crown. ${newStreak} weeks running.`
-                : `Best gain in your crew last week (+${heads[c.id].gainPercent}%). The crown is yours.`,
+                : `Biggest portfolio in your crew. The crown is yours.`,
             },
           });
 
@@ -344,7 +349,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
               note: {
                 type: 'system',
                 title: 'Crown lost',
-                message: `${winner.username || 'A crewmate'} took the top spot in ${c.name} this week.`,
+                message: `${winner.username || 'A crewmate'} now has the biggest portfolio in ${c.name}.`,
               },
             });
           }
@@ -406,7 +411,9 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         const avgText = crew.avgActiveGain === null ? 'n/a' : fmtMoney(crew.avgActiveGain);
         const mult = multipliers[crew.id];
         const head = heads[crew.id];
-        const headText = head ? `🔱 ${head.displayName} (${head.gainPercent >= 0 ? '+' : ''}${head.gainPercent}%)` : 'Vacant';
+        const headText = head
+          ? `🔱 ${head.displayName} ($${head.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})`
+          : 'Vacant';
 
         return {
           name: `${idx + 1}. ${crew.emblem} ${crew.name}`,
@@ -424,7 +431,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       const embed = {
         color: 0x5865F2, // Discord blurple
         title: '⚔️ Weekly Crew Rankings',
-        description: '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The best weekly % gain in each crew takes the crown.*',
+        description: '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The biggest active portfolio in each crew takes the crown.*',
         fields: fields,
         footer: {
           text: 'Reward bonus applies to daily, weekly, and crew mission payouts. It recalculates every Monday from crew activity.'
@@ -436,10 +443,28 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         await sendDiscordMessage(null, [embed]);
         console.log('Weekly crew rankings sent');
       }
-      return { multipliers, activeCounts, memberCounts };
+
+      // Crew head Discord roles. Deliberately LAST: multipliers, crowns,
+      // achievements, notifications and the announcement are all committed
+      // before a single Discord role call is made, so a Discord outage can
+      // never cost a player a payout. The sync also diffs against its own
+      // stored state, not against this run, so a skipped or failed week
+      // simply self-heals on the next one.
+      let roleSync = null;
+      if (postToDiscord) {
+        try {
+          roleSync = await syncCrewHeadRoles({ heads, discordIds: headDiscordIds, weekId: getWeekId() });
+        } catch (err) {
+          reportError(err, { where: 'runWeeklyCrewRankings.syncCrewHeadRoles' });
+        }
+      }
+      return { multipliers, activeCounts, memberCounts, roleSync };
 }
 
-exports.weeklyCrewRankings = cf().pubsub
+// 5 min rather than the 60s default: this scans every user doc and then makes
+// up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
+// free unless something is genuinely slow.
+exports.weeklyCrewRankings = cf({ timeoutSeconds: 300 }).pubsub
   .schedule('30 1 * * 1')
   .timeZone('UTC')
   .onRun(async (context) => {
@@ -452,18 +477,50 @@ exports.weeklyCrewRankings = cf().pubsub
   });
 
 /**
+ * Re-hand the crew head Discord roles from the CURRENT market/crewStats,
+ * without recomputing anything. Used by the admin buttons so setup can be
+ * checked and fixed without waiting for Monday.
+ */
+async function runCrewRoleSyncOnly({ dryRun = false } = {}) {
+  if (dryRun) return preflightCrewRoles();
+
+  const statsSnap = await db.collection('market').doc('crewStats').get();
+  const stats = statsSnap.exists ? (statsSnap.data() || {}) : {};
+  const heads = stats.heads || {};
+
+  // At most 9 docs, so a single getAll beats nine reads.
+  const entries = Object.entries(heads).filter(([, h]) => h && h.uid);
+  const discordIds = {};
+  if (entries.length > 0) {
+    const docs = await db.getAll(...entries.map(([, h]) => db.collection('users').doc(h.uid)));
+    entries.forEach(([crewId], i) => {
+      discordIds[crewId] = docs[i].exists ? (docs[i].data().discordId || null) : null;
+    });
+  }
+  return syncCrewHeadRoles({ heads, discordIds, weekId: stats.weekId || getWeekId() });
+}
+
+/**
  * Admin-only manual re-run. Seeds/refreshes market/crewStats (underdog
  * multipliers) and optionally re-posts the Discord rankings. Useful right
  * after a deploy or if the Monday run failed.
  * Pass { skipDiscord: true } to only recompute the stats doc.
+ * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
+ * { rolesOnly: true, dryRun: true } to just check the Discord setup.
  */
-exports.triggerWeeklyCrewRankings = cf().https.onCall(async (data, context) => {
+exports.triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
+  if (data && data.rolesOnly) return runCrewRoleSyncOnly({ dryRun: !!data.dryRun });
   return runWeeklyCrewRankings({ postToDiscord: !(data && data.skipDiscord) });
 });
+
+// Exposed for scripts/test-crew-roles-emulator.cjs. Not a Cloud Function —
+// serviceLoader only copies exports carrying a trigger, so this never reaches
+// the deployed surface (same pattern as runLimitOrderCheck in limitOrders.js).
+exports.runWeeklyCrewRankings = runWeeklyCrewRankings;
 
 
 /**

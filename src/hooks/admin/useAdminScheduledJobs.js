@@ -63,6 +63,48 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
+  // Check the Discord side of crew head roles without changing anything:
+  // missing roles, bad IDs, and the role-hierarchy trap that makes every
+  // assignment fail with a silent 403.
+  const checkCrewRoles = async () => {
+    setLoading(true);
+    try {
+      const result = await triggerWeeklyCrewRankingsFunction({ rolesOnly: true, dryRun: true });
+      const d = result.data || {};
+      if (!d.configured) {
+        showMessage('error', 'Crew role IDs are not set up yet.');
+      } else if (d.problems && d.problems.length > 0) {
+        showMessage('error', d.problems.join(' | '));
+      } else {
+        showMessage('success', `Setup looks good. ${d.configuredCount || 0} crew roles ready.`);
+      }
+    } catch (err) {
+      console.error('Crew role check failed:', err);
+      showMessage('error', 'Check failed: ' + err.message);
+    }
+    setLoading(false);
+  };
+
+  // Re-hand the crew head roles from the current standings. Safe to repeat.
+  const syncCrewRoles = async () => {
+    setLoading(true);
+    try {
+      const result = await triggerWeeklyCrewRankingsFunction({ rolesOnly: true });
+      const d = result.data || {};
+      if (!d.configured) {
+        showMessage('error', 'Crew role IDs are not set up yet.');
+      } else if (d.problems && d.problems.length > 0) {
+        showMessage('error', d.problems.join(' | '));
+      } else {
+        showMessage('success', `Roles synced. ${d.added || 0} given, ${d.removed || 0} removed.`);
+      }
+    } catch (err) {
+      console.error('Crew role sync failed:', err);
+      showMessage('error', 'Sync failed: ' + err.message);
+    }
+    setLoading(false);
+  };
+
   // Post an extra free-stock drop to Discord now. Unlike the report buttons
   // this one gives every linked player another claim, so it asks first.
   const runDailyFreeStock = async () => {
@@ -122,5 +164,5 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock, runArchivePriceHistory, runBackfillFillTrades };
+  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock, checkCrewRoles, syncCrewRoles, runArchivePriceHistory, runBackfillFillTrades };
 }

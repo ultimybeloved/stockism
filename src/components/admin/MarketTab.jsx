@@ -13,6 +13,8 @@ const MarketTab = ({
   runMarketSummary,
   runDailyMarketSummary,
   runDailyFreeStock,
+  checkCrewRoles,
+  syncCrewRoles,
   runBackfillFillTrades,
   runArchivePriceHistory,
 }) => {
@@ -108,6 +110,32 @@ const MarketTab = ({
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-sm hover:bg-indigo-700 disabled:opacity-50"
           >
             Post Weekly Report
+          </button>
+        </div>
+      </div>
+
+      {/* Crew head Discord roles */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Crew Head Discord Roles</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Crew heads get their crew's Discord role automatically every Monday. Check Setup looks for
+          missing roles and the hierarchy problem that makes every assignment fail silently. Sync Now
+          re-hands the roles from the current standings, and is safe to press again.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={checkCrewRoles}
+            disabled={loading}
+            className="px-4 py-2 bg-slate-600 text-white text-sm font-semibold rounded-sm hover:bg-slate-700 disabled:opacity-50"
+          >
+            Check Setup
+          </button>
+          <button
+            onClick={syncCrewRoles}
+            disabled={loading}
+            className="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-sm hover:bg-amber-700 disabled:opacity-50"
+          >
+            Sync Now
           </button>
         </div>
       </div>

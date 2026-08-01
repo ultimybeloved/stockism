@@ -92,6 +92,7 @@ const {
   UNDERDOG_PRICE_THRESHOLD,
   TRADE_TX_TYPES,
   TRADE_RECORD_ACTIONS,
+  DISCORD_API_TIMEOUT_MS,
 } = require('./constants');
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
@@ -612,6 +613,40 @@ async function isDiscordRelinkBlocked(discordId) {
 }
 
 /**
+ * One raw call to the Discord REST API as the bot.
+ *
+ * Deliberately does NOT throw on HTTP errors — Discord answers with meaningful
+ * status codes (404 member gone, 403 role hierarchy, 429 rate limit) that
+ * callers need to branch on, and try/catch flattens them all into one blob.
+ * Only network failures and timeouts throw. A missing bot token comes back as
+ * `{ status: 0 }` so callers have a single shape to handle.
+ *
+ * @param {string} method - 'get' | 'put' | 'delete' | 'post' | 'patch'
+ * @param {string} path - API path after /v10, e.g. `/guilds/123/roles`
+ * @param {Object} [opts] - { body, reason } — `reason` becomes the Discord
+ *        audit-log entry, which is how a server admin sees WHY the bot acted.
+ */
+async function discordApi(method, path, opts = {}) {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) return { status: 0, data: { message: 'DISCORD_BOT_TOKEN not configured' } };
+
+  const headers = { Authorization: `Bot ${botToken}` };
+  if (opts.reason) {
+    // Discord requires this header URL-encoded and caps it at 512 chars.
+    headers['X-Audit-Log-Reason'] = encodeURIComponent(String(opts.reason).slice(0, 512));
+  }
+
+  return axios.request({
+    method,
+    url: `https://discord.com/api/v10${path}`,
+    data: opts.body || undefined,
+    headers,
+    validateStatus: () => true,
+    timeout: opts.timeout || DISCORD_API_TIMEOUT_MS,
+  });
+}
+
+/**
  * Helper function to send messages to Discord
  * @param {string} content - Message content (can be null if using embeds)
  * @param {Array} embeds - Array of Discord embed objects
@@ -860,6 +895,7 @@ module.exports = {
   checkBanned,
   checkDiscordWall,
   isDiscordRelinkBlocked,
+  discordApi,
   sendDiscordMessage,
   sendMarketStatusAlert,
   reportError,
