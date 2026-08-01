@@ -269,7 +269,8 @@ const buildDailyDropMessage = () => ({
       '**How it works:**\n' +
       '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
       '• On top of that you get **bonus shares** of cheaper characters\n' +
-      '• Hit the **jackpot** (3% chance) for a big legendary haul\n\n' +
+      '• Small chance of a **legendary bonus** share on any roll\n' +
+      '• Hit the **jackpot** (3% chance) for a full legendary haul\n\n' +
       '*Your Discord must be linked to your Stockism account to claim.*',
     color: 0x00D166,
     footer: { text: 'Resets daily • One claim per user' }

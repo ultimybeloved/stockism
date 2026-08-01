@@ -70,7 +70,9 @@ const money = (n) => '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
   const values = [];
   let jackpotTotal = 0, jackpots = 0, normalTotal = 0, normals = 0;
-  let shares = 0, bonusTotal = 0, mainTotal = 0;
+  let shares = 0, legendaryHits = 0;
+  const byGroup = { main: 0, bonus: 0, legendary: 0 };
+  const legendaryTickers = new Map();
 
   for (let i = 0; i < ROLLS; i++) {
     const { picks, isJackpot } = rollDailyStock(prices, launched);
@@ -79,7 +81,11 @@ const money = (n) => '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       const v = p.shares * prices[p.ticker];
       value += v;
       shares += p.shares;
-      if (p.group === 'bonus') bonusTotal += v; else mainTotal += v;
+      byGroup[p.group] = (byGroup[p.group] || 0) + v;
+      if (p.group === 'legendary') {
+        legendaryHits++;
+        legendaryTickers.set(p.ticker, (legendaryTickers.get(p.ticker) || 0) + 1);
+      }
     }
     values.push(value);
     if (isJackpot) { jackpotTotal += value; jackpots++; } else { normalTotal += value; normals++; }
@@ -101,7 +107,15 @@ const money = (n) => '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   console.log(`  under $100          ${pct(values.filter((v) => v < 100).length)}`);
   console.log(`  over $500           ${pct(values.filter((v) => v > 500).length)}`);
   console.log(`  shares per claim    ${(shares / ROLLS).toFixed(1)}`);
-  console.log(`  value split         main ${(mainTotal / (mainTotal + bonusTotal) * 100).toFixed(0)}% / bonus ${(bonusTotal / (mainTotal + bonusTotal) * 100).toFixed(0)}%\n`);
+
+  const grandTotal = byGroup.main + byGroup.bonus + byGroup.legendary;
+  const split = (n) => (n / grandTotal * 100).toFixed(0) + '%';
+  console.log(`  value by table      main ${split(byGroup.main)} / bonus ${split(byGroup.bonus)} / legendary ${split(byGroup.legendary)}`);
+  console.log(`  legendary bonus     ${pct(legendaryHits)} of claims (${pct(legendaryHits / normals * ROLLS)} of normal rolls)`);
+  const spread = [...legendaryTickers.entries()]
+    .sort((a, b) => prices[a[0]] - prices[b[0]])
+    .map(([t, n]) => `${t} $${prices[t].toFixed(0)} ${(n / legendaryHits * 100).toFixed(0)}%`);
+  console.log(`  drawn from          ${spread.join(', ')}\n`);
 })().catch((err) => {
   console.error(err.message);
   process.exit(1);

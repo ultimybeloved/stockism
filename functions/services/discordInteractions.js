@@ -31,16 +31,27 @@ const editDeferredReply = (appId, token, payload) =>
 // instead of deferring — see the slash-command branch below.
 let servedARequest = false;
 
+// Headings for each drop table, in the order they read best.
+const DROP_SECTIONS = [
+  { group: 'main', label: 'Main pull' },
+  { group: 'legendary', label: '⭐ Legendary bonus' },
+  { group: 'bonus', label: 'Bonus shares' },
+];
+
 // Render a claim's picks split by drop table. `priceFor` differs by caller: the
 // claim path shows post-impact prices, "view last claim" the stored ones.
 function formatDropPicks(picks, priceFor) {
   const line = (p) => `**${p.name}** ($${p.ticker}) x${p.shares} ($${(p.shares * priceFor(p)).toFixed(2)})`;
-  const main = picks.filter(p => p.group !== 'bonus');
-  const bonus = picks.filter(p => p.group === 'bonus');
-  // Claims made before the two-table split have no group tag, so one of these
-  // comes back empty. Fall back to a flat list rather than an empty heading.
-  if (!main.length || !bonus.length) return picks.map(line).join('\n');
-  return `**Main pull**\n${main.map(line).join('\n')}\n\n**Bonus shares**\n${bonus.map(line).join('\n')}`;
+  // Claims made before the tables split have no group tag — show a flat list
+  // rather than dropping them out of every section.
+  if (picks.some(p => !p.group)) return picks.map(line).join('\n');
+  return DROP_SECTIONS
+    .map(({ group, label }) => {
+      const rows = picks.filter(p => p.group === group);
+      return rows.length ? `**${label}**\n${rows.map(line).join('\n')}` : null;
+    })
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 exports.discordInteractions = cf().https.onRequest(async (req, res) => {
