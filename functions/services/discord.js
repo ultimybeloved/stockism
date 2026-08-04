@@ -275,17 +275,10 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     const discordUsername = userResponse.data.username;
 
     // Resolve who started this flow. Burns the code, so a stale or replayed
-    // link just fails and the player clicks Link Discord again.
-    let uid = await consumeDiscordLinkState(state);
-
-    // TRANSITION ONLY — remove once the nonce-minting frontend is live on
-    // Vercel, then redeploy discordLink. Until then a raw UID is still accepted
-    // so anyone mid-link on the old build doesn't hit a dead end.
-    const ALLOW_LEGACY_UID_STATE = true;
-    if (!uid && ALLOW_LEGACY_UID_STATE && /^[A-Za-z0-9]{20,128}$/.test(state)) {
-      uid = state;
-    }
-
+    // link just fails and the player clicks Link Discord again. A raw Firebase
+    // UID is NOT accepted here — Discord echoes state back without checking it,
+    // so that let anyone staple their Discord onto someone else's account.
+    const uid = await consumeDiscordLinkState(state);
     if (!uid) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=link_expired');
     }
