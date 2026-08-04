@@ -127,6 +127,19 @@ const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 min — freshness window for t
 // ============================================
 const MARGIN_INTEREST_RATE = 0.005;  // 0.5% per day
 const MARGIN_CASH_MINIMUM  = 2000;   // min cash to enable margin — keep in sync with src/constants/economy.js
+
+// Experience gates for enabling margin. The app has always shown these three as
+// a requirements checklist and hidden the enable button until they were met,
+// but only the client enforced them: toggleMargin checked cash alone, so a
+// direct callable invocation got margin without any of them.
+//
+// Safe to enforce retroactively because all three metrics are monotonic — they
+// only ever go up — so anyone who qualified once still qualifies, and nobody
+// with margin already enabled can be locked out by toggling it off and back on.
+// Keep in sync with src/constants/economy.js.
+const MARGIN_MIN_CHECKINS       = 10;
+const MARGIN_MIN_TRADES         = 35;
+const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
 // CREW_SWITCH_PENALTY comes from crews.js (single source shared with the frontend)
 const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.js)
 const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
@@ -563,6 +576,9 @@ module.exports = {
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,
   MARGIN_CASH_MINIMUM,
+  MARGIN_MIN_CHECKINS,
+  MARGIN_MIN_TRADES,
+  MARGIN_MIN_PEAK_PORTFOLIO,
   CREW_SWITCH_PENALTY,
   CREW_REJOIN_LOCKOUT_MS,
   CREW_UNDERDOG_MULT_MAX,

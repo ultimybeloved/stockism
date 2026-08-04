@@ -10,6 +10,7 @@ const db = admin.firestore();
 const {
   ADMIN_UID, TWENTY_FOUR_HOURS_MS,
   MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
+  MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 
@@ -149,8 +150,22 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
 
     if (enable) {
       const isAdmin = uid === ADMIN_UID;
-      if (!isAdmin && (userData.cash || 0) < MARGIN_CASH_MINIMUM) {
-        throw new functions.https.HttpsError('failed-precondition', `Need $${MARGIN_CASH_MINIMUM.toLocaleString()} minimum cash.`);
+      if (!isAdmin) {
+        if ((userData.cash || 0) < MARGIN_CASH_MINIMUM) {
+          throw new functions.https.HttpsError('failed-precondition', `Need $${MARGIN_CASH_MINIMUM.toLocaleString()} minimum cash.`);
+        }
+        // The same three requirements MarginModal displays. Mirrors
+        // checkMarginEligibility in src/utils/calculations.js. If either side
+        // changes, change both or the app shows a checklist the server ignores.
+        if ((userData.totalCheckins || 0) < MARGIN_MIN_CHECKINS) {
+          throw new functions.https.HttpsError('failed-precondition', `Need ${MARGIN_MIN_CHECKINS} daily check-ins.`);
+        }
+        if ((userData.totalTrades || 0) < MARGIN_MIN_TRADES) {
+          throw new functions.https.HttpsError('failed-precondition', `Need ${MARGIN_MIN_TRADES} total trades.`);
+        }
+        if ((userData.peakPortfolioValue || 0) < MARGIN_MIN_PEAK_PORTFOLIO) {
+          throw new functions.https.HttpsError('failed-precondition', `Need a $${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()} peak portfolio.`);
+        }
       }
       transaction.update(userRef, {
         marginEnabled: true,

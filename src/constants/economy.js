@@ -66,6 +66,11 @@ export const MAX_SHORTS_BEFORE_COOLDOWN = 3; // Number of shorts allowed before 
 // ============================================
 
 export const MARGIN_CASH_MINIMUM = 2000; // $2,000 minimum cash to initially enable margin
+// Experience gates shown as the requirements checklist in MarginModal. Enforced
+// server-side too since 2026-08-04 — keep in sync with functions/constants.js.
+export const MARGIN_MIN_CHECKINS = 10;
+export const MARGIN_MIN_TRADES = 35;
+export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
 export const MARGIN_TIERS = [
   { minPeak: 0, maxPeak: 7500, multiplier: 0.25 },
   { minPeak: 7500, maxPeak: 15000, multiplier: 0.35 },

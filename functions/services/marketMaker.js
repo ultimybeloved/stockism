@@ -29,10 +29,10 @@ const NON_ETF_TICKERS = new Set(
 );
 
 /**
- * Runs every 15 minutes. For each non-ETF ticker, computes a 7-day rolling
- * average price and nudges the current price toward it if it has drifted more
- * than 12% in either direction. Uses the same marginal-impact formula as real
- * trades so the correction is proportionate and can't overshoot.
+ * Runs hourly. For each non-ETF ticker, computes a 7-day rolling average price
+ * and nudges the current price toward it if it has drifted more than 12% in
+ * either direction. Uses the same marginal-impact formula as real trades so the
+ * correction is proportionate and can't overshoot.
  */
 exports.marketMakerCycle = cf().pubsub
   .schedule('0 * * * *')

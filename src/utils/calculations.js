@@ -19,7 +19,10 @@ import {
   SHORT_MARGIN_REQUIREMENT,
   LEGACY_SHORT_MARGIN_RATIO,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
-  NEW_ACCOUNT_MIN_IMPACT_FACTOR
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+  MARGIN_MIN_CHECKINS,
+  MARGIN_MIN_TRADES,
+  MARGIN_MIN_PEAK_PORTFOLIO
 } from '../constants/economy';
 import { CHARACTER_MAP } from '../characters';
 
@@ -311,7 +314,12 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 };
 
 /**
- * Check if user qualifies for margin trading
+ * Check if user qualifies for margin trading.
+ *
+ * This drives the requirements checklist in MarginModal. toggleMargin in
+ * functions/services/margin.js enforces the identical thresholds server-side,
+ * so this is display logic, not the gate. Change one, change both.
+ *
  * @param {Object} userData - User data object
  * @param {boolean} isAdmin - Whether user is admin (always eligible)
  * @returns {Object} Eligibility status and requirements
@@ -319,14 +327,19 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
 export const checkMarginEligibility = (userData, isAdmin = false) => {
   if (!userData) return { eligible: false, requirements: [] };
 
+  const labels = [
+    `${MARGIN_MIN_CHECKINS}+ daily check-ins`,
+    `${MARGIN_MIN_TRADES}+ total trades`,
+    `$${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()}+ peak portfolio`
+  ];
+  const thresholds = [MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO];
+
   if (isAdmin) {
     return {
       eligible: true,
-      requirements: [
-        { met: true, label: '10+ daily check-ins', current: '∞', required: 10 },
-        { met: true, label: '35+ total trades', current: '∞', required: 35 },
-        { met: true, label: '$7,500+ peak portfolio', current: '∞', required: 7500 }
-      ]
+      requirements: labels.map((label, i) => ({
+        met: true, label, current: '∞', required: thresholds[i]
+      }))
     };
   }
 
@@ -334,11 +347,10 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
   const totalTrades = userData.totalTrades || 0;
   const peakPortfolio = userData.peakPortfolioValue || 0;
 
-  const requirements = [
-    { met: totalCheckins >= 10, label: '10+ daily check-ins', current: totalCheckins, required: 10 },
-    { met: totalTrades >= 35, label: '35+ total trades', current: totalTrades, required: 35 },
-    { met: peakPortfolio >= 7500, label: '$7,500+ peak portfolio', current: peakPortfolio, required: 7500 }
-  ];
+  const currents = [totalCheckins, totalTrades, peakPortfolio];
+  const requirements = labels.map((label, i) => ({
+    met: currents[i] >= thresholds[i], label, current: currents[i], required: thresholds[i]
+  }));
 
   return {
     eligible: requirements.every(r => r.met),
