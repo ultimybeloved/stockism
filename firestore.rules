@@ -354,5 +354,14 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+
+    // ============================================
+    // DISCORD LINK CODES
+    // ============================================
+    // Single-use handoff codes for the Discord OAuth flow. Cloud Functions only:
+    // a readable code would let someone attach their Discord to that account.
+    match /discordLinkNonces/{state} {
+      allow read, write: if false;
+    }
   }
 }

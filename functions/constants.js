@@ -51,6 +51,11 @@ const IP_SLOT_RELEASE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // window it can never be re-granted either.
 const DISCORD_RELINK_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// How long a Discord-link handoff code stays valid. It is minted for the
+// signed-in user by startDiscordLink and burned by discordLink, so it only has
+// to outlive one trip through Discord's authorize screen.
+const DISCORD_LINK_NONCE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS           = 7 * 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS        = 30 * 24 * 60 * 60 * 1000;
@@ -527,6 +532,7 @@ module.exports = {
   IP_ACCOUNT_CAP_ENABLED,
   IP_SLOT_RELEASE_MS,
   DISCORD_RELINK_COOLDOWN_MS,
+  DISCORD_LINK_NONCE_TTL_MS,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,
   THIRTY_DAYS_MS,

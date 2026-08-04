@@ -139,6 +139,8 @@ export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTran
 export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDiscordWall');
 // Admin: clear a user's Discord link so they can link a different one
 export const adminUnlinkDiscordFunction = httpsCallable(functions, 'adminUnlinkDiscord');
+// Mints the single-use code that starts the Discord link flow (see useDiscordLink)
+export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLink');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
 export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
 // Admin: repair spike victim accounts

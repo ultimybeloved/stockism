@@ -2,6 +2,7 @@ import { useAppContext } from '../../context/AppContext';
 import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
 import { getThemeClasses } from '../../utils/theme';
+import { useDiscordLink } from '../../hooks/useDiscordLink';
 
 /**
  * Full-screen wall for accounts flagged for Discord verification (suspected alts,
@@ -11,15 +12,12 @@ import { getThemeClasses } from '../../utils/theme';
  */
 export default function DiscordWallModal() {
   const { user, userData, darkMode } = useAppContext();
+  const { beginDiscordLink, linking, error } = useDiscordLink();
 
   // Only walls a logged-in, flagged, not-yet-linked account.
   if (!user || !userData?.requiresDiscordLink || userData?.discordId) return null;
 
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
-
-  const startLink = () => {
-    window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
-  };
 
   return (
     <div className={`${overlayHeavyClass} z-[100] backdrop-blur-sm`}>
@@ -30,11 +28,13 @@ export default function DiscordWallModal() {
           To keep the game fair, this account needs a linked Discord before you can trade or play. It is a one-time step and takes a few seconds.
         </p>
         <button
-          onClick={startLink}
-          className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md mb-3"
+          onClick={beginDiscordLink}
+          disabled={linking}
+          className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-md mb-3"
         >
-          Link Discord
+          {linking ? 'Opening Discord...' : 'Link Discord'}
         </button>
+        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
         <button
           onClick={() => signOut(auth)}
           className={`text-xs underline ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-500 hover:text-zinc-700'}`}

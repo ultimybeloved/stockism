@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
@@ -15,6 +15,7 @@ const StockPage         = lazy(() => import('./pages/StockPage'));
 
 // Import other components
 import { useModalManager } from './hooks/useModalManager';
+import { useDiscordLink } from './hooks/useDiscordLink';
 import { useAuthUser } from './hooks/useAuthUser';
 import { useMarketData } from './hooks/useMarketData';
 import { useUserAlerts } from './hooks/useUserAlerts';
@@ -56,11 +57,17 @@ import { getWeekStart } from './utils/date';
 // ============================================
 
 function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
+  const { beginDiscordLink, error: linkError } = useDiscordLink();
+  const startedRef = useRef(false);
+
   useEffect(() => {
-    if (user) {
-      window.location.href = `https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user.uid}`;
+    // Ref guard: beginDiscordLink is async, so without it a re-render before the
+    // redirect lands would mint a second code and burn the first.
+    if (user && !startedRef.current) {
+      startedRef.current = true;
+      beginDiscordLink();
     }
-  }, [user]);
+  }, [user, beginDiscordLink]);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -83,7 +90,9 @@ function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
 
   return (
     <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
-      <p className={mutedClass}>Redirecting to Discord...</p>
+      <p className={linkError ? 'text-red-400 text-sm' : mutedClass}>
+        {linkError || 'Redirecting to Discord...'}
+      </p>
     </div>
   );
 }

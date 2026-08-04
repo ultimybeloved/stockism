@@ -2,10 +2,12 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
 import { STARTING_CASH } from '../../constants/economy';
+import { useDiscordLink } from '../../hooks/useDiscordLink';
 
 // Profile settings card: color-blind mode, public profile toggle, Discord link.
 const ProfileSettings = ({ userData, user, darkMode }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { beginDiscordLink, linking, error: linkError } = useDiscordLink();
 
   return (
     <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
@@ -92,14 +94,16 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
         {userData?.discordId ? (
           <span className="text-xs text-green-500 font-semibold">Connected</span>
         ) : (
-          <a
-            href={`https://discord.com/oauth2/authorize?client_id=1467420774477467752&response_type=code&redirect_uri=${encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordLink')}&scope=identify&state=${user?.uid}`}
-            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-sm transition-colors"
+          <button
+            onClick={beginDiscordLink}
+            disabled={linking}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-semibold rounded-sm transition-colors"
           >
-            Link Discord
-          </a>
+            {linking ? 'Opening...' : 'Link Discord'}
+          </button>
         )}
       </div>
+      {linkError && <p className="text-xs text-red-400 mt-2">{linkError}</p>}
     </div>
   );
 };

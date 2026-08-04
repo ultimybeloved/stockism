@@ -8,7 +8,8 @@ const { verifyKey, InteractionType, InteractionResponseType } = require('discord
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
+const crypto = require('crypto');
+const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS } = require('../constants');
 const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked } = require('../helpers');
 
 
@@ -187,12 +188,60 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
   }
 });
 
+const DISCORD_LINK_NONCES = 'discordLinkNonces';
+
+/**
+ * Step 1 of linking: mint a single-use code for the signed-in user and hand it
+ * back so the client can put it in the OAuth `state` param.
+ *
+ * The `state` used to be the raw Firebase UID. Discord echoes state back
+ * verbatim and never checks it, so anyone could put someone else's UID in the
+ * authorize URL and staple their own Discord onto that account. This proves the
+ * person who started the flow was signed in as that account.
+ */
+exports.startDiscordLink = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
+  }
+  const uid = context.auth.uid;
+
+  // Drop this user's earlier codes so abandoned flows don't pile up. Only ever
+  // a handful, and it keeps the collection self-cleaning without a schedule.
+  const stale = await db.collection(DISCORD_LINK_NONCES).where('uid', '==', uid).get();
+  await Promise.all(stale.docs.map(d => d.ref.delete()));
+
+  const state = crypto.randomBytes(16).toString('hex');
+  await db.collection(DISCORD_LINK_NONCES).doc(state).set({
+    uid,
+    createdAt: Date.now()
+  });
+
+  return { state };
+});
+
+/**
+ * Resolves the OAuth `state` back to the UID that started the flow, burning the
+ * code so it can't be replayed. Returns null if it is missing, already used or
+ * older than DISCORD_LINK_NONCE_TTL_MS.
+ */
+const consumeDiscordLinkState = async (state) => {
+  if (!/^[a-f0-9]{32}$/.test(state)) return null;
+  const ref = db.collection(DISCORD_LINK_NONCES).doc(state);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  await ref.delete();
+  const { uid, createdAt } = snap.data();
+  if (Date.now() - (createdAt || 0) > DISCORD_LINK_NONCE_TTL_MS) return null;
+  return uid || null;
+};
+
 // Discord Link — links Discord to an existing Stockism account (no new account created)
 exports.discordLink = cf().https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
   const code = req.query.code;
-  const state = req.query.state; // Firebase UID passed as state
+  const state = req.query.state; // single-use code from startDiscordLink
 
   if (!code || !state) {
     return res.status(400).send('Missing authorization code or user ID');
@@ -225,8 +274,24 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     const discordId = userResponse.data.id;
     const discordUsername = userResponse.data.username;
 
-    // Verify the Firebase UID (state) is a real user
-    const userDoc = await db.collection('users').doc(state).get();
+    // Resolve who started this flow. Burns the code, so a stale or replayed
+    // link just fails and the player clicks Link Discord again.
+    let uid = await consumeDiscordLinkState(state);
+
+    // TRANSITION ONLY — remove once the nonce-minting frontend is live on
+    // Vercel, then redeploy discordLink. Until then a raw UID is still accepted
+    // so anyone mid-link on the old build doesn't hit a dead end.
+    const ALLOW_LEGACY_UID_STATE = true;
+    if (!uid && ALLOW_LEGACY_UID_STATE && /^[A-Za-z0-9]{20,128}$/.test(state)) {
+      uid = state;
+    }
+
+    if (!uid) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=link_expired');
+    }
+
+    // Verify the Firebase UID is a real user
+    const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=user_not_found');
     }
@@ -248,7 +313,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
       .limit(1)
       .get();
 
-    if (!existingSnap.empty && existingSnap.docs[0].id !== state) {
+    if (!existingSnap.empty && existingSnap.docs[0].id !== uid) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
     }
 
@@ -282,7 +347,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
       linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
     }
 
-    await db.collection('users').doc(state).update(linkUpdate);
+    await db.collection('users').doc(uid).update(linkUpdate);
 
     return res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {
