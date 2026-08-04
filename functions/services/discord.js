@@ -78,16 +78,36 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
       // Block creating a fresh account (anti recycle / troll-account loop).
       return res.redirect('https://stockism.app/?discord_error=recently_deleted');
     } else if (email) {
-      // Try to find by email
+      // Look up by email. Only getUserByEmail may throw "not found" here — the
+      // link writes below must stay outside this try, or any Firestore hiccup
+      // would fall through to the create branch and make a duplicate account.
+      let existingUser = null;
       try {
-        const existingUser = await admin.auth().getUserByEmail(email);
-        firebaseUid = existingUser.uid;
-        // Store discordId on existing user
-        await db.collection('users').doc(firebaseUid).update({
-          discordId: discordId,
-          discordUsername: username
-        });
+        existingUser = await admin.auth().getUserByEmail(email);
       } catch (error) {
+        existingUser = null;
+      }
+
+      if (existingUser) {
+        firebaseUid = existingUser.uid;
+        const existingRef = db.collection('users').doc(firebaseUid);
+        const existingDoc = await existingRef.get();
+        const linkedDiscordId = existingDoc.exists ? existingDoc.data().discordId : null;
+
+        // Never overwrite a different Discord that is already on the account.
+        // Overwriting silently released the old Discord ID for reuse elsewhere
+        // (see discordLink below for why that matters). Logging in still works.
+        if (existingDoc.exists && !linkedDiscordId) {
+          const authLinkUpdate = { discordId: discordId, discordUsername: username };
+          // Same one-time unlock discordLink grants, so verifying by logging in
+          // with Discord is worth exactly what verifying from the profile page is.
+          if (existingDoc.data().startingCashUnlocked === false) {
+            authLinkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
+            authLinkUpdate.startingCashUnlocked = true;
+          }
+          await existingRef.update(authLinkUpdate);
+        }
+      } else {
         // User doesn't exist, create new one with email
         const newUser = await admin.auth().createUser({
           email: email,
@@ -148,7 +168,8 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
         costBasis: {},
         lendingUnlocked: false,
         isBankrupt: false,
-        onboardingComplete: false
+        onboardingComplete: false,
+        startingCashUnlocked: true
       });
       await db.collection('users').doc(firebaseUid)
         .collection('portfolioHistory').add({ timestamp: Date.now(), value: STARTING_CASH });
@@ -210,6 +231,17 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=user_not_found');
     }
 
+    // Refuse to move an account onto a different Discord. Relinking used to
+    // overwrite discordId in place, which quietly freed the old Discord for
+    // reuse — one Discord could then walk across unlimited accounts, handing
+    // each one the verified starting cash, a Discord-wall pass and a fresh
+    // claim on the same daily drop (drop claims dedupe per Stockism account,
+    // not per Discord). Admins can free a link with adminUnlinkDiscord.
+    const currentDiscordId = userDoc.data().discordId;
+    if (currentDiscordId && currentDiscordId !== discordId) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_has_discord');
+    }
+
     // Check if this Discord is already linked to another account
     const existingSnap = await db.collection('users')
       .where('discordId', '==', discordId)
@@ -234,9 +266,11 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     };
 
     // One-time: unlock full starting cash on first Discord verification (anti-alt gate).
-    // Guarded by startingCashUnlocked so unlink/relink can't farm it, and one Discord can
-    // only link to one account, so it can't be recycled across alts.
-    if (userDoc.data().startingCashUnlocked !== true) {
+    // Must be `=== false`, not `!== true`: createUser always writes the flag, so only
+    // accounts that actually started on the unverified $1,000 are owed the difference.
+    // Accounts predating the gate (May 2026) have no flag at all and already started
+    // with the full amount — `!== true` paid them another $2,000 on any relink.
+    if (userDoc.data().startingCashUnlocked === false && !currentDiscordId) {
       linkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
       linkUpdate.startingCashUnlocked = true;
     }

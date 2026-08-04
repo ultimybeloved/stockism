@@ -216,3 +216,43 @@ exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
 
   return { success: true, userId, requiresDiscordLink: value, alreadyLinked: !!userSnap.data().discordId };
 });
+
+/**
+ * Admin-only: clear the Discord link on a user so a different Discord can be
+ * linked. Users can't do this themselves — discordLink refuses to move an
+ * account onto a new Discord, because a self-serve relink freed the old Discord
+ * to verify another account. This is the manual escape hatch for people who
+ * genuinely lost their Discord account.
+ *
+ * startingCashUnlocked is deliberately left alone: the account keeps its
+ * verified status, so relinking can't pay out the starting-cash bonus twice.
+ */
+exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { userId } = data;
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId required');
+  }
+
+  const userRef = db.collection('users').doc(userId);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
+
+  const previousDiscordId = userSnap.data().discordId || null;
+  if (!previousDiscordId) {
+    return { success: true, userId, previousDiscordId: null, alreadyUnlinked: true };
+  }
+
+  await userRef.update({
+    discordId: admin.firestore.FieldValue.delete(),
+    discordUsername: admin.firestore.FieldValue.delete()
+  });
+
+  return { success: true, userId, previousDiscordId, alreadyUnlinked: false };
+});

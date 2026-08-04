@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore'
 import {
   db, reinstateUserFunction, adminSetCashFunction,
   adminTransferToLadderFunction, adminSetDiscordWallFunction,
+  adminUnlinkDiscordFunction,
 } from '../../firebase';
 
 // Per-user admin operations: bankrupt list + reinstate (Recovery tab) and
@@ -122,6 +123,24 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
     setLoading(false);
   };
 
+  // Players can't relink a different Discord themselves (that used to free the
+  // old one for another account), so losing a Discord account comes here.
+  const handleUnlinkDiscord = async (userId, displayName, discordUsername) => {
+    if (!confirm(`Unlink Discord${discordUsername ? ` (${discordUsername})` : ''} from ${displayName}?\n\nThey will be able to link a different Discord. This does NOT give them the starting-cash bonus again.`)) return;
+    setLoading(true);
+    try {
+      const result = await adminUnlinkDiscordFunction({ userId });
+      showMessage('success', result.data.alreadyUnlinked
+        ? `${displayName} had no Discord linked`
+        : `Unlinked Discord from ${displayName}`);
+      setSelectedUser(prev => prev ? { ...prev, discordId: null, discordUsername: null } : prev);
+    } catch (err) {
+      console.error(err);
+      showMessage('error', `Failed: ${err.message}`);
+    }
+    setLoading(false);
+  };
+
   // Manual rollback state
   const [newDisplayName, setNewDisplayName] = useState('');
 
@@ -190,7 +209,7 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
 
   return {
     bankruptLoaded, bankruptUsers, loadBankruptUsers, handleReinstateUser,
-    handleSetCash, handleTransferToLadder, handleToggleDiscordWall,
+    handleSetCash, handleTransferToLadder, handleToggleDiscordWall, handleUnlinkDiscord,
     newDisplayName, setNewDisplayName, handleRollbackUser, handleChangeDisplayName,
   };
 }

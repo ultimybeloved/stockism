@@ -1,7 +1,7 @@
 import UserCosmeticsPanel from '../UserCosmeticsPanel';
 
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
-const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser }) => (
+const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser }) => (
   <>
     {/* Cosmetics (give/revoke for giveaways) */}
     <UserCosmeticsPanel
@@ -67,6 +67,29 @@ const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading
               {selectedUser.requiresDiscordLink ? 'Clear wall' : 'Require Discord'}
             </button>
           </div>
+        </div>
+
+        <div>
+          <label className={`text-xs ${mutedClass} block mb-1`}>Linked Discord:</label>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${selectedUser.discordId ? 'text-indigo-400' : mutedClass}`}>
+              {selectedUser.discordId
+                ? (selectedUser.discordUsername || selectedUser.discordId)
+                : 'None linked'}
+            </span>
+            {selectedUser.discordId && (
+              <button
+                onClick={() => handleUnlinkDiscord(selectedUser.id, selectedUser.displayName || selectedUser.username, selectedUser.discordUsername)}
+                disabled={loading}
+                className="ml-auto px-3 py-1 text-xs font-semibold rounded disabled:opacity-50 bg-red-600 text-white hover:bg-red-700"
+              >
+                Unlink
+              </button>
+            )}
+          </div>
+          <p className={`text-xs ${mutedClass} mt-1`}>
+            Players can't swap Discord accounts themselves. Unlink here if someone lost access to theirs.
+          </p>
         </div>
       </div>
     </div>

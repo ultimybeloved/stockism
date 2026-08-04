@@ -28,9 +28,11 @@ const DiscordLinkBanner = () => {
       )}
       {discordLinkStatus?.startsWith('error') && (
         <div className="p-3 rounded-sm bg-red-900/30 border border-red-700 text-red-400 text-sm">
-          {discordLinkStatus.includes('already_linked')
-            ? 'Failed to link Discord. It may already be linked to another account.'
-            : `Failed to link Discord: ${discordLinkStatus.split(':').slice(1).join(':') || 'Unknown error'}`}
+          {discordLinkStatus.includes('already_has_discord')
+            ? 'Your account is already linked to a different Discord. Ask an admin if you need it changed.'
+            : discordLinkStatus.includes('already_linked')
+              ? 'Failed to link Discord. It may already be linked to another account.'
+              : `Failed to link Discord: ${discordLinkStatus.split(':').slice(1).join(':') || 'Unknown error'}`}
         </div>
       )}
     </>
