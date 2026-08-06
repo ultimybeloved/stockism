@@ -207,6 +207,9 @@ export const CHARACTERS = [
   // New characters added 2026-07-23
   { name: "Shinji Yamazaki", ticker: "OYA", basePrice: 85, dateAdded: "2026-07-23T00:00:00" },
 
+  // New characters added 2026-08-06
+  { name: "Gibok Jang", ticker: "YH", basePrice: 45, dateAdded: "2026-08-06T00:00:00" },
+
   // IPO characters - require IPO process before trading
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
   { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
@@ -240,15 +243,15 @@ export const CHARACTERS = [
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, dateAdded: "2026-02-20T00:02:00",
     isETF: true, description: "Fist Gang ETF",
-    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON"],
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON", "EUNH"],
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.062 }, { ticker: "ELIT", coefficient: 0.062 },
-      { ticker: "JYNG", coefficient: 0.062 }, { ticker: "TOM", coefficient: 0.062 },
-      { ticker: "KWON", coefficient: 0.062 }, { ticker: "DNCE", coefficient: 0.062 },
-      { ticker: "GNTL", coefficient: 0.062 }, { ticker: "MMA", coefficient: 0.062 },
-      { ticker: "LIAR", coefficient: 0.062 }, { ticker: "NOH", coefficient: 0.062 },
-      { ticker: "TAXI", coefficient: 0.062 }, { ticker: "HANT", coefficient: 0.062 },
-      { ticker: "GWON", coefficient: 0.062 }
+      { ticker: "GAP", coefficient: 0.057 }, { ticker: "ELIT", coefficient: 0.057 },
+      { ticker: "JYNG", coefficient: 0.057 }, { ticker: "TOM", coefficient: 0.057 },
+      { ticker: "KWON", coefficient: 0.057 }, { ticker: "DNCE", coefficient: 0.057 },
+      { ticker: "GNTL", coefficient: 0.057 }, { ticker: "MMA", coefficient: 0.057 },
+      { ticker: "LIAR", coefficient: 0.057 }, { ticker: "NOH", coefficient: 0.057 },
+      { ticker: "TAXI", coefficient: 0.057 }, { ticker: "HANT", coefficient: 0.057 },
+      { ticker: "GWON", coefficient: 0.057 }, { ticker: "EUNH", coefficient: 0.057 }
     ]
   },
   {
