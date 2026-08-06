@@ -17,6 +17,30 @@ Scripts for managing Stockism database operations.
 
 ## Scripts
 
+### market-status.cjs
+
+Read-only snapshot of the live market. **No service account key needed** — the
+market doc is world-readable, and App Check comes from the debug token already in
+`.env.local`.
+
+**Usage:**
+```bash
+npm run status:market
+```
+
+**What it tells you:**
+- Which IPO characters have launched and now trade as normal stocks. This only
+  exists in Firestore (`launchedTickers`), so it is otherwise invisible from the
+  codebase — `ipoRequired: true` stays on a character forever, even after launch.
+- Whether any character is missing a live price (a "dead stock": bots skip it, it
+  never shows in gainers/losers, blank chart) and needs Init New Character Prices.
+- Prices left over from renamed or removed characters.
+- Current halt state, weekly and manual.
+
+Run it after adding a character, and before assuming anything about IPO state.
+
+---
+
 ### migrate-ticker.js
 Migrate a character from one ticker to another.
 
