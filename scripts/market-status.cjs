@@ -100,16 +100,21 @@ async function main() {
   console.log(`  Weekly halt : ${isWeeklyTradingHalt() ? 'ACTIVE (Thursday 13:00-21:00 UTC)' : 'no'}`);
   console.log(`  Manual halt : ${manualHalt ? 'ON' : 'off'}`);
 
+  // launchedTickers is the authority: every gate reads
+  // `ipoRequired && !launchedTickers.includes(ticker)`, so a launched ticker
+  // trades normally whether or not it still carries the flag.
   const ipoChars = CHARACTERS.filter((c) => c.ipoRequired);
-  const graduated = ipoChars.filter((c) => launched.includes(c.ticker));
   const gated = ipoChars.filter((c) => !launched.includes(c.ticker));
+  const staleFlag = ipoChars.filter((c) => launched.includes(c.ticker));
 
   console.log('\nIPO CHARACTERS');
-  console.log(`  Launched, trades as a normal stock : ${list(graduated.map((c) => c.ticker))}`);
+  console.log(`  Launched, trades as a normal stock : ${list(launched)}`);
   console.log(`  Still IPO-gated                    : ${list(gated.map((c) => c.ticker))}`);
-  if (graduated.length) {
-    console.log('  (the ipoRequired flag on the launched ones is vestigial — every');
-    console.log('   gate checks launchedTickers too, so it blocks nothing)');
+  if (staleFlag.length) {
+    console.log(`  Flagged ipoRequired but launched   : ${list(staleFlag.map((c) => c.ticker))}`);
+    console.log('  -> the flag no longer gates them. Drop it in src/characters.js:');
+    console.log('     left on, it reads as gated and the admin IPO panel keeps');
+    console.log('     offering them as candidates for another launch.');
   }
 
   // A character with no price entry is invisible to every automated mover:
@@ -128,7 +133,10 @@ async function main() {
   }
   if (orphans.length) {
     console.log(`  Priced but not in the roster : ${list(orphans)}`);
-    console.log('  -> leftovers from a rename or a removed character; harmless, just noise');
+    console.log('  -> leftovers from a rename or a removed character. Inert since the');
+    console.log('     isRosterTicker guard (bots and the daily/weekly summaries skip');
+    console.log('     them), but do NOT just delete the price: confirm nobody still');
+    console.log('     holds the ticker first, or you strand their position.');
   }
   console.log('');
 }
