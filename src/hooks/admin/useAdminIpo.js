@@ -5,15 +5,7 @@ import { CHARACTERS } from '../../characters';
 import { getNextMarketOpen } from '../../utils/marketHours';
 import { formatUTCDateTime } from '../../utils/formatters';
 
-// <input type="datetime-local"> takes local time as "YYYY-MM-DDTHH:mm".
-const toLocalInputValue = (date) => {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-// A start time this far in the past still creates (starting immediately),
-// covering the gap between clicking the "Now" preset and clicking Create.
-const START_TIME_PAST_TOLERANCE_MS = 5 * 60 * 1000;
+import { toLocalInputValue, validateIpoDraft } from './ipoValidation';
 
 // IPO tab: create/cancel IPOs and track eligible characters.
 export function useAdminIpo({ showMessage, setLoading }) {
@@ -65,38 +57,13 @@ export function useAdminIpo({ showMessage, setLoading }) {
 
   // Create new IPO
   const handleCreateIPO = async () => {
-    if (!ipoTicker) {
-      showMessage('error', 'Please select a character');
-      return;
-    }
-
-    const character = CHARACTERS.find(c => c.ticker === ipoTicker);
-    if (!character) {
-      showMessage('error', 'Character not found');
-      return;
-    }
-
-    // Check if IPO already exists for this ticker
-    const existingIPO = activeIPOs.find(ipo => ipo.ticker === ipoTicker && !ipo.priceJumped);
-    if (existingIPO) {
-      showMessage('error', 'An IPO already exists for this character');
-      return;
-    }
-
-    const startDate = new Date(ipoStartAtInput);
-    if (!ipoStartAtInput || isNaN(startDate.getTime())) {
-      showMessage('error', 'Pick a valid start date and time');
-      return;
-    }
     const now = Date.now();
-    let ipoStartsAt = startDate.getTime();
-    if (ipoStartsAt <= now) {
-      if (now - ipoStartsAt > START_TIME_PAST_TOLERANCE_MS) {
-        showMessage('error', 'Start time is in the past');
-        return;
-      }
-      ipoStartsAt = now; // "Now" preset: start immediately
+    const draft = validateIpoDraft({ ipoTicker, ipoStartAtInput, activeIPOs, now });
+    if (draft.error) {
+      showMessage('error', draft.error);
+      return;
     }
+    const { character, ipoStartsAt } = draft;
 
     setLoading(true);
     try {

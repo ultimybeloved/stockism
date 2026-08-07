@@ -6,6 +6,7 @@ import { CHARACTER_MAP } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { SOURCE_LABELS, formatTimestamp, getTimestampDate, getTradeProfit, exportTradesToCSV } from '../../utils/tradeHistory';
 
 const PAGE_SIZE = 30;
 
@@ -88,14 +89,6 @@ const TradeHistoryModal = ({ onClose }) => {
     setLoadingMore(false);
   };
 
-  // Trades that filled on their own. Without a label these look like trades the
-  // player never made.
-  const SOURCE_LABELS = {
-    limit: 'limit order',
-    stop_loss: 'stop loss',
-    premarket: 'pre-market',
-  };
-
   const getActionColor = (action) => {
     if (action === 'buy' || action === 'cover' || action === 'dividend') {
       return colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -110,32 +103,6 @@ const TradeHistoryModal = ({ onClose }) => {
     if (action === 'cover' || action === 'margin_call_cover') return 'bg-blue-900/20';
     if (action === 'dividend') return 'bg-emerald-900/20';
     return '';
-  };
-
-  // Calculate P&L for sell/cover trades
-  const getTradeP_L = (trade) => {
-    if (trade.action === 'sell' || trade.action === 'cover' || trade.action === 'margin_call_cover') {
-      if (trade.profitPercent !== undefined && trade.profitPercent !== null) {
-        return { percent: trade.profitPercent, amount: (trade.totalValue || trade.price * trade.amount) * (trade.profitPercent / 100) };
-      }
-      if (trade.costBasisAtTrade && trade.price) {
-        const pl = (trade.price - trade.costBasisAtTrade) * trade.amount;
-        const percent = trade.costBasisAtTrade > 0 ? ((trade.price - trade.costBasisAtTrade) / trade.costBasisAtTrade) * 100 : 0;
-        return { amount: trade.action === 'cover' || trade.action === 'margin_call_cover' ? -pl : pl, percent };
-      }
-    }
-    return null;
-  };
-
-  const formatTimestamp = (ts) => {
-    if (!ts) return '';
-    const date = ts.toDate ? ts.toDate() : new Date(ts);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getTimestampDate = (ts) => {
-    if (!ts) return null;
-    return ts.toDate ? ts.toDate() : new Date(ts);
   };
 
   // Apply client-side filters
@@ -176,38 +143,14 @@ const TradeHistoryModal = ({ onClose }) => {
   const totalPL = useMemo(() => {
     let total = 0;
     for (const trade of filtered) {
-      const pl = getTradeP_L(trade);
+      const pl = getTradeProfit(trade);
       if (pl && pl.amount) total += pl.amount;
     }
     return total;
   }, [filtered]);
 
   // CSV export
-  const handleExportCSV = () => {
-    const headers = ['Date', 'Ticker', 'Action', 'Amount', 'Price', 'Total Value', 'P&L'];
-    const rows = filtered.map(trade => {
-      const date = getTimestampDate(trade.timestamp);
-      const pl = getTradeP_L(trade);
-      return [
-        date ? date.toISOString() : '',
-        trade.ticker,
-        trade.action,
-        trade.amount,
-        trade.price?.toFixed(2) || '',
-        (trade.totalValue || trade.price * trade.amount)?.toFixed(2) || '',
-        pl?.amount?.toFixed(2) || ''
-      ].join(',');
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `stockism_trades_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const handleExport = () => exportTradesToCSV(filtered);
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
@@ -218,7 +161,7 @@ const TradeHistoryModal = ({ onClose }) => {
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>Trade History</h2>
             <div className="flex items-center gap-2">
-              <button onClick={handleExportCSV} title="Export CSV"
+              <button onClick={handleExport} title="Export CSV"
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
                 CSV
               </button>
@@ -331,7 +274,7 @@ const TradeHistoryModal = ({ onClose }) => {
                 }
 
                 const char = CHARACTER_MAP[trade.ticker];
-                const pl = getTradeP_L(trade);
+                const pl = getTradeProfit(trade);
                 return (
                   <div key={trade.id} className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg(trade.action) : ''}`}>
                     <div className="flex justify-between items-start">

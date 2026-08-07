@@ -1,4 +1,8 @@
-import { LADDER_GAME_MAX_BALANCE, LADDER_DEPOSIT_WINDOW_MS } from '../../constants/economy';
+import {
+  LADDER_GAME_MAX_BALANCE, LADDER_DEPOSIT_WINDOW_MS,
+  LADDER_WITHDRAW_PRINCIPAL_FEE_RATE, LADDER_WITHDRAW_RUSH_RATE,
+  LADDER_WITHDRAW_PROFIT_BRACKETS,
+} from '../../constants/economy';
 import { getTotalInvested } from '../../utils/calculations';
 import { calculateLadderWithdrawTax } from '../../utils/ladderTax';
 import { useAppContext } from '../../context/AppContext';
@@ -38,6 +42,22 @@ const LadderTransferModal = ({
         hasRecentDeposit,
       })
     : null;
+
+  // The withdraw tab shows the tax once the money is already in. A player
+  // deciding whether to deposit needs the same numbers BEFORE they commit,
+  // otherwise the first time they learn winnings are taxed is on the way out.
+  // Built from the rate constants so this text can never drift from the math.
+  const pct = (rate) => `${Math.round(rate * 100)}%`;
+  const profitBracketText = LADDER_WITHDRAW_PROFIT_BRACKETS
+    .map((bracket, i) => {
+      const prev = i > 0 ? LADDER_WITHDRAW_PROFIT_BRACKETS[i - 1].upTo : 0;
+      if (!isFinite(bracket.upTo)) return `${pct(bracket.rate)} above $${prev.toLocaleString()}`;
+      if (i === 0) return `${pct(bracket.rate)} on the first $${bracket.upTo.toLocaleString()}`;
+      return `${pct(bracket.rate)} up to $${bracket.upTo.toLocaleString()}`;
+    })
+    .join(', ');
+  const rushWindowHours = Math.round(LADDER_DEPOSIT_WINDOW_MS / (60 * 60 * 1000));
+
   return (
             <div
               style={{
@@ -106,6 +126,18 @@ const LadderTransferModal = ({
                               ? `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at your $${fmt(totalInvested)} invested.`
                               : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${LADDER_GAME_MAX_BALANCE.toLocaleString()}.`)}
                     </p>
+                    <div style={{ background: bgCardInner, border: '1px solid #a8792c', padding: '8px 10px', marginBottom: '10px', fontSize: '0.8rem', color: textLight }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: 700, color: '#d4af37' }}>Getting money out is taxed</p>
+                      <p style={{ margin: '0 0 4px' }}>
+                        Your own deposits come back minus a {pct(LADDER_WITHDRAW_PRINCIPAL_FEE_RATE)} fee.
+                      </p>
+                      <p style={{ margin: '0 0 4px' }}>
+                        Winnings are taxed {profitBracketText}. That runs on everything you have ever withdrawn, not per withdrawal.
+                      </p>
+                      <p style={{ margin: 0 }}>
+                        Withdrawing within {rushWindowHours} hours of a deposit costs another {pct(LADDER_WITHDRAW_RUSH_RATE)}.
+                      </p>
+                    </div>
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                       <input
                         type="number"

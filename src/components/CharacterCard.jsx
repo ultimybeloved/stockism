@@ -1,25 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
+import CharacterMeta from './character/CharacterMeta';
 import { getThemeClasses, getRarityStagger, SPACING } from '../utils/theme';
 import { rarityClassFor } from '../utils/rarity';
 import SimpleLineChart from './charts/SimpleLineChart';
 import ShortRiskTag from './ShortRiskTag';
 import TradeActionModal from './modals/TradeActionModal';
 import PreMarketModal from './modals/PreMarketModal';
-import { CREWS } from '../crews';
-import { CHARACTERS } from '../characters';
 import { useAppContext } from '../context/AppContext';
 import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
 
 const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
-  const { darkMode, user, userData, prices, priceHistory, marketData, rarityTiers } = useAppContext();
+  const { darkMode, user, userData, priceHistory, marketData, rarityTiers } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
   const [showPreMarket, setShowPreMarket] = useState(false);
   const [preMarketAction, setPreMarketAction] = useState('buy');
-  const [etfExpanded, setEtfExpanded] = useState(false);
 
   // Check if this card should open in limit order or stop loss mode
   useEffect(() => {
@@ -42,8 +40,6 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const marketState = getMarketClosedState(marketData);
   const marketClosed = marketState.closed; // weekly review or admin halt (market-wide, not per-ticker)
 
-  const characterCrew = !isETF ? Object.values(CREWS).find(c => c.members.includes(character.ticker)) : null;
-  const characterEtfs = !isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(character.ticker)) : [];
 
   // Halt countdown timer
   useEffect(() => {
@@ -229,44 +225,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
-              {!isETF && (characterCrew || characterEtfs.length > 0) && (
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {characterCrew && (
-                    <span className={`flex items-center gap-0.5 text-[10px] px-1 rounded font-semibold ${mutedClass}`} style={{ backgroundColor: characterCrew.color + '22', border: `1px solid ${characterCrew.color}55` }}>
-                      <img src={characterCrew.icon} alt="" className="w-3 h-3 object-contain" />
-                      {characterCrew.name}
-                    </span>
-                  )}
-                  {characterEtfs.map(etf => (
-                    <span key={etf.ticker} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
-                      {etf.ticker}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {character.description && <p className={`text-xs ${mutedClass}${isETF ? ' mt-0.5' : ''}`}>{character.description}</p>}
-              {isETF && character.constituents && (() => {
-                const sorted = [...character.constituents].sort((a, b) => (prices?.[b] || 0) - (prices?.[a] || 0));
-                const preview = sorted.slice(0, 6);
-                const hasMore = sorted.length > 6;
-                return (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {(etfExpanded ? sorted : preview).map(t => (
-                      <span key={t} className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
-                        {t}{etfExpanded && prices?.[t] ? ` ${formatCurrency(prices[t])}` : ''}
-                      </span>
-                    ))}
-                    {hasMore && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEtfExpanded(!etfExpanded); }}
-                        className={`text-[10px] ${mutedClass} hover:text-orange-500 cursor-pointer`}
-                      >
-                        {etfExpanded ? 'show less' : `+${sorted.length - 6} more`}
-                      </button>
-                    )}
-                  </div>
-                );
-              })()}
+              <CharacterMeta character={character} />
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
