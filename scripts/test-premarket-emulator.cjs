@@ -29,8 +29,17 @@ const { runMarketOpenProcessing } = require('../functions/services/marketOrders'
 const { calculateMarginalImpact } = require('../functions/helpers');
 const { BID_ASK_SPREAD } = require('../functions/constants');
 
+const { CHARACTERS, CHARACTER_MAP } = require('../functions/characters');
+
 const TICKER = 'GUN';
-const IPO_TICKER = 'EUNH'; // ipoRequired: true in characters.js, not launched in seed
+// Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
+// from characters.js: `ipoRequired` gets dropped once a stock actually launches
+// (all five were cleared on 2026-08-07), and relying on it broke this check.
+// Mutating the shared CHARACTER_MAP is enough — the auction reads the same
+// module instance in-process.
+const IPO_TICKER = 'EUNH';
+if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.js`);
+CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -78,6 +87,13 @@ async function main() {
     });
   }
 
+  // Parent fund of TICKER, captured before the auction so the trailing check
+  // below has a baseline.
+  const parentEtf = CHARACTERS.find(c => c.isETF && c.trailingFactors?.some(tf => tf.ticker === TICKER));
+  if (!parentEtf) throw new Error(`${TICKER} is not in any ETF — pick a constituent`);
+  const etfCoefficient = parentEtf.trailingFactors.find(tf => tf.ticker === TICKER).coefficient;
+  const etfPriceBefore = (await db.collection('market').doc('current').get()).data().prices[parentEtf.ticker];
+
   // ── Run the auction ────────────────────────────────────────────────────
   console.log('\nRunning runMarketOpenProcessing...\n');
   const summary = await runMarketOpenProcessing('test');
@@ -96,6 +112,15 @@ async function main() {
   const openPrice = post.data().prices[TICKER];
   check(`opening price excludes phantom demand (got $${openPrice}, expected $${expectedOpen}, phantom would force $${phantomCapOpen})`,
     Math.abs(openPrice - expectedOpen) < 0.011 && openPrice < phantomCapOpen, `open=${openPrice}`);
+
+  // Until 2026-08-07 the auction moved only the traded ticker, so a fund whose
+  // members all opened higher still opened flat.
+  const etfPriceAfter = post.data().prices[parentEtf.ticker];
+  const openChange = (openPrice - basePrice) / basePrice;
+  const expectedEtf = round2(etfPriceBefore * (1 + openChange * etfCoefficient));
+  check(`parent ETF ${parentEtf.ticker} trailed the opening cross`,
+    Math.abs(etfPriceAfter - expectedEtf) < 0.011 && etfPriceAfter !== etfPriceBefore,
+    `${etfPriceBefore} -> ${etfPriceAfter}, expected ~${expectedEtf}`);
 
   const get = async (id) => (await db.collection('preMarketOrders').doc(id).get()).data();
 

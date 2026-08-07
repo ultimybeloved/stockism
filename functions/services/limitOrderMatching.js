@@ -64,7 +64,10 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   if (!freshMarketSnap.exists) throw new Error('Market data not found');
 
   const userData = userSnap.data();
-  const freshPrice = (freshMarketSnap.data().prices || {})[order.ticker] || currentPrice;
+  // The whole map, not just this ticker: the fill propagates into related
+  // characters and parent ETFs, and needs their prices to do it.
+  const freshPrices = freshMarketSnap.data().prices || {};
+  const freshPrice = freshPrices[order.ticker] || currentPrice;
 
   assertLimitStillMet(order, freshPrice);
   assertUserEligible(userData);
@@ -85,7 +88,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
     computeImpact({ userData, ticker: order.ticker, freshPrice, fillShares, cumVolume, now });
 
   const ctx = {
-    order, orderId, userRef, marketRef, userData, freshPrice, fillShares, now,
+    order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
     effectiveImpact, impactPercent, fillSource,
   };
   const { executedPrice, tradeValue } = effectiveType === 'BUY'

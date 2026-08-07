@@ -9,6 +9,9 @@ const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
 const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
+// Same propagation executeTrade and limit fills use, so the auction moves
+// related characters and parent ETFs the same way every other lane does.
+const { computePriceUpdates } = require('./tradePricing');
 
 
 // Most recent Thursday 20:30 UTC — the start of the current pre-market session.
@@ -172,6 +175,35 @@ const runMarketOpenProcessing = async (trigger) => {
         };
       }
     }
+    // Trailing effects + parent-ETF propagation from each ticker the auction
+    // moved. A ticker the auction priced itself keeps that price: the auction
+    // IS its price discovery, and letting a sibling's trailing overwrite it
+    // would undo the opening cross. So propagation only writes tickers the
+    // auction did not price.
+    const auctionTickers = new Set(Object.keys(byTicker));
+    const working = { ...currentPrices };
+    for (const t of auctionTickers) working[t] = auctionPrices[t].openingPrice;
+
+    for (const t of auctionTickers) {
+      const basePrice = currentPrices[t] || CHARACTER_MAP[t]?.basePrice;
+      const { openingPrice } = auctionPrices[t];
+      if (!basePrice || openingPrice === basePrice) continue;
+
+      const moved = computePriceUpdates({
+        ticker: t, currentPrice: basePrice, newPrice: openingPrice, prices: working,
+      });
+      for (const [movedTicker, price] of Object.entries(moved)) {
+        if (auctionTickers.has(movedTicker)) continue;
+        working[movedTicker] = price;
+        priceWrites[`prices.${movedTicker}`] = price;
+        auctionHistoryPoints[movedTicker] = {
+          timestamp: Date.now(),
+          price,
+          source: 'pre_market_auction'
+        };
+      }
+    }
+
     if (Object.keys(priceWrites).length > 0) {
       await marketRef.update(priceWrites);
       await appendPriceHistory(null, auctionHistoryPoints);

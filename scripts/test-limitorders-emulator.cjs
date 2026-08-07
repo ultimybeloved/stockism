@@ -37,9 +37,17 @@ const { runLimitOrderCheck } = require('../functions/services/limitOrders');
 const { runFillBackfill } = require('../functions/services/tradeBackfill');
 const { calculateMarginalImpact } = require('../functions/helpers');
 const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/constants');
-const { CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
 
-const IPO_TICKER = 'EUNH'; // ipoRequired: true in characters.js, not launched in seed
+// Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
+// from characters.js: `ipoRequired` gets dropped once a stock actually launches
+// (all five were cleared on 2026-08-07), and this test broke when it did.
+// Mutating the shared CHARACTER_MAP is enough — the engine reads the same
+// module instance in-process. It stays out of `usable` below because that
+// filter skips ipoRequired tickers.
+const IPO_TICKER = 'EUNH';
+if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.js`);
+CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -297,6 +305,54 @@ async function main() {
   // Expected: lo_d_defer, lo_k_lockH, one throttled order. lo_l_lockS stays
   // PARTIALLY_FILLED (6 locked shares outstanding) by design.
   check('exactly the intentional deferrals remain live', leftover.size === 4, leftoverIds.join(','));
+
+  // ── 17. ETF trailing: a limit fill moves the parent fund ────────────────
+  // Until 2026-08-07 only executeTrade propagated to ETFs, so buying a fund's
+  // member through a limit order left the fund sitting still. Run this as its
+  // own isolated pass so no other scenario's fill pollutes the ETF price.
+  const etfCase = (() => {
+    for (const etf of CHARACTERS.filter(c => c.isETF && c.trailingFactors?.length && prices[c.ticker] > 0)) {
+      // A member with no trailingFactors of its own keeps the expected move
+      // exact — nothing else can reach the fund in the same pass.
+      const member = etf.trailingFactors.find(tf => {
+        const c = CHARACTER_MAP[tf.ticker];
+        return c && !c.isETF && !c.ipoRequired && !c.trailingFactors && prices[tf.ticker] > 1;
+      });
+      if (member) return { etf, member };
+    }
+    return null;
+  })();
+  if (!etfCase) throw new Error('No ETF/constituent pair available — re-seed the emulator');
+
+  await db.collection('users').doc('lo_etf').set({ displayName: 'lo_etf', cash: 100000, holdings: {} });
+  await db.collection('limitOrders').doc('lo_r_etf').set({
+    userId: 'lo_etf', ticker: etfCase.member.ticker, type: 'BUY', shares: 10,
+    limitPrice: round2(prices[etfCase.member.ticker] * 1.5),
+    allowPartialFills: false, status: 'PENDING', filledShares: 0,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  const before = (await marketRef.get()).data().prices;
+  await runLimitOrderCheck();
+  const after = (await marketRef.get()).data().prices;
+
+  const mT = etfCase.member.ticker;
+  const eT = etfCase.etf.ticker;
+  check(`limit BUY moved the constituent ${mT}`, after[mT] > before[mT], `${before[mT]} -> ${after[mT]}`);
+
+  const stockChange = (after[mT] - before[mT]) / before[mT];
+  const expectedEtf = round2(before[eT] * (1 + stockChange * etfCase.member.coefficient));
+  check(`parent ETF ${eT} trailed the fill`, after[eT] > before[eT], `${before[eT]} -> ${after[eT]}`);
+  check(`${eT} moved by its trailing coefficient (${etfCase.member.coefficient})`,
+    Math.abs(after[eT] - expectedEtf) < 0.011, `expected ~${expectedEtf}, got ${after[eT]}`);
+
+  // The trailing move must also be charged to the filler's daily impact
+  // allowance, or a limit order is a free way to push a fund around.
+  const etfHistory = (await db.collection('users').doc('lo_etf').get()).data().tickerTradeHistory || {};
+  const etfEntries = etfHistory[eT]?.buy || [];
+  check(`${eT} trailing impact charged to the filler`,
+    etfEntries.length === 1 && etfEntries[0].shares === 0 && etfEntries[0].impact > 0,
+    JSON.stringify(etfEntries));
 
   console.log(failures === 0 ? '\nALL LIMIT-ORDER E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);

@@ -27,14 +27,26 @@ const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore() binds to the emulator.
 const { executeTrade } = require('../functions/services/trading');
-const { migratePriceHistoryDoc } = require('../functions/services/adminOps');
+// No migratePriceHistoryDoc import: that was a one-time migration off the
+// legacy priceHistory field on market/current. It ran, the callable was
+// deleted from adminOps.js, and the section testing it was removed here.
 const { archivePriceHistory } = require('../functions/services/archiving');
 const { applyDueIPOJumps } = require('../functions/helpers');
-const { ADMIN_UID } = require('../functions/constants');
+const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../functions/constants');
+
+// Comfortably more points than the live cap, so archiving has real overflow to move.
+const SEEDED_POINTS = PRICE_HISTORY_LIVE_MAX + 945;
+
+const { CHARACTER_MAP } = require('../functions/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const NORMAL = 'GUN';
+// Gated fixture. The flag is set HERE rather than borrowed from characters.js:
+// `ipoRequired` gets dropped once a stock actually launches (all five were
+// cleared on 2026-08-07), and relying on it silently disables the IPO checks.
 const IPO = 'EUNH';
+if (!CHARACTER_MAP[IPO]) throw new Error(`${IPO} is not in characters.js`);
+CHARACTER_MAP[IPO].ipoRequired = true;
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -106,35 +118,15 @@ async function testIPOJump() {
   check('old field still absent', market.priceHistory === undefined);
 }
 
-async function testMigration() {
-  console.log('\n4 — migratePriceHistoryDoc copy → verify → finalize');
-  // Simulate the legacy layout: an old priceHistory field on market/current
-  const now = Date.now();
-  const legacy = {
-    LEGACY1: [{ timestamp: now - 3 * DAY, price: 50 }, { timestamp: now - 2 * DAY, price: 55 }],
-    LEGACY2: [{ timestamp: now - DAY, price: 12 }],
-  };
-  await db.collection('market').doc('current').update({ priceHistory: legacy });
-
-  const gunBefore = ((await getHist())[NORMAL] || []).length;
-  const copyRes = await ok(migratePriceHistoryDoc, {}, ADMIN_UID);
-  check('copy reports all legacy points copied', copyRes.copied === true && copyRes.sourcePoints === 3, JSON.stringify(copyRes));
-  const hist = await getHist();
-  check('legacy tickers landed in the new doc', (hist.LEGACY1 || []).length === 2 && (hist.LEGACY2 || []).length === 1, JSON.stringify(Object.keys(hist)));
-  check('copy MERGED — pre-existing new-doc points survived', (hist[NORMAL] || []).length === gunBefore, `${(hist[NORMAL] || []).length} vs ${gunBefore}`);
-
-  const finRes = await ok(migratePriceHistoryDoc, { finalize: true }, ADMIN_UID);
-  const market = await getMarket();
-  check('finalize deleted the old field', finRes.finalized === true && market.priceHistory === undefined, JSON.stringify(finRes));
-  const histAfter = await getHist();
-  check('new doc untouched by finalize', (histAfter.LEGACY1 || []).length === 2, JSON.stringify(Object.keys(histAfter)));
-}
-
+// REMOVED: the migratePriceHistoryDoc section. That was a one-time migration
+// off the legacy priceHistory field on market/current; it ran, and the callable
+// was deleted from adminOps.js afterwards. The test kept calling it, which
+// crashed the run and took sections 4 and 5 down with it.
 async function testArchivePreservesEverything() {
   console.log('\n5 — archiving moves overflow points, total count preserved');
   const now = Date.now();
   const many = [];
-  for (let i = 0; i < 1005; i++) many.push({ timestamp: now - (1005 - i) * 60000, price: 20 + (i % 10) });
+  for (let i = 0; i < SEEDED_POINTS; i++) many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 20 + (i % 10) });
   await db.collection('market').doc('priceHistory').update({ BIGT: many });
 
   await ok(archivePriceHistory, {}, ADMIN_UID);
@@ -144,16 +136,19 @@ async function testArchivePreservesEverything() {
     .collection('price_history').doc('BIGT').get()).data() || {};
   const liveCount = (hist.BIGT || []).length;
   const archCount = (archive.history || []).length;
-  check('live doc trimmed to 1000', liveCount === 1000, `live=${liveCount}`);
-  check('overflow moved to permanent archive (5 points)', archCount === 5, `arch=${archCount}`);
-  check('TOTAL points preserved (nothing deleted)', liveCount + archCount === 1005, `${liveCount}+${archCount}`);
+  // Read the cap from constants rather than hardcoding it: it was 1000 until
+  // the doc hit Firestore's 40k index-entry limit and took trading down on
+  // 2026-07-22, and this check still expected 1000 long after it became 60.
+  const overflow = SEEDED_POINTS - PRICE_HISTORY_LIVE_MAX;
+  check(`live doc trimmed to the cap (${PRICE_HISTORY_LIVE_MAX})`, liveCount === PRICE_HISTORY_LIVE_MAX, `live=${liveCount}`);
+  check(`overflow moved to permanent archive (${overflow} points)`, archCount === overflow, `arch=${archCount}`);
+  check('TOTAL points preserved (nothing deleted)', liveCount + archCount === SEEDED_POINTS, `${liveCount}+${archCount}`);
 }
 
 async function main() {
   await seed();
   await testTradeAppends();
   await testIPOJump();
-  await testMigration();
   await testArchivePreservesEverything();
 
   console.log(failures === 0 ? '\n✅ ALL PRICE-HISTORY SPLIT TESTS PASSED' : `\n❌ ${failures} FAILURES`);

@@ -41,7 +41,7 @@ const {
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
-const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS } = require('../functions/characters');
+const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/characters');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
 // SOPH / CROC / XIAO: no trailingFactors, not a constituent of any ETF.
@@ -49,14 +49,19 @@ const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS } = require('../functions/characte
 // SCRT: ETF with 5 constituents at coefficient 0.16 (GOO/LOGN/SAM seeded;
 //        ALEX/SHMN left unseeded so trailing skips them).
 // GOO:  plain char that is a constituent of SCRT (tests stock→ETF propagation).
-// REI:  ipoRequired ticker (never launched in these tests).
+// REI:  gated ticker for the IPO check (never launched in these tests). The
+//       ipoRequired flag is set below rather than borrowed from characters.js —
+//       it gets dropped once a stock actually launches (all five were cleared
+//       on 2026-08-07), and relying on it broke this check.
 const T = 'SOPH';   // main test ticker, basePrice 80
 const T2 = 'CROC';  // secondary clean ticker, basePrice 66
 const T3 = 'XIAO';  // third clean ticker, basePrice 40
 const ETF = 'SCRT';
 const CON = 'GOO';  // SCRT constituent
 const UND = 'MIRA'; // underdog (< $20)
-const IPOT = 'REI'; // ipoRequired, unlaunched
+const IPOT = 'REI'; // gated for these tests, unlaunched
+if (!CHARACTER_MAP[IPOT]) throw new Error(`${IPOT} is not in characters.js`);
+CHARACTER_MAP[IPOT].ipoRequired = true;
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;

@@ -10,13 +10,15 @@
 const admin = require('firebase-admin');
 
 const { CHARACTER_MAP, exitLoyaltyDiscount } = require('../characters');
-const {
-  BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT,
-} = require('../constants');
+const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT } = require('../constants');
 const {
   calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory,
   appendPriceHistory, buildTradeCreditUpdates, recordTrade,
 } = require('../helpers');
+// Same propagation executeTrade uses, so a fill moves related characters and
+// parent ETFs identically no matter which lane it came through.
+const { computePriceUpdates, buildTrailingEntries } = require('./tradePricing');
+const { pruneHistoryMap, appendTradeEntries } = require('./tradeState');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -41,25 +43,47 @@ const computeImpact = ({ userData, ticker, freshPrice, fillShares, cumVolume, no
   return { effectiveImpact, impactPercent: freshPrice > 0 ? effectiveImpact / freshPrice : 0 };
 };
 
-/** tickerTradeHistory with this fill appended and entries older than 24h dropped. */
-const appendTradeHistory = (tickerTradeHistory, ticker, action, entry, now) => {
-  const updated = JSON.parse(JSON.stringify(tickerTradeHistory));
-  if (!updated[ticker]) updated[ticker] = {};
-  if (!updated[ticker][action]) updated[ticker][action] = [];
-  const cutoff = now - TWENTY_FOUR_HOURS_MS;
-  updated[ticker][action] = updated[ticker][action].filter((e) => e.ts > cutoff);
-  updated[ticker][action].push(entry);
-  return updated;
-};
-
 const spreadFor = (ticker) =>
   (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
-/** Move the market price and chart, but only when the fill actually had impact. */
-const applyPriceMove = (transaction, marketRef, ticker, newMarketPrice, effectiveImpact) => {
-  if (effectiveImpact <= 0) return;
-  transaction.update(marketRef, { [`prices.${ticker}`]: newMarketPrice });
-  appendPriceHistory(transaction, { [ticker]: { timestamp: Date.now(), price: newMarketPrice } });
+/**
+ * Every ticker this fill moves: the traded one, anything trailing it, and the
+ * parent ETFs. Empty when the fill had no impact left in the daily allowance —
+ * no price change means nothing to propagate.
+ */
+const propagate = ({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices }) =>
+  (effectiveImpact > 0
+    ? computePriceUpdates({ ticker, currentPrice: freshPrice, newPrice: newMarketPrice, prices: freshPrices })
+    : {});
+
+/**
+ * User trade history with this fill appended, plus a synthetic zero-share entry
+ * per trailed ticker. Those entries feed the daily impact cap (so a fill can't
+ * hand out free impact on related tickers) without counting toward the
+ * 10-trades-per-ticker cap.
+ */
+const buildHistory = ({ userData, ticker, action, fillShares, impactPercent, trailingEntries, now }) =>
+  appendTradeEntries(
+    pruneHistoryMap(userData.tickerTradeHistory || {}, now),
+    ticker, action,
+    { ts: now, shares: fillShares, impact: impactPercent },
+    trailingEntries
+  );
+
+/** Write every moved price and its chart point. Dotted paths, so a concurrent
+ *  write to another ticker in the same map survives. */
+const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
+  const moved = Object.entries(priceUpdates);
+  if (!moved.length) return;
+  const updates = {};
+  const historyPoints = {};
+  const timestamp = Date.now();
+  for (const [t, price] of moved) {
+    updates[`prices.${t}`] = price;
+    historyPoints[t] = { timestamp, price };
+  }
+  transaction.update(marketRef, updates);
+  appendPriceHistory(transaction, historyPoints);
 };
 
 /**
@@ -67,7 +91,7 @@ const applyPriceMove = (transaction, marketRef, ticker, newMarketPrice, effectiv
  * Returns { executedPrice, tradeValue }.
  */
 const applyBuyFill = (transaction, ctx) => {
-  const { order, orderId, userRef, marketRef, userData, freshPrice, fillShares, now,
+  const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
     effectiveImpact, impactPercent, fillSource } = ctx;
   const ticker = order.ticker;
 
@@ -92,10 +116,11 @@ const applyBuyFill = (transaction, ctx) => {
     ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * fillShares)) / newHoldings : askPrice)
     : askPrice;
 
-  const updatedHistory = appendTradeHistory(
-    userData.tickerTradeHistory || {}, ticker, 'buy',
-    { ts: now, shares: fillShares, impact: impactPercent }, now
-  );
+  const priceUpdates = propagate({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices });
+  const trailingEntries = buildTrailingEntries({ priceUpdates, ticker, prices: freshPrices, action: 'buy', now });
+  const updatedHistory = buildHistory({
+    userData, ticker, action: 'buy', fillShares, impactPercent, trailingEntries, now,
+  });
 
   // Mission/stat credit — same fields executeTrade writes, so limit fills count
   // toward missions like regular trades.
@@ -129,7 +154,7 @@ const applyBuyFill = (transaction, ctx) => {
     orderId,
   });
 
-  applyPriceMove(transaction, marketRef, ticker, newMarketPrice, effectiveImpact);
+  applyPriceUpdates(transaction, marketRef, priceUpdates);
 
   console.log(`Executed BUY: ${fillShares} ${ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
   return { executedPrice, tradeValue: totalCost };
@@ -142,7 +167,7 @@ const applyBuyFill = (transaction, ctx) => {
  * Returns { executedPrice, tradeValue }.
  */
 const applySellFill = (transaction, ctx) => {
-  const { order, orderId, userRef, marketRef, userData, freshPrice, fillShares, now,
+  const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
     effectiveImpact, impactPercent, fillSource } = ctx;
   const ticker = order.ticker;
 
@@ -163,10 +188,11 @@ const applySellFill = (transaction, ctx) => {
   const currentHoldings = userData.holdings?.[ticker] || 0;
   const newHoldings = currentHoldings - fillShares;
 
-  const updatedHistory = appendTradeHistory(
-    userData.tickerTradeHistory || {}, ticker, 'sell',
-    { ts: now, shares: fillShares, impact: impactPercent }, now
-  );
+  const priceUpdates = propagate({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices });
+  const trailingEntries = buildTrailingEntries({ priceUpdates, ticker, prices: freshPrices, action: 'sell', now });
+  const updatedHistory = buildHistory({
+    userData, ticker, action: 'sell', fillShares, impactPercent, trailingEntries, now,
+  });
 
   const { updates: creditUpdates } = buildTradeCreditUpdates({
     userData, ticker, action: 'sell', shares: fillShares,
@@ -201,7 +227,7 @@ const applySellFill = (transaction, ctx) => {
     orderId,
   });
 
-  applyPriceMove(transaction, marketRef, ticker, newMarketPrice, effectiveImpact);
+  applyPriceUpdates(transaction, marketRef, priceUpdates);
 
   console.log(`Executed ${order.type}: ${fillShares} ${ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
   return { executedPrice, tradeValue: totalRevenue };
