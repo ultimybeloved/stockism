@@ -31,7 +31,8 @@ const { BID_ASK_SPREAD } = require('../functions/constants');
 
 const { CHARACTERS, CHARACTER_MAP } = require('../functions/characters');
 
-const TICKER = 'GUN';
+const TICKER = 'GUN';        // auction ticker (in the YAMA fund)
+const STOP_TICKER = 'VSCO';  // stop-loss ticker (in the ALLY fund, untouched by the auction)
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
 // from characters.js: `ipoRequired` gets dropped once a stock actually launches
 // (all five were cleared on 2026-08-07), and relying on it broke this check.
@@ -63,6 +64,8 @@ async function main() {
     pm_partialBuyer: { cash: round2(10 * basePrice), holdings: {} },
     pm_staleUser:    { cash: 1000, holdings: {} },
     pm_ipoUser:      { cash: 5000, holdings: {} },
+    // Stop-loss sweep runs on the opening prices, right after the auction.
+    pm_stopper:      { cash: 0, holdings: { [STOP_TICKER]: 20 } },
   };
   for (const [uid, data] of Object.entries(users)) {
     await db.collection('users').doc(uid).set({ displayName: uid, ...data });
@@ -86,6 +89,22 @@ async function main() {
       executedAt: null, executedPrice: null, filledShares: null
     });
   }
+
+  // A stop loss triggered by the open. Deliberately on a ticker the auction is
+  // NOT pricing, and in a different fund from TICKER, so its price move and the
+  // auction's stay independent and each trailing check stays exact.
+  const stopBase = marketSnap.data().prices?.[STOP_TICKER];
+  if (!stopBase) throw new Error(`No price for ${STOP_TICKER} — re-seed the emulator`);
+  await db.collection('limitOrders').doc('pm_stop1').set({
+    userId: 'pm_stopper', ticker: STOP_TICKER, type: 'STOP_LOSS',
+    shares: 10, limitPrice: round2(stopBase * 1.2), // above spot -> triggers at open
+    status: 'PENDING', filledShares: 0, allowPartialFills: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  const stopEtf = CHARACTERS.find(c => c.isETF && c.trailingFactors?.some(tf => tf.ticker === STOP_TICKER));
+  if (!stopEtf) throw new Error(`${STOP_TICKER} is not in any ETF — pick a constituent`);
+  const stopEtfCoefficient = stopEtf.trailingFactors.find(tf => tf.ticker === STOP_TICKER).coefficient;
+  const stopEtfBefore = marketSnap.data().prices[stopEtf.ticker];
 
   // Parent fund of TICKER, captured before the auction so the trailing check
   // below has a baseline.
@@ -121,6 +140,27 @@ async function main() {
   check(`parent ETF ${parentEtf.ticker} trailed the opening cross`,
     Math.abs(etfPriceAfter - expectedEtf) < 0.011 && etfPriceAfter !== etfPriceBefore,
     `${etfPriceBefore} -> ${etfPriceAfter}, expected ~${expectedEtf}`);
+
+  // ── Stop-loss sweep (runs on the opening prices, after the auction) ────
+  check('stop loss triggered by the open filled', summary.stopLossFilled === 1 && summary.stopLossSkipped === 0, JSON.stringify(summary));
+  const stopOrder = (await db.collection('limitOrders').doc('pm_stop1').get()).data();
+  check('stop-loss order marked FILLED', stopOrder.status === 'FILLED' && stopOrder.filledShares === 10, JSON.stringify(stopOrder));
+  const stopUser = (await db.collection('users').doc('pm_stopper').get()).data();
+  check('stop-loss seller left with 10 shares and cash credited',
+    stopUser.holdings[STOP_TICKER] === 10 && stopUser.cash > 0, `holdings=${stopUser.holdings[STOP_TICKER]} cash=${stopUser.cash}`);
+  check('stop-loss fill tagged source=stop_loss',
+    (await db.collection('trades').where('uid', '==', 'pm_stopper').get()).docs[0]?.data().source === 'stop_loss');
+
+  // The sweep is a third fill lane and was not propagating to funds until
+  // 2026-08-07 — the member dropped, its fund did not.
+  const stopAfter = post.data().prices[STOP_TICKER];
+  const stopEtfAfter = post.data().prices[stopEtf.ticker];
+  const stopChange = (stopAfter - stopBase) / stopBase;
+  const expectedStopEtf = round2(stopEtfBefore * (1 + stopChange * stopEtfCoefficient));
+  check(`stop-loss sell pushed ${STOP_TICKER} down`, stopAfter < stopBase, `${stopBase} -> ${stopAfter}`);
+  check(`parent ETF ${stopEtf.ticker} trailed the stop-loss fill`,
+    Math.abs(stopEtfAfter - expectedStopEtf) < 0.011 && stopEtfAfter < stopEtfBefore,
+    `${stopEtfBefore} -> ${stopEtfAfter}, expected ~${expectedStopEtf}`);
 
   const get = async (id) => (await db.collection('preMarketOrders').doc(id).get()).data();
 

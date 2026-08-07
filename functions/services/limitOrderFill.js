@@ -9,11 +9,11 @@
 
 const admin = require('firebase-admin');
 
-const { CHARACTER_MAP, exitLoyaltyDiscount } = require('../characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT } = require('../constants');
+const { exitLoyaltyDiscount } = require('../characters');
+const { MAX_DAILY_IMPACT } = require('../constants');
 const {
   calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory,
-  appendPriceHistory, buildTradeCreditUpdates, recordTrade,
+  appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor,
 } = require('../helpers');
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
@@ -42,9 +42,6 @@ const computeImpact = ({ userData, ticker, freshPrice, fillShares, cumVolume, no
   );
   return { effectiveImpact, impactPercent: freshPrice > 0 ? effectiveImpact / freshPrice : 0 };
 };
-
-const spreadFor = (ticker) =>
-  (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 /**
  * Every ticker this fill moves: the traded one, anything trailing it, and the

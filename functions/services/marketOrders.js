@@ -6,12 +6,14 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, MAX_DAILY_IMPACT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2 } = require('../helpers');
+const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
 const { computePriceUpdates } = require('./tradePricing');
+// The stop-loss sweep that runs on the opening prices this file computes.
+const { runStopLossSweep } = require('./marketOpenStopLoss');
 
 
 // Most recent Thursday 20:30 UTC — the start of the current pre-market session.
@@ -29,7 +31,6 @@ const getSessionPreMarketStart = () => {
   return d;
 };
 
-const getSpread = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 /**
  * Pre-market opening auction + stop-loss sweep + stranded-order cleanup.
@@ -119,7 +120,7 @@ const runMarketOpenProcessing = async (trigger) => {
       let fillable = 0;
       if (order.action === 'buy') {
         if (!cashAvail.has(order.userId)) cashAvail.set(order.userId, ud.cash || 0);
-        const estAsk = basePrice * (1 + getSpread(order.ticker) / 2);
+        const estAsk = basePrice * (1 + spreadFor(order.ticker) / 2);
         fillable = Math.min(order.shares, Math.floor(cashAvail.get(order.userId) / estAsk * 100) / 100);
         if (fillable >= 0.01) cashAvail.set(order.userId, cashAvail.get(order.userId) - estAsk * fillable);
       } else {
@@ -159,7 +160,7 @@ const runMarketOpenProcessing = async (trigger) => {
       }
       openingPrice = round2(openingPrice);
 
-      const spread = getSpread(ticker);
+      const spread = spreadFor(ticker);
       auctionPrices[ticker] = {
         openingPrice,
         openingAsk: round2(openingPrice * (1 + spread / 2)),
@@ -382,178 +383,13 @@ const runMarketOpenProcessing = async (trigger) => {
   }
 
   // ── 6. Stop-loss sweep at opening prices ──────────────────────────────────
-  const openingPrices = marketSnap.data().prices || {};
-
-  const ordersSnapshot = await db.collection('limitOrders')
-    .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
-    .get();
-
-  console.log(`runMarketOpenProcessing: checking ${ordersSnapshot.size} limit orders`);
-
-  for (const orderDoc of ordersSnapshot.docs) {
-    const order = orderDoc.data();
-    if (order.type !== 'STOP_LOSS') continue;
-
-    const openingPrice = openingPrices[order.ticker];
-    if (!openingPrice || openingPrice > order.limitPrice) continue;
-
-    const userRef = db.collection('users').doc(order.userId);
-    const alreadyFilled = order.filledShares || 0;
-    let fillShares = order.shares - alreadyFilled;
-    let executedPrice = 0;
-    let feedDisplayName = '';
-    let feedCrew = null;
-
-    try {
-      await db.runTransaction(async (transaction) => {
-        const freshOrderSnap = await transaction.get(orderDoc.ref);
-        if (!freshOrderSnap.exists || !['PENDING', 'PARTIALLY_FILLED'].includes(freshOrderSnap.data().status)) {
-          throw new Error('Order already processed');
-        }
-        const freshAlreadyFilled = freshOrderSnap.data().filledShares || 0;
-        fillShares = order.shares - freshAlreadyFilled;
-        const userSnap = await transaction.get(userRef);
-        const freshMarketSnap = await transaction.get(marketRef);
-        if (!userSnap.exists) throw new Error('User not found');
-        const userData = userSnap.data();
-        feedDisplayName = userData.displayName || 'Anonymous';
-        feedCrew = userData.crew || null;
-        const freshPrice = freshMarketSnap.data().prices?.[order.ticker] || openingPrice;
-
-        if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
-        if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
-        // Locks re-checked at fill time: shares locked after the stop loss was
-        // placed (e.g. a margin buy) can't be sold by the sweep.
-        const userShares = userData.holdings?.[order.ticker] || 0;
-        const lockedNow = lockedShares(userData, order.ticker).total;
-        const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
-        if (sellableShares < fillShares) {
-          if (order.allowPartialFills && sellableShares > 0) {
-            fillShares = sellableShares;
-          } else {
-            throw new Error('Insufficient shares');
-          }
-        }
-
-        const now = Date.now();
-        const limitTradeHistory = userData.tickerTradeHistory || {};
-        const limitActionHistory = limitTradeHistory[order.ticker]?.['sell'] || [];
-        const { totalShares: cumVol, count: tradeCount } = pruneAndSumTradeHistory(limitActionHistory, now);
-        if (tradeCount >= MAX_TRADES_PER_TICKER_24H) throw new Error('Trade limit reached');
-
-        // Daily 10% impact cap (same rule as executeTrade): the stop loss still
-        // fills, but stops moving the price once the user's daily impact
-        // allowance on this ticker is used up. New accounts move less.
-        let sweepDailyImpact = 0;
-        for (const act of ['buy', 'sell', 'short', 'cover']) {
-          const { totalImpact } = pruneAndSumTradeHistory(limitTradeHistory[order.ticker]?.[act] || [], now);
-          sweepDailyImpact += totalImpact;
-        }
-        const remainingSweepImpact = Math.max(0, MAX_DAILY_IMPACT - sweepDailyImpact);
-        const effectiveImpact = Math.min(
-          calculateMarginalImpact(freshPrice, fillShares, cumVol) * getAccountAgeImpactFactor(userData),
-          freshPrice * remainingSweepImpact
-        );
-        const spread = getSpread(order.ticker);
-        const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
-        const bidPrice = newMarketPrice * (1 - spread / 2);
-        executedPrice = round2(bidPrice);
-
-        const updatedHistory = JSON.parse(JSON.stringify(limitTradeHistory));
-        if (!updatedHistory[order.ticker]) updatedHistory[order.ticker] = {};
-        if (!updatedHistory[order.ticker]['sell']) updatedHistory[order.ticker]['sell'] = [];
-        const cutoff = now - TWENTY_FOUR_HOURS_MS;
-        updatedHistory[order.ticker]['sell'] = updatedHistory[order.ticker]['sell'].filter(e => e.ts > cutoff);
-        updatedHistory[order.ticker]['sell'].push({
-          ts: now,
-          shares: fillShares,
-          impact: freshPrice > 0 ? effectiveImpact / freshPrice : 0
-        });
-
-        const newHoldings = Math.round(((userData.holdings?.[order.ticker] || 0) - fillShares) * 10000) / 10000;
-        // Mission/stat credit — same fields executeTrade writes (includes the
-        // totalTrades increment), so sweep fills count like regular trades.
-        const { updates: creditUpdates } = buildTradeCreditUpdates({
-          userData, ticker: order.ticker, action: 'sell', shares: fillShares,
-          totalValue: executedPrice * fillShares, executionPrice: executedPrice,
-          marketPrice: freshPrice, now
-        });
-        const updates = {
-          cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
-          [`holdings.${order.ticker}`]: newHoldings,
-          lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
-          tickerTradeHistory: updatedHistory,
-          ...creditUpdates
-        };
-        if (newHoldings <= 0) {
-          updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
-          updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
-          updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
-        }
-        transaction.update(userRef, updates);
-
-        // Same trade record executeTrade writes, so the fill shows up in the
-        // player's trade history and the market reports.
-        const sweepTotal = executedPrice * fillShares;
-        recordTrade(transaction, {
-          uid: order.userId,
-          ticker: order.ticker,
-          action: 'sell',
-          amount: fillShares,
-          price: executedPrice,
-          priceImpact: freshPrice > 0 ? effectiveImpact / freshPrice : 0,
-          totalValue: sweepTotal,
-          cashBefore: userData.cash || 0,
-          cashAfter: round2((userData.cash || 0) + sweepTotal),
-          source: 'stop_loss',
-          orderId: orderDoc.id,
-        });
-
-        if (effectiveImpact > 0) {
-          transaction.update(marketRef, {
-            [`prices.${order.ticker}`]: newMarketPrice
-          });
-          appendPriceHistory(transaction, {
-            [order.ticker]: { timestamp: now, price: newMarketPrice }
-          });
-        }
-        const newFilledTotal = freshAlreadyFilled + fillShares;
-        const isPartial = order.allowPartialFills && newFilledTotal < order.shares;
-        transaction.update(orderDoc.ref, {
-          status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
-          filledShares: newFilledTotal,
-          executedPrice,
-          executedAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-      });
-      // Crew mission progress (fire-and-forget, same as executeTrade)
-      if (feedCrew) {
-        updateCrewMissionProgress(feedCrew, order.userId, 'sell', fillShares, order.ticker, executedPrice * fillShares);
-      }
-      await writeNotification(order.userId, {
-        type: 'trade',
-        title: 'Stop Loss Filled',
-        message: `Your stop loss for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
-        data: { ticker: order.ticker, orderId: orderDoc.id, price: executedPrice }
-      });
-      writeFeedEntry({
-        type: 'trade',
-        userId: order.userId,
-        displayName: feedDisplayName,
-        crew: feedCrew,
-        ticker: order.ticker,
-        action: 'sell',
-        amount: fillShares,
-        price: executedPrice,
-        message: `sold ${fillShares} $${order.ticker} via stop loss`
-      });
-      summary.stopLossFilled++;
-    } catch (err) {
-      console.log(`runMarketOpenProcessing: stop loss ${orderDoc.id} skipped — ${err.message}`);
-      summary.stopLossSkipped++;
-    }
-  }
+  // Its own module (marketOpenStopLoss.js) — a per-order liquidation is a
+  // different mechanism from the batch auction above.
+  await runStopLossSweep({
+    marketRef,
+    openingPrices: marketSnap.data().prices || {},
+    summary,
+  });
 
   // ── 7. Stranded-order cleanup ─────────────────────────────────────────────
   // Any PENDING pre-market order from a previous session can never fill —

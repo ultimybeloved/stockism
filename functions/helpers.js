@@ -15,7 +15,7 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // ============================================
 // Rates, hold gate, and loyalty ladder live in characters.js (synced from
 // src/characters.js) so frontend and backend always agree.
-const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS } = require('./characters');
+const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS, CHARACTER_MAP } = require('./characters');
 
 // ============================================
 // ROSTER GUARD
@@ -32,6 +32,11 @@ const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS } = require('./characte
 // inherently safe and needs no guard.
 const ROSTER_TICKERS = new Set(CHARACTERS.map((c) => c.ticker));
 const isRosterTicker = (ticker) => ROSTER_TICKERS.has(ticker);
+
+// Bid/ask spread for a ticker. ETFs trade tighter than individual characters.
+// Was defined separately in marketOrders and limitOrderFill.
+const spreadFor = (ticker) =>
+  (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
 // Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
@@ -109,6 +114,8 @@ const {
   TRADE_TX_TYPES,
   TRADE_RECORD_ACTIONS,
   DISCORD_API_TIMEOUT_MS,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
 } = require('./constants');
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
@@ -886,6 +893,7 @@ module.exports = {
   decrementCohort,
   graduateCohort,
   isRosterTicker,
+  spreadFor,
   calculateMarginalImpact,
   getWeekId,
   buildTradeCreditUpdates,
