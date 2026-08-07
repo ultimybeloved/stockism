@@ -17,6 +17,30 @@ Scripts for managing Stockism database operations.
 
 ## Scripts
 
+### check-data.cjs
+
+Validates the character / crew / ETF data. Silent success = clean, non-zero exit
+with a list of what to fix otherwise. No network, no credentials.
+
+**Usage:**
+```bash
+npm run check:data
+```
+
+**What it catches:**
+- ETF trailing weights that don't sum to 0.8 (i.e. a member was added without
+  re-weighting the rest), and members weighted unequally
+- ETF constituents with no trailing factor, or trailing factors that aren't
+  constituents
+- Crew members missing from their crew's fund
+- Trailing factors, constituents, or crew members pointing at tickers that don't
+  exist
+- Duplicate tickers or names, missing basePrice / dateAdded
+
+Run it after editing `src/characters.js` or `src/crews.js`, before `sync:chars`.
+
+---
+
 ### market-status.cjs
 
 Read-only snapshot of the live market. **No service account key needed** — the

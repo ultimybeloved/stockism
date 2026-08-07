@@ -8,7 +8,7 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact, isPriceProtected, priceHistoryRef, appendPriceHistory } = require('./helpers');
+const { calculateMarginalImpact, isPriceProtected, priceHistoryRef, appendPriceHistory, isRosterTicker } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -287,6 +287,7 @@ module.exports = {
         const prices = marketData.prices || {};
         const launchedTickers = marketData.launchedTickers || [];
         const allTickers = Object.keys(prices).filter(t => {
+          if (!isRosterTicker(t)) return false; // stale price from an old rename
           const meta = CHARACTER_MAP[t];
           return !meta?.ipoRequired || launchedTickers.includes(t);
         });

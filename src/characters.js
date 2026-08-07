@@ -243,15 +243,16 @@ export const CHARACTERS = [
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, dateAdded: "2026-02-20T00:02:00",
     isETF: true, description: "Fist Gang ETF",
-    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON", "EUNH"],
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON", "EUNH", "MNSK"],
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.057 }, { ticker: "ELIT", coefficient: 0.057 },
-      { ticker: "JYNG", coefficient: 0.057 }, { ticker: "TOM", coefficient: 0.057 },
-      { ticker: "KWON", coefficient: 0.057 }, { ticker: "DNCE", coefficient: 0.057 },
-      { ticker: "GNTL", coefficient: 0.057 }, { ticker: "MMA", coefficient: 0.057 },
-      { ticker: "LIAR", coefficient: 0.057 }, { ticker: "NOH", coefficient: 0.057 },
-      { ticker: "TAXI", coefficient: 0.057 }, { ticker: "HANT", coefficient: 0.057 },
-      { ticker: "GWON", coefficient: 0.057 }, { ticker: "EUNH", coefficient: 0.057 }
+      { ticker: "GAP", coefficient: 0.053 }, { ticker: "ELIT", coefficient: 0.053 },
+      { ticker: "JYNG", coefficient: 0.053 }, { ticker: "TOM", coefficient: 0.053 },
+      { ticker: "KWON", coefficient: 0.053 }, { ticker: "DNCE", coefficient: 0.053 },
+      { ticker: "GNTL", coefficient: 0.053 }, { ticker: "MMA", coefficient: 0.053 },
+      { ticker: "LIAR", coefficient: 0.053 }, { ticker: "NOH", coefficient: 0.053 },
+      { ticker: "TAXI", coefficient: 0.053 }, { ticker: "HANT", coefficient: 0.053 },
+      { ticker: "GWON", coefficient: 0.053 }, { ticker: "EUNH", coefficient: 0.053 },
+      { ticker: "MNSK", coefficient: 0.053 }
     ]
   },
   {
@@ -321,15 +322,15 @@ export const CHARACTERS = [
     isETF: true, description: "J High School ETF",
     constituents: ["BDNL", "LDNL", "ELI", "ZACK", "VSCO", "VIN", "JAY", "LOGN", "2SEC", "CRYS", "DUKE", "DOO", "JACE", "MIRA", "ZOE", "JOY", "JIHO", "ENU"],
     trailingFactors: [
-      { ticker: "BDNL", coefficient: 0.047 }, { ticker: "LDNL", coefficient: 0.047 },
-      { ticker: "ELI", coefficient: 0.047 }, { ticker: "ZACK", coefficient: 0.047 },
-      { ticker: "VSCO", coefficient: 0.047 }, { ticker: "VIN", coefficient: 0.047 },
-      { ticker: "JAY", coefficient: 0.047 }, { ticker: "LOGN", coefficient: 0.047 },
-      { ticker: "2SEC", coefficient: 0.047 }, { ticker: "CRYS", coefficient: 0.047 },
-      { ticker: "DUKE", coefficient: 0.047 }, { ticker: "DOO", coefficient: 0.047 },
-      { ticker: "JACE", coefficient: 0.047 }, { ticker: "MIRA", coefficient: 0.047 },
-      { ticker: "ZOE", coefficient: 0.047 }, { ticker: "JOY", coefficient: 0.047 },
-      { ticker: "JIHO", coefficient: 0.047 }, { ticker: "ENU", coefficient: 0.047 }
+      { ticker: "BDNL", coefficient: 0.044 }, { ticker: "LDNL", coefficient: 0.044 },
+      { ticker: "ELI", coefficient: 0.044 }, { ticker: "ZACK", coefficient: 0.044 },
+      { ticker: "VSCO", coefficient: 0.044 }, { ticker: "VIN", coefficient: 0.044 },
+      { ticker: "JAY", coefficient: 0.044 }, { ticker: "LOGN", coefficient: 0.044 },
+      { ticker: "2SEC", coefficient: 0.044 }, { ticker: "CRYS", coefficient: 0.044 },
+      { ticker: "DUKE", coefficient: 0.044 }, { ticker: "DOO", coefficient: 0.044 },
+      { ticker: "JACE", coefficient: 0.044 }, { ticker: "MIRA", coefficient: 0.044 },
+      { ticker: "ZOE", coefficient: 0.044 }, { ticker: "JOY", coefficient: 0.044 },
+      { ticker: "JIHO", coefficient: 0.044 }, { ticker: "ENU", coefficient: 0.044 }
     ]
   },
   {

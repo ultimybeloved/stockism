@@ -15,7 +15,23 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // ============================================
 // Rates, hold gate, and loyalty ladder live in characters.js (synced from
 // src/characters.js) so frontend and backend always agree.
-const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS } = require('./characters');
+const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS } = require('./characters');
+
+// ============================================
+// ROSTER GUARD
+// ============================================
+// market/current.prices can outlive the roster. renameTicker deletes the old
+// entry, but restoring a market backup taken before a rename brings it back,
+// and nothing since then removes it — DOTS survived the DOTS->CROW rename this
+// way and was still being traded by bots a year later.
+//
+// Anything that iterates the PRICE MAP rather than CHARACTERS has to filter
+// through this, or it acts on a stock no player can see: bots pick it, and it
+// lands in the daily/weekly gainers, losers, and ATH lists that get posted to
+// Discord. Iterating CHARACTERS directly (as the market maker does) is
+// inherently safe and needs no guard.
+const ROSTER_TICKERS = new Set(CHARACTERS.map((c) => c.ticker));
+const isRosterTicker = (ticker) => ROSTER_TICKERS.has(ticker);
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
 // Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
@@ -869,6 +885,7 @@ module.exports = {
   addPendingShares,
   decrementCohort,
   graduateCohort,
+  isRosterTicker,
   calculateMarginalImpact,
   getWeekId,
   buildTradeCreditUpdates,

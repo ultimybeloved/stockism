@@ -173,7 +173,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 **Characters & crews** (`src/characters.js` + `src/crews.js` and their `functions/` copies)
 - `src/characters.js` and `src/crews.js` are the **only files you ever edit**. Never touch `functions/characters.js` or `functions/crews.js` directly — both are generated.
-- After editing either source file, run `npm run sync:chars` — it overwrites both `functions/` copies automatically.
+- After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.
 - Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
 - Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.js`; `functions/constants.js` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
 

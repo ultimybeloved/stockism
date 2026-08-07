@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "sync:chars": "node scripts/sync-chars.cjs",
     "check:functions": "node scripts/check-function-exports.cjs",
+    "check:data": "node scripts/check-data.cjs",
     "status:market": "node scripts/market-status.cjs",
     "discord:commands": "node scripts/register-discord-commands.cjs",
     "test:discord": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-discord-commands-emulator.cjs\"",
