@@ -9,7 +9,7 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { ADMIN_UID, NAME_CHANGE_COST, COSMETIC_CATALOG } = require('../constants');
+const { ADMIN_UID, NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG } = require('../constants');
 const { isBannedUsername, containsProfanity, validateUsernameFormat, touchLastActive } = require('../helpers');
 
 
@@ -236,9 +236,8 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
     // Cooldown: 14 days between changes
     if (userData.nameChangedAt) {
       const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
-      const cooldownMs = 14 * 24 * 60 * 60 * 1000;
-      if (msSinceChange < cooldownMs) {
-        const daysLeft = Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000));
+      if (msSinceChange < NAME_CHANGE_COOLDOWN_MS) {
+        const daysLeft = Math.ceil((NAME_CHANGE_COOLDOWN_MS - msSinceChange) / (24 * 60 * 60 * 1000));
         throw new functions.https.HttpsError('failed-precondition', `You can change your name again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
       }
     }

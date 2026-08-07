@@ -210,12 +210,18 @@ export const CHARACTERS = [
   // New characters added 2026-08-06
   { name: "Gibok Jang", ticker: "YH", basePrice: 45, dateAdded: "2026-08-06T00:00:00" },
 
-  // IPO characters - require IPO process before trading
-  { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, dateAdded: "2026-02-12T00:00:00", ipoRequired: true },
-  { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00", ipoRequired: true },
-  { name: "Bangho Lee", ticker: "MONO", basePrice: 80, dateAdded: "2026-06-04T00:04:00", ipoRequired: true },
-  { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", ipoRequired: true },
-  { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", ipoRequired: true },
+  // Characters that launched via IPO. `ipoRequired: true` gates a character out
+  // of trading until an admin launches it; every gate reads it as
+  // `ipoRequired && !launchedTickers.includes(ticker)`, so the flag stops doing
+  // anything the moment the launch happens. Drop it once launched — left on, it
+  // reads like the stock is still gated (it isn't) and it keeps offering the
+  // stock in the admin IPO panel as a candidate for another launch.
+  // A NEW character that needs an IPO gets `ipoRequired: true` here until launch.
+  { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, dateAdded: "2026-02-12T00:00:00" },
+  { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00" },
+  { name: "Bangho Lee", ticker: "MONO", basePrice: 80, dateAdded: "2026-06-04T00:04:00" },
+  { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00" },
+  { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00" },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {

@@ -12,6 +12,7 @@ const { CHARACTER_MAP, CHARACTERS } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MIN_PRICE, DUST_MAX_VALUE, isWeeklyTradingHalt,
   TWENTY_FOUR_HOURS_MS, ONE_WEEK_MS, THIRTY_DAYS_MS, ANIMAL_TICKERS, UNIFIER_FULL_SHARE_MIN,
+  DIVIDEND_DEMON_HOLD_MS,
 } = require('../constants');
 const { touchLastActive, lockedShares, reportError, checkDiscordWall, checkBanned, round2 } = require('../helpers');
 
@@ -422,11 +423,10 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   if (weeklyGainPercent >= 25 && weeklyGain > 0 && !currentAchievements.includes('YOURE_A_WORKER')) newAchievements.push('YOURE_A_WORKER');
 
   // Dividend Demon: held any ETF for 50 consecutive days
-  const FIFTY_DAYS_MS = 50 * 24 * 60 * 60 * 1000;
   const holdingCohorts = userData.holdingCohorts || {};
   const hasHeldETF50Days = Object.entries(holdingCohorts).some(([t, cohort]) => {
     const char = CHARACTERS.find(c => c.ticker === t);
-    return char?.isETF && cohort?.firstHeldAt && (now - cohort.firstHeldAt >= FIFTY_DAYS_MS);
+    return char?.isETF && cohort?.firstHeldAt && (now - cohort.firstHeldAt >= DIVIDEND_DEMON_HOLD_MS);
   });
   if (hasHeldETF50Days && !currentAchievements.includes('DIVIDEND_DEMON')) newAchievements.push('DIVIDEND_DEMON');
 

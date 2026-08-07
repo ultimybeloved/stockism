@@ -29,6 +29,12 @@ const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per roll
 // price can't walk the price in a single run.
 const ORDERS_PER_TICKER_PER_CYCLE = 3;
 
+// Consecutive days holding an ETF to earn the Dividend Demon achievement.
+const DIVIDEND_DEMON_HOLD_MS = 50 * 24 * 60 * 60 * 1000;
+
+// Cooldown between display-name changes.
+const NAME_CHANGE_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
 // Admin price protection: after an admin manually sets a price, automated
 // price movers (bot trader, market maker) leave that ticker alone for this
 // long so they can't claw the adjustment back. Resets each time admin re-sets.
@@ -544,6 +550,8 @@ module.exports = {
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
   ORDERS_PER_TICKER_PER_CYCLE,
+  DIVIDEND_DEMON_HOLD_MS,
+  NAME_CHANGE_COOLDOWN_MS,
   ADMIN_PRICE_PROTECTION_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
