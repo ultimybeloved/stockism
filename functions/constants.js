@@ -24,6 +24,11 @@ const MAX_PRICE_CHANGE_PERCENT = 0.05;
 const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
+// How many limit orders on the same ticker one sweep may fill. Anything over
+// the cap waits for the next 2-minute cycle, so a cluster of orders at the same
+// price can't walk the price in a single run.
+const ORDERS_PER_TICKER_PER_CYCLE = 3;
+
 // Admin price protection: after an admin manually sets a price, automated
 // price movers (bot trader, market maker) leave that ticker alone for this
 // long so they can't claw the adjustment back. Resets each time admin re-sets.
@@ -538,6 +543,7 @@ module.exports = {
   MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
+  ORDERS_PER_TICKER_PER_CYCLE,
   ADMIN_PRICE_PROTECTION_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
