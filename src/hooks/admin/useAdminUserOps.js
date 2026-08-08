@@ -1,17 +1,20 @@
 import { adminSetCashFunction, adminTransferToLadderFunction } from '../../firebase';
 import { useAdminBankruptcy } from './useAdminBankruptcy';
 import { useAdminUserIdentity } from './useAdminUserIdentity';
+import { useAdminUserEdit } from './useAdminUserEdit';
 
 // Per-user admin operations. Owns the balance actions (cash, ladder transfer)
 // and composes the two sibling hooks so AdminPanel still spreads one object:
 //   useAdminBankruptcy    — bankrupt list, reinstate, rollback (Recovery tab)
 //   useAdminUserIdentity  — Discord wall, unlink/move link, display name (Users tab)
+//   useAdminUserEdit      — crew, achievements, margin, holdings (Users tab)
 //
 // setSelectedUser comes from the user-list state so these ops can refresh the
 // open user card after acting on it.
 export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
   const bankruptcy = useAdminBankruptcy({ showMessage, setLoading, setSelectedUser });
   const identity = useAdminUserIdentity({ showMessage, setLoading, setSelectedUser });
+  const fieldEdits = useAdminUserEdit({ showMessage, setLoading, setSelectedUser });
 
   const handleSetCash = async (userId, displayName) => {
     const input = prompt(`Set cash for ${displayName}.\nEnter new cash amount:`);
@@ -59,6 +62,7 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
   return {
     ...bankruptcy,
     ...identity,
+    ...fieldEdits,
     handleSetCash,
     handleTransferToLadder,
   };

@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useNewPredictions } from '../hooks/useNewPredictions';
 import { getThemeClasses } from '../utils/theme';
 import { getTotalInvested } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
@@ -21,6 +23,10 @@ const PredictionsPage = ({
 }) => {
   const { darkMode, userData, marketData } = useAppContext();
   const { bgClass, textClass, mutedClass } = getThemeClasses(darkMode);
+
+  // Opening the page is what clears the nav badge.
+  const { markSeen } = useNewPredictions();
+  useEffect(() => { markSeen(); }, [markSeen]);
 
   const isHalted = isWeeklyHalt() || !!marketData?.marketHalted;
 

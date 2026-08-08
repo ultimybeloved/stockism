@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import { useNewPredictions } from '../../hooks/useNewPredictions';
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -55,6 +56,8 @@ const MobileBottomNav = () => {
     return location.pathname === path;
   };
 
+  const { newCount: newPredictions } = useNewPredictions();
+
   const navItems = [
     {
       path: '/',
@@ -62,7 +65,7 @@ const MobileBottomNav = () => {
       label: 'Home'
     },
     { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
-    { path: '/predictions', icon: '🔮', label: 'Predict' },
+    { path: '/predictions', icon: '🔮', label: 'Predict', badge: newPredictions },
     { path: '/ladder', icon: <LadderIcon />, label: 'Ladder' },
     { path: '/achievements', icon: '🏅', label: 'Achievements' },
     ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : [])
@@ -85,7 +88,7 @@ const MobileBottomNav = () => {
             onClick={() => navigate(
               item.path === '/' ? '/' : (isActivePage(item.path) ? '/' : item.path)
             )}
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+            className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActivePage(item.path)
                 ? 'text-orange-500'
                 : darkMode
@@ -95,6 +98,11 @@ const MobileBottomNav = () => {
           >
             <span className="text-2xl mb-1">{item.icon}</span>
             <span className="text-xs font-medium">{item.label}</span>
+            {item.badge > 0 && (
+              <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                {item.badge > 9 ? '9+' : item.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>

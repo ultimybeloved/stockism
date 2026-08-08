@@ -148,6 +148,11 @@ export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLi
 export const unlinkOwnDiscordFunction = httpsCallable(functions, 'unlinkOwnDiscord');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
 export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
+// Admin: direct edits to one user's game state (see functions/services/adminUserEdit.js)
+export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
+export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
+export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');
+export const adminSetHoldingFunction = httpsCallable(functions, 'adminSetHolding');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data

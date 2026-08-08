@@ -19,6 +19,7 @@ module.exports = [
   './services/admin',
   './services/adminBackups',
   './services/adminOps',
+  './services/adminUserEdit',
   './services/adminRepair',
   './services/adminMigrate',
   './services/tradeBackfill',

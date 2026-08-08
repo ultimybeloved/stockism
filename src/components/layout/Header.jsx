@@ -7,6 +7,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
 import { useAppContext } from '../../context/AppContext';
 import { isPreMarketWindow } from '../../utils/marketHours';
+import { useNewPredictions } from '../../hooks/useNewPredictions';
 import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
 import { getThemeClasses } from '../../utils/theme';
 
@@ -96,9 +97,11 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
     return location.pathname === path;
   };
 
+  const { newCount: newPredictions } = useNewPredictions();
+
   const navLinks = [
     { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { path: '/predictions', label: 'Predictions', icon: '🔮' },
+    { path: '/predictions', label: 'Predictions', icon: '🔮', badge: newPredictions },
     { path: '/ladder', label: 'Ladder', icon: <LadderIcon /> },
     { path: '/achievements', label: 'Achievements', icon: '🏅' }
   ];
@@ -131,7 +134,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
               <button
                 key={link.path}
                 onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActivePage(link.path)
                     ? 'bg-orange-600 text-white'
                     : darkMode
@@ -141,6 +144,11 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
               >
                 <span className="mr-1">{link.icon}</span>
                 {link.label}
+                {link.badge > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                    {link.badge > 9 ? '9+' : link.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
