@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import CharacterMeta from './character/CharacterMeta';
+import ReviewChangeBadge from './character/ReviewChangeBadge';
 import { getThemeClasses, getRarityStagger, SPACING } from '../utils/theme';
 import { rarityClassFor } from '../utils/rarity';
 import SimpleLineChart from './charts/SimpleLineChart';
@@ -11,7 +12,7 @@ import PreMarketModal from './modals/PreMarketModal';
 import { useAppContext } from '../context/AppContext';
 import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
 
-const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert }) => {
+const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert, reviewChange }) => {
   const { darkMode, user, userData, priceHistory, marketData, rarityTiers } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
@@ -218,6 +219,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
           </div>
         )}
         <div className="cursor-pointer" onClick={() => onViewChart(character, defaultChartTimeRange)}>
+          {reviewChange && <ReviewChangeBadge change={reviewChange} />}
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="flex items-center gap-1">

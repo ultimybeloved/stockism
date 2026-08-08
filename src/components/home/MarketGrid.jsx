@@ -16,6 +16,7 @@ const MarketGrid = ({
   tradeAnimation,
   onSetAlert,
   marketTab,
+  reviewChanges,
   searchQuery,
   currentPage, setCurrentPage,
   totalPages,
@@ -53,6 +54,9 @@ const MarketGrid = ({
             tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
             haltInfo={marketData?.haltedTickers?.[character.ticker]}
             onSetAlert={onSetAlert}
+            // Only in the Review tab: elsewhere the card's own price and 24h
+            // change are the whole story.
+            reviewChange={marketTab === 'review' ? reviewChanges?.[character.ticker] : null}
           />
         ))}
       </div>

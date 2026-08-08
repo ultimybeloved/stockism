@@ -145,6 +145,7 @@ const HomePage = ({
               tradeAnimation={tradeAnimation}
               onSetAlert={onSetAlert}
               marketTab={browser.marketTab}
+              reviewChanges={browser.reviewChanges}
               searchQuery={browser.searchQuery}
               currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
