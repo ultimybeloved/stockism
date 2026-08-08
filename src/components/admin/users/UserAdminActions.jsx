@@ -1,7 +1,8 @@
 import UserCosmeticsPanel from '../UserCosmeticsPanel';
+import DiscordLinkTransfer from './DiscordLinkTransfer';
 
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
-const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser }) => (
+const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink }) => (
   <>
     {/* Cosmetics (give/revoke for giveaways) */}
     <UserCosmeticsPanel
@@ -90,6 +91,8 @@ const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading
           <p className={`text-xs ${mutedClass} mt-1`}>
             Players can't swap Discord accounts themselves. Unlink here if someone lost access to theirs.
           </p>
+
+          <DiscordLinkTransfer {...{ darkMode, mutedClass, loading, selectedUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink }} />
         </div>
       </div>
     </div>

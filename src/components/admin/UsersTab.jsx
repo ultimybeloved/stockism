@@ -34,6 +34,11 @@ const UsersTab = ({
   handleTransferToLadder,
   handleToggleDiscordWall,
   handleUnlinkDiscord,
+  moveSourceId,
+  setMoveSourceId,
+  moveSource,
+  handleLookupMoveSource,
+  handleMoveDiscordLink,
   handleGrantCosmetic,
   handleRevokeCosmetic,
   handleChangeDisplayName,
@@ -256,7 +261,7 @@ const UsersTab = ({
 
           <UserFinancials {...{ darkMode, textClass, mutedClass, loading, prices, selectedUser, calculateLivePortfolioValue, handleSyncSingleUser }} />
           <UserPositions {...{ darkMode, textClass, mutedClass, prices, selectedUser }} />
-          <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser }} />
+          <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink }} />
         </div>
       )}
 

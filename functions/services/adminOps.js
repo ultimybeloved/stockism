@@ -8,7 +8,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 // Modular import — the emulator sandbox strips admin.firestore statics.
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const {
   ADMIN_UID,
@@ -255,4 +255,143 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
   });
 
   return { success: true, userId, previousDiscordId, alreadyUnlinked: false };
+});
+
+/**
+ * Admin-only: move a Discord link from one account onto another.
+ *
+ * The case this exists for: a player signed up through Discord, Discord itself
+ * permanently suspended their Discord account, and their only route into
+ * Stockism died with it. They make a fresh account on a new Discord and ask for
+ * their portfolio back.
+ *
+ * Rather than migrate a portfolio — the user doc, portfolioHistory, cost basis,
+ * share locks, open limit/pre-market orders, crew membership, ladder balance and
+ * the username reservation, every one of which is a chance to duplicate value —
+ * this repoints the NEW Discord at the ORIGINAL account. discordAuth resolves
+ * logins by discordId, so their next "Login with Discord" lands them straight
+ * back in their real account. Identity moves; not one dollar does.
+ *
+ * `sourceUserId` is the throwaway account holding the new Discord.
+ * `targetUserId` is the original account they are getting back.
+ *
+ * Its Firebase Auth user is deleted so the source can't be resurrected as an
+ * alt: it was created by discordAuth with an email and no password, so a
+ * "forgot password" on that address would otherwise hand them a second live
+ * account. The Firestore doc is left alone as an audit trail.
+ *
+ * startingCashUnlocked is deliberately untouched on both sides — the target is
+ * already verified, so the move can never re-pay the starting-cash bonus.
+ */
+exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { sourceUserId, targetUserId } = data || {};
+  if (!sourceUserId || !targetUserId || typeof sourceUserId !== 'string' || typeof targetUserId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'sourceUserId and targetUserId required');
+  }
+  if (sourceUserId === targetUserId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Source and target must be different accounts');
+  }
+  if (sourceUserId === ADMIN_UID || targetUserId === ADMIN_UID) {
+    throw new functions.https.HttpsError('invalid-argument', 'Refusing to move the admin account\'s Discord link');
+  }
+
+  const sourceRef = db.collection('users').doc(sourceUserId);
+  const targetRef = db.collection('users').doc(targetUserId);
+
+  const moved = await db.runTransaction(async (transaction) => {
+    const [sourceSnap, targetSnap] = await transaction.getAll(sourceRef, targetRef);
+    if (!sourceSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Source account (the new one) not found');
+    }
+    if (!targetSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Target account (the original one) not found');
+    }
+
+    const source = sourceSnap.data();
+    const target = targetSnap.data();
+    const discordId = source.discordId;
+    if (!discordId) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'The source account has no Discord linked, so there is nothing to move. Check the two IDs are the right way round.'
+      );
+    }
+    if (target.discordId === discordId) {
+      return { discordId, alreadyMoved: true, deadDiscordId: null };
+    }
+
+    const now = Date.now();
+    // The dead Discord is recorded rather than tombstoned: a permanently
+    // suspended Discord can't complete OAuth, so it needs no cooldown.
+    transaction.update(targetRef, {
+      discordId,
+      discordUsername: source.discordUsername || null,
+      previousDiscordId: target.discordId || null,
+      discordLinkMovedFrom: sourceUserId,
+      discordLinkMovedAt: now
+    });
+    transaction.update(sourceRef, {
+      discordId: FieldValue.delete(),
+      discordUsername: FieldValue.delete(),
+      discordLinkMovedTo: targetUserId,
+      discordLinkMovedAt: now
+    });
+
+    return {
+      discordId,
+      alreadyMoved: false,
+      deadDiscordId: target.discordId || null,
+      sourceCash: source.cash || 0,
+      sourcePortfolioValue: source.portfolioValue || 0
+    };
+  });
+
+  // A tombstone on the moved Discord would not block the login itself
+  // (discordAuth matches discordId before it ever checks tombstones), but it
+  // would silently break any future relink. The admin is explicitly blessing
+  // this Discord onto this account, so clear it and say so.
+  let clearedTombstone = false;
+  try {
+    const tombRef = db.collection('discordTombstones').doc(String(moved.discordId));
+    if ((await tombRef.get()).exists) {
+      await tombRef.delete();
+      clearedTombstone = true;
+    }
+  } catch (err) {
+    console.error('adminMoveDiscordLink: failed to clear Discord tombstone:', err);
+  }
+
+  // Kill the source's login without touching its data. Best-effort: the link
+  // has already moved, and a missing auth user is the desired end state anyway.
+  let authDeleted = false;
+  if (!moved.alreadyMoved) {
+    try {
+      await admin.auth().deleteUser(sourceUserId);
+      authDeleted = true;
+    } catch (err) {
+      if (err.code !== 'auth/user-not-found') {
+        console.error('adminMoveDiscordLink: failed to delete source auth user:', err);
+      }
+    }
+  }
+
+  console.log(`DISCORD LINK MOVED: ${moved.discordId} from ${sourceUserId} to ${targetUserId} (auth deleted: ${authDeleted})`);
+
+  return {
+    success: true,
+    sourceUserId,
+    targetUserId,
+    discordId: moved.discordId,
+    alreadyMoved: moved.alreadyMoved,
+    deadDiscordId: moved.deadDiscordId,
+    clearedTombstone,
+    authDeleted,
+    sourceCash: moved.sourceCash,
+    sourcePortfolioValue: moved.sourcePortfolioValue
+  };
 });

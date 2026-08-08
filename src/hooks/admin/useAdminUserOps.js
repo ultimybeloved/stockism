@@ -5,7 +5,7 @@ import { useAdminUserIdentity } from './useAdminUserIdentity';
 // Per-user admin operations. Owns the balance actions (cash, ladder transfer)
 // and composes the two sibling hooks so AdminPanel still spreads one object:
 //   useAdminBankruptcy    — bankrupt list, reinstate, rollback (Recovery tab)
-//   useAdminUserIdentity  — Discord wall, unlink, display name (Users tab)
+//   useAdminUserIdentity  — Discord wall, unlink/move link, display name (Users tab)
 //
 // setSelectedUser comes from the user-list state so these ops can refresh the
 // open user card after acting on it.

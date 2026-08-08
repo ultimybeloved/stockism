@@ -140,6 +140,8 @@ export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTran
 export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDiscordWall');
 // Admin: clear a user's Discord link so they can link a different one
 export const adminUnlinkDiscordFunction = httpsCallable(functions, 'adminUnlinkDiscord');
+// Admin: move a Discord link off a throwaway account onto the player's original one
+export const adminMoveDiscordLinkFunction = httpsCallable(functions, 'adminMoveDiscordLink');
 // Mints the single-use code that starts the Discord link flow (see useDiscordLink)
 export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLink');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
