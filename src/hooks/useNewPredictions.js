@@ -15,28 +15,39 @@ const readSeenAt = () => {
   }
 };
 
+// The header, the mobile nav and the predictions page each mount this hook, and
+// every copy holds its own state. Opening the page has to clear the badge in the
+// nav immediately, so writes fan out to every mounted copy — the `storage` event
+// alone doesn't do it, that only fires in OTHER tabs.
+const subscribers = new Set();
+
+const writeSeenAt = (value) => {
+  try {
+    window.localStorage.setItem(SEEN_KEY, String(value));
+  } catch {
+    // Private mode / storage disabled — the badge just won't persist.
+  }
+  subscribers.forEach(notify => notify(value));
+};
+
 export function useNewPredictions() {
   const { predictions } = useAppContext();
   const [seenAt, setSeenAt] = useState(readSeenAt);
 
-  // Another tab opening Predictions should clear the badge here too.
   useEffect(() => {
+    subscribers.add(setSeenAt);
+    // Another tab opening Predictions should clear the badge here too.
     const onStorage = (e) => {
       if (e.key === SEEN_KEY) setSeenAt(readSeenAt());
     };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    return () => {
+      subscribers.delete(setSeenAt);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
-  const markSeen = useCallback(() => {
-    const now = Date.now();
-    try {
-      window.localStorage.setItem(SEEN_KEY, String(now));
-    } catch {
-      // Private mode / storage disabled — the badge just won't persist.
-    }
-    setSeenAt(now);
-  }, []);
+  const markSeen = useCallback(() => writeSeenAt(Date.now()), []);
 
   // Only live ones count. A first-time visitor has seenAt 0 and sees every open
   // prediction as new, which is the point.
