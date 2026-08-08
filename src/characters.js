@@ -76,7 +76,7 @@ export const CHARACTERS = [
   { name: "Taesoo Ma", ticker: "TM", basePrice: 60, dateAdded: "2026-01-13T00:22:00", generation: "1st" },
   { name: "Gongseop Ji", ticker: "GONG", basePrice: 60, dateAdded: "2026-01-13T00:23:00", generation: "1st", altNames: ["Gongseob Ji"] },
   { name: "Seongji Yuk", ticker: "6KNG", basePrice: 60, dateAdded: "2026-01-13T00:24:00", generation: "1st" },
-  { name: "Lang Jin", ticker: "WOLF", basePrice: 60, dateAdded: "2026-01-13T00:25:00", altNames: ["Jinrang"] },
+  { name: "Lang Jin", ticker: "WOLF", basePrice: 60, dateAdded: "2026-01-13T00:25:00", generation: "1st", altNames: ["Jinrang"] },
   { name: "J", ticker: "COP", basePrice: 60, dateAdded: "2026-01-13T00:26:00", generation: "1st" },
   { name: "Vin Jin", ticker: "VIN", basePrice: 57, dateAdded: "2026-01-13T00:27:00", generation: "2nd" },
   { name: "Vasco", ticker: "VSCO", basePrice: 55, dateAdded: "2026-01-13T00:28:00", generation: "2nd", altNames: ["Euntae Lee"] },
