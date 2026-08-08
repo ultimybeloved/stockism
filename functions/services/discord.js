@@ -10,7 +10,7 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const crypto = require('crypto');
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS } = require('../constants');
-const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked } = require('../helpers');
+const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBindingUid, bindDiscordToUid } = require('../helpers');
 
 
 // Discord OAuth Authentication
@@ -71,9 +71,28 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
       .limit(1)
       .get();
 
+    // Nobody holds this Discord right now, but it may still belong to someone:
+    // self-serve unlink leaves a permanent binding behind. Honour it, or the
+    // email branch below would spawn a duplicate account for a player who was
+    // only trying to log back in.
+    let boundUid = null;
+    if (discordSnap.empty) {
+      const candidate = await getDiscordBindingUid(discordId);
+      if (candidate && (await db.collection('users').doc(candidate).get()).exists) {
+        boundUid = candidate;
+      }
+    }
+
     if (!discordSnap.empty) {
       // Existing user found by discordId
       firebaseUid = discordSnap.docs[0].id;
+    } else if (boundUid) {
+      // Unlinked earlier — re-attach it to the account that owns it.
+      firebaseUid = boundUid;
+      await db.collection('users').doc(boundUid).update({
+        discordId: discordId,
+        discordUsername: username
+      });
     } else if (await isDiscordRelinkBlocked(discordId)) {
       // No live account for this Discord, and it was on a recently-deleted one.
       // Block creating a fresh account (anti recycle / troll-account loop).
@@ -310,6 +329,16 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
     }
 
+    // Nobody holds it, but unlinking binds a Discord to its account for good.
+    // Without this, self-serve unlink would hand one Discord an unlimited supply
+    // of starting-cash unlocks, repeat daily-drop claims and Discord-wall passes
+    // across fresh accounts. adminUnlinkDiscord clears the binding when a
+    // release is genuinely intended.
+    const boundUid = await getDiscordBindingUid(discordId);
+    if (boundUid && boundUid !== uid) {
+      return res.redirect('https://stockism.app/profile?discord_link=error&reason=bound_to_other_account');
+    }
+
     // Block linking a Discord that was on a recently-deleted account — otherwise
     // the create → grab the verified $3k → gamble → delete → remake loop works by
     // re-linking the same Discord to each fresh account. Frees up after the cooldown.
@@ -350,6 +379,60 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     console.error('Discord link error:', discordError);
     return res.redirect(`https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(discordError)}`);
   }
+});
+
+/**
+ * Disconnect your own Discord (Profile → Discord → Unlink).
+ *
+ * Players shouldn't need an admin to detach their own account, but a released
+ * Discord must never verify a DIFFERENT account, so this binds it to the
+ * current one permanently before letting go. Re-linking it here later works;
+ * linking it to anyone else does not. An admin can still force a true release
+ * with adminUnlinkDiscord, which clears the binding.
+ *
+ * startingCashUnlocked is left alone, so re-linking can never re-pay the
+ * one-time verification bonus.
+ */
+exports.unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
+  }
+  const uid = context.auth.uid;
+
+  const userRef = db.collection('users').doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Account not found');
+  }
+
+  const userData = userSnap.data();
+  const discordId = userData.discordId;
+  if (!discordId) {
+    return { success: true, alreadyUnlinked: true };
+  }
+
+  // Bind BEFORE releasing. If this write fails the Discord stays attached,
+  // which is the safe direction — an unbound free Discord is the exploit.
+  const owner = await bindDiscordToUid(discordId, uid, userData.discordUsername);
+  if (owner !== uid) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'This Discord is registered to a different account. Contact an admin.'
+    );
+  }
+
+  await userRef.update({
+    discordId: admin.firestore.FieldValue.delete(),
+    discordUsername: admin.firestore.FieldValue.delete()
+  });
+
+  return {
+    success: true,
+    alreadyUnlinked: false,
+    // The wall re-engages the moment the Discord comes off, so the UI can warn.
+    walled: !!userData.requiresDiscordLink
+  };
 });
 
 // Builds the drop post. Shared by the schedule and the admin re-run so a

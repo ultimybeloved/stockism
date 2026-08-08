@@ -7,7 +7,7 @@ import { useDiscordLink } from '../../hooks/useDiscordLink';
 // Profile settings card: color-blind mode, public profile toggle, Discord link.
 const ProfileSettings = ({ userData, user, darkMode }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
-  const { beginDiscordLink, linking, error: linkError } = useDiscordLink();
+  const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
 
   return (
     <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
@@ -92,7 +92,20 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
           </p>
         </div>
         {userData?.discordId ? (
-          <span className="text-xs text-green-500 font-semibold">Connected</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-500 font-semibold">Connected</span>
+            <button
+              onClick={() => unlinkDiscord({ walled: !!userData?.requiresDiscordLink })}
+              disabled={linking}
+              className={`px-2 py-1 text-xs font-semibold rounded-sm transition-colors disabled:opacity-60 ${
+                darkMode
+                  ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
+                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+              }`}
+            >
+              {linking ? '...' : 'Unlink'}
+            </button>
+          </div>
         ) : (
           <button
             onClick={beginDiscordLink}

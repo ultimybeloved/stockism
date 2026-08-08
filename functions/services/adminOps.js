@@ -254,6 +254,15 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
     discordUsername: admin.firestore.FieldValue.delete()
   });
 
+  // A self-serve unlink binds the Discord to its account for good. An admin
+  // unlink is the opposite — a genuine release — so drop the binding too, or
+  // the player could never link this Discord to a different account.
+  try {
+    await db.collection('discordBindings').doc(String(previousDiscordId)).delete();
+  } catch (err) {
+    console.error('adminUnlinkDiscord: failed to clear Discord binding:', err);
+  }
+
   return { success: true, userId, previousDiscordId, alreadyUnlinked: false };
 });
 
@@ -362,8 +371,11 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       await tombRef.delete();
       clearedTombstone = true;
     }
+    // Same for a self-serve unlink binding: it names the source account as the
+    // permanent owner, which is exactly what this call is overriding.
+    await db.collection('discordBindings').doc(String(moved.discordId)).delete();
   } catch (err) {
-    console.error('adminMoveDiscordLink: failed to clear Discord tombstone:', err);
+    console.error('adminMoveDiscordLink: failed to clear Discord tombstone/binding:', err);
   }
 
   // Kill the source's login without touching its data. Best-effort: the link

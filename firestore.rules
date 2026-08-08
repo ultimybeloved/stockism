@@ -259,6 +259,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Permanent Discord → account bindings, written when a player unlinks their
+    // own Discord. Keeps a released Discord from verifying a different account
+    // (Cloud Functions only — a client write here would hand away the binding).
+    match /discordBindings/{discordId} {
+      allow read, write: if false;
+    }
+
     match /admin/{document} {
       allow read, write: if isAdmin();
     }

@@ -144,6 +144,8 @@ export const adminUnlinkDiscordFunction = httpsCallable(functions, 'adminUnlinkD
 export const adminMoveDiscordLinkFunction = httpsCallable(functions, 'adminMoveDiscordLink');
 // Mints the single-use code that starts the Discord link flow (see useDiscordLink)
 export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLink');
+// Disconnect your own Discord (Profile → Discord → Unlink)
+export const unlinkOwnDiscordFunction = httpsCallable(functions, 'unlinkOwnDiscord');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
 export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
 // Admin: repair spike victim accounts

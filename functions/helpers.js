@@ -636,6 +636,49 @@ async function isDiscordRelinkBlocked(discordId) {
 }
 
 /**
+ * A Discord ID's permanent owner, or null if it has never been bound.
+ *
+ * Unlinking is self-serve (players shouldn't need an admin to disconnect their
+ * own Discord), but a freed Discord must never be able to verify a DIFFERENT
+ * account. Left unbound it could farm the one-time starting-cash unlock on
+ * account after account, re-claim daily drops (claims are recorded per Stockism
+ * account, and each drop stays open 72 hours), and clear the requiresDiscordLink
+ * wall on unlimited alts. The binding is written at unlink time and never
+ * expires, so the Discord can only ever come back to the same account.
+ * @param {string} discordId
+ * @returns {Promise<string|null>} owning uid
+ */
+async function getDiscordBindingUid(discordId) {
+  if (!discordId) return null;
+  const snap = await db.collection('discordBindings').doc(String(discordId)).get();
+  return snap.exists ? (snap.data().uid || null) : null;
+}
+
+/**
+ * Claim a Discord ID for a uid, first writer wins. `create` throws rather than
+ * overwriting, which is the point: a second account can never take a binding
+ * that already belongs to someone else.
+ * @param {string} discordId
+ * @param {string} uid
+ * @param {string} [discordUsername]
+ * @returns {Promise<string>} the uid that owns the binding after this call
+ */
+async function bindDiscordToUid(discordId, uid, discordUsername) {
+  const ref = db.collection('discordBindings').doc(String(discordId));
+  try {
+    await ref.create({
+      uid,
+      discordUsername: discordUsername || null,
+      boundAt: Date.now()
+    });
+    return uid;
+  } catch (err) {
+    const snap = await ref.get();
+    return snap.exists ? (snap.data().uid || null) : null;
+  }
+}
+
+/**
  * One raw call to the Discord REST API as the bot.
  *
  * Deliberately does NOT throw on HTTP errors — Discord answers with meaningful
@@ -920,6 +963,8 @@ module.exports = {
   checkBanned,
   checkDiscordWall,
   isDiscordRelinkBlocked,
+  getDiscordBindingUid,
+  bindDiscordToUid,
   discordApi,
   sendDiscordMessage,
   sendMarketStatusAlert,
