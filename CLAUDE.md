@@ -158,7 +158,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 ### Backend: Where Code Lives
 
 **Service files** (`functions/services/`)
-- Each file owns one domain: trading, users, userProfile, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminBackups, adminOps, adminRepair, adminMigrate, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, marginScanners, portfolio, crew
+- Each file owns one domain: trading, users, userProfile, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminBackups, adminOps, adminUserEdit, adminRepair, adminMigrate, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, marginScanners, portfolio, crew
 - Adding a new Cloud Function: find the right service file and append to it. If none fits, create `functions/services/<newdomain>.js` and add `'./services/<newdomain>'` to the list in `functions/servicePaths.js`
 - Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in `servicePaths.js`
 - Never add Cloud Function logic directly to `functions/index.js`
@@ -275,7 +275,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/discordAdmin.js` | Discord-triggered admin diagnostics and recovery tools |
 | `functions/services/admin.js` | banUser, fixBasePriceCliffs, createBots |
 | `functions/services/adminBackups.js` | Market backup/restore/retention (restoreBackup overwrites live data) |
-| `functions/services/adminOps.js` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles |
+| `functions/services/adminOps.js` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles, Discord unlink/move-link |
+| `functions/services/adminUserEdit.js` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
 | `functions/services/adminRepair.js` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
 | `functions/services/adminMigrate.js` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
 | `functions/services/margin.js` | User-facing margin actions: repay, bailout, toggle, interest |
