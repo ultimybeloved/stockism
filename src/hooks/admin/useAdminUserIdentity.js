@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db, adminSetDiscordWallFunction, adminUnlinkDiscordFunction, adminMoveDiscordLinkFunction } from '../../firebase';
 
 // Who a user is, as far as the site is concerned: their Discord link, the
@@ -44,6 +44,28 @@ export function useAdminUserIdentity({ showMessage, setLoading, setSelectedUser 
     setLoading(false);
   };
 
+  // Accepts whatever the admin actually has to hand — the user ID off the user
+  // card, the player's display name, or either half of their Discord. Exact
+  // matches only, so there's never a question of which account was found.
+  const findAccount = async (id) => {
+    // Doc ID first. Anything with a slash isn't one and would throw.
+    if (!id.includes('/')) {
+      const direct = await getDoc(doc(db, 'users', id));
+      if (direct.exists()) return direct;
+    }
+    const users = collection(db, 'users');
+    const attempts = [
+      query(users, where('displayNameLower', '==', id.toLowerCase()), limit(1)),
+      query(users, where('discordUsername', '==', id), limit(1)),
+      query(users, where('discordId', '==', id), limit(1)),
+    ];
+    for (const attempt of attempts) {
+      const snap = await getDocs(attempt);
+      if (!snap.empty) return snap.docs[0];
+    }
+    return null;
+  };
+
   // Look up the account whose Discord is about to be moved, so the admin sees
   // exactly what they're about to strip before they confirm. Getting the two
   // accounts the wrong way round is the only real way to misfire this tool.
@@ -51,14 +73,14 @@ export function useAdminUserIdentity({ showMessage, setLoading, setSelectedUser 
     const id = (rawId || '').trim();
     setMoveSource(null);
     if (!id) {
-      showMessage('error', 'Paste the new account\'s user ID first');
+      showMessage('error', 'Enter the new account\'s name, Discord, or user ID first');
       return;
     }
     setLoading(true);
     try {
-      const snap = await getDoc(doc(db, 'users', id));
-      if (!snap.exists()) {
-        showMessage('error', 'No account with that ID');
+      const snap = await findAccount(id);
+      if (!snap) {
+        showMessage('error', `No account matches "${id}". Try their exact display name, Discord username, Discord ID, or the user ID from their user card.`);
       } else {
         const d = snap.data();
         setMoveSource({

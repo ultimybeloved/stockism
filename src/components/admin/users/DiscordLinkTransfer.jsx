@@ -23,7 +23,7 @@ const DiscordLinkTransfer = ({
           type="text"
           value={moveSourceId}
           onChange={(e) => setMoveSourceId(e.target.value)}
-          placeholder="New account's user ID"
+          placeholder="New account: name, Discord, or user ID"
           className={`flex-1 px-2 py-1 text-sm rounded border ${
             darkMode
               ? 'bg-slate-700 border-slate-600 text-white'
