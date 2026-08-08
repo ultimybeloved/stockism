@@ -28,6 +28,7 @@
     "test:pricehistory": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/seed-emulator.cjs && node scripts/test-price-history-split-emulator.cjs\"",
     "test:loyalty": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-loyalty-notify-emulator.cjs\"",
     "test:crewroles": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-crew-roles-emulator.cjs\"",
+    "test:crewswitch": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-crew-switch-emulator.cjs\"",
     "lint": "eslint src --ext .js,.jsx",
     "deploy:functions": "node scripts/deploy-functions.cjs"
   },

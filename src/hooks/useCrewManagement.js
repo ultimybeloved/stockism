@@ -14,13 +14,19 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
       if (isSwitch && userData.crew) {
         const oldCrewId = userData.crew;
         const result = await switchCrewFunction({ crewId, isSwitch: true });
-        const { totalTaken } = result.data;
+        // The server decides whether this was a free switch — mirror whatever
+        // it actually did rather than assuming a penalty was taken.
+        const { totalTaken, freeSwitch } = result.data;
         setUserData(prev => prev ? {
           ...prev, crew: crewId, cash: (prev.cash || 0) - totalTaken, crewSwitchCooldown: Date.now(),
-          crewLockouts: { ...(prev.crewLockouts || {}), [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000 }
+          crewLockouts: freeSwitch
+            ? (prev.crewLockouts || {})
+            : { ...(prev.crewLockouts || {}), [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000 }
         } : prev);
         const crew = CREW_MAP[crewId];
-        showNotification('success', `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)`);
+        showNotification('success', freeSwitch
+          ? `Switched to ${crew.name} for free! No penalty taken. ${crew.emblem}`
+          : `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)`);
       } else {
         await switchCrewFunction({ crewId, isSwitch: false });
         setUserData(prev => prev ? { ...prev, crew: crewId } : prev);

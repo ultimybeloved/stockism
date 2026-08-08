@@ -7,6 +7,7 @@ const {
   CREWS, CREW_MISSION_REWARDS, CREW_CONTRIB,
   getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
   CREW_UNDERDOG_MULT_MAX, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY,
+  CREW_SWITCH_EVENT, isFreeSwitchTarget,
 } = require('./crews');
 
 // ============================================
@@ -595,6 +596,8 @@ module.exports = {
   MARGIN_MIN_TRADES,
   MARGIN_MIN_PEAK_PORTFOLIO,
   CREW_SWITCH_PENALTY,
+  CREW_SWITCH_EVENT,
+  isFreeSwitchTarget,
   CREW_REJOIN_LOCKOUT_MS,
   CREW_UNDERDOG_MULT_MAX,
   CREW_HEAD_DYNASTY_WEEKS,

@@ -475,3 +475,25 @@ export const CREW_SWITCH_PENALTY = 0.05;
 // old permanent exile, which made every crew choice one-way and trapped
 // players in dead crews forever.
 export const CREW_REJOIN_LOCKOUT_DAYS = 30;
+
+// ============================================
+// FREE SWITCH EVENT
+// ============================================
+// A launch window where moving INTO one crew is free: no portfolio penalty, no
+// 30-day lockout on the crew being left, and a pre-existing lockout on the
+// event crew does not block entry. Everything else still applies — the 24h
+// change cooldown, the debt check, and leaving the event crew later costs the
+// normal penalty.
+//
+// Self-expiring: once endsAt passes, switching behaves normally again with no
+// deploy needed to turn it off. Set to null when no event is running.
+//
+// The server derives all of this from the destination crew itself. The client
+// can never claim a free switch.
+export const CREW_SWITCH_EVENT = {
+  crewId: 'KITAE_UNION',
+  endsAt: Date.UTC(2026, 7, 14, 21, 0), // 2026-08-14 21:00 UTC
+};
+
+export const isFreeSwitchTarget = (crewId, now = Date.now()) =>
+  !!CREW_SWITCH_EVENT && crewId === CREW_SWITCH_EVENT.crewId && now < CREW_SWITCH_EVENT.endsAt;

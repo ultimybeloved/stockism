@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { CREW_MEMBERS, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, TWENTY_FOUR_HOURS_MS } = require('../constants');
+const { CREW_MEMBERS, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, TWENTY_FOUR_HOURS_MS, isFreeSwitchTarget } = require('../constants');
 const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
 
 
@@ -47,9 +47,21 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('failed-precondition', 'Cannot join a crew while in debt.');
       }
 
+      // Switching to the crew you are already in is a no-op that still burned
+      // the penalty and stamped a lockout on your own crew. Harmless while it
+      // cost 5%, a real footgun once a switch can be free.
+      if (userData.crew === crewId) {
+        throw new functions.https.HttpsError('failed-precondition', 'You are already in this crew.');
+      }
+
+      // Free-switch event. Derived from the destination crew server-side; the
+      // client cannot claim it.
+      const freeSwitch = isFreeSwitchTarget(crewId);
+
       // 30-day rejoin lockout, set when leaving a crew. Replaced the old
       // permanent exile (crewHistory), which trapped players in dead crews.
-      const lockedUntil = (userData.crewLockouts || {})[crewId] || 0;
+      // The event crew is open to everyone while the window is running.
+      const lockedUntil = freeSwitch ? 0 : ((userData.crewLockouts || {})[crewId] || 0);
       if (lockedUntil > Date.now()) {
         const daysLeft = Math.ceil((lockedUntil - Date.now()) / TWENTY_FOUR_HOURS_MS);
         throw new functions.https.HttpsError('failed-precondition', `You recently left this crew. You can rejoin in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
@@ -79,6 +91,14 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
       // must not be able to skip the penalty by claiming this isn't a switch.
       const isSwitch = !!userData.crew;
       if (isSwitch) {
+        // The 24h cooldown applies to every switch, free or not.
+        updateData.lastCrewChange = now;
+      }
+
+      // A free switch takes nothing and leaves no lockout behind, so the player
+      // can go straight back to their old crew afterwards (paying the normal
+      // penalty to leave).
+      if (isSwitch && !freeSwitch) {
         // Lock the crew being left for 30 days.
         updateData[`crewLockouts.${userData.crew}`] = now + CREW_REJOIN_LOCKOUT_MS;
         const marketRef = db.collection('market').doc('current');
@@ -109,12 +129,11 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
         updateData.cash = newCash;
         updateData.holdings = newHoldings;
         updateData.portfolioValue = newPortfolioValue;
-        updateData.lastCrewChange = now;
       }
 
       transaction.update(userRef, updateData);
 
-      return { success: true, totalTaken, isSwitch };
+      return { success: true, totalTaken, isSwitch, freeSwitch: isSwitch && freeSwitch };
     });
 
     return result;

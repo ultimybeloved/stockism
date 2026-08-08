@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CREWS, CREW_MAP, getCrewMultiplier, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../../crews';
-import { formatCurrency } from '../../utils/formatters';
+import { CREWS, CREW_MAP, getCrewMultiplier, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY, CREW_SWITCH_EVENT, isFreeSwitchTarget } from '../../crews';
+import { formatCurrency, formatUTCDateTime } from '../../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -20,8 +20,17 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
   const penaltyAmount = Math.floor(portfolioValue * CREW_SWITCH_PENALTY);
   const penaltyPct = Math.round(CREW_SWITCH_PENALTY * 100);
 
-  // 30-day rejoin lockout on crews you recently left
+  // Free-switch event, if one is running. The server enforces this; the UI just
+  // has to describe the same rules.
+  const eventCrew = CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId)
+    ? CREW_MAP[CREW_SWITCH_EVENT.crewId]
+    : null;
+  const isFreeTarget = (crewId) => !!eventCrew && isFreeSwitchTarget(crewId);
+
+  // 30-day rejoin lockout on crews you recently left. The event crew ignores it
+  // while the window is open.
   const lockDaysLeft = (crewId) => {
+    if (isFreeTarget(crewId)) return 0;
     const lockedUntil = userData?.crewLockouts?.[crewId] || 0;
     if (lockedUntil <= Date.now()) return 0;
     return Math.ceil((lockedUntil - Date.now()) / (24 * 60 * 60 * 1000));
@@ -80,6 +89,19 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
             </p>
           )}
         </div>
+
+        {/* Free-switch event banner */}
+        {eventCrew && !confirming && !leavingCrew && (
+          <div className={`p-3 ${darkMode ? 'bg-emerald-900/30' : 'bg-emerald-100'} border-b border-emerald-500/30`}>
+            <p className="text-emerald-400 text-sm text-center">
+              🎉 <strong>Free to join {eventCrew.name}</strong>
+              <br />
+              <span className={`text-xs ${mutedClass}`}>
+                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends {formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}.
+              </span>
+            </p>
+          </div>
+        )}
 
         {/* Warning Banner - show for users without a crew AND users with a crew */}
         {!isGuest && !confirming && !leavingCrew && (
@@ -141,7 +163,17 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
               </p>
             )}
 
-            {currentCrew ? (
+            {currentCrew && isFreeTarget(selectedCrew) ? (
+              <div className={`p-4 rounded-sm ${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} border border-emerald-500/30 mb-4`}>
+                <p className="text-emerald-400 font-semibold mb-2">
+                  This switch is free
+                </p>
+                <p className={`text-xs ${mutedClass}`}>
+                  Nothing is taken from your cash or shares, and {CREW_MAP[currentCrew]?.name} stays open to you if you want to go back.
+                  Leaving {CREW_MAP[selectedCrew]?.name} later costs the usual {penaltyPct}%.
+                </p>
+              </div>
+            ) : currentCrew ? (
               <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}>
                 <p className="text-red-400 font-semibold mb-2">
                   You will lose approximately {formatCurrency(penaltyAmount)}
@@ -221,6 +253,13 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
                         {crew.name}
                       </span>
                     </div>
+                    {isFreeTarget(crew.id) && crew.id !== currentCrew && (
+                      <div className="mt-2">
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                          FREE TO JOIN
+                        </span>
+                      </div>
+                    )}
                     {crewStats && (
                       <div className="flex items-center justify-center gap-2 mt-2 text-xs">
                         {multiplier > 1 && (
