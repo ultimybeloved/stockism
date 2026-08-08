@@ -17,6 +17,7 @@ const MarketTab = ({
   syncCrewRoles,
   runBackfillFillTrades,
   runArchivePriceHistory,
+  runReviewChanges,
 }) => {
   return (
     <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
@@ -112,6 +113,24 @@ const MarketTab = ({
             Post Weekly Report
           </button>
         </div>
+      </div>
+
+      {/* Review tab rebuild */}
+      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Chapter Review Tab</h4>
+        <p className={`text-xs mb-3 ${mutedClass}`}>
+          Rebuilds the list of stocks you adjusted in the last chapter review, which is what the
+          Review tab shows players. This is saved automatically when the review recap posts on
+          Thursday, so you only need this if that run failed or a stock is missing from the tab.
+          Safe to run again any time.
+        </p>
+        <button
+          onClick={runReviewChanges}
+          disabled={loading}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Rebuild Review Tab
+        </button>
       </div>
 
       {/* Crew head Discord roles */}

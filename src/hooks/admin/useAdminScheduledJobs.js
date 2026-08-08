@@ -2,6 +2,7 @@ import {
   triggerWeeklyCrewRankingsFunction,
   triggerWeeklyMarketSummaryFunction,
   triggerDailyMarketSummaryFunction,
+  triggerReviewChangesFunction,
   archivePriceHistoryFunction,
   backfillFillTradeRecordsFunction,
   triggerDailyFreeStockFunction,
@@ -59,6 +60,22 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     } catch (err) {
       console.error('Daily summary run failed:', err);
       showMessage('error', 'Failed to post daily report: ' + err.message);
+    }
+    setLoading(false);
+  };
+
+  // Rebuild what the Review tab shows for the most recent chapter review.
+  // Reads the permanent price-history archive too, so it still works after the
+  // live history has rolled past the halt window.
+  const runReviewChanges = async () => {
+    setLoading(true);
+    try {
+      const result = await triggerReviewChangesFunction({});
+      const d = result.data || {};
+      showMessage('success', `Review tab rebuilt: ${d.tickerCount} adjusted stock${d.tickerCount === 1 ? '' : 's'}.`);
+    } catch (err) {
+      console.error('Review changes rebuild failed:', err);
+      showMessage('error', 'Failed to rebuild the review: ' + err.message);
     }
     setLoading(false);
   };
@@ -164,5 +181,5 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock, checkCrewRoles, syncCrewRoles, runArchivePriceHistory, runBackfillFillTrades };
+  return { runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock, checkCrewRoles, syncCrewRoles, runArchivePriceHistory, runBackfillFillTrades, runReviewChanges };
 }
