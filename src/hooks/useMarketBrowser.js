@@ -3,6 +3,10 @@ import { CHARACTERS } from '../characters';
 import { CREWS } from '../crews';
 import { ITEMS_PER_PAGE } from '../constants';
 import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';
+
+// Sorts that only exist inside the Review tab. Shared with MarketControls so the
+// tab switcher and the sort logic agree on what to clear when you leave.
+export const REVIEW_SORTS = ['review-change', 'review-since'];
 import { getCurrentPrice } from '../utils/calculations';
 import { getReviewChanges, getMostRecentHaltWindow, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
 import { get24hChange, getTradeActivity } from '../utils/marketStats';
@@ -105,14 +109,28 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
       priceChanges[c.ticker] = change24h(c.ticker);
     });
 
-    // 'review-change' is the Review tab's own default. It used to piggyback on
-    // 'price-high', which made picking "Price: High" in that tab do nothing.
-    // Outside the Review tab it means nothing, so fall back to price sorting.
-    const effectiveSort = (sortBy === 'review-change' && marketTab !== 'review') ? 'price-high' : sortBy;
+    // How far trading has carried a stock away from the price the admin set in
+    // the review. Same figure the card's badge shows.
+    const driftSinceReview = (ticker) => {
+      const setPrice = reviewChanges[ticker]?.newPrice;
+      if (!(setPrice > 0)) return 0;
+      return ((getCurrentPrice(ticker, priceHistory, prices) - setPrice) / setPrice) * 100;
+    };
+
+    // The review sorts mean nothing outside the Review tab, so fall back to
+    // price there. 'review-change' used to piggyback on 'price-high', which made
+    // picking "Price: High" in that tab silently do nothing.
+    const isReviewSort = REVIEW_SORTS.includes(sortBy);
+    const effectiveSort = (isReviewSort && marketTab !== 'review') ? 'price-high' : sortBy;
 
     switch (effectiveSort) {
       case 'review-change':
         filtered.sort((a, b) => Math.abs(reviewChanges[b.ticker]?.percentChange || 0) - Math.abs(reviewChanges[a.ticker]?.percentChange || 0));
+        break;
+      // Biggest movement away from the adjustment, in either direction — the
+      // stocks the market disagreed with most.
+      case 'review-since':
+        filtered.sort((a, b) => Math.abs(driftSinceReview(b.ticker)) - Math.abs(driftSinceReview(a.ticker)));
         break;
       case 'price-high': filtered.sort((a, b) => getCurrentPrice(b.ticker, priceHistory, prices) - getCurrentPrice(a.ticker, priceHistory, prices)); break;
       case 'price-low': filtered.sort((a, b) => getCurrentPrice(a.ticker, priceHistory, prices) - getCurrentPrice(b.ticker, priceHistory, prices)); break;

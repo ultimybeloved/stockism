@@ -2,6 +2,7 @@ import { CREWS, CREW_MAP } from '../../crews';
 import { GENERATIONS, GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../../constants/generations';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
+import { REVIEW_SORTS } from '../../hooks/useMarketBrowser';
 
 // Market column controls: stocks/ETFs/watchlist/review tabs, crew filter
 // pills, and the sort/search/pagination card. All state comes from
@@ -28,7 +29,7 @@ const MarketControls = ({
     // The Review tab opens on its own sort. Leaving it has to drop that sort,
     // since it means nothing on the other tabs.
     if (tab === 'review') setSortBy('review-change');
-    else if (sortBy === 'review-change') setSortBy('price-high');
+    else if (REVIEW_SORTS.includes(sortBy)) setSortBy('price-high');
   };
 
   const pickGeneration = (id) => { setGenerationFilter(id); setCurrentPage(1); };
@@ -165,7 +166,8 @@ const MarketControls = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
             className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}>
-            {marketTab === 'review' && <option value="review-change">Biggest Change</option>}
+            {marketTab === 'review' && <option value="review-change">Biggest Review Change</option>}
+            {marketTab === 'review' && <option value="review-since">Moved Most Since Review</option>}
             <option value="price-high">Price: High</option>
             <option value="price-low">Price: Low</option>
             <option value="change-high">Top Gainers</option>
