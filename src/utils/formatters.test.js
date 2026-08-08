@@ -6,7 +6,45 @@ import {
   formatTimeRemaining,
   round2,
   round3,
+  emphasisMarks,
 } from './formatters';
+
+// ─── emphasisMarks ─────────────────────────────────────────────────────────────
+
+describe('emphasisMarks', () => {
+  it('stays silent below the first rung', () => {
+    expect(emphasisMarks(0)).toBe('');
+    expect(emphasisMarks(4.99)).toBe('');
+    expect(emphasisMarks(-4.99)).toBe('');
+  });
+
+  it('gives one mark from 5% up to 10%', () => {
+    expect(emphasisMarks(5)).toBe('!');
+    expect(emphasisMarks(9.99)).toBe('!');
+  });
+
+  it('gives two marks from 10% up to 20%', () => {
+    expect(emphasisMarks(10)).toBe('!!');
+    expect(emphasisMarks(19.99)).toBe('!!');
+  });
+
+  it('gives three marks at 20% and above', () => {
+    expect(emphasisMarks(20)).toBe('!!!');
+    expect(emphasisMarks(250)).toBe('!!!');
+  });
+
+  it('treats a drop exactly like a rise of the same size', () => {
+    expect(emphasisMarks(-5)).toBe('!');
+    expect(emphasisMarks(-12)).toBe('!!');
+    expect(emphasisMarks(-40)).toBe('!!!');
+  });
+
+  it('survives junk input', () => {
+    expect(emphasisMarks(null)).toBe('');
+    expect(emphasisMarks(undefined)).toBe('');
+    expect(emphasisMarks(NaN)).toBe('');
+  });
+});
 
 // ─── formatCurrency ────────────────────────────────────────────────────────────
 

@@ -2,6 +2,27 @@
 // FORMATTING UTILITY FUNCTIONS
 // ============================================
 
+// How loudly a headline percentage shouts. Checked top rung first, against the
+// ABSOLUTE value, so a -22% is as emphatic as a +22%. Anything under the
+// lowest rung gets no punctuation at all — most moves are unremarkable and
+// should look it.
+export const EMPHASIS_LADDER = [
+  { minPercent: 20, marks: '!!!' },
+  { minPercent: 10, marks: '!!' },
+  { minPercent: 5, marks: '!' },
+];
+
+/**
+ * Exclamation marks for a percentage change, scaled by size.
+ * @param {number} percent - Signed percentage change
+ * @returns {string} '', '!', '!!' or '!!!'
+ */
+export const emphasisMarks = (percent) => {
+  const magnitude = Math.abs(Number(percent) || 0);
+  const rung = EMPHASIS_LADDER.find((r) => magnitude >= r.minPercent);
+  return rung ? rung.marks : '';
+};
+
 /**
  * Format a number as USD currency
  * @param {number} value - The value to format

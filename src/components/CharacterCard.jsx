@@ -219,7 +219,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
           </div>
         )}
         <div className="cursor-pointer" onClick={() => onViewChart(character, defaultChartTimeRange)}>
-          {reviewChange && <ReviewChangeBadge change={reviewChange} />}
+          {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="flex items-center gap-1">
