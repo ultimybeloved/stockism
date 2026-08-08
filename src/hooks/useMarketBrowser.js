@@ -4,12 +4,12 @@ import { CREWS } from '../crews';
 import { ITEMS_PER_PAGE } from '../constants';
 import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';
 import { getCurrentPrice } from '../utils/calculations';
-import { getReviewChanges } from '../utils/marketHours';
+import { getReviewChanges, getMostRecentHaltWindow, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
 import { get24hChange, getTradeActivity } from '../utils/marketStats';
 
 // All state + filtering/sorting for browsing the market grid on the home page:
 // tab, crew filter, search, sort, pagination, and the resulting character list.
-export function useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers }) {
+export function useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers, storedReviewChanges }) {
   const [sortBy, setSortBy] = useState('price-high');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,8 +19,24 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
   // 'ALL', a generation id, or 'UNASSIGNED'. Stacks with the crew filter.
   const [generationFilter, setGenerationFilter] = useState(GENERATION_FILTER_ALL);
 
-  // Detect chapter review changes from most recent Thursday halt window
-  const reviewChanges = useMemo(() => getReviewChanges(priceHistory, CHARACTERS), [priceHistory]);
+  // What the admin changed in the last chapter review.
+  //
+  // The stored copy (market/reviewChanges) is authoritative: the server built it
+  // during the review, while the price history still covered the whole window.
+  // Deriving it here can only see the live history, which keeps a limited number
+  // of points per ticker — an actively traded stock loses its pre-adjustment
+  // price within a day and silently drops off the tab.
+  //
+  // The local derivation still runs and fills any gaps, so an adjustment made
+  // after the recap posted still shows up.
+  const reviewChanges = useMemo(() => {
+    const derived = getReviewChanges(priceHistory, CHARACTERS);
+    const { end } = getMostRecentHaltWindow();
+    const storedIsCurrent = storedReviewChanges?.windowEnd === end
+      && Date.now() - end <= REVIEW_MAX_AGE_MS;
+    if (!storedIsCurrent) return derived;
+    return { ...derived, ...(storedReviewChanges.changes || {}) };
+  }, [priceHistory, storedReviewChanges]);
 
   // Build crew membership lookup for crew filter
   const crewMembershipMap = useMemo(() => {

@@ -15,6 +15,9 @@ export function useMarketData() {
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [predictions, setPredictions] = useState([]);
   const [crewStats, setCrewStats] = useState(null); // weekly underdog multipliers + active counts
+  // What the admin changed during the last chapter review, computed server-side
+  // while the price history still covered the window. See reviewChanges.js.
+  const [storedReviewChanges, setStoredReviewChanges] = useState(null);
 
   // Listen to global market data. Chart history lives in its own doc
   // (market/priceHistory) and is fetched ONCE below — the live subscription
@@ -116,6 +119,19 @@ export function useMarketData() {
     return () => { cancelled = true; };
   }, []);
 
+  // Stored review changes. One small read; the tab falls back to deriving them
+  // locally if this is missing or stale.
+  useEffect(() => {
+    let cancelled = false;
+    getDoc(doc(db, 'market', 'reviewChanges'))
+      .then(snap => {
+        if (cancelled || !snap.exists()) return;
+        setStoredReviewChanges(snap.data());
+      })
+      .catch(err => console.error('Failed to load review changes:', err));
+    return () => { cancelled = true; };
+  }, []);
+
   // Fetch crew stats once per session — the doc only changes on Monday's
   // weekly recompute, so a live subscription would be wasted reads.
   useEffect(() => {
@@ -165,5 +181,5 @@ export function useMarketData() {
     return () => unsubscribe();
   }, []);
 
-  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats };
+  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges };
 }

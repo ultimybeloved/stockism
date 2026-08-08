@@ -36,11 +36,11 @@ const HomePage = ({
 }) => {
   const {
     darkMode, user, userData, prices, priceHistory,
-    activeIPOs, ipoRestrictedTickers, launchedTickers,
+    activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges,
   } = useAppContext();
   const { bgClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
 
-  const browser = useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers });
+  const browser = useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers, storedReviewChanges });
 
   const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`;
 

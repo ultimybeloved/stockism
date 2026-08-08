@@ -8,6 +8,7 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getAdminReviewAdjustments, getLastActiveMs, sumMarketActivity, isRosterTicker } = require('../helpers');
+const { writeReviewChanges } = require('./reviewChanges');
 
 
 // Builds and posts the daily market summary Discord embed. Shared by the
@@ -384,6 +385,16 @@ exports.chapterReviewRecap = cf().pubsub
 
       await sendDiscordMessage(null, [embed]);
 
+      // Store the same result for the Review tab. Computed here, while the live
+      // price history still covers the whole window — the browser cannot
+      // reconstruct it later once those points age out. A failure must not lose
+      // the Discord recap that already went out.
+      try {
+        await writeReviewChanges({ haltStart, haltEnd, fallbackPrices: beforePrices });
+      } catch (e) {
+        console.error('Failed to store review changes for the Review tab:', e);
+      }
+
       // Cleanup snapshot
       await snapshotRef.delete();
       console.log(`Chapter review recap sent: ${gainers.length} gainers, ${losers.length} losers, ${unchangedCount} unchanged`);
@@ -400,6 +411,41 @@ exports.chapterReviewRecap = cf().pubsub
  * Also runs the opening auction for pre-market orders placed during 20:30-21:00 UTC.
  * Runs at exactly 21:00 UTC Thursday — same moment the halt ends.
  */
+
+/**
+ * Rebuild the Review tab's stored changes for the most recent halt window
+ * (admin only).
+ *
+ * Recovery for a failed chapterReviewRecap, and the way to backfill a window
+ * that already rolled out of the live price history — it stitches the permanent
+ * archive in front, so it works long after the live doc has been trimmed.
+ */
+exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  // Most recent Thursday halt, mirroring getMostRecentHaltWindow on the client.
+  const now = new Date();
+  const day = now.getUTCDay();
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const d = new Date(now);
+  if (!(day === 4 && utcMins >= WEEKLY_HALT_START_MINUTE)) {
+    d.setUTCDate(d.getUTCDate() - ((day - 4 + 7) % 7 || 7));
+  }
+  const dayStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const haltStart = dayStart + WEEKLY_HALT_START_MINUTE * 60 * 1000;
+  const haltEnd = dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000;
+
+  // The pre-halt snapshot is deleted once the recap posts, so it is usually
+  // gone by the time this runs. Use it when it happens to still be there.
+  const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
+  const fallbackPrices = snapshotSnap.exists ? (snapshotSnap.data().prices || {}) : {};
+
+  const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
+  return { success: true, tickerCount: payload.tickerCount, windowEnd: payload.windowEnd };
+});
 
 /**
  * Manual trigger for daily market summary (admin only)

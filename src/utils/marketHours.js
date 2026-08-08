@@ -63,6 +63,11 @@ export const getMostRecentHaltWindow = () => {
   return { start: start.getTime(), end: end.getTime() };
 };
 
+// How long a chapter review stays visible in the Review tab before it is
+// treated as last week's news. Applies to both the locally derived changes and
+// the stored server-side copy.
+export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * Given priceHistory map and characters list, detect which tickers the admin
  * physically changed during the most recent Thursday halt window.
@@ -80,8 +85,8 @@ export const getReviewChanges = (priceHistory, characters) => {
   const { start, end } = getMostRecentHaltWindow();
   const now = Date.now();
 
-  // Hide if the review is older than 7 days
-  if (now - end > 7 * 24 * 60 * 60 * 1000) return {};
+  // Hide if the review is older than a week
+  if (now - end > REVIEW_MAX_AGE_MS) return {};
 
   const changes = {};
 
