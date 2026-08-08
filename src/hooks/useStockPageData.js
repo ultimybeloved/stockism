@@ -77,7 +77,9 @@ export const useStockPageData = (ticker, timeRange) => {
   const positionPL = positionValue - positionCost;
   const positionPLPct = positionCost > 0 ? (positionPL / positionCost) * 100 : 0;
 
-  const crew = !character?.isETF ? Object.values(CREWS).find(c => c.members.includes(ticker)) : null;
+  // Every crew, not the first: a character can belong to more than one (TOM is
+  // in both Fist Gang and WTJC), and showing one of them silently hid the rest.
+  const crews = !character?.isETF ? Object.values(CREWS).filter(c => c.members.includes(ticker)) : [];
   const memberOfETFs = !character?.isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(ticker)) : [];
 
   return {
@@ -85,6 +87,6 @@ export const useStockPageData = (ticker, timeRange) => {
     spread, bidPrice, askPrice, drip, handleToggleDrip, priceStats,
     dividendTier, dividendRate, weeklyDividend,
     positionValue, positionCost, positionPL, positionPLPct,
-    crew, memberOfETFs,
+    crews, memberOfETFs,
   };
 };

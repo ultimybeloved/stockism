@@ -18,6 +18,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const { CHARACTERS, CHARACTER_MAP } = require(path.join(ROOT, 'src/characters.js'));
 const { CREWS } = require(path.join(ROOT, 'src/crews.js'));
+const { GENERATION_IDS } = require(path.join(ROOT, 'src/constants/generations.js'));
 
 // Every ETF trails its members at this combined weight. Individual coefficients
 // are ~TARGET/N, rounded to 3 decimals, so the sum lands slightly off.
@@ -29,6 +30,7 @@ const WEIGHT_TOLERANCE = 0.02;
 const CREW_ETF = {
   ALLIED: 'ALLY', BIG_DEAL: 'DEAL', FIST_GANG: 'FIST', SECRET_FRIENDS: 'SCRT',
   HOSTEL: 'HSTL', WTJC: 'WTJC', WORKERS: 'VVIP', YAMAZAKI: 'YAMA',
+  KITAE_UNION: 'SHDW',
   GOD_DOG: null, // 3 members, deliberately has no fund
 };
 
@@ -46,6 +48,15 @@ for (const c of CHARACTERS) {
   seenN.add(c.name);
   if (!(c.basePrice > 0)) errors.push(`${c.ticker}: basePrice must be a positive number`);
   if (!c.dateAdded) errors.push(`${c.ticker}: missing dateAdded`);
+
+  // Generation is optional (the roster is being classified in batches), but a
+  // value that is not a known id is a typo inventing a fifth generation.
+  if (c.generation !== undefined) {
+    if (c.isETF) errors.push(`${c.ticker}: ETFs do not have a generation`);
+    else if (!GENERATION_IDS.includes(c.generation)) {
+      errors.push(`${c.ticker}: unknown generation "${c.generation}" — expected one of ${GENERATION_IDS.join(', ')}`);
+    }
+  }
 }
 
 // --- trailing factors point at real tickers ---

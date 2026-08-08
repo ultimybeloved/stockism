@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { CHARACTERS } from '../characters';
 import { CREWS } from '../crews';
 import { ITEMS_PER_PAGE } from '../constants';
+import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';
 import { getCurrentPrice } from '../utils/calculations';
 import { getReviewChanges } from '../utils/marketHours';
 import { get24hChange, getTradeActivity } from '../utils/marketStats';
@@ -15,6 +16,8 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
   const [showAll, setShowAll] = useState(false);
   const [marketTab, setMarketTab] = useState('stocks'); // 'stocks', 'etfs', 'watchlist', or 'review'
   const [crewFilter, setCrewFilter] = useState('ALL'); // 'ALL' or crew ID
+  // 'ALL', a generation id, or 'UNASSIGNED'. Stacks with the crew filter.
+  const [generationFilter, setGenerationFilter] = useState(GENERATION_FILTER_ALL);
 
   // Detect chapter review changes from most recent Thursday halt window
   const reviewChanges = useMemo(() => getReviewChanges(priceHistory, CHARACTERS), [priceHistory]);
@@ -55,6 +58,17 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
         if (!crews.includes(crewFilter)) return false;
       }
 
+      // Generation filter. ETFs have no generation, so any generation choice
+      // (including Unassigned) hides them rather than lumping them together.
+      if (generationFilter !== GENERATION_FILTER_ALL) {
+        if (c.isETF) return false;
+        if (generationFilter === GENERATION_FILTER_UNASSIGNED) {
+          if (c.generation) return false;
+        } else if (c.generation !== generationFilter) {
+          return false;
+        }
+      }
+
       // Search filter
       const q = searchQuery.toLowerCase();
       const matchesSearch = c.name.toLowerCase().includes(q) ||
@@ -75,13 +89,15 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
       priceChanges[c.ticker] = change24h(c.ticker);
     });
 
-    // Review tab defaults to biggest absolute % change
-    if (marketTab === 'review' && sortBy === 'price-high') {
-      filtered.sort((a, b) => Math.abs(reviewChanges[b.ticker]?.percentChange || 0) - Math.abs(reviewChanges[a.ticker]?.percentChange || 0));
-      return filtered;
-    }
+    // 'review-change' is the Review tab's own default. It used to piggyback on
+    // 'price-high', which made picking "Price: High" in that tab do nothing.
+    // Outside the Review tab it means nothing, so fall back to price sorting.
+    const effectiveSort = (sortBy === 'review-change' && marketTab !== 'review') ? 'price-high' : sortBy;
 
-    switch (sortBy) {
+    switch (effectiveSort) {
+      case 'review-change':
+        filtered.sort((a, b) => Math.abs(reviewChanges[b.ticker]?.percentChange || 0) - Math.abs(reviewChanges[a.ticker]?.percentChange || 0));
+        break;
       case 'price-high': filtered.sort((a, b) => getCurrentPrice(b.ticker, priceHistory, prices) - getCurrentPrice(a.ticker, priceHistory, prices)); break;
       case 'price-low': filtered.sort((a, b) => getCurrentPrice(a.ticker, priceHistory, prices) - getCurrentPrice(b.ticker, priceHistory, prices)); break;
       case 'change-high': filtered.sort((a, b) => (priceChanges[b.ticker] || 0) - (priceChanges[a.ticker] || 0)); break;
@@ -100,7 +116,7 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
       case 'oldest': filtered.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded)); break;
     }
     return filtered;
-  }, [searchQuery, sortBy, prices, priceHistory, change24h, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, reviewChanges]);
+  }, [searchQuery, sortBy, prices, priceHistory, change24h, ipoRestrictedTickers, launchedTickers, marketTab, userData?.watchlist, crewFilter, crewMembershipMap, generationFilter, reviewChanges]);
 
   // Floor at 1 so an empty result set shows "1/1", not "1/0".
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE));
@@ -113,6 +129,7 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
     showAll, setShowAll,
     marketTab, setMarketTab,
     crewFilter, setCrewFilter,
+    generationFilter, setGenerationFilter,
     reviewChanges,
     totalPages,
     displayedCharacters,

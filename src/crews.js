@@ -65,7 +65,16 @@ export const CREWS = {
     color: '#000000',
     emblem: '⚒️',
     icon: '/crews/workers.png',
-    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1', 'DOC2', 'TAEJ', 'HPRK', 'SNGH']
+    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1', 'DOC2', 'TAEJ', 'HPRK']
+  },
+  KITAE_UNION: {
+    id: 'KITAE_UNION',
+    name: 'Kitae Kim Union',
+    color: '#7a1b2e',
+    emblem: '🪓',
+    icon: '/crews/kitae union.png',
+    // Mirrors the SHDW fund. SNGH left Workers for the Union.
+    members: ['KTAE', 'DG', 'GNTL', 'GOO', 'SAM', 'SHMN', 'SAMC', 'YONG', 'PAJU', 'PHNG', 'CROW', 'COP', 'RYU', 'SWMP', 'JEON', 'SCHN', 'SIN', 'TONG', 'ISU', 'SNGH']
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',

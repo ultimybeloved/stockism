@@ -354,6 +354,7 @@ const CREW_HEAD_ROLE_IDS = {
   WTJC: '',
   WORKERS: '',
   YAMAZAKI: '',
+  KITAE_UNION: '',
 };
 // Discord snowflakes are 17-20 digits. Catches a truncated paste, the single
 // likeliest setup mistake.

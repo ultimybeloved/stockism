@@ -125,6 +125,7 @@ const HomePage = ({
             <MarketControls
               marketTab={browser.marketTab} setMarketTab={browser.setMarketTab}
               crewFilter={browser.crewFilter} setCrewFilter={browser.setCrewFilter}
+              generationFilter={browser.generationFilter} setGenerationFilter={browser.setGenerationFilter}
               sortBy={browser.sortBy} setSortBy={browser.setSortBy}
               searchQuery={browser.searchQuery} setSearchQuery={browser.setSearchQuery}
               currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}

@@ -8,7 +8,7 @@ import DonutChart from './charts/DonutChart';
 import { CHARACTER_MAP } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 
-import { CREW_TICKER_MAP, CREW_COLORS } from '../constants/crewGroups';
+import { CREW_TICKER_MAP, CREW_COLORS, OTHER_GROUP, ETF_GROUP } from '../constants/crewGroups';
 
 const PortfolioAnalytics = ({
   darkMode = false,
@@ -33,7 +33,7 @@ const PortfolioAnalytics = ({
       const value = price * shares;
       const pnl = (price - cost) * shares;
       const pnlPct = cost > 0 ? ((price - cost) / cost) * 100 : 0;
-      const crew = CHARACTER_MAP[ticker]?.isETF ? 'ETF' : (CREW_TICKER_MAP[ticker] || 'Other');
+      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : (CREW_TICKER_MAP[ticker] || OTHER_GROUP);
       positions.push({ ticker, shares, price, cost, value, pnl, pnlPct, crew, type: 'long' });
     });
 
@@ -46,7 +46,7 @@ const PortfolioAnalytics = ({
       const value = price * shares;
       const pnl = (entryPrice - price) * shares;
       const pnlPct = entryPrice > 0 ? ((entryPrice - price) / entryPrice) * 100 : 0;
-      const crew = CHARACTER_MAP[ticker]?.isETF ? 'ETF' : (CREW_TICKER_MAP[ticker] || 'Other');
+      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : (CREW_TICKER_MAP[ticker] || OTHER_GROUP);
       positions.push({ ticker, shares, price, cost: entryPrice, value, pnl, pnlPct, crew, type: 'short' });
     });
 

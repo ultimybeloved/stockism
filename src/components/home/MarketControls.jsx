@@ -1,4 +1,5 @@
 import { CREWS, CREW_MAP } from '../../crews';
+import { GENERATIONS, GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../../constants/generations';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 
@@ -8,6 +9,7 @@ import { getThemeClasses } from '../../utils/theme';
 const MarketControls = ({
   marketTab, setMarketTab,
   crewFilter, setCrewFilter,
+  generationFilter, setGenerationFilter,
   sortBy, setSortBy,
   searchQuery, setSearchQuery,
   currentPage, setCurrentPage,
@@ -23,7 +25,13 @@ const MarketControls = ({
     setMarketTab(tab);
     setCurrentPage(1);
     setSearchQuery('');
+    // The Review tab opens on its own sort. Leaving it has to drop that sort,
+    // since it means nothing on the other tabs.
+    if (tab === 'review') setSortBy('review-change');
+    else if (sortBy === 'review-change') setSortBy('price-high');
   };
+
+  const pickGeneration = (id) => { setGenerationFilter(id); setCurrentPage(1); };
 
   return (
     <>
@@ -63,7 +71,7 @@ const MarketControls = ({
         )}
         {hasReviewChanges && (
           <button
-            onClick={() => { switchTab('review'); setSortBy('price-high'); }}
+            onClick={() => switchTab('review')}
             className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
               marketTab === 'review'
                 ? 'bg-emerald-600 text-white'
@@ -121,11 +129,43 @@ const MarketControls = ({
         ))}
       </div>
 
+      {/* Generation Filter — stacks with the crew filter above */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <button
+          onClick={() => pickGeneration(GENERATION_FILTER_ALL)}
+          className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+            generationFilter === GENERATION_FILTER_ALL ? 'bg-orange-600 text-white' : chipClass
+          }`}
+        >
+          All Gens
+        </button>
+        {GENERATIONS.map(gen => (
+          <button
+            key={gen.id}
+            onClick={() => pickGeneration(gen.id)}
+            className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+              generationFilter === gen.id ? 'bg-sky-600 text-white' : chipClass
+            }`}
+          >
+            {gen.label}
+          </button>
+        ))}
+        <button
+          onClick={() => pickGeneration(GENERATION_FILTER_UNASSIGNED)}
+          className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+            generationFilter === GENERATION_FILTER_UNASSIGNED ? 'bg-slate-600 text-white' : chipClass
+          }`}
+        >
+          Unassigned
+        </button>
+      </div>
+
       {/* Controls */}
       <div className={`${cardClass} ${raisedClass} border rounded-sm p-4 mb-4`}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
             className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}>
+            {marketTab === 'review' && <option value="review-change">Biggest Change</option>}
             <option value="price-high">Price: High</option>
             <option value="price-low">Price: Low</option>
             <option value="change-high">Top Gainers</option>

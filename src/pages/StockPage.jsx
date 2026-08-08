@@ -29,7 +29,7 @@ const StockPage = ({ onTrade }) => {
     character, currentPrice, positionShares, shortPosition, avgCost,
     spread, bidPrice, askPrice, drip, handleToggleDrip, priceStats,
     dividendRate, weeklyDividend, positionPL, positionPLPct,
-    crew, memberOfETFs,
+    crews, memberOfETFs,
   } = useStockPageData(ticker, timeRange);
 
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
@@ -93,12 +93,12 @@ const StockPage = ({ onTrade }) => {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-orange-500 font-mono text-xl font-bold">${ticker}</span>
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
-                {crew && (
-                  <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
+                {crews.map(crew => (
+                  <span key={crew.id} className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
                     style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: getReadableCrewColor(crew.color, darkMode) }}>
                     <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />{crew.name}
                   </span>
-                )}
+                ))}
               </div>
               <p className={`text-sm ${mutedClass} mt-0.5`}>{character.name}</p>
               {character.description && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.description}</p>}

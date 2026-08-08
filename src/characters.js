@@ -296,18 +296,17 @@ export const CHARACTERS = [
   {
     name: "Workers Fund", ticker: "VVIP", basePrice: 94.1, dateAdded: "2026-02-20T00:06:00",
     isETF: true, description: "Workers ETF",
-    constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1", "DOC2", "TAEJ", "HPRK", "SNGH"],
+    constituents: ["WRKR", "BANG", "CAPG", "JYNG", "NOMN", "NEKO", "DOOR", "JINJ", "DRMA", "HYOT", "OLDF", "SHKO", "HIKO", "DOC", "NO1", "DOC2", "TAEJ", "HPRK"],
     trailingFactors: [
-      { ticker: "WRKR", coefficient: 0.042 }, { ticker: "BANG", coefficient: 0.042 },
-      { ticker: "CAPG", coefficient: 0.042 }, { ticker: "JYNG", coefficient: 0.042 },
-      { ticker: "NOMN", coefficient: 0.042 }, { ticker: "NEKO", coefficient: 0.042 },
-      { ticker: "DOOR", coefficient: 0.042 }, { ticker: "JINJ", coefficient: 0.042 },
-      { ticker: "DRMA", coefficient: 0.042 }, { ticker: "HYOT", coefficient: 0.042 },
-      { ticker: "OLDF", coefficient: 0.042 }, { ticker: "SHKO", coefficient: 0.042 },
-      { ticker: "HIKO", coefficient: 0.042 }, { ticker: "DOC", coefficient: 0.042 },
-      { ticker: "NO1", coefficient: 0.042 }, { ticker: "DOC2", coefficient: 0.042 },
-      { ticker: "TAEJ", coefficient: 0.042 }, { ticker: "HPRK", coefficient: 0.042 },
-      { ticker: "SNGH", coefficient: 0.042 }
+      { ticker: "WRKR", coefficient: 0.044 }, { ticker: "BANG", coefficient: 0.044 },
+      { ticker: "CAPG", coefficient: 0.044 }, { ticker: "JYNG", coefficient: 0.044 },
+      { ticker: "NOMN", coefficient: 0.044 }, { ticker: "NEKO", coefficient: 0.044 },
+      { ticker: "DOOR", coefficient: 0.044 }, { ticker: "JINJ", coefficient: 0.044 },
+      { ticker: "DRMA", coefficient: 0.044 }, { ticker: "HYOT", coefficient: 0.044 },
+      { ticker: "OLDF", coefficient: 0.044 }, { ticker: "SHKO", coefficient: 0.044 },
+      { ticker: "HIKO", coefficient: 0.044 }, { ticker: "DOC", coefficient: 0.044 },
+      { ticker: "NO1", coefficient: 0.044 }, { ticker: "DOC2", coefficient: 0.044 },
+      { ticker: "TAEJ", coefficient: 0.044 }, { ticker: "HPRK", coefficient: 0.044 }
     ]
   },
   {
@@ -340,20 +339,20 @@ export const CHARACTERS = [
     ]
   },
   {
-    name: "Kitae Kim Alliance ETF", ticker: "SHDW", basePrice: 155, dateAdded: "2026-02-20T00:09:00",
-    isETF: true, description: "Kitae Kim Alliance ETF",
-    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN", "TONG", "ISU"],
+    name: "Kitae Kim Union", ticker: "SHDW", basePrice: 155, dateAdded: "2026-02-20T00:09:00",
+    isETF: true, description: "Kitae Kim Union ETF",
+    constituents: ["KTAE", "DG", "GNTL", "GOO", "SAM", "SHMN", "SAMC", "YONG", "PAJU", "PHNG", "CROW", "COP", "RYU", "SWMP", "JEON", "SCHN", "SIN", "TONG", "ISU", "SNGH"],
     trailingFactors: [
-      { ticker: "KTAE", coefficient: 0.042 }, { ticker: "DG", coefficient: 0.042 },
-      { ticker: "GNTL", coefficient: 0.042 }, { ticker: "GOO", coefficient: 0.042 },
-      { ticker: "SAM", coefficient: 0.042 }, { ticker: "SHMN", coefficient: 0.042 },
-      { ticker: "SAMC", coefficient: 0.042 }, { ticker: "YONG", coefficient: 0.042 },
-      { ticker: "PAJU", coefficient: 0.042 }, { ticker: "PHNG", coefficient: 0.042 },
-      { ticker: "CROW", coefficient: 0.042 }, { ticker: "COP", coefficient: 0.042 },
-      { ticker: "RYU", coefficient: 0.042 }, { ticker: "SWMP", coefficient: 0.042 },
-      { ticker: "JEON", coefficient: 0.042 }, { ticker: "SCHN", coefficient: 0.042 },
-      { ticker: "SIN", coefficient: 0.042 }, { ticker: "TONG", coefficient: 0.042 },
-      { ticker: "ISU", coefficient: 0.042 }
+      { ticker: "KTAE", coefficient: 0.040 }, { ticker: "DG", coefficient: 0.040 },
+      { ticker: "GNTL", coefficient: 0.040 }, { ticker: "GOO", coefficient: 0.040 },
+      { ticker: "SAM", coefficient: 0.040 }, { ticker: "SHMN", coefficient: 0.040 },
+      { ticker: "SAMC", coefficient: 0.040 }, { ticker: "YONG", coefficient: 0.040 },
+      { ticker: "PAJU", coefficient: 0.040 }, { ticker: "PHNG", coefficient: 0.040 },
+      { ticker: "CROW", coefficient: 0.040 }, { ticker: "COP", coefficient: 0.040 },
+      { ticker: "RYU", coefficient: 0.040 }, { ticker: "SWMP", coefficient: 0.040 },
+      { ticker: "JEON", coefficient: 0.040 }, { ticker: "SCHN", coefficient: 0.040 },
+      { ticker: "SIN", coefficient: 0.040 }, { ticker: "TONG", coefficient: 0.040 },
+      { ticker: "ISU", coefficient: 0.040 }, { ticker: "SNGH", coefficient: 0.040 }
     ]
   },
   { name: "James Gong", ticker: "JGNG", basePrice: 12.50, dateAdded: "2026-05-25T00:00:00" },
