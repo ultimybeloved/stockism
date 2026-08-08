@@ -28,6 +28,7 @@ const UsersTab = ({
   USERS_PER_PAGE,
   selectedUser,
   setSelectedUser,
+  selectUser,
   calculateLivePortfolioValue,
   handleSyncSingleUser,
   handleSetCash,
@@ -292,7 +293,7 @@ const UsersTab = ({
                       if (deleteMode) {
                         if (!isAdminUser) toggleUserForDeletion(u.id);
                       } else {
-                        setSelectedUser(u);
+                        selectUser(u);
                       }
                     }}
                     className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${

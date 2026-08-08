@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 // Users tab: load/search/sort the user list and selected-user card.
@@ -59,6 +59,24 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
       showMessage('error', 'Failed to load users');
     }
     setLoading(false);
+  };
+
+  // Open a user's card. handleLoadAllUsers trims every user to the columns the
+  // table needs, so the detail panel would otherwise be missing anything not on
+  // that list — achievements, crew head status, pins. Show the trimmed row
+  // straight away so the card opens instantly, then swap in the real document.
+  const selectUser = async (user) => {
+    if (!user) {
+      setSelectedUser(null);
+      return;
+    }
+    setSelectedUser(user);
+    try {
+      const snap = await getDoc(doc(db, 'users', user.id));
+      if (snap.exists()) setSelectedUser({ id: snap.id, ...snap.data() });
+    } catch (err) {
+      console.error('Failed to load full user document:', err);
+    }
   };
 
   // Helper: Calculate live portfolio value for a user
@@ -144,6 +162,6 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
     userSearchQuery, handleUserSearch, userSearchResults, setUserSearchResults,
     userSortBy, handleUserSortChange,
     handleLoadAllUsers, allUsers, setAllUsers, usersPage, setUsersPage, USERS_PER_PAGE,
-    selectedUser, setSelectedUser, calculateLivePortfolioValue,
+    selectedUser, setSelectedUser, selectUser, calculateLivePortfolioValue,
   };
 }
