@@ -1,11 +1,27 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { broadcastNotificationFunction } from '../../firebase';
+import { CREW_MAP, CREW_SWITCH_EVENT, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_DAYS, isFreeSwitchTarget } from '../../crews';
+import { formatUTCDateTime } from '../../utils/formatters';
 
-// Pre-filled with the current margin announcement; fully editable before sending.
-const DEFAULT_TITLE = '📈 Margin update';
-const DEFAULT_MESSAGE =
-  "Margin now uses your whole portfolio, not just spare cash. You can borrow against what you've invested in stocks without selling first. Note: shares bought with margin are locked from selling for 36 hours. Check the margin panel to see your new borrowing power.";
+// Pre-filled with whatever is worth announcing right now; fully editable before
+// sending. While a free-switch event is running the default describes it, with
+// the crew name, rate and deadline read from the event itself so the text can
+// never disagree with what the server actually does.
+const eventCrew = CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId)
+  ? CREW_MAP[CREW_SWITCH_EVENT.crewId]
+  : null;
+
+const DEFAULT_TITLE = eventCrew
+  ? `${eventCrew.emblem} ${eventCrew.name} is open`
+  : '📈 Margin update';
+
+const DEFAULT_MESSAGE = eventCrew
+  ? `${eventCrew.name} is now a crew you can join, and switching to it is free until ${formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}. `
+    + `No ${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty, and no ${CREW_REJOIN_LOCKOUT_DAYS} day lockout on the crew you leave, `
+    + `so you can go back later if you change your mind. After the deadline it costs the usual ${Math.round(CREW_SWITCH_PENALTY * 100)}%. `
+    + `Open the crew menu to switch.`
+  : "Margin now uses your whole portfolio, not just spare cash. You can borrow against what you've invested in stocks without selling first. Note: shares bought with margin are locked from selling for 36 hours. Check the margin panel to see your new borrowing power.";
 
 // Admin tool: send a notification to every user's bell.
 export default function AnnounceCard({ darkMode }) {
