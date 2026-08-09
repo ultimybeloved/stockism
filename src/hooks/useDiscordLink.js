@@ -37,7 +37,7 @@ export function useDiscordLink() {
       : '';
     if (!window.confirm(
       'Disconnect your Discord?\n\n' +
-      'You can link it back to THIS account any time. You will not be able to link it to a different account afterwards, ' +
+      'You can link it back to THIS account any time. Putting it on a different account has to wait a week, ' +
       'so if you have two accounts and want your Discord on the other one, ask an admin instead of unlinking here.' +
       warning
     )) return false;

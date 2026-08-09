@@ -62,6 +62,15 @@ const IP_SLOT_RELEASE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // cost a month's wait. The $3k bonus is one-time per live account, so within this
 // window it can never be re-granted either.
 const DISCORD_RELINK_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// After a player unlinks their own Discord, it is reserved to that account for
+// this long before another account may link it. Stops the unlink → link to a
+// fresh account → collect the $2,000 verification top-up loop, and the repeat
+// daily-drop claims that come with it (claims are recorded per Stockism account,
+// and each drop message stays open 72 hours). Shorter than the 30-day cooldowns
+// on purpose: the per-IP signup cap is the real brake on making new accounts,
+// and a week is short enough that players who unlink the wrong account unstick
+// themselves instead of needing an admin.
+const DISCORD_BINDING_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // How long a Discord-link handoff code stays valid. It is minted for the
 // signed-in user by startDiscordLink and burned by discordLink, so it only has
@@ -561,6 +570,7 @@ module.exports = {
   IP_ACCOUNT_CAP_ENABLED,
   IP_SLOT_RELEASE_MS,
   DISCORD_RELINK_COOLDOWN_MS,
+  DISCORD_BINDING_TTL_MS,
   DISCORD_LINK_NONCE_TTL_MS,
   TWENTY_FOUR_HOURS_MS,
   ONE_WEEK_MS,

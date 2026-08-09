@@ -254,9 +254,9 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
     discordUsername: admin.firestore.FieldValue.delete()
   });
 
-  // A self-serve unlink binds the Discord to its account for good. An admin
-  // unlink is the opposite — a genuine release — so drop the binding too, or
-  // the player could never link this Discord to a different account.
+  // A self-serve unlink reserves the Discord to its account for a week. An
+  // admin unlink is the opposite — an immediate release — so drop the binding
+  // too, rather than making the player wait the week out.
   try {
     await db.collection('discordBindings').doc(String(previousDiscordId)).delete();
   } catch (err) {
@@ -275,9 +275,9 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
  *  - They deleted the account their Discord was attached to. deleteAccount
  *    tombstones it for DISCORD_RELINK_COOLDOWN_MS, so linking it to the account
  *    they actually use fails with `recently_deleted` for 30 days.
- *  - They unlinked it themselves from the wrong account. unlinkOwnDiscord binds
- *    it to that account permanently, so linking it elsewhere fails with
- *    `bound_to_other_account`.
+ *  - They unlinked it themselves from the wrong account. unlinkOwnDiscord
+ *    reserves it to that account for DISCORD_BINDING_TTL_MS, so linking it
+ *    elsewhere fails with `bound_to_other_account` until the week is up.
  *
  * Both are legitimate when someone ends up with duplicate accounts from mixing
  * Google and Discord logins. Refuses while a live account still holds the

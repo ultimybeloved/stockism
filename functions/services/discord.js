@@ -10,7 +10,7 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const crypto = require('crypto');
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS } = require('../constants');
-const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBindingUid, bindDiscordToUid } = require('../helpers');
+const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBinding, isDiscordBindingLocked, bindDiscordToUid } = require('../helpers');
 
 
 // Discord OAuth Authentication
@@ -72,12 +72,14 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
       .get();
 
     // Nobody holds this Discord right now, but it may still belong to someone:
-    // self-serve unlink leaves a permanent binding behind. Honour it, or the
-    // email branch below would spawn a duplicate account for a player who was
-    // only trying to log back in.
+    // self-serve unlink leaves a binding behind. Honour it at ANY age — the
+    // binding's expiry only governs whether another account may CLAIM the
+    // Discord, not where it logs in. Without this the email branch below would
+    // spawn a duplicate account for a player who was only trying to log back in.
     let boundUid = null;
     if (discordSnap.empty) {
-      const candidate = await getDiscordBindingUid(discordId);
+      const binding = await getDiscordBinding(discordId);
+      const candidate = binding && binding.uid;
       if (candidate && (await db.collection('users').doc(candidate).get()).exists) {
         boundUid = candidate;
       }
@@ -329,13 +331,12 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
     }
 
-    // Nobody holds it, but unlinking binds a Discord to its account for good.
-    // Without this, self-serve unlink would hand one Discord an unlimited supply
-    // of starting-cash unlocks, repeat daily-drop claims and Discord-wall passes
-    // across fresh accounts. adminUnlinkDiscord clears the binding when a
-    // release is genuinely intended.
-    const boundUid = await getDiscordBindingUid(discordId);
-    if (boundUid && boundUid !== uid) {
+    // Nobody holds it, but unlinking reserves a Discord to its account for
+    // DISCORD_BINDING_TTL_MS. Without that, self-serve unlink would hand one
+    // Discord an endless supply of starting-cash unlocks, repeat daily-drop
+    // claims and Discord-wall passes across fresh accounts. adminFreeDiscord
+    // releases it early when the hold is catching an honest player.
+    if (await isDiscordBindingLocked(discordId, uid)) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=bound_to_other_account');
     }
 
@@ -385,10 +386,10 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
  * Disconnect your own Discord (Profile → Discord → Unlink).
  *
  * Players shouldn't need an admin to detach their own account, but a released
- * Discord must never verify a DIFFERENT account, so this binds it to the
- * current one permanently before letting go. Re-linking it here later works;
- * linking it to anyone else does not. An admin can still force a true release
- * with adminUnlinkDiscord, which clears the binding.
+ * Discord must not immediately verify a DIFFERENT account, so this reserves it
+ * to the current one for DISCORD_BINDING_TTL_MS before letting go. Re-linking it
+ * here works straight away; linking it elsewhere waits out the week. An admin
+ * can release it now with adminUnlinkDiscord or adminFreeDiscord.
  *
  * startingCashUnlocked is left alone, so re-linking can never re-pay the
  * one-time verification bonus.
@@ -412,13 +413,13 @@ exports.unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
     return { success: true, alreadyUnlinked: true };
   }
 
-  // Bind BEFORE releasing. If this write fails the Discord stays attached,
-  // which is the safe direction — an unbound free Discord is the exploit.
+  // Reserve BEFORE releasing. If this write fails the Discord stays attached,
+  // which is the safe direction — an unreserved free Discord is the exploit.
   const owner = await bindDiscordToUid(discordId, uid, userData.discordUsername);
   if (owner !== uid) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'This Discord is registered to a different account. Contact an admin.'
+      'This Discord is reserved to a different account. Contact an admin.'
     );
   }
 

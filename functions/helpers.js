@@ -107,6 +107,7 @@ const {
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   IPO_PRICE_JUMP,
   DISCORD_RELINK_COOLDOWN_MS,
+  DISCORD_BINDING_TTL_MS,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
@@ -636,46 +637,74 @@ async function isDiscordRelinkBlocked(discordId) {
 }
 
 /**
- * A Discord ID's permanent owner, or null if it has never been bound.
+ * The account a Discord ID was last attached to, with no regard for age.
  *
- * Unlinking is self-serve (players shouldn't need an admin to disconnect their
- * own Discord), but a freed Discord must never be able to verify a DIFFERENT
- * account. Left unbound it could farm the one-time starting-cash unlock on
- * account after account, re-claim daily drops (claims are recorded per Stockism
- * account, and each drop stays open 72 hours), and clear the requiresDiscordLink
- * wall on unlimited alts. The binding is written at unlink time and never
- * expires, so the Discord can only ever come back to the same account.
+ * Written when a player unlinks their own Discord. Two different questions are
+ * asked of it, and they expire differently — see isDiscordBindingLocked:
+ *
+ *   "Where does this Discord log in?"  — this function. Never expires, because
+ *   it is only consulted when NO live account holds the Discord; sending them
+ *   back where they came from always beats discordAuth's email fallback
+ *   spawning a duplicate account.
+ *
+ *   "May a DIFFERENT account link it?" — isDiscordBindingLocked. Expires.
+ *
  * @param {string} discordId
- * @returns {Promise<string|null>} owning uid
+ * @returns {Promise<{uid: string|null, boundAt: number}|null>}
  */
-async function getDiscordBindingUid(discordId) {
+async function getDiscordBinding(discordId) {
   if (!discordId) return null;
   const snap = await db.collection('discordBindings').doc(String(discordId)).get();
-  return snap.exists ? (snap.data().uid || null) : null;
+  if (!snap.exists) return null;
+  const { uid = null, boundAt = 0 } = snap.data();
+  return { uid, boundAt };
 }
 
 /**
- * Claim a Discord ID for a uid, first writer wins. `create` throws rather than
- * overwriting, which is the point: a second account can never take a binding
- * that already belongs to someone else.
+ * True if this Discord is reserved to some OTHER account right now.
+ *
+ * Unlinking is self-serve, so without a hold a freed Discord could farm the
+ * one-time starting-cash unlock on account after account, re-claim daily drops
+ * (claims are recorded per Stockism account, and each drop stays open 72 hours)
+ * and clear the requiresDiscordLink wall on unlimited alts. The hold lapses
+ * after DISCORD_BINDING_TTL_MS so a player who unlinks the wrong account isn't
+ * stranded — an admin can also release it immediately with adminFreeDiscord.
+ * @param {string} discordId
+ * @param {string} uid - the account trying to link it
+ * @returns {Promise<boolean>}
+ */
+async function isDiscordBindingLocked(discordId, uid) {
+  const binding = await getDiscordBinding(discordId);
+  if (!binding || !binding.uid || binding.uid === uid) return false;
+  return Date.now() - binding.boundAt < DISCORD_BINDING_TTL_MS;
+}
+
+/**
+ * Reserve a Discord ID for a uid. A live reservation belongs to whoever holds
+ * it; a lapsed one is up for grabs. Transactional so two accounts racing to
+ * claim the same expired binding can't both win.
  * @param {string} discordId
  * @param {string} uid
  * @param {string} [discordUsername]
- * @returns {Promise<string>} the uid that owns the binding after this call
+ * @returns {Promise<string>} the uid holding the reservation after this call
  */
 async function bindDiscordToUid(discordId, uid, discordUsername) {
   const ref = db.collection('discordBindings').doc(String(discordId));
-  try {
-    await ref.create({
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      const { uid: ownerUid, boundAt = 0 } = snap.data();
+      if (ownerUid && ownerUid !== uid && Date.now() - boundAt < DISCORD_BINDING_TTL_MS) {
+        return ownerUid;
+      }
+    }
+    tx.set(ref, {
       uid,
       discordUsername: discordUsername || null,
       boundAt: Date.now()
     });
     return uid;
-  } catch (err) {
-    const snap = await ref.get();
-    return snap.exists ? (snap.data().uid || null) : null;
-  }
+  });
 }
 
 /**
@@ -963,7 +992,8 @@ module.exports = {
   checkBanned,
   checkDiscordWall,
   isDiscordRelinkBlocked,
-  getDiscordBindingUid,
+  getDiscordBinding,
+  isDiscordBindingLocked,
   bindDiscordToUid,
   discordApi,
   sendDiscordMessage,
