@@ -3,7 +3,7 @@ import DiscordLinkTransfer from './DiscordLinkTransfer';
 import UserFieldEditor from './UserFieldEditor';
 
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
-const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }) => (
+const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, freeDiscordId, setFreeDiscordId, handleFreeDiscord, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }) => (
   <>
     {/* Crew, achievements, margin, holdings — the direct Firestore edits */}
     <UserFieldEditor {...{ darkMode, mutedClass, loading, selectedUser, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }} />
@@ -96,7 +96,7 @@ const UserAdminActions = ({ darkMode, textClass, mutedClass, inputClass, loading
             Players can't swap Discord accounts themselves. Unlink here if someone lost access to theirs.
           </p>
 
-          <DiscordLinkTransfer {...{ darkMode, mutedClass, loading, selectedUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink }} />
+          <DiscordLinkTransfer {...{ darkMode, mutedClass, loading, selectedUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, freeDiscordId, setFreeDiscordId, handleFreeDiscord }} />
         </div>
       </div>
     </div>

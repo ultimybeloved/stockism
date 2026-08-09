@@ -142,6 +142,8 @@ export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDis
 export const adminUnlinkDiscordFunction = httpsCallable(functions, 'adminUnlinkDiscord');
 // Admin: move a Discord link off a throwaway account onto the player's original one
 export const adminMoveDiscordLinkFunction = httpsCallable(functions, 'adminMoveDiscordLink');
+// Admin: clear the delete-tombstone / unlink-binding holding a Discord ID hostage
+export const adminFreeDiscordFunction = httpsCallable(functions, 'adminFreeDiscord');
 // Mints the single-use code that starts the Discord link flow (see useDiscordLink)
 export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLink');
 // Disconnect your own Discord (Profile → Discord → Unlink)

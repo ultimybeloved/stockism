@@ -36,7 +36,10 @@ export function useDiscordLink() {
       ? '\n\nYour account needs a linked Discord to trade, so you will be locked out of trading until you link one again.'
       : '';
     if (!window.confirm(
-      `Disconnect your Discord?\n\nYou can link it back any time, but it stays reserved to this account and cannot be used on a different one.${warning}`
+      'Disconnect your Discord?\n\n' +
+      'You can link it back to THIS account any time. You will not be able to link it to a different account afterwards, ' +
+      'so if you have two accounts and want your Discord on the other one, ask an admin instead of unlinking here.' +
+      warning
     )) return false;
 
     setLinking(true);

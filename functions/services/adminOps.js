@@ -267,6 +267,63 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
 });
 
 /**
+ * Admin-only: release every hold on a Discord ID so it can link anywhere.
+ *
+ * The other two Discord tools act on an account. This one acts on the Discord
+ * itself, for the cases where there is no account left to act on:
+ *
+ *  - They deleted the account their Discord was attached to. deleteAccount
+ *    tombstones it for DISCORD_RELINK_COOLDOWN_MS, so linking it to the account
+ *    they actually use fails with `recently_deleted` for 30 days.
+ *  - They unlinked it themselves from the wrong account. unlinkOwnDiscord binds
+ *    it to that account permanently, so linking it elsewhere fails with
+ *    `bound_to_other_account`.
+ *
+ * Both are legitimate when someone ends up with duplicate accounts from mixing
+ * Google and Discord logins. Refuses while a live account still holds the
+ * Discord — that case wants adminUnlinkDiscord or adminMoveDiscordLink, and
+ * clearing the holds without detaching it would do nothing.
+ */
+exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const { discordId } = data || {};
+  if (!discordId || typeof discordId !== 'string' || !/^\d{5,32}$/.test(discordId.trim())) {
+    throw new functions.https.HttpsError('invalid-argument', 'A numeric Discord ID is required');
+  }
+  const id = discordId.trim();
+
+  const holderSnap = await db.collection('users').where('discordId', '==', id).limit(1).get();
+  if (!holderSnap.empty) {
+    const holder = holderSnap.docs[0];
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Still linked to ${holder.data().displayName || holder.id}. Unlink it from that account first.`
+    );
+  }
+
+  const tombRef = db.collection('discordTombstones').doc(id);
+  const bindRef = db.collection('discordBindings').doc(id);
+  const [tombSnap, bindSnap] = await db.getAll(tombRef, bindRef);
+
+  const clearedTombstone = tombSnap.exists;
+  const clearedBinding = bindSnap.exists;
+  const boundTo = bindSnap.exists ? (bindSnap.data().uid || null) : null;
+
+  await Promise.all([
+    clearedTombstone ? tombRef.delete() : Promise.resolve(),
+    clearedBinding ? bindRef.delete() : Promise.resolve(),
+  ]);
+
+  console.log(`DISCORD FREED: ${id} (tombstone: ${clearedTombstone}, binding: ${clearedBinding})`);
+
+  return { success: true, discordId: id, clearedTombstone, clearedBinding, boundTo };
+});
+
+/**
  * Admin-only: move a Discord link from one account onto another.
  *
  * The case this exists for: a player signed up through Discord, Discord itself

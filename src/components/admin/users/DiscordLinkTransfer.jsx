@@ -11,6 +11,7 @@
 const DiscordLinkTransfer = ({
   darkMode, mutedClass, loading, selectedUser,
   moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink,
+  freeDiscordId, setFreeDiscordId, handleFreeDiscord,
 }) => {
   const targetName = selectedUser.displayName || selectedUser.username;
   const sameAccount = moveSource && moveSource.id === selectedUser.id;
@@ -72,6 +73,34 @@ const DiscordLinkTransfer = ({
           )}
         </div>
       )}
+
+      {/* Frees a Discord no account holds but that still can't be linked:
+          deleted account (30-day cooldown) or unlinked from the wrong one. */}
+      <label className={`text-xs ${mutedClass} block mt-3 mb-1`}>Unblock a Discord ID:</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={freeDiscordId}
+          onChange={(e) => setFreeDiscordId(e.target.value)}
+          placeholder="Discord ID (numbers only)"
+          className={`flex-1 px-2 py-1 text-sm rounded border ${
+            darkMode
+              ? 'bg-slate-700 border-slate-600 text-white'
+              : 'bg-white border-slate-300 text-slate-900'
+          }`}
+        />
+        <button
+          onClick={() => handleFreeDiscord(freeDiscordId)}
+          disabled={loading || !freeDiscordId.trim()}
+          className="px-3 py-1 text-xs font-semibold rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+        >
+          Unblock
+        </button>
+      </div>
+      <p className={`text-xs ${mutedClass} mt-1`}>
+        For "you deleted the account this Discord was on" or "you unlinked it from the wrong account".
+        Not for a Discord still attached to a live account — unlink that one instead.
+      </p>
     </div>
   );
 };

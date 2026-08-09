@@ -40,6 +40,9 @@ const UsersTab = ({
   moveSource,
   handleLookupMoveSource,
   handleMoveDiscordLink,
+  freeDiscordId,
+  setFreeDiscordId,
+  handleFreeDiscord,
   handleSetCrew,
   handleGrantAchievement,
   handleSetMargin,
@@ -272,7 +275,7 @@ const UsersTab = ({
 
           <UserFinancials {...{ darkMode, textClass, mutedClass, loading, prices, selectedUser, calculateLivePortfolioValue, handleSyncSingleUser }} />
           <UserPositions {...{ darkMode, textClass, mutedClass, prices, selectedUser }} />
-          <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }} />
+          <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, freeDiscordId, setFreeDiscordId, handleFreeDiscord, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }} />
         </div>
       )}
 
