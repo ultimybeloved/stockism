@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -112,12 +112,21 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
         lastPlayed: null
       };
 
+      // New accounts only have part of the caps unlocked. The invested-in-stocks
+      // gate below doesn't stop an alt — it buys stock with its signup cash and
+      // passes honestly — so age is what limits gambling the free stake.
+      const rampFactor = getLadderDepositFactor(mainUser);
+      const rampEndDate = getLadderRampEndDate(mainUser);
+      const rampNote = rampEndDate ? ` Your account's limit rises daily and is full on ${rampEndDate}.` : '';
+      const maxBalance = Math.floor(LADDER_GAME_MAX_BALANCE * rampFactor);
+      const maxPerWindow = Math.floor(LADDER_GAME_MAX_DEPOSIT_PER_WINDOW * rampFactor);
+
       const currentBalance = ladderData.balance ?? 0;
-      if (currentBalance >= LADDER_GAME_MAX_BALANCE) {
-        throw new functions.https.HttpsError('failed-precondition', `Ladder balance is already at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} limit.`);
+      if (currentBalance >= maxBalance) {
+        throw new functions.https.HttpsError('failed-precondition', `Ladder balance is already at the $${maxBalance.toLocaleString()} limit.${rampNote}`);
       }
-      if (currentBalance + amount > LADDER_GAME_MAX_BALANCE) {
-        throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(LADDER_GAME_MAX_BALANCE - currentBalance).toFixed(2)} more before hitting the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`);
+      if (currentBalance + amount > maxBalance) {
+        throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(maxBalance - currentBalance).toFixed(2)} more before hitting the $${maxBalance.toLocaleString()} cap.${rampNote}`);
       }
 
       // Enforce the invested-in-stocks cap on the ladder balance.
@@ -133,7 +142,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       const now = Date.now();
       const recent = (ladderData.recentDeposits || []).filter(d => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
       const windowTotal = recent.reduce((sum, d) => sum + d.amount, 0);
-      const remaining = LADDER_GAME_MAX_DEPOSIT_PER_WINDOW - windowTotal;
+      const remaining = maxPerWindow - windowTotal;
       if (amount > remaining) {
         // soonest relief = when the oldest in-window deposit ages out
         const oldest = recent.length ? Math.min(...recent.map(d => d.ts)) : now;
@@ -141,8 +150,8 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError(
           'failed-precondition',
           remaining <= 0
-            ? `Deposit limit reached: max $${LADDER_GAME_MAX_DEPOSIT_PER_WINDOW.toLocaleString()} per 12 hours. More frees up at ${freesAt} UTC.`
-            : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.`
+            ? `Deposit limit reached: max $${maxPerWindow.toLocaleString()} per 12 hours. More frees up at ${freesAt} UTC.${rampNote}`
+            : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.${rampNote}`
         );
       }
 
@@ -221,7 +230,9 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       const balance = ladderData.balance ?? 0;
 
       // Non-withdrawable "house chips" (check-in grants / welcome stake) can be
-      // played but never cashed out — only deposits and winnings are withdrawable.
+      // played but never cashed out. This is the TOTAL ever granted, not what is
+      // left of it, so the balance has to clear that floor before any of it comes
+      // out — see the note in ladderGame.js on why it is no longer clamped.
       const nonWithdrawable = ladderData.nonWithdrawable || 0;
       const withdrawable = Math.max(0, balance - nonWithdrawable);
       if (amount > withdrawable) {

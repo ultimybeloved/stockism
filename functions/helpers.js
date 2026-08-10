@@ -105,6 +105,8 @@ const {
   TWENTY_FOUR_HOURS_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+  LADDER_RAMP_DAYS,
+  LADDER_RAMP_MIN_FACTOR,
   IPO_PRICE_JUMP,
   DISCORD_RELINK_COOLDOWN_MS,
   DISCORD_BINDING_TTL_MS,
@@ -355,6 +357,40 @@ const getAccountAgeImpactFactor = (userData) => {
   const ageDays = (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
   return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
+};
+
+// Account age in days, or null when the account has no usable createdAt.
+// Tolerates the three shapes createdAt turns up in: Firestore Timestamp on live
+// docs, a raw number on some older ones, an ISO string from imports.
+const getAccountAgeDays = (userData) => {
+  if (!userData || !userData.createdAt) return null;
+  const createdAt = userData.createdAt;
+  const createdMs = typeof createdAt.toMillis === 'function'
+    ? createdAt.toMillis()
+    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  if (!createdMs || isNaN(createdMs)) return null;
+  return (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
+};
+
+// How much of the ladder deposit caps a user has unlocked, 0..1. Same ramp shape
+// as getAccountAgeImpactFactor but on its own constants — the price-impact ramp
+// is about market manipulation and lasts 3 days; this one is about alt accounts
+// gambling their signup cash and lasts a week. An account with no readable
+// createdAt gets full access rather than being locked out.
+const getLadderDepositFactor = (userData) => {
+  const ageDays = getAccountAgeDays(userData);
+  if (ageDays === null) return 1;
+  if (ageDays >= LADDER_RAMP_DAYS) return 1;
+  return LADDER_RAMP_MIN_FACTOR + (1 - LADDER_RAMP_MIN_FACTOR) * (ageDays / LADDER_RAMP_DAYS);
+};
+
+// When the ladder caps reach full for this user, as an ISO date, or null if
+// they are already there. Used to tell them when the limit lifts.
+const getLadderRampEndDate = (userData) => {
+  const ageDays = getAccountAgeDays(userData);
+  if (ageDays === null || ageDays >= LADDER_RAMP_DAYS) return null;
+  return new Date(Date.now() + (LADDER_RAMP_DAYS - ageDays) * TWENTY_FOUR_HOURS_MS)
+    .toISOString().slice(0, 10);
 };
 
 // Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
@@ -975,6 +1011,8 @@ module.exports = {
   isPriceProtected,
   getAdminReviewAdjustments,
   getAccountAgeImpactFactor,
+  getLadderDepositFactor,
+  getLadderRampEndDate,
   getTotalInvested,
   lmsrCost,
   lmsrPrices,

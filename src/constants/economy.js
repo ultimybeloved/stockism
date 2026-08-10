@@ -90,6 +90,9 @@ export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per 
 export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
 export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window (deposit cap + rush fee) — keep in sync with functions/constants.js
+// New accounts ramp up to the full ladder caps over their first week — keep in sync with functions/constants.js
+export const LADDER_RAMP_DAYS = 7;
+export const LADDER_RAMP_MIN_FACTOR = 0.05; // 5% of the caps at day 0 → 100% at day 7
 
 // Ladder withdrawal tax — keep in sync with functions/constants.js
 export const LADDER_WITHDRAW_PRINCIPAL_FEE_RATE = 0.05; // flat 5% on the portion that is deposited principal coming back

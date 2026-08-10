@@ -9,7 +9,24 @@ import {
   LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_WITHDRAW_PROFIT_BRACKETS,
+  LADDER_RAMP_DAYS,
+  LADDER_RAMP_MIN_FACTOR,
 } from '../constants/economy';
+
+// How much of the ladder deposit caps a new account has unlocked, 0..1.
+// Mirror of getLadderDepositFactor in functions/helpers.js — keep both in sync.
+// Takes createdAt straight off the user doc, which arrives as a Firestore
+// Timestamp on the client; an unreadable date means full access, same as server.
+export const getLadderDepositFactor = (createdAt) => {
+  if (!createdAt) return 1;
+  const createdMs = typeof createdAt.toMillis === 'function'
+    ? createdAt.toMillis()
+    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  if (!createdMs || isNaN(createdMs)) return 1;
+  const ageDays = (Date.now() - createdMs) / (24 * 60 * 60 * 1000);
+  if (ageDays >= LADDER_RAMP_DAYS) return 1;
+  return LADDER_RAMP_MIN_FACTOR + (1 - LADDER_RAMP_MIN_FACTOR) * (ageDays / LADDER_RAMP_DAYS);
+};
 
 // Round up to the cent (house favor). The epsilon guards against FP noise
 // (e.g. 50.000000000001) charging a phantom extra cent.

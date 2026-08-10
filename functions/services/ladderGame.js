@@ -111,9 +111,15 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       // Whole-dollar bets keep the balance an integer; floor here clears any stray
       // cents left over from before (those cents just disappear, by design).
       userData.balance = Math.floor(userData.balance - amount + payout);
-      // Non-withdrawable "house chips" can never exceed the current balance: a
-      // loss burns chips first, winnings on top are always withdrawable.
-      userData.nonWithdrawable = Math.min(userData.nonWithdrawable || 0, userData.balance);
+      // nonWithdrawable stays at the total chips ever granted and is NOT clamped
+      // to the balance. It used to be, so chips burned on a loss stopped counting
+      // and the next win came out withdrawable — lose $300 of a $500 welcome
+      // stake, win it back, and $500 of house money had become real cash. That
+      // was a free faucet for alt accounts. Now the granted total is a floor the
+      // balance has to clear before any of it can be cashed out; the withdraw
+      // path already does Math.max(0, balance - nonWithdrawable), so a balance
+      // under the floor simply means nothing is withdrawable yet.
+      userData.nonWithdrawable = userData.nonWithdrawable || 0;
       userData.gamesPlayed += 1;
       if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {

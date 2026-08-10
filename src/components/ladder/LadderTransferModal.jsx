@@ -4,7 +4,7 @@ import {
   LADDER_WITHDRAW_PROFIT_BRACKETS,
 } from '../../constants/economy';
 import { getTotalInvested } from '../../utils/calculations';
-import { calculateLadderWithdrawTax } from '../../utils/ladderTax';
+import { calculateLadderWithdrawTax, getLadderDepositFactor } from '../../utils/ladderTax';
 import { useAppContext } from '../../context/AppContext';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 
@@ -25,10 +25,15 @@ const LadderTransferModal = ({
   // Deposits can't push the balance past the $10k cap or past what you've invested,
   // whichever is lower. capIsInvested tells us which limit is actually binding so the
   // message names the real reason instead of always blaming the invested amount.
-  const balanceCap = Math.min(LADDER_GAME_MAX_BALANCE, totalInvested);
+  // Accounts under a week old only have part of the cap unlocked, so show them
+  // their real ceiling instead of the full $10k the server would reject.
+  const rampFactor = getLadderDepositFactor(userData?.createdAt);
+  const rampedMax = Math.floor(LADDER_GAME_MAX_BALANCE * rampFactor);
+  const isRamping = rampFactor < 1;
+  const balanceCap = Math.min(rampedMax, totalInvested);
   const maxDeposit = Math.max(0, balanceCap - ladderBalance);
   const ladderFull = !noInvestment && maxDeposit <= 0;
-  const capIsInvested = totalInvested < LADDER_GAME_MAX_BALANCE;
+  const capIsInvested = totalInvested < rampedMax;
   const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Withdrawal tax preview. Mirrors the server math exactly; the server result is authoritative.
   const withdrawAmt = parseFloat(withdrawAmount);
@@ -121,11 +126,17 @@ const LadderTransferModal = ({
                         : ladderFull
                           ? (capIsInvested
                               ? `Your deposits are maxed out at your $${fmt(totalInvested)} invested.`
-                              : `Your deposits are maxed out at the $${LADDER_GAME_MAX_BALANCE.toLocaleString()} cap.`)
+                              : `Your deposits are maxed out at the $${rampedMax.toLocaleString()} cap.`)
                           : (capIsInvested
                               ? `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at your $${fmt(totalInvested)} invested.`
-                              : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${LADDER_GAME_MAX_BALANCE.toLocaleString()}.`)}
+                              : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${rampedMax.toLocaleString()}.`)}
                     </p>
+                    {isRamping && !noInvestment && (
+                      <p style={{ fontSize: '0.8rem', color: '#d4af37', marginBottom: '10px' }}>
+                        New accounts start with a lower ladder limit. Yours rises every day and reaches
+                        the full ${LADDER_GAME_MAX_BALANCE.toLocaleString()} a week after you signed up.
+                      </p>
+                    )}
                     <div style={{ background: bgCardInner, border: '1px solid #a8792c', padding: '8px 10px', marginBottom: '10px', fontSize: '0.8rem', color: textLight }}>
                       <p style={{ margin: '0 0 4px', fontWeight: 700, color: '#d4af37' }}>Getting money out is taxed</p>
                       <p style={{ margin: '0 0 4px' }}>
