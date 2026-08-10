@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, adminSetDiscordWallFunction, adminUnlinkDiscordFunction } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, adminSetDiscordWallFunction, adminUnlinkDiscordFunction, adminChangeDisplayNameFunction } from '../../firebase';
 
 // Who a user is, as far as the site is concerned: their Discord link, the
 // suspected-alt wall, and their display name. Composed into useAdminUserOps.
@@ -43,7 +43,9 @@ export function useAdminUserIdentity({ showMessage, setLoading, setSelectedUser 
     setLoading(false);
   };
 
-  // Change user's display name
+  // Goes through adminChangeDisplayName, NOT a direct write: the username
+  // reservation has to move with the name or the old one stays locked and the
+  // new one is free for anyone else to claim.
   const handleChangeDisplayName = async (userId, newName) => {
     if (!newName || newName.trim().length === 0) {
       showMessage('error', 'Display name cannot be empty');
@@ -56,17 +58,13 @@ export function useAdminUserIdentity({ showMessage, setLoading, setSelectedUser 
 
     setLoading(true);
     try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        displayName: newName.trim(),
-        displayNameLower: newName.trim().toLowerCase()
-      });
+      await adminChangeDisplayNameFunction({ userId, displayName: newName.trim() });
 
-      showMessage('success', `Changed display name to "${newName}"!`);
+      showMessage('success', `Changed display name to "${newName.trim()}"!`);
       setNewDisplayName('');
 
       // Refresh selected user data
-      const updatedSnap = await getDoc(userRef);
+      const updatedSnap = await getDoc(doc(db, 'users', userId));
       if (updatedSnap.exists()) {
         setSelectedUser({ id: updatedSnap.id, ...updatedSnap.data() });
       }

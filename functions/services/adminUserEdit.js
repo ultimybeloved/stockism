@@ -14,6 +14,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, CREW_MEMBERS } = require('../constants');
 const { CHARACTERS } = require('../characters');
+const { validateUsernameFormat } = require('../helpers');
 
 const requireAdmin = (context) => {
   requireAppCheck(context);
@@ -33,6 +34,73 @@ const getUserRef = async (userId) => {
   }
   return { ref, data: snap.data() };
 };
+
+/**
+ * Rename a player, keeping the usernames reservation in step.
+ *
+ * The admin panel used to write displayName straight from the browser, which
+ * skipped the `usernames/{lower}` reservation entirely: the old name stayed
+ * reserved forever, the new one was never reserved, and nothing stopped a second
+ * account claiming the same name. Anything that looks a player up by
+ * displayNameLower (public profiles, the Discord bot) breaks on a duplicate.
+ *
+ * Same transaction as changeDisplayName in userProfile.js, minus the parts that
+ * exist to price the change for players: no NAME_CHANGE_COST, no
+ * NAME_CHANGE_COOLDOWN_MS, and no profanity/banned-word check — an admin is
+ * usually renaming BECAUSE of a bad name and has to be able to set anything.
+ * Uniqueness is not optional and is still enforced inside the transaction.
+ */
+exports.adminChangeDisplayName = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
+
+  const { userId, displayName } = data || {};
+  if (!userId || typeof userId !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'userId required');
+  }
+  if (!displayName || typeof displayName !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'displayName required');
+  }
+
+  const trimmed = displayName.trim();
+  validateUsernameFormat(trimmed);
+  const newNameLower = trimmed.toLowerCase();
+
+  const userRef = db.collection('users').doc(userId);
+  const newUsernameRef = db.collection('usernames').doc(newNameLower);
+
+  return db.runTransaction(async (transaction) => {
+    const [userDoc, existingDoc] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(newUsernameRef),
+    ]);
+
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
+
+    const userData = userDoc.data();
+    const oldDisplayName = userData.displayName;
+    const oldNameLower = userData.displayNameLower;
+
+    if (newNameLower === oldNameLower) {
+      throw new functions.https.HttpsError('invalid-argument', 'That is already their name');
+    }
+    // A reservation held by this same user is theirs to move; anyone else's blocks.
+    if (existingDoc.exists && existingDoc.data().uid !== userId) {
+      throw new functions.https.HttpsError('already-exists', 'That username is already taken');
+    }
+
+    // Legacy accounts predate the reservation collection and have no old doc.
+    if (oldNameLower) transaction.delete(db.collection('usernames').doc(oldNameLower));
+    transaction.set(newUsernameRef, { uid: userId, createdAt: FieldValue.serverTimestamp() });
+    transaction.update(userRef, {
+      displayName: trimmed,
+      displayNameLower: newNameLower,
+      previousDisplayName: oldDisplayName || null,
+      nameChangedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, userId, previousDisplayName: oldDisplayName || null, displayName: trimmed };
+  });
+});
 
 /**
  * Move a player to another crew, or clear their crew entirely.

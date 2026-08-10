@@ -2,6 +2,38 @@ import { useState } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+// Containers the user card indexes into directly — UserPositions does
+// Object.keys(selectedUser.holdings) with no guard, and there are several more
+// like it. A raw user document may be missing any of them: new, reset and
+// bankrupt accounts often have no holdings/shorts/bets field at all. Both the
+// list rows and the full-document load run through here so neither can hand a
+// component an undefined where it expects an object.
+const withUserDefaults = (data) => ({
+  displayName: data.displayName || 'Unknown',
+  cash: data.cash || 0,
+  portfolioValue: data.portfolioValue || 0,
+  holdings: data.holdings || {},
+  shorts: data.shorts || {},
+  bets: data.bets || {},
+  costBasis: data.costBasis || {},
+  transactionLog: data.transactionLog || [],
+  ownedCosmetics: data.ownedCosmetics || [],
+  activeCosmetics: data.activeCosmetics || {},
+  lowestWhileHolding: data.lowestWhileHolding || {},
+  peakPortfolioValue: data.peakPortfolioValue || 0,
+  totalTrades: data.totalTrades || 0,
+  totalCheckins: data.totalCheckins || 0,
+  isAdmin: data.isAdmin || false,
+  isBankrupt: data.isBankrupt || false,
+  marginEnabled: data.marginEnabled || false,
+  marginUsed: data.marginUsed || 0,
+  activeLoan: data.activeLoan || null,
+  crew: data.crew || null,
+  discordId: data.discordId || null,
+  discordUsername: data.discordUsername || null,
+  requiresDiscordLink: data.requiresDiscordLink || false,
+});
+
 // Users tab: load/search/sort the user list and selected-user card.
 export function useAdminUserList({ showMessage, setLoading, prices }) {
   // User search state
@@ -20,35 +52,11 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
       
+      // Deliberately trimmed to these fields — this loads the whole collection,
+      // so rows stay small. selectUser fetches the full document on click.
       const users = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        users.push({
-          id: doc.id,
-          displayName: data.displayName || 'Unknown',
-          cash: data.cash || 0,
-          portfolioValue: data.portfolioValue || 0,
-          holdings: data.holdings || {},
-          shorts: data.shorts || {},
-          bets: data.bets || {},
-          totalTrades: data.totalTrades || 0,
-          isAdmin: data.isAdmin || false,
-          isBankrupt: data.isBankrupt || false,
-          marginEnabled: data.marginEnabled || false,
-          marginUsed: data.marginUsed || 0,
-          activeLoan: data.activeLoan || null,
-          transactionLog: data.transactionLog || [],
-          costBasis: data.costBasis || {},
-          peakPortfolioValue: data.peakPortfolioValue || 0,
-          totalCheckins: data.totalCheckins || 0,
-          crew: data.crew || null,
-          lowestWhileHolding: data.lowestWhileHolding || {},
-          discordId: data.discordId || null,
-          discordUsername: data.discordUsername || null,
-          requiresDiscordLink: data.requiresDiscordLink || false,
-          ownedCosmetics: data.ownedCosmetics || [],
-          activeCosmetics: data.activeCosmetics || {}
-        });
+        users.push({ id: doc.id, ...withUserDefaults(doc.data()) });
       });
 
       setAllUsers(users);
@@ -73,7 +81,12 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
     setSelectedUser(user);
     try {
       const snap = await getDoc(doc(db, 'users', user.id));
-      if (snap.exists()) setSelectedUser({ id: snap.id, ...snap.data() });
+      // Raw document first so fields the list never loaded (achievements,
+      // isCrewHead, pins) come through, then the defaults fill the blanks.
+      if (snap.exists()) {
+        const data = snap.data();
+        setSelectedUser({ ...data, id: snap.id, ...withUserDefaults(data) });
+      }
     } catch (err) {
       console.error('Failed to load full user document:', err);
     }

@@ -151,6 +151,7 @@ export const unlinkOwnDiscordFunction = httpsCallable(functions, 'unlinkOwnDisco
 // Admin: grant/revoke a cosmetic on a user (giveaways)
 export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
 // Admin: direct edits to one user's game state (see functions/services/adminUserEdit.js)
+export const adminChangeDisplayNameFunction = httpsCallable(functions, 'adminChangeDisplayName');
 export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
 export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
 export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');
