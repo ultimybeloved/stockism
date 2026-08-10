@@ -27,7 +27,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'limitOrders');
   const { ticker, type, shares, limitPrice, allowPartialFills } = data;
 
   // Validate ticker against character whitelist

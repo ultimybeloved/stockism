@@ -21,7 +21,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'missions');
   const { missionId, type } = data;
 
   if (!missionId || !type || !['daily', 'weekly'].includes(type)) {
@@ -152,7 +152,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'missions');
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -222,7 +222,7 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'pins');
   const { action, pinId, slotType } = data;
 
   const userRef = db.collection('users').doc(uid);
@@ -298,6 +298,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
+  touchLastActive(uid, 'dailyCheckin');
   const { ladderTopUp } = data; // Boolean flag for first-time ladder initialization
 
   try {

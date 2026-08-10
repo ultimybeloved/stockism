@@ -22,7 +22,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'ladder');
   const { startSide, bet } = data;
   // Whole-dollar bets only: silently floor any decimals away. With no decimals in
   // play there is nothing to round, so the old rounding exploit can't exist.

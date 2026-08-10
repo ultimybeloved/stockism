@@ -60,7 +60,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'ladder');
   // Whole-dollar deposits only: floor decimals away. The remainder stays in the
   // user's main cash (nothing is destroyed), and the ladder balance stays integer.
   const amount = Math.floor(Number(data.amount));
@@ -198,7 +198,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'ladder');
   const { amount } = data;
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {

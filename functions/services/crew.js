@@ -19,7 +19,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'crew');
   const { crewId } = data;
 
   if (!crewId || typeof crewId !== 'string') {
@@ -167,7 +167,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'crew');
   const userRef = db.collection('users').doc(uid);
   const marketRef = db.collection('market').doc('current');
 

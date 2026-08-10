@@ -21,7 +21,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'margin');
   const { amount } = data;
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
@@ -69,7 +69,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'margin');
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -136,7 +136,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'margin');
   const { enable } = data;
   const userRef = db.collection('users').doc(uid);
 

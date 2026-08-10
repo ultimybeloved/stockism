@@ -956,9 +956,16 @@ async function sumMarketActivity({ sinceMs, users = [] }) {
 // Fire-and-forget activity stamp. Called from player-action callables so the
 // active-user metric reflects all actions, not just trades/check-ins. Never
 // awaited — it must not affect the action's success.
-function touchLastActive(uid) {
+//
+// Pass a `feature` to also stamp `lastUsed.<feature>`. That rides along on the
+// write this already performs, so per-feature usage costs nothing extra — which
+// is the whole reason the usage report is built on this instead of its own
+// counters. weeklyFeatureUsage reads the stamps back.
+function touchLastActive(uid, feature) {
   if (!uid) return;
-  db.collection('users').doc(uid).update({ lastActive: Date.now() }).catch(() => {});
+  const update = { lastActive: Date.now() };
+  if (feature) update[`lastUsed.${feature}`] = Date.now();
+  db.collection('users').doc(uid).update(update).catch(() => {});
 }
 
 // Shares currently locked from selling, combining the IPO and margin lockups.

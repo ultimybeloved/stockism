@@ -14,7 +14,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'predictions');
   const { predictionId, option, amount } = data;
 
   if (!predictionId || !option || !amount || !Number.isFinite(amount) || amount <= 0) {
@@ -133,7 +133,7 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'predictions');
   const { predictionId } = data;
 
   if (!predictionId) {
@@ -251,7 +251,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'ipo');
   const { ticker, quantity } = data;
 
   if (!ticker || !quantity || !Number.isFinite(quantity) || quantity < 0.01 || Math.round(quantity * 100) / 100 !== quantity) {

@@ -277,7 +277,7 @@ exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'cosmetics');
   const userRef = db.collection('users').doc(uid);
 
   // Transaction so two concurrent purchases can't both pass the cash check and

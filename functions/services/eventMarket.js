@@ -52,7 +52,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'eventMarket');
   const { marketId, outcome } = data || {};
   const qty = Math.round(Number(data && data.shares) * 100) / 100;
 
@@ -161,7 +161,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'eventMarket');
   const { marketId, outcome } = data || {};
   const qty = Math.round(Number(data && data.shares) * 100) / 100;
 

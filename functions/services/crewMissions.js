@@ -74,7 +74,7 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'crewMissions');
   const { missionId } = data;
 
   if (!VALID_CREW_MISSIONS.has(missionId)) {

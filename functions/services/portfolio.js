@@ -45,7 +45,7 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'portfolio');
 
   const userRef = db.collection('users').doc(uid);
   const marketRef = db.collection('market').doc('current');

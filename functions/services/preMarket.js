@@ -39,7 +39,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'preMarket');
   const { ticker, action, shares, allowPartialFills = false } = data;
 
   if (!ticker || !CHARACTERS.some(c => c.ticker === ticker)) {
@@ -206,7 +206,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  touchLastActive(uid);
+  touchLastActive(uid, 'preMarket');
   const { orderId } = data;
 
   if (!orderId) {

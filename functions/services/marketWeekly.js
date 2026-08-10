@@ -12,6 +12,37 @@ const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginal
 const { syncCrewHeadRoles, preflightCrewRoles } = require('./discordRoles');
 
 
+// Every system worth knowing the reach of, and the tag its callables pass to
+// touchLastActive. Add a feature here and stamp it at the callable; nothing else
+// needs to change. `trading` is special-cased — trades are already counted from
+// the trades collection, so executeTrade needs no stamp.
+const TRACKED_FEATURES = [
+  'ladder', 'predictions', 'eventMarket', 'missions', 'crew', 'crewMissions',
+  'margin', 'limitOrders', 'preMarket', 'ipo', 'cosmetics', 'pins',
+  'dailyCheckin', 'portfolio',
+];
+
+// Distinct non-bot users per system over the window, written to admin/featureUsage
+// for the admin Stats tab. Best-effort: a failure here must never take down the
+// weekly report, which is the actual job.
+async function writeFeatureUsage({ users, tradesByUid, since, now }) {
+  try {
+    const humans = users.filter(u => !u.isBot);
+    const counts = { trading: Object.keys(tradesByUid || {}).length };
+    for (const feature of TRACKED_FEATURES) {
+      counts[feature] = humans.filter(u => (u.lastUsed?.[feature] || 0) >= since).length;
+    }
+    await db.collection('admin').doc('featureUsage').set({
+      counts,
+      totalUsers: humans.length,
+      windowDays: 7,
+      generatedAt: now,
+    });
+  } catch (err) {
+    console.error('Failed to write feature usage report:', err);
+  }
+}
+
 // Builds and posts the weekly market report. Read-only apart from the Discord
 // post, so it is safe to re-run by hand (see triggerWeeklyMarketSummary).
 async function runWeeklyMarketSummary() {
@@ -58,13 +89,19 @@ async function runWeeklyMarketSummary() {
       const topLoser = weeklyChanges.find(s => s.change < 0);
 
       // Weekly volume
-      const { trades: weeklyTrades, volume: weeklyVolume } =
+      const { trades: weeklyTrades, volume: weeklyVolume, tradesByUid } =
         await sumMarketActivity({ sinceMs: weekAgo, users });
 
       // Active users — opened the app, traded, checked in, or took any other
       // action within the window
       const activeCutoff = now - ACTIVE_USER_WINDOW_MS;
       const activeUsers = users.filter(u => !u.isBot && getLastActiveMs(u) >= activeCutoff).length;
+
+      // How many distinct people touched each system this week. Rides entirely
+      // on data already in hand: the `users` array above and the tradesByUid map
+      // sumMarketActivity already built, so the report costs no extra reads.
+      // Per-feature stamps come from touchLastActive(uid, feature).
+      await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
       // Top portfolios — bots are excluded from all user-facing rankings
       const topPortfolios = users
