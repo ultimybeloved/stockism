@@ -1,5 +1,6 @@
 import { CHARACTERS } from '../../characters';
 import FeatureUsagePanel from './stats/FeatureUsagePanel';
+import ReturnDistributionPanel from './stats/ReturnDistributionPanel';
 
 const StatsTab = ({
   darkMode,
@@ -71,6 +72,8 @@ const StatsTab = ({
       </div>
 
       <FeatureUsagePanel darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+
+      <ReturnDistributionPanel darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
 
       {statsLoading ? (
         <p className={`text-center py-8 ${mutedClass}`}>Loading market stats...</p>

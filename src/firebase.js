@@ -152,6 +152,8 @@ export const unlinkOwnDiscordFunction = httpsCallable(functions, 'unlinkOwnDisco
 export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
 // Admin: direct edits to one user's game state (see functions/services/adminUserEdit.js)
 export const adminChangeDisplayNameFunction = httpsCallable(functions, 'adminChangeDisplayName');
+// Admin: 30-day return distribution, for calibrating season tier thresholds
+export const adminReturnDistributionFunction = httpsCallable(functions, 'adminReturnDistribution');
 export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
 export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
 export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');
