@@ -10,7 +10,7 @@ const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const crypto = require('crypto');
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS } = require('../constants');
-const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBinding, isDiscordBindingLocked, bindDiscordToUid } = require('../helpers');
+const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBinding, isDiscordBindingLocked, bindDiscordToUid, grantedValueUpdate } = require('../helpers');
 
 
 // Discord OAuth Authentication
@@ -126,6 +126,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
           if (existingDoc.data().startingCashUnlocked === false) {
             authLinkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
             authLinkUpdate.startingCashUnlocked = true;
+            Object.assign(authLinkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
           }
           await existingRef.update(authLinkUpdate);
         }
@@ -361,6 +362,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     if (userDoc.data().startingCashUnlocked === false && !currentDiscordId) {
       linkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
       linkUpdate.startingCashUnlocked = true;
+      Object.assign(linkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
     }
 
     // Award DISCORD_LINKED achievement if not already earned

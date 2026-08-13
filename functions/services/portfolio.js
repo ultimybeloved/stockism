@@ -262,6 +262,17 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     historyWritten = true;
   }
 
+  // Daily samples of cumulative granted value, so grants over any window up to
+  // ~40 days can be worked out exactly. Percent return has to be measured net of
+  // free money (see grantedValueUpdate in helpers.js), and the window differs by
+  // caller — 7 days for the leaderboard, 30 for the admin readout, a whole arc
+  // for a season. One number a day, capped, is cheaper than a subcollection.
+  const grantedSamples = Array.isArray(userData.grantedSamples) ? userData.grantedSamples : [];
+  const lastSample = grantedSamples[grantedSamples.length - 1];
+  if (!lastSample || (now - lastSample.ts) >= TWENTY_FOUR_HOURS_MS) {
+    updateData.grantedSamples = [...grantedSamples, { ts: now, total: userData.grantedValue || 0 }].slice(-40);
+  }
+
   // Rolling reference snapshots — used by leaderboard and dashboard
   const snap24h = userData.portfolioSnapshot24h;
   if (!snap24h || (now - snap24h.timestamp) >= TWENTY_FOUR_HOURS_MS) {

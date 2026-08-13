@@ -11,7 +11,7 @@ const {
   CREW_MISSION_REWARDS, CREW_CONTRIB,
 } = require('../constants');
 const { getCrewMultiplier } = require('../crews');
-const { checkBanned, checkDiscordWall, writeNotification, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, writeNotification, touchLastActive, grantedValueUpdate } = require('../helpers');
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 
@@ -116,7 +116,10 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
     if (freshMission.exists && freshMission.data().claimed?.[uid]?.[missionId]) {
       throw new functions.https.HttpsError('failed-precondition', 'Already claimed.');
     }
-    tx.update(userRef, { cash: admin.firestore.FieldValue.increment(reward) });
+    tx.update(userRef, {
+      cash: admin.firestore.FieldValue.increment(reward),
+      ...grantedValueUpdate(reward),
+    });
     if (freshMission.exists) {
       tx.update(missionRef, { [`claimed.${uid}.${missionId}`]: true });
     } else {

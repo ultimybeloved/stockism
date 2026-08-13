@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const { CHECKIN_STREAK_REWARDS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../crews');
-const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../helpers');
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
@@ -107,7 +107,9 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
     const updates = {
       cash: (userData.cash || 0) + reward,
-      totalMissionsCompleted: newTotal
+      totalMissionsCompleted: newTotal,
+      // Free money: booked so percent-return boards can net it out.
+      ...grantedValueUpdate(reward),
     };
 
     if (type === 'daily') {
@@ -362,6 +364,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       // Update user document
       const updates = {
         cash: (userData.cash || 0) + checkinReward,
+        ...grantedValueUpdate(checkinReward),
         lastCheckin: Timestamp.now(),
         checkinStreak: newStreak,
         maxCheckinStreak,

@@ -93,11 +93,21 @@ const ReturnDistributionPanel = ({ darkMode, textClass, mutedClass }) => {
             {report.skipped.noSnapshot} without 30-day history, {report.skipped.belowBaseline} under $
             {report.minBaseline.toLocaleString()}.
           </p>
-          <p className="text-xs text-amber-400 mt-1">
-            These returns still include free money (drops, check-ins, missions, your giveaways),
-            so they read higher than real trading. Once granted value is tracked and excluded,
-            re-run this and expect lower numbers.
-          </p>
+          {(() => {
+            const cov = report.grantCoverage;
+            if (!cov) return null;
+            const share = cov.playersMeasured
+              ? Math.round((cov.playersWithGrantData / cov.playersMeasured) * 100)
+              : 0;
+            const ready = share >= 80;
+            return (
+              <p className={`text-xs mt-1 ${ready ? 'text-teal-400' : 'text-amber-400'}`}>
+                {ready
+                  ? `Free money is being netted out for ${share}% of measured players ($${cov.grantedTotal.toLocaleString()} excluded). These numbers are usable for setting thresholds.`
+                  : `Only ${share}% of measured players have grant data yet ($${cov.grantedTotal.toLocaleString()} excluded so far), so these still read high. Grant tracking needs ~30 days of history to cover the full window — check back before setting thresholds.`}
+              </p>
+            );
+          })()}
         </>
       )}
     </div>

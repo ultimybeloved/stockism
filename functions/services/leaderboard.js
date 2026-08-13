@@ -5,7 +5,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS, LEADERBOARD_PERCENT_MIN_BASELINE } = require('../constants');
+const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, ONE_WEEK_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS, LEADERBOARD_PERCENT_MIN_BASELINE } = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -17,6 +17,8 @@ const LEADERBOARD_FIELDS = [
   'holdings', 'displayCrewPin', 'displayedAchievementPins', 'achievements',
   'displayedShopPins', 'previousDisplayName', 'nameChangedAt',
   'activeCosmetics', 'isPublic', 'isBot', 'portfolioSnapshot7d',
+  // Needed to net free money out of the percent board — see grantedSince.
+  'grantedValue', 'grantedSamples',
   // Ownership lists — fetched only to validate the display fields below;
   // never included in the payload sent to clients.
   'ownedShopPins', 'ownedCosmetics',
@@ -52,7 +54,7 @@ const sanitizeDisplayFields = (userData) => {
 };
 
 // Rank counting lives in helpers.js — shared with the Discord bot's /profile.
-const { countRankAbove } = require('../helpers');
+const { countRankAbove, grantedSince, netReturnPercent } = require('../helpers');
 
 exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -109,8 +111,14 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
           // topping the board with meaningless huge percentages.
           if (sortBy === 'weeklyGainPercent' && valueSevenDaysAgo < LEADERBOARD_PERCENT_MIN_BASELINE) return;
 
-          const weeklyGain = currentValue - valueSevenDaysAgo;
-          const weeklyGainPercent = valueSevenDaysAgo > 0 ? ((weeklyGain / valueSevenDaysAgo) * 100) : 0;
+          // Net of free money. Without this the percent board ranks faucet
+          // collection, not trading: measured 2026-08-13, the median player was
+          // +67% over 30 days while the median stock moved +0.8%, and the top of
+          // this board was accounts sitting on a $1,000 baseline plus grants.
+          // Reads 0 until grantedSamples cover the window — never over-subtracts.
+          const granted = grantedSince(userData, ONE_WEEK_MS);
+          const weeklyGain = currentValue - granted - valueSevenDaysAgo;
+          const weeklyGainPercent = netReturnPercent(currentValue, valueSevenDaysAgo, granted);
 
           const holdingsCount = userData.holdings
             ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length

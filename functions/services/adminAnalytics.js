@@ -9,7 +9,8 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { ADMIN_UID } = require('../constants');
+const { ADMIN_UID, THIRTY_DAYS_MS } = require('../constants');
+const { grantedSince } = require('../helpers');
 
 // Division boundaries by portfolio value at the START of the window, matching
 // the season proposal. Assignment uses the baseline, not the current value —
@@ -74,13 +75,19 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
   const minBaseline = typeof data?.minBaseline === 'number' ? data.minBaseline : MIN_BASELINE;
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'portfolioSnapshot30d', 'isBot', 'createdAt')
+    .select('portfolioValue', 'portfolioSnapshot30d', 'isBot', 'createdAt',
+      'grantedValue', 'grantedSamples')
     .get();
 
   const skipped = { bots: 0, noSnapshot: 0, belowBaseline: 0 };
   const all = [];
   const byDivision = {};
   for (const d of DIVISIONS) byDivision[d.id] = [];
+  // How much of the window grant tracking actually covers. Until it covers the
+  // whole 30 days these returns are still partly inflated, and saying so is the
+  // difference between a usable threshold and a made-up one.
+  let withGrantData = 0;
+  let grantedTotal = 0;
 
   snap.forEach((doc) => {
     const u = doc.data();
@@ -91,7 +98,9 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
     if (baseline < minBaseline) { skipped.belowBaseline++; return; }
 
     const current = u.portfolioValue || 0;
-    const ret = ((current - baseline) / baseline) * 100;
+    const granted = grantedSince(u, THIRTY_DAYS_MS);
+    if (granted > 0) { withGrantData++; grantedTotal += granted; }
+    const ret = ((current - granted - baseline) / baseline) * 100;
 
     all.push(ret);
     const div = DIVISIONS.find(d => baseline >= d.min && baseline < d.max);
@@ -115,6 +124,10 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
     skipped,
     overall: summarise(all),
     divisions,
-    note: 'Returns still include granted value (drops, check-ins, missions, admin giveaways). Treat as an upper bound.',
+    grantCoverage: {
+      playersWithGrantData: withGrantData,
+      playersMeasured: all.length,
+      grantedTotal: Math.round(grantedTotal),
+    },
   };
 });

@@ -2,6 +2,8 @@
 
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
+// Modular import — the emulator sandbox strips the admin.firestore statics.
+const { FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
 const { reportError } = require('./sentry');
 const db = admin.firestore();
@@ -391,6 +393,65 @@ const getLadderRampEndDate = (userData) => {
   if (ageDays === null || ageDays >= LADDER_RAMP_DAYS) return null;
   return new Date(Date.now() + (LADDER_RAMP_DAYS - ageDays) * TWENTY_FOUR_HOURS_MS)
     .toISOString().slice(0, 10);
+};
+
+// ── Granted value ────────────────────────────────────────────────────────────
+// Value that lands in an account without being traded for: daily drops,
+// check-ins, mission rewards, admin giveaways, bailouts, the Discord starting-
+// cash unlock. Measured 2026-08-13: the median player was +67% over 30 days
+// while the median STOCK moved +0.8%, so on a percent leaderboard free money
+// buries trading entirely. Every percent-return figure has to be net of this or
+// it is ranking who collected the most, not who traded best.
+//
+// This changes NO player's money and no payout — only what the boards count.
+
+/**
+ * The field update that books a grant. Spread into whatever update object the
+ * caller is already writing, so recording a grant never costs an extra write.
+ * @param {number} amount - dollar value granted (share grants pass shares * price)
+ * @returns {Object} partial update, or {} when there is nothing to book
+ */
+const grantedValueUpdate = (amount) => {
+  const value = Number(amount);
+  if (!value || !isFinite(value) || value <= 0) return {};
+  return { grantedValue: FieldValue.increment(Math.round(value * 100) / 100) };
+};
+
+/**
+ * Grants booked within the last `windowMs`, from the daily samples syncPortfolio
+ * keeps. Returns 0 when there is no sample old enough — deliberately, since
+ * over-subtracting would invent negative returns. That means figures are only
+ * fully clean once tracking has been live for the whole window.
+ * @param {Object} userData
+ * @param {number} windowMs
+ * @returns {number}
+ */
+const grantedSince = (userData, windowMs) => {
+  const total = userData?.grantedValue || 0;
+  const samples = userData?.grantedSamples;
+  if (!total || !Array.isArray(samples) || !samples.length) return 0;
+  const cutoff = Date.now() - windowMs;
+  // Newest sample at or before the cutoff is the total as of the window start.
+  let atCutoff = null;
+  for (const s of samples) {
+    if (s && s.ts <= cutoff) atCutoff = s;
+  }
+  if (!atCutoff) return 0;
+  return Math.max(0, total - (atCutoff.total || 0));
+};
+
+/**
+ * Percent return over a window, net of granted value. The single definition —
+ * leaderboard, season standings and the admin readout all go through it so they
+ * can't drift.
+ * @param {number} current - portfolio value now
+ * @param {number} baseline - portfolio value at the start of the window
+ * @param {number} granted - value granted during the window
+ * @returns {number} percent
+ */
+const netReturnPercent = (current, baseline, granted) => {
+  if (!baseline || baseline <= 0) return 0;
+  return (((current - (granted || 0)) - baseline) / baseline) * 100;
 };
 
 // Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
@@ -1020,6 +1081,9 @@ module.exports = {
   getAccountAgeImpactFactor,
   getLadderDepositFactor,
   getLadderRampEndDate,
+  grantedValueUpdate,
+  grantedSince,
+  netReturnPercent,
   getTotalInvested,
   lmsrCost,
   lmsrPrices,

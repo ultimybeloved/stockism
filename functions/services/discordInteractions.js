@@ -10,7 +10,7 @@ const {
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError } = require('../helpers');
+const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate } = require('../helpers');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
 const { rollDailyStock } = require('./dailyDropRoll');
 
@@ -276,6 +276,11 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
             }
           };
 
+          // Drops are the biggest faucet on the site. Their market value is
+          // booked as granted so percent-return boards can net it out — the
+          // shares themselves are unaffected, only what the boards credit.
+          let grantedMarketValue = 0;
+
           for (const pick of picks) {
             const existingShares = freshHoldings[pick.ticker] || 0;
             const existingCost = freshCostBasis[pick.ticker] || 0;
@@ -286,7 +291,10 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
               : 0;
             updates[`holdings.${pick.ticker}`] = newShares;
             updates[`costBasis.${pick.ticker}`] = newCostBasis;
+            grantedMarketValue += (pick.currentPrice || 0) * pick.shares;
           }
+
+          Object.assign(updates, grantedValueUpdate(grantedMarketValue));
 
           tx.update(freshUser.ref, updates);
         });

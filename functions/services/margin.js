@@ -12,7 +12,7 @@ const {
   MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
   MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO,
 } = require('../constants');
-const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../helpers');
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -92,6 +92,10 @@ exports.bailout = cf().https.onCall(async (data, context) => {
 
     const bailoutUpdates = {
       cash: BAILOUT_CASH,
+      // A bailout wipes the portfolio and hands back BAILOUT_CASH, so afterwards
+      // the WHOLE balance is granted money. Book all of it, or the rebuild from
+      // zero reads as a spectacular trading run on the percent boards.
+      ...grantedValueUpdate(BAILOUT_CASH),
       holdings: {},
       shorts: {},
       hasOpenShorts: false,

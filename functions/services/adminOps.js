@@ -15,6 +15,7 @@ const {
   REINSTATE_CASH_DEFAULT,
   COSMETIC_CATALOG,
 } = require('../constants');
+const { grantedValueUpdate } = require('../helpers');
 
 exports.removeAchievement = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -69,7 +70,9 @@ exports.reinstateUser = cf().https.onCall(async (data, context) => {
     isBankrupt: false,
     cash: admin.firestore.FieldValue.increment(cashBoost),
     reinstatedAt: Date.now(),
-    reinstatedBy: 'admin'
+    reinstatedBy: 'admin',
+    // Booked as granted so a reinstate can't read as a spectacular recovery.
+    ...grantedValueUpdate(cashBoost),
   });
 
   return { success: true, userId, cashAdded: cashBoost };
@@ -92,10 +95,17 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
 
-  const prevCash = userSnap.data().cash;
-  await userRef.update({ cash: Math.round(cash * 100) / 100 });
+  const prevCash = userSnap.data().cash || 0;
+  const newCash = Math.round(cash * 100) / 100;
+  // Giveaways are the most visible source of fake leaderboard returns — the top
+  // of the percent board on 2026-08-13 was one. Only a raise counts as granted;
+  // taking cash away is a correction, not a gift, and must not go negative.
+  await userRef.update({
+    cash: newCash,
+    ...grantedValueUpdate(newCash - prevCash),
+  });
 
-  return { success: true, userId, previousCash: prevCash, newCash: cash };
+  return { success: true, userId, previousCash: prevCash, newCash };
 });
 
 /**
