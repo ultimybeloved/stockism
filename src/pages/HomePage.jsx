@@ -1,4 +1,5 @@
 import ShortRiskAlert from '../components/ShortRiskAlert';
+import SeasonCard from '../components/season/SeasonCard';
 import IPOHypeCard from '../components/IPOHypeCard';
 import IPOActiveCard from '../components/IPOActiveCard';
 import DashboardRail from '../components/home/DashboardRail';
@@ -80,6 +81,8 @@ const HomePage = ({
         )}
 
         {/* Short margin warning — highest-stakes alert, keep at the top */}
+        {!isGuest && <SeasonCard />}
+
         <ShortRiskAlert onOpenPortfolio={onShowPortfolio} />
 
         {/* IPO Announcements */}

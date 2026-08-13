@@ -88,7 +88,10 @@ service cloud.firestore {
         'displayedShopPins',         // pin display order (usePinShop)
         'displayedAchievementPins',  // pin display order (usePinShop)
         'displayCrewPin',            // crew pin display toggle (usePinShop)
-        'activeCosmetics'            // equipped cosmetics (usePinShop)
+        'activeCosmetics',           // equipped cosmetics (usePinShop)
+        'activeTitle'                // equipped season title (ProfileSettings) —
+                                     // ownedTitles stays server-only, and the
+                                     // client can only equip one it already owns
       ]);
     }
     
@@ -120,6 +123,13 @@ service cloud.firestore {
     // Precomputed top-50 docs written by the getLeaderboard function (Admin
     // SDK). Public read so clients render instantly without a function call.
     match /leaderboard/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Finished seasons — permanent public history of standings and tiers.
+    // Written only by adminEndSeason via the Admin SDK.
+    match /seasonResults/{seasonId} {
       allow read: if true;
       allow write: if false;
     }

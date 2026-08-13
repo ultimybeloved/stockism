@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import { useSeason } from '../hooks/useSeason';
+import SeasonBoard from '../components/season/SeasonBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
 import { getRankEmoji, getRankStyle } from '../utils/leaderboardRank';
 import { useLeaderboard } from '../hooks/useLeaderboard';
@@ -16,7 +18,12 @@ const LeaderboardPage = () => {
   const [crewFilter, setCrewFilter] = useState('ALL');
   // Two-level sort control: Net Worth vs Top Gainers, and within gainers a
   // $/% flick that remembers its last setting.
-  const [sortMode, setSortMode] = useState('value'); // 'value' | 'gain'
+  // 'value' | 'gain' | 'season'. The season card deep-links in with ?board=season.
+  const [searchParams] = useSearchParams();
+  const { active: seasonActive } = useSeason();
+  const [sortMode, setSortMode] = useState(
+    searchParams.get('board') === 'season' ? 'season' : 'value'
+  );
   const [gainUnit, setGainUnit] = useState('$');     // '$' | '%'
   const sortBy = sortMode === 'value' ? 'value' : (gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain');
   const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
@@ -119,6 +126,18 @@ const LeaderboardPage = () => {
             >
               Top Gainers
             </button>
+            {seasonActive && (
+              <button
+                onClick={() => setSortMode('season')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                  sortMode === 'season'
+                    ? 'bg-amber-500 text-white'
+                    : darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                }`}
+              >
+                🏅 Season
+              </button>
+            )}
             {sortMode === 'gain' && (
               <div className="flex gap-1">
                 {['$', '%'].map(unit => (
@@ -140,6 +159,12 @@ const LeaderboardPage = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
+          {/* The season board is its own ranking (return net of granted value),
+              so it replaces the list rather than re-sorting it. */}
+          {sortMode === 'season' ? (
+            <div className="p-3"><SeasonBoard /></div>
+          ) : (
+          <>
           {/* Sticky Header - shown when user row has scrolled above viewport */}
           {user && userRank && rankRelevant && userInList && userRowPosition === 'above' && (
             <div
@@ -253,7 +278,7 @@ const LeaderboardPage = () => {
           )}
 
           {/* Sticky Footer - shown when user row is below viewport */}
-          {user && userRank && rankRelevant && !loading && (userRowPosition === 'below' || !userInList) && (
+          {sortMode !== 'season' && user && userRank && rankRelevant && !loading && (userRowPosition === 'below' || !userInList) && (
             <div
               className="sticky bottom-0 z-10 px-4 py-3 flex justify-between items-center border-t"
               style={{
@@ -270,6 +295,8 @@ const LeaderboardPage = () => {
                 {userStickyValue}
               </div>
             </div>
+          )}
+          </>
           )}
         </div>
       </div>

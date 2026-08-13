@@ -535,6 +535,25 @@ const CREW_HEAD_DYNASTY_WEEKS = 4;
 // meaningless percentage.
 const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
 
+// ── Seasons ──────────────────────────────────────────────────────────────────
+// Mirror of src/constants/seasons.js — keep both in sync.
+// Tier targets are a WEEKLY RATE compounded over however many weeks the season
+// has run, because arc length is never known in advance. Per-season overrides
+// live on the market/season doc; these are the fallbacks.
+const SEASON_TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
+const DEFAULT_SEASON_THRESHOLDS = {
+  silver: 0.4,
+  gold: 1.0,
+  platinum: 2.0,
+  diamond: 3.5,
+};
+// Bronze is earned by turning up, not by performance — see the note in
+// src/constants/seasons.js for why a losing season must still pay something.
+const SEASON_BRONZE_ACTIVE_WEEKS = 2;
+// A season baseline below this is not a meaningful denominator; the same reason
+// LEADERBOARD_PERCENT_MIN_BASELINE exists.
+const SEASON_MIN_BASELINE = 1000;
+
 // Max LIVE price-history points kept per ticker in market/priceHistory. The
 // limit that matters is Firestore's ~40k index entries PER DOCUMENT, shared by
 // all ~150 tickers: at ~20k total points the doc rejected every append and
@@ -620,6 +639,10 @@ module.exports = {
   CREW_UNDERDOG_MULT_MAX,
   CREW_HEAD_DYNASTY_WEEKS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
+  SEASON_TIER_ORDER,
+  DEFAULT_SEASON_THRESHOLDS,
+  SEASON_BRONZE_ACTIVE_WEEKS,
+  SEASON_MIN_BASELINE,
   PRICE_HISTORY_LIVE_MAX,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,

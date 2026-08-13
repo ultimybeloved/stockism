@@ -58,6 +58,12 @@ vi.mock('firebase/firestore', () => ({
   where: vi.fn(),
   orderBy: vi.fn(),
   limit: vi.fn(),
+  // useAdminSeason subscribes to market/season. Hand back "no season yet" and
+  // an unsubscribe, so the panel renders its pre-season state.
+  onSnapshot: vi.fn((_ref, onNext) => {
+    if (typeof onNext === 'function') onNext({ exists: () => false, data: () => null });
+    return () => {};
+  }),
 }));
 
 import AdminPanel from './AdminPanel';

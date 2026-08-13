@@ -117,6 +117,35 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
         )}
       </div>
       {linkError && <p className="text-xs text-red-400 mt-2">{linkError}</p>}
+
+      {/* Season titles — earned by finishing a season at a tier, never bought.
+          Only ownedTitles (server-written) can be equipped; the rule allowlist
+          lets the client set activeTitle and nothing else. */}
+      {(userData?.ownedTitles || []).length > 0 && (
+        <div className="mt-3 pt-3 border-t border-zinc-700/50">
+          <p className={`text-sm font-semibold ${textClass}`}>Title</p>
+          <p className={`text-xs ${mutedClass} mb-2`}>Shown under your name.</p>
+          <select
+            value={userData.activeTitle || ''}
+            onChange={async (e) => {
+              const value = e.target.value || null;
+              try {
+                await updateDoc(doc(db, 'users', user.uid), { activeTitle: value });
+              } catch (err) {
+                console.error('Failed to set title:', err);
+              }
+            }}
+            className={`w-full px-2 py-1 text-sm rounded-sm border ${
+              darkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-amber-200 text-zinc-900'
+            }`}
+          >
+            <option value="">No title</option>
+            {(userData.ownedTitles || []).map((id) => (
+              <option key={id} value={id}>{userData.titleMeta?.[id] || id}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 };

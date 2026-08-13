@@ -154,6 +154,11 @@ export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCo
 export const adminChangeDisplayNameFunction = httpsCallable(functions, 'adminChangeDisplayName');
 // Admin: 30-day return distribution, for calibrating season tier thresholds
 export const adminReturnDistributionFunction = httpsCallable(functions, 'adminReturnDistribution');
+// Seasons — standings are public; the rest are admin-only
+export const getSeasonStandingsFunction = httpsCallable(functions, 'getSeasonStandings');
+export const adminStartSeasonFunction = httpsCallable(functions, 'adminStartSeason');
+export const adminEndSeasonFunction = httpsCallable(functions, 'adminEndSeason');
+export const triggerSeasonCheckpointFunction = httpsCallable(functions, 'triggerSeasonCheckpoint');
 export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
 export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
 export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');

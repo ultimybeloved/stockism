@@ -20,6 +20,7 @@ import { useAdminDividends } from './hooks/admin/useAdminDividends';
 import { useAdminWatchlist } from './hooks/admin/useAdminWatchlist';
 import { useAdminBadges } from './hooks/admin/useAdminBadges';
 import { useAdminUserOps } from './hooks/admin/useAdminUserOps';
+import { useAdminSeason } from './hooks/admin/useAdminSeason';
 import { useAdminCosmetics } from './hooks/admin/useAdminCosmetics';
 import { useAdminDiagnostics } from './hooks/admin/useAdminDiagnostics';
 import { useAdminSpikeRepair } from './hooks/admin/useAdminSpikeRepair';
@@ -69,6 +70,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   // Domain hooks. Order matters only where one hook consumes another's state.
   const userList = useAdminUserList({ showMessage, setLoading, prices });
   const userOps = useAdminUserOps({ showMessage, setLoading, setSelectedUser: userList.setSelectedUser });
+  const seasonOps = useAdminSeason({ showMessage, setLoading });
   const cosmetics = useAdminCosmetics({ showMessage, setLoading, setSelectedUser: userList.setSelectedUser });
   const userDeletion = useAdminUserDeletion({
     showMessage, setLoading, prices,
@@ -280,7 +282,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
             {/* MARKET TAB */}
       {activeTab === 'market' && (
-        <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} />
+        <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} {...seasonOps} />
       )}
 
             {/* WATCHLIST TAB */}
