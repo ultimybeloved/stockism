@@ -23,7 +23,7 @@ const DividendsTab = ({
 }) => {
   const rarityTiers = useMemo(() => computeRarityTiers(CHARACTERS, prices), [prices]);
   return (
-    <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
+    <div className="space-y-4">
       {/* Controls */}
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Dividend Controls</h3>

@@ -13,7 +13,7 @@ const SeasonCard = () => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const {
-    active, season, weeks, inSeason, returnPercent,
+    active, season, weeks, inSeason, returnPercent, returnWithLadder,
     lockedTier, lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, nextTarget,
   } = useSeason();
 
@@ -58,6 +58,15 @@ const SeasonCard = () => {
             </span>
             <span className={`text-xs ${mutedClass}`}>season return, trading only</span>
           </div>
+
+          {/* The ladder is excluded from anything that counts. Showing what it
+              would have been is honest, and quietly discourages chasing it. */}
+          {returnWithLadder !== null && Math.abs(returnWithLadder - returnPercent) >= 0.1 && (
+            <p className={`text-xs ${mutedClass} mt-1`}>
+              With ladder winnings it would be {fmtPct(returnWithLadder)}. The ladder is a casino,
+              so it doesn't count toward your season.
+            </p>
+          )}
 
           {nextTier && toNext !== null && (
             <p className={`text-sm ${textClass} mt-2`}>

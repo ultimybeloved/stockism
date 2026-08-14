@@ -68,8 +68,27 @@ const seasonReturnFor = (userData, season) => {
   return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted);
 };
 
+/**
+ * What the season return WOULD have been if ladder winnings counted.
+ *
+ * Not used for ranking anything — it exists so a player who had a good run at
+ * the ladder can see what it was worth, and so the number that doesn't count is
+ * visible rather than merely asserted. Adding the ladder's net flow back cancels
+ * the exclusion for this one figure.
+ */
+const seasonReturnWithLadderFor = (userData, season) => {
+  const baseline = userData.seasonBaseline;
+  if (!baseline || baseline.seasonId !== season.id) return null;
+  if (!baseline.value || baseline.value < SEASON_MIN_BASELINE) return null;
+
+  const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
+  const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
+  return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted - ladderNet);
+};
+
 // Exported for the standings reader and the weekly checkpoint.
 exports.seasonReturnFor = seasonReturnFor;
+exports.seasonReturnWithLadderFor = seasonReturnWithLadderFor;
 
 // ── Admin: start a season ────────────────────────────────────────────────────
 
@@ -101,7 +120,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   const id = `S${number}`;
   const startedAt = Date.now();
 
-  const snap = await db.collection('users').select('portfolioValue', 'grantedValue', 'isBot').get();
+  const snap = await db.collection('users').select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot').get();
 
   let pinned = 0;
   let batch = db.batch();
@@ -114,6 +133,8 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
         seasonId: id,
         value: u.portfolioValue || 0,
         granted: u.grantedValue || 0,
+        // Pinned so the ladder shadow stat can be worked out over the season.
+        ladderFlow: u.ladderFlowValue || 0,
         pinnedAt: startedAt,
       },
       // Cleared rather than deleted so last season's tier can't leak forward.
@@ -352,8 +373,8 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
   const season = seasonSnap.data();
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'isBot', 'seasonBaseline', 'seasonTier',
-      'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics')
+    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'seasonBaseline',
+      'seasonTier', 'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics')
     .get();
 
   const entries = [];
@@ -362,11 +383,15 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     if (u.isBot) return;
     const ret = seasonReturnFor(u, season);
     if (ret === null) return;
+    const withLadder = seasonReturnWithLadderFor(u, season);
     entries.push({
       userId: doc.id,
       displayName: u.displayName || 'Anonymous',
       crew: u.crew || null,
       returnPercent: Math.round(ret * 10) / 10,
+      // Never ranked on — shown on your own row so you can see what the ladder
+      // would have been worth if it counted.
+      returnWithLadder: withLadder === null ? null : Math.round(withLadder * 10) / 10,
       tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
       activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
     });

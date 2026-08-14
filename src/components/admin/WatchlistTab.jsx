@@ -39,7 +39,7 @@ const WatchlistTab = ({
   loadIpHealth,
 }) => {
   return (
-    <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
+    <div className="space-y-4">
 
       {/* Anti-Alt Defense Health */}
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>

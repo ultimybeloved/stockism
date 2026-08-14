@@ -38,10 +38,17 @@ export function useSeason() {
   const baseline = userData?.seasonBaseline;
   const inSeason = !!baseline && baseline.seasonId === season.id && baseline.value > 0;
 
+  // Signed on purpose — a ladder deposit books a negative flow, so clamping to
+  // zero would read as a trading loss. Mirrors seasonReturnFor on the server.
   let returnPercent = null;
+  let returnWithLadder = null;
   if (inSeason) {
-    const granted = Math.max(0, (userData.grantedValue || 0) - (baseline.granted || 0));
-    returnPercent = (((userData.portfolioValue || 0) - granted - baseline.value) / baseline.value) * 100;
+    const current = userData.portfolioValue || 0;
+    const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
+    const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
+    returnPercent = ((current - granted - baseline.value) / baseline.value) * 100;
+    // What it would have been if ladder winnings counted. Shown, never ranked.
+    returnWithLadder = ((current - (granted - ladderNet) - baseline.value) / baseline.value) * 100;
   }
 
   const lockedTier = (userData?.seasonTier?.seasonId === season.id)
@@ -63,6 +70,7 @@ export function useSeason() {
     thresholds,
     inSeason,
     returnPercent,
+    returnWithLadder,
     lockedTier,
     lockedTierMeta: lockedTier ? SEASON_TIER_MAP[lockedTier] : null,
     activeWeeks,

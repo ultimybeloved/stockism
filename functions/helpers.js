@@ -435,7 +435,14 @@ const grantedValueUpdate = (amount) => {
 const grantedFlowUpdate = (signedAmount) => {
   const value = Number(signedAmount);
   if (!value || !isFinite(value)) return {};
-  return { grantedValue: FieldValue.increment(Math.round(value * 100) / 100) };
+  const rounded = Math.round(value * 100) / 100;
+  return {
+    grantedValue: FieldValue.increment(rounded),
+    // Same number kept separately so the ladder's contribution can be added back
+    // for the "what it would have been" stat. Without a second counter it is
+    // impossible to tell ladder flows apart from genuine grants after the fact.
+    ladderFlowValue: FieldValue.increment(rounded),
+  };
 };
 
 /**

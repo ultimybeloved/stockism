@@ -31,7 +31,10 @@ const MarketTab = ({
   handleRunCheckpoint,
 }) => {
   return (
-    <div className="space-y-4 p-4 overflow-y-auto flex-1" onClick={e => e.stopPropagation()}>
+    // Plain panel, like every other tab. It used to add its own
+    // `overflow-y-auto flex-1 p-4`, which nested a second scroll area inside the
+    // panel's content wrapper and clipped everything above the halt controls.
+    <div className="space-y-4">
       <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Controls</h3>
 
       <SeasonPanel {...{ darkMode, textClass, mutedClass, loading, season, seasonName, setSeasonName, thresholds, setThresholds, handleStartSeason, handleEndSeason, handleRunCheckpoint }} />
