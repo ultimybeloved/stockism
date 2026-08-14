@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -161,8 +161,12 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       if (last && last.ts === minuteTs) last.amount += amount;
       else recent.push({ ts: minuteTs, amount });
 
-      // Deduct from Stockism cash
-      transaction.update(mainUserRef, { cash: cash - amount });
+      // Deduct from Stockism cash. The negative flow keeps the ladder out of
+      // percent-return boards: the money left the portfolio but wasn't lost.
+      transaction.update(mainUserRef, {
+        cash: cash - amount,
+        ...grantedFlowUpdate(-amount),
+      });
 
       transaction.set(ladderUserRef, {
         ...ladderData,
@@ -263,8 +267,11 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
         principalWithdrawn: principalWithdrawn + tax.principalPart,
         profitWithdrawn: profitWithdrawn + tax.profitPart
       });
+      // Cancels the deposit's negative flow, so a ladder round trip is invisible
+      // to season and leaderboard returns — winnings included.
       transaction.update(mainUserRef, {
-        cash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100
+        cash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100,
+        ...grantedFlowUpdate(tax.netReceived),
       });
 
       return {
@@ -350,7 +357,13 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
       const newCash = Math.round((cash - amount) * 100) / 100;
       const newLadderBalance = Math.round((ladderBalance + amount) * 100) / 100;
 
-      transaction.update(mainUserRef, { cash: newCash });
+      // Same neutralisation as the player-facing transfers: cash crossing into
+      // or out of the ladder must not read as trading. Positive amount pulls
+      // FROM cash, so the flow booked is its negative.
+      transaction.update(mainUserRef, {
+        cash: newCash,
+        ...grantedFlowUpdate(-amount),
+      });
       transaction.set(ladderUserRef, {
         ...ladderData,
         balance: newLadderBalance,

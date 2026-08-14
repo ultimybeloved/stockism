@@ -62,7 +62,9 @@ const seasonReturnFor = (userData, season) => {
   if (!baseline || baseline.seasonId !== season.id) return null;
   if (!baseline.value || baseline.value < SEASON_MIN_BASELINE) return null;
 
-  const granted = Math.max(0, (userData.grantedValue || 0) - (baseline.granted || 0));
+  // Signed: ladder deposits book a negative flow (see grantedFlowUpdate), and
+  // clamping would turn money parked in the ladder into a fake trading loss.
+  const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
   return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted);
 };
 

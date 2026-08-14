@@ -128,7 +128,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className={`w-full max-w-3xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[90vh] flex flex-col`}
+      {/* 13 tabs of dense controls do not fit in 3xl — the pills wrapped and every
+          panel was squeezed into a tall thin column. */}
+      <div className={`w-full max-w-6xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[92vh] flex flex-col`}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}

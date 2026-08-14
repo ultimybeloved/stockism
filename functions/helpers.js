@@ -418,6 +418,27 @@ const grantedValueUpdate = (amount) => {
 };
 
 /**
+ * Same counter, but SIGNED — for money crossing the portfolio boundary into or
+ * out of a side game rather than arriving free.
+ *
+ * portfolioValue is cash + holdings + shorts, so the ladder balance sits outside
+ * it: depositing reads as a loss and withdrawing as a gain. Booking both
+ * directions cancels the round trip, which takes ladder gambling out of season
+ * and leaderboard returns entirely. A hot streak at the ladder is not trading,
+ * and letting it decide a season would point players straight back at the
+ * feature that keeps attracting alt accounts.
+ *
+ * Negative totals are fine and expected — someone with money parked in the
+ * ladder is legitimately "owed" that back in the return calculation.
+ * @param {number} signedAmount - positive on the way in, negative on the way out
+ */
+const grantedFlowUpdate = (signedAmount) => {
+  const value = Number(signedAmount);
+  if (!value || !isFinite(value)) return {};
+  return { grantedValue: FieldValue.increment(Math.round(value * 100) / 100) };
+};
+
+/**
  * Grants booked within the last `windowMs`, from the daily samples syncPortfolio
  * keeps. Returns 0 when there is no sample old enough — deliberately, since
  * over-subtracting would invent negative returns. That means figures are only
@@ -437,7 +458,9 @@ const grantedSince = (userData, windowMs) => {
     if (s && s.ts <= cutoff) atCutoff = s;
   }
   if (!atCutoff) return 0;
-  return Math.max(0, total - (atCutoff.total || 0));
+  // Signed on purpose: a ladder deposit books a negative flow, and clamping that
+  // to zero would leave the deposit looking like a trading loss.
+  return total - (atCutoff.total || 0);
 };
 
 /**
@@ -1082,6 +1105,7 @@ module.exports = {
   getLadderDepositFactor,
   getLadderRampEndDate,
   grantedValueUpdate,
+  grantedFlowUpdate,
   grantedSince,
   netReturnPercent,
   getTotalInvested,
