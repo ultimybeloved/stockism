@@ -261,10 +261,38 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               prices={prices}
             />
           )}
+
+          {/* BADGES TAB */}
+          {activeTab === 'badges' && (
+            <BadgesTab {...common} {...badges} />
+          )}
+
+          {/* MARKET TAB */}
+          {activeTab === 'market' && (
+            <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} {...seasonOps} />
+          )}
+
+          {/* WATCHLIST TAB */}
+          {activeTab === 'watchlist' && (
+            <WatchlistTab {...common} {...watchlist} />
+          )}
+
+          {/* DIAGNOSTIC TAB */}
+          {activeTab === 'diagnostic' && (
+            <DiagnosticTab {...common} {...diagnostics} />
+          )}
+
+          {/* DIVIDENDS TAB */}
+          {activeTab === 'dividends' && (
+            <DividendsTab {...common} {...dividends} prices={prices} />
+          )}
         </div>
       </div>
 
-      {/* Price Adjustment Modal */}
+      {/* Price Adjustment Modal — a sibling of the card on purpose, it is its
+          own overlay. Everything above must stay INSIDE the card: these five
+          tabs used to sit out here, which made them lay out beside the panel in
+          the centred overlay and let their clicks reach the close handler. */}
       {marketTools.showPriceModal && (
         <PriceAdjustModal
           darkMode={darkMode}
@@ -276,32 +304,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           {...marketTools}
         />
       )}
-
-      {/* BADGES TAB */}
-      {activeTab === 'badges' && (
-        <BadgesTab {...common} {...badges} />
-      )}
-
-            {/* MARKET TAB */}
-      {activeTab === 'market' && (
-        <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} {...seasonOps} />
-      )}
-
-            {/* WATCHLIST TAB */}
-      {activeTab === 'watchlist' && (
-        <WatchlistTab {...common} {...watchlist} />
-      )}
-
-            {/* DIAGNOSTIC TAB */}
-      {activeTab === 'diagnostic' && (
-        <DiagnosticTab {...common} {...diagnostics} />
-      )}
-
-            {activeTab === 'dividends' && (
-        <DividendsTab {...common} {...dividends} prices={prices} />
-      )}
-
-        </div>
+    </div>
   );
 };
 
