@@ -10,6 +10,9 @@ export function useAuthUser({ setDarkMode, showNotification }) {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [needsUsername, setNeedsUsername] = useState(false);
+  // Discord signups come back with their Discord name as a starting suggestion
+  // for the name picker. Only a prefill — createUser re-validates server-side.
+  const [suggestedName, setSuggestedName] = useState('');
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -21,6 +24,8 @@ export function useAuthUser({ setDarkMode, showNotification }) {
     const params = new URLSearchParams(window.location.search);
     const discordToken = params.get('discord_token');
     const discordError = params.get('discord_error');
+    const discordName = params.get('discord_name');
+    if (discordName) setSuggestedName(discordName);
 
     if (discordToken) {
       // Sign in with custom token from Discord OAuth
@@ -148,5 +153,5 @@ export function useAuthUser({ setDarkMode, showNotification }) {
     }
   }, []);
 
-  return { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc };
+  return { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName };
 }

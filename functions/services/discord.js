@@ -13,6 +13,28 @@ const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LI
 const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBinding, isDiscordBindingLocked, bindDiscordToUid, grantedValueUpdate } = require('../helpers');
 
 
+/**
+ * Park a new signup's Discord details until they have picked a name.
+ *
+ * Signing up through Discord used to write the Firestore profile right here,
+ * taking the Discord username as the display name unchecked. That skipped every
+ * gate the other signup paths run — username format, profanity and banned-name
+ * screening, the usernames reservation that makes names unique, the per-IP
+ * account cap — because those all live in createUser, which was never called.
+ *
+ * So the profile is no longer created here. Only the Firebase Auth user is, and
+ * the client lands on the same "pick a username" step every other signup sees
+ * (useAuthUser shows it whenever a signed-in user has no profile). createUser
+ * then consumes this record to attach the Discord link.
+ */
+const DISCORD_PENDING = 'discordPending';
+const stashPendingDiscord = (uid, discordId, discordUsername) =>
+  db.collection(DISCORD_PENDING).doc(uid).set({
+    discordId,
+    discordUsername: discordUsername || null,
+    createdAt: Date.now(),
+  });
+
 // Discord OAuth Authentication
 exports.discordAuth = cf().https.onRequest(async (req, res) => {
   // Enable CORS
@@ -64,6 +86,8 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
 
     // Create or get Firebase user
     let firebaseUid;
+    // True when this is a brand-new signup that still has to choose a name.
+    let needsName = false;
 
     // First, check if a Firestore user already has this discordId
     const discordSnap = await db.collection('users')
@@ -131,78 +155,37 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
           await existingRef.update(authLinkUpdate);
         }
       } else {
-        // User doesn't exist, create new one with email
+        // Brand new player: create only the AUTH user and stash the Discord
+        // details. The Firestore profile is created later by createUser, once
+        // they have chosen a name — see stashPendingDiscord.
         const newUser = await admin.auth().createUser({
           email: email,
           displayName: username,
           photoURL: avatarURL
         });
         firebaseUid = newUser.uid;
-
-        await db.collection('users').doc(firebaseUid).set({
-          displayName: username,
-          displayNameLower: username.toLowerCase(),
-          discordId: discordId,
-          discordUsername: username,
-          cash: STARTING_CASH,
-          holdings: {},
-          portfolioValue: STARTING_CASH,
-          lastPortfolioSnapshot: { timestamp: Date.now(), value: STARTING_CASH },
-          lastCheckin: null,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          achievements: [],
-          totalCheckins: 0,
-          totalTrades: 0,
-          peakPortfolioValue: STARTING_CASH,
-          predictionWins: 0,
-          costBasis: {},
-          lendingUnlocked: false,
-          isBankrupt: false,
-          onboardingComplete: false,
-          startingCashUnlocked: true
-        });
-        await db.collection('users').doc(firebaseUid)
-          .collection('portfolioHistory').add({ timestamp: Date.now(), value: STARTING_CASH });
+        await stashPendingDiscord(firebaseUid, discordId, username);
+        needsName = true;
       }
     } else {
-      // No email from Discord — create user without email
+      // No email from Discord — same deal, auth user only.
       const newUser = await admin.auth().createUser({
         displayName: username,
         photoURL: avatarURL
       });
       firebaseUid = newUser.uid;
-
-      await db.collection('users').doc(firebaseUid).set({
-        displayName: username,
-        displayNameLower: username.toLowerCase(),
-        discordId: discordId,
-        discordUsername: username,
-        cash: STARTING_CASH,
-        holdings: {},
-        portfolioValue: STARTING_CASH,
-        lastPortfolioSnapshot: { timestamp: Date.now(), value: STARTING_CASH },
-        lastCheckin: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        achievements: [],
-        totalCheckins: 0,
-        totalTrades: 0,
-        peakPortfolioValue: STARTING_CASH,
-        predictionWins: 0,
-        costBasis: {},
-        lendingUnlocked: false,
-        isBankrupt: false,
-        onboardingComplete: false,
-        startingCashUnlocked: true
-      });
-      await db.collection('users').doc(firebaseUid)
-        .collection('portfolioHistory').add({ timestamp: Date.now(), value: STARTING_CASH });
+      await stashPendingDiscord(firebaseUid, discordId, username);
+      needsName = true;
     }
 
     // Create custom Firebase token
     const customToken = await admin.auth().createCustomToken(firebaseUid);
 
-    // Redirect to app with token
-    return res.redirect(`https://stockism.app/?discord_token=${customToken}`);
+    // New signups carry their Discord name back as a SUGGESTION for the name
+    // picker. It is only a prefill — createUser re-validates it server-side, so
+    // nothing here is trusted.
+    const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
+    return res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
 
   } catch (error) {
     console.error('Discord auth error:', error);

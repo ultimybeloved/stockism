@@ -63,6 +63,7 @@ const AppModals = ({
   isGuest,
   needsEmailVerification,
   needsUsername,
+  suggestedName,
   notifications,
   portfolioValue,
   priceAlerts,
@@ -109,6 +110,7 @@ const AppModals = ({
       {needsUsername && user && (
         <UsernameModal
           user={user}
+          suggestedName={suggestedName}
           onComplete={() => adoptUserDoc(user.uid)}
           darkMode={darkMode}
         />

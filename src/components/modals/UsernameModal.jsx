@@ -8,8 +8,23 @@ import { getThemeClasses } from '../../utils/theme';
 // every character typed would be its own function call.
 const CHECK_DEBOUNCE_MS = 600;
 
-const UsernameModal = ({ onComplete, darkMode }) => {
-  const [username, setUsername] = useState('');
+// Why a Discord name can't be carried over, or null if it can. Discord allows
+// characters and lengths this site doesn't, so a signup's suggested name is
+// often unusable — saying which rule it broke beats an empty box with no reason.
+const suggestionProblem = (name) => {
+  if (!name) return null;
+  const formatError = validateUsername(name);
+  if (formatError) return formatError;
+  if (containsProfanity(name)) return getProfanityMessage();
+  return null;
+};
+
+const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
+  const suggestion = (suggestedName || '').trim();
+  const rejectedReason = suggestionProblem(suggestion);
+  // Prefill only a name that could actually be used; otherwise start empty and
+  // explain, so they aren't left correcting something invalid.
+  const [username, setUsername] = useState(rejectedReason ? '' : suggestion);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   // null = nothing to say yet, otherwise 'checking' | 'available' | 'taken'
@@ -93,9 +108,25 @@ const UsernameModal = ({ onComplete, darkMode }) => {
     <div className={`${overlayHeavyClass} z-50`}>
       <div className={`${modalShellClass} max-w-md p-6`}>
         <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Welcome to Stockism! 🎉</h2>
-        <p className={`text-sm ${mutedClass} mb-6`}>
+        <p className={`text-sm ${mutedClass} mb-3`}>
           Choose a username for the leaderboard. This is the only name other players will see.
         </p>
+
+        {suggestion && !rejectedReason && (
+          <p className={`text-sm mb-4 ${mutedClass}`}>
+            We've filled in your Discord name, <span className={`font-semibold ${textClass}`}>{suggestion}</span>.
+            Keep it or pick something else.
+          </p>
+        )}
+        {suggestion && rejectedReason && (
+          <div className="mb-4 p-3 rounded-sm bg-amber-500/10 border border-amber-500/40">
+            <p className="text-sm text-amber-500">
+              Your Discord name <span className="font-semibold">{suggestion}</span> can't be used here:
+              {' '}{rejectedReason.charAt(0).toLowerCase() + rejectedReason.slice(1)}
+            </p>
+            <p className={`text-xs mt-1 ${mutedClass}`}>Pick a different one below.</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

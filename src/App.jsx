@@ -160,7 +160,7 @@ export default function App() {
   }, []);
 
   // Auth state + user doc subscription (and auth-adjacent URL flows)
-  const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc } = useAuthUser({ setDarkMode, showNotification });
+  const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName } = useAuthUser({ setDarkMode, showNotification });
 
   // Global market subscriptions: prices, chart history, IPOs, predictions
   const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges } = useMarketData();
@@ -421,6 +421,7 @@ export default function App() {
             isGuest={isGuest}
             needsEmailVerification={needsEmailVerification}
             needsUsername={needsUsername}
+            suggestedName={suggestedName}
             notifications={notifications}
             portfolioValue={portfolioValue}
             priceAlerts={priceAlerts}

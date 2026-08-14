@@ -11,8 +11,8 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { ADMIN_UID, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, checkBanned } = require('../helpers');
+const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
+const { isBannedUsername, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate } = require('../helpers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
@@ -41,6 +41,45 @@ async function cleanupBlockedAuthUser(uid) {
  * @param {string} displayName - The desired display name (3-20 chars, at least 3 letters/numbers, up to 2 non-repeating underscores not at the ends)
  * @returns {Object} - { success: true } or throws error
  */
+/**
+ * Attach the Discord link a Discord signup arrived with.
+ *
+ * discordAuth creates only the Auth user and parks the Discord details in
+ * `discordPending/{uid}`, so that signing up through Discord goes through the
+ * same name rules as every other signup. This applies the link afterwards,
+ * paying the one-time verification top-up exactly as discordLink does — the
+ * account was just created on UNVERIFIED_STARTING_CASH, so they land on the same
+ * full amount a Discord signup has always given.
+ *
+ * Re-checks ownership at this moment rather than trusting the parked record:
+ * minutes can pass while someone picks a name, and the Discord may have been
+ * claimed in between.
+ */
+const applyPendingDiscordLink = async (uid) => {
+  const pendingRef = db.collection('discordPending').doc(uid);
+  const pending = await pendingRef.get();
+  if (!pending.exists) return false;
+
+  const { discordId, discordUsername } = pending.data();
+  await pendingRef.delete();
+  if (!discordId) return false;
+
+  const taken = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
+  if (!taken.empty && taken.docs[0].id !== uid) return false;
+  if (await isDiscordBindingLocked(discordId, uid)) return false;
+
+  await db.collection('users').doc(uid).update({
+    discordId,
+    discordUsername: discordUsername || null,
+    cash: admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+    startingCashUnlocked: true,
+    achievements: admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED'),
+    'achievementDates.DISCORD_LINKED': Date.now(),
+    ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+  });
+  return true;
+};
+
 exports.createUser = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
   // Verify authentication
@@ -287,6 +326,16 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         }, { merge: true });
       }
     });
+
+    // Signed up through Discord? discordAuth parked the details rather than
+    // building the profile itself, so attach the link now that a validated name
+    // exists. Done after the transaction and best-effort: the account is already
+    // created, and a failure here leaves them able to link from their profile.
+    try {
+      await applyPendingDiscordLink(uid);
+    } catch (err) {
+      console.error('Failed to apply pending Discord link:', err);
+    }
 
     // Auto-link to watched user after successful account creation
     if (autoLinkData) {

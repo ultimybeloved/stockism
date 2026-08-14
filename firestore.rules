@@ -276,6 +276,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Discord details parked between OAuth and the new player choosing a name.
+    // Cloud Functions only — a client write here would let someone attach any
+    // Discord ID to their own signup.
+    match /discordPending/{uid} {
+      allow read, write: if false;
+    }
+
     match /admin/{document} {
       allow read, write: if isAdmin();
     }

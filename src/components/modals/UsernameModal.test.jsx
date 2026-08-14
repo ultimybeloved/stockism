@@ -106,3 +106,39 @@ describe('UsernameModal availability check', () => {
     expect(screen.getByRole('button', { name: /start trading/i })).not.toBeDisabled();
   });
 });
+
+// Discord signups land here now instead of having their Discord username
+// written straight to the profile, so the suggestion handling is the thing
+// standing between a player and an unusable name.
+describe('UsernameModal Discord suggestion', () => {
+  const input = () => screen.getByPlaceholderText('Enter a username...');
+
+  it('prefills a usable Discord name', () => {
+    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="Ricky_YG" />);
+
+    expect(input()).toHaveValue('Ricky_YG');
+    expect(screen.getByText(/filled in your Discord name/i)).toBeInTheDocument();
+  });
+
+  it('refuses a Discord name that breaks the rules and says why', () => {
+    // Periods are legal on Discord, not here.
+    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="ricky.yg" />);
+
+    expect(input()).toHaveValue('');
+    expect(screen.getByText(/can't be used here/i)).toBeInTheDocument();
+  });
+
+  it('refuses a Discord name that is too short', () => {
+    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="ab" />);
+
+    expect(input()).toHaveValue('');
+    expect(screen.getByText(/can't be used here/i)).toBeInTheDocument();
+  });
+
+  it('is the normal empty form when there is no suggestion', () => {
+    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+
+    expect(input()).toHaveValue('');
+    expect(screen.queryByText(/Discord name/i)).not.toBeInTheDocument();
+  });
+});
