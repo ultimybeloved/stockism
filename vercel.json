@@ -3,7 +3,15 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!sitemap\\.xml|robots\\.txt|privacy\\.html|terms\\.html).*)",
+      "source": "/snapshot",
+      "destination": "https://us-central1-stockism-abb28.cloudfunctions.net/publicSnapshot"
+    },
+    {
+      "source": "/snapshot/:path*",
+      "destination": "https://us-central1-stockism-abb28.cloudfunctions.net/publicSnapshot/:path*"
+    },
+    {
+      "source": "/((?!snapshot|sitemap\\.xml|robots\\.txt|privacy\\.html|terms\\.html).*)",
       "destination": "/index.html"
     }
   ],
