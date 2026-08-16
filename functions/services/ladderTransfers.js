@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate, reportError } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -185,7 +185,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    console.error('Deposit error:', error);
+    reportError(error, { where: 'depositToLadderGame', uid });
     throw new functions.https.HttpsError('internal', 'Deposit failed: ' + error.message);
   }
 });
@@ -288,7 +288,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
     });
   } catch (error) {
     if (error instanceof functions.https.HttpsError) throw error;
-    console.error('Withdrawal error:', error);
+    reportError(error, { where: 'withdrawFromLadderGame', uid });
     throw new functions.https.HttpsError('internal', 'Withdrawal failed: ' + error.message);
   }
 });
@@ -381,7 +381,7 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
     });
   } catch (error) {
     if (error instanceof functions.https.HttpsError) throw error;
-    console.error('Admin ladder transfer error:', error);
+    reportError(error, { where: 'adminTransferToLadder' });
     throw new functions.https.HttpsError('internal', 'Transfer failed: ' + error.message);
   }
 });

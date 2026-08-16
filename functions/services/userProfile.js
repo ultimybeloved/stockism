@@ -10,7 +10,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, touchLastActive } = require('../helpers');
+const { isBannedUsername, containsProfanity, validateUsernameFormat, touchLastActive, reportError } = require('../helpers');
 
 
 /**
@@ -137,7 +137,7 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
         : `Reserved ${results.reservationsWritten} name(s), fixed ${results.usersUpdated} user doc(s), flagged ${results.conflicts.length} collision(s).`,
     };
   } catch (error) {
-    console.error('Username backfill error:', error);
+    reportError(error, { where: 'migrateUsernames' });
     throw new functions.https.HttpsError('internal', 'Backfill failed: ' + error.message);
   }
 });

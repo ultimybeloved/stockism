@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require('../helpers');
 const {
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
@@ -203,7 +203,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
           gameResult.newAchievements.push('CASINO_CHAMPION');
         }
       } catch (err) {
-        console.error('Casino Champion check failed:', err);
+        reportError(err, { where: 'playLadderGame.casinoChampion', uid });
       }
     }
     delete gameResult.checkCasinoChampion;
@@ -213,7 +213,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    console.error('Ladder game error:', error);
+    reportError(error, { where: 'playLadderGame', uid });
     throw new functions.https.HttpsError('internal', 'Game failed: ' + error.message);
   }
 });
@@ -251,7 +251,7 @@ exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
 
     return { leaderboard };
   } catch (error) {
-    console.error('Leaderboard error:', error);
+    reportError(error, { where: 'getLadderLeaderboard' });
     throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + error.message);
   }
 });

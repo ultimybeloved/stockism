@@ -5,6 +5,8 @@ import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import { getTodayDateString, toUTCDateString } from '../utils/date';
 import { BAILOUT_CASH } from '../constants';
+import { callableErrorCode } from '../utils/errors';
+import { reportError, reportUnexpected } from '../monitoring';
 
 export function useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleDailyCheckin = useCallback(async () => {
@@ -28,8 +30,11 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
       if (ladderTopUpAmount > 0) notificationMsg += ` | Ladder Game topped up to $100`;
       showNotification('success', notificationMsg);
     } catch (error) {
-      console.error('[CHECKIN ERROR]', error);
-      if (error.code === 'failed-precondition' && error.message.includes('Already checked in')) {
+      reportUnexpected(error, { where: 'handleDailyCheckin' });
+      // Codes arrive prefixed ('functions/failed-precondition'), so the bare
+      // comparison this replaced never matched and a duplicate check-in showed
+      // the generic failure message instead of the real reason.
+      if (callableErrorCode(error) === 'failed-precondition' && error.message?.includes('Already checked in')) {
         showNotification('error', 'Already checked in today!');
       } else {
         showNotification('error', 'Failed to check in. Please try again.');
@@ -62,7 +67,9 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
         showNotification('success', `Bailout accepted. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       }
     } catch (err) {
-      console.error('Bailout failed:', err);
+      // Always reported: a bailout is the last resort for a bankrupt account,
+      // so one that fails leaves a player with no way out of the state.
+      reportError(err, { where: 'handleBailout' });
       showNotification('error', 'Bailout failed. Please try again.');
     } finally {
       setLoadingKey('bailout', false);

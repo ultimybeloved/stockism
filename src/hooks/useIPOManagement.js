@@ -5,6 +5,7 @@ import { CHARACTER_MAP } from '../characters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../constants';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
+import { reportUnexpected } from '../monitoring';
 
 export function useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey }) {
   const handleBuyIPO = useCallback(async (ticker, quantity) => {
@@ -46,7 +47,7 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
       const character = CHARACTER_MAP[ticker];
       showNotification('success', `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`);
     } catch (err) {
-      console.error('IPO purchase failed:', err);
+      reportUnexpected(err, { where: 'handleBuyIPO', ticker, quantity });
       showNotification('error', err?.message || 'IPO purchase failed!');
     } finally {
       setLoadingKey('buyIPO', false);

@@ -29,6 +29,7 @@ const {
   getTotalInvested,
   touchLastActive,
   round2,
+  reportError,
 } = require('../helpers');
 
 // House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
@@ -355,7 +356,7 @@ exports.processEventSettlements = cf().pubsub
     try {
       return await settleResolvedEventMarkets();
     } catch (error) {
-      console.error('Event settlement failed:', error);
+      reportError(error, { where: 'settleResolvedEventMarkets' });
       return null;
     }
   });

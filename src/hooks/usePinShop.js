@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { purchasePinFunction, purchaseCosmeticFunction, db } from '../firebase';
 import { SHOP_PINS } from '../crews';
+import { reportUnexpected } from '../monitoring';
 
 export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handlePinAction = useCallback(async (action, payload, cost) => {
@@ -33,7 +34,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
         showNotification('success', `Unlocked extra ${payload} pin slot!`);
       }
     } catch (err) {
-      console.error('Pin action failed:', err);
+      reportUnexpected(err, { where: 'handlePinAction' });
       showNotification('error', 'Action failed');
     } finally {
       setLoadingKey('pinAction', false);
@@ -47,6 +48,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
       setUserData(prev => prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev);
       showNotification('success', 'Cosmetic purchased!');
     } catch (err) {
+      reportUnexpected(err, { where: 'handlePurchaseCosmetic', cosmeticId });
       showNotification('error', err.message || 'Purchase failed');
     }
   }, [user, userData, showNotification, setUserData]);

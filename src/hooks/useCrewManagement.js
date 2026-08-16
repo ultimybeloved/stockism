@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { switchCrewFunction, leaveCrewFunction } from '../firebase';
 import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../crews';
 import { formatCurrency } from '../utils/formatters';
+import { reportUnexpected } from '../monitoring';
 
 export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
   // Returns true on success so the modal can wait for the round-trip before
@@ -35,7 +36,7 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
       }
       return true;
     } catch (err) {
-      console.error('Failed to select crew:', err);
+      reportUnexpected(err, { where: 'handleCrewSelect', crewId, isSwitch });
       showNotification('error', err?.message || err?.details || 'Failed to join crew');
       return false;
     } finally {
@@ -61,7 +62,9 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
       } : prev);
       showNotification('warning', `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty). You cannot join a new crew for 24 hours, or rejoin ${oldCrew?.name || 'this crew'} for ${CREW_REJOIN_LOCKOUT_DAYS} days.`);
     } catch (err) {
-      console.error('Failed to leave crew:', err);
+      // Charges the switch penalty, so a partial failure can take cash without
+      // moving the player out of the crew.
+      reportUnexpected(err, { where: 'handleCrewLeave', crew: userData.crew });
       showNotification('error', 'Failed to leave crew');
     } finally {
       setLoadingKey('leaveCrew', false);

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction } from '../firebase';
 import { formatCurrency } from '../utils/formatters';
 import { BAILOUT_CASH, PORTFOLIO_SYNC_MIN_INTERVAL_MS } from '../constants';
+import { reportUnexpected } from '../monitoring';
 
 // Background upkeep for the signed-in account: prediction payout claims,
 // debounced portfolio sync, daily margin interest, and bankruptcy reminders.
@@ -28,7 +29,9 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
             console.log(`[Payout] Processed losing bet for prediction ${prediction.id}`);
           }
         } catch (error) {
-          console.error(`[Payout] Failed to process payout for prediction ${prediction.id}:`, error);
+          // Nothing surfaces to the player here, so a failure means a bet that
+          // won and was never paid, with no complaint and no trace.
+          reportUnexpected(error, { where: 'processPayouts', predictionId: prediction.id });
         }
       }
     };
@@ -51,7 +54,9 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
       try {
         await syncPortfolioFunction();
       } catch (error) {
-        console.error('[PORTFOLIO SYNC ERROR]', error);
+        // Silent background write. When this fails the player's portfolio value,
+        // history, and achievements quietly stop updating.
+        reportUnexpected(error, { where: 'syncPortfolio' });
       }
     }, 30000);
 
@@ -74,7 +79,7 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
         if (result.data.charged > 0) {
           console.log(`Margin interest charged: ${formatCurrency(result.data.charged)}`);
         }
-      }).catch(err => console.error('Margin interest charge failed:', err));
+      }).catch(err => reportUnexpected(err, { where: 'chargeMarginInterest' }));
     }
     // Deliberately narrow deps: re-check only when the margin fields change,
     // not on every userData write (holdings, missions, etc. update constantly).

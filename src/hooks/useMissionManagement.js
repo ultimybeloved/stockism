@@ -5,6 +5,8 @@ import { ACHIEVEMENTS } from '../constants/achievements';
 import { getWeekId } from '../crews';
 import { getTodayDateString } from '../utils/date';
 import { formatCurrency } from '../utils/formatters';
+import { callableErrorCode } from '../utils/errors';
+import { reportUnexpected } from '../monitoring';
 
 export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
   const handleClaimMissionReward = useCallback(async (missionId, reward) => {
@@ -37,8 +39,11 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
       }
     } catch (err) {
-      console.error('Failed to claim reward:', err);
-      if (err?.code === 'failed-precondition') {
+      reportUnexpected(err, { where: 'handleClaimMissionReward', missionId, reward });
+      // Codes arrive prefixed ('functions/failed-precondition'), so comparing
+      // against the bare name here silently never matched and players got the
+      // raw backend message instead of this one.
+      if (callableErrorCode(err) === 'failed-precondition') {
         showNotification('error', 'Mission not completed yet - progress may need to update');
       } else {
         showNotification('error', err.message || 'Failed to claim reward');
@@ -65,7 +70,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
       } : prev);
       showNotification('success', 'Missions rerolled!');
     } catch (err) {
-      console.error('Failed to reroll missions:', err);
+      reportUnexpected(err, { where: 'handleRerollMissions' });
       showNotification('error', err.message || 'Failed to reroll missions');
     } finally {
       setLoadingKey('rerollMissions', false);
@@ -96,8 +101,8 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
       }
     } catch (err) {
-      console.error('Failed to claim weekly reward:', err);
-      if (err?.code === 'failed-precondition') {
+      reportUnexpected(err, { where: 'handleClaimWeeklyMissionReward', missionId, reward });
+      if (callableErrorCode(err) === 'failed-precondition') {
         showNotification('error', 'Mission not completed yet - progress may need to update');
       } else {
         showNotification('error', err.message || 'Failed to claim reward');

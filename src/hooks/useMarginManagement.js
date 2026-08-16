@@ -3,6 +3,7 @@ import { toggleMarginFunction, repayMarginFunction } from '../firebase';
 import { checkMarginEligibility } from '../utils/calculations';
 import { ADMIN_UIDS } from '../constants';
 import { formatCurrency } from '../utils/formatters';
+import { reportUnexpected } from '../monitoring';
 
 export function useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending }) {
   const handleEnableMargin = useCallback(async () => {
@@ -19,6 +20,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
       setUserData(prev => prev ? { ...prev, marginEnabled: true } : prev);
       showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
     } catch (err) {
+      reportUnexpected(err, { where: 'handleEnableMargin' });
       showNotification('error', err?.message || 'Failed to enable margin');
     } finally {
       setLoadingKey('enableMargin', false);
@@ -38,6 +40,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
       showNotification('success', 'Margin trading disabled.');
       setShowLending(false);
     } catch (err) {
+      reportUnexpected(err, { where: 'handleDisableMargin' });
       showNotification('error', err?.message || 'Failed to disable margin');
     } finally {
       setLoadingKey('disableMargin', false);
@@ -66,6 +69,9 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
         showNotification('success', `Repaid ${formatCurrency(repaid)}. Remaining debt: ${formatCurrency(remaining)}`);
       }
     } catch (err) {
+      // Money leaving the account. A repay that fails after cash moved is the
+      // worst case here, so it is worth seeing every instance.
+      reportUnexpected(err, { where: 'handleRepayMargin', amount });
       showNotification('error', err?.message || 'Failed to repay margin');
     } finally {
       setLoadingKey('repayMargin', false);

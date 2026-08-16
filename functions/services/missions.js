@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const { CHECKIN_STREAK_REWARDS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../crews');
-const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate, reportError } = require('../helpers');
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
@@ -439,7 +439,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    console.error('Daily checkin error:', error);
+    reportError(error, { where: 'dailyCheckin', uid });
     throw new functions.https.HttpsError('internal', 'Checkin failed: ' + error.message);
   }
 });

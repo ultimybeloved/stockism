@@ -3,6 +3,7 @@ import { placeBetFunction, buyEventSharesFunction, sellEventSharesFunction } fro
 import { formatCurrency } from '../utils/formatters';
 import { getTotalInvested } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
+import { reportUnexpected } from '../monitoring';
 
 export function usePredictionManagement({ user, userData, predictions, marketData, showNotification, setUserData, setLoadingKey }) {
   // Every prediction lane closes with the market. Mirrors the server checks in
@@ -67,7 +68,7 @@ export function usePredictionManagement({ user, userData, predictions, marketDat
       });
       showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
     } catch (error) {
-      console.error('Bet placement failed:', error);
+      reportUnexpected(error, { where: 'handleBet', predictionId, option, amount });
       const msg = error?.message || 'Bet failed';
       showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
     } finally {
@@ -95,7 +96,7 @@ export function usePredictionManagement({ user, userData, predictions, marketDat
       showNotification('success', `Bought ${shares} "${outcome}" for ${formatCurrency(cost)}`);
       return res?.data || null;
     } catch (error) {
-      console.error('Event buy failed:', error);
+      reportUnexpected(error, { where: 'handleBuyEventShares', marketId, outcome, shares });
       const msg = error?.message || 'Trade failed';
       showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
       return null;
@@ -122,7 +123,7 @@ export function usePredictionManagement({ user, userData, predictions, marketDat
       showNotification('success', `Sold ${shares} "${outcome}" for ${formatCurrency(refund)}`);
       return res?.data || null;
     } catch (error) {
-      console.error('Event sell failed:', error);
+      reportUnexpected(error, { where: 'handleSellEventShares', marketId, outcome, shares });
       showNotification('error', error?.message || 'Trade failed');
       return null;
     } finally {

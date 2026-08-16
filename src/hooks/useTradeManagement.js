@@ -6,6 +6,8 @@ import { CHARACTER_MAP, exitLoyaltyDiscount } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
 import { estimateTradeTotal, getAccountAgeImpactFactor } from '../utils/calculations';
+import { isCapacityError, isContentionError, isInfraError } from '../utils/errors';
+import { reportError, reportUnexpected } from '../monitoring';
 import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
 
 // Trade execution (with contention retry + result toasts) and the
@@ -39,23 +41,33 @@ export function useTradeManagement({
       console.log('[TRADE EXECUTED]', result.data);
     } catch (firstError) {
       const firstMsg = firstError.message || 'Trade execution failed';
-      const isContention = firstMsg.includes('busy') || firstMsg.includes('try again') || firstMsg.includes('contention');
-      if (isContention) {
+      // Capacity is checked before contention: hitting the instance cap also
+      // reads as "try again", but retrying goes straight back into the same
+      // wall and adds load at exactly the wrong moment.
+      if (isCapacityError(firstError)) {
+        // Always reported: hitting the instance cap is a capacity signal about
+        // the whole game, not a problem with this one trade.
+        reportError(firstError, { where: 'handleTrade.capacity', ticker, action, amount });
+        showNotification('warning', 'Too many players are trading right now. Wait a moment and try again.');
+        setLoadingKey('trade', false);
+        return;
+      }
+      if (isContentionError(firstError)) {
         try {
           await new Promise(r => setTimeout(r, 500));
           result = await executeTradeFunction({ ticker, action, amount });
           console.log('[TRADE EXECUTED ON RETRY]', result.data);
         } catch (retryError) {
-          console.error('[TRADE RETRY FAILED]', retryError);
+          // Contention that survives a retry is the signal that the market doc
+          // is genuinely saturated, so this one is always reported.
+          reportError(retryError, { where: 'handleTrade.retryFailed', ticker, action, amount });
           showNotification('warning', 'Market was busy. Please try again.');
           setLoadingKey('trade', false);
           return;
         }
       } else {
-        console.error('[TRADE EXECUTION ERROR]', firstError);
-        const isInfraError = firstMsg.includes('INTERNAL') || firstMsg.includes('DEADLINE_EXCEEDED') ||
-                             firstMsg.includes('UNAVAILABLE') || firstMsg.includes('PERMISSION_DENIED');
-        showNotification('error', isInfraError ? 'Cannot execute trade at this time. Please try again.' : firstMsg);
+        reportUnexpected(firstError, { where: 'handleTrade', ticker, action, amount });
+        showNotification('error', isInfraError(firstError) ? 'Cannot execute trade at this time. Please try again.' : firstMsg);
         setLoadingKey('trade', false);
         return;
       }

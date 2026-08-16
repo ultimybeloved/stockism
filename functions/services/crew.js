@@ -4,7 +4,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CREW_MEMBERS, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, TWENTY_FOUR_HOURS_MS, isFreeSwitchTarget } = require('../constants');
-const { checkBanned, checkDiscordWall, touchLastActive } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require('../helpers');
 
 
 /**
@@ -148,7 +148,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
         'Crew change was busy. Please try again.'
       );
     }
-    console.error('switchCrew error:', error);
+    reportError(error, { where: 'switchCrew', uid });
     throw new functions.https.HttpsError(
       'internal',
       'Failed to join crew. Please try again.'
