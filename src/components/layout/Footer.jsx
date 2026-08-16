@@ -48,6 +48,11 @@ const Footer = () => {
         <div className="mt-3 text-xs text-zinc-500">
           © {new Date().getFullYear()} Stockism. All rights reserved.
         </div>
+        {/* Build identity. Players quote this in bug reports, which is the only
+            way to tell which deploy they were actually on. */}
+        <div className="mt-1 text-xs text-zinc-500/70 font-mono" title={`Built ${__BUILD_TIME__}`}>
+          v{__APP_VERSION__}
+        </div>
       </div>
     </footer>
   );

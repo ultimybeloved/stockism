@@ -3,6 +3,8 @@
 module.exports = {
   root: true,
   env: { browser: true, es2022: true, node: true },
+  // Build-time constants injected by vite `define` (see vite.config.js).
+  globals: { __APP_VERSION__: 'readonly', __BUILD_TIME__: 'readonly' },
   parserOptions: {
     ecmaVersion: 'latest',
     sourceType: 'module',

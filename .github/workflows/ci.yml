@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push makes an in-flight run pointless. Cancelling keeps Actions minutes
+# on the run that still matters.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Data checks run before the test suite: when the roster is inconsistent
+      # these say exactly what is wrong, where a test failure would only say
+      # something broke.
+      - name: Character and crew data consistency
+        run: npm run check:data
+
+      - name: Generated backend copies are in sync
+        run: npm run check:sync
+
+      - name: Cloud Function export purity
+        run: npm run check:functions
+
+      - run: npm run lint
+
+      - run: npm test
+
+      # No env vars needed: firebase.js validates its config at runtime, not at
+      # build time, and the tests mock the module outright.
+      - run: npm run build
+
+  emulators:
+    name: Emulator suites
+    runs-on: ubuntu-latest
+    # These spin up a real Firestore and drive the actual Cloud Function code.
+    # They are the only coverage the money paths have, so a slow job is worth it.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 matches the deployed functions runtime (functions/package.json
+      # engines), so this job exercises the same version production runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Firebase emulators are Java processes.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache emulator binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}
+
+      - run: npm ci
+      - run: npm ci --prefix functions
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15
+
+      - name: Trading and margin scanners
+        run: npm run test:trading
+
+      - name: Limit orders
+        run: npm run test:limitorders
+
+      - name: Pre-market orders
+        run: npm run test:premarket
+
+      - name: Exploit fixes
+        run: npm run test:exploits
+
+      - name: Firestore rules
+        run: npm run test:rules
+
+      - name: Signup IP cap
+        run: npm run test:ipcap
+
+      - name: Price history split
+        run: npm run test:pricehistory
+
+      - name: Dividend loyalty notifications
+        run: npm run test:loyalty
+
+      - name: Crew head roles
+        run: npm run test:crewroles
+
+      - name: Crew switching
+        run: npm run test:crewswitch
+
+      - name: Discord commands
+        run: npm run test:discord
