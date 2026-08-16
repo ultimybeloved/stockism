@@ -1,8 +1,8 @@
 'use strict';
 
 const { cf } = require('../fnConfig');
-const { sendDiscordMessage, reportError, discordApi } = require('../helpers');
-const { DISCORD_DAILY_DROP_CHANNEL } = require('../constants');
+const { sendDiscordMessage, reportError, discordApi, HEARTBEAT_DOC } = require('../helpers');
+const { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } = require('../constants');
 
 /**
  * Scheduled self-check for the Discord Updates bot. Verifies the bot token is valid and
@@ -83,6 +83,67 @@ exports.discordHealthCheck = cf().pubsub
         reachable[0],
       );
     }
+
+    return null;
+  });
+
+/**
+ * Daily check that the scheduled jobs which move money actually ran.
+ *
+ * Each watched job calls recordHeartbeat() at the end of its success path, so a
+ * job that threw, timed out, or was never triggered leaves a stale timestamp.
+ * Without this, a failed Thursday auction or a skipped dividend run is entirely
+ * silent: no error reaches a player, and nothing in the app looks wrong.
+ *
+ * Reports to Sentry (the reliable channel) and mirrors to Discord when it can.
+ * A job with NO heartbeat at all is reported too, but distinguished — that is
+ * the expected state for the first day after this ships, and for a job whose
+ * export name was renamed without updating WATCHED_SCHEDULED_JOBS.
+ */
+exports.scheduledJobWatchdog = cf().pubsub
+  .schedule('every 24 hours')
+  .timeZone('UTC')
+  .onRun(async () => {
+    const snap = await HEARTBEAT_DOC().get();
+    const beats = snap.exists ? (snap.data() || {}) : {};
+    const now = Date.now();
+
+    const stale = [];
+    const never = [];
+
+    for (const { job, maxAgeHours, label } of WATCHED_SCHEDULED_JOBS) {
+      const last = beats[job];
+      if (typeof last !== 'number') {
+        never.push(`${label} (${job}) — no heartbeat on record`);
+        continue;
+      }
+      const ageHours = (now - last) / (60 * 60 * 1000);
+      if (ageHours > maxAgeHours) {
+        stale.push(
+          `${label} (${job}) — last ran ${Math.floor(ageHours)}h ago, budget ${maxAgeHours}h`
+        );
+      }
+    }
+
+    if (stale.length === 0 && never.length === 0) {
+      console.log('scheduledJobWatchdog: OK', { checked: WATCHED_SCHEDULED_JOBS.length });
+      return null;
+    }
+
+    const problems = [...stale, ...never];
+    reportError(new Error(`Scheduled job watchdog: ${problems.length} problem(s)`), {
+      where: 'scheduledJobWatchdog',
+      stale,
+      never,
+    });
+
+    await sendDiscordMessage(null, [{
+      title: '⚠️ Scheduled job watchdog',
+      description: problems.map((p) => `• ${p}`).join('\n'),
+      color: 0xE74C3C,
+      footer: { text: 'A stale job means it failed or never ran' },
+      timestamp: new Date().toISOString(),
+    }]);
 
     return null;
   });

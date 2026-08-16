@@ -917,6 +917,29 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
   }
 }
 
+// Where scheduled jobs record that they finished. One document, one field per
+// job, so the watchdog reads a single doc instead of a counter collection.
+const HEARTBEAT_DOC = () => admin.firestore().collection('admin').doc('heartbeats');
+
+/**
+ * Record that a scheduled job completed successfully.
+ *
+ * Call at the END of a job's success path only. A job that throws leaves its
+ * heartbeat stale, which is exactly what scheduledJobWatchdog looks for.
+ *
+ * Deliberately fail-soft and awaited nowhere critical: monitoring must never be
+ * the reason a payout run fails.
+ *
+ * @param {string} job - export name of the scheduled function, e.g. 'payDividends'
+ */
+async function recordHeartbeat(job) {
+  try {
+    await HEARTBEAT_DOC().set({ [job]: Date.now() }, { merge: true });
+  } catch (err) {
+    reportError(err, { where: 'recordHeartbeat', job });
+  }
+}
+
 /**
  * Send a market status announcement to Discord.
  * @param {string} kind - 'closed' | 'premarket' | 'open' | 'halted' | 'resumed'
@@ -1139,4 +1162,6 @@ module.exports = {
   sendDiscordMessage,
   sendMarketStatusAlert,
   reportError,
+  recordHeartbeat,
+  HEARTBEAT_DOC,
 };

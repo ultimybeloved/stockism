@@ -28,7 +28,7 @@ const {
   SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO, MARGIN_LIQUIDATION_SLIPPAGE,
   FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory } = require('../helpers');
+const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat } = require('../helpers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -292,10 +292,11 @@ exports.checkShortMarginCalls = cf().pubsub
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled in ${elapsed}s`);
+      await recordHeartbeat('checkShortMarginCalls');
       return { checked: checkedCount, liquidated: liquidatedCount, throttled: throttledCount, elapsed };
 
     } catch (error) {
-      console.error('Margin call check failed:', error);
+      reportError(error, { where: 'checkShortMarginCalls' });
       return null;
     }
   });
@@ -497,10 +498,11 @@ exports.checkMarginLending = cf().pubsub
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(`Margin lending check: ${checkedCount} checked, ${liquidatedCount} liquidated, ${marginCallCount} new margin calls in ${elapsed}s`);
+      await recordHeartbeat('checkMarginLending');
       return { checked: checkedCount, liquidated: liquidatedCount, marginCalls: marginCallCount };
 
     } catch (error) {
-      console.error('Margin lending check failed:', error);
+      reportError(error, { where: 'checkMarginLending' });
       return null;
     }
   });

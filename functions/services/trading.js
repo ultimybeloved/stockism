@@ -9,6 +9,11 @@
 //   tradeEffects.js — post-commit achievements, notifications, feed
 // All transaction reads happen before any writes, and the write order is:
 // market doc → price history → trade record → ipTracking → user doc.
+//
+// Everything inside the transaction reads through `transaction`. Guards that
+// query non-transactionally (assertNoLiveSellOrders, assertVelocityLimits) run
+// BEFORE it opens, which is what makes the body safe to re-run on contention.
+// Do not move a plain db query into the transaction body.
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
@@ -17,6 +22,7 @@ const { CHARACTERS } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
+  TRADE_TXN_MAX_ATTEMPTS,
 } = require('../constants');
 const {
   checkBanned,
@@ -27,6 +33,7 @@ const {
   priceHistoryRef,
   appendPriceHistory,
   recordTrade,
+  reportError,
 } = require('../helpers');
 const {
   validateTradeInput, assertNoLiveSellOrders, assertMarketTradable,
@@ -65,8 +72,20 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     const marketRef = db.collection('market').doc('current');
     const now = admin.firestore.Timestamp.now().toMillis();
 
-    // Execute trade in atomic transaction (maxAttempts:1 prevents phantom retries
-    // where the first attempt commits but a retry sees post-trade state and fails)
+    // Velocity limits run OUT here, not inside the transaction, because they
+    // query the trades collection non-transactionally. Inside, a retry would
+    // re-run those queries and could see a trade the earlier attempt had already
+    // committed, rejecting a trade that actually went through. That hazard is
+    // the reason retries were disabled entirely; with the check hoisted, the
+    // transaction body reads only through `transaction` and is safe to re-run.
+    //
+    // Nothing here needs transaction state: it takes uid/ticker/action/now only,
+    // which is why it can sit next to assertNoLiveSellOrders above.
+    await assertVelocityLimits(uid, ticker, action, now);
+
+    // Execute trade in an atomic transaction. Every trade writes market/current,
+    // so simultaneous trades collide even on unrelated tickers; a bounded retry
+    // lets the loser of that race commit instead of failing outright.
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(userRef);
       const marketDoc = await transaction.get(marketRef);
@@ -135,7 +154,6 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
 
       assertIpAccountCap({ ip, uid, action, ipRecentTraders, now });
       assertCooldowns(userData, ticker, action, now);
-      await assertVelocityLimits(uid, ticker, action, now);
 
       // Working copies of positions (sanitized: dust holdings dropped, short
       // fields defaulted so undefined values can't crash Firestore writes)
@@ -272,7 +290,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         shortWarning,
         achievementCtx
       };
-    }, { maxAttempts: 1 });
+    }, { maxAttempts: TRADE_TXN_MAX_ATTEMPTS });
 
     // Trade limit notifications (fire-and-forget, after transaction)
     await sendTradeLimitNotifications(uid, action, ticker, result.remainingTrades);
@@ -304,7 +322,8 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         'Market was busy. Please try again.'
       );
     }
-    console.error('Trade execution error:', error);
+    // The single most important failure in the game to be able to see.
+    reportError(error, { where: 'executeTrade', uid, ticker, action, amount });
     throw new functions.https.HttpsError(
       'internal',
       'Trade execution failed: ' + error.message

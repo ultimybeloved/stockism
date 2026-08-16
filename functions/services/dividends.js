@@ -17,6 +17,8 @@ const {
   graduateCohort,
   addPendingShares,
   writeNotification,
+  reportError,
+  recordHeartbeat,
 } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
@@ -197,7 +199,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         title: `Dividends paid`,
         message: notifParts.join(' + ') + ` across ${cashCount + dripCount} holding(s).`,
         data: { total: totalRounded, breakdown: payoutsByTicker, reinvestedBreakdown, source },
-      }).catch(err => console.error('Dividend notification failed for', userDoc.id, err));
+      }).catch(err => reportError(err, { where: 'payDividends.notification', uid: userDoc.id }));
     }
 
     batch.update(userDoc.ref, updates);
@@ -243,9 +245,12 @@ exports.payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
   .onRun(async () => {
     try {
       await runDividendPayout({ source: 'scheduled' });
+      await recordHeartbeat('payDividends');
       return null;
     } catch (err) {
-      console.error('payDividends failed:', err);
+      // Scheduled and unattended: without this a whole payout run can be
+      // skipped with nothing to show for it.
+      reportError(err, { where: 'payDividends' });
       return null;
     }
   });

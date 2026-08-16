@@ -17,8 +17,15 @@ const cf = (opts = {}) => functions.runWith({ maxInstances: MAX_FN_INSTANCES, ..
 // Reject callable requests that carry no valid App Check token (i.e. did not come
 // from our real app). No-op while APP_CHECK_ENFORCED is false, so it is safe to
 // ship everywhere first and switch enforcement on later from a single constant.
+//
+// The emulator suites call these functions directly with a hand-built context
+// that has no App Check token, so enforcement has to stand down there or every
+// test fails the moment the flag is turned on. FIRESTORE_EMULATOR_HOST is only
+// ever set when running against the local emulators, never in production, and
+// this mirrors what src/firebase.js already does on the frontend.
 const requireAppCheck = (context) => {
   if (!APP_CHECK_ENFORCED) return;
+  if (process.env.FIRESTORE_EMULATOR_HOST) return;
   if (!context.app) {
     throw new functions.https.HttpsError(
       'failed-precondition',

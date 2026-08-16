@@ -134,6 +134,21 @@ const TRADE_BURST_WINDOW_MS = 5 * 60 * 1000;  // 5 minutes
 const MAX_SHORTS_BEFORE_COOLDOWN = 3;
 const SHORT_COOLDOWN_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
 
+// How many times executeTrade's transaction may re-run when it loses a race
+// with another trade.
+//
+// Every trade writes market/current, so two players trading at the same time
+// collide even on unrelated tickers. This was 1 (no retry at all) because a
+// retry could re-read post-trade state and wrongly reject a trade that had
+// actually gone through. That hazard came from assertVelocityLimits running its
+// non-transactional queries inside the transaction; it now runs before the
+// transaction opens, so re-running the body is safe.
+//
+// Kept low on purpose: each attempt re-reads the user, market, price-history and
+// ipTracking docs, so a high ceiling turns a busy market into a cost and latency
+// problem. Raise only alongside a measurement.
+const TRADE_TXN_MAX_ATTEMPTS = 3;
+
 // Daily check-in streak rewards. Index 0 = day 1. The reward escalates with the
 // consecutive-day check-in streak, then caps at the last value forever (as long
 // as the streak isn't broken). The streak itself is already tracked as
@@ -575,7 +590,38 @@ const MAX_FN_INSTANCES = 10;
 // turn it on ONLY after confirming in Firebase Console → App Check that real
 // traffic is ~100% verified, or legitimate players could be locked out. Flip back
 // to false to disable instantly without a code change (mirrors IP_ACCOUNT_CAP_ENABLED).
-const APP_CHECK_ENFORCED = false;
+// Enabled 2026-08-14 after confirming in Firebase Console → App Check → APIs →
+// Cloud Functions that real traffic was 301K/301K verified, with ZERO outdated
+// client requests (the metric that would mean locking out real players) and
+// 380 unverified requests of unknown or invalid origin, which is exactly what
+// this is meant to reject. Flip back to false to disable instantly.
+const APP_CHECK_ENFORCED = true;
+
+// Scheduled jobs the watchdog expects to see a fresh heartbeat from, and how
+// stale each may get before it is treated as broken.
+//
+// These are the jobs whose silent failure costs players money or breaks the
+// week: the Thursday auction, dividends, both liquidation scanners, the limit
+// order sweep, the weekly report and the season checkpoint. Everything else is
+// cosmetic enough to notice by eye.
+//
+// Each budget is the job's own interval plus generous slack, so a single missed
+// run from a cold start or a deploy never pages. `job` must match the export
+// name passed to recordHeartbeat().
+const WATCHED_SCHEDULED_JOBS = [
+  // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
+  { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
+  { job: 'payDividends', maxAgeHours: 8 * 24, label: 'Dividend payout' },
+  { job: 'weeklyMarketSummary', maxAgeHours: 8 * 24, label: 'Weekly market report' },
+  { job: 'seasonCheckpoint', maxAgeHours: 8 * 24, label: 'Season checkpoint' },
+  // Daily.
+  { job: 'dailyMarketSummary', maxAgeHours: 48, label: 'Daily market summary' },
+  // Frequent scanners. These skip themselves during the Thursday halt, so the
+  // budget has to clear the 8-hour halt window or they would false-alarm weekly.
+  { job: 'checkShortMarginCalls', maxAgeHours: 12, label: 'Short margin-call scanner' },
+  { job: 'checkMarginLending', maxAgeHours: 12, label: 'Margin lending scanner' },
+  { job: 'checkLimitOrders', maxAgeHours: 12, label: 'Limit order sweep' },
+];
 
 module.exports = {
   BASE_IMPACT,
@@ -625,6 +671,7 @@ module.exports = {
   TRADE_BURST_WINDOW_MS,
   MAX_SHORTS_BEFORE_COOLDOWN,
   SHORT_COOLDOWN_WINDOW_MS,
+  TRADE_TXN_MAX_ATTEMPTS,
   CHECKIN_STREAK_REWARDS,
   LEADERBOARD_CACHE_TTL,
   MARGIN_INTEREST_RATE,
@@ -731,4 +778,5 @@ module.exports = {
   COSMETIC_CATALOG,
   MAX_FN_INSTANCES,
   APP_CHECK_ENFORCED,
+  WATCHED_SCHEDULED_JOBS,
 };

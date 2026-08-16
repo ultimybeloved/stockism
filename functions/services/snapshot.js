@@ -11,7 +11,7 @@
 // Reads only documents that are already world-readable, and never emits user IDs
 // or Discord data — display names and portfolio values are already public on the
 // live leaderboard, nothing more is exposed here.
-const { cf } = require('../fnConfig');
+const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const db = admin.firestore();
@@ -208,6 +208,10 @@ exports.archiveSnapshot = cf().pubsub
   });
 
 exports.triggerArchiveSnapshot = cf().https.onCall(async (data, context) => {
+  // The public snapshot ROUTES are deliberately App Check free so crawlers can
+  // read them. This admin trigger is not one of those routes, and was the only
+  // callable in the codebase missing the check.
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new (require('firebase-functions').https.HttpsError)('permission-denied', 'Admin only');
   }

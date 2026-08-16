@@ -9,7 +9,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { isWeeklyTradingHalt, NINETY_DAYS_MS } = require('../constants');
-const { touchLastActive, lockedShares, checkDiscordWall } = require('../helpers');
+const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat } = require('../helpers');
 const { runLimitOrderCheck } = require('./limitOrderMatching');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
@@ -194,7 +194,9 @@ exports.checkLimitOrders = cf().pubsub
       console.log('Skipping limit order check — weekly trading halt active');
       return { success: true, skipped: true, reason: 'weekly_halt' };
     }
-    return runLimitOrderCheck();
+    const result = await runLimitOrderCheck();
+    await recordHeartbeat('checkLimitOrders');
+    return result;
   });
 
 // Exposed for the emulator end-to-end test (scripts/test-limitorders-emulator.cjs)

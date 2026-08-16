@@ -27,7 +27,7 @@ const {
   SEASON_MIN_BASELINE,
   LEADERBOARD_CACHE_TTL,
 } = require('../constants');
-const { netReturnPercent, writeNotification } = require('../helpers');
+const { netReturnPercent, writeNotification, recordHeartbeat } = require('../helpers');
 
 const seasonRef = () => db.collection('market').doc('season');
 const BATCH_LIMIT = 400;
@@ -241,6 +241,7 @@ exports.seasonCheckpoint = cf({ timeoutSeconds: 540 }).pubsub
   .timeZone('UTC')
   .onRun(async () => {
     await runSeasonCheckpoint();
+    await recordHeartbeat('seasonCheckpoint');
     return null;
   });
 

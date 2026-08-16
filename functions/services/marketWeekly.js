@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_WEEKS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, sumMarketActivity, priceHistoryRef, getWeekId, reportError, isRosterTicker } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, calculateMarginalImpact, pruneAndSumTradeHistory, getLastActiveMs, sumMarketActivity, priceHistoryRef, getWeekId, reportError, isRosterTicker, recordHeartbeat } = require('../helpers');
 const { syncCrewHeadRoles, preflightCrewRoles } = require('./discordRoles');
 
 
@@ -157,6 +157,7 @@ exports.weeklyMarketSummary = cf().pubsub
   .timeZone('UTC')
   .onRun(async () => {
     await runWeeklyMarketSummary();
+    await recordHeartbeat('weeklyMarketSummary');
     return null;
   });
 
@@ -526,7 +527,7 @@ async function runCrewRoleSyncOnly({ dryRun = false } = {}) {
   const stats = statsSnap.exists ? (statsSnap.data() || {}) : {};
   const heads = stats.heads || {};
 
-  // At most 9 docs, so a single getAll beats nine reads.
+  // At most 10 docs (one per crew), so a single getAll beats ten reads.
   const entries = Object.entries(heads).filter(([, h]) => h && h.uid);
   const discordIds = {};
   if (entries.length > 0) {

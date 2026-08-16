@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
@@ -424,6 +424,7 @@ exports.processMarketOpenOrders = cf().pubsub
   .onRun(async () => {
     try {
       await runMarketOpenProcessing('schedule');
+      await recordHeartbeat('processMarketOpenOrders');
     } catch (err) {
       reportError(err, { where: 'processMarketOpenOrders' });
     }
