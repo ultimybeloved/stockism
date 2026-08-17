@@ -350,8 +350,10 @@ const ALT_SHARED_NETWORKS_HIGH = 3;
 const ALT_REALERT_MS = 30 * 24 * 60 * 60 * 1000; // don't re-nag about the same pair inside a month
 const ALT_STATE_TTL_MS = 90 * 24 * 60 * 60 * 1000; // prune remembered pairs older than this
 // Alt findings are circumstantial and name players who have done nothing proven,
-// so they go to the admin's DMs, never to the public Discord channel.
-const ADMIN_DISCORD_USER_ID = '539194416120987648';
+// so they go to the admin's DMs, never to the public Discord channel. Kept in the
+// environment rather than here because the repo is on GitHub and this ties a real
+// Discord account to it; the scan just skips the DM if it is unset.
+const ADMIN_DISCORD_USER_ID = process.env.ADMIN_DISCORD_USER_ID || '';
 
 // ============================================
 // ADMIN OPS

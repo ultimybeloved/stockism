@@ -219,7 +219,12 @@ async function runAltScan({ dryRun = false } = {}) {
   // Straight to the admin's DMs. These are unproven suspicions about named
   // players, so they must not touch the public channel.
   const high = fresh.filter((f) => f.severity === 'high');
-  if (high.length) {
+  if (high.length && !ADMIN_DISCORD_USER_ID) {
+    // The alerts are still written and still show in the admin panel; only the
+    // DM is lost. Say so loudly rather than failing quietly.
+    console.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} high-severity alt alert(s) written but not DMed.`);
+  }
+  if (high.length && ADMIN_DISCORD_USER_ID) {
     try {
       await sendDiscordDM(
         ADMIN_DISCORD_USER_ID,
