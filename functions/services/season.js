@@ -184,7 +184,7 @@ const runSeasonCheckpoint = async () => {
   const activeCutoff = Date.now() - ONE_WEEK_MS;
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'isBot', 'seasonBaseline', 'seasonTier',
+    .select('portfolioValue', 'grantedValue', 'isBot', 'isBanned', 'seasonBaseline', 'seasonTier',
       'seasonActiveWeeks', 'lastActive', 'displayName')
     .get();
 
@@ -195,7 +195,7 @@ const runSeasonCheckpoint = async () => {
 
   for (const doc of snap.docs) {
     const u = doc.data();
-    if (u.isBot) continue;
+    if (u.isBot || u.isBanned) continue;
 
     const ret = seasonReturnFor(u, season);
     if (ret === null) continue;
@@ -281,7 +281,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   const weeks = weeksElapsed(season.startedAt);
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'isBot', 'seasonBaseline', 'seasonTier',
+    .select('portfolioValue', 'grantedValue', 'isBot', 'isBanned', 'seasonBaseline', 'seasonTier',
       'displayName', 'ownedTitles')
     .get();
 
@@ -292,7 +292,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
 
   for (const doc of snap.docs) {
     const u = doc.data();
-    if (u.isBot) continue;
+    if (u.isBot || u.isBanned) continue;
     const ret = seasonReturnFor(u, season);
     if (ret === null) continue;
 
@@ -374,14 +374,14 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
   const season = seasonSnap.data();
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'seasonBaseline',
+    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned', 'seasonBaseline',
       'seasonTier', 'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics')
     .get();
 
   const entries = [];
   snap.forEach((doc) => {
     const u = doc.data();
-    if (u.isBot) return;
+    if (u.isBot || u.isBanned) return;
     const ret = seasonReturnFor(u, season);
     if (ret === null) return;
     const withLadder = seasonReturnWithLadderFor(u, season);

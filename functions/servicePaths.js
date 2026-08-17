@@ -33,6 +33,7 @@ module.exports = [
   './services/dropAudit',
   './services/dividends',
   './services/watchlist',
+  './services/altDetection',
   './services/ladderGame',
   './services/ladderTransfers',
   './services/limitOrders',

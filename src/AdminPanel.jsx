@@ -18,6 +18,7 @@ import DividendsTab from './components/admin/DividendsTab';
 import PriceAdjustModal from './components/admin/PriceAdjustModal';
 import { useAdminDividends } from './hooks/admin/useAdminDividends';
 import { useAdminWatchlist } from './hooks/admin/useAdminWatchlist';
+import { useAltScan } from './hooks/admin/useAltScan';
 import { useAdminBadges } from './hooks/admin/useAdminBadges';
 import { useAdminUserOps } from './hooks/admin/useAdminUserOps';
 import { useAdminSeason } from './hooks/admin/useAdminSeason';
@@ -85,6 +86,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   });
   const dividends = useAdminDividends({ showMessage });
   const watchlist = useAdminWatchlist({ showMessage, setLoading });
+  const altScan = useAltScan(showMessage, watchlist.loadWatchlist);
   const badges = useAdminBadges({ showMessage, setLoading });
   const diagnostics = useAdminDiagnostics({ setMessage });
   const spikeRepair = useAdminSpikeRepair({ showMessage });
@@ -274,7 +276,14 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
           {/* WATCHLIST TAB */}
           {activeTab === 'watchlist' && (
-            <WatchlistTab {...common} {...watchlist} />
+            <WatchlistTab
+              {...common}
+              {...watchlist}
+              altScanning={altScan.scanning}
+              altScanResult={altScan.result}
+              runAltScan={altScan.runScan}
+              markAlertReviewed={altScan.markReviewed}
+            />
           )}
 
           {/* DIAGNOSTIC TAB */}

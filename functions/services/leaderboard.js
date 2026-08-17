@@ -100,7 +100,10 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         const allUsers = [];
         snapshot.forEach(doc => {
           const userData = doc.data();
-          if (userData.isBot) return;
+          // Banned accounts stay in Firestore (the ban record is evidence) but
+          // must not keep a board slot — a wiped account otherwise shows up as a
+          // huge percentage loss on the movers board.
+          if (userData.isBot || userData.isBanned) return;
 
           if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < twoWeeksAgo) return;
 
@@ -165,8 +168,8 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         snapshot.forEach(doc => {
           const userData = doc.data();
 
-          // Skip bots
-          if (userData.isBot) return;
+          // Skip bots and banned accounts
+          if (userData.isBot || userData.isBanned) return;
 
           // Limit to top 50
           if (leaderboard.length >= 50) return;

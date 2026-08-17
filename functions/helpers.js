@@ -917,6 +917,57 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
   }
 }
 
+/**
+ * Send a private DM to one Discord user as the bot.
+ *
+ * Used for anything that names players who have not been judged yet — alt
+ * suspicions in particular. Those must never land in the public channel: most
+ * of what the scanner surfaces is circumstantial, and a wrong name posted where
+ * the server can read it is not retractable.
+ *
+ * Discord has no "send DM" endpoint. You first ask for a DM channel with the
+ * recipient (idempotent — the same channel comes back every time), then post to
+ * it like any other channel. The bot must share a server with the recipient,
+ * and the recipient must allow DMs from server members.
+ *
+ * Fail-soft on purpose: a failed notification must never take down the job that
+ * produced it.
+ *
+ * @param {string} userId - Discord user ID (snowflake) to DM
+ * @param {string} content - Message text (can be null when using embeds)
+ * @param {Array} [embeds] - Optional Discord embed objects
+ * @returns {boolean} whether the DM actually went out
+ */
+async function sendDiscordDM(userId, content, embeds = null) {
+  if (!userId) return false;
+
+  const open = await discordApi('post', '/users/@me/channels', {
+    body: { recipient_id: String(userId) },
+  });
+
+  if (open.status !== 200 || !open.data?.id) {
+    reportError(new Error('Could not open Discord DM channel'), {
+      where: 'sendDiscordDM.openChannel', userId, status: open.status, response: open.data,
+    });
+    return false;
+  }
+
+  const payload = { content };
+  if (embeds) payload.embeds = embeds;
+
+  const sent = await discordApi('post', `/channels/${open.data.id}/messages`, { body: payload });
+
+  if (sent.status < 200 || sent.status >= 300) {
+    // 403 here almost always means the recipient blocks DMs from server members.
+    reportError(new Error('Discord DM rejected'), {
+      where: 'sendDiscordDM.send', userId, status: sent.status, response: sent.data,
+    });
+    return false;
+  }
+
+  return true;
+}
+
 // Where scheduled jobs record that they finished. One document, one field per
 // job, so the watchdog reads a single doc instead of a counter collection.
 const HEARTBEAT_DOC = () => admin.firestore().collection('admin').doc('heartbeats');
@@ -1160,6 +1211,7 @@ module.exports = {
   bindDiscordToUid,
   discordApi,
   sendDiscordMessage,
+  sendDiscordDM,
   sendMarketStatusAlert,
   reportError,
   recordHeartbeat,

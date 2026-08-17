@@ -27,5 +27,13 @@ npm-debug.log*
 # Firebase
 .firebase/
 service-account-key.json
+
+# Moderation reports — real player names and connection data, generated on demand
+connection-map.txt
+alt-verdicts.txt
 .vercel
 .env*.local
+alt-master-report.md
+household-roster.txt
+link-report.txt
+location-matrix.txt

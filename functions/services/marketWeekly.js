@@ -103,9 +103,10 @@ async function runWeeklyMarketSummary() {
       // Per-feature stamps come from touchLastActive(uid, feature).
       await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
-      // Top portfolios — bots are excluded from all user-facing rankings
+      // Top portfolios — bots and banned accounts are excluded from all
+      // user-facing rankings
       const topPortfolios = users
-        .filter(u => !u.isBot && u.portfolioValue > 0)
+        .filter(u => !u.isBot && !u.isBanned && u.portfolioValue > 0)
         .sort((a, b) => b.portfolioValue - a.portfolioValue)
         .slice(0, 5);
 
@@ -292,8 +293,8 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         const user = doc.data();
         const crew = user.crew;
 
-        // Bots are excluded from all user-facing rankings
-        if (!user.isBot && crew && crews[crew]) {
+        // Bots and banned accounts are excluded from all user-facing rankings
+        if (!user.isBot && !user.isBanned && crew && crews[crew]) {
           const portfolioValue = user.portfolioValue || user.cash || 0;
           // Weekly gain from the rolling 7-day reference snapshot
           // (portfolio history lives in a subcollection now, not on the doc)

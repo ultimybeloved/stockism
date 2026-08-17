@@ -8,6 +8,7 @@ import { calculatePortfolioValue } from '../../utils/calculations';
 import { useAppContext } from '../../context/AppContext';
 import { isPreMarketWindow } from '../../utils/marketHours';
 import { useNewPredictions } from '../../hooks/useNewPredictions';
+import { useAdminAlerts } from '../../hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
 import { getThemeClasses } from '../../utils/theme';
 
@@ -84,6 +85,7 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
   }, []);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
+  const { unreviewedCount, highSeverityCount } = useAdminAlerts(user);
 
   const handleSignOut = async () => {
     try {
@@ -275,15 +277,28 @@ const Header = ({ setDarkMode, onShowAdminPanel, isGuest, onShowLogin, notificat
             {isAdmin && (
               <button
                 onClick={onShowAdminPanel}
-                className={`p-2 rounded-md transition-colors ${
+                className={`relative p-2 rounded-md transition-colors ${
                   darkMode
                     ? 'hover:bg-zinc-800 text-red-400'
                     : 'hover:bg-amber-50 text-red-600'
                 }`}
-                aria-label="Admin Panel"
-                title="Admin Panel"
+                aria-label={unreviewedCount
+                  ? `Admin Panel, ${unreviewedCount} unreviewed alert${unreviewedCount === 1 ? '' : 's'}`
+                  : 'Admin Panel'}
+                title={unreviewedCount
+                  ? `${unreviewedCount} unreviewed watchlist alert${unreviewedCount === 1 ? '' : 's'}`
+                  : 'Admin Panel'}
               >
                 ⚙️
+                {unreviewedCount > 0 && (
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full text-[10px] font-bold text-white ${
+                      highSeverityCount > 0 ? 'bg-red-500' : 'bg-amber-500'
+                    }`}
+                  >
+                    {unreviewedCount > 9 ? '9+' : unreviewedCount}
+                  </span>
+                )}
               </button>
             )}
 

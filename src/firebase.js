@@ -176,6 +176,9 @@ export const addWatchedIPFunction = httpsCallable(functions, 'addWatchedIP');
 export const getWatchlistFunction = httpsCallable(functions, 'getWatchlist');
 export const getIpTrackingHealthFunction = httpsCallable(functions, 'getIpTrackingHealth');
 export const getRecentSignupReportFunction = httpsCallable(functions, 'getRecentSignupReport');
+// Admin: proactive alt detection
+export const triggerAltScanFunction = httpsCallable(functions, 'triggerAltScan');
+export const reviewWatchlistAlertFunction = httpsCallable(functions, 'reviewWatchlistAlert');
 // Price alerts
 export const createPriceAlertFunction = httpsCallable(functions, 'createPriceAlert');
 export const deletePriceAlertFunction = httpsCallable(functions, 'deletePriceAlert');

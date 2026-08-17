@@ -330,6 +330,30 @@ const WHALE_ALERT_SHARES_HARD   = 100;  // shares threshold alone triggers whale
 const CREW_MILESTONE_THRESHOLDS = [5, 10, 25, 50, 100]; // crew member counts that trigger Discord alerts
 
 // ============================================
+// ALT ACCOUNT DETECTION
+// ============================================
+// The watchlist in watchlist.js only ever tracked accounts an admin had already
+// flagged by hand, so a pair nobody suspected could trade from the same house
+// for months without raising anything. These drive the scan that goes looking
+// on its own (services/altDetection.js).
+const ALT_SCAN_WINDOW_DAYS = 30;   // how far back through trade records each scan looks
+const ALT_SCAN_MAX_TRADES  = 60000; // safety cap so one scan can't run away with reads
+// An IPv6 address is rotated by the ISP constantly, but the first four groups
+// (the /64 prefix) stay put — that prefix is the household. Collapsing to it is
+// what turns "25 different addresses" into "one home connection".
+const ALT_IPV6_PREFIX_GROUPS = 4;
+// A network carrying more accounts than this is treated as shared infrastructure
+// (school, office, mobile carrier, VPN exit) and is too weak to flag alone.
+const ALT_CROWDED_NETWORK_LIMIT = 5;
+// Sharing this many separate networks with someone is not a coincidence.
+const ALT_SHARED_NETWORKS_HIGH = 3;
+const ALT_REALERT_MS = 30 * 24 * 60 * 60 * 1000; // don't re-nag about the same pair inside a month
+const ALT_STATE_TTL_MS = 90 * 24 * 60 * 60 * 1000; // prune remembered pairs older than this
+// Alt findings are circumstantial and name players who have done nothing proven,
+// so they go to the admin's DMs, never to the public Discord channel.
+const ADMIN_DISCORD_USER_ID = '539194416120987648';
+
+// ============================================
 // ADMIN OPS
 // ============================================
 const REINSTATE_CASH_DEFAULT = 1000; // cash given when admin reinstates a bankrupt user
@@ -739,6 +763,14 @@ module.exports = {
   WHALE_ALERT_SHARES_HARD,
   CREW_MILESTONE_THRESHOLDS,
   REINSTATE_CASH_DEFAULT,
+  ALT_SCAN_WINDOW_DAYS,
+  ALT_SCAN_MAX_TRADES,
+  ALT_IPV6_PREFIX_GROUPS,
+  ALT_CROWDED_NETWORK_LIMIT,
+  ALT_SHARED_NETWORKS_HIGH,
+  ALT_REALERT_MS,
+  ALT_STATE_TTL_MS,
+  ADMIN_DISCORD_USER_ID,
   CREW_MISSION_REWARDS,
   CREW_CONTRIB,
   ADMIN_UID,

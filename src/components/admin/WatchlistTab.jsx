@@ -1,4 +1,5 @@
 import RecentSignups from './watchlist/RecentSignups';
+import AltScanCard from './watchlist/AltScanCard';
 
 const WatchlistTab = ({
   darkMode,
@@ -37,9 +38,22 @@ const WatchlistTab = ({
   loadWatchlist,
   ipHealth,
   loadIpHealth,
+  altScanning,
+  altScanResult,
+  runAltScan,
+  markAlertReviewed,
 }) => {
   return (
     <div className="space-y-4">
+
+      <AltScanCard
+        darkMode={darkMode}
+        textClass={textClass}
+        mutedClass={mutedClass}
+        scanning={altScanning}
+        result={altScanResult}
+        runScan={runAltScan}
+      />
 
       {/* Anti-Alt Defense Health */}
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
@@ -310,13 +324,15 @@ const WatchlistTab = ({
             {watchlistAlerts.map(alert => (
               <div key={alert.id} className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}>
                 <span className={`font-semibold ${
+                  alert.type === 'alt_suspected' ? (alert.severity === 'high' ? 'text-red-400' : 'text-amber-400') :
                   alert.type === 'account_blocked' ? 'text-red-400' :
                   alert.type === 'account_linked' ? 'text-orange-400' :
                   alert.type === 'new_ip_detected' ? 'text-yellow-400' :
                   alert.type === 'duplicate_username' ? 'text-pink-400' :
                   'text-blue-400'
                 }`}>
-                  {alert.type === 'account_blocked' ? '🚫' :
+                  {alert.type === 'alt_suspected' ? '🕵️' :
+                   alert.type === 'account_blocked' ? '🚫' :
                    alert.type === 'account_linked' ? '🔗' :
                    alert.type === 'new_ip_detected' ? '🌐' :
                    alert.type === 'duplicate_username' ? '📛' :
@@ -328,6 +344,14 @@ const WatchlistTab = ({
                 <span className="ml-1 opacity-50">
                   {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}
                 </span>
+                {alert.reviewed === false && (
+                  <button
+                    onClick={() => markAlertReviewed(alert.id)}
+                    className="ml-2 underline opacity-70 hover:opacity-100"
+                  >
+                    mark reviewed
+                  </button>
+                )}
               </div>
             ))}
           </div>
