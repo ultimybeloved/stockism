@@ -99,6 +99,9 @@ export const triggerReviewChangesFunction = httpsCallable(functions, 'triggerRev
 export const triggerDailyFreeStockFunction = httpsCallable(functions, 'triggerDailyFreeStock');
 // Leaderboard
 export const getLeaderboardFunction = httpsCallable(functions, 'getLeaderboard');
+// Admin only: margin debt for the accounts on the board, kept out of the
+// world-readable leaderboard cache.
+export const getLeaderboardMarginsFunction = httpsCallable(functions, 'getLeaderboardMargins');
 export const getPublicProfileFunction = httpsCallable(functions, 'getPublicProfile');
 // Discord alert functions
 export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');

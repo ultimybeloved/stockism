@@ -380,3 +380,33 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
 /**
  * Daily Market Summary - Runs daily at 21:00 UTC
  */
+
+/**
+ * Margin debt for the accounts currently on the board (admin only).
+ *
+ * Deliberately NOT folded into getLeaderboard. That result is cached in
+ * leaderboard/{key}, which firestore.rules makes world-readable, so anything
+ * added to it is public no matter who asked for it. Margin debt is not public.
+ *
+ * The admin leaderboard toggle calls this with the uids it is already showing
+ * and subtracts locally, so the public payload stays exactly as it was.
+ */
+exports.getLeaderboardMargins = cf().https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+  const { userIds } = data || {};
+  if (!Array.isArray(userIds) || !userIds.length) {
+    throw new functions.https.HttpsError('invalid-argument', 'userIds array required');
+  }
+  // The board shows 50 at a time; the cap stops a caller asking for everyone.
+  const ids = userIds.filter((id) => typeof id === 'string').slice(0, 100);
+  const docs = await db.getAll(
+    ...ids.map((id) => db.collection('users').doc(id)),
+    { fieldMask: ['marginUsed'] }
+  );
+  const margins = {};
+  docs.forEach((d) => { if (d.exists) margins[d.id] = d.data().marginUsed || 0; });
+  return { margins };
+});

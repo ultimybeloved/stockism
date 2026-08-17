@@ -6,7 +6,10 @@ import SeasonBoard from '../components/season/SeasonBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
 import { getRankEmoji, getRankStyle } from '../utils/leaderboardRank';
 import { useLeaderboard } from '../hooks/useLeaderboard';
-import { CREWS, CREW_MAP } from '../crews';
+import { CREW_MAP } from '../crews';
+import CrewFilter from '../components/leaderboard/CrewFilter';
+import AdminNetToggle from '../components/leaderboard/AdminNetToggle';
+import { useAdminNetWorth } from '../hooks/useAdminNetWorth';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
 import LeaderboardPodium from '../components/leaderboard/LeaderboardPodium';
@@ -26,7 +29,11 @@ const LeaderboardPage = () => {
   );
   const [gainUnit, setGainUnit] = useState('$');     // '$' | '%'
   const sortBy = sortMode === 'value' ? 'value' : (gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain');
-  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
+  const { leaders: rawLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
+  // Admin only: re-rank on net worth with margin debt taken off. Returns the
+  // untouched list for everyone else.
+  const { isAdmin, netMode, setNetMode, adjustedLeaders: filteredLeaders, loadingMargins } =
+    useAdminNetWorth(rawLeaders, user);
   const { scrollContainerRef, userRowRef, userRowPosition } = useUserRowPosition([filteredLeaders, user]);
 
   const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = getThemeClasses(darkMode);
@@ -72,37 +79,15 @@ const LeaderboardPage = () => {
           <h2 className={`text-lg font-semibold ${textClass} mb-3`}>🏆 Leaderboard</h2>
 
           {/* Crew Filter */}
-          <div className="grid grid-cols-5 gap-1.5">
-            <button
-              onClick={() => setCrewFilter('ALL')}
-              className={`px-2 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-                crewFilter === 'ALL'
-                  ? 'bg-orange-600 text-white'
-                  : chipClass
-              }`}
-            >
-              All
-            </button>
-            {Object.values(CREWS).map(crew => (
-              <button
-                key={crew.id}
-                onClick={() => setCrewFilter(crew.id)}
-                className={`px-2 py-1.5 text-xs rounded-full font-semibold flex items-center justify-center gap-1 truncate transition-colors ${
-                  crewFilter === crew.id
-                    ? 'text-white'
-                    : chipClass
-                }`}
-                style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
-              >
-                {crew.icon ? (
-                  <img src={crew.icon} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
-                ) : (
-                  <span className="shrink-0">{crew.emblem}</span>
-                )}
-                <span className="truncate">{crew.name}</span>
-              </button>
-            ))}
-          </div>
+          <CrewFilter crewFilter={crewFilter} setCrewFilter={setCrewFilter} chipClass={chipClass} />
+
+          <AdminNetToggle
+            isAdmin={isAdmin}
+            netMode={netMode}
+            setNetMode={setNetMode}
+            loading={loadingMargins}
+            darkMode={darkMode}
+          />
 
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
