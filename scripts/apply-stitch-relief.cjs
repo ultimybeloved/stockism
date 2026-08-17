@@ -30,9 +30,15 @@ const m = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractio
 
 async function main() {
   const apply = process.argv.includes('--confirm');
-  const [snap, mkt] = await Promise.all([
+  // --flat <amount> forgives a set figure instead of deriving it from the
+  // difference between the two clawback rates.
+  const flatIdx = process.argv.indexOf('--flat');
+  const flat = flatIdx >= 0 ? Number(process.argv[flatIdx + 1]) : null;
+
+  const [snap, mkt, cmb] = await Promise.all([
     db.collection('users').doc(STITCH).get(),
     db.collection('market').doc('current').get(),
+    db.collection('users').doc('r1O3shyooqOtVtsPMZ2aYdZ5cIg2').get(),
   ]);
   const u = snap.data();
   const prices = (mkt.data() || {}).prices || {};
@@ -41,7 +47,15 @@ async function main() {
   const sharesNow = (u.holdings || {}).SHNG || 0;
   const sharesBeforeCut = sharesNow / (1 - APPLIED_FRACTION);
   const sharesAtTarget = sharesBeforeCut * (1 - TARGET_FRACTION);
-  const relief = Math.round((sharesAtTarget - sharesNow) * price * 100) / 100;
+  const relief = flat !== null && isFinite(flat) && flat > 0
+    ? Math.round(flat * 100) / 100
+    : Math.round((sharesAtTarget - sharesNow) * price * 100) / 100;
+
+  // Callmebot is the account he needs to clear on the net-worth view.
+  const c = cmb.data();
+  let cHv = 0;
+  for (const [t, s] of Object.entries(c.holdings || {})) if (s > 0) cHv += (prices[t] || 0) * s;
+  const cNet = (c.cash || 0) + cHv - (c.marginUsed || 0);
 
   const marginBefore = u.marginUsed || 0;
   const marginAfter = Math.round((marginBefore - relief) * 100) / 100;
@@ -51,14 +65,21 @@ async function main() {
   const gross = (u.cash || 0) + hv;
 
   console.log(`\n${apply ? 'APPLYING' : 'DRY RUN — nothing will be written'}\n`);
-  console.log(`  cut applied was          ${(APPLIED_FRACTION * 100).toFixed(2)}%`);
-  console.log(`  matching Callmebot at    ${(TARGET_FRACTION * 100).toFixed(2)}%`);
-  console.log(`  difference in value      ${m(relief)}`);
+  if (flat) console.log(`  flat relief              ${m(relief)}`);
+  else {
+    console.log(`  cut applied was          ${(APPLIED_FRACTION * 100).toFixed(2)}%`);
+    console.log(`  matching Callmebot at    ${(TARGET_FRACTION * 100).toFixed(2)}%`);
+    console.log(`  difference in value      ${m(relief)}`);
+  }
   console.log(`\n  margin debt              ${m(marginBefore)} -> ${m(marginAfter)}`);
   console.log(`  gross (public board)     ${m(gross)}  unchanged`);
   console.log(`  net worth                ${m(gross - marginBefore)} -> ${m(gross - marginAfter)}`);
   console.log(`  equity ratio             ${(((gross - marginBefore) / gross) * 100).toFixed(1)}% -> ${(((gross - marginAfter) / gross) * 100).toFixed(1)}%`);
   console.log(`  SHNG position            ${sharesNow} shares, untouched`);
+
+  const sNet = gross - marginAfter;
+  console.log(`\n  Callmebot net worth      ${m(cNet)}`);
+  console.log(`  Stitch after relief      ${m(sNet)}   -> ${sNet > cNet ? `FIRST by ${m(sNet - cNet)}` : `still second by ${m(cNet - sNet)}`}`);
 
   if (marginAfter < 0) { console.error('\n  ABORT: relief exceeds the debt.'); process.exit(1); }
   if (!apply) { console.log('\nDry run complete. Re-run with --confirm to apply.\n'); return; }
