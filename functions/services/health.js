@@ -96,9 +96,13 @@ exports.discordHealthCheck = cf().pubsub
  * silent: no error reaches a player, and nothing in the app looks wrong.
  *
  * Reports to Sentry (the reliable channel) and mirrors to Discord when it can.
- * A job with NO heartbeat at all is reported too, but distinguished — that is
- * the expected state for the first day after this ships, and for a job whose
- * export name was renamed without updating WATCHED_SCHEDULED_JOBS.
+ *
+ * A job with NO heartbeat is only reported once its whole budget window has
+ * passed since this watchdog was installed. Otherwise every weekly Thursday job
+ * alarms every day from the moment this ships until the following Thursday,
+ * purely because it has not come round yet — which is exactly what happened on
+ * 2026-08-18. "Never ran" and "not due yet" look identical in the data; the
+ * install timestamp is what separates them.
  */
 exports.scheduledJobWatchdog = cf().pubsub
   .schedule('every 24 hours')
@@ -108,13 +112,25 @@ exports.scheduledJobWatchdog = cf().pubsub
     const beats = snap.exists ? (snap.data() || {}) : {};
     const now = Date.now();
 
+    // First run after deploy: remember when we started watching, and report
+    // nothing this cycle. Every job legitimately has no heartbeat yet.
+    let installedAt = beats.watchdogInstalledAt;
+    if (typeof installedAt !== 'number') {
+      installedAt = now;
+      await HEARTBEAT_DOC().set({ watchdogInstalledAt: installedAt }, { merge: true });
+    }
+
     const stale = [];
     const never = [];
 
     for (const { job, maxAgeHours, label } of WATCHED_SCHEDULED_JOBS) {
       const last = beats[job];
       if (typeof last !== 'number') {
-        never.push(`${label} (${job}) — no heartbeat on record`);
+        // Give it one full cycle from install before calling it missing.
+        const watchedHours = (now - installedAt) / (60 * 60 * 1000);
+        if (watchedHours > maxAgeHours) {
+          never.push(`${label} (${job}) — no heartbeat in ${Math.floor(watchedHours)}h of watching`);
+        }
         continue;
       }
       const ageHours = (now - last) / (60 * 60 * 1000);
