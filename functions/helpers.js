@@ -339,7 +339,12 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     let directFactor = 1;
     let trailingFactor = 1;
     let from = openPrice;
+    let collapsed = false;
     for (const entry of moves) {
+      // A collapsed point is the review's whole move rolled into one, so the
+      // detail it was built from is gone and the split cannot be rebuilt from
+      // it. Leave the stock out rather than reporting the lot as hand-set.
+      if (entry.collapsed) { collapsed = true; break; }
       if (from > 0) {
         if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
         else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
@@ -347,6 +352,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
       }
       from = entry.price;
     }
+    if (collapsed) continue;
     if (directFactor === 1 && trailingFactor === 1) continue;
 
     const newPrice = moves[moves.length - 1].price;

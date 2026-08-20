@@ -108,6 +108,11 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null) =>
   let trailingFactor = 1;
   let from = openPrice;
   for (const entry of moves) {
+    // A collapsed point is the review's whole move rolled into one, so the
+    // detail it was built from is gone and the split cannot be recovered here.
+    // Bailing out hands the stock to the stored server copy, which was written
+    // before the collapse and still carries the breakdown.
+    if (entry.collapsed) return null;
     if (from > 0) {
       if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
       else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
