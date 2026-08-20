@@ -2,6 +2,7 @@
  * Weekly trading halt utility
  * Every Thursday 13:00–21:00 UTC (chapter review window)
  */
+import { CHARACTER_MAP } from '../characters';
 
 export const isWeeklyHalt = () => {
   const now = new Date();
@@ -88,7 +89,7 @@ export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  *
  * Keep in sync with getReviewWindowChanges in functions/helpers.js.
  */
-export const computeReviewChange = (history, start, end, fallbackOpen = null) => {
+export const computeReviewChange = (history, start, end, fallbackOpen = null, rootByTimestamp = null) => {
   if (!Array.isArray(history) || history.length === 0) return null;
 
   // The price carried into the review, plus every point the review moved it.
@@ -107,6 +108,10 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null) =>
   let directFactor = 1;
   let trailingFactor = 1;
   let from = openPrice;
+  // Which stocks dragged this one. A knock-on move carries no record of what
+  // caused it, but every stock the same cascade touched shares one timestamp
+  // with the adjustment that started it, so the root is recoverable.
+  const drivers = new Set();
   for (const entry of moves) {
     // A collapsed point is the review's whole move rolled into one, so the
     // detail it was built from is gone and the split cannot be recovered here.
@@ -115,7 +120,11 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null) =>
     if (entry.collapsed) return null;
     if (from > 0) {
       if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
-      else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
+      else if (entry.source === 'trailing') {
+        trailingFactor *= entry.price / from;
+        const root = rootByTimestamp?.get(entry.timestamp);
+        if (root) drivers.add(root);
+      }
       // Anything else (the 20:56 opening auction) counts toward the total only.
     }
     from = entry.price;
@@ -129,7 +138,29 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null) =>
     percentChange: ((newPrice - openPrice) / openPrice) * 100,
     directChange: (directFactor - 1) * 100,
     trailingChange: (trailingFactor - 1) * 100,
+    drivers: [...drivers],
   };
+};
+
+/**
+ * Timestamp -> the ticker whose hand adjustment started that cascade.
+ *
+ * Every stock a single adjustment drags is written with the adjustment's own
+ * timestamp, so the shared timestamp is the link back to the cause. Recovering
+ * it this way means old price history attributes correctly too, with nothing
+ * extra stored.
+ */
+export const rootAdjustmentsByTimestamp = (priceHistory, start, end) => {
+  const roots = new Map();
+  for (const [ticker, history] of Object.entries(priceHistory || {})) {
+    if (!Array.isArray(history)) continue;
+    for (const entry of history) {
+      if (!entry || entry.source !== 'admin_adjust') continue;
+      if (entry.timestamp < start || entry.timestamp > end) continue;
+      roots.set(entry.timestamp, ticker);
+    }
+  }
+  return roots;
 };
 
 /**
@@ -148,9 +179,10 @@ export const getReviewChanges = (priceHistory, characters) => {
   // Hide if the review is older than a week
   if (Date.now() - end > REVIEW_MAX_AGE_MS) return {};
 
+  const roots = rootAdjustmentsByTimestamp(priceHistory, start, end);
   const changes = {};
   for (const char of characters) {
-    const change = computeReviewChange((priceHistory || {})[char.ticker], start, end);
+    const change = computeReviewChange((priceHistory || {})[char.ticker], start, end, null, roots);
     if (change) changes[char.ticker] = change;
   }
   return changes;
@@ -175,20 +207,36 @@ export const mergeReviewChanges = (derived, stored) => ({
 /**
  * Group the Review tab into sections.
  *
- * Three different questions get mixed together otherwise. What the admin
- * actually decided is the one people come for, so it leads and nothing else
- * dilutes it. Funds move mechanically with the characters they hold, which is
- * not a decision about the fund. And a character that only got dragged along by
- * a link is the case that used to be invisible and read as off-hours trading.
+ * Four different questions get mixed together otherwise:
+ *   what the admin actually decided, which is what people come for;
+ *   what the funds did, which is mechanical, not a decision about the fund;
+ *   who got dragged BY A FUND, the biggest and least obvious group, since one
+ *     fund adjustment moves every character in it at once;
+ *   who got dragged by another character.
+ *
+ * The last two used to be invisible entirely, which is how a stock could climb
+ * during a halt with nothing on screen explaining it.
+ *
+ * Attribution comes from `drivers` on the change. An entry with no drivers (old
+ * stored data) falls into the plain trailer group rather than guessing.
  *
  * Empty sections are dropped, so a review with no knock-on looks exactly like
  * the old flat list.
  */
 export const buildReviewSections = (characters, changes = {}) => {
   const moved = (n) => typeof n === 'number' && Math.abs(n) >= 0.01;
+  // Moved because a fund THIS character belongs to moved. Membership matters:
+  // a fund adjustment also ripples on through its members into stocks outside
+  // the fund, and calling those fund trailers would be wrong. $KTAE is not in
+  // the Fist Gang fund, it only caught a second-order push through $GAP.
+  const movedWithItsFund = (ticker, drivers = []) => drivers.some((driver) => {
+    const fund = CHARACTER_MAP[driver];
+    return fund?.isETF === true && (fund.constituents || []).includes(ticker);
+  });
 
   const adjusted = [];
   const funds = [];
+  const fundTrailers = [];
   const dragged = [];
 
   for (const character of characters) {
@@ -197,8 +245,10 @@ export const buildReviewSections = (characters, changes = {}) => {
     // Entries stored before the split existed were admin-adjusted by
     // definition, since nothing else used to make the list at all.
     const hasSplit = typeof change.directChange === 'number';
+
     if (character.isETF) funds.push(character);
     else if (!hasSplit || moved(change.directChange)) adjusted.push(character);
+    else if (movedWithItsFund(character.ticker, change.drivers)) fundTrailers.push(character);
     else dragged.push(character);
   }
 
@@ -217,6 +267,13 @@ export const buildReviewSections = (characters, changes = {}) => {
       title: 'Fund Movers',
       blurb: 'Funds that moved with the characters they hold.',
       characters: funds,
+    },
+    {
+      id: 'fundTrailers',
+      short: 'Fund Trailers',
+      title: 'Fund Trailers',
+      blurb: 'Not adjusted. These moved because a fund they belong to moved.',
+      characters: fundTrailers,
     },
     {
       id: 'dragged',

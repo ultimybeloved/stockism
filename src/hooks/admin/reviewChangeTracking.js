@@ -26,6 +26,7 @@ const blank = (openPrice) => ({
   percentChange: 0,
   directChange: 0,
   trailingChange: 0,
+  drivers: [],
 });
 
 /**
@@ -55,6 +56,10 @@ export const recordReviewMoves = async ({ direct, trailing = [], at = Date.now()
   // A doc from a previous review is last week's news — start the window clean.
   const changes = stored.windowEnd === end ? { ...(stored.changes || {}) } : {};
 
+  // Every knock-on move in one adjustment traces back to the stock that was
+  // typed in, which is what the Review tab groups by.
+  const root = direct?.ticker;
+
   const apply = (move, key) => {
     if (!move || !(move.from > 0) || !(move.to > 0) || move.from === move.to) return;
     // No entry yet means this is the stock's first move of the review, so the
@@ -64,6 +69,9 @@ export const recordReviewMoves = async ({ direct, trailing = [], at = Date.now()
     const factor = (1 + (entry[key] || 0) / 100) * (move.to / move.from);
     entry[key] = (factor - 1) * 100;
     entry.newPrice = move.to;
+    if (key === 'trailingChange' && root) {
+      entry.drivers = [...new Set([...(entry.drivers || []), root])];
+    }
     entry.percentChange = entry.oldPrice > 0
       ? ((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100
       : 0;

@@ -31,6 +31,14 @@ const db = admin.firestore();
 const APPLY = process.argv.includes('--apply');
 const REVIEW_SOURCES = new Set(['admin_adjust', 'trailing']);
 
+// Where the single collapsed point is stamped: 20:54 UTC, the same instant for
+// every stock, so the whole review reads as ONE event rather than as bursts of
+// activity at whatever times the adjustments happened to be made.
+//
+// It has to sit before 20:55 (pre-market lock) and 20:56 (the opening auction),
+// or the review would appear to land AFTER the fills that were priced off it.
+const STAMP_MINUTE = 20 * 60 + 54;
+
 // Most recent Thursday halt, 13:00-21:00 UTC. Mirrors getMostRecentHaltWindow.
 function haltWindow() {
   const now = new Date();
@@ -39,11 +47,15 @@ function haltWindow() {
   const d = new Date(now);
   if (!(day === 4 && mins >= 780)) d.setUTCDate(d.getUTCDate() - ((day - 4 + 7) % 7 || 7));
   const dayStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  return { start: dayStart + 780 * 60 * 1000, end: dayStart + 1260 * 60 * 1000 };
+  return {
+    start: dayStart + 780 * 60 * 1000,
+    end: dayStart + 1260 * 60 * 1000,
+    stamp: dayStart + STAMP_MINUTE * 60 * 1000,
+  };
 }
 
 (async () => {
-  const { start, end } = haltWindow();
+  const { start, end, stamp } = haltWindow();
   console.log(`\nHalt window: ${new Date(start).toISOString()} -> ${new Date(end).toISOString()}`);
   console.log(APPLY ? 'MODE: APPLY (will write)\n' : 'MODE: dry run (writes nothing)\n');
 
@@ -77,12 +89,21 @@ function haltWindow() {
       if (reviewPts.length < 2) continue; // already a single move, nothing to tidy
 
       const last = reviewPts[reviewPts.length - 1];
+      const kept = sorted.filter((p) => !reviewPts.includes(p));
+
+      // Never let the collapsed point jump ahead of a real trade that was
+      // already inside the window. Nothing trades during a halt, so in practice
+      // this only guards the odd adjustment made after the 20:56 auction.
+      const firstTradeInWindow = kept.find((p) => p.timestamp >= start && p.timestamp <= end);
+      const at = firstTradeInWindow
+        ? Math.min(stamp, firstTradeInWindow.timestamp - 1)
+        : stamp;
+
       // Tagged admin_adjust on purpose: isPriceProtected keys off that tag, and
       // the review's result must stay protected from bots and the market maker.
       // `collapsed` tells the review-split readers the detail is gone.
-      const merged = { timestamp: last.timestamp, price: last.price, source: 'admin_adjust', collapsed: true };
+      const merged = { timestamp: at, price: last.price, source: 'admin_adjust', collapsed: true };
 
-      const kept = sorted.filter((p) => !reviewPts.includes(p));
       const next = [...kept, merged].sort((a, b) => a.timestamp - b.timestamp);
 
       // A collapse that moves the live price is a bug, not a tidy-up.

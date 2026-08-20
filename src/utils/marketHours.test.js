@@ -243,40 +243,59 @@ describe('mergeReviewChanges', () => {
 
 describe('buildReviewSections', () => {
   const chars = [
-    { ticker: 'GAP' }, { ticker: 'JIN' }, { ticker: 'KTAE' },
+    { ticker: 'GAP' }, { ticker: 'JIN' }, { ticker: 'KTAE' }, { ticker: 'KWON' },
     { ticker: 'FIST', isETF: true },
   ];
   const changes = {
-    GAP: { percentChange: 8.71, directChange: 4.75, trailingChange: 3.78 },
-    JIN: { percentChange: 4.97, directChange: 4.03, trailingChange: 0.9 },
-    KTAE: { percentChange: 0.77, directChange: 0, trailingChange: 0.77 },
-    FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0 },
+    GAP: { percentChange: 8.71, directChange: 4.75, trailingChange: 3.78, drivers: ['JIN', 'SHNG'] },
+    JIN: { percentChange: 4.97, directChange: 4.03, trailingChange: 0.9, drivers: ['GAP'] },
+    // Dragged by a character.
+    KTAE: { percentChange: 0.77, directChange: 0, trailingChange: 0.77, drivers: ['GAP'] },
+    // Dragged by the fund it belongs to.
+    KWON: { percentChange: 0.5, directChange: 0, trailingChange: 0.5, drivers: ['FIST'] },
+    FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0, drivers: [] },
   };
   const byId = (sections) => Object.fromEntries(
     sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]),
   );
 
-  it('separates hand-set stocks, funds and knock-on-only stocks', () => {
+  it('separates hand-set stocks, funds, fund trailers and character trailers', () => {
     expect(byId(buildReviewSections(chars, changes))).toEqual({
       adjusted: ['GAP', 'JIN'],
       funds: ['FIST'],
+      fundTrailers: ['KWON'],
       dragged: ['KTAE'],
     });
   });
 
   it('puts a directly adjusted fund in the fund section, not with the stocks', () => {
-    const sections = buildReviewSections(chars, changes);
-    expect(sections.find((s) => s.id === 'adjusted').characters).not.toContainEqual({ ticker: 'FIST', isETF: true });
+    const adjusted = buildReviewSections(chars, changes).find((s) => s.id === 'adjusted');
+    expect(adjusted.characters.map((c) => c.ticker)).not.toContain('FIST');
+  });
+
+  it('only calls it a fund trailer when the character is IN that fund', () => {
+    // $KTAE is not a Fist Gang member. A $FIST adjustment still reaches it,
+    // second-hand through $GAP, but that is not moving with its own fund.
+    const mixed = { ...changes, KTAE: { ...changes.KTAE, drivers: ['GAP', 'FIST'] } };
+    const grouped = byId(buildReviewSections(chars, mixed));
+    expect(grouped.dragged).toContain('KTAE');
+    expect(grouped.fundTrailers || []).not.toContain('KTAE');
+  });
+
+  it('falls back to plain trailers when the driver is unknown', () => {
+    // Stored entries written before drivers were recorded.
+    const noDrivers = { KWON: { percentChange: 0.5, directChange: 0, trailingChange: 0.5 } };
+    expect(byId(buildReviewSections([{ ticker: 'KWON' }], noDrivers))).toEqual({ dragged: ['KWON'] });
   });
 
   it('names the sections without decoration', () => {
     const titles = buildReviewSections(chars, changes).map((s) => s.title);
-    expect(titles).toEqual(['Adjusted This Chapter', 'Fund Movers', 'Trailers']);
+    expect(titles).toEqual(['Adjusted This Chapter', 'Fund Movers', 'Fund Trailers', 'Trailers']);
   });
 
   it('gives every section a short label for the picker', () => {
     expect(buildReviewSections(chars, changes).map((s) => s.short))
-      .toEqual(['Adjusted', 'Funds', 'Trailers']);
+      .toEqual(['Adjusted', 'Funds', 'Fund Trailers', 'Trailers']);
   });
 
   it('drops empty sections', () => {
@@ -298,6 +317,30 @@ describe('buildReviewSections', () => {
 
   it('returns nothing when the review moved nothing', () => {
     expect(buildReviewSections(chars, {})).toEqual([]);
+  });
+});
+
+describe('getReviewChanges — knock-on attribution', () => {
+  const start = Date.parse('2026-01-01T13:00:00Z');
+  const shared = start + 30 * 60 * 1000;
+
+  it('credits a knock-on move to whichever stock was adjusted at that instant', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    // One FIST adjustment stamps every stock it drags with its own timestamp.
+    const history = {
+      FIST: [
+        { timestamp: start - 60 * 60 * 1000, price: 100 },
+        { timestamp: shared, price: 105, source: 'admin_adjust' },
+      ],
+      KWON: [
+        { timestamp: start - 60 * 60 * 1000, price: 50 },
+        { timestamp: shared, price: 50.25, source: 'trailing' },
+      ],
+    };
+    const changes = getReviewChanges(history, [{ ticker: 'FIST' }, { ticker: 'KWON' }]);
+    expect(changes.KWON.drivers).toEqual(['FIST']);
+    expect(changes.FIST.drivers).toEqual([]);
   });
 });
 

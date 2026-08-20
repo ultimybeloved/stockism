@@ -320,6 +320,20 @@ const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
 const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) => {
   const changes = {};
 
+  // Timestamp -> the ticker whose hand adjustment started that cascade. Every
+  // stock a single adjustment drags is written with the adjustment's own
+  // timestamp, so the shared timestamp is the link back to the cause. Nothing
+  // extra has to be stored, and old history attributes correctly too.
+  const rootByTimestamp = new Map();
+  for (const [ticker, history] of Object.entries(priceHistory || {})) {
+    if (!Array.isArray(history)) continue;
+    for (const entry of history) {
+      if (!entry || entry.source !== 'admin_adjust') continue;
+      if (entry.timestamp < start || entry.timestamp > end) continue;
+      rootByTimestamp.set(entry.timestamp, ticker);
+    }
+  }
+
   for (const [ticker, history] of Object.entries(priceHistory || {})) {
     if (!Array.isArray(history) || history.length === 0) continue;
 
@@ -340,6 +354,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     let trailingFactor = 1;
     let from = openPrice;
     let collapsed = false;
+    const drivers = new Set();
     for (const entry of moves) {
       // A collapsed point is the review's whole move rolled into one, so the
       // detail it was built from is gone and the split cannot be rebuilt from
@@ -347,7 +362,11 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
       if (entry.collapsed) { collapsed = true; break; }
       if (from > 0) {
         if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
-        else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
+        else if (entry.source === 'trailing') {
+          trailingFactor *= entry.price / from;
+          const root = rootByTimestamp.get(entry.timestamp);
+          if (root) drivers.add(root);
+        }
         // Anything else (the 20:56 opening auction) counts toward the total only.
       }
       from = entry.price;
@@ -362,6 +381,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
       percentChange: ((newPrice - openPrice) / openPrice) * 100,
       directChange: (directFactor - 1) * 100,
       trailingChange: (trailingFactor - 1) * 100,
+      drivers: [...drivers],
     };
   }
 
