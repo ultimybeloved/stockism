@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import CharacterCard from '../CharacterCard';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
@@ -31,6 +32,12 @@ const MarketGrid = ({
 }) => {
   const { darkMode, userData, prices, priceHistory, marketData } = useAppContext();
   const { cardClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
+  // Review tab only: 'all' shows every section stacked, which is the default.
+  // Picking one narrows to it, for when you only care about what was adjusted.
+  const [openSection, setOpenSection] = useState('all');
+  // A section that is not in THIS week's review falls back to showing everything,
+  // so a stale pick from last week cannot leave the tab looking empty.
+  const activeSection = reviewSections?.some((s) => s.id === openSection) ? openSection : 'all';
 
   // One card, wherever it is being rendered.
   const renderCard = (character) => (
@@ -73,22 +80,45 @@ const MarketGrid = ({
 
   return (
     <>
-      {reviewSections
-        ? reviewSections.map((section) => (
-            <div key={section.id} className="mb-6">
-              <div className="mb-3">
-                <h3 className={`text-sm font-bold uppercase tracking-wider ${mutedClass}`}>
-                  {section.title}
-                  <span className="ml-2 font-semibold normal-case tracking-normal">
-                    ({section.characters.length})
-                  </span>
-                </h3>
-                <p className={`text-xs mt-0.5 ${mutedClass}`}>{section.blurb}</p>
-              </div>
-              {cardGrid(section.characters)}
+      {reviewSections ? (
+        <>
+          {/* Section picker. Falls back to showing everything if the section
+              that was open is not in this week's review. */}
+          {reviewSections.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {[{ id: 'all', short: 'Show All' }, ...reviewSections].map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setOpenSection(option.id)}
+                  className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
+                    activeSection === option.id ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`
+                  }`}
+                >
+                  {option.short}
+                  {option.characters && <span className="ml-1 opacity-70">{option.characters.length}</span>}
+                </button>
+              ))}
             </div>
-          ))
-        : cardGrid(displayedCharacters)}
+          )}
+
+          {reviewSections
+            .filter((section) => activeSection === 'all' || section.id === activeSection)
+            .map((section) => (
+              <div key={section.id} className="mb-6">
+                <div className="mb-3">
+                  <h3 className={`text-sm font-bold uppercase tracking-wider ${mutedClass}`}>
+                    {section.title}
+                    <span className="ml-2 font-semibold normal-case tracking-normal">
+                      ({section.characters.length})
+                    </span>
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${mutedClass}`}>{section.blurb}</p>
+                </div>
+                {cardGrid(section.characters)}
+              </div>
+            ))}
+        </>
+      ) : cardGrid(displayedCharacters)}
 
       {/* Empty state for the grid */}
       {displayedCharacters.length === 0 && (

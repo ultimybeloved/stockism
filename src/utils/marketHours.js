@@ -202,22 +202,26 @@ export const buildReviewSections = (characters, changes = {}) => {
     else dragged.push(character);
   }
 
+  // `short` is the label on the section picker, `title` the heading above the cards.
   return [
     {
       id: 'adjusted',
-      title: '📖 Adjusted This Chapter',
+      short: 'Adjusted',
+      title: 'Adjusted This Chapter',
       blurb: 'Prices set by hand in the chapter review.',
       characters: adjusted,
     },
     {
       id: 'funds',
-      title: '🧺 Fund Movers',
+      short: 'Funds',
+      title: 'Fund Movers',
       blurb: 'Funds that moved with the characters they hold.',
       characters: funds,
     },
     {
       id: 'dragged',
-      title: '🔗 Moved On Their Own',
+      short: 'Trailers',
+      title: 'Trailers',
       blurb: 'Not adjusted. These moved because a character they follow was.',
       characters: dragged,
     },

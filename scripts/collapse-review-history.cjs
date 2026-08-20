@@ -60,61 +60,84 @@ function haltWindow() {
   console.log(`reviewChanges: ${rc.tickerCount} tickers, ${withSplit} carry the set/knock-on split\n`);
 
   const histRef = db.collection('market').doc('priceHistory');
-  const hist = (await histRef.get()).data() || {};
 
-  const updates = {};
-  const detail = {};
-  let touched = 0;
-  let removed = 0;
+  // Work out the rewrite for one snapshot of the history doc.
+  const plan = (hist) => {
+    const updates = {};
+    const detail = {};
+    const lines = [];
+    let removed = 0;
 
-  for (const [ticker, points] of Object.entries(hist)) {
-    if (!Array.isArray(points)) continue;
-    const sorted = points.slice().sort((a, b) => a.timestamp - b.timestamp);
+    for (const [ticker, points] of Object.entries(hist)) {
+      if (!Array.isArray(points)) continue;
+      const sorted = points.slice().sort((a, b) => a.timestamp - b.timestamp);
 
-    const reviewPts = sorted.filter((p) =>
-      p && p.timestamp >= start && p.timestamp <= end && REVIEW_SOURCES.has(p.source) && !p.collapsed);
-    if (reviewPts.length < 2) continue; // already a single move, nothing to tidy
+      const reviewPts = sorted.filter((p) =>
+        p && p.timestamp >= start && p.timestamp <= end && REVIEW_SOURCES.has(p.source) && !p.collapsed);
+      if (reviewPts.length < 2) continue; // already a single move, nothing to tidy
 
-    const last = reviewPts[reviewPts.length - 1];
-    // Tagged admin_adjust on purpose: isPriceProtected keys off that tag, and
-    // the review's result must stay protected from bots and the market maker.
-    // `collapsed` tells the review-split readers the detail is gone.
-    const merged = { timestamp: last.timestamp, price: last.price, source: 'admin_adjust', collapsed: true };
+      const last = reviewPts[reviewPts.length - 1];
+      // Tagged admin_adjust on purpose: isPriceProtected keys off that tag, and
+      // the review's result must stay protected from bots and the market maker.
+      // `collapsed` tells the review-split readers the detail is gone.
+      const merged = { timestamp: last.timestamp, price: last.price, source: 'admin_adjust', collapsed: true };
 
-    const kept = sorted.filter((p) => !reviewPts.includes(p));
-    const next = [...kept, merged].sort((a, b) => a.timestamp - b.timestamp);
+      const kept = sorted.filter((p) => !reviewPts.includes(p));
+      const next = [...kept, merged].sort((a, b) => a.timestamp - b.timestamp);
 
-    // A collapse that moves the live price is a bug, not a tidy-up.
-    const priceBefore = sorted[sorted.length - 1].price;
-    const priceAfter = next[next.length - 1].price;
-    if (priceBefore !== priceAfter) {
-      console.error(`REFUSING ${ticker}: last price would change ${priceBefore} -> ${priceAfter}`);
-      process.exit(1);
+      // A collapse that moves the live price is a bug, not a tidy-up.
+      const priceBefore = sorted[sorted.length - 1].price;
+      const priceAfter = next[next.length - 1].price;
+      if (priceBefore !== priceAfter) {
+        throw new Error(`REFUSING ${ticker}: last price would change ${priceBefore} -> ${priceAfter}`);
+      }
+
+      updates[ticker] = next;
+      detail[ticker] = reviewPts;
+      removed += reviewPts.length - 1;
+      const pct = (((last.price - reviewPts[0].price) / reviewPts[0].price) * 100).toFixed(2);
+      lines.push(`  ${ticker.padEnd(6)} ${String(reviewPts.length).padStart(2)} points -> 1   `
+        + `$${reviewPts[0].price} .. $${last.price}  (net ${pct >= 0 ? '+' : ''}${pct}% across the run)`);
     }
 
-    updates[ticker] = next;
-    detail[ticker] = reviewPts;
-    touched++;
-    removed += reviewPts.length - 1;
-    const pct = (((last.price - reviewPts[0].price) / reviewPts[0].price) * 100).toFixed(2);
-    console.log(`  ${ticker.padEnd(6)} ${String(reviewPts.length).padStart(2)} points -> 1   `
-      + `$${reviewPts[0].price} .. $${last.price}  (net ${pct >= 0 ? '+' : ''}${pct}% across the run)`);
+    return { updates, detail, lines, removed };
+  };
+
+  if (!APPLY) {
+    const { lines, removed } = plan((await histRef.get()).data() || {});
+    lines.forEach((l) => console.log(l));
+    console.log('');
+    console.log(`${lines.length} stocks would be tidied, ${removed} intermediate points folded away.`);
+    console.log(lines.length ? 'Dry run. Re-run with --apply to write.' : 'Nothing to do.');
+    process.exit(0);
   }
 
-  console.log(`\n${touched} stocks would be tidied, ${removed} intermediate points folded away.`);
-  if (!touched) { console.log('Nothing to do.'); process.exit(0); }
+  // The doc this rewrites is the same one every trade appends to, via arrayUnion
+  // inside a transaction. Reading it, rewriting arrays and writing back outside
+  // a transaction would silently drop any point a trade added in between, so the
+  // whole read-modify-write goes in one. Contention makes Firestore retry rather
+  // than lose the trade's point, which is why this is safe to run mid-session
+  // instead of halting the market for it.
+  let result;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(histRef);
+    result = plan(snap.data() || {});
+    if (Object.keys(result.updates).length === 0) return;
 
-  if (!APPLY) { console.log('\nDry run. Re-run with --apply to write.'); process.exit(0); }
+    tx.set(db.collection('market').doc('reviewDetail'), {
+      windowStart: start, windowEnd: end, savedAt: Date.now(), detail: result.detail,
+    });
+    tx.set(histRef, result.updates, { merge: true });
+  });
+
+  result.lines.forEach((l) => console.log(l));
+  if (result.lines.length === 0) { console.log('Nothing to do.'); process.exit(0); }
 
   const backup = path.join(__dirname, '..', `review-detail-${new Date(end).toISOString().slice(0, 10)}.json`);
-  fs.writeFileSync(backup, JSON.stringify({ windowStart: start, windowEnd: end, detail }, null, 2));
-  console.log(`\nLocal backup written: ${backup}`);
+  fs.writeFileSync(backup, JSON.stringify({ windowStart: start, windowEnd: end, detail: result.detail }, null, 2));
 
-  await db.collection('market').doc('reviewDetail').set({
-    windowStart: start, windowEnd: end, savedAt: Date.now(), detail,
-  });
-  console.log('Stashed the detail at market/reviewDetail');
-
-  await histRef.set(updates, { merge: true });
-  console.log(`Collapsed ${touched} stocks in market/priceHistory.`);
+  console.log('');
+  console.log(`${result.lines.length} stocks tidied, ${result.removed} intermediate points folded away.`);
+  console.log('Detail stashed at market/reviewDetail');
+  console.log(`Local backup: ${backup}`);
 })().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

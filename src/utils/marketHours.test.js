@@ -269,6 +269,16 @@ describe('buildReviewSections', () => {
     expect(sections.find((s) => s.id === 'adjusted').characters).not.toContainEqual({ ticker: 'FIST', isETF: true });
   });
 
+  it('names the sections without decoration', () => {
+    const titles = buildReviewSections(chars, changes).map((s) => s.title);
+    expect(titles).toEqual(['Adjusted This Chapter', 'Fund Movers', 'Trailers']);
+  });
+
+  it('gives every section a short label for the picker', () => {
+    expect(buildReviewSections(chars, changes).map((s) => s.short))
+      .toEqual(['Adjusted', 'Funds', 'Trailers']);
+  });
+
   it('drops empty sections', () => {
     const sections = buildReviewSections([{ ticker: 'GAP' }], { GAP: changes.GAP });
     expect(sections.map((s) => s.id)).toEqual(['adjusted']);
