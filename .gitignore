@@ -37,3 +37,6 @@ alt-master-report.md
 household-roster.txt
 link-report.txt
 location-matrix.txt
+
+# Local backups written by scripts/collapse-review-history.cjs
+review-detail-*.json
