@@ -21,6 +21,7 @@ const MarketControls = ({
   const { darkMode, user, userData } = useAppContext();
   const { cardClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } = getThemeClasses(darkMode);
   const hasReviewChanges = Object.keys(reviewChanges).length > 0;
+  const isReviewTab = marketTab === 'review';
 
   const switchTab = (tab) => {
     setMarketTab(tab);
@@ -180,21 +181,27 @@ const MarketControls = ({
           <input type="text" placeholder="Search..." value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`} />
-          <div className="flex items-center justify-center gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={showAll || currentPage === 1}
-              className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
-              Prev
-            </button>
-            <span className={`text-sm ${mutedClass}`}>{currentPage}/{totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={showAll || currentPage === totalPages}
-              className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
-              Next
-            </button>
-          </div>
-          <button onClick={() => setShowAll(!showAll)}
-            className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}>
-            {showAll ? 'Show Pages' : 'Show All'}
-          </button>
+          {/* The Review tab is sectioned and always shows everything, so paging
+              it would only split a section in half. */}
+          {!isReviewTab && (
+            <>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={showAll || currentPage === 1}
+                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+                  Prev
+                </button>
+                <span className={`text-sm ${mutedClass}`}>{currentPage}/{totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={showAll || currentPage === totalPages}
+                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+                  Next
+                </button>
+              </div>
+              <button onClick={() => setShowAll(!showAll)}
+                className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}>
+                {showAll ? 'Show Pages' : 'Show All'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>

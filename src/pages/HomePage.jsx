@@ -149,6 +149,7 @@ const HomePage = ({
               onSetAlert={onSetAlert}
               marketTab={browser.marketTab}
               reviewChanges={browser.reviewChanges}
+              reviewSections={browser.reviewSections}
               searchQuery={browser.searchQuery}
               currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}

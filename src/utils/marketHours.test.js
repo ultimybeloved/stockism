@@ -7,6 +7,7 @@ import {
   getMostRecentHaltWindow,
   getReviewChanges,
   mergeReviewChanges,
+  buildReviewSections,
   formatCountdown,
 } from './marketHours';
 
@@ -237,6 +238,56 @@ describe('mergeReviewChanges', () => {
     mergeReviewChanges(local, stored);
     expect(stored.JAKE.newPrice).toBe(110);
     expect(local.JAKE.newPrice).toBe(130);
+  });
+});
+
+describe('buildReviewSections', () => {
+  const chars = [
+    { ticker: 'GAP' }, { ticker: 'JIN' }, { ticker: 'KTAE' },
+    { ticker: 'FIST', isETF: true },
+  ];
+  const changes = {
+    GAP: { percentChange: 8.71, directChange: 4.75, trailingChange: 3.78 },
+    JIN: { percentChange: 4.97, directChange: 4.03, trailingChange: 0.9 },
+    KTAE: { percentChange: 0.77, directChange: 0, trailingChange: 0.77 },
+    FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0 },
+  };
+  const byId = (sections) => Object.fromEntries(
+    sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]),
+  );
+
+  it('separates hand-set stocks, funds and knock-on-only stocks', () => {
+    expect(byId(buildReviewSections(chars, changes))).toEqual({
+      adjusted: ['GAP', 'JIN'],
+      funds: ['FIST'],
+      dragged: ['KTAE'],
+    });
+  });
+
+  it('puts a directly adjusted fund in the fund section, not with the stocks', () => {
+    const sections = buildReviewSections(chars, changes);
+    expect(sections.find((s) => s.id === 'adjusted').characters).not.toContainEqual({ ticker: 'FIST', isETF: true });
+  });
+
+  it('drops empty sections', () => {
+    const sections = buildReviewSections([{ ticker: 'GAP' }], { GAP: changes.GAP });
+    expect(sections.map((s) => s.id)).toEqual(['adjusted']);
+  });
+
+  it('treats a stored entry with no split as hand-set', () => {
+    // Nothing but admin adjustments made the list before the split existed.
+    const sections = buildReviewSections([{ ticker: 'GAP' }], { GAP: { percentChange: 10 } });
+    expect(sections[0].id).toBe('adjusted');
+  });
+
+  it('ignores characters the review never touched', () => {
+    const sections = buildReviewSections([...chars, { ticker: 'DOO' }], changes);
+    const all = sections.flatMap((s) => s.characters.map((c) => c.ticker));
+    expect(all).not.toContain('DOO');
+  });
+
+  it('returns nothing when the review moved nothing', () => {
+    expect(buildReviewSections(chars, {})).toEqual([]);
   });
 });
 

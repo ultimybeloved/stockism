@@ -173,6 +173,58 @@ export const mergeReviewChanges = (derived, stored) => ({
 });
 
 /**
+ * Group the Review tab into sections.
+ *
+ * Three different questions get mixed together otherwise. What the admin
+ * actually decided is the one people come for, so it leads and nothing else
+ * dilutes it. Funds move mechanically with the characters they hold, which is
+ * not a decision about the fund. And a character that only got dragged along by
+ * a link is the case that used to be invisible and read as off-hours trading.
+ *
+ * Empty sections are dropped, so a review with no knock-on looks exactly like
+ * the old flat list.
+ */
+export const buildReviewSections = (characters, changes = {}) => {
+  const moved = (n) => typeof n === 'number' && Math.abs(n) >= 0.01;
+
+  const adjusted = [];
+  const funds = [];
+  const dragged = [];
+
+  for (const character of characters) {
+    const change = changes[character.ticker];
+    if (!change) continue;
+    // Entries stored before the split existed were admin-adjusted by
+    // definition, since nothing else used to make the list at all.
+    const hasSplit = typeof change.directChange === 'number';
+    if (character.isETF) funds.push(character);
+    else if (!hasSplit || moved(change.directChange)) adjusted.push(character);
+    else dragged.push(character);
+  }
+
+  return [
+    {
+      id: 'adjusted',
+      title: '📖 Adjusted This Chapter',
+      blurb: 'Prices set by hand in the chapter review.',
+      characters: adjusted,
+    },
+    {
+      id: 'funds',
+      title: '🧺 Fund Movers',
+      blurb: 'Funds that moved with the characters they hold.',
+      characters: funds,
+    },
+    {
+      id: 'dragged',
+      title: '🔗 Moved On Their Own',
+      blurb: 'Not adjusted. These moved because a character they follow was.',
+      characters: dragged,
+    },
+  ].filter((section) => section.characters.length > 0);
+};
+
+/**
  * Next weekly market open (Thursday 21:00 UTC).
  * If it's Thursday before 21:00 UTC, that's today; otherwise the coming Thursday.
  */

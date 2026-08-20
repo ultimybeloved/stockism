@@ -8,7 +8,7 @@ import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constant
 // tab switcher and the sort logic agree on what to clear when you leave.
 export const REVIEW_SORTS = ['review-change', 'review-since'];
 import { getCurrentPrice } from '../utils/calculations';
-import { getReviewChanges, getMostRecentHaltWindow, mergeReviewChanges, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
+import { getReviewChanges, getMostRecentHaltWindow, mergeReviewChanges, buildReviewSections, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
 import { get24hChange, getTradeActivity } from '../utils/marketStats';
 
 // All state + filtering/sorting for browsing the market grid on the home page:
@@ -148,7 +148,17 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
 
   // Floor at 1 so an empty result set shows "1/1", not "1/0".
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE));
-  const displayedCharacters = showAll ? filteredCharacters : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  // The Review tab is grouped into sections and is a bounded list anyway, so it
+  // always shows everything. Paging it would split a section across pages.
+  const displayedCharacters = (showAll || marketTab === 'review')
+    ? filteredCharacters
+    : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  // Review tab only. Null everywhere else, which is how the grid knows to stay flat.
+  const reviewSections = useMemo(
+    () => (marketTab === 'review' ? buildReviewSections(displayedCharacters, reviewChanges) : null),
+    [marketTab, displayedCharacters, reviewChanges],
+  );
 
   return {
     sortBy, setSortBy,
@@ -161,6 +171,7 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
     reviewChanges,
     totalPages,
     displayedCharacters,
+    reviewSections,
     change24h,
   };
 }

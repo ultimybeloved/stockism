@@ -4,6 +4,12 @@ import { getThemeClasses } from '../../utils/theme';
 import { getSentiment } from '../../utils/marketStats';
 
 // The character card grid plus empty state and bottom pagination.
+//
+// The Review tab comes through as sections instead of one flat list, because it
+// answers three different questions: what the admin decided, what the funds did
+// in response, and which characters only moved because something they follow
+// was adjusted. That last group used to be missing entirely, which is how a
+// stock could climb 8% during a halt with nothing on screen explaining it.
 const MarketGrid = ({
   displayedCharacters,
   change24h,
@@ -17,6 +23,7 @@ const MarketGrid = ({
   onSetAlert,
   marketTab,
   reviewChanges,
+  reviewSections,
   searchQuery,
   currentPage, setCurrentPage,
   totalPages,
@@ -25,41 +32,63 @@ const MarketGrid = ({
   const { darkMode, userData, prices, priceHistory, marketData } = useAppContext();
   const { cardClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
 
+  // One card, wherever it is being rendered.
+  const renderCard = (character) => (
+    <CharacterCard
+      key={character.ticker}
+      character={character}
+      price={(() => {
+        const history = priceHistory[character.ticker];
+        if (history && history.length > 0) {
+          return history[history.length - 1].price;
+        }
+        return prices[character.ticker] || character.basePrice;
+      })()}
+      priceChange={change24h(character.ticker)}
+      sentiment={getSentiment(character.ticker, prices, priceHistory)}
+      holdings={activeUserData.holdings?.[character.ticker] || 0}
+      shortPosition={activeUserData.shorts?.[character.ticker]}
+      onTrade={onTrade}
+      onViewChart={onViewChart}
+      userCash={activeUserData.cash || 0}
+      limitOrderRequest={limitOrderRequest}
+      onClearLimitOrderRequest={onClearLimitOrderRequest}
+      isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
+      onToggleWatchlist={onToggleWatchlist}
+      tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
+      haltInfo={marketData?.haltedTickers?.[character.ticker]}
+      onSetAlert={onSetAlert}
+      // Only in the Review tab: elsewhere the card's own price and 24h
+      // change are the whole story.
+      reviewChange={marketTab === 'review' ? reviewChanges?.[character.ticker] : null}
+    />
+  );
+
+  // Auto-fills as many ~300px+ columns as the screen allows.
+  const cardGrid = (list) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+      {list.map(renderCard)}
+    </div>
+  );
+
   return (
     <>
-      {/* Character Grid — auto-fills as many ~300px+ columns as the screen allows */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-        {displayedCharacters.map(character => (
-          <CharacterCard
-            key={character.ticker}
-            character={character}
-            price={(() => {
-              const history = priceHistory[character.ticker];
-              if (history && history.length > 0) {
-                return history[history.length - 1].price;
-              }
-              return prices[character.ticker] || character.basePrice;
-            })()}
-            priceChange={change24h(character.ticker)}
-            sentiment={getSentiment(character.ticker, prices, priceHistory)}
-            holdings={activeUserData.holdings?.[character.ticker] || 0}
-            shortPosition={activeUserData.shorts?.[character.ticker]}
-            onTrade={onTrade}
-            onViewChart={onViewChart}
-            userCash={activeUserData.cash || 0}
-            limitOrderRequest={limitOrderRequest}
-            onClearLimitOrderRequest={onClearLimitOrderRequest}
-            isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
-            onToggleWatchlist={onToggleWatchlist}
-            tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
-            haltInfo={marketData?.haltedTickers?.[character.ticker]}
-            onSetAlert={onSetAlert}
-            // Only in the Review tab: elsewhere the card's own price and 24h
-            // change are the whole story.
-            reviewChange={marketTab === 'review' ? reviewChanges?.[character.ticker] : null}
-          />
-        ))}
-      </div>
+      {reviewSections
+        ? reviewSections.map((section) => (
+            <div key={section.id} className="mb-6">
+              <div className="mb-3">
+                <h3 className={`text-sm font-bold uppercase tracking-wider ${mutedClass}`}>
+                  {section.title}
+                  <span className="ml-2 font-semibold normal-case tracking-normal">
+                    ({section.characters.length})
+                  </span>
+                </h3>
+                <p className={`text-xs mt-0.5 ${mutedClass}`}>{section.blurb}</p>
+              </div>
+              {cardGrid(section.characters)}
+            </div>
+          ))
+        : cardGrid(displayedCharacters)}
 
       {/* Empty state for the grid */}
       {displayedCharacters.length === 0 && (
@@ -73,7 +102,7 @@ const MarketGrid = ({
       )}
 
       {/* Bottom Pagination */}
-      {!showAll && totalPages > 1 && (
+      {!showAll && !reviewSections && totalPages > 1 && (
         <div className={`${cardClass} border rounded-sm p-4 mt-4`}>
           <div className="flex justify-center items-center gap-4">
             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
