@@ -297,7 +297,10 @@ exports.chapterReviewRecap = cf().pubsub
       }
 
       // Every stock the admin left alone this review
-      const unchangedCount = CHARACTERS.filter(c => !c.isETF && !adjustments[c.ticker]).length;
+      // Genuinely untouched: not adjusted AND not dragged. Counting off
+      // `adjustments` alone would report the knock-on stocks as unchanged and
+      // then count them again under Moved On Their Own.
+      const unchangedCount = CHARACTERS.filter(c => !c.isETF && !windowChanges[c.ticker]).length;
 
       gainers.sort((a, b) => b.change - a.change);
       losers.sort((a, b) => a.change - b.change);
