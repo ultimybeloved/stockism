@@ -108,15 +108,15 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-3">
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>HOW IT WORKS</p>
-                  <p className={`text-sm ${textClass}`}>The system checks every <span className="font-semibold">5 minutes</span>. If your equity ratio (how much of the position value you still own) falls below <span className="font-semibold text-red-500">25%</span>, your short positions are force-covered at whatever the current price is.</p>
+                  <p className={`text-sm ${textClass}`}>The system checks every <span className="font-semibold">30 minutes</span>. If your equity ratio (how much of the position value you still own) falls below <span className="font-semibold text-red-500">25%</span>, your short positions are force-covered at whatever the current price is.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THURSDAY GRACE PERIOD</p>
-                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">21:00 UTC Thursday</span>, auto-liquidations are paused until <span className="font-semibold">21:30 UTC</span>. You have 30 minutes before checks resume.</p>
+                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">21:00 UTC Thursday</span>, short force-covers are paused until <span className="font-semibold">21:30 UTC</span>. This pause only covers shorts. Margin liquidation on your holdings restarts at 21:00.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>OUTSIDE THE GRACE PERIOD</p>
-                  <p className={`text-sm ${textClass}`}>You have at most 5 minutes between checks. If prices move fast and you aren't watching, you can be liquidated before you even load the page.</p>
+                  <p className={`text-sm ${textClass}`}>You have at most 30 minutes between checks. If prices move fast and you aren't watching, you can be liquidated before you even load the page.</p>
                 </div>
               </div>
             </>

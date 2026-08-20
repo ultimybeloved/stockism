@@ -30,6 +30,21 @@ const notifyCanceled = async (order, orderId, reason) => {
 };
 
 /**
+ * Same reasoning as notifyCanceled, for an order that simply ran out its clock.
+ * Orders live 90 days, which is long enough that a stop loss quietly reaching
+ * its expiry is exactly the case where the owner has stopped thinking about it.
+ */
+const notifyExpired = async (order, orderId) => {
+  const label = orderLabel(order, { capitalized: true });
+  await writeNotification(order.userId, {
+    type: 'trade',
+    title: `${label} Expired`,
+    message: `Your ${label.toLowerCase()} for ${order.shares} $${order.ticker} at $${Number(order.limitPrice || 0).toFixed(2)} expired without filling. It is no longer on the book.`,
+    data: { ticker: order.ticker, orderId },
+  });
+};
+
+/**
  * Everything that happens once a fill is committed: the user's notification,
  * crew mission credit, and the public feed entry.
  */
@@ -70,4 +85,4 @@ const publishFill = async (order, orderId, { fillShares, executedPrice, tradeVal
   });
 };
 
-module.exports = { notifyCanceled, publishFill };
+module.exports = { notifyCanceled, notifyExpired, publishFill };

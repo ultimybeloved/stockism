@@ -150,7 +150,7 @@ const AboutModal = ({ onClose }) => {
                   A limit order buys or sells automatically when a stock hits your target price, even while you're
                   offline. A stop loss sells automatically if the price drops to your trigger, protecting you from a
                   crash. Set both from any character's trade menu. Pending orders are checked every 15 minutes and
-                  expire after 30 days.
+                  expire after 90 days.
                 </p>
               </div>
 

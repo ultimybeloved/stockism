@@ -283,7 +283,7 @@ exports.syncAllPortfolios = cf().pubsub
           const cash = userData.cash || 0;
           const portfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
 
-          // Charge margin interest if due (piggybacks on 6-hour sync)
+          // Charge margin interest if due (piggybacks on the daily sync)
           
           let marginInterest = 0;
           const marginUsed = userData.marginUsed || 0;

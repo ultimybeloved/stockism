@@ -25,7 +25,7 @@ const {
   assertTradeLimit, resolveFillShares, readActionHistory,
 } = require('./limitOrderGuards');
 const { computeImpact, applyBuyFill, applySellFill, markOrderFilled } = require('./limitOrderFill');
-const { notifyCanceled, publishFill } = require('./limitOrderEffects');
+const { notifyCanceled, notifyExpired, publishFill } = require('./limitOrderEffects');
 
 // A failure inside the transaction either kills the order or defers it to the
 // next cycle. These are the ones the user cannot recover from by waiting;
@@ -110,7 +110,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
 
 /**
  * Check and Execute Limit Orders
- * Runs every 2 minutes to check if any pending limit orders should execute
+ * Runs every 15 minutes to check if any pending limit orders should execute
  */
 const runLimitOrderCheck = async () => {
   try {
@@ -157,8 +157,10 @@ const runLimitOrderCheck = async () => {
             : { status: 'CANCELED', cancelReason: orderVerdict.reason });
           if (orderVerdict.status === 'EXPIRED') {
             console.log(`Expired order ${orderId}`);
+            await notifyExpired(order, orderId);
             expired++;
           } else {
+            await notifyCanceled(order, orderId, orderVerdict.reason);
             canceled++;
           }
           continue;
@@ -170,6 +172,7 @@ const runLimitOrderCheck = async () => {
           if (userVerdict) {
             await closeOrder(orderId, { status: 'CANCELED', cancelReason: userVerdict.reason });
             console.log(`Cancelled order ${orderId}: ${userVerdict.log}`);
+            await notifyCanceled(order, orderId, userVerdict.reason);
             canceled++;
             continue;
           }
@@ -186,7 +189,7 @@ const runLimitOrderCheck = async () => {
         const tickerCount = tickerExecutionCount[order.ticker] || 0;
         if (tickerCount >= ORDERS_PER_TICKER_PER_CYCLE) {
           console.log(`Throttled order ${orderId}: ${order.ticker} already had ${tickerCount} executions this cycle`);
-          continue; // Will be picked up in the next 2-minute cycle
+          continue; // Will be picked up in the next sweep (every 15 minutes)
         }
 
         console.log(`Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`);
