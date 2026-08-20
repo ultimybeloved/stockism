@@ -16,7 +16,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { priceHistoryRef, getAdminReviewAdjustments } = require('../helpers');
+const { priceHistoryRef, getReviewWindowChanges } = require('../helpers');
 
 const REVIEW_DOC = 'reviewChanges';
 
@@ -51,18 +51,8 @@ const loadHistory = async ({ includeArchive }) => {
  */
 const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, includeArchive = false }) => {
   const priceHistory = await loadHistory({ includeArchive });
-  const adjustments = getAdminReviewAdjustments(priceHistory, haltStart, haltEnd, fallbackPrices);
-
-  // Stored in the shape the Review tab already speaks, so the frontend does not
-  // have to translate two vocabularies.
-  const changes = {};
-  for (const [ticker, adj] of Object.entries(adjustments)) {
-    changes[ticker] = {
-      oldPrice: adj.before,
-      newPrice: adj.after,
-      percentChange: adj.change,
-    };
-  }
+  // Already in the shape the Review tab speaks, so nothing to translate.
+  const changes = getReviewWindowChanges(priceHistory, haltStart, haltEnd, fallbackPrices);
 
   const payload = {
     windowStart: haltStart,

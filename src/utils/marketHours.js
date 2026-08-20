@@ -69,97 +69,103 @@ export const getMostRecentHaltWindow = () => {
 export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Given priceHistory map and characters list, detect which tickers the admin
- * physically changed during the most recent Thursday halt window.
- * Returns Map: ticker -> { oldPrice, newPrice, percentChange }
+ * What a chapter review did to one stock, split by cause.
  *
- * Only stocks the admin manually adjusted appear — not trailers, trades, or
- * bots. The reported prices are both ones the admin actually set: oldPrice is
- * the point just before their first adjustment, newPrice is their last. That
- * strips any trailing bump a stock picked up from a DIFFERENT stock's
- * adjustment in the same session.
+ * The market is halted for the whole window, so every price move inside it is
+ * the admin's doing. It is just not all deliberate: adjusting one stock drags
+ * every stock linked to it, and those knock-on moves land on the chart looking
+ * exactly like trading. $GAP picked up 3.8% from $JIN, $SHNG and $FIST before
+ * it was touched directly on 2026-08-20, on top of the 4.75% that was actually
+ * set, and players read the gap as off-hours trading.
  *
- * Keep in sync with getAdminReviewAdjustments in functions/helpers.js.
+ * So the two are reported separately:
+ *   directChange   — what the admin typed into the price tool
+ *   trailingChange — what linked stocks pushed onto it
+ *   percentChange  — the whole window, which is what the chart shows
+ *
+ * `history` must be in timestamp order. Returns null for a stock the review
+ * never moved, or one whose pre-review price is no longer known.
+ *
+ * Keep in sync with getReviewWindowChanges in functions/helpers.js.
+ */
+export const computeReviewChange = (history, start, end, fallbackOpen = null) => {
+  if (!Array.isArray(history) || history.length === 0) return null;
+
+  // The price carried into the review, plus every point the review moved it.
+  let openPrice = fallbackOpen;
+  const moves = [];
+  for (const entry of history) {
+    if (!entry || typeof entry.price !== 'number') continue;
+    if (entry.timestamp < start) { openPrice = entry.price; continue; }
+    if (entry.timestamp > end) break;
+    moves.push(entry);
+  }
+  if (moves.length === 0 || !(openPrice > 0)) return null;
+
+  // Each move is measured against the price right before it, so the two causes
+  // compound the same way the prices actually did.
+  let directFactor = 1;
+  let trailingFactor = 1;
+  let from = openPrice;
+  for (const entry of moves) {
+    if (from > 0) {
+      if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
+      else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
+      // Anything else (the 20:56 opening auction) counts toward the total only.
+    }
+    from = entry.price;
+  }
+  if (directFactor === 1 && trailingFactor === 1) return null;
+
+  const newPrice = moves[moves.length - 1].price;
+  return {
+    oldPrice: openPrice,
+    newPrice,
+    percentChange: ((newPrice - openPrice) / openPrice) * 100,
+    directChange: (directFactor - 1) * 100,
+    trailingChange: (trailingFactor - 1) * 100,
+  };
+};
+
+/**
+ * Every stock the most recent chapter review moved, keyed by ticker.
+ * Returns Map: ticker -> { oldPrice, newPrice, percentChange, directChange, trailingChange }
+ *
+ * A stock only shows up if it still has a price point from before the review
+ * started. That is deliberate: without it there is nothing to measure against,
+ * and it doubles as a completeness check, because the live history is trimmed
+ * from the oldest end. If the pre-review point survived, so did everything
+ * after it.
  */
 export const getReviewChanges = (priceHistory, characters) => {
   const { start, end } = getMostRecentHaltWindow();
-  const now = Date.now();
 
   // Hide if the review is older than a week
-  if (now - end > REVIEW_MAX_AGE_MS) return {};
+  if (Date.now() - end > REVIEW_MAX_AGE_MS) return {};
 
   const changes = {};
-
   for (const char of characters) {
-    const history = priceHistory[char.ticker];
-    if (!history || history.length === 0) continue;
-
-    const inWindow = (e) => e && e.source === 'admin_adjust' &&
-      e.timestamp >= start && e.timestamp <= end;
-
-    const firstIdx = history.findIndex(inWindow);
-    if (firstIdx === -1) continue; // admin never touched this one
-
-    const oldPrice = firstIdx > 0 ? history[firstIdx - 1].price : null;
-
-    let newPrice = null;
-    for (const entry of history) {
-      if (inWindow(entry)) newPrice = entry.price;
-    }
-
-    if (oldPrice == null || newPrice == null) continue;
-    if (oldPrice <= 0 || oldPrice === newPrice) continue;
-
-    changes[char.ticker] = {
-      oldPrice,
-      newPrice,
-      percentChange: ((newPrice - oldPrice) / oldPrice) * 100
-    };
+    const change = computeReviewChange((priceHistory || {})[char.ticker], start, end);
+    if (change) changes[char.ticker] = change;
   }
-
   return changes;
 };
 
 /**
  * Combine the stored review changes (market/reviewChanges) with the ones derived
- * locally from price history. Each is authoritative for one end of the change:
+ * locally from price history.
  *
- *   oldPrice — the stored copy, built server-side while the price history still
- *     covered the window. The live history keeps a limited number of points per
- *     ticker, so an actively traded stock loses its pre-adjustment price fast.
- *   newPrice — the local derivation, which sees the admin's newest adjustment
- *     immediately. The stored copy is only rewritten when one is made, so an
- *     already-open page can be a step behind.
- *
- * Taking one end from each keeps a follow-up nudge inside the review total
- * instead of leaving it to read as drift since the review. A ticker only one
- * source knows about is carried through as that source has it.
+ * A local entry only exists when this browser holds the stock's price from
+ * before the review, which means it also holds every move since — so it is both
+ * complete and fresher than the stored copy, which is only rewritten when the
+ * admin makes an adjustment. It therefore wins outright. The stored copy fills
+ * in the stocks whose pre-review price has already been trimmed out of the live
+ * history, which is most of the actively traded ones within a day.
  */
-export const mergeReviewChanges = (derived, stored) => {
-  const merged = { ...(derived || {}) };
-
-  for (const [ticker, s] of Object.entries(stored || {})) {
-    const local = merged[ticker];
-    if (!local) {
-      merged[ticker] = s;
-      continue;
-    }
-    const oldPrice = s.oldPrice;
-    const newPrice = local.newPrice;
-    // Adjusted straight back to where it started — no change to show.
-    if (!(oldPrice > 0) || oldPrice === newPrice) {
-      delete merged[ticker];
-      continue;
-    }
-    merged[ticker] = {
-      oldPrice,
-      newPrice,
-      percentChange: ((newPrice - oldPrice) / oldPrice) * 100,
-    };
-  }
-
-  return merged;
-};
+export const mergeReviewChanges = (derived, stored) => ({
+  ...(stored || {}),
+  ...(derived || {}),
+});
 
 /**
  * Next weekly market open (Thursday 21:00 UTC).

@@ -87,133 +87,145 @@ describe('getMostRecentHaltWindow', () => {
 
 describe('getReviewChanges', () => {
   const start = Date.parse('2026-01-01T13:00:00Z');
+  const during = Date.parse('2026-01-01T22:00:00Z');
+  const before = (price) => ({ timestamp: start - 60 * 60 * 1000, price });
+  const inside = (mins, price, source) => ({ timestamp: start + mins * 60 * 1000, price, source });
 
-  it('reports percent change for admin-adjusted tickers in the window', () => {
+  const run = (points, ticker = 'JAKE') => {
     vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
-      JAKE: [
-        { timestamp: start - 60 * 60 * 1000, price: 100 },                       // before halt
-        { timestamp: start + 30 * 60 * 1000, price: 120, source: 'admin_adjust' }, // inside halt
-      ],
-    };
-    const changes = getReviewChanges(priceHistory, [{ ticker: 'JAKE' }]);
-    expect(changes.JAKE.oldPrice).toBe(100);
-    expect(changes.JAKE.newPrice).toBe(120);
-    expect(changes.JAKE.percentChange).toBeCloseTo(20);
+    at(new Date(during).toISOString());
+    return getReviewChanges({ [ticker]: points }, [{ ticker }])[ticker];
+  };
+
+  it('reports a hand-set adjustment as a direct change', () => {
+    const c = run([before(100), inside(30, 120, 'admin_adjust')]);
+    expect(c.oldPrice).toBe(100);
+    expect(c.newPrice).toBe(120);
+    expect(c.percentChange).toBeCloseTo(20);
+    expect(c.directChange).toBeCloseTo(20);
+    expect(c.trailingChange).toBeCloseTo(0);
   });
 
-  it('ignores tickers with no admin adjustment in the window', () => {
+  it('ignores tickers the review never moved', () => {
     vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
-      JAKE: [
-        { timestamp: start - 60 * 60 * 1000, price: 100 },
-        { timestamp: start + 30 * 60 * 1000, price: 120 }, // no admin_adjust source
-      ],
-    };
-    expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
+    at(new Date(during).toISOString());
+    const history = { JAKE: [before(100), inside(30, 120)] }; // untagged, not a review move
+    expect(getReviewChanges(history, [{ ticker: 'JAKE' }])).toEqual({});
   });
 
   it('hides the review once it is more than 7 days old', () => {
     vi.useFakeTimers();
     at('2026-01-10T00:00:00Z'); // >7 days after the 2026-01-01 halt
-    const priceHistory = {
-      JAKE: [
-        { timestamp: start - 60 * 60 * 1000, price: 100 },
-        { timestamp: start + 30 * 60 * 1000, price: 120, source: 'admin_adjust' },
-      ],
-    };
-    expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
+    const history = { JAKE: [before(100), inside(30, 120, 'admin_adjust')] };
+    expect(getReviewChanges(history, [{ ticker: 'JAKE' }])).toEqual({});
   });
 
-  it('excludes a trailing bump that lands after the admin adjustment', () => {
-    vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
-      JAKE: [
-        { timestamp: start - 60 * 60 * 1000, price: 100 },
-        { timestamp: start + 30 * 60 * 1000, price: 120, source: 'admin_adjust' },
-        { timestamp: start + 45 * 60 * 1000, price: 126, source: 'trailing' }, // from another stock
-      ],
-    };
-    const changes = getReviewChanges(priceHistory, [{ ticker: 'JAKE' }]);
-    expect(changes.JAKE.newPrice).toBe(120); // not 126
-    expect(changes.JAKE.percentChange).toBeCloseTo(20);
+  it('counts a knock-on move after the adjustment, and keeps it separate', () => {
+    const c = run([before(100), inside(30, 120, 'admin_adjust'), inside(45, 126, 'trailing')]);
+    expect(c.newPrice).toBe(126);
+    expect(c.percentChange).toBeCloseTo(26);
+    expect(c.directChange).toBeCloseTo(20);
+    expect(c.trailingChange).toBeCloseTo(5);
   });
 
-  it('ignores tickers that only trailed', () => {
-    vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
-      YAMA: [
-        { timestamp: start - 60 * 60 * 1000, price: 80 },
-        { timestamp: start + 30 * 60 * 1000, price: 84, source: 'trailing' },
-      ],
-    };
-    expect(getReviewChanges(priceHistory, [{ ticker: 'YAMA' }])).toEqual({});
+  it('counts a knock-on move BEFORE the adjustment too', () => {
+    // The $GAP case: dragged up by linked stocks, then adjusted by hand on top.
+    const c = run([before(100), inside(10, 104, 'trailing'), inside(20, 109.2, 'admin_adjust')]);
+    expect(c.oldPrice).toBe(100);
+    expect(c.percentChange).toBeCloseTo(9.2);
+    expect(c.trailingChange).toBeCloseTo(4);
+    expect(c.directChange).toBeCloseTo(5);
   });
 
-  it('spans from before the first adjustment to the last one', () => {
-    vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
-      JAKE: [
-        { timestamp: start - 60 * 60 * 1000, price: 100 },
-        { timestamp: start + 10 * 60 * 1000, price: 110, source: 'admin_adjust' },
-        { timestamp: start + 20 * 60 * 1000, price: 130, source: 'admin_adjust' },
-      ],
-    };
-    const changes = getReviewChanges(priceHistory, [{ ticker: 'JAKE' }]);
-    expect(changes.JAKE.oldPrice).toBe(100);
-    expect(changes.JAKE.newPrice).toBe(130);
-    expect(changes.JAKE.percentChange).toBeCloseTo(30);
+  it('reports a stock that ONLY moved by knock-on', () => {
+    const c = run([before(80), inside(30, 84, 'trailing')], 'YAMA');
+    expect(c.percentChange).toBeCloseTo(5);
+    expect(c.directChange).toBeCloseTo(0);
+    expect(c.trailingChange).toBeCloseTo(5);
+  });
+
+  it('compounds repeated adjustments into one direct change', () => {
+    const c = run([before(100), inside(10, 110, 'admin_adjust'), inside(20, 130, 'admin_adjust')]);
+    expect(c.oldPrice).toBe(100);
+    expect(c.newPrice).toBe(130);
+    expect(c.directChange).toBeCloseTo(30);
   });
 
   it('ignores an adjustment from a previous week', () => {
     vi.useFakeTimers();
-    at('2026-01-01T22:00:00Z');
-    const priceHistory = {
+    at(new Date(during).toISOString());
+    const history = {
       JAKE: [
         { timestamp: start - 7 * 24 * 60 * 60 * 1000, price: 100, source: 'admin_adjust' },
-        { timestamp: start - 60 * 60 * 1000, price: 115 },
+        before(115),
       ],
     };
-    expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
+    expect(getReviewChanges(history, [{ ticker: 'JAKE' }])).toEqual({});
+  });
+
+  it('skips a stock whose pre-review price is no longer in history', () => {
+    // Doubles as the completeness gate: without the point it started from there
+    // is nothing to measure against, and the stored server copy takes over.
+    vi.useFakeTimers();
+    at(new Date(during).toISOString());
+    const history = { JAKE: [inside(30, 120, 'admin_adjust')] };
+    expect(getReviewChanges(history, [{ ticker: 'JAKE' }])).toEqual({});
+  });
+});
+
+describe('getReviewChanges — the real $GAP tape from 2026-08-20', () => {
+  // The review that started this: $GAP was set +4.75% by hand but finished the
+  // halt up 8.71%, because $JIN, $SHNG, $FIST and (via $SHNG) $YAMA all dragged
+  // it. Players read the difference as trading during the halt. Every price here
+  // is the live one. Must stay identical to getReviewWindowChanges in
+  // functions/helpers.js, verified against the same tape.
+  const t = (iso) => Date.parse(`2026-08-20T${iso}Z`);
+  const history = {
+    GAP: [
+      { timestamp: t('11:40:23'), price: 1615.32 },
+      { timestamp: t('17:32:08'), price: 1634.71, source: 'trailing' },
+      { timestamp: t('18:12:36'), price: 1641.25, source: 'trailing' },
+      { timestamp: t('18:19:13'), price: 1670.79, source: 'trailing' },
+      { timestamp: t('18:20:11'), price: 1750.15, source: 'admin_adjust' },
+      { timestamp: t('19:34:40'), price: 1755.48, source: 'trailing' },
+      { timestamp: t('19:35:39'), price: 1755.95, source: 'trailing' },
+    ],
+  };
+
+  it('splits the 8.71% into 4.75% set and 3.78% knock-on', () => {
+    vi.useFakeTimers();
+    at('2026-08-20T20:00:00Z'); // Thursday, inside the halt
+    const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
+    expect(c.oldPrice).toBe(1615.32);
+    expect(c.newPrice).toBe(1755.95);
+    expect(c.percentChange).toBeCloseTo(8.71, 2);
+    expect(c.directChange).toBeCloseTo(4.75, 2);
+    expect(c.trailingChange).toBeCloseTo(3.78, 2);
+  });
+
+  it('has the two halves compound back to the total', () => {
+    vi.useFakeTimers();
+    at('2026-08-20T20:00:00Z');
+    const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
+    const compounded = ((1 + c.directChange / 100) * (1 + c.trailingChange / 100) - 1) * 100;
+    expect(compounded).toBeCloseTo(c.percentChange, 6);
   });
 });
 
 describe('mergeReviewChanges', () => {
-  it('takes oldPrice from the stored copy and newPrice from the local one', () => {
-    // The admin set 100 -> 110, the recap stored that, then they nudged it to
-    // 120. The whole 100 -> 120 has to read as the review's change.
-    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.0909 } };
-    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
-    expect(mergeReviewChanges(derived, stored)).toEqual({
-      JAKE: { oldPrice: 100, newPrice: 120, percentChange: 20 },
-    });
+  const local = { JAKE: { oldPrice: 100, newPrice: 130, percentChange: 30 } };
+  const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+
+  it('lets the locally derived entry win, since it is complete and fresher', () => {
+    expect(mergeReviewChanges(local, stored)).toEqual(local);
   });
 
   it('keeps a ticker only the stored copy knows about', () => {
-    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
     expect(mergeReviewChanges({}, stored)).toEqual(stored);
   });
 
   it('keeps a ticker only the local derivation knows about', () => {
-    const derived = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
-    expect(mergeReviewChanges(derived, {})).toEqual(derived);
-  });
-
-  it('drops a stock adjusted back to where it started', () => {
-    const derived = { JAKE: { oldPrice: 110, newPrice: 100, percentChange: -9.09 } };
-    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
-    expect(mergeReviewChanges(derived, stored)).toEqual({});
-  });
-
-  it('drops a ticker whose stored oldPrice is unusable', () => {
-    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.09 } };
-    const stored = { JAKE: { oldPrice: 0, newPrice: 110, percentChange: 10 } };
-    expect(mergeReviewChanges(derived, stored)).toEqual({});
+    expect(mergeReviewChanges(local, {})).toEqual(local);
   });
 
   it('handles missing sources', () => {
@@ -222,11 +234,9 @@ describe('mergeReviewChanges', () => {
   });
 
   it('does not mutate either input', () => {
-    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.09 } };
-    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
-    mergeReviewChanges(derived, stored);
-    expect(derived.JAKE.oldPrice).toBe(110);
+    mergeReviewChanges(local, stored);
     expect(stored.JAKE.newPrice).toBe(110);
+    expect(local.JAKE.newPrice).toBe(130);
   });
 });
 

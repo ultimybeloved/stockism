@@ -2,22 +2,40 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { getMostRecentHaltWindow } from '../../utils/marketHours';
 
-// Keeps market/reviewChanges — what the Review tab shows as the chapter's
-// adjustment — in step with the admin panel while a review is still in progress.
+// Keeps market/reviewChanges — what the Review tab shows for the chapter — in
+// step with the admin panel while a review is still in progress.
 //
 // The server builds that doc once, when the recap posts at 20:30 UTC. Anything
-// the admin adjusted after that landed outside it, so a second pass at the same
+// adjusted after that used to land outside it, so a second pass at the same
 // stock (the usual "that move was too small, nudge it again") was read as market
-// drift and shown as "since then" instead of as part of the adjustment. Every
-// adjustment now folds itself in: the first one for a ticker fixes oldPrice, and
-// each later one only moves newPrice, so the badge always shows the whole
-// change from where the stock started the review.
+// drift and shown as "since then" instead of as part of the review. Every
+// adjustment now folds itself in: the first move on a stock fixes oldPrice, and
+// each later one only moves newPrice.
+//
+// Direct and knock-on moves are tracked apart. Adjusting one stock drags every
+// stock linked to it, and those moves are the admin's doing but not the admin's
+// decision, so the badge has to be able to say which was which.
 //
 // Halt window only. Outside it the market is trading, and start → finish would
-// sweep real price movement into the admin's number.
+// sweep real price movement in with the admin's.
 const reviewChangesRef = () => doc(db, 'market', 'reviewChanges');
 
-export const recordReviewAdjustment = async ({ ticker, oldPrice, newPrice, at = Date.now() }) => {
+const blank = (openPrice) => ({
+  oldPrice: openPrice,
+  newPrice: openPrice,
+  percentChange: 0,
+  directChange: 0,
+  trailingChange: 0,
+});
+
+/**
+ * Fold one price adjustment, plus every knock-on move it caused, into the
+ * stored review changes.
+ *
+ *   direct   — { ticker, from, to } the admin set by hand
+ *   trailing — [{ ticker, from, to }] dragged along by it
+ */
+export const recordReviewMoves = async ({ direct, trailing = [], at = Date.now() }) => {
   const { start, end } = getMostRecentHaltWindow();
   if (at < start || at > end) return false;
 
@@ -26,19 +44,27 @@ export const recordReviewAdjustment = async ({ ticker, oldPrice, newPrice, at = 
   // A doc from a previous review is last week's news — start the window clean.
   const changes = stored.windowEnd === end ? { ...(stored.changes || {}) } : {};
 
-  // Where the stock stood before the admin's FIRST adjustment this review.
-  const basePrice = changes[ticker]?.oldPrice ?? oldPrice;
-  if (!(basePrice > 0)) return false;
+  const apply = (move, key) => {
+    if (!move || !(move.from > 0) || !(move.to > 0) || move.from === move.to) return;
+    // No entry yet means this is the stock's first move of the review, so the
+    // price it came in at is the price this move started from.
+    const entry = { ...(changes[move.ticker] || blank(move.from)) };
+    // Compound onto whichever half caused it, the same way the prices did.
+    const factor = (1 + (entry[key] || 0) / 100) * (move.to / move.from);
+    entry[key] = (factor - 1) * 100;
+    entry.newPrice = move.to;
+    entry.percentChange = entry.oldPrice > 0
+      ? ((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100
+      : 0;
+    changes[move.ticker] = entry;
+  };
 
-  if (basePrice === newPrice) {
-    // Adjusted back to where it started — nothing changed this review.
-    delete changes[ticker];
-  } else {
-    changes[ticker] = {
-      oldPrice: basePrice,
-      newPrice,
-      percentChange: ((newPrice - basePrice) / basePrice) * 100,
-    };
+  apply(direct, 'directChange');
+  for (const move of trailing) apply(move, 'trailingChange');
+
+  // A stock nudged back to exactly where it started did not change this review.
+  for (const [ticker, change] of Object.entries(changes)) {
+    if (change.oldPrice === change.newPrice) delete changes[ticker];
   }
 
   await setDoc(reviewChangesRef(), {

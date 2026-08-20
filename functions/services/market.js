@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getAdminReviewAdjustments, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat } = require('../helpers');
 const { writeReviewChanges } = require('./reviewChanges');
 
 
@@ -224,7 +224,7 @@ exports.savePreHaltPrices = cf().pubsub
  * Lists ONLY the stocks the admin physically adjusted during the review, at the
  * amount they adjusted them by. Stocks that merely trailed one of those
  * adjustments, and anything moved by a trade or a bot, are excluded — see
- * getAdminReviewAdjustments. Adjustments made after this runs are not announced.
+ * getReviewWindowChanges. Adjustments made after this runs are not announced.
  */
 exports.chapterReviewRecap = cf().pubsub
   .schedule('30 20 * * 4')
@@ -260,9 +260,22 @@ exports.chapterReviewRecap = cf().pubsub
       const histSnap = await priceHistoryRef().get();
       const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
 
-      // Only what the admin actually changed. The pre-halt snapshot is the
-      // fallback "before" for a ticker whose adjustment is its first ever point.
-      const adjustments = getAdminReviewAdjustments(priceHistory, haltStart, haltEnd, beforePrices);
+      // Everything the review moved, direct and knock-on. The pre-halt snapshot
+      // is the opening price for a ticker with no surviving earlier point.
+      const windowChanges = getReviewWindowChanges(priceHistory, haltStart, haltEnd, beforePrices);
+
+      // The recap lists the stocks that were actually adjusted, and reports the
+      // FULL move each one made — a stock set +4.75% can finish the review up 8%
+      // once the knock-on from linked stocks lands on it, and quoting the typed
+      // number made the announcement disagree with the chart. Stocks that only
+      // moved by knock-on are counted at the end rather than listed, so the
+      // recap stays about decisions and does not run past Discord's field cap.
+      const adjustments = {};
+      let knockOnOnlyCount = 0;
+      for (const [ticker, change] of Object.entries(windowChanges)) {
+        if (Math.abs(change.directChange) >= 0.01) adjustments[ticker] = change;
+        else knockOnOnlyCount++;
+      }
 
       // Build ETF ticker set from CHARACTERS
       const etfTickers = new Set(CHARACTERS.filter(c => c.isETF).map(c => c.ticker));
@@ -273,10 +286,10 @@ exports.chapterReviewRecap = cf().pubsub
       const etfMovements = [];
 
       for (const [ticker, adj] of Object.entries(adjustments)) {
-        const entry = { ticker, ...adj };
+        const entry = { ticker, before: adj.oldPrice, after: adj.newPrice, change: adj.percentChange };
         if (etfTickers.has(ticker)) {
           etfMovements.push(entry);
-        } else if (adj.change > 0) {
+        } else if (adj.percentChange > 0) {
           gainers.push(entry);
         } else {
           losers.push(entry);
@@ -365,6 +378,15 @@ exports.chapterReviewRecap = cf().pubsub
         fields.push({
           name: '🧺 ETF Movements',
           value: formatList(etfMovements.sort((a, b) => b.change - a.change)),
+          inline: false
+        });
+      }
+
+      if (knockOnOnlyCount > 0) {
+        fields.push({
+          name: '🔗 Moved On Their Own',
+          value: `${knockOnOnlyCount} stock${knockOnOnlyCount !== 1 ? 's' : ''} moved without being adjusted, `
+            + 'because a stock they follow was.',
           inline: false
         });
       }

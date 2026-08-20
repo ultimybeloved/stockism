@@ -4,7 +4,7 @@ import { db, setMarketHaltFunction } from '../../firebase';
 import { CHARACTER_MAP } from '../../characters';
 import { MIN_PRICE } from '../../constants';
 import { priceHistoryDocRef } from './adminShared';
-import { recordReviewAdjustment } from './reviewChangeTracking';
+import { recordReviewMoves } from './reviewChangeTracking';
 
 // Market tab (emergency halt) + the price adjustment modal.
 export function useAdminMarketTools({ setMessage, showMessage, setLoading, prices, marketData }) {
@@ -20,7 +20,7 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
   const marketHaltReason = marketData?.haltReason || '';
 
   // Helper function to apply trailing stock effects
-  const applyTrailingEffects = (marketUpdates, historyUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set()) => {
+  const applyTrailingEffects = (marketUpdates, historyUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set(), moves = []) => {
     if (depth > 3 || visited.has(sourceTicker)) {
       return;
     }
@@ -55,8 +55,10 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
           source: 'trailing'
         });
 
+        moves.push({ ticker: relatedTicker, from: oldRelatedPrice, to: settledRelatedPrice });
+
         // Recursively apply trailing effects with shared visited set (no cloning)
-        applyTrailingEffects(marketUpdates, historyUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited);
+        applyTrailingEffects(marketUpdates, historyUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited, moves);
       }
     });
   };
@@ -117,19 +119,20 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
 
         // Apply trailing stock effects
         console.log(`[ADMIN TRAILING START] Applying effects for ${character.ticker}: $${currentPrice} -> $${targetPrice}`);
-        applyTrailingEffects(marketUpdates, historyUpdates, character.ticker, currentPrice, targetPrice, now);
+        const trailingMoves = [];
+        applyTrailingEffects(marketUpdates, historyUpdates, character.ticker, currentPrice, targetPrice, now, 0, new Set(), trailingMoves);
         console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
 
         await updateDoc(marketRef, marketUpdates);
         await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
 
-        // Fold this into the stored chapter-review change so a follow-up nudge
-        // counts as part of the same adjustment, not as drift since it.
+        // Fold this into the stored chapter-review changes so a follow-up nudge
+        // counts as part of the same review, not as drift since it, and so the
+        // stocks this dragged along can say where their move came from.
         try {
-          await recordReviewAdjustment({
-            ticker: character.ticker,
-            oldPrice: currentPrice,
-            newPrice: targetPrice,
+          await recordReviewMoves({
+            direct: { ticker: character.ticker, from: currentPrice, to: targetPrice },
+            trailing: trailingMoves,
             at: now,
           });
         } catch (e) {

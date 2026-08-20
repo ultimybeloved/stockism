@@ -299,47 +299,63 @@ const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
   return false;
 };
 
-// Which stocks did the admin physically change during a chapter review, and by
-// how much. Reads the same 'admin_adjust' tag isPriceProtected uses, so stocks
-// that only moved by trailing ('trailing'), by a trade, or by a bot (both
-// untagged) are left out entirely.
+// What a chapter review did to each stock, split by cause.
 //
-// The reported before/after are both real prices the admin set: `before` is the
-// point immediately preceding their first adjustment, `after` is their last
-// adjustment. That strips any trailing bump a stock picked up from a DIFFERENT
-// stock's adjustment in the same session.
+// The market is halted for the whole window, so every price move inside it is
+// the admin's doing. It is just not all deliberate: adjusting one stock drags
+// every stock linked to it, and those knock-on moves land on the chart looking
+// exactly like trading. $GAP picked up 3.8% from $JIN, $SHNG and $FIST before it
+// was touched directly on 2026-08-20, on top of the 4.75% that was actually set,
+// and players read the gap as off-hours trading.
 //
-// Keep in sync with getReviewChanges in src/utils/marketHours.js.
-const getAdminReviewAdjustments = (priceHistory, start, end, fallbackPrices = {}) => {
+// Per ticker: directChange is what the admin typed into the price tool,
+// trailingChange is what linked stocks pushed onto it, percentChange is the
+// whole window (what the chart shows). A stock that only trailed is included —
+// it moved, and until now nothing anywhere said why.
+//
+// `fallbackPrices` is the pre-halt snapshot, used as the opening price for a
+// stock with no surviving point from before the window.
+//
+// Keep in sync with computeReviewChange in src/utils/marketHours.js.
+const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) => {
   const changes = {};
 
   for (const [ticker, history] of Object.entries(priceHistory || {})) {
     if (!Array.isArray(history) || history.length === 0) continue;
 
-    const inWindow = (e) => e && e.source === 'admin_adjust' &&
-      e.timestamp >= start && e.timestamp <= end;
-
-    const firstIdx = history.findIndex(inWindow);
-    if (firstIdx === -1) continue; // admin never touched this one
-
-    // Last point before the first admin adjustment — what the price was when
-    // the admin started. Falls back to the pre-halt snapshot if the adjustment
-    // is the very first point this ticker has.
-    const before = firstIdx > 0
-      ? history[firstIdx - 1].price
-      : fallbackPrices[ticker];
-
-    let after = null;
+    // The price carried into the review, plus every point the review moved it.
+    let openPrice = fallbackPrices[ticker];
+    const moves = [];
     for (const entry of history) {
-      if (inWindow(entry)) after = entry.price;
+      if (!entry || typeof entry.price !== 'number') continue;
+      if (entry.timestamp < start) { openPrice = entry.price; continue; }
+      if (entry.timestamp > end) break;
+      moves.push(entry);
     }
+    if (moves.length === 0 || !(openPrice > 0)) continue;
 
-    if (before == null || after == null || before <= 0 || before === after) continue;
+    // Each move is measured against the price right before it, so the two
+    // causes compound the same way the prices actually did.
+    let directFactor = 1;
+    let trailingFactor = 1;
+    let from = openPrice;
+    for (const entry of moves) {
+      if (from > 0) {
+        if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
+        else if (entry.source === 'trailing') trailingFactor *= entry.price / from;
+        // Anything else (the 20:56 opening auction) counts toward the total only.
+      }
+      from = entry.price;
+    }
+    if (directFactor === 1 && trailingFactor === 1) continue;
 
+    const newPrice = moves[moves.length - 1].price;
     changes[ticker] = {
-      before,
-      after,
-      change: ((after - before) / before) * 100
+      oldPrice: openPrice,
+      newPrice,
+      percentChange: ((newPrice - openPrice) / openPrice) * 100,
+      directChange: (directFactor - 1) * 100,
+      trailingChange: (trailingFactor - 1) * 100,
     };
   }
 
@@ -1181,7 +1197,7 @@ module.exports = {
   priceHistoryRef,
   appendPriceHistory,
   isPriceProtected,
-  getAdminReviewAdjustments,
+  getReviewWindowChanges,
   getAccountAgeImpactFactor,
   getLadderDepositFactor,
   getLadderRampEndDate,
