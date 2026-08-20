@@ -121,6 +121,47 @@ export const getReviewChanges = (priceHistory, characters) => {
 };
 
 /**
+ * Combine the stored review changes (market/reviewChanges) with the ones derived
+ * locally from price history. Each is authoritative for one end of the change:
+ *
+ *   oldPrice — the stored copy, built server-side while the price history still
+ *     covered the window. The live history keeps a limited number of points per
+ *     ticker, so an actively traded stock loses its pre-adjustment price fast.
+ *   newPrice — the local derivation, which sees the admin's newest adjustment
+ *     immediately. The stored copy is only rewritten when one is made, so an
+ *     already-open page can be a step behind.
+ *
+ * Taking one end from each keeps a follow-up nudge inside the review total
+ * instead of leaving it to read as drift since the review. A ticker only one
+ * source knows about is carried through as that source has it.
+ */
+export const mergeReviewChanges = (derived, stored) => {
+  const merged = { ...(derived || {}) };
+
+  for (const [ticker, s] of Object.entries(stored || {})) {
+    const local = merged[ticker];
+    if (!local) {
+      merged[ticker] = s;
+      continue;
+    }
+    const oldPrice = s.oldPrice;
+    const newPrice = local.newPrice;
+    // Adjusted straight back to where it started — no change to show.
+    if (!(oldPrice > 0) || oldPrice === newPrice) {
+      delete merged[ticker];
+      continue;
+    }
+    merged[ticker] = {
+      oldPrice,
+      newPrice,
+      percentChange: ((newPrice - oldPrice) / oldPrice) * 100,
+    };
+  }
+
+  return merged;
+};
+
+/**
  * Next weekly market open (Thursday 21:00 UTC).
  * If it's Thursday before 21:00 UTC, that's today; otherwise the coming Thursday.
  */

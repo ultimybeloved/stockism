@@ -8,7 +8,7 @@ import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constant
 // tab switcher and the sort logic agree on what to clear when you leave.
 export const REVIEW_SORTS = ['review-change', 'review-since'];
 import { getCurrentPrice } from '../utils/calculations';
-import { getReviewChanges, getMostRecentHaltWindow, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
+import { getReviewChanges, getMostRecentHaltWindow, mergeReviewChanges, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
 import { get24hChange, getTradeActivity } from '../utils/marketStats';
 
 // All state + filtering/sorting for browsing the market grid on the home page:
@@ -25,21 +25,15 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
 
   // What the admin changed in the last chapter review.
   //
-  // The stored copy (market/reviewChanges) is authoritative: the server built it
-  // during the review, while the price history still covered the whole window.
-  // Deriving it here can only see the live history, which keeps a limited number
-  // of points per ticker — an actively traded stock loses its pre-adjustment
-  // price within a day and silently drops off the tab.
-  //
-  // The local derivation still runs and fills any gaps, so an adjustment made
-  // after the recap posted still shows up.
+  // Stored server-side copy plus the locally derived one — see
+  // mergeReviewChanges for which half each is trusted for.
   const reviewChanges = useMemo(() => {
     const derived = getReviewChanges(priceHistory, CHARACTERS);
     const { end } = getMostRecentHaltWindow();
     const storedIsCurrent = storedReviewChanges?.windowEnd === end
       && Date.now() - end <= REVIEW_MAX_AGE_MS;
     if (!storedIsCurrent) return derived;
-    return { ...derived, ...(storedReviewChanges.changes || {}) };
+    return mergeReviewChanges(derived, storedReviewChanges.changes);
   }, [priceHistory, storedReviewChanges]);
 
   // Build crew membership lookup for crew filter

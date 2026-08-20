@@ -6,6 +6,7 @@ import {
   isPreMarketLockout,
   getMostRecentHaltWindow,
   getReviewChanges,
+  mergeReviewChanges,
   formatCountdown,
 } from './marketHours';
 
@@ -179,6 +180,53 @@ describe('getReviewChanges', () => {
       ],
     };
     expect(getReviewChanges(priceHistory, [{ ticker: 'JAKE' }])).toEqual({});
+  });
+});
+
+describe('mergeReviewChanges', () => {
+  it('takes oldPrice from the stored copy and newPrice from the local one', () => {
+    // The admin set 100 -> 110, the recap stored that, then they nudged it to
+    // 120. The whole 100 -> 120 has to read as the review's change.
+    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.0909 } };
+    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+    expect(mergeReviewChanges(derived, stored)).toEqual({
+      JAKE: { oldPrice: 100, newPrice: 120, percentChange: 20 },
+    });
+  });
+
+  it('keeps a ticker only the stored copy knows about', () => {
+    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+    expect(mergeReviewChanges({}, stored)).toEqual(stored);
+  });
+
+  it('keeps a ticker only the local derivation knows about', () => {
+    const derived = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+    expect(mergeReviewChanges(derived, {})).toEqual(derived);
+  });
+
+  it('drops a stock adjusted back to where it started', () => {
+    const derived = { JAKE: { oldPrice: 110, newPrice: 100, percentChange: -9.09 } };
+    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+    expect(mergeReviewChanges(derived, stored)).toEqual({});
+  });
+
+  it('drops a ticker whose stored oldPrice is unusable', () => {
+    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.09 } };
+    const stored = { JAKE: { oldPrice: 0, newPrice: 110, percentChange: 10 } };
+    expect(mergeReviewChanges(derived, stored)).toEqual({});
+  });
+
+  it('handles missing sources', () => {
+    expect(mergeReviewChanges(null, null)).toEqual({});
+    expect(mergeReviewChanges(undefined, undefined)).toEqual({});
+  });
+
+  it('does not mutate either input', () => {
+    const derived = { JAKE: { oldPrice: 110, newPrice: 120, percentChange: 9.09 } };
+    const stored = { JAKE: { oldPrice: 100, newPrice: 110, percentChange: 10 } };
+    mergeReviewChanges(derived, stored);
+    expect(derived.JAKE.oldPrice).toBe(110);
+    expect(stored.JAKE.newPrice).toBe(110);
   });
 });
 

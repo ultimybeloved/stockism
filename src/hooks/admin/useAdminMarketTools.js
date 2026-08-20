@@ -4,6 +4,7 @@ import { db, setMarketHaltFunction } from '../../firebase';
 import { CHARACTER_MAP } from '../../characters';
 import { MIN_PRICE } from '../../constants';
 import { priceHistoryDocRef } from './adminShared';
+import { recordReviewAdjustment } from './reviewChangeTracking';
 
 // Market tab (emergency halt) + the price adjustment modal.
 export function useAdminMarketTools({ setMessage, showMessage, setLoading, prices, marketData }) {
@@ -121,6 +122,19 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
 
         await updateDoc(marketRef, marketUpdates);
         await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
+
+        // Fold this into the stored chapter-review change so a follow-up nudge
+        // counts as part of the same adjustment, not as drift since it.
+        try {
+          await recordReviewAdjustment({
+            ticker: character.ticker,
+            oldPrice: currentPrice,
+            newPrice: targetPrice,
+            at: now,
+          });
+        } catch (e) {
+          console.error('Failed to update stored review changes:', e);
+        }
       }
 
       const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
