@@ -210,6 +210,14 @@ export const CHARACTERS = [
   // New characters added 2026-08-06
   { name: "Gibok Jang", ticker: "YH", basePrice: 45, dateAdded: "2026-08-06T00:00:00", generation: "pre" },
 
+  // New characters added 2026-08-20
+  { name: "Mr. Han", ticker: "SUIT", basePrice: 35, dateAdded: "2026-08-20T00:00:00", generation: "pre" },
+  { name: "Beom Jo", ticker: "DOGH", basePrice: 20, dateAdded: "2026-08-20T00:01:00", generation: "pre" },
+  { name: "Dongchil Jeong", ticker: "TOAD", basePrice: 20, dateAdded: "2026-08-20T00:02:00", generation: "pre" },
+  { name: "Childu Park", ticker: "GW", basePrice: 40, dateAdded: "2026-08-20T00:03:00", generation: "pre" },
+  { name: "Yongju Choi", ticker: "OGCH", basePrice: 40, dateAdded: "2026-08-20T00:04:00", generation: "pre" },
+  { name: "Yeongbeom Seok", ticker: "GYNG", basePrice: 40, dateAdded: "2026-08-20T00:05:00", generation: "pre" },
+
   // Characters that launched via IPO. `ipoRequired: true` gates a character out
   // of trading until an admin launches it; every gate reads it as
   // `ipoRequired && !launchedTickers.includes(ticker)`, so the flag stops doing
@@ -222,6 +230,7 @@ export const CHARACTERS = [
   { name: "Bangho Lee", ticker: "MONO", basePrice: 80, dateAdded: "2026-06-04T00:04:00", generation: "pre" },
   { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre" },
   { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", generation: "pre" },
+  { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -249,16 +258,18 @@ export const CHARACTERS = [
   {
     name: "Fist Gang Fund", ticker: "FIST", basePrice: 100.5, dateAdded: "2026-02-20T00:02:00",
     isETF: true, description: "Fist Gang ETF",
-    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON", "EUNH", "MNSK"],
+    constituents: ["GAP", "ELIT", "JYNG", "TOM", "KWON", "DNCE", "GNTL", "MMA", "LIAR", "NOH", "TAXI", "HANT", "GWON", "EUNH", "MNSK", "SUIT", "DOGH", "TOAD", "POLR"],
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.053 }, { ticker: "ELIT", coefficient: 0.053 },
-      { ticker: "JYNG", coefficient: 0.053 }, { ticker: "TOM", coefficient: 0.053 },
-      { ticker: "KWON", coefficient: 0.053 }, { ticker: "DNCE", coefficient: 0.053 },
-      { ticker: "GNTL", coefficient: 0.053 }, { ticker: "MMA", coefficient: 0.053 },
-      { ticker: "LIAR", coefficient: 0.053 }, { ticker: "NOH", coefficient: 0.053 },
-      { ticker: "TAXI", coefficient: 0.053 }, { ticker: "HANT", coefficient: 0.053 },
-      { ticker: "GWON", coefficient: 0.053 }, { ticker: "EUNH", coefficient: 0.053 },
-      { ticker: "MNSK", coefficient: 0.053 }
+      { ticker: "GAP", coefficient: 0.042 }, { ticker: "ELIT", coefficient: 0.042 },
+      { ticker: "JYNG", coefficient: 0.042 }, { ticker: "TOM", coefficient: 0.042 },
+      { ticker: "KWON", coefficient: 0.042 }, { ticker: "DNCE", coefficient: 0.042 },
+      { ticker: "GNTL", coefficient: 0.042 }, { ticker: "MMA", coefficient: 0.042 },
+      { ticker: "LIAR", coefficient: 0.042 }, { ticker: "NOH", coefficient: 0.042 },
+      { ticker: "TAXI", coefficient: 0.042 }, { ticker: "HANT", coefficient: 0.042 },
+      { ticker: "GWON", coefficient: 0.042 }, { ticker: "EUNH", coefficient: 0.042 },
+      { ticker: "MNSK", coefficient: 0.042 }, { ticker: "SUIT", coefficient: 0.042 },
+      { ticker: "DOGH", coefficient: 0.042 }, { ticker: "TOAD", coefficient: 0.042 },
+      { ticker: "POLR", coefficient: 0.042 }
     ]
   },
   {

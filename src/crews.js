@@ -25,7 +25,7 @@ export const CREWS = {
     color: '#a91a2c',
     emblem: '👊',
     icon: '/crews/fist gang.png',
-    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH', 'TAXI', 'HANT', 'GWON', 'MNSK', 'EUNH']
+    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH', 'TAXI', 'HANT', 'GWON', 'MNSK', 'EUNH', 'SUIT', 'DOGH', 'TOAD', 'POLR']
   },
   GOD_DOG: {
     id: 'GOD_DOG',
