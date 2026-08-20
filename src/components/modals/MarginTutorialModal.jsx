@@ -87,7 +87,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`flex gap-2 text-sm ${textClass}`}>
                   <span className="text-red-500 shrink-0 font-bold">−</span>
-                  <span>Interest charges 0.5% per day on whatever you've borrowed</span>
+                  <span>0.5% per day is added to what you owe. It is not taken from your cash, so it grows quietly.</span>
                 </div>
               </div>
               <div className={`p-3 rounded-sm border ${darkMode ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'}`}>
@@ -186,12 +186,13 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <p className={`text-sm ${mutedClass}`}>Know these numbers before you trade with margin.</p>
               <div className="space-y-2">
                 {[
-                  ['Margin interest rate', '0.5% per day on borrowed amount'],
-                  ['Margin call threshold', '25% equity ratio. Below this, auto-liquidation triggers.'],
+                  ['Margin interest rate', '0.5% per day, added to your debt'],
+                  ['Margin call', '30% equity ratio. You get a warning here.'],
+                  ['Auto-liquidation', '25% equity ratio. Everything you hold is sold at a 5% discount.'],
                   ['Max short exposure', '100% of your portfolio value (1:1 cap)'],
-                  ['Grace period', '21:00 to 21:30 UTC Thursday. No liquidations during this window.'],
-                  ['Liquidation check', 'Every 5 minutes outside the grace period'],
-                  ['After margin call', 'Your cash can go negative. This means bankruptcy.'],
+                  ['Liquidation check', 'Every 30 minutes'],
+                  ['Short liquidation pause', '21:00 to 21:30 UTC Thursday, shorts only'],
+                  ['After liquidation', 'If the sale does not cover your debt, your cash goes negative and you are bankrupt.'],
                 ].map(([label, value]) => (
                   <div key={label} className={`p-3 rounded-sm flex justify-between gap-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                     <span className={`text-sm font-semibold ${textClass} shrink-0`}>{label}</span>

@@ -30,9 +30,18 @@ export const aggregateMarketStats = (snapshot, prices) => {
   let bets24h = 0;
   const tickerVolume24h = {}; // Volume per ticker
   
-  // Holdings by character
+  // Holdings by character. Two tallies on purpose: holdingsByTicker counts
+  // every account (bot shares are real and belong in market cap), while the
+  // player maps below skip bots so the "most held" board reflects what players
+  // own rather than what the bot trader happened to buy.
   const holdingsByTicker = {};
-  CHARACTERS.forEach(c => { holdingsByTicker[c.ticker] = 0; });
+  const playerSharesByTicker = {};
+  const playerHoldersByTicker = {};
+  CHARACTERS.forEach(c => {
+    holdingsByTicker[c.ticker] = 0;
+    playerSharesByTicker[c.ticker] = 0;
+    playerHoldersByTicker[c.ticker] = 0;
+  });
   
   // Crew membership counts
   const crewCounts = {};
@@ -59,6 +68,10 @@ export const aggregateMarketStats = (snapshot, prices) => {
         totalSharesHeld += shares;
         if (holdingsByTicker[ticker] !== undefined) {
           holdingsByTicker[ticker] += shares;
+          if (!data.isBot) {
+            playerSharesByTicker[ticker] += shares;
+            playerHoldersByTicker[ticker] += 1;
+          }
         }
       }
     });
@@ -129,11 +142,13 @@ export const aggregateMarketStats = (snapshot, prices) => {
     totalMarketCap += price * sharesHeld;
   });
   
-  // Top 5 most held characters
-  const topHeld = Object.entries(holdingsByTicker)
+  // Top 5 most held characters, players only. Ranked by share count, with the
+  // number of holders alongside: "most held" can mean either, and the two give
+  // different answers (one whale outweighs fifty small positions).
+  const topHeld = Object.entries(playerSharesByTicker)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([ticker, shares]) => ({ ticker, shares }));
+    .map(([ticker, shares]) => ({ ticker, shares, holders: playerHoldersByTicker[ticker] }));
   
   // Top gainers/losers (comparing to base price)
   const priceChanges = CHARACTERS.map(c => {

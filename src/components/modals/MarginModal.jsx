@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import {
-  MARGIN_INTEREST_RATE,
-  MARGIN_CALL_GRACE_PERIOD
-} from '../../constants';
+import { MARGIN_INTEREST_RATE } from '../../constants';
 import MarginStatusBars from './margin/MarginStatusBars';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -115,7 +112,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   <li>• <span className="text-amber-500">Tiers:</span> Bronze (0.25x), Silver (0.35x), Gold (0.50x), Platinum (0.75x)</li>
                   <li>• Tier based on <span className="text-orange-500">peak portfolio achievement</span> (&lt;$7.5k, $7.5k-$15k, $15k-$30k, $30k+)</li>
                   <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
-                  <li>• Pay <span className="text-amber-500">0.5% daily interest</span> on borrowed amount (margin debt)</li>
+                  <li>• <span className="text-amber-500">0.5% daily interest</span> is added to your debt, not taken from your cash</li>
                   <li>• Sale proceeds <span className="text-orange-500">become cash</span> directly</li>
                   <li>• Keep equity <span className="text-orange-500">above 30%</span> or face margin call</li>
                   <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to or below 25%</li>
@@ -215,11 +212,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                     Deposit funds or sell positions to bring your equity above 30%.
                     Auto-liquidation occurs at 25% equity.
                   </p>
-                  {marginStatus.marginCallAt && (
-                    <p className="text-xs text-orange-400 mt-1">
-                      Grace period ends: {new Date(marginStatus.marginCallAt + MARGIN_CALL_GRACE_PERIOD).toLocaleString()}
-                    </p>
-                  )}
+                  <p className="text-xs text-orange-400 mt-1">
+                    There is no deadline. Nothing is sold while you stay above 25%.
+                  </p>
                 </div>
               )}
 
@@ -279,8 +274,8 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                 <p className={`text-xs ${mutedClass}`}>
                   {marginStatus.marginUsed > 0 ? (
                     <>
-                      You're paying <span className="text-amber-500">{formatCurrency(marginStatus.marginUsed * MARGIN_INTEREST_RATE)}/day</span> in interest
-                      ({(MARGIN_INTEREST_RATE * 100).toFixed(1)}% of {formatCurrency(marginStatus.marginUsed)})
+                      <span className="text-amber-500">{formatCurrency(marginStatus.marginUsed * MARGIN_INTEREST_RATE)}/day</span> is added to your debt
+                      ({(MARGIN_INTEREST_RATE * 100).toFixed(1)}% of {formatCurrency(marginStatus.marginUsed)}). It is not taken from your cash.
                     </>
                   ) : (
                     <>No interest charged when not using margin</>

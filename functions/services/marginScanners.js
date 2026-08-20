@@ -20,7 +20,7 @@ const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const {
-  isWeeklyTradingHalt, TWENTY_FOUR_HOURS_MS,
+  isWeeklyTradingHalt,
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
@@ -41,6 +41,15 @@ const depositedMargin = (position, costBasis) => {
     : LEGACY_SHORT_MARGIN_RATIO;
   return costBasis * position.shares * ratio;
 };
+
+// Formatting for the player-facing notifications below. The thresholds are
+// interpolated rather than typed out so the message can never drift from the
+// number the scanner actually enforces.
+const money = (n) => `$${(Number(n) || 0).toLocaleString('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})}`;
+const pct = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
 
 
 /**
@@ -342,8 +351,6 @@ exports.checkMarginLending = cf().pubsub
       let marginCallCount = 0;
       let checkedCount = 0;
 
-      const MARGIN_CALL_GRACE_PERIOD = TWENTY_FOUR_HOURS_MS;
-
       for (const userDoc of usersSnap.docs) {
         const userData = userDoc.data();
         const marginUsed = userData.marginUsed || 0;
@@ -370,10 +377,10 @@ exports.checkMarginLending = cf().pubsub
         if (equityRatio <= LONG_MARGIN_LIQUIDATION_THRESHOLD) {
           // AUTO-LIQUIDATION
           try {
-            // Reports whether it actually liquidated: the guards below can decide
-            // this user is fine, and a skipped user must not be counted or
-            // announced as liquidated.
-            const didLiquidate = await db.runTransaction(async (transaction) => {
+            // Returns the liquidation details, or null: the guards below can
+            // decide this user is fine, and a skipped user must not be counted,
+            // announced, or notified.
+            const liquidation = await db.runTransaction(async (transaction) => {
               // Re-read the market as well as the user. `prices` above was read
               // once before this loop started, and every trade on the site moves
               // a price — without this, a portfolio that recovered while the scan
@@ -384,11 +391,11 @@ exports.checkMarginLending = cf().pubsub
                 transaction.get(db.collection('users').doc(userDoc.id)),
                 transaction.get(marketRef),
               ]);
-              if (!freshUserDoc.exists || !freshMarketDoc.exists) return false;
+              if (!freshUserDoc.exists || !freshMarketDoc.exists) return null;
 
               const freshData = freshUserDoc.data();
               const freshMarginUsed = freshData.marginUsed || 0;
-              if (freshMarginUsed <= 0) return false;
+              if (freshMarginUsed <= 0) return null;
 
               const freshHoldings = freshData.holdings || {};
               const freshPrices = freshMarketDoc.data().prices || {};
@@ -405,7 +412,7 @@ exports.checkMarginLending = cf().pubsub
                 : 0;
               if (freshRatio > LONG_MARGIN_LIQUIDATION_THRESHOLD) {
                 console.log(`Skipping ${userDoc.id}: recovered to ${(freshRatio * 100).toFixed(1)}% equity before liquidation ran`);
-                return false;
+                return null;
               }
 
               let totalRecovered = 0;
@@ -452,11 +459,31 @@ exports.checkMarginLending = cf().pubsub
               });
 
               console.log(`Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`);
-              return true;
+              // The numbers travel back out so the player can be told what
+              // happened to their account. Notifications cannot be written
+              // inside a transaction, so they are sent by the caller.
+              return {
+                recovered: totalRecovered,
+                debt: freshMarginUsed,
+                finalCash,
+                bankrupt: finalCash < 0,
+              };
             });
 
-            if (didLiquidate) {
+            if (liquidation) {
               liquidatedCount++;
+
+              // Tell the player. Their entire portfolio was just sold and until
+              // now the only announcement was a Discord message that does not
+              // name them, so they found out by noticing it was gone.
+              await writeNotification(userDoc.id, {
+                type: 'margin',
+                title: 'Margin Liquidation',
+                message: liquidation.bankrupt
+                  ? `Your equity fell to ${pct(LONG_MARGIN_LIQUIDATION_THRESHOLD)}, so everything you held was sold at a ${pct(MARGIN_LIQUIDATION_SLIPPAGE)} discount to clear your ${money(liquidation.debt)} margin debt. It did not cover the debt, so your cash is ${money(liquidation.finalCash)} and your account is bankrupt.`
+                  : `Your equity fell to ${pct(LONG_MARGIN_LIQUIDATION_THRESHOLD)}, so everything you held was sold at a ${pct(MARGIN_LIQUIDATION_SLIPPAGE)} discount to clear your ${money(liquidation.debt)} margin debt. You have ${money(liquidation.finalCash)} in cash left and margin is switched off.`,
+                data: { debt: liquidation.debt, finalCash: liquidation.finalCash },
+              });
 
               // Send Discord alert
               try {
@@ -474,18 +501,27 @@ exports.checkMarginLending = cf().pubsub
           }
 
         } else if (equityRatio <= LONG_MARGIN_CALL_THRESHOLD) {
-          // MARGIN CALL
-          const marginCallAt = userData.marginCallAt || 0;
-
-          if (!marginCallAt) {
-            // First margin call - set grace period
+          // MARGIN CALL. A warning only: nothing is sold in this band, and
+          // liquidation is driven purely by the 25% test above. There used to be
+          // a 24-hour "grace period" here that expired into a log line and
+          // nothing else, while the margin screen counted down to that deadline
+          // as if it did something. The countdown is gone and the warning now
+          // actually reaches the player.
+          //
+          // marginCallAt stays as the already-warned flag so this fires once per
+          // episode rather than every 30 minutes. It is cleared on recovery
+          // below, so crossing the line again warns again.
+          if (!userData.marginCallAt) {
             await db.collection('users').doc(userDoc.id).update({
               marginCallAt: now
             });
             marginCallCount++;
-          } else if (now >= marginCallAt + MARGIN_CALL_GRACE_PERIOD) {
-            // Grace period expired - will liquidate on next check (equity will still be low)
-            console.log(`Grace period expired for ${userDoc.id}, will liquidate on next cycle`);
+            await writeNotification(userDoc.id, {
+              type: 'margin',
+              title: 'Margin Call',
+              message: `Your equity has dropped to ${pct(equityRatio)}. If it reaches ${pct(LONG_MARGIN_LIQUIDATION_THRESHOLD)}, everything you hold is sold automatically at a ${pct(MARGIN_LIQUIDATION_SLIPPAGE)} discount to clear your ${money(marginUsed)} margin debt. Repay some of the debt or sell something yourself to get back above ${pct(LONG_MARGIN_CALL_THRESHOLD)}.`,
+              data: { equityRatio, marginUsed },
+            });
           }
 
         } else if (userData.marginCallAt) {

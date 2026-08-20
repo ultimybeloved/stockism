@@ -82,7 +82,6 @@ export const MARGIN_WARNING_THRESHOLD = 0.65; // Display warning at 65% equity r
 export const MARGIN_DANGER_THRESHOLD = 0.40; // Display danger zone at 40% equity ratio
 export const MARGIN_CALL_THRESHOLD = 0.30; // Matches backend threshold — actual margin call fires here
 export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Matches backend threshold — liquidation fires here
-export const MARGIN_CALL_GRACE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours to resolve margin call
 export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
 
 // Anti-manipulation protections

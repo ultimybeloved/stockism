@@ -205,7 +205,8 @@ const StatsTab = ({
 
           {/* Top Held Characters */}
           <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-            <h3 className={`font-semibold mb-3 ${textClass}`}>🏆 Most Held Characters</h3>
+            <h3 className={`font-semibold ${textClass}`}>🏆 Most Held Characters</h3>
+            <p className={`text-xs mb-3 ${mutedClass}`}>Real players only, bots excluded</p>
             <div className="space-y-2">
               {marketStats.topHeld.map((item, i) => {
                 const char = CHARACTERS.find(c => c.ticker === item.ticker);
@@ -214,7 +215,10 @@ const StatsTab = ({
                     <span className={textClass}>
                       <span className={mutedClass}>{i + 1}.</span> {char?.name || item.ticker} <span className={mutedClass}>(${item.ticker})</span>
                     </span>
-                    <span className="font-bold text-cyan-500">{item.shares.toLocaleString()} shares</span>
+                    <span className="text-right">
+                      <span className="font-bold text-cyan-500">{item.shares.toLocaleString()} shares</span>
+                      <span className={`block text-xs ${mutedClass}`}>held by {item.holders.toLocaleString()} {item.holders === 1 ? 'player' : 'players'}</span>
+                    </span>
                   </div>
                 );
               })}
