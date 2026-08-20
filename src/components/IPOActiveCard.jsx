@@ -10,6 +10,9 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const colorBlindMode = userData?.colorBlindMode || false;
   const isGuest = !user;
   const [quantity, setQuantity] = useState(1);
+  // The buy goes through a Cloud Function, which is not instant. Without this
+  // the button looked inert the whole time and people clicked it again.
+  const [buyState, setBuyState] = useState('idle'); // 'idle' | 'buying' | 'bought'
   const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 
   const character = CHARACTER_MAP[ipo.ticker];
@@ -24,6 +27,21 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const qtyNum = quantity === '' ? 0 : quantity;
   const totalCost = qtyNum * ipo.basePrice;
   const canAfford = (userData?.cash || 0) >= totalCost;
+
+  const buying = buyState === 'buying';
+
+  const handleBuy = async () => {
+    if (buying) return;
+    setBuyState('buying');
+    try {
+      const bought = await onBuyIPO(ipo.ticker, qtyNum);
+      setBuyState(bought ? 'bought' : 'idle');
+      // Long enough to read, short enough to buy again before the IPO closes.
+      if (bought) setTimeout(() => setBuyState('idle'), 2500);
+    } catch {
+      setBuyState('idle');
+    }
+  };
 
   const soldOut = sharesRemaining <= 0;
   const userMaxedOut = userIPOPurchases >= ipoMaxPerUser;
@@ -130,11 +148,21 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
           </p>
 
           <button
-            onClick={() => onBuyIPO(ipo.ticker, qtyNum)}
-            disabled={!canAfford || qtyNum < 1 || qtyNum > maxCanBuy}
-            className={`w-full py-2 text-sm font-bold uppercase ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+            onClick={handleBuy}
+            disabled={buying || buyState === 'bought' || !canAfford || qtyNum < 1 || qtyNum > maxCanBuy}
+            className={`w-full py-2 text-sm font-bold uppercase text-white rounded-sm transition-colors disabled:cursor-not-allowed ${
+              buyState === 'bought'
+                ? `${colorBlindMode ? 'bg-teal-700' : 'bg-emerald-700'} disabled:opacity-100`
+                : `${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'} disabled:opacity-50`
+            }`}
           >
-            {!canAfford ? 'Insufficient Funds' : `Buy ${qtyNum} Share${qtyNum > 1 ? 's' : ''}`}
+            {buying ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Buying...
+              </span>
+            ) : buyState === 'bought' ? '✓ Bought' : !canAfford ? 'Insufficient Funds'
+              : `Buy ${qtyNum} Share${qtyNum > 1 ? 's' : ''}`}
           </button>
         </div>
       )}
