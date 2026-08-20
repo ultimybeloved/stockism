@@ -47,11 +47,35 @@ const loadHistory = async ({ includeArchive }) => {
 };
 
 /**
+ * Put a collapsed review's detail back, just for measuring.
+ *
+ * Once a review is collapsed the chart keeps ONE point per stock and the
+ * step-by-step detail moves to market/reviewDetail. Nothing is lost, but a
+ * rebuild reading only the live history would find a single point it cannot
+ * split and would drop the stock from the tab entirely — 20 of 39 stocks on
+ * 2026-08-20. So the stash is spliced back in here. The chart is untouched;
+ * this copy only ever exists in memory for the length of the rebuild.
+ */
+const withCollapsedDetail = async (history, haltEnd) => {
+  const snap = await db.collection('market').doc('reviewDetail').get();
+  const stash = snap.exists ? snap.data() : null;
+  if (!stash || stash.windowEnd !== haltEnd) return history;
+
+  const restored = { ...history };
+  for (const [ticker, points] of Object.entries(stash.detail || {})) {
+    if (!Array.isArray(points) || points.length === 0) continue;
+    const withoutPlaceholder = (restored[ticker] || []).filter((p) => !p?.collapsed);
+    restored[ticker] = [...withoutPlaceholder, ...points].sort((a, b) => a.timestamp - b.timestamp);
+  }
+  return restored;
+};
+
+/**
  * Compute the review changes for one halt window and store them.
  * Returns the stored payload.
  */
 const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, includeArchive = false }) => {
-  const priceHistory = await loadHistory({ includeArchive });
+  const priceHistory = await withCollapsedDetail(await loadHistory({ includeArchive }), haltEnd);
   // The review stops at the pre-market lock. The opening auction settles at
   // 20:56, still inside the halt, and those are real fills at real demand — not
   // something the chapter review did.

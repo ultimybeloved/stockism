@@ -1,0 +1,451 @@
+{
+  "windowStart": 1787230800000,
+  "windowEnd": 1787259600000,
+  "detail": {
+    "EUNH": [
+      {
+        "timestamp": 1787250081325,
+        "price": 51.62,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 51.78,
+        "source": "trailing"
+      }
+    ],
+    "GWON": [
+      {
+        "timestamp": 1787249826122,
+        "price": 15.58,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 15.63,
+        "source": "trailing"
+      }
+    ],
+    "TAXI": [
+      {
+        "timestamp": 1787249876147,
+        "price": 17.6,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 17.65,
+        "source": "trailing"
+      }
+    ],
+    "HANT": [
+      {
+        "timestamp": 1787249834773,
+        "price": 15.47,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 15.52,
+        "source": "trailing"
+      }
+    ],
+    "MMA": [
+      {
+        "timestamp": 1787249771057,
+        "price": 18.49,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 18.55,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254533348,
+        "price": 18.61,
+        "source": "trailing"
+      }
+    ],
+    "NOH": [
+      {
+        "timestamp": 1787249787502,
+        "price": 13.33,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 13.37,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254533348,
+        "price": 13.41,
+        "source": "trailing"
+      }
+    ],
+    "LIAR": [
+      {
+        "timestamp": 1787249780407,
+        "price": 16.09,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 16.14,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254533348,
+        "price": 16.19,
+        "source": "trailing"
+      }
+    ],
+    "KWON": [
+      {
+        "price": 114.02,
+        "timestamp": 1787249695666,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787250177482,
+        "price": 114.59,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 114.94,
+        "source": "trailing"
+      }
+    ],
+    "ELIT": [
+      {
+        "timestamp": 1787250235735,
+        "price": 217.76,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 218.42,
+        "source": "trailing"
+      }
+    ],
+    "JYNG": [
+      {
+        "timestamp": 1787250246036,
+        "price": 256.31,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 257.09,
+        "source": "trailing"
+      }
+    ],
+    "TOM": [
+      {
+        "timestamp": 1787250298127,
+        "price": 399.56,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 400.78,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254533348,
+        "price": 401.98,
+        "source": "trailing"
+      }
+    ],
+    "GNTL": [
+      {
+        "timestamp": 1787249740360,
+        "price": 94,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 94.29,
+        "source": "trailing"
+      }
+    ],
+    "MNSK": [
+      {
+        "timestamp": 1787249882957,
+        "price": 10.76,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 10.79,
+        "source": "trailing"
+      }
+    ],
+    "DNCE": [
+      {
+        "timestamp": 1787249761601,
+        "price": 48,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 48.15,
+        "source": "trailing"
+      }
+    ],
+    "JAKE": [
+      {
+        "timestamp": 1787247128158,
+        "price": 232.02,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249556812,
+        "price": 232.21,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249953470,
+        "price": 233.05,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787250011751,
+        "price": 235.26,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 235.4,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254539383,
+        "price": 235.41,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257162320,
+        "price": 234,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 233.81,
+        "source": "trailing"
+      }
+    ],
+    "GAP": [
+      {
+        "price": 1634.71,
+        "timestamp": 1787247128158,
+        "source": "trailing"
+      },
+      {
+        "source": "trailing",
+        "price": 1641.25,
+        "timestamp": 1787249556812
+      },
+      {
+        "price": 1670.79,
+        "source": "trailing",
+        "timestamp": 1787249953470
+      },
+      {
+        "timestamp": 1787250011751,
+        "price": 1750.15,
+        "source": "admin_adjust"
+      },
+      {
+        "source": "trailing",
+        "price": 1755.48,
+        "timestamp": 1787254480575
+      },
+      {
+        "price": 1755.95,
+        "timestamp": 1787254539383,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257162320,
+        "price": 1703.27,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 1696.46,
+        "source": "trailing"
+      }
+    ],
+    "SHNG": [
+      {
+        "source": "trailing",
+        "price": 1365.52,
+        "timestamp": 1787247128158
+      },
+      {
+        "source": "trailing",
+        "timestamp": 1787249556812,
+        "price": 1367.71
+      },
+      {
+        "timestamp": 1787249953470,
+        "price": 1429.26,
+        "source": "admin_adjust"
+      },
+      {
+        "source": "trailing",
+        "price": 1456.42,
+        "timestamp": 1787250011751
+      },
+      {
+        "source": "trailing",
+        "timestamp": 1787254480575,
+        "price": 1458.19
+      },
+      {
+        "source": "trailing",
+        "timestamp": 1787254539383,
+        "price": 1459.17
+      },
+      {
+        "source": "trailing",
+        "price": 1441.66,
+        "timestamp": 1787257162320
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 1427.24,
+        "source": "admin_adjust"
+      }
+    ],
+    "VIN": [
+      {
+        "timestamp": 1787247128158,
+        "price": 127.06,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249556812,
+        "price": 127.44,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249953470,
+        "price": 127.72,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787250011751,
+        "price": 128.01,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 128.03,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254539383,
+        "price": 128.03,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257162320,
+        "price": 127.85,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 127.79,
+        "source": "trailing"
+      }
+    ],
+    "JIN": [
+      {
+        "source": "admin_adjust",
+        "price": 391.64,
+        "timestamp": 1787247128158
+      },
+      {
+        "timestamp": 1787249556812,
+        "price": 395.56,
+        "source": "admin_adjust"
+      },
+      {
+        "timestamp": 1787249953470,
+        "price": 398.41,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787250011751,
+        "price": 401.44,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 401.64,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254539383,
+        "price": 401.68,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257162320,
+        "price": 399.75,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 399.11,
+        "source": "trailing"
+      }
+    ],
+    "KTAE": [
+      {
+        "timestamp": 1787247128158,
+        "price": 1059.01,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249556812,
+        "price": 1059.86,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787249953470,
+        "price": 1063.68,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787250011751,
+        "price": 1073.78,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254480575,
+        "price": 1074.43,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787254539383,
+        "price": 1074.49,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257162320,
+        "price": 1068.04,
+        "source": "trailing"
+      },
+      {
+        "timestamp": 1787257292740,
+        "price": 1067.19,
+        "source": "trailing"
+      }
+    ]
+  }
+}
