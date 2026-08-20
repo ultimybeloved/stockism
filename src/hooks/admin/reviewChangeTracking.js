@@ -29,6 +29,17 @@ const blank = (openPrice) => ({
 });
 
 /**
+ * What the current review has done to each stock so far, keyed by ticker.
+ * Empty outside a review, or when the stored doc is last week's.
+ */
+export const loadReviewChanges = async () => {
+  const { end } = getMostRecentHaltWindow();
+  const snap = await getDoc(reviewChangesRef());
+  const stored = snap.exists() ? (snap.data() || {}) : {};
+  return stored.windowEnd === end ? (stored.changes || {}) : {};
+};
+
+/**
  * Fold one price adjustment, plus every knock-on move it caused, into the
  * stored review changes.
  *

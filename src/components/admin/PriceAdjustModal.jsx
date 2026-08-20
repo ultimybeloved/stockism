@@ -2,12 +2,22 @@ import { CHARACTERS } from '../../characters';
 
 // Admin price adjustment modal: pick a character, nudge its price by a percent.
 // All state and the write handler live in useAdminMarketTools; this is render-only.
+//
+// A selected stock also shows what the review has ALREADY done to it. Adjusting
+// one stock drags every stock linked to it, so by the time you get to $GAP it
+// may be several percent up on knock-on alone, and the number you type lands on
+// top of that. Before this was on screen it was invisible: $GAP was set +4.75%
+// on 2026-08-20 and finished the review +8.71%.
 const PriceAdjustModal = ({
   darkMode, cardClass, textClass, mutedClass, prices, loading,
   setShowPriceModal, priceModalSearch, setPriceModalSearch,
   selectedPriceCharacter, setSelectedPriceCharacter,
   priceAdjustPercent, setPriceAdjustPercent, handleModalPriceAdjustment,
+  reviewSoFar = {},
 }) => {
+  const signed = (pct) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
+  const notable = (pct) => typeof pct === 'number' && Math.abs(pct) >= 0.01;
+
   return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60]" onClick={() => setShowPriceModal(false)}>
           <div
@@ -85,6 +95,26 @@ const PriceAdjustModal = ({
                         {/* Adjustment Controls - Show when selected */}
                         {isSelected && (
                           <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} space-y-2`}>
+                            {/* What this review has already done to it */}
+                            {(() => {
+                              const so = reviewSoFar[character.ticker];
+                              if (!so || !notable(so.percentChange)) return null;
+                              return (
+                                <div className={`text-xs rounded-sm px-2 py-1.5 ${
+                                  darkMode ? 'bg-amber-500/10 text-amber-200' : 'bg-amber-50 text-amber-800'
+                                }`}>
+                                  <span className="font-semibold">This review so far: {signed(so.percentChange)}</span>
+                                  {' from $'}{so.oldPrice?.toFixed(2)}
+                                  {notable(so.trailingChange) && (
+                                    <div className="mt-0.5">
+                                      {notable(so.directChange)
+                                        ? `${signed(so.directChange)} set directly, ${signed(so.trailingChange)} from linked stocks`
+                                        : `${signed(so.trailingChange)} from linked stocks. You have not adjusted it directly yet.`}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             {/* Quick Buttons */}
                             <div className="grid grid-cols-6 gap-1">
                               {[-50, -25, -10, 10, 25, 50].map(pct => (
@@ -132,12 +162,21 @@ const PriceAdjustModal = ({
                             </div>
 
                             {/* Preview */}
-                            {priceAdjustPercent && !isNaN(parseFloat(priceAdjustPercent)) && (
-                              <div className={`text-sm ${mutedClass}`}>
-                                Preview: ${currentPrice.toFixed(2)} → $
-                                {(Math.round(currentPrice * (1 + parseFloat(priceAdjustPercent) / 100) * 100) / 100).toFixed(2)}
-                              </div>
-                            )}
+                            {priceAdjustPercent && !isNaN(parseFloat(priceAdjustPercent)) && (() => {
+                              const preview = Math.round(currentPrice * (1 + parseFloat(priceAdjustPercent) / 100) * 100) / 100;
+                              const openPrice = reviewSoFar[character.ticker]?.oldPrice;
+                              return (
+                                <div className={`text-sm ${mutedClass}`}>
+                                  Preview: ${currentPrice.toFixed(2)} → ${preview.toFixed(2)}
+                                  {openPrice > 0 && (
+                                    <div className="text-xs mt-0.5">
+                                      Review total would be {signed(((preview - openPrice) / openPrice) * 100)}
+                                      {' from $'}{openPrice.toFixed(2)}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>

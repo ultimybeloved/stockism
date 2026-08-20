@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db, setMarketHaltFunction } from '../../firebase';
 import { CHARACTER_MAP } from '../../characters';
-import { MIN_PRICE } from '../../constants';
 import { priceHistoryDocRef } from './adminShared';
-import { recordReviewMoves } from './reviewChangeTracking';
+import { recordReviewMoves, loadReviewChanges } from './reviewChangeTracking';
+import { buildTrailingCascade } from './trailingCascade';
 
 // Market tab (emergency halt) + the price adjustment modal.
 export function useAdminMarketTools({ setMessage, showMessage, setLoading, prices, marketData }) {
@@ -13,55 +13,19 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
   const [priceModalSearch, setPriceModalSearch] = useState('');
   const [selectedPriceCharacter, setSelectedPriceCharacter] = useState(null);
   const [priceAdjustPercent, setPriceAdjustPercent] = useState('');
+  // What this review has already done to each stock, so the tool can show the
+  // knock-on a stock has picked up before you decide what to type.
+  const [reviewSoFar, setReviewSoFar] = useState({});
+
+  const openPriceModal = async (open) => {
+    setShowPriceModal(open);
+    if (open) setReviewSoFar(await loadReviewChanges().catch(() => ({})));
+  };
 
   // Market tab state
   const [haltReasonInput, setHaltReasonInput] = useState('');
   const marketHaltStatus = !!marketData?.marketHalted;
   const marketHaltReason = marketData?.haltReason || '';
-
-  // Helper function to apply trailing stock effects
-  const applyTrailingEffects = (marketUpdates, historyUpdates, sourceTicker, sourceOldPrice, sourceNewPrice, timestamp, depth = 0, visited = new Set(), moves = []) => {
-    if (depth > 3 || visited.has(sourceTicker)) {
-      return;
-    }
-    visited.add(sourceTicker);
-
-    const character = CHARACTER_MAP[sourceTicker];
-    if (!character?.trailingFactors) {
-      return;
-    }
-
-    const priceChangePercent = (sourceNewPrice - sourceOldPrice) / (sourceOldPrice || 1);
-
-    character.trailingFactors.forEach(({ ticker: relatedTicker, coefficient }) => {
-      // Skip if we've already updated this ticker in this batch
-      if (visited.has(relatedTicker)) {
-        return;
-      }
-
-      // Get the current price - check marketUpdates first, then fall back to prices
-      const oldRelatedPrice = marketUpdates[`prices.${relatedTicker}`] || prices[relatedTicker];
-      if (oldRelatedPrice != null) {
-        const trailingChange = priceChangePercent * coefficient;
-        const newRelatedPrice = oldRelatedPrice * (1 + trailingChange);
-        const settledRelatedPrice = Math.max(MIN_PRICE, Math.round(newRelatedPrice * 100) / 100);
-
-        console.log(`[ADMIN TRAILING] ${relatedTicker}: $${oldRelatedPrice} -> $${settledRelatedPrice} (${(trailingChange * 100).toFixed(2)}% from ${sourceTicker})`);
-
-        marketUpdates[`prices.${relatedTicker}`] = settledRelatedPrice;
-        historyUpdates[relatedTicker] = arrayUnion({
-          timestamp,
-          price: settledRelatedPrice,
-          source: 'trailing'
-        });
-
-        moves.push({ ticker: relatedTicker, from: oldRelatedPrice, to: settledRelatedPrice });
-
-        // Recursively apply trailing effects with shared visited set (no cloning)
-        applyTrailingEffects(marketUpdates, historyUpdates, relatedTicker, oldRelatedPrice, settledRelatedPrice, timestamp, depth + 1, visited, moves);
-      }
-    });
-  };
 
   // Adjust character price
   const handleModalPriceAdjustment = async (character, percentChange) => {
@@ -117,11 +81,15 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
           [character.ticker]: updatedHistory
         };
 
-        // Apply trailing stock effects
-        console.log(`[ADMIN TRAILING START] Applying effects for ${character.ticker}: $${currentPrice} -> $${targetPrice}`);
-        const trailingMoves = [];
-        applyTrailingEffects(marketUpdates, historyUpdates, character.ticker, currentPrice, targetPrice, now, 0, new Set(), trailingMoves);
-        console.log(`[ADMIN TRAILING END] Total updates:`, Object.keys(marketUpdates).length);
+        // Ripple the adjustment out through the linked stocks.
+        const trailingMoves = buildTrailingCascade({
+          ticker: character.ticker, oldPrice: currentPrice, newPrice: targetPrice, prices,
+        });
+        for (const move of trailingMoves) {
+          marketUpdates[`prices.${move.ticker}`] = move.to;
+          historyUpdates[move.ticker] = arrayUnion({ timestamp: now, price: move.to, source: 'trailing' });
+        }
+        console.log(`[ADMIN TRAILING] ${character.ticker} dragged ${trailingMoves.length} linked stocks`);
 
         await updateDoc(marketRef, marketUpdates);
         await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
@@ -135,6 +103,7 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
             trailing: trailingMoves,
             at: now,
           });
+          setReviewSoFar(await loadReviewChanges());
         } catch (e) {
           console.error('Failed to update stored review changes:', e);
         }
@@ -178,7 +147,8 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
 
   return {
     marketHaltStatus, marketHaltReason, haltReasonInput, setHaltReasonInput, updateMarketHalt,
-    showPriceModal, setShowPriceModal, priceModalSearch, setPriceModalSearch,
+    showPriceModal, setShowPriceModal: openPriceModal, priceModalSearch, setPriceModalSearch,
+    reviewSoFar,
     selectedPriceCharacter, setSelectedPriceCharacter,
     priceAdjustPercent, setPriceAdjustPercent, handleModalPriceAdjustment,
   };
