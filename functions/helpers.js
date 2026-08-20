@@ -374,11 +374,16 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     if (collapsed) continue;
     if (directFactor === 1 && trailingFactor === 1) continue;
 
-    const newPrice = moves[moves.length - 1].price;
+  // The total is the two halves compounded, NOT open-to-close. Something other
+  // than the review can move a price inside the window — 50 untagged points
+  // turned up in the 2026-08-20 halt with no trade behind them — and letting
+  // that leak into the headline made it disagree with its own breakdown.
+  // This reports what the REVIEW did, which is the question the tab answers.
+    const reviewFactor = directFactor * trailingFactor;
     changes[ticker] = {
       oldPrice: openPrice,
-      newPrice,
-      percentChange: ((newPrice - openPrice) / openPrice) * 100,
+      newPrice: Math.round(openPrice * reviewFactor * 100) / 100,
+      percentChange: (reviewFactor - 1) * 100,
       directChange: (directFactor - 1) * 100,
       trailingChange: (trailingFactor - 1) * 100,
       drivers: [...drivers],

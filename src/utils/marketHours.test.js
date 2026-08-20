@@ -198,7 +198,7 @@ describe('getReviewChanges — the real $GAP tape from 2026-08-20', () => {
     at('2026-08-20T20:00:00Z'); // Thursday, inside the halt
     const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
     expect(c.oldPrice).toBe(1615.32);
-    expect(c.newPrice).toBe(1755.95);
+    expect(c.newPrice).toBeCloseTo(1755.95, 1);
     expect(c.percentChange).toBeCloseTo(8.71, 2);
     expect(c.directChange).toBeCloseTo(4.75, 2);
     expect(c.trailingChange).toBeCloseTo(3.78, 2);
@@ -317,6 +317,64 @@ describe('buildReviewSections', () => {
 
   it('returns nothing when the review moved nothing', () => {
     expect(buildReviewSections(chars, {})).toEqual([]);
+  });
+});
+
+describe('getReviewChanges — the opening auction is not part of the review', () => {
+  const start = Date.parse('2026-01-01T13:00:00Z');
+  const at20 = (hhmm) => Date.parse(`2026-01-01T${hhmm}:00Z`);
+
+  it('stops at the pre-market lock, so a 20:56 fill does not eat the review', () => {
+    // The live $VIN case from 2026-08-20: knock-on carried it up through the
+    // halt, then the opening auction sold it back down at 20:56. Counting the
+    // auction left the stock reading +0.06% total against +1.48% of knock-on.
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const history = {
+      VIN: [
+        { timestamp: start - 60 * 60 * 1000, price: 125.93 },
+        { timestamp: at20('17:32'), price: 127.06, source: 'trailing' },
+        { timestamp: at20('20:21'), price: 127.79, source: 'trailing' },
+        { timestamp: at20('20:56'), price: 126.00, source: 'pre_market_auction' },
+      ],
+    };
+    const c = getReviewChanges(history, [{ ticker: 'VIN' }]).VIN;
+    expect(c.newPrice).toBeCloseTo(127.79, 1);
+    expect(c.percentChange).toBeCloseTo(1.48, 2);
+    expect(c.trailingChange).toBeCloseTo(1.48, 2);
+  });
+
+  it('ignores a move inside the window that the review did not cause', () => {
+    // Untagged points do turn up mid-halt. Whatever writes them, they are not
+    // the review, so they must not land in the review's number.
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const history = {
+      SHRO: [
+        { timestamp: start - 60 * 60 * 1000, price: 100 },
+        { timestamp: at20('15:07'), price: 105 },
+        { timestamp: at20('19:35'), price: 105.05, source: 'trailing' },
+      ],
+    };
+    const c = getReviewChanges(history, [{ ticker: 'SHRO' }]).SHRO;
+    expect(c.trailingChange).toBeCloseTo(0.0476, 3);
+    expect(c.percentChange).toBeCloseTo(0.0476, 3);
+  });
+
+  it('keeps the total equal to the two halves compounded', () => {
+    vi.useFakeTimers();
+    at('2026-01-01T22:00:00Z');
+    const history = {
+      GAP: [
+        { timestamp: start - 60 * 60 * 1000, price: 100 },
+        { timestamp: at20('14:00'), price: 104, source: 'trailing' },
+        { timestamp: at20('14:30'), price: 109.2, source: 'admin_adjust' },
+        { timestamp: at20('20:56'), price: 90, source: 'pre_market_auction' },
+      ],
+    };
+    const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
+    const compounded = ((1 + c.directChange / 100) * (1 + c.trailingChange / 100) - 1) * 100;
+    expect(compounded).toBeCloseTo(c.percentChange, 6);
   });
 });
 

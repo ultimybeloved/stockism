@@ -6,7 +6,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
+const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_LOCK_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat } = require('../helpers');
 const { writeReviewChanges } = require('./reviewChanges');
 
@@ -262,7 +262,10 @@ exports.chapterReviewRecap = cf().pubsub
 
       // Everything the review moved, direct and knock-on. The pre-halt snapshot
       // is the opening price for a ticker with no surviving earlier point.
-      const windowChanges = getReviewWindowChanges(priceHistory, haltStart, haltEnd, beforePrices);
+      // Stop at the pre-market lock: the 20:56 opening auction is inside the
+      // halt but is real trading, not part of the review.
+      const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
+      const windowChanges = getReviewWindowChanges(priceHistory, haltStart, reviewEnd, beforePrices);
 
       // The recap lists the stocks that were actually adjusted, and reports the
       // FULL move each one made — a stock set +4.75% can finish the review up 8%

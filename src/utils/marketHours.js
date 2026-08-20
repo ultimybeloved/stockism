@@ -60,8 +60,15 @@ export const getMostRecentHaltWindow = () => {
   start.setUTCHours(13, 0, 0, 0);
   const end = new Date(d);
   end.setUTCHours(21, 0, 0, 0);
+  // The review itself stops at the pre-market lock. The opening auction settles
+  // at 20:56, still inside the halt, and those are real fills at real demand —
+  // counting them as part of the review made a stock's total disagree with its
+  // own breakdown. $VIN read +0.06% total against +1.48% of knock-on on
+  // 2026-08-20, because a 20:56 fill took back everything the review gave it.
+  const reviewEnd = new Date(d);
+  reviewEnd.setUTCHours(20, 55, 0, 0);
 
-  return { start: start.getTime(), end: end.getTime() };
+  return { start: start.getTime(), end: end.getTime(), reviewEnd: reviewEnd.getTime() };
 };
 
 // How long a chapter review stays visible in the Review tab before it is
@@ -131,11 +138,16 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null, ro
   }
   if (directFactor === 1 && trailingFactor === 1) return null;
 
-  const newPrice = moves[moves.length - 1].price;
+  // The total is the two halves compounded, NOT open-to-close. Something other
+  // than the review can move a price inside the window — 50 untagged points
+  // turned up in the 2026-08-20 halt with no trade behind them — and letting
+  // that leak into the headline made it disagree with its own breakdown.
+  // This reports what the REVIEW did, which is the question the tab answers.
+  const reviewFactor = directFactor * trailingFactor;
   return {
     oldPrice: openPrice,
-    newPrice,
-    percentChange: ((newPrice - openPrice) / openPrice) * 100,
+    newPrice: Math.round(openPrice * reviewFactor * 100) / 100,
+    percentChange: (reviewFactor - 1) * 100,
     directChange: (directFactor - 1) * 100,
     trailingChange: (trailingFactor - 1) * 100,
     drivers: [...drivers],
@@ -174,15 +186,15 @@ export const rootAdjustmentsByTimestamp = (priceHistory, start, end) => {
  * after it.
  */
 export const getReviewChanges = (priceHistory, characters) => {
-  const { start, end } = getMostRecentHaltWindow();
+  const { start, end, reviewEnd } = getMostRecentHaltWindow();
 
   // Hide if the review is older than a week
   if (Date.now() - end > REVIEW_MAX_AGE_MS) return {};
 
-  const roots = rootAdjustmentsByTimestamp(priceHistory, start, end);
+  const roots = rootAdjustmentsByTimestamp(priceHistory, start, reviewEnd);
   const changes = {};
   for (const char of characters) {
-    const change = computeReviewChange((priceHistory || {})[char.ticker], start, end, null, roots);
+    const change = computeReviewChange((priceHistory || {})[char.ticker], start, reviewEnd, null, roots);
     if (change) changes[char.ticker] = change;
   }
   return changes;

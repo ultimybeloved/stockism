@@ -17,6 +17,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { priceHistoryRef, getReviewWindowChanges } = require('../helpers');
+const { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE } = require('../constants');
 
 const REVIEW_DOC = 'reviewChanges';
 
@@ -51,8 +52,13 @@ const loadHistory = async ({ includeArchive }) => {
  */
 const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, includeArchive = false }) => {
   const priceHistory = await loadHistory({ includeArchive });
+  // The review stops at the pre-market lock. The opening auction settles at
+  // 20:56, still inside the halt, and those are real fills at real demand — not
+  // something the chapter review did.
+  const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
+
   // Already in the shape the Review tab speaks, so nothing to translate.
-  const changes = getReviewWindowChanges(priceHistory, haltStart, haltEnd, fallbackPrices);
+  const changes = getReviewWindowChanges(priceHistory, haltStart, reviewEnd, fallbackPrices);
 
   const payload = {
     windowStart: haltStart,
