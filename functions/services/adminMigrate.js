@@ -306,7 +306,8 @@ exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
     if (prices[c.ticker]) continue;
 
     updates[`prices.${c.ticker}`] = c.basePrice;
-    historyPoints[c.ticker] = { timestamp: now, price: c.basePrice };
+    // Tagged so a seeded starting price is never mistaken for a trade.
+    historyPoints[c.ticker] = { timestamp: now, price: c.basePrice, source: 'init' };
     initialized.push({ ticker: c.ticker, price: c.basePrice });
   }
 

@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const {
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
-  ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS,
+  ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS, isWeeklyTradingHalt,
 } = require('../constants');
 const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate } = require('../helpers');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
@@ -302,6 +302,17 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         // Apply buy-side price impact (simulates buy pressure for free shares).
         // Admin-protected tickers are skipped — automated movers must never
         // override a recent manual price set (same rule as bots/market maker).
+        //
+        // Not while the market is halted. The shares are still granted, because a
+        // drop is a gift and its 72-hour window should not be eaten by an 8-hour
+        // halt, but the price must not move: the halt is a promise to players
+        // that it cannot, and a claimant would otherwise get a free upward push
+        // that nobody can trade against until the market reopens. This was
+        // moving prices through the whole 2026-08-20 chapter review — around 40
+        // stocks across 15 claims — and nothing said so, because these points
+        // carry no source tag and read on the chart exactly like trades.
+        const halted = isWeeklyTradingHalt() || marketDoc.data()?.marketHalted === true;
+
         const histSnap = await priceHistoryRef().get();
         const liveHistory = histSnap.exists ? (histSnap.data() || {}) : {};
         const timestamp = Date.now();
@@ -310,6 +321,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const historyPoints = {};
 
         for (const pick of picks) {
+          if (halted) break;
           const currentPrice = newPrices[pick.ticker];
           if (!currentPrice || currentPrice <= 0) continue;
           if (isPriceProtected(liveHistory, pick.ticker, ADMIN_PRICE_PROTECTION_MS)) continue;
@@ -323,7 +335,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           // Field-path write per ticker (never rewrite the whole prices map —
           // a concurrent trade on another ticker would be clobbered)
           marketUpdates[`prices.${pick.ticker}`] = newPrices[pick.ticker];
-          historyPoints[pick.ticker] = { timestamp, price: newPrices[pick.ticker] };
+          historyPoints[pick.ticker] = { timestamp, price: newPrices[pick.ticker], source: 'daily_drop' };
         }
 
         if (Object.keys(marketUpdates).length > 0) {
