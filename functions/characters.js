@@ -8,9 +8,13 @@ export const CHARACTERS = [
     ticker: "JIN",
     basePrice: 85,
     dateAdded: "2026-01-13T00:00:30", generation: "pre",
+    // GAP/JIN/SHNG all point at each other, and all three are usually adjusted in
+    // the same chapter review, so whatever they carry compounds three ways. At
+    // 0.4 that ran away: on 2026-08-20 $GAP was set +4.75% by hand and finished
+    // the review +8.71%, most of it picked up from these two. Halved to 0.2.
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.4 },
-      { ticker: "SHNG", coefficient: 0.4 },
+      { ticker: "GAP", coefficient: 0.2 },
+      { ticker: "SHNG", coefficient: 0.2 },
       { ticker: "VIN", coefficient: 0.3 }
     ]
   },
@@ -19,9 +23,10 @@ export const CHARACTERS = [
     ticker: "SHNG",
     basePrice: 85,
     dateAdded: "2026-01-13T00:01:00", generation: "pre",
+    // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2.
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.4 },
-      { ticker: "JIN", coefficient: 0.4 }
+      { ticker: "GAP", coefficient: 0.2 },
+      { ticker: "JIN", coefficient: 0.2 }
     ]
   },
   {
@@ -29,9 +34,11 @@ export const CHARACTERS = [
     ticker: "GAP",
     basePrice: 85,
     dateAdded: "2026-01-13T00:02:00", generation: "pre",
+    // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2. KTAE and
+    // JAKE are one-way and were already 0.2, so they are unchanged.
     trailingFactors: [
-      { ticker: "SHNG", coefficient: 0.4 },
-      { ticker: "JIN", coefficient: 0.4 },
+      { ticker: "SHNG", coefficient: 0.2 },
+      { ticker: "JIN", coefficient: 0.2 },
       { ticker: "KTAE", coefficient: 0.2 },
       { ticker: "JAKE", coefficient: 0.2 }
     ]
