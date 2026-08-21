@@ -93,6 +93,12 @@ const WEEKLY_HALT_START_MINUTE = 780;  // 13 * 60
 const WEEKLY_HALT_END_MINUTE   = 1260; // 21 * 60
 const PRE_MARKET_START_MINUTE  = 1230; // 20:30 UTC
 const PRE_MARKET_LOCK_MINUTE   = 1255; // 20:55 UTC — no placements or cancellations after this; auction settles 20:56
+// Where a chapter review's price history is folded down to a single point, and
+// what that point is stamped with. Every stock gets the SAME instant so the
+// review reads as one event instead of bursts of activity at whatever times the
+// adjustments happened to be made. Must sit before the 20:55 lock and the 20:56
+// auction, or the review would appear to land after fills priced off it.
+const REVIEW_COLLAPSE_MINUTE   = 1254; // 20:54 UTC
 // Max-buy headroom for pre-market orders: opening ask can sit up to ~5%
 // (auction impact cap) + spread above the queue-time price, so placement
 // validates against price * this buffer. Keep in sync with src/constants/economy.js.
@@ -681,6 +687,7 @@ module.exports = {
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_START_MINUTE,
   PRE_MARKET_LOCK_MINUTE,
+  REVIEW_COLLAPSE_MINUTE,
   PRE_MARKET_MAX_BUY_BUFFER,
   SHORT_CONCENTRATION_CAP,
   isWeeklyTradingHalt,

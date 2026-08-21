@@ -17,7 +17,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { priceHistoryRef, getReviewWindowChanges } = require('../helpers');
-const { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE } = require('../constants');
+const { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE, REVIEW_COLLAPSE_MINUTE } = require('../constants');
 
 const REVIEW_DOC = 'reviewChanges';
 
@@ -97,4 +97,88 @@ const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, inc
   return payload;
 };
 
-module.exports = { writeReviewChanges };
+/**
+ * Fold a chapter review's price-history staircase down to a single point.
+ *
+ * Adjusting one stock drags every stock linked to it, so a review leaves each
+ * stock with a run of points inside the halt — trailing, trailing, admin,
+ * trailing — which on a chart is indistinguishable from people trading through
+ * the halt. It caused a live argument on 2026-08-20.
+ *
+ * This NEVER changes a price. It removes the intermediate steps and keeps the
+ * last one, so the stock closes the review exactly where the admin put it.
+ * Points that are not the review (real trades, the 20:56 auction, the daily
+ * drop) are left alone.
+ *
+ * The detail is stashed at market/reviewDetail first, in the same transaction,
+ * so writeReviewChanges can still rebuild the set/knock-on split afterwards and
+ * the admin can still view the real history.
+ *
+ * One transaction, because the doc it rewrites is the same one every trade
+ * appends to. Reading it, rebuilding arrays and writing back outside one would
+ * silently drop any point a trade added in between.
+ */
+const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
+  const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
+  const stamp = haltStart + (REVIEW_COLLAPSE_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
+  const REVIEW_SOURCES = new Set(['admin_adjust', 'trailing']);
+
+  let tidied = 0;
+  let folded = 0;
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(priceHistoryRef());
+    const history = snap.exists ? (snap.data() || {}) : {};
+
+    const updates = {};
+    const detail = {};
+    tidied = 0;
+    folded = 0;
+
+    for (const [ticker, points] of Object.entries(history)) {
+      if (!Array.isArray(points)) continue;
+      const sorted = points.slice().sort((a, b) => a.timestamp - b.timestamp);
+
+      const reviewPts = sorted.filter((p) => p
+        && p.timestamp >= haltStart && p.timestamp <= reviewEnd
+        && REVIEW_SOURCES.has(p.source) && !p.collapsed);
+      if (reviewPts.length < 2) continue; // already one move, nothing to tidy
+
+      const last = reviewPts[reviewPts.length - 1];
+      const kept = sorted.filter((p) => !reviewPts.includes(p));
+
+      // Never let the collapsed point jump ahead of something real that is
+      // already inside the window.
+      const firstOtherInWindow = kept.find((p) => p.timestamp >= haltStart && p.timestamp <= haltEnd);
+      const at = firstOtherInWindow ? Math.min(stamp, firstOtherInWindow.timestamp - 1) : stamp;
+
+      // Tagged admin_adjust on purpose: isPriceProtected keys off that tag and
+      // the review's result must stay protected from bots and the market maker.
+      // `collapsed` tells the review-split readers the detail has moved.
+      const merged = { timestamp: at, price: last.price, source: 'admin_adjust', collapsed: true };
+      const next = [...kept, merged].sort((a, b) => a.timestamp - b.timestamp);
+
+      // A collapse that moves the live price is a bug, not a tidy-up.
+      if (sorted[sorted.length - 1].price !== next[next.length - 1].price) {
+        throw new Error(`collapseReviewWindow: ${ticker} would change the last price`);
+      }
+
+      updates[ticker] = next;
+      detail[ticker] = reviewPts;
+      tidied += 1;
+      folded += reviewPts.length - 1;
+    }
+
+    if (tidied === 0) return;
+
+    tx.set(db.collection('market').doc('reviewDetail'), {
+      windowStart: haltStart, windowEnd: haltEnd, savedAt: Date.now(), detail,
+    });
+    tx.set(priceHistoryRef(), updates, { merge: true });
+  });
+
+  console.log(`collapseReviewWindow: ${tidied} stocks tidied, ${folded} intermediate points folded`);
+  return { tidied, folded };
+};
+
+module.exports = { writeReviewChanges, collapseReviewWindow };

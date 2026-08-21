@@ -16,6 +16,7 @@ module.exports = [
   './services/market',
   './services/marketOrders',
   './services/marketWeekly',
+  './services/reviewCollapse',
   './services/admin',
   './services/adminBackups',
   './services/adminOps',
