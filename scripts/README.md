@@ -93,6 +93,50 @@ node scripts/migrate-ticker.js DOTS CROW
 
 ---
 
+### spam-name-audit.cjs / spam-name-detail.cjs / spam-name-purge.cjs
+
+Finds and removes harassment usernames — accounts named to insult another
+player ("StitchSlaveCallmebot"). Three steps, read-only until the last one.
+
+**Usage:**
+```bash
+node scripts/spam-name-audit.cjs     # find them (read-only)
+node scripts/spam-name-detail.cjs    # activity + database footprint (read-only)
+node scripts/spam-name-purge.cjs     # dry run
+node scripts/spam-name-purge.cjs --confirm
+```
+
+**The audit** scans every account and flags two things: a name containing a slur,
+and a name containing a real player's name plus a degrading word. The player-name
+list is derived from the data at run time, so it stays current. It also warns when
+a top-25 player is missing from `PROTECTED_PLAYER_NAMES` in `functions/helpers.js`,
+which is what the signup filter uses — that list is hand-curated and will otherwise
+go stale as the leaderboard moves.
+
+**Read the detail before deleting.** `lastActive` is unset on most old docs and
+the newest *trade* record is nearly always a scheduled dividend, so an abandoned
+account looks active from both. The detail script reports the last real buy/sell
+separately for exactly this reason.
+
+**Editing the target list:** `spam-name-targets.cjs` is the only thing the purge
+will delete. Each entry carries the expected display name; the purge aborts the
+whole run if any uid no longer matches, so a stale uid can never wipe an innocent
+account.
+
+**What the purge does** (same teardown as a player self-deleting, same order):
+- ✅ Audit record into `moderationDeletions` first — deletion is irreversible
+- ✅ Username tombstoned so the name can never be registered again
+- ✅ Open limit / pre-market orders cancelled
+- ✅ `recursiveDelete` of the user doc and all subcollections
+- ✅ Signup IP slot held for ~a month, Discord tombstoned if linked
+- ✅ Firebase Auth account deleted
+- ✅ Cached leaderboard docs cleared so the names drop off immediately
+
+Shares are deleted rather than sold, so no stock price moves. Trade records are
+left alone on purpose: they are market history.
+
+---
+
 ### ban-user.js
 Ban a user and disable their account.
 

@@ -12,7 +12,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate } = require('../helpers');
+const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate } = require('../helpers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
@@ -120,6 +120,15 @@ exports.createUser = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError(
       'invalid-argument',
       'Username contains inappropriate language. Please choose a different name.'
+    );
+  }
+
+  // Another player's name welded to an insult. None of the words involved are
+  // profanity on their own, so nothing above catches these.
+  if (isTargetedHarassment(trimmed)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Username targets another player. Please choose a different name.'
     );
   }
 

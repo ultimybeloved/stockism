@@ -654,11 +654,95 @@ const PROFANITY_LIST = [
   // Sexual/inappropriate
   'sex', 'porn', 'xxx', 'rape', 'molest', 'pedo', 'anal', 'vagina', 'penis',
   'testicle', 'semen', 'cumshot', 'jizz', 'blowjob', 'handjob',
+  // 'rvpe' spellings beat 'rape' because normalizeProfanity has no v->a rule,
+  // and it must not get one: v->a would turn "Vase" into "aase" and read it as
+  // a slur. These literals cost nothing and collide with no English word.
+  'rvpe', 'rvped', 'rvpes', 'rvpist',
+  // Bare 'cum' is deliberately NOT here — it is a substring of "document" and
+  // "cucumber". It lives in HARASSMENT_WORDS instead, where it only bites when
+  // a real player's name is attached. These compounds are unambiguous.
+  'cumbucket', 'cumdump', 'cumslut', 'cumrag',
   // Hate/offensive
   'nazi', 'hitler', 'kill', 'murder', 'terrorist', 'jihad', 'isis',
   // Common substitutions
   'fvck', 'phuck', 'biatch', 'bytch', 'azhole', 'assh0le'
 ];
+
+// Players prominent enough that people build throwaway accounts out of their
+// names. This list NEVER blocks a name on its own — it is only ever consulted
+// together with HARASSMENT_WORDS below. "Stitch" is an ordinary English word and
+// stays freely available: CrossStitch and StitchInTime are fine, StitchSlave is
+// not. Blocking every name containing a player's name would break half the
+// dictionary, which is exactly why this is a short curated list and not the
+// whole user collection.
+//
+// Store entries already normalized: lowercase, letters and digits only.
+// Keep it current when the top of the board changes — scripts/spam-name-audit.cjs
+// prints a reminder listing any top-25 player missing from here.
+const PROTECTED_PLAYER_NAMES = [
+  // Repeatedly targeted (the 2026-08-21 purge was 17 accounts aimed at these).
+  'stitch', 'callmebot', 'slare', 'shibal', 'elijang',
+  // Top of the leaderboard and crew heads.
+  'amado901', 'toartauki', 'ayin', 'yapryong', 'definethereal',
+  'gunglazer', 'royalshrub', 'madness', 'yakhob', 'zalfer',
+  'whitecyxres', 'gapnegshing', 'danielpark', 'versus', 'sadakosasaki',
+  'jinsakai', 'sifilo', 'sandygnow', 'shadows3511p',
+  '2orain', 'unkb', 'sniv',
+];
+
+// Words that are an attack when welded to somebody's name, but perfectly
+// ordinary otherwise. None of these block a name by themselves.
+const HARASSMENT_WORDS = [
+  'slave', 'slaves', 'peg', 'pegs', 'pegged', 'pegging', 'submissive',
+  'bottom', 'dog', 'dogs', 'bitch', 'simp', 'servant', 'worship',
+  'owns', 'owned', 'suck', 'sucks', 'lick', 'licks', 'finger', 'fingers',
+  'smells', 'stinks', 'ugly', 'trash', 'loser', 'eater', 'toy', 'pet',
+  'kisser', 'cuck', 'whore', 'slut', 'gay', 'fag', 'thot', 'hoe',
+  'rape', 'rapes', 'raped', 'rvpe', 'rvpes', 'rvped', 'cum', 'kys',
+];
+
+// Shortest protected name we will look for inside a longer one. Below this the
+// odds of an innocent collision outrun the odds of an actual attack.
+const MIN_PROTECTED_NAME_LENGTH = 4;
+
+/**
+ * Both readings of a name: plain, and with leetspeak folded back to letters.
+ * Checking both means StchFingers and St1tchF1ngers are the same to us.
+ * @param {string} name
+ * @returns {string[]} - Normalized forms, deduped
+ */
+function nameForms(name) {
+  const plain = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const deleet = plain
+    .replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a')
+    .replace(/5/g, 's').replace(/7/g, 't').replace(/8/g, 'b');
+  return plain === deleet ? [plain] : [plain, deleet];
+}
+
+/**
+ * True when a name is another player's name plus an insult.
+ *
+ * Requires BOTH halves. A protected name alone is fine (it is usually just a
+ * word), an insult alone is fine (the profanity filter already judges those on
+ * their own merits). Only the combination is targeted harassment.
+ *
+ * @param {string} username - Raw display name as typed
+ * @returns {boolean}
+ */
+function isTargetedHarassment(username) {
+  const forms = nameForms(username);
+  if (!forms[0]) return false;
+
+  // Must contain someone else's name, and be longer than it — otherwise this is
+  // just the player themselves, whom uniqueness already handles.
+  const targetsPlayer = PROTECTED_PLAYER_NAMES.some((protectedName) => {
+    if (protectedName.length < MIN_PROTECTED_NAME_LENGTH) return false;
+    return forms.some((form) => form.length > protectedName.length && form.includes(protectedName));
+  });
+  if (!targetsPlayer) return false;
+
+  return HARASSMENT_WORDS.some((word) => forms.some((form) => form.includes(word)));
+}
 
 /**
  * Normalize text for profanity detection (remove special chars, numbers that look like letters)
@@ -1249,6 +1333,8 @@ module.exports = {
   normalizeProfanity,
   containsProfanity,
   isBannedUsername,
+  isTargetedHarassment,
+  PROTECTED_PLAYER_NAMES,
   validateUsernameFormat,
   checkBanned,
   checkDiscordWall,

@@ -10,7 +10,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG } = require('../constants');
-const { isBannedUsername, containsProfanity, validateUsernameFormat, touchLastActive, reportError } = require('../helpers');
+const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, touchLastActive, reportError } = require('../helpers');
 
 
 /**
@@ -178,6 +178,10 @@ exports.checkUsername = cf().https.onCall(async (data, context) => {
     return { available: false, reason: 'Username not allowed' };
   }
 
+  if (isTargetedHarassment(trimmed)) {
+    return { available: false, reason: 'Username targets another player' };
+  }
+
   const usernameDoc = await db.collection('usernames').doc(lower).get();
 
   // Username is taken if the document exists (even if marked as deleted)
@@ -210,6 +214,7 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
 
   if (isBannedUsername(newNameLower)) throw new functions.https.HttpsError('invalid-argument', 'This username is not allowed.');
   if (containsProfanity(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username contains inappropriate language.');
+  if (isTargetedHarassment(trimmed)) throw new functions.https.HttpsError('invalid-argument', 'Username targets another player. Please choose a different name.');
 
   const userRef = db.collection('users').doc(uid);
   const newUsernameRef = db.collection('usernames').doc(newNameLower);
