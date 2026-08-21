@@ -237,7 +237,7 @@ export const CHARACTERS = [
   { name: "Bangho Lee", ticker: "MONO", basePrice: 80, dateAdded: "2026-06-04T00:04:00", generation: "pre" },
   { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre" },
   { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", generation: "pre" },
-  { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre", ipoRequired: true },
+  { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre" },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
