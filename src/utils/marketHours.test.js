@@ -8,6 +8,7 @@ import {
   getReviewChanges,
   mergeReviewChanges,
   buildReviewSections,
+  spliceReviewDetail,
   formatCountdown,
 } from './marketHours';
 
@@ -399,6 +400,38 @@ describe('getReviewChanges — knock-on attribution', () => {
     const changes = getReviewChanges(history, [{ ticker: 'FIST' }, { ticker: 'KWON' }]);
     expect(changes.KWON.drivers).toEqual(['FIST']);
     expect(changes.FIST.drivers).toEqual([]);
+  });
+});
+
+describe('spliceReviewDetail', () => {
+  const collapsed = { timestamp: 500, price: 120, source: 'admin_adjust', collapsed: true };
+  const steps = [
+    { timestamp: 200, price: 105, source: 'trailing' },
+    { timestamp: 300, price: 118, source: 'admin_adjust' },
+    { timestamp: 400, price: 120, source: 'trailing' },
+  ];
+
+  it('swaps the single tidied point for the real steps, in order', () => {
+    const history = [{ timestamp: 100, price: 100 }, collapsed, { timestamp: 900, price: 130 }];
+    expect(spliceReviewDetail(history, steps).map((p) => p.timestamp))
+      .toEqual([100, 200, 300, 400, 900]);
+  });
+
+  it('leaves everything that is not the review alone', () => {
+    const history = [{ timestamp: 100, price: 100 }, collapsed, { timestamp: 900, price: 130 }];
+    const out = spliceReviewDetail(history, steps);
+    expect(out[0]).toEqual({ timestamp: 100, price: 100 });
+    expect(out[out.length - 1]).toEqual({ timestamp: 900, price: 130 });
+  });
+
+  it('returns the history untouched when there is no stashed detail', () => {
+    const history = [{ timestamp: 100, price: 100 }, collapsed];
+    expect(spliceReviewDetail(history, undefined)).toBe(history);
+    expect(spliceReviewDetail(history, [])).toBe(history);
+  });
+
+  it('copes with an empty history', () => {
+    expect(spliceReviewDetail([], steps).map((p) => p.timestamp)).toEqual([200, 300, 400]);
   });
 });
 

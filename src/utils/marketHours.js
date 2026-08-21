@@ -298,6 +298,21 @@ export const buildReviewSections = (characters, changes = {}) => {
 };
 
 /**
+ * Put a collapsed review's real steps back into a price history, for display.
+ *
+ * The chart normally shows one point per stock for a chapter review, because the
+ * step-by-step detail reads as trading through the halt. The detail is never
+ * thrown away though — it moves to market/reviewDetail — so an admin can ask for
+ * the honest version back. Returns the history unchanged when there is no
+ * stashed detail for the stock.
+ */
+export const spliceReviewDetail = (history, detailPoints) => {
+  if (!Array.isArray(detailPoints) || detailPoints.length === 0) return history;
+  const withoutPlaceholder = (history || []).filter((p) => !p?.collapsed);
+  return [...withoutPlaceholder, ...detailPoints].sort((a, b) => a.timestamp - b.timestamp);
+};
+
+/**
  * Next weekly market open (Thursday 21:00 UTC).
  * If it's Thursday before 21:00 UTC, that's today; otherwise the coming Thursday.
  */

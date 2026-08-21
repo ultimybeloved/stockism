@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { formatAxisLabels } from '../utils/formatters';
+import { ADMIN_UIDS } from '../constants';
 
 const TIME_RANGES = [
   { key: '1d', label: 'Today', hours: 24 },
@@ -25,9 +26,18 @@ const getY = (price, min, range) => PAD_Y + CHART_H - ((price - min) / range) * 
 const LONG_TERM = new Set(['1m', '3m', '1y', 'all']);
 
 const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode, userData, user } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const { fullHistory, loading: loadingArchive } = usePriceHistory(ticker);
+  // A chapter review is folded to one point on the chart, because the real run
+  // of steps reads as trading through the halt. Admins can put the steps back to
+  // see what actually happened. Nobody else gets the toggle, or the extra read.
+  const isAdmin = Boolean(user && ADMIN_UIDS.includes(user.uid));
+  const [showReviewSteps, setShowReviewSteps] = useState(false);
+  const { fullHistory, loading: loadingArchive, hasReviewDetail } =
+    usePriceHistory(ticker, {
+      loadReviewDetail: isAdmin,
+      showReviewDetail: isAdmin && showReviewSteps,
+    });
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const chartRef = useRef(null);
 
@@ -175,6 +185,23 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
           </>
         )}
       </svg>
+
+      {/* Admin: show the review's real steps instead of the tidied single point */}
+      {isAdmin && hasReviewDetail && (
+        <button
+          onClick={() => setShowReviewSteps(v => !v)}
+          className={`absolute top-1 right-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors ${
+            showReviewSteps
+              ? 'bg-amber-500 text-white border-amber-500'
+              : darkMode
+                ? 'bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:text-white'
+                : 'bg-white/80 text-slate-600 border-slate-300 hover:text-slate-900'
+          }`}
+          title="Admin only. Shows every price step the chapter review made, instead of the single tidied point players see."
+        >
+          {showReviewSteps ? 'Review steps: on' : 'Review steps'}
+        </button>
+      )}
 
       {/* Tooltip */}
       {hoveredPoint && (
