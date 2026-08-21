@@ -147,10 +147,13 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
       const last = reviewPts[reviewPts.length - 1];
       const kept = sorted.filter((p) => !reviewPts.includes(p));
 
-      // Never let the collapsed point jump ahead of something real that is
-      // already inside the window.
-      const firstOtherInWindow = kept.find((p) => p.timestamp >= haltStart && p.timestamp <= haltEnd);
-      const at = firstOtherInWindow ? Math.min(stamp, firstOtherInWindow.timestamp - 1) : stamp;
+      // Never let the collapsed point jump ahead of something real. Only points
+      // AFTER the last review move can block it: anything earlier (a daily drop
+      // mid-halt) should simply sit before it. Looking at the whole window
+      // instead moved the point behind an earlier drop and rewrote the stock's
+      // closing price, which the guard below then rejected outright.
+      const blocker = kept.find((p) => p.timestamp > last.timestamp && p.timestamp <= haltEnd);
+      const at = blocker ? Math.min(stamp, blocker.timestamp - 1) : stamp;
 
       // Tagged admin_adjust on purpose: isPriceProtected keys off that tag and
       // the review's result must stay protected from bots and the market maker.

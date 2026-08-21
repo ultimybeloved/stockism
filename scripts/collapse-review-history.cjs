@@ -91,13 +91,11 @@ function haltWindow() {
       const last = reviewPts[reviewPts.length - 1];
       const kept = sorted.filter((p) => !reviewPts.includes(p));
 
-      // Never let the collapsed point jump ahead of a real trade that was
-      // already inside the window. Nothing trades during a halt, so in practice
-      // this only guards the odd adjustment made after the 20:56 auction.
-      const firstTradeInWindow = kept.find((p) => p.timestamp >= start && p.timestamp <= end);
-      const at = firstTradeInWindow
-        ? Math.min(stamp, firstTradeInWindow.timestamp - 1)
-        : stamp;
+      // Never let the collapsed point jump ahead of something real. Only points
+      // AFTER the last review move can block it: anything earlier (a daily drop
+      // mid-halt) should simply sit before it.
+      const blocker = kept.find((p) => p.timestamp > last.timestamp && p.timestamp <= end);
+      const at = blocker ? Math.min(stamp, blocker.timestamp - 1) : stamp;
 
       // Tagged admin_adjust on purpose: isPriceProtected keys off that tag, and
       // the review's result must stay protected from bots and the market maker.
