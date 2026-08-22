@@ -381,6 +381,11 @@ const REINSTATE_CASH_DEFAULT = 1000; // cash given when admin reinstates a bankr
 // This is the admin account's Firebase UID — every admin-only function checks against it.
 const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 
+// Why an admin moved someone's cash. Recorded on every adjustment in
+// `adminCashLog`, because "why is this player holding $50k" is unanswerable a
+// month later otherwise.
+const ADMIN_MEMO_MAX_LENGTH = 200;
+
 // ============================================
 // DISCORD CHANNELS
 // ============================================
@@ -783,6 +788,7 @@ module.exports = {
   CREW_MISSION_REWARDS,
   CREW_CONTRIB,
   ADMIN_UID,
+  ADMIN_MEMO_MAX_LENGTH,
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_GUILD_ID,
   CREW_HEAD_ROLE_IDS,

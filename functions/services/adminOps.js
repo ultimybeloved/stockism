@@ -12,6 +12,7 @@ const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const {
   ADMIN_UID,
+  ADMIN_MEMO_MAX_LENGTH,
   REINSTATE_CASH_DEFAULT,
   COSMETIC_CATALOG,
 } = require('../constants');
@@ -84,9 +85,32 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
-  const { userId, cash } = data;
-  if (!userId || typeof cash !== 'number' || isNaN(cash) || cash < 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cash (>= 0) required');
+  // Three modes. 'set' writes an absolute figure; 'add' and 'subtract' move the
+  // balance by `amount` so the admin never has to do the arithmetic themselves
+  // (getting it wrong silently mints or destroys money). `cash` without a mode
+  // is the original set-only call, kept so nothing breaks mid-deploy.
+  const { userId, cash, mode = 'set', amount, memo } = data;
+  const isLegacySet = typeof cash === 'number' && amount === undefined;
+  const magnitude = isLegacySet ? cash : amount;
+
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'userId required');
+  }
+  if (!['set', 'add', 'subtract'].includes(mode)) {
+    throw new functions.https.HttpsError('invalid-argument', 'mode must be set, add, or subtract');
+  }
+  if (typeof magnitude !== 'number' || !isFinite(magnitude) || magnitude < 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Amount must be a number >= 0');
+  }
+
+  // The memo is the whole point of the log — an unexplained balance change is
+  // the thing we are trying to stop having. Legacy set-only callers are exempt.
+  const cleanMemo = String(memo || '').replace(/[\x00-\x1f\x7f]/g, '').trim();
+  if (!isLegacySet && !cleanMemo) {
+    throw new functions.https.HttpsError('invalid-argument', 'A memo is required — say why the cash is changing.');
+  }
+  if (cleanMemo.length > ADMIN_MEMO_MAX_LENGTH) {
+    throw new functions.https.HttpsError('invalid-argument', `Memo must be ${ADMIN_MEMO_MAX_LENGTH} characters or less`);
   }
 
   const userRef = db.collection('users').doc(userId);
@@ -95,8 +119,23 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
 
-  const prevCash = userSnap.data().cash || 0;
-  const newCash = Math.round(cash * 100) / 100;
+  const userData = userSnap.data();
+  const prevCash = userData.cash || 0;
+  const rounded = Math.round(magnitude * 100) / 100;
+  const rawNew = mode === 'set' ? rounded
+    : mode === 'add' ? prevCash + rounded
+      : prevCash - rounded;
+  const newCash = Math.round(rawNew * 100) / 100;
+
+  // Refuse rather than clamp. Silently landing on $0 looks like it worked and
+  // destroys however much the admin did not mean to take.
+  if (newCash < 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `That would leave $${newCash.toFixed(2)}. They only have $${prevCash.toFixed(2)}.`
+    );
+  }
+
   // Giveaways are the most visible source of fake leaderboard returns — the top
   // of the percent board on 2026-08-13 was one. Only a raise counts as granted;
   // taking cash away is a correction, not a gift, and must not go negative.
@@ -105,7 +144,30 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     ...grantedValueUpdate(newCash - prevCash),
   });
 
-  return { success: true, userId, previousCash: prevCash, newCash };
+  // Written after the balance lands, so the log never claims a change that
+  // failed. Best-effort: a logging failure must not fail the adjustment itself.
+  try {
+    await db.collection('adminCashLog').add({
+      userId,
+      displayName: userData.displayName || null,
+      mode,
+      amount: rounded,
+      previousCash: prevCash,
+      newCash,
+      delta: Math.round((newCash - prevCash) * 100) / 100,
+      memo: cleanMemo || null,
+      at: admin.firestore.FieldValue.serverTimestamp(),
+      by: context.auth.uid,
+    });
+  } catch (err) {
+    console.error('adminSetCash: failed to write adminCashLog:', err.message);
+  }
+
+  return {
+    success: true, userId, mode,
+    previousCash: prevCash, newCash,
+    delta: Math.round((newCash - prevCash) * 100) / 100,
+  };
 });
 
 /**

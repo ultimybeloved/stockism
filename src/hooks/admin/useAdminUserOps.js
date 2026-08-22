@@ -1,4 +1,5 @@
 import { adminSetCashFunction, adminTransferToLadderFunction } from '../../firebase';
+import { parseCashInput, describeCashChange } from '../../utils/adminCash';
 import { useAdminBankruptcy } from './useAdminBankruptcy';
 import { useAdminUserIdentity } from './useAdminUserIdentity';
 import { useAdminDiscordRecovery } from './useAdminDiscordRecovery';
@@ -19,20 +20,46 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
   const discordRecovery = useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUser });
   const fieldEdits = useAdminUserEdit({ showMessage, setLoading, setSelectedUser });
 
-  const handleSetCash = async (userId, displayName) => {
-    const input = prompt(`Set cash for ${displayName}.\nEnter new cash amount:`);
+  // One input covers all three modes: a leading + or - adjusts the balance, a
+  // bare number replaces it. The confirm step then spells out the resulting
+  // arithmetic, so the amount never has to be worked out by hand.
+  const handleSetCash = async (userId, displayName, currentCash = 0) => {
+    const input = prompt(
+      `Cash for ${displayName} — currently $${Number(currentCash).toFixed(2)}\n\n`
+      + '  +500   add $500\n'
+      + '  -500   subtract $500\n'
+      + '   500   set the balance to exactly $500'
+    );
     if (input === null) return;
-    const cash = parseFloat(input);
-    if (isNaN(cash) || cash < 0) {
-      showMessage('error', 'Invalid cash amount');
+
+    const parsed = parseCashInput(input, currentCash);
+    if (!parsed.ok) {
+      showMessage('error', parsed.error);
       return;
     }
-    if (!confirm(`Set ${displayName}'s cash to $${cash.toFixed(2)}?`)) return;
+    const { mode, amount, before, after } = parsed;
+
+    const memo = prompt(
+      `Why? This is recorded against ${displayName} so you can look it up later.\n\n`
+      + 'e.g. "prize for weekly contest", "refund for the halt bug"'
+    );
+    if (memo === null) return;
+    if (!memo.trim()) {
+      showMessage('error', 'A memo is required');
+      return;
+    }
+
+    const summary = describeCashChange(parsed, displayName);
+    if (!confirm(`${summary}?\n\n$${before.toFixed(2)}  ->  $${after.toFixed(2)}\n\nMemo: ${memo.trim()}`)) return;
+
     setLoading(true);
     try {
-      const result = await adminSetCashFunction({ userId, cash });
-      showMessage('success', `Cash set to $${cash.toFixed(2)} (was $${result.data.previousCash})`);
-      setSelectedUser(prev => prev ? { ...prev, cash } : prev);
+      const result = await adminSetCashFunction({
+        userId, mode, amount, memo: memo.trim(),
+      });
+      const { previousCash, newCash } = result.data;
+      showMessage('success', `Cash $${previousCash.toFixed(2)} -> $${newCash.toFixed(2)}`);
+      setSelectedUser(prev => prev ? { ...prev, cash: newCash } : prev);
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);

@@ -241,10 +241,11 @@ const UsersTab = ({
                 <div className={`text-xs ${mutedClass}`}>Cash</div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username)}
+                    onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username, selectedUser.cash)}
                     disabled={loading}
+                    title="Add, subtract, or set this user's cash. Requires a memo."
                     className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
-                  >Set</button>
+                  >Edit</button>
                   <button
                     onClick={() => handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username)}
                     disabled={loading}
