@@ -149,7 +149,8 @@ async function testValidation() {
     ['negative amount', { ticker: T, action: 'buy', amount: -5 }],
     ['amount over 10,000', { ticker: T, action: 'buy', amount: 10001 }],
     ['3-decimal amount', { ticker: T, action: 'buy', amount: 1.001 }],
-    ['sub-cent dust amount', { ticker: T, action: 'sell', amount: 0.005 }],
+    ['sub-cent buy amount', { ticker: T, action: 'buy', amount: 0.005 }],
+    ['exit below the dust floor', { ticker: T, action: 'sell', amount: 0.0000001 }],
     ['NaN amount', { ticker: T, action: 'buy', amount: NaN }],
   ]) {
     const e = await err(data, 'val_user');
@@ -358,6 +359,22 @@ async function testSell() {
   check('sell-all: lowestWhileHolding removed', !(uAll.lowestWhileHolding && T in uAll.lowestWhileHolding),
     JSON.stringify(uAll.lowestWhileHolding));
   check('sell-all: cohort removed', !(uAll.holdingCohorts && T in uAll.holdingCohorts), JSON.stringify(uAll.holdingCohorts));
+
+  // Dust: a position under a cent still has to be closable. Dividends and
+  // partial fills leave these, and Max on the trade form sends the exact
+  // fractional holding, which the two-decimal rule used to reject outright.
+  await setUser('sell_dust', { cash: 0, holdings: { [T]: 0.004 }, costBasis: { [T]: 80 } });
+  const okDust = await ok({ ticker: T, action: 'sell', amount: 0.004 }, 'sell_dust');
+  const uDust = await getUser('sell_dust');
+  check('sell: sub-cent dust position can be closed',
+    okDust.success === true && !(T in (uDust.holdings || {})), JSON.stringify(uDust.holdings));
+
+  // Same for a fractional position with more decimal places than a price has.
+  await setUser('sell_frac', { cash: 0, holdings: { [T]: 3.4567 }, costBasis: { [T]: 80 } });
+  const okFrac = await ok({ ticker: T, action: 'sell', amount: 3.4567 }, 'sell_frac');
+  const uFrac = await getUser('sell_frac');
+  check('sell: 4-decimal position can be closed in full',
+    okFrac.success === true && !(T in (uFrac.holdings || {})), JSON.stringify(uFrac.holdings));
 
   // Insufficient shares
   await setUser('sell_none', { cash: 0, holdings: { [T]: 1 } });

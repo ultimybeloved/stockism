@@ -137,7 +137,10 @@ export const getMaxShares = ({ action, character, price, holdings, shortPosition
 };
 
 export const formatShares = (n) => {
-  if (n === 0) return '0';
+  if (!n) return '0';
+  // Dust (dividend remainders, partial fills) all renders as "0.00" at two
+  // decimals, which reads as owning nothing. Show what is actually there.
+  if (Math.abs(n) < 0.01) return String(Math.round(n * 1e6) / 1e6);
   const rounded = Math.round(n * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 };

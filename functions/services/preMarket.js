@@ -6,7 +6,10 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
-const { PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER } = require('../constants');
+const {
+  PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER,
+  MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
+} = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall } = require('../helpers');
 
 // Placement closes at the lock (20:55), not at market open — the auction
@@ -50,8 +53,12 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Action must be buy or sell.');
   }
 
-  if (!shares || !Number.isFinite(shares) || shares < 0.01 || shares > 10000 ||
-      Math.round(shares * 100) / 100 !== shares) {
+  // Sells allow fractional dust (a position has to be closable in full); buys
+  // stay on whole-cent share counts.
+  const minShares = action === 'sell' ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
+  const entryStep = 10 ** TRADE_SHARE_DECIMALS;
+  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > MAX_TRADE_SHARES ||
+      (action !== 'sell' && Math.round(shares * entryStep) / entryStep !== shares)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }
 

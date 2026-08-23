@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require('../helpers');
+const { checkBanned, checkDiscordWall, touchLastActive, reportError, getLadderChips } = require('../helpers');
 const {
   LADDER_GAME_INITIAL_BALANCE,
   LADDER_MIN_BET,
@@ -55,6 +55,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       let userData = userDoc.exists ? userDoc.data() : {
         balance: LADDER_GAME_INITIAL_BALANCE,
         nonWithdrawable: LADDER_GAME_INITIAL_BALANCE,
+        chipsMigrated: true,
         totalDeposited: 0,
         totalWon: 0,
         totalLost: 0,
@@ -108,18 +109,24 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       const oddPct = Math.max(25, Math.min(75, randomBase + variance));
       const evenPct = 100 - oddPct;
 
+      // Read the chip pile before the balance moves — the one-time repair inside
+      // getLadderChips caps chips at the balance, and that has to be the balance
+      // the chips were actually staked from.
+      const chipsBefore = getLadderChips(userData);
       // Whole-dollar bets keep the balance an integer; floor here clears any stray
       // cents left over from before (those cents just disappear, by design).
       userData.balance = Math.floor(userData.balance - amount + payout);
-      // nonWithdrawable stays at the total chips ever granted and is NOT clamped
-      // to the balance. It used to be, so chips burned on a loss stopped counting
-      // and the next win came out withdrawable — lose $300 of a $500 welcome
-      // stake, win it back, and $500 of house money had become real cash. That
-      // was a free faucet for alt accounts. Now the granted total is a floor the
-      // balance has to clear before any of it can be cashed out; the withdraw
-      // path already does Math.max(0, balance - nonWithdrawable), so a balance
-      // under the floor simply means nothing is withdrawable yet.
-      userData.nonWithdrawable = userData.nonWithdrawable || 0;
+      // House chips (check-in grants, welcome stake) are staked before real
+      // balance, so a losing bet burns them first and they leave the account
+      // for good. A win returns the stake to the chip pile and pays the profit
+      // out as real, withdrawable money. So chips only ever go down, and the
+      // player can never cash out more free money than they were handed.
+      //
+      // This used to hold the lifetime granted total and never come down, which
+      // meant a player who went broke, got topped up and then won was still
+      // stuck under a floor built from chips that no longer existed.
+      userData.nonWithdrawable = won ? chipsBefore : Math.max(0, chipsBefore - amount);
+      userData.chipsMigrated = true;
       userData.gamesPlayed += 1;
       if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
       if (won) {

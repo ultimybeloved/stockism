@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 const { CHECKIN_STREAK_REWARDS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../crews');
-const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate, reportError } = require('../helpers');
+const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate, reportError, getLadderChips } = require('../helpers');
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
@@ -390,6 +390,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
           displayName: userData.displayName || 'Anonymous',
           balance: 500,
           nonWithdrawable: 500,
+          chipsMigrated: true,
           totalDeposited: 0,
           totalWon: 0,
           totalLost: 0,
@@ -407,9 +408,13 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
         const ladderBalance = ladderDoc.data().balance || 0;
         if (ladderBalance < 100) {
           ladderTopUpAmount = 100 - ladderBalance;
+          // Add the fresh chips to what is actually left of the old ones, not to
+          // the lifetime total. The old total counted chips the player had
+          // already lost, so every top-up raised a floor they could never clear.
           transaction.update(ladderRef, {
             balance: 100,
-            nonWithdrawable: FieldValue.increment(ladderTopUpAmount)
+            nonWithdrawable: getLadderChips(ladderDoc.data()) + ladderTopUpAmount,
+            chipsMigrated: true
           });
         }
       }

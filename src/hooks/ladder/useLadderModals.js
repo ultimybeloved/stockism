@@ -4,6 +4,7 @@ import {
   db, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction,
 } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
+import { getLadderWithdrawable } from '../../utils/ladderTax';
 
 // Everything modal-shaped around the game: transfer (deposit/withdraw),
 // leaderboard, stats, and the tutorial gate.
@@ -65,14 +66,16 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
   };
 
   const handleWithdraw = async () => {
-    const balance = userLadderData?.balance || 0;
+    // Bonus chips stay in the game, so the ceiling is the withdrawable part of
+    // the balance, not the balance itself.
+    const withdrawable = getLadderWithdrawable(userLadderData);
     const amount = parseFloat(withdrawAmount);
     if (isNaN(amount) || amount <= 0) {
       showNotification('error', 'Enter an amount greater than $0');
       return;
     }
-    if (amount > balance) {
-      showNotification('error', 'Amount exceeds your ladder balance');
+    if (amount > withdrawable) {
+      showNotification('error', `You can cash out up to $${withdrawable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} right now`);
       return;
     }
     setWithdrawLoading(true);

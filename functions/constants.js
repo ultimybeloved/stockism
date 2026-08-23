@@ -21,6 +21,15 @@ const MIN_PRICE = 0.01;
 const DUST_MAX_VALUE = 5; // positions worth less than this ($) are sweepable dust
 const MAX_PRICE_CHANGE_PERCENT = 0.05;
 
+// Order sizing. Entries (buy/short) are whole-cent share counts. Exits
+// (sell/cover) go much finer: dividends, partial fills and ETF math leave
+// fractional remainders, and a player must always be able to close a position
+// down to the last speck instead of being stuck holding unsellable dust.
+const MIN_TRADE_SHARES = 0.01;      // min buy/short size
+const MIN_EXIT_SHARES = 0.000001;   // min sell/cover size
+const MAX_TRADE_SHARES = 10000;     // max size, any action
+const TRADE_SHARE_DECIMALS = 2;     // decimal places allowed on entries
+
 // Anti-manipulation: per-user, per-ticker, per-day limits
 const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
@@ -668,6 +677,10 @@ module.exports = {
   MIN_PRICE,
   DUST_MAX_VALUE,
   MAX_PRICE_CHANGE_PERCENT,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  MAX_TRADE_SHARES,
+  TRADE_SHARE_DECIMALS,
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
   ORDERS_PER_TICKER_PER_CYCLE,

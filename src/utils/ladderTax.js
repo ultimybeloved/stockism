@@ -28,6 +28,22 @@ export const getLadderDepositFactor = (createdAt) => {
   return LADDER_RAMP_MIN_FACTOR + (1 - LADDER_RAMP_MIN_FACTOR) * (ageDays / LADDER_RAMP_DAYS);
 };
 
+// House chips: check-in grants and the welcome stake. Playable, never cashable.
+// They are staked before real balance, so losses burn them and winnings on top
+// of them belong to the player. Mirror of getLadderChips in functions/helpers.js
+// — keep both in sync. The server is the source of truth.
+export const getLadderChips = (ladderData) => {
+  const granted = ladderData?.nonWithdrawable || 0;
+  if (ladderData?.chipsMigrated) return granted;
+  const lost = ladderData?.totalLost || 0;
+  const balance = ladderData?.balance ?? 0;
+  return Math.max(0, Math.min(granted - lost, balance));
+};
+
+// What the player can actually move back to their main cash right now.
+export const getLadderWithdrawable = (ladderData) =>
+  Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
+
 // Round up to the cent (house favor). The epsilon guards against FP noise
 // (e.g. 50.000000000001) charging a phantom extra cent.
 const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;

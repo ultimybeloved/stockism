@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../constants';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
@@ -55,6 +55,17 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
       if (amount > capped) setAmount(capped);
     }
   };
+  // A position smaller than one share (dividend dust, a partial fill) would
+  // leave the form sitting on 1 share with the button greyed out and no obvious
+  // way down, so open straight on the whole position.
+  useEffect(() => {
+    if ((action === 'sell' || action === 'cover') && maxSharesFractional > 0 && maxSharesFractional < 1) {
+      setPartialShares(true);
+      setAmount(maxSharesFractional);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const maxSharesWhole = Math.floor(maxSharesFractional);
   // Active margin lock on this ticker (for the sell-side note below).
   const _mLock = userData?.marginLockup?.[character.ticker];
@@ -183,7 +194,11 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
         await createLimitOrderFunction({
           ticker: character.ticker,
           type: orderType,
-          shares: Math.round(parseFloat(amount) * 100) / 100,
+          // Buys are whole-cent share counts; exits keep their fractional size so
+          // a dust position can be queued in full.
+          shares: action === 'sell'
+            ? Math.round(parseFloat(amount) * 1e6) / 1e6
+            : Math.round(parseFloat(amount) * 100) / 100,
           limitPrice: priceNum,
           allowPartialFills
         });

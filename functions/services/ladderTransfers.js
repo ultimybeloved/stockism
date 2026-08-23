@@ -3,7 +3,7 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate, reportError } = require('../helpers');
+const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate, reportError, getLadderChips } = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -233,17 +233,16 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       const ladderData = ladderUserDoc.data();
       const balance = ladderData.balance ?? 0;
 
-      // Non-withdrawable "house chips" (check-in grants / welcome stake) can be
-      // played but never cashed out. This is the TOTAL ever granted, not what is
-      // left of it, so the balance has to clear that floor before any of it comes
-      // out — see the note in ladderGame.js on why it is no longer clamped.
-      const nonWithdrawable = ladderData.nonWithdrawable || 0;
-      const withdrawable = Math.max(0, balance - nonWithdrawable);
+      // House chips (check-in grants / welcome stake) can be played but never
+      // cashed out. They are staked first, so losses burn them and anything the
+      // player wins on top of them is real money — see the note in ladderGame.js.
+      const chips = getLadderChips(ladderData);
+      const withdrawable = Math.max(0, balance - chips);
       if (amount > withdrawable) {
         throw new functions.https.HttpsError(
           'failed-precondition',
-          nonWithdrawable > 0
-            ? `You can cash out up to $${withdrawable.toFixed(2)}. Bonus chips from check-ins and the welcome stake can be played but not withdrawn.`
+          chips > 0
+            ? `You can cash out up to $${withdrawable.toFixed(2)}. Bonus chips from check-ins and the welcome stake can be played but not cashed out. What you win with them can.`
             : 'Withdrawal amount exceeds ladder balance.'
         );
       }
@@ -265,7 +264,11 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       transaction.update(ladderUserRef, {
         balance: balance - amount,
         principalWithdrawn: principalWithdrawn + tax.principalPart,
-        profitWithdrawn: profitWithdrawn + tax.profitPart
+        profitWithdrawn: profitWithdrawn + tax.profitPart,
+        // Chips are untouched by a withdrawal (only what sits above them comes
+        // out), but write the repaired figure back so the fix sticks.
+        nonWithdrawable: chips,
+        chipsMigrated: true
       });
       // Cancels the deposit's negative flow, so a ladder round trip is invisible
       // to season and leaderboard returns — winnings included.
@@ -367,6 +370,10 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
       transaction.set(ladderUserRef, {
         ...ladderData,
         balance: newLadderBalance,
+        // An admin pull can take the balance below the house chips sitting in
+        // it; chips can never exceed what is actually there.
+        nonWithdrawable: Math.min(getLadderChips(ladderData), newLadderBalance),
+        chipsMigrated: true,
         totalDeposited: (ladderData.totalDeposited || 0) + Math.max(0, amount)
       }, { merge: true });
 

@@ -10,6 +10,7 @@ const {
   MIN_PRICE, MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT,
   SHORT_MARGIN_RATIO, SHORT_CONCENTRATION_CAP, MARGIN_SELL_LOCKUP_MS,
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
+  MIN_EXIT_SHARES,
 } = require('../constants');
 const { calculateMarginalImpact, lockedShares } = require('../helpers');
 const { exitLoyaltyDiscount } = require('../characters');
@@ -151,8 +152,11 @@ function computeSell({
 
   // Execute sell
   const newCash = cash + totalCost;
-  newHoldings[ticker] = Math.round((currentHoldings - amount) * 10000) / 10000;
-  if (newHoldings[ticker] <= 0) {
+  // Six decimals so an exit smaller than the old 4-dp rounding still moves the
+  // position, and anything left under the minimum sellable size is dropped
+  // rather than parked as a speck the player can never clear.
+  newHoldings[ticker] = Math.round((currentHoldings - amount) * 1e6) / 1e6;
+  if (newHoldings[ticker] < MIN_EXIT_SHARES) {
     delete newHoldings[ticker];
   }
 
@@ -331,7 +335,7 @@ function computeCover({
     openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
     system: shortPosition.system || 'v2'
   };
-  if (newShorts[ticker].shares <= 0) {
+  if (newShorts[ticker].shares < MIN_EXIT_SHARES) {
     delete newShorts[ticker];
   }
 

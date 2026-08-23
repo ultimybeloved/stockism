@@ -13,6 +13,12 @@ const TradeAmountInput = ({
 }) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
+  // Exits keep six decimals: holdings pick up fractional remainders from
+  // dividends and partial fills, and rounding the box to cents would make the
+  // last speck of a position untypeable (and so unsellable).
+  const isExit = action === 'sell' || action === 'cover';
+  const roundEntered = (v) => isExit ? Math.round(v * 1e6) / 1e6 : Math.round(v * 100) / 100;
+  const smallestStep = isExit ? Math.min(0.01, maxShares) : 0.01;
 
   return (
     <div className="mb-4">
@@ -44,7 +50,7 @@ const TradeAmountInput = ({
           type="number"
           min="0"
           max={maxShares}
-          step={partialShares ? '0.01' : '1'}
+          step={partialShares ? (isExit ? 'any' : '0.01') : '1'}
           value={amount === '' ? '' : amount}
           onChange={(e) => {
             const val = e.target.value;
@@ -52,7 +58,7 @@ const TradeAmountInput = ({
               setAmount('');
             } else {
               const num = partialShares
-                ? Math.round(parseFloat(val) * 100) / 100
+                ? roundEntered(parseFloat(val))
                 : parseInt(val);
               if (!isNaN(num)) {
                 setAmount(Math.min(maxShares, Math.max(0, num)));
@@ -61,7 +67,7 @@ const TradeAmountInput = ({
           }}
           onBlur={() => {
             if (amount === '' || amount < 0) {
-              setAmount(maxShares > 0 ? (partialShares ? 0.01 : 1) : 0);
+              setAmount(maxShares > 0 ? (partialShares ? smallestStep : 1) : 0);
             }
           }}
           className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}

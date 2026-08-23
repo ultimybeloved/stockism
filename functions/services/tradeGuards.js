@@ -12,17 +12,32 @@ const {
   TICKER_COOLDOWN_MS, TRADE_COOLDOWN_MS,
   MAX_TRADES_PER_TICKER_HOUR, TRADE_BURST_LIMIT, TRADE_BURST_WINDOW_MS,
   TRADE_RECORD_ACTIONS,
+  MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
 } = require('../constants');
 
-// Validate inputs - finite, bounded, max 2 decimal places — and reject trades
-// during the weekly halt window.
+// Validate inputs - finite, bounded, sane share size — and reject trades during
+// the weekly halt window. Entries are held to whole-cent share counts; exits are
+// not, because holdings pick up fractional remainders from dividends and partial
+// fills and the player has to be able to sell every last speck of them.
 function validateTradeInput(data) {
   const { ticker, action, amount } = data;
+  const isExit = action === 'sell' || action === 'cover';
 
-  if (!ticker || !action || !amount || !Number.isFinite(amount) || amount < 0.01 || amount > 10000 || Math.round(amount * 100) / 100 !== amount) {
+  if (!ticker || !action || !Number.isFinite(amount) || amount > MAX_TRADE_SHARES ||
+      amount < (isExit ? MIN_EXIT_SHARES : MIN_TRADE_SHARES)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Invalid trade parameters. Shares must be between 0.01 and 10,000 (max 2 decimal places).'
+      isExit
+        ? `Invalid trade parameters. Shares must be between ${MIN_EXIT_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')}.`
+        : `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
+    );
+  }
+
+  const entryStep = 10 ** TRADE_SHARE_DECIMALS;
+  if (!isExit && Math.round(amount * entryStep) / entryStep !== amount) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
     );
   }
 

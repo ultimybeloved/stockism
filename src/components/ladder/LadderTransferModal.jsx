@@ -4,7 +4,7 @@ import {
   LADDER_WITHDRAW_PROFIT_BRACKETS,
 } from '../../constants/economy';
 import { getTotalInvested } from '../../utils/calculations';
-import { calculateLadderWithdrawTax, getLadderDepositFactor } from '../../utils/ladderTax';
+import { calculateLadderWithdrawTax, getLadderDepositFactor, getLadderWithdrawable } from '../../utils/ladderTax';
 import { useAppContext } from '../../context/AppContext';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 
@@ -20,6 +20,11 @@ const LadderTransferModal = ({
   const { userData } = useAppContext();
 
   const ladderBalance = userLadderData?.balance || 0;
+  // Bonus chips (check-in grants, welcome stake) stay in the game. Only what
+  // sits above them can go back to main cash, so the withdraw tab works off
+  // this number instead of the raw balance.
+  const withdrawable = getLadderWithdrawable(userLadderData);
+  const bonusChips = Math.max(0, ladderBalance - withdrawable);
   const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
   const noInvestment = totalInvested <= 0;
   // Deposits can't push the balance past the $10k cap or past what you've invested,
@@ -38,7 +43,7 @@ const LadderTransferModal = ({
   // Withdrawal tax preview. Mirrors the server math exactly; the server result is authoritative.
   const withdrawAmt = parseFloat(withdrawAmount);
   const hasRecentDeposit = (userLadderData?.recentDeposits || []).some(d => Date.now() - d.ts < LADDER_DEPOSIT_WINDOW_MS);
-  const taxPreview = (!isNaN(withdrawAmt) && withdrawAmt > 0 && withdrawAmt <= ladderBalance)
+  const taxPreview = (!isNaN(withdrawAmt) && withdrawAmt > 0 && withdrawAmt <= withdrawable)
     ? calculateLadderWithdrawTax({
         amount: withdrawAmt,
         totalDeposited: userLadderData?.totalDeposited || 0,
@@ -94,7 +99,7 @@ const LadderTransferModal = ({
                       key={tab}
                       onClick={() => {
                         setTransferTab(tab);
-                        if (tab === 'withdraw') setWithdrawAmount(String(userLadderData?.balance || 0));
+                        if (tab === 'withdraw') setWithdrawAmount(String(getLadderWithdrawable(userLadderData)));
                       }}
                       style={{
                         flex: 1,
@@ -210,12 +215,19 @@ const LadderTransferModal = ({
                 ) : (
                   <>
                     <p style={{ fontSize: '0.85rem', color: textLight, marginBottom: '4px' }}>
-                      Ladder balance: ${ladderBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      Ladder balance: ${fmt(ladderBalance)}
                     </p>
+                    {bonusChips > 0 && (
+                      <p style={{ fontSize: '0.85rem', color: textDark, marginBottom: '4px' }}>
+                        Available to cash out: ${fmt(withdrawable)}
+                      </p>
+                    )}
                     <p style={{ fontSize: '0.8rem', color: textLight, marginBottom: '10px' }}>
-                      {ladderBalance > 0
-                        ? 'Move some or all of your ladder balance back to your main cash. Withdrawals are taxed.'
-                        : 'No balance to withdraw.'}
+                      {withdrawable > 0
+                        ? 'Move some or all of it back to your main cash. Withdrawals are taxed.'
+                        : bonusChips > 0
+                          ? `$${fmt(bonusChips)} of your balance is bonus chips from check-ins. You can play them, but only what you win with them can be cashed out.`
+                          : 'No balance to withdraw.'}
                     </p>
                     {hasRecentDeposit && ladderBalance > 0 && (
                       <p style={{ fontSize: '0.8rem', color: '#e57373', marginBottom: '10px' }}>
@@ -230,22 +242,22 @@ const LadderTransferModal = ({
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         placeholder="Amount"
-                        disabled={ladderBalance <= 0}
-                        max={ladderBalance}
+                        disabled={withdrawable <= 0}
+                        max={withdrawable}
                         style={{
                           flex: 1, padding: '8px', border: '1px solid #666',
                           background: bgCardInner, color: textDark,
-                          opacity: ladderBalance <= 0 ? 0.5 : 1, boxSizing: 'border-box'
+                          opacity: withdrawable <= 0 ? 0.5 : 1, boxSizing: 'border-box'
                         }}
                       />
                       <button
-                        onClick={() => setWithdrawAmount(String(ladderBalance))}
-                        disabled={ladderBalance <= 0}
+                        onClick={() => setWithdrawAmount(String(withdrawable))}
+                        disabled={withdrawable <= 0}
                         style={{
                           padding: '8px 10px', background: '#b4ac99', color: textDark,
                           border: 'none', fontWeight: 700, fontSize: '0.75rem',
-                          cursor: ladderBalance <= 0 ? 'not-allowed' : 'pointer',
-                          opacity: ladderBalance <= 0 ? 0.5 : 1
+                          cursor: withdrawable <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: withdrawable <= 0 ? 0.5 : 1
                         }}
                       >
                         Max
@@ -268,12 +280,12 @@ const LadderTransferModal = ({
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleWithdraw}
-                        disabled={withdrawLoading || ladderBalance <= 0}
+                        disabled={withdrawLoading || withdrawable <= 0}
                         style={{
                           flex: 1, padding: '8px', background: '#af905b', color: '#fff',
                           border: 'none', fontWeight: 700,
-                          cursor: withdrawLoading || ladderBalance <= 0 ? 'not-allowed' : 'pointer',
-                          opacity: ladderBalance <= 0 ? 0.5 : 1
+                          cursor: withdrawLoading || withdrawable <= 0 ? 'not-allowed' : 'pointer',
+                          opacity: withdrawable <= 0 ? 0.5 : 1
                         }}
                       >
                         {withdrawLoading ? 'Withdrawing...' : 'Withdraw'}

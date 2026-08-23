@@ -8,7 +8,10 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
-const { isWeeklyTradingHalt, NINETY_DAYS_MS } = require('../constants');
+const {
+  isWeeklyTradingHalt, NINETY_DAYS_MS,
+  MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
+} = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat } = require('../helpers');
 const { runLimitOrderCheck } = require('./limitOrderMatching');
 
@@ -40,8 +43,14 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Limit orders support BUY, SELL, and STOP_LOSS only.');
   }
 
-  // Validate shares (finite, positive, max 2 decimal places, max 10000)
-  if (!shares || !Number.isFinite(shares) || shares < 0.01 || shares > 10000 || Math.round(shares * 100) / 100 !== shares) {
+  // Validate shares. Exits (SELL/STOP_LOSS) allow fractional dust so a position
+  // built from dividends or partial fills can be closed in full; BUY stays on
+  // whole-cent share counts.
+  const isExitOrder = type === 'SELL' || type === 'STOP_LOSS';
+  const minShares = isExitOrder ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
+  const entryStep = 10 ** TRADE_SHARE_DECIMALS;
+  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > MAX_TRADE_SHARES ||
+      (!isExitOrder && Math.round(shares * entryStep) / entryStep !== shares)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }
 
