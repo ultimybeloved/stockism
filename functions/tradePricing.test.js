@@ -4,8 +4,12 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // tradePricing is pure roster maths — no Firestore handle, no network.
-const { computePriceUpdates } = require('./tradePricing');
-const { CHARACTERS, CHARACTER_MAP } = require('../characters');
+// Lives at the functions root, not next to the module it tests: the backend
+// lint predeploy hook runs over services/ with a CommonJS parser and chokes on
+// the ESM imports every vitest file needs. Same placement as
+// functions/usernameFilter.test.js, for the same reason.
+const { computePriceUpdates } = require('./services/tradePricing');
+const { CHARACTERS, CHARACTER_MAP } = require('./characters');
 
 // $JIN, $SHNG and $GAP are mutually linked, which is what made the old
 // depth-first walk order-dependent. Coefficients are read from the roster rather
