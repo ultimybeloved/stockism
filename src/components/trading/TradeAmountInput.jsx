@@ -1,6 +1,6 @@
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
-import { formatShares } from '../../utils/tradeLimits';
+import { formatShares, roundShares } from '../../utils/tradeLimits';
 
 // Shares stepper for the trade modal: +/- buttons, direct entry, Max,
 // partial-share toggle, and the empty/locked hints under it.
@@ -17,7 +17,7 @@ const TradeAmountInput = ({
   // dividends and partial fills, and rounding the box to cents would make the
   // last speck of a position untypeable (and so unsellable).
   const isExit = action === 'sell' || action === 'cover';
-  const roundEntered = (v) => isExit ? Math.round(v * 1e6) / 1e6 : Math.round(v * 100) / 100;
+  const roundEntered = (v) => roundShares(v, isExit);
   const smallestStep = isExit ? Math.min(0.01, maxShares) : 0.01;
 
   return (

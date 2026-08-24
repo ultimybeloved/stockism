@@ -184,18 +184,38 @@ const runSeasonCheckpoint = async () => {
   const activeCutoff = Date.now() - ONE_WEEK_MS;
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'isBot', 'isBanned', 'seasonBaseline', 'seasonTier',
-      'seasonActiveWeeks', 'lastActive', 'displayName')
+    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned',
+      'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'lastActive', 'displayName')
     .get();
 
   let promoted = 0;
   let scored = 0;
+  let pinned = 0;
   let batch = db.batch();
   let ops = 0;
 
   for (const doc of snap.docs) {
     const u = doc.data();
     if (u.isBot || u.isBanned) continue;
+
+    // Safety net for a player with no baseline for this season: createUser pins
+    // one at signup, but an account that predates that (or lands in a race with
+    // adminStartSeason) would otherwise sit outside the season for good, because
+    // seasonReturnFor skips anyone unbaselined. Pin from where they stand now and
+    // they are scored from the next checkpoint on.
+    if (!u.seasonBaseline || u.seasonBaseline.seasonId !== season.id) {
+      const baseline = {
+        seasonId: season.id,
+        value: u.portfolioValue || 0,
+        granted: u.grantedValue || 0,
+        ladderFlow: u.ladderFlowValue || 0,
+        pinnedAt: Date.now(),
+      };
+      batch.update(doc.ref, { seasonBaseline: baseline });
+      pinned++;
+      if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
+      continue;
+    }
 
     const ret = seasonReturnFor(u, season);
     if (ret === null) continue;
@@ -229,8 +249,8 @@ const runSeasonCheckpoint = async () => {
     lastCheckpointScored: scored,
   });
 
-  console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted`);
-  return { ran: true, seasonId: season.id, weeks, scored, promoted };
+  console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned`);
+  return { ran: true, seasonId: season.id, weeks, scored, promoted, pinned };
 };
 
 exports.runSeasonCheckpoint = runSeasonCheckpoint;

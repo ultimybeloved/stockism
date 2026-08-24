@@ -17,11 +17,13 @@ const LEADERBOARD_FIELDS = [
   'holdings', 'displayCrewPin', 'displayedAchievementPins', 'achievements',
   'displayedShopPins', 'previousDisplayName', 'nameChangedAt',
   'activeCosmetics', 'isPublic', 'isBot', 'portfolioSnapshot7d',
+  // Season title: the equipped id plus the label it resolves to.
+  'activeTitle',
   // Needed to net free money out of the percent board — see grantedSince.
   'grantedValue', 'grantedSamples',
   // Ownership lists — fetched only to validate the display fields below;
   // never included in the payload sent to clients.
-  'ownedShopPins', 'ownedCosmetics',
+  'ownedShopPins', 'ownedCosmetics', 'ownedTitles', 'titleMeta',
 ];
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
@@ -46,10 +48,21 @@ const sanitizeDisplayFields = (userData) => {
       }
     }
   }
+  // Season title. Same deal as the pins: activeTitle is client-writable, so it
+  // only survives if the server actually granted it (adminEndSeason writes both
+  // ownedTitles and the titleMeta label at the same moment).
+  const ownedTitles = asArray(userData.ownedTitles);
+  const activeTitle = userData.activeTitle;
+  const titleMeta = (userData.titleMeta && typeof userData.titleMeta === 'object') ? userData.titleMeta : {};
+  const title = (typeof activeTitle === 'string' && ownedTitles.includes(activeTitle))
+    ? { id: activeTitle, text: titleMeta[activeTitle] || activeTitle }
+    : null;
+
   return {
     displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
     displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
     activeCosmetics,
+    title,
   };
 };
 

@@ -11,8 +11,45 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { ADMIN_UID } = require('../constants');
+const { ADMIN_UID, BACKUP_TOP_USERS } = require('../constants');
 const { priceHistoryRef } = require('../helpers');
+
+/**
+ * The top players' portfolios, for the leaderboard backups.
+ *
+ * This used to query `where('isBot', '==', false)`. Firestore equality filters
+ * only match documents that HAVE the field, and createUser has never written
+ * isBot — only the bot accounts carry it, set to true. So the filter matched
+ * nothing and every leaderboard backup, daily and monthly, was saved with an
+ * empty user list. Bots are filtered in code instead, and the query pulls extra
+ * rows so bots sitting in the top ranks can be dropped without leaving a short
+ * list.
+ */
+const topUserBackups = async () => {
+  const usersSnap = await db.collection('users')
+    .orderBy('portfolioValue', 'desc')
+    .limit(BACKUP_TOP_USERS * 2)
+    .get();
+
+  const backups = [];
+  for (const doc of usersSnap.docs) {
+    if (backups.length >= BACKUP_TOP_USERS) break;
+    const data = doc.data();
+    if (data.isBot) continue;
+    backups.push({
+      uid: doc.id,
+      displayName: data.displayName,
+      portfolioValue: data.portfolioValue || 0,
+      cash: data.cash || 0,
+      holdings: data.holdings || {},
+      shorts: data.shorts || {},
+      costBasis: data.costBasis || {},
+      totalTrades: data.totalTrades || 0,
+      crew: data.crew || null
+    });
+  }
+  return backups;
+};
 
 /**
  * Automated Backup System
@@ -59,27 +96,7 @@ exports.backupMarketData = cf().pubsub
       }
 
       // 2. Backup top 100 user portfolios (leaderboard)
-      const usersSnap = await db.collection('users')
-        .where('isBot', '==', false)
-        .orderBy('portfolioValue', 'desc')
-        .limit(100)
-        .get();
-
-      const userBackups = [];
-      usersSnap.forEach(doc => {
-        const data = doc.data();
-        userBackups.push({
-          uid: doc.id,
-          displayName: data.displayName,
-          portfolioValue: data.portfolioValue || 0,
-          cash: data.cash || 0,
-          holdings: data.holdings || {},
-          shorts: data.shorts || {},
-          costBasis: data.costBasis || {},
-          totalTrades: data.totalTrades || 0,
-          crew: data.crew || null
-        });
-      });
+      const userBackups = await topUserBackups();
 
       const leaderboardBackup = {
         timestamp,
@@ -352,27 +369,7 @@ exports.monthlyPermanentBackup = cf().pubsub
       }
 
       // Backup leaderboard (top 100 users)
-      const usersSnap = await db.collection('users')
-        .where('isBot', '==', false)
-        .orderBy('portfolioValue', 'desc')
-        .limit(100)
-        .get();
-
-      const userBackups = [];
-      usersSnap.forEach(doc => {
-        const data = doc.data();
-        userBackups.push({
-          uid: doc.id,
-          displayName: data.displayName,
-          portfolioValue: data.portfolioValue || 0,
-          cash: data.cash || 0,
-          holdings: data.holdings || {},
-          shorts: data.shorts || {},
-          costBasis: data.costBasis || {},
-          totalTrades: data.totalTrades || 0,
-          crew: data.crew || null
-        });
-      });
+      const userBackups = await topUserBackups();
 
       const leaderboardBackup = {
         timestamp,

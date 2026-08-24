@@ -17,12 +17,12 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const {
-  MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT,
+  MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES,
 } = require('../constants');
 const {
   writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor,
   pruneAndSumTradeHistory, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
-  recordTrade, round2, spreadFor,
+  recordTrade, round2, spreadFor, floorExitShares, remainingShares,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 const { computePriceUpdates, buildTrailingEntries } = require('./tradePricing');
@@ -62,9 +62,9 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   let fillShares = order.shares - freshAlreadyFilled;
   const userShares = userData.holdings?.[order.ticker] || 0;
   const lockedNow = lockedShares(userData, order.ticker).total;
-  const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
+  const sellableShares = Math.max(0, floorExitShares(userShares - lockedNow));
   if (sellableShares < fillShares) {
-    if (order.allowPartialFills && sellableShares > 0) fillShares = sellableShares;
+    if (order.allowPartialFills && sellableShares >= MIN_EXIT_SHARES) fillShares = sellableShares;
     else throw new Error('Insufficient shares');
   }
 
@@ -106,7 +106,7 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
     trailingEntries
   );
 
-  const newHoldings = Math.round((userShares - fillShares) * 10000) / 10000;
+  const newHoldings = remainingShares(userShares, fillShares);
   // Mission/stat credit — same fields executeTrade writes (includes the
   // totalTrades increment), so sweep fills count like regular trades.
   const { updates: creditUpdates } = buildTradeCreditUpdates({
@@ -121,7 +121,7 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
     tickerTradeHistory: updatedHistory,
     ...creditUpdates,
   };
-  if (newHoldings <= 0) {
+  if (!newHoldings) {
     updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
     updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
     updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();

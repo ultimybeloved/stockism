@@ -28,7 +28,7 @@ const {
   SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO, MARGIN_LIQUIDATION_SLIPPAGE,
   FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat } = require('../helpers');
+const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity } = require('../helpers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -368,7 +368,11 @@ exports.checkMarginLending = cf().pubsub
           }
         });
 
-        const grossValue = cash + holdingsValue;
+        // Open shorts count too. This used to be cash + holdings only, so the
+        // collateral locked up in a short was invisible here while the short
+        // sizing cap counted it — a player carrying margin debt and shorts read
+        // as far poorer than they were and could be liquidated early.
+        const grossValue = cash + holdingsValue + shortsEquity(userData.shorts, prices);
         const portfolioValue = grossValue - marginUsed;
         const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 0;
 
@@ -406,7 +410,8 @@ exports.checkMarginLending = cf().pubsub
               Object.entries(freshHoldings).forEach(([ticker, shares]) => {
                 if (shares > 0) freshHoldingsValue += (freshPrices[ticker] || 0) * shares;
               });
-              const freshGross = (freshData.cash || 0) + freshHoldingsValue;
+              const freshGross = (freshData.cash || 0) + freshHoldingsValue
+                + shortsEquity(freshData.shorts, freshPrices);
               const freshRatio = freshGross > 0
                 ? (freshGross - freshMarginUsed) / freshGross
                 : 0;

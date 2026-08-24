@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../firebase';
-import { getCosmeticStyles } from '../../utils/cosmetics';
+import { getCosmeticStyles, getActiveTitle } from '../../utils/cosmetics';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
 
@@ -39,6 +39,7 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
   };
 
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics, userData?.ownedCosmetics);
+  const activeTitle = getActiveTitle(userData);
 
   return (
     <div
@@ -51,6 +52,9 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
       <h2 className={`text-lg font-semibold ${textClass}`}>
         👤 <span className={nameClass} style={{ color: nameColor }}>{userData?.displayName}</span>
       </h2>
+      {activeTitle && (
+        <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{activeTitle.text}</p>
+      )}
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 
       {!editingName ? (

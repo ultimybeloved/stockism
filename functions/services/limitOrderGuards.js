@@ -12,8 +12,12 @@
 // cancel-vs-defer, so the wording of these throws is load-bearing.
 
 const { CHARACTER_MAP } = require('../characters');
-const { lockedShares, pruneAndSumTradeHistory } = require('../helpers');
-const { MAX_TRADES_PER_TICKER_24H } = require('../constants');
+const { lockedShares, pruneAndSumTradeHistory, floorExitShares } = require('../helpers');
+const {
+  MAX_TRADES_PER_TICKER_24H, MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+} = require('../constants');
+
+const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
 
 // ============================================
 // BEFORE THE TRANSACTION
@@ -130,8 +134,13 @@ const resolveFillShares = ({ effectiveType, order, userData, freshPrice, fillSha
     const totalCost = freshPrice * fillShares;
     if (userData.cash >= totalCost) return fillShares;
     if (!order.allowPartialFills) throw new Error('Insufficient cash');
-    const affordableShares = freshPrice > 0 ? Math.floor(userData.cash / freshPrice) : 0;
-    if (affordableShares <= 0) throw new Error('Insufficient cash');
+    // Whole-cent share counts, same grid every other buy path uses. This used
+    // to floor to WHOLE shares, so $15 of cash against a $10 stock filled 1
+    // share and left $5 of buying power on the table.
+    const affordableShares = freshPrice > 0
+      ? Math.floor((userData.cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP
+      : 0;
+    if (affordableShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
     console.log(`Partial fill: can only afford ${affordableShares} shares`);
     return affordableShares;
   }
@@ -139,9 +148,10 @@ const resolveFillShares = ({ effectiveType, order, userData, freshPrice, fillSha
   if (effectiveType === 'SELL') {
     const userShares = userData.holdings?.[order.ticker] || 0;
     const lockedNow = lockedShares(userData, order.ticker).total;
-    const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
+    // Six decimals, not four: a dust position has to stay sellable in full.
+    const sellableShares = Math.max(0, floorExitShares(userShares - lockedNow));
     if (sellableShares >= fillShares) return fillShares;
-    if (order.allowPartialFills && sellableShares > 0) {
+    if (order.allowPartialFills && sellableShares >= MIN_EXIT_SHARES) {
       console.log(`Partial fill: only ${sellableShares} sellable shares (${lockedNow} locked)`);
       return sellableShares;
     }

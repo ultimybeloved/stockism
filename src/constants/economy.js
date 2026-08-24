@@ -53,6 +53,13 @@ export const MIN_PRICE = 0.01; // Minimum price floor
 // by then and the cascade has to terminate.
 export const TRAILING_MAX_DEPTH = 3;
 export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be swept as dust — keep in sync with functions/constants.js
+
+// Order sizing. Mirror of functions/constants.js — keep both in sync.
+// Entries (buy/short) are whole-cent share counts. Exits (sell/cover) go much
+// finer: dividends, partial fills and ETF math leave fractional remainders, and
+// a player must always be able to close a position down to the last speck.
+export const MIN_TRADE_SHARES = 0.01;    // min buy/short size
+export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
 export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)

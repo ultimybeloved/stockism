@@ -12,7 +12,7 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
   MIN_EXIT_SHARES,
 } = require('../constants');
-const { calculateMarginalImpact, lockedShares } = require('../helpers');
+const { calculateMarginalImpact, lockedShares, remainingShares, shortsEquity } = require('../helpers');
 const { exitLoyaltyDiscount } = require('../characters');
 
 function computeBuy({
@@ -155,8 +155,8 @@ function computeSell({
   // Six decimals so an exit smaller than the old 4-dp rounding still moves the
   // position, and anything left under the minimum sellable size is dropped
   // rather than parked as a speck the player can never clear.
-  newHoldings[ticker] = Math.round((currentHoldings - amount) * 1e6) / 1e6;
-  if (newHoldings[ticker] < MIN_EXIT_SHARES) {
+  newHoldings[ticker] = remainingShares(currentHoldings, amount);
+  if (!newHoldings[ticker]) {
     delete newHoldings[ticker];
   }
 
@@ -185,15 +185,7 @@ function computeShort({
   Object.entries(holdings).forEach(([t, s]) => {
     if (s > 0) portfolioEquity += (prices[t] || 0) * s;
   });
-  Object.entries(shorts).forEach(([t, pos]) => {
-    if (pos && pos.shares > 0) {
-      if ((pos.system || 'v2') === 'v2') {
-        portfolioEquity += (pos.margin || 0) + ((pos.costBasis || 0) - (prices[t] || 0)) * pos.shares;
-      } else {
-        portfolioEquity += (pos.margin || 0) - ((prices[t] || 0) * pos.shares);
-      }
-    }
-  });
+  portfolioEquity += shortsEquity(shorts, prices);
 
   const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
     sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
@@ -329,13 +321,13 @@ function computeCover({
     throw new functions.https.HttpsError('internal', 'Trade calculation error: invalid cash result');
   }
   newShorts[ticker] = {
-    shares: shortPosition.shares - amount,
+    shares: remainingShares(shortPosition.shares, amount),
     costBasis: costBasis,
     margin: totalPositionMargin - marginToReturn,
     openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
     system: shortPosition.system || 'v2'
   };
-  if (newShorts[ticker].shares < MIN_EXIT_SHARES) {
+  if (!newShorts[ticker].shares) {
     delete newShorts[ticker];
   }
 

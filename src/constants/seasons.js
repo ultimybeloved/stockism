@@ -35,6 +35,12 @@ export const DEFAULT_SEASON_THRESHOLDS = {
 // nothing, which is the opposite of what a catch-up system is for.
 export const SEASON_BRONZE_ACTIVE_WEEKS = 2;
 
+// Smallest pinned baseline the server will score a player from. Mirror of
+// SEASON_MIN_BASELINE in functions/constants.js — keep both in sync. Below this
+// a percentage return is noise, so the server skips the player entirely; the UI
+// has to use the same gate or it shows tier progress that is never banked.
+export const SEASON_MIN_BASELINE = 1000;
+
 /**
  * The absolute return a tier requires after `weeks` of season, from its weekly
  * rate. Compounding, so a longer arc asks for more in total but the same

@@ -5,7 +5,8 @@ import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices } from '../../utils/calculations';
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../utils/marketHours';
-import { PRE_MARKET_MAX_BUY_BUFFER } from '../../constants/economy';
+import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../../constants/economy';
+import { formatShares, roundShares } from '../../utils/tradeLimits';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
@@ -71,6 +72,14 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   const maxShares = action === 'buy'
     ? (price > 0 ? Math.floor(userCash / (price * PRE_MARKET_MAX_BUY_BUFFER) * 100) / 100 : 0)
     : (holdings || 0);
+  // Sells go to six decimals and can be smaller than a hundredth of a share.
+  // Holdings pick up fractional remainders from dividends and partial fills, and
+  // clamping the box to 0.01 made a dust position impossible to queue: the order
+  // went in and then failed at the auction every week.
+  const isSell = action === 'sell';
+  const minShares = isSell ? Math.min(MIN_EXIT_SHARES, maxShares) : MIN_TRADE_SHARES;
+  const snap = (n) => roundShares(n, isSell);
+  const clampShares = (n) => Math.min(maxShares, Math.max(minShares, snap(n)));
 
   const handleSubmit = async () => {
     if (submitting || shares <= 0 || shares > maxShares) return;
@@ -164,16 +173,16 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
                 <label className={`text-sm font-semibold ${textClass}`}>Shares</label>
-                <span className={`text-xs ${mutedClass}`}>Max: {maxShares}</span>
+                <span className={`text-xs ${mutedClass}`}>Max: {formatShares(maxShares)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShares(s => Math.max(0.01, Math.round((s - 1) * 100) / 100))}
+                <button onClick={() => setShares(s => Math.max(minShares, snap(s - 1)))}
                   className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>−</button>
-                <input type="number" min="0.01" max={maxShares} step="1" value={shares}
-                  onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setShares(Math.min(maxShares, Math.max(0.01, Math.round(n * 100) / 100))); }}
+                <input type="number" min={minShares} max={maxShares} step={isSell ? 'any' : '1'} value={shares}
+                  onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setShares(clampShares(n)); }}
                   className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
                 />
-                <button onClick={() => setShares(s => Math.min(maxShares, Math.round((s + 1) * 100) / 100))}
+                <button onClick={() => setShares(s => Math.min(maxShares, snap(s + 1)))}
                   className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
                 <button onClick={() => setShares(maxShares)} disabled={maxShares === 0}
                   className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'} disabled:opacity-50`}>

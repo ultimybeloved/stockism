@@ -286,6 +286,19 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         }
       }
 
+      // Season baseline. Baselines are otherwise only pinned by adminStartSeason,
+      // which runs once, over the players who exist at that moment — so anyone
+      // who signed up mid-season had no baseline, and the scoring functions skip
+      // a player without one. They could never rank, never earn a tier and never
+      // win a title for the season they joined in, which is the opposite of what
+      // seasons are for. Pin it here so a new player is in the running from the
+      // moment they start. Their starting cash is the baseline; the $2,000 the
+      // Discord unlock adds later is booked as granted value and nets back out.
+      const seasonSnap = await transaction.get(db.collection('market').doc('season'));
+      const activeSeason = (seasonSnap.exists && seasonSnap.data().status === 'active')
+        ? seasonSnap.data()
+        : null;
+
       const now = admin.firestore.FieldValue.serverTimestamp();
 
       // Reserve the username
@@ -316,7 +329,16 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         onboardingComplete: false,
         startingCashUnlocked: false,
         signupIp: sanitizedSignupIp || null,
-        requiresDiscordLink
+        requiresDiscordLink,
+        ...(activeSeason ? {
+          seasonBaseline: {
+            seasonId: activeSeason.id,
+            value: UNVERIFIED_STARTING_CASH,
+            granted: 0,
+            ladderFlow: 0,
+            pinnedAt: Date.now(),
+          }
+        } : {})
       });
 
       // Seed the permanent history subcollection with the starting point

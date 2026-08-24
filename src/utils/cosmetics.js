@@ -35,3 +35,18 @@ export const getCosmeticStyles = (activeCosmetics = {}, ownedCosmetics = null) =
     rowClass: [glowC?.effectClass, frameC?.effectClass].filter(Boolean).join(' '),
   };
 };
+
+// The season title to show under a player's name, or null.
+//
+// Server payloads (leaderboard, public profile) already arrive as a validated
+// { id, text } on `title`. The own-profile surfaces hold the raw user doc
+// instead, where activeTitle is client-writable — so an unowned equip is dropped
+// here the same way the server drops it, and the label comes from titleMeta,
+// which only adminEndSeason writes.
+export const getActiveTitle = (userData) => {
+  if (userData?.title) return userData.title;
+  const id = userData?.activeTitle;
+  if (typeof id !== 'string' || !id) return null;
+  if (!Array.isArray(userData.ownedTitles) || !userData.ownedTitles.includes(id)) return null;
+  return { id, text: userData.titleMeta?.[id] || id };
+};

@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { getPublicProfileFunction } from '../firebase';
 import { CREW_MAP } from '../crews';
 import { CHARACTER_MAP } from '../characters';
-import { getCosmeticStyles } from '../utils/cosmetics';
+import { getCosmeticStyles, getActiveTitle } from '../utils/cosmetics';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
@@ -65,6 +65,7 @@ const PublicProfilePage = () => {
 
   const crew = profile.crew ? CREW_MAP[profile.crew] : null;
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(profile.activeCosmetics);
+  const profileTitle = getActiveTitle(profile);
   const crewColor = crew?.color || '#6b7280';
 
   // Portfolio sparkline data
@@ -106,6 +107,9 @@ const PublicProfilePage = () => {
               </span>
               <PinDisplay userData={profile} size="sm" />
             </h1>
+            {profileTitle && (
+              <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{profileTitle.text}</p>
+            )}
             {crew && (
               <div className="flex items-center gap-1.5 mt-1">
                 {crew.icon

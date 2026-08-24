@@ -76,6 +76,23 @@ service cloud.firestore {
     // own doc. If you add a new preference the client writes directly, add its
     // top-level key here too.
     function validateSafeUserUpdate() {
+      return safeUserKeysOnly() && titleIsOwned();
+    }
+
+    // activeTitle is on the allowlist so the client can equip a season title
+    // without a Cloud Function round trip, but the allowlist only says WHICH key
+    // may change, not what may go in it — any string at all was accepted, for a
+    // field rendered next to the player's name on the leaderboard. A title may
+    // only be cleared, or set to one the server already granted. ownedTitles and
+    // titleMeta stay server-only (adminEndSeason writes both).
+    function titleIsOwned() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeTitle'])
+        || request.resource.data.activeTitle == null
+        || (request.resource.data.activeTitle is string
+            && resource.data.get('ownedTitles', []).hasAny([request.resource.data.activeTitle]));
+    }
+
+    function safeUserKeysOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'darkMode',                  // theme toggle (App.jsx)
         'colorBlindMode',            // accessibility toggle (ProfileSettings/ProfileModal)

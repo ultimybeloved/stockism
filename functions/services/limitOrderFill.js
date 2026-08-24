@@ -13,7 +13,7 @@ const { exitLoyaltyDiscount } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
   calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory,
-  appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor,
+  appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
 } = require('../helpers');
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
@@ -183,7 +183,10 @@ const applySellFill = (transaction, ctx) => {
 
   const totalRevenue = bidPrice * fillShares;
   const currentHoldings = userData.holdings?.[ticker] || 0;
-  const newHoldings = currentHoldings - fillShares;
+  // Six decimals, with anything under the minimum sellable size dropped. Raw
+  // subtraction left float specks like 1e-17 sitting on the position, which read
+  // as "still holding" and could never be sold off.
+  const newHoldings = remainingShares(currentHoldings, fillShares);
 
   const priceUpdates = propagate({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices });
   const trailingEntries = buildTrailingEntries({ priceUpdates, ticker, prices: freshPrices, action: 'sell', now });
@@ -203,7 +206,7 @@ const applySellFill = (transaction, ctx) => {
     tickerTradeHistory: updatedHistory,
     ...creditUpdates,
   };
-  if (newHoldings <= 0) {
+  if (!newHoldings) {
     updates[`holdings.${ticker}`] = admin.firestore.FieldValue.delete();
     updates[`costBasis.${ticker}`] = admin.firestore.FieldValue.delete();
     updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();

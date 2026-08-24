@@ -121,7 +121,39 @@ const {
   DISCORD_API_TIMEOUT_MS,
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
+  MIN_EXIT_SHARES,
+  EXIT_SHARE_DECIMALS,
 } = require('./constants');
+
+// ── Exit share sizes ─────────────────────────────────────────────────────────
+// Holdings pick up fractional remainders from dividends, partial fills and ETF
+// math, so a sell has to be able to name six decimals or the last speck of a
+// position becomes unsellable. Every exit lane (executeTrade, limit orders, the
+// stop-loss sweep, the opening auction) goes through these two so they can't
+// drift apart again: the auction and the sweep were still rounding to two and
+// four decimals and refusing anything under 0.01 shares long after the instant
+// sell path had been fixed.
+const EXIT_SHARE_STEP = 10 ** EXIT_SHARE_DECIMALS;
+
+// Clamp a fill size to the exit grid. Floors rather than rounds, so a fill can
+// never be for more shares than the player actually holds.
+//
+// The slack is not optional. In binary floating point 8.29 * 1e6 is
+// 8289999.999999999, and a plain floor would shave a millionth of a share off
+// every number like it — leaving behind exactly the unsellable speck this whole
+// grid exists to prevent. A ten-thousandth of a step is far below any real share
+// quantity (one step is a whole unit here) and comfortably above the noise.
+const EXIT_SHARE_EPSILON = 1e-4;
+const floorExitShares = (n) =>
+  Math.floor((n || 0) * EXIT_SHARE_STEP + EXIT_SHARE_EPSILON) / EXIT_SHARE_STEP;
+
+// What is left of a position after selling `sold` of it. Anything under the
+// minimum sellable size is dropped rather than parked as a speck the player can
+// never clear, so callers can treat 0 as "position closed".
+const remainingShares = (held, sold) => {
+  const left = Math.round(((held || 0) - (sold || 0)) * EXIT_SHARE_STEP) / EXIT_SHARE_STEP;
+  return left < MIN_EXIT_SHARES ? 0 : left;
+};
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
 const getWeekId = (now = new Date()) => {
@@ -554,6 +586,29 @@ const netReturnPercent = (current, baseline, granted) => {
   if (!baseline || baseline <= 0) return 0;
   return (((current - (granted || 0)) - baseline) / baseline) * 100;
 };
+
+/**
+ * What a user's open shorts are worth to their net worth right now: the
+ * collateral they posted, plus the unrealised gain or loss on the position.
+ *
+ * v2 shorts post 100% collateral and the proceeds stay with the house, so the
+ * position is worth margin + (entry - current) x shares. Legacy shorts were paid
+ * their proceeds up front, so the current value of the borrowed shares is a
+ * liability against the collateral instead.
+ *
+ * Shared by the short-sizing cap in tradeActions and the margin-lending scanner:
+ * the scanner used to count only cash and holdings, so collateral locked in a
+ * short was invisible and a player holding both margin debt and shorts looked
+ * poorer than they were and could be liquidated early.
+ */
+const shortsEquity = (shorts, prices) =>
+  Object.entries(shorts || {}).reduce((sum, [ticker, pos]) => {
+    if (!pos || !(pos.shares > 0)) return sum;
+    const price = prices?.[ticker] || 0;
+    return sum + ((pos.system || 'v2') === 'v2'
+      ? (pos.margin || 0) + ((pos.costBasis || 0) - price) * pos.shares
+      : (pos.margin || 0) - price * pos.shares);
+  }, 0);
 
 // Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
 // open short positions. Used to cap prediction bets and ladder-game deposits.
@@ -1317,6 +1372,8 @@ const lockedShares = (userData, ticker, now = Date.now()) => {
 
 module.exports = {
   round2,
+  floorExitShares,
+  remainingShares,
   lockedShares,
   countRankAbove,
   DIVIDEND_HOLD_MS,
@@ -1346,6 +1403,7 @@ module.exports = {
   grantedFlowUpdate,
   grantedSince,
   netReturnPercent,
+  shortsEquity,
   getTotalInvested,
   lmsrCost,
   lmsrPrices,

@@ -86,6 +86,10 @@ async function main() {
     drip: {},
     activeCosmetics: {},
     watchlist: [],
+    // Season titles: one granted, so the "equip what you own" rule has both a
+    // legal and an illegal case to test against.
+    ownedTitles: ['season_1_gold'],
+    titleMeta: { season_1_gold: 'Season 1 Gold' },
     createdAt: admin.firestore.Timestamp.now()
   });
 
@@ -103,6 +107,13 @@ async function main() {
   await check('grant self holdings', 'blocked', { holdings: { JAY: 100000 } });
   await check('clear short collateral', 'blocked', { shorts: {}, marginUsed: -5000 });
   await check('mixed legit + illegit in one write', 'blocked', { darkMode: false, cash: 50000 });
+  // activeTitle is on the preference allowlist, which only says the key may
+  // change — it never said what could go in it, so any string at all was
+  // accepted for a field rendered next to the player's name.
+  await check('equip a title never earned', 'blocked', { activeTitle: 'season_9_diamond' });
+  await check('equip a junk title string', 'blocked', { activeTitle: 'Actual Site Admin' });
+  await check('grant self a title', 'blocked', { ownedTitles: ['season_9_diamond'] });
+  await check('write own title label', 'blocked', { 'titleMeta.season_1_gold': 'Site Owner' });
 
   console.log('\n── Legitimate preference writes that MUST still work ─────────');
   await check('toggle dark mode', 'allowed', { darkMode: false });
@@ -118,6 +129,8 @@ async function main() {
   await check('set achievement pin order', 'allowed', { displayedAchievementPins: ['x'] });
   await check('toggle crew pin', 'allowed', { displayCrewPin: true });
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
+  await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });
+  await check('clear the equipped title', 'allowed', { activeTitle: null });
 
   console.log(`\n${fail === 0 ? 'ALL PASS' : 'FAILURES PRESENT'} — ${pass} passed, ${fail} failed\n`);
   process.exit(fail === 0 ? 0 : 1);

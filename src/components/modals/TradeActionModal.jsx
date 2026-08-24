@@ -3,7 +3,7 @@ import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../const
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
 import { calculateMarginStatus } from '../../utils/calculations';
-import { getDynamicPrices, getMaxShares, getTradeCount } from '../../utils/tradeLimits';
+import { getDynamicPrices, getMaxShares, getTradeCount, roundShares } from '../../utils/tradeLimits';
 import { createLimitOrderFunction } from '../../firebase';
 import MarginImpactPreview from '../trading/MarginImpactPreview';
 import TradeAmountInput from '../trading/TradeAmountInput';
@@ -196,9 +196,7 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           type: orderType,
           // Buys are whole-cent share counts; exits keep their fractional size so
           // a dust position can be queued in full.
-          shares: action === 'sell'
-            ? Math.round(parseFloat(amount) * 1e6) / 1e6
-            : Math.round(parseFloat(amount) * 100) / 100,
+          shares: roundShares(parseFloat(amount), action === 'sell'),
           limitPrice: priceNum,
           allowPartialFills
         });

@@ -5,6 +5,7 @@ import { useAppContext } from '../context/AppContext';
 import {
   DEFAULT_SEASON_THRESHOLDS,
   SEASON_BRONZE_ACTIVE_WEEKS,
+  SEASON_MIN_BASELINE,
   seasonTierTarget,
   nextSeasonTier,
   SEASON_TIER_MAP,
@@ -36,7 +37,12 @@ export function useSeason() {
   const thresholds = season.thresholds || DEFAULT_SEASON_THRESHOLDS;
 
   const baseline = userData?.seasonBaseline;
-  const inSeason = !!baseline && baseline.seasonId === season.id && baseline.value > 0;
+  // Same floor the server scores against (seasonReturnFor). It used to be a
+  // bare > 0 here, so a player who started the season under the floor watched
+  // their return and tier progress climb on a card that the weekly checkpoint
+  // was silently skipping.
+  const inSeason = !!baseline && baseline.seasonId === season.id
+    && baseline.value >= SEASON_MIN_BASELINE;
 
   // Signed on purpose — a ladder deposit books a negative flow, so clamping to
   // zero would read as a trading loss. Mirrors seasonReturnFor on the server.

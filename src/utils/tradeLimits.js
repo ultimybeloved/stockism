@@ -4,6 +4,7 @@
 import {
   BASE_LIQUIDITY,
   MIN_PRICE,
+  MIN_EXIT_SHARES,
   SHORT_MARGIN_REQUIREMENT,
   MAX_TRADES_PER_TICKER_24H
 } from '../constants';
@@ -135,6 +136,15 @@ export const getMaxShares = ({ action, character, price, holdings, shortPosition
   }
   return 1;
 };
+
+// Snap a sell/cover size to the exit grid. Entries stay on whole cents; exits go
+// to six decimals so a position built from dividends and partial fills can be
+// closed in full. Mirror of MIN_EXIT_SHARES / EXIT_SHARE_DECIMALS in
+// functions/constants.js — the server rejects anything finer.
+const EXIT_SHARE_STEP = 1 / MIN_EXIT_SHARES;
+export const roundShares = (n, isExit) => isExit
+  ? Math.round(n * EXIT_SHARE_STEP) / EXIT_SHARE_STEP
+  : Math.round(n * 100) / 100;
 
 export const formatShares = (n) => {
   if (!n) return '0';

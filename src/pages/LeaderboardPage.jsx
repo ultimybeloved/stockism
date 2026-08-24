@@ -233,6 +233,9 @@ const LeaderboardPage = () => {
                         {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
                         <PinDisplay userData={leader} size="sm" />
                       </div>
+                      {leader.title && (
+                        <div className={`text-xs font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{leader.title.text}</div>
+                      )}
                       {leader.previousDisplayName && leader.nameChangedAt &&
                         Date.now() - (leader.nameChangedAt._seconds ? leader.nameChangedAt._seconds * 1000 : leader.nameChangedAt) < 30 * 24 * 60 * 60 * 1000 && (
                         <div className={`text-xs ${mutedClass}`}>formerly {leader.previousDisplayName}</div>

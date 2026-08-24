@@ -15,6 +15,7 @@
 //   5. Order on an unlaunched IPO ticker fails with a clear reason
 //   6. Week-old stranded order gets EXPIRED
 //   7. No PENDING pre-market orders remain afterward
+//   8. A dust sell (under 0.01 shares) fills instead of failing
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -66,6 +67,10 @@ async function main() {
     pm_ipoUser:      { cash: 5000, holdings: {} },
     // Stop-loss sweep runs on the opening prices, right after the auction.
     pm_stopper:      { cash: 0, holdings: { [STOP_TICKER]: 20 } },
+    // Dividend/partial-fill dust. createPreMarketOrder accepts a sell this small,
+    // and the auction used to round it to cents and fail it as "Insufficient
+    // shares" — so the position could be queued but never actually closed.
+    pm_dust:         { cash: 0, holdings: { [TICKER]: 0.004 } },
   };
   for (const [uid, data] of Object.entries(users)) {
     await db.collection('users').doc(uid).set({ displayName: uid, ...data });
@@ -81,6 +86,7 @@ async function main() {
     { id: 'pm_t4', userId: 'pm_partialBuyer', ticker: TICKER, action: 'buy',  shares: 100,  createdAt: now },
     { id: 'pm_t5', userId: 'pm_staleUser',    ticker: TICKER, action: 'buy',  shares: 5,    createdAt: eightDaysAgo },
     { id: 'pm_t6', userId: 'pm_ipoUser',      ticker: IPO_TICKER, action: 'buy', shares: 5, createdAt: now },
+    { id: 'pm_t7', userId: 'pm_dust',         ticker: TICKER, action: 'sell', shares: 0.004, createdAt: now },
   ];
   for (const o of orders) {
     const { id, ...rest } = o;
@@ -188,6 +194,13 @@ async function main() {
 
   const t6 = await get('pm_t6');
   check('unlaunched IPO ticker order FAILED with IPO reason', t6.status === 'FAILED' && /IPO/.test(t6.failReason || ''), JSON.stringify(t6));
+
+  const t7 = await get('pm_t7');
+  check('dust sell FILLED rather than rejected as too small',
+    t7.status === 'FILLED' && Math.abs(t7.filledShares - 0.004) < 1e-9, JSON.stringify(t7));
+  const dustUser = (await db.collection('users').doc('pm_dust').get()).data();
+  check('dust position fully closed, not left as an unsellable speck',
+    !dustUser.holdings?.[TICKER] && dustUser.cash > 0, JSON.stringify(dustUser.holdings || {}));
 
   const leftover = await db.collection('preMarketOrders').where('status', '==', 'PENDING').get();
   check('no PENDING pre-market orders remain', leftover.empty, `${leftover.size} left`);

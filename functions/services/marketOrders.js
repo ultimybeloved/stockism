@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
-const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat } = require('../helpers');
+const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } = require('../constants');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
@@ -117,20 +117,26 @@ const runMarketOpenProcessing = async (trigger) => {
       const basePrice = currentPrices[order.ticker] || CHARACTER_MAP[order.ticker]?.basePrice;
       if (!basePrice) { await failOrder(doc, order, 'No market price'); continue; }
 
+      // Buys sit on whole-cent share counts; sells go to six decimals, because a
+      // position built out of dividends and partial fills has to be closable in
+      // full. This used to round BOTH sides to cents and reject anything under
+      // 0.01 shares, so a dust sell queued fine at 20:30 and came back
+      // "Insufficient shares" at the auction, every time.
+      const isSell = order.action === 'sell';
+      const minFill = isSell ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
       let fillable = 0;
-      if (order.action === 'buy') {
+      if (!isSell) {
         if (!cashAvail.has(order.userId)) cashAvail.set(order.userId, ud.cash || 0);
         const estAsk = basePrice * (1 + spreadFor(order.ticker) / 2);
-        fillable = Math.min(order.shares, Math.floor(cashAvail.get(order.userId) / estAsk * 100) / 100);
-        if (fillable >= 0.01) cashAvail.set(order.userId, cashAvail.get(order.userId) - estAsk * fillable);
+        fillable = round2(Math.min(order.shares, Math.floor(cashAvail.get(order.userId) / estAsk * 100) / 100));
+        if (fillable >= minFill) cashAvail.set(order.userId, cashAvail.get(order.userId) - estAsk * fillable);
       } else {
         const key = `${order.userId}_${order.ticker}`;
         if (!sharesAvail.has(key)) sharesAvail.set(key, ud.holdings?.[order.ticker] || 0);
-        fillable = Math.min(order.shares, sharesAvail.get(key));
-        if (fillable >= 0.01) sharesAvail.set(key, sharesAvail.get(key) - fillable);
+        fillable = floorExitShares(Math.min(order.shares, sharesAvail.get(key)));
+        if (fillable >= minFill) sharesAvail.set(key, sharesAvail.get(key) - fillable);
       }
-      fillable = round2(fillable);
-      if (fillable < 0.01) {
+      if (fillable < minFill) {
         await failOrder(doc, order, order.action === 'buy' ? 'Insufficient cash' : 'Insufficient shares');
         continue;
       }
@@ -246,7 +252,7 @@ const runMarketOpenProcessing = async (trigger) => {
           if (order.action === 'buy') {
             const affordable = Math.floor((ud.cash || 0) / executionPrice * 100) / 100;
             localFillShares = round2(Math.min(localFillShares, affordable));
-            if (localFillShares < 0.01) throw new Error('Insufficient cash');
+            if (localFillShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
 
             const currentHoldings = ud.holdings?.[order.ticker] || 0;
             const currentCostBasis = ud.costBasis?.[order.ticker] || 0;
@@ -290,11 +296,11 @@ const runMarketOpenProcessing = async (trigger) => {
             // after the order was queued must not be sellable at the auction.
             const userShares = ud.holdings?.[order.ticker] || 0;
             const lockedNow = lockedShares(ud, order.ticker).total;
-            const sellableShares = Math.max(0, Math.round((userShares - lockedNow) * 10000) / 10000);
-            localFillShares = round2(Math.min(localFillShares, sellableShares));
-            if (localFillShares < 0.01) throw new Error('Insufficient shares');
+            const sellableShares = Math.max(0, floorExitShares(userShares - lockedNow));
+            localFillShares = floorExitShares(Math.min(localFillShares, sellableShares));
+            if (localFillShares < MIN_EXIT_SHARES) throw new Error('Insufficient shares');
 
-            const newHoldings = Math.round((userShares - localFillShares) * 10000) / 10000;
+            const newHoldings = remainingShares(userShares, localFillShares);
             // Mission/stat credit — same fields executeTrade writes, so
             // pre-market fills count toward missions like regular trades.
             const { updates: creditUpdates } = buildTradeCreditUpdates({
@@ -307,7 +313,7 @@ const runMarketOpenProcessing = async (trigger) => {
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
               ...creditUpdates
             };
-            if (newHoldings <= 0) {
+            if (!newHoldings) {
               updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
               updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
               updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();

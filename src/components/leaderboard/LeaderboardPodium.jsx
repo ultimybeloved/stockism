@@ -82,6 +82,9 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
           </span>
         )}
       </div>
+      {leader.title && (
+        <div className={`text-[11px] font-semibold truncate ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{leader.title.text}</div>
+      )}
       <div className="flex items-center justify-center gap-1 flex-wrap">
         <PinDisplay userData={leader} size="sm" />
         {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
