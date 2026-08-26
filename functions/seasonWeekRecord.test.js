@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { buildWeekRecord, appendWeekRecord } = require('./services/season');
+const { buildWeekRecord, appendWeekRecord, isSeasonParticipant } = require('./services/season');
 
 const season = { id: 'S1' };
 const prices = { GAP: 100, SHNG: 50, JAY: 20 };
@@ -137,5 +137,44 @@ describe('what the record makes computable', () => {
   it('derives concentration both ways', () => {
     expect(w2.c / w2.h).toBeCloseTo(0.6, 9);   // of invested money
     expect(w2.c / w2.v).toBeCloseTo(0.5217, 3); // of the whole portfolio
+  });
+});
+
+describe('isSeasonParticipant', () => {
+  // adminStartSeason pins a baseline for EVERY non-bot account, so without this
+  // the standings board fills with people who signed up once and never returned.
+  const now = Date.parse('2026-09-20T12:00:00Z');
+  const daysAgo = (n) => now - n * 24 * 60 * 60 * 1000;
+
+  it('keeps a player who has banked an active week', () => {
+    const u = { seasonActiveWeeks: { seasonId: 'S1', weeks: 3 }, lastActive: daysAgo(400) };
+    expect(isSeasonParticipant(u, season, now)).toBe(true);
+  });
+
+  it('keeps a recently active player before any checkpoint has run', () => {
+    // Week one: nobody has banked an active week yet, so the board would be
+    // empty if recent activity did not also qualify.
+    expect(isSeasonParticipant({ lastActive: daysAgo(1) }, season, now)).toBe(true);
+  });
+
+  it('drops a dormant account with a baseline and nothing else', () => {
+    expect(isSeasonParticipant({ lastActive: daysAgo(60) }, season, now)).toBe(false);
+    expect(isSeasonParticipant({}, season, now)).toBe(false);
+  });
+
+  it('ignores active weeks banked in a previous season', () => {
+    const u = { seasonActiveWeeks: { seasonId: 'S0', weeks: 9 }, lastActive: daysAgo(60) };
+    expect(isSeasonParticipant(u, season, now)).toBe(false);
+  });
+
+  it('counts any of the activity stamps, not just lastActive', () => {
+    expect(isSeasonParticipant({ lastTradeTime: daysAgo(2) }, season, now)).toBe(true);
+    expect(isSeasonParticipant({ lastCheckin: daysAgo(2) }, season, now)).toBe(true);
+    expect(isSeasonParticipant({ lastSynced: daysAgo(2) }, season, now)).toBe(true);
+  });
+
+  it('treats zero banked weeks as not banked', () => {
+    const u = { seasonActiveWeeks: { seasonId: 'S1', weeks: 0 }, lastActive: daysAgo(60) };
+    expect(isSeasonParticipant(u, season, now)).toBe(false);
   });
 });

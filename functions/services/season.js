@@ -28,8 +28,9 @@ const {
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
   LEADERBOARD_CACHE_TTL,
+  ACTIVE_USER_WINDOW_MS,
 } = require('../constants');
-const { netReturnPercent, writeNotification, recordHeartbeat } = require('../helpers');
+const { netReturnPercent, writeNotification, recordHeartbeat, getLastActiveMs } = require('../helpers');
 
 const seasonRef = () => db.collection('market').doc('season');
 const BATCH_LIMIT = 400;
@@ -125,6 +126,27 @@ const tierFor = ({ returnPercent, weeks, activeWeeks, thresholds }) => {
 const tierRank = (tierId) => (tierId ? SEASON_TIER_ORDER.indexOf(tierId) + 1 : 0);
 
 /**
+ * Whether a player belongs on the season standings board.
+ *
+ * adminStartSeason pins a baseline for EVERY non-bot account, so without this
+ * the board fills up with people who signed up once and never came back, sitting
+ * at roughly 0%. They can't take a tier off anyone — tiers are absolute bars,
+ * not rankings — but they pad the field and make "top 5%" a much softer thing
+ * than it sounds.
+ *
+ * Two ways to qualify, and both are needed. Banked active weeks cover a player
+ * who competed early and went quiet, and there are none of those before the
+ * first checkpoint, so recent activity covers week one. Same lastActive
+ * definition the rest of the app uses.
+ */
+const isSeasonParticipant = (userData, season, now = Date.now()) => {
+  const activeWeeks = (userData?.seasonActiveWeeks?.seasonId === season?.id)
+    ? (userData.seasonActiveWeeks.weeks || 0) : 0;
+  if (activeWeeks > 0) return true;
+  return getLastActiveMs(userData) >= now - ACTIVE_USER_WINDOW_MS;
+};
+
+/**
  * A user's season return, or null if they can't be scored.
  *
  * Grants booked since the season started are subtracted using the baseline
@@ -163,6 +185,7 @@ const seasonReturnWithLadderFor = (userData, season) => {
 // Exported for the standings reader and the weekly checkpoint. The serviceLoader
 // copies only real Cloud Functions, so these never reach index.js.
 exports.buildWeekRecord = buildWeekRecord;
+exports.isSeasonParticipant = isSeasonParticipant;
 exports.appendWeekRecord = appendWeekRecord;
 exports.seasonReturnFor = seasonReturnFor;
 exports.seasonReturnWithLadderFor = seasonReturnWithLadderFor;
@@ -492,13 +515,16 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
 
   const snap = await db.collection('users')
     .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned', 'seasonBaseline',
-      'seasonTier', 'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics')
+      'seasonTier', 'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics',
+      // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
+      'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
     .get();
 
   const entries = [];
   snap.forEach((doc) => {
     const u = doc.data();
     if (u.isBot || u.isBanned) return;
+    if (!isSeasonParticipant(u, season)) return;
     const ret = seasonReturnFor(u, season);
     if (ret === null) return;
     const withLadder = seasonReturnWithLadderFor(u, season);
