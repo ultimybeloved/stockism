@@ -25,6 +25,8 @@ const MAX_PRICE_CHANGE_PERCENT = 0.05;
 const TRAILING_MAX_DEPTH = 3;
 // How many players the leaderboard backups keep, richest first.
 const BACKUP_TOP_USERS = 100;
+// Market index reads 1000 when every character sits at its base price.
+const INDEX_BASE_VALUE = 1000;
 
 // Order sizing. Entries (buy/short) are whole-cent share counts. Exits
 // (sell/cover) go much finer: dividends, partial fills and ETF math leave
@@ -685,6 +687,7 @@ module.exports = {
   MAX_PRICE_CHANGE_PERCENT,
   TRAILING_MAX_DEPTH,
   BACKUP_TOP_USERS,
+  INDEX_BASE_VALUE,
   MIN_TRADE_SHARES,
   MIN_EXIT_SHARES,
   MAX_TRADE_SHARES,

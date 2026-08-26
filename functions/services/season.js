@@ -18,9 +18,11 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
+const { indexConstituents, computeIndexValue } = require('./indexMaintenance');
 const {
   ADMIN_UID,
   ONE_WEEK_MS,
+  INDEX_BASE_VALUE,
   SEASON_TIER_ORDER,
   DEFAULT_SEASON_THRESHOLDS,
   SEASON_BRONZE_ACTIVE_WEEKS,
@@ -31,6 +33,78 @@ const { netReturnPercent, writeNotification, recordHeartbeat } = require('../hel
 
 const seasonRef = () => db.collection('market').doc('season');
 const BATCH_LIMIT = 400;
+// A season's weekly record is capped. Far longer than any arc, and it stops one
+// very long season from growing the user doc without bound.
+const SEASON_WEEK_RECORD_CAP = 80;
+
+/**
+ * The market index right now, plus the constituent set behind it.
+ *
+ * Read once per job, never per player. Tiers are scored against this line, so it
+ * has to be the same divisor-adjusted number the daily job records rather than a
+ * fresh average — see functions/services/indexMaintenance.js.
+ */
+const readIndexNow = async () => {
+  const [marketSnap, idxSnap] = await Promise.all([
+    db.collection('market').doc('current').get(),
+    db.collection('market').doc('indexHistory').get(),
+  ]);
+  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+  const stored = idxSnap.exists ? (idxSnap.data() || {}) : {};
+  const constituents = (Array.isArray(stored.constituents) && stored.constituents.length)
+    ? stored.constituents
+    : indexConstituents();
+  const divisor = stored.divisor > 0
+    ? stored.divisor
+    : (constituents.length || 1) / INDEX_BASE_VALUE;
+  return { prices, value: computeIndexValue(prices, constituents, divisor) };
+};
+
+/**
+ * One week's raw measurements for a player. Deliberately NOT a verdict.
+ *
+ * Storing "beat the index: true" would marry the season to whatever tier rule
+ * shipped with it, and the rule is exactly the thing that can't be settled until
+ * the calibration data lands. Storing the underlying numbers means the rule can
+ * change at any point, mid-season included, and every past week can be rescored
+ * from the record.
+ *
+ *   v  portfolio value now          g  granted value since the season baseline
+ *   x  market index now             c  value of the single largest holding
+ *   h  total value of all holdings
+ *
+ * Cumulative return, weekly return, excess over the index and concentration are
+ * all derivable from consecutive entries. None of them are stored.
+ */
+const buildWeekRecord = ({ season, weeks, userData, prices, indexValue }) => {
+  const holdings = userData.holdings || {};
+  let largest = 0;
+  let total = 0;
+  for (const [ticker, shares] of Object.entries(holdings)) {
+    if (!(shares > 0)) continue;
+    const value = (prices[ticker] || 0) * shares;
+    total += value;
+    if (value > largest) largest = value;
+  }
+  const baselineGranted = userData.seasonBaseline?.granted || 0;
+  return {
+    s: season.id,
+    w: weeks,
+    t: Date.now(),
+    v: Math.round((userData.portfolioValue || 0) * 100) / 100,
+    g: Math.round(((userData.grantedValue || 0) - baselineGranted) * 100) / 100,
+    x: Math.round(indexValue * 100) / 100,
+    c: Math.round(largest * 100) / 100,
+    h: Math.round(total * 100) / 100,
+  };
+};
+
+/** Append this week's record, dropping any left over from an earlier season. */
+const appendWeekRecord = (existing, record) => {
+  const kept = (Array.isArray(existing) ? existing : [])
+    .filter((e) => e && e.s === record.s && e.w !== record.w);
+  return [...kept, record].slice(-SEASON_WEEK_RECORD_CAP);
+};
 
 // ── Shared maths (mirror of src/constants/seasons.js) ────────────────────────
 
@@ -86,7 +160,10 @@ const seasonReturnWithLadderFor = (userData, season) => {
   return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted - ladderNet);
 };
 
-// Exported for the standings reader and the weekly checkpoint.
+// Exported for the standings reader and the weekly checkpoint. The serviceLoader
+// copies only real Cloud Functions, so these never reach index.js.
+exports.buildWeekRecord = buildWeekRecord;
+exports.appendWeekRecord = appendWeekRecord;
 exports.seasonReturnFor = seasonReturnFor;
 exports.seasonReturnWithLadderFor = seasonReturnWithLadderFor;
 
@@ -120,6 +197,11 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   const id = `S${number}`;
   const startedAt = Date.now();
 
+  // The index at the moment the season opens. Every "did you beat the market"
+  // question for the whole arc is measured from this number, so it is pinned
+  // once here rather than reconstructed later from daily history.
+  const { value: indexAtStart } = await readIndexNow();
+
   const snap = await db.collection('users').select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot').get();
 
   let pinned = 0;
@@ -140,6 +222,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
       // Cleared rather than deleted so last season's tier can't leak forward.
       seasonTier: FieldValue.delete(),
       seasonActiveWeeks: FieldValue.delete(),
+      seasonWeeks: FieldValue.delete(),
     });
     pinned++;
     if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
@@ -154,6 +237,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     startedAt,
     endedAt: null,
     thresholds: thresholds && typeof thresholds === 'object' ? thresholds : DEFAULT_SEASON_THRESHOLDS,
+    indexAtStart: Math.round(indexAtStart * 100) / 100,
     bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
     playersPinned: pinned,
   });
@@ -183,9 +267,14 @@ const runSeasonCheckpoint = async () => {
   const weeks = weeksElapsed(season.startedAt);
   const activeCutoff = Date.now() - ONE_WEEK_MS;
 
+  // Prices are frozen (this runs inside the halt), so one read serves every
+  // player and every concentration figure lines up with the same market.
+  const { prices, value: indexValue } = await readIndexNow();
+
   const snap = await db.collection('users')
     .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned',
-      'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'lastActive', 'displayName')
+      'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
+      'holdings', 'lastActive', 'displayName')
     .get();
 
   let promoted = 0;
@@ -232,6 +321,13 @@ const runSeasonCheckpoint = async () => {
 
     const update = {
       seasonActiveWeeks: { seasonId: season.id, weeks: activeWeeks },
+      // The raw week record. This is the part the eventual tier rule is computed
+      // FROM, so it is written for every scored player whether or not they moved
+      // a tier this week.
+      seasonWeeks: appendWeekRecord(
+        u.seasonWeeks,
+        buildWeekRecord({ season, weeks, userData: u, prices, indexValue })
+      ),
     };
     if (earned && tierRank(earned) > tierRank(held)) {
       update.seasonTier = { seasonId: season.id, tier: earned, lockedAt: Date.now() };
@@ -247,10 +343,11 @@ const runSeasonCheckpoint = async () => {
     lastCheckpointAt: Date.now(),
     lastCheckpointWeeks: weeks,
     lastCheckpointScored: scored,
+    lastCheckpointIndex: Math.round(indexValue * 100) / 100,
   });
 
-  console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned`);
-  return { ran: true, seasonId: season.id, weeks, scored, promoted, pinned };
+  console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned, index ${indexValue.toFixed(2)}`);
+  return { ran: true, seasonId: season.id, weeks, scored, promoted, pinned, indexValue };
 };
 
 exports.runSeasonCheckpoint = runSeasonCheckpoint;

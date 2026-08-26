@@ -9,6 +9,7 @@ const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_LOCK_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
 const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat } = require('../helpers');
 const { writeReviewChanges } = require('./reviewChanges');
+const { indexConstituents, reconcileDivisor, computeIndexValue } = require('./indexMaintenance');
 
 
 // Builds and posts the daily market summary Discord embed. Shared by the
@@ -75,19 +76,27 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
       // this stays tiny for decades, and the index's full arc is part of the
       // game's permanent record.
       if (recordIndexHistory) try {
-        let sum = 0, count = 0;
-        for (const c of CHARACTERS) {
-          if (c.isETF || !(c.basePrice > 0)) continue;
-          const p = prices[c.ticker];
-          sum += (p != null ? p : c.basePrice) / c.basePrice;
-          count++;
-        }
-        const indexValue = count > 0 ? 1000 * (sum / count) : 1000;
         const idxRef = db.collection('market').doc('indexHistory');
         const idxSnap = await idxRef.get();
-        const hist = idxSnap.exists ? (idxSnap.data().history || []) : [];
+        const stored = idxSnap.exists ? (idxSnap.data() || {}) : {};
+        const hist = stored.history || [];
+        const lastIndexValue = hist.length ? (hist[hist.length - 1].v || 0) : 0;
+
+        // Divisor-adjusted, so adding characters to the roster can't move the
+        // index on its own — see indexMaintenance.js. Season tiers are scored
+        // against this line, so a phantom drop would hand everyone a free win.
+        const constituents = indexConstituents();
+        const { divisor, adjusted, reason } =
+          reconcileDivisor({ prices, constituents, stored, lastIndexValue });
+        const indexValue = computeIndexValue(prices, constituents, divisor);
+
         hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
-        await idxRef.set({ history: hist }, { merge: true });
+        const idxUpdate = { history: hist, divisor, constituents };
+        if (adjusted) {
+          idxUpdate.lastDivisorAdjustment = { at: now, reason, divisor, count: constituents.length };
+          console.log(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
+        }
+        await idxRef.set(idxUpdate, { merge: true });
       } catch (e) {
         console.error('index history record failed:', e.message);
       }

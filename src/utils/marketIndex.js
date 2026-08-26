@@ -1,7 +1,24 @@
 // Pure market-index math: the equal-weight index of all non-ETF characters
 // (1000 = everyone at base price) and historical series reconstruction.
+//
+// The index is divided by a DIVISOR that the backend maintains and publishes on
+// market/indexHistory. It exists so adding characters to the roster can't move
+// the index on its own: a new character enters at about 1.0x base, which would
+// drag a plain average down and make everyone look like they beat the market.
+// See functions/services/indexMaintenance.js — keep the value maths in sync.
+//
+// Every function here takes the divisor as an optional last argument and falls
+// back to the plain average when it is missing. That fallback is exact until the
+// first roster change after the divisor shipped, which is what makes it safe to
+// render before the backend has published one.
 
 import { CHARACTERS } from '../characters';
+import { INDEX_BASE_VALUE } from '../constants/economy';
+
+const valueFrom = (sum, count, divisor) => {
+  if (divisor > 0) return sum / divisor;
+  return count > 0 ? INDEX_BASE_VALUE * (sum / count) : INDEX_BASE_VALUE;
+};
 
 export const nonETFCharacters = CHARACTERS.filter(c => !c.isETF);
 
@@ -19,7 +36,7 @@ export const getTimestamp = (entry) => {
   return null;
 };
 
-export const computeIndex = (prices, characters) => {
+export const computeIndex = (prices, characters, divisor) => {
   let sum = 0;
   let count = 0;
   for (const char of characters) {
@@ -30,10 +47,10 @@ export const computeIndex = (prices, characters) => {
       count++;
     }
   }
-  return count > 0 ? 1000 * (sum / count) : 1000;
+  return valueFrom(sum, count, divisor);
 };
 
-export const computeIndexAtTime = (priceHistory, t) => {
+export const computeIndexAtTime = (priceHistory, t, divisor) => {
   let sum = 0;
   let count = 0;
   for (const char of nonETFCharacters) {
@@ -56,10 +73,10 @@ export const computeIndexAtTime = (priceHistory, t) => {
     sum += (nearest != null ? nearest : base) / base;
     count++;
   }
-  return count > 0 ? 1000 * (sum / count) : 1000;
+  return valueFrom(sum, count, divisor);
 };
 
-export const buildIndexSeries = (priceHistory, currentIndex, hours) => {
+export const buildIndexSeries = (priceHistory, currentIndex, hours, divisor) => {
   if (!priceHistory || Object.keys(priceHistory).length === 0) return [];
 
   const now = Date.now();
@@ -89,7 +106,7 @@ export const buildIndexSeries = (priceHistory, currentIndex, hours) => {
 
   const points = [];
   for (let t = start; t <= now; t += interval) {
-    points.push({ timestamp: t, price: computeIndexAtTime(priceHistory, t) });
+    points.push({ timestamp: t, price: computeIndexAtTime(priceHistory, t, divisor) });
   }
   // Always include current
   points.push({ timestamp: now, price: currentIndex });

@@ -46,6 +46,9 @@ export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to mo
 export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
 export const ETF_BID_ASK_SPREAD = 0.001; // 0.1% spread for ETFs (diversified = lower risk)
 export const MIN_PRICE = 0.01; // Minimum price floor
+// Market index reads this when every character sits at its base price.
+// Mirror of INDEX_BASE_VALUE in functions/constants.js.
+export const INDEX_BASE_VALUE = 1000;
 
 // How many levels an admin price adjustment travels out through linked stocks.
 // Level 1 is the stocks linked to the one that was adjusted, level 2 the stocks

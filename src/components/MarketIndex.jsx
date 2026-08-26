@@ -12,19 +12,21 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   const { cardClass } = getThemeClasses(darkMode);
-  const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters), [prices]);
 
-  // Index value ~30 days ago, from the daily history the backend records. While
-  // that history is still building (first ~30 days), fall back to the oldest
-  // point available so the number is meaningful immediately.
+  // One read of market/indexHistory supplies both the 30-day reference point and
+  // the divisor. Without the divisor the live number would drift away from the
+  // recorded series the moment a character joins the roster.
   const [index30dAgo, setIndex30dAgo] = useState(null);
+  const [divisor, setDivisor] = useState(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'market', 'indexHistory'));
         if (cancelled || !snap.exists()) return;
-        const hist = snap.data().history || [];
+        const data = snap.data();
+        if (data.divisor > 0) setDivisor(data.divisor);
+        const hist = data.history || [];
         if (hist.length === 0) return;
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
         let ref = null;
@@ -33,27 +35,31 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
         }
         if (!ref) ref = hist[0];
         if (!cancelled) setIndex30dAgo(ref.v);
-      } catch { /* leave null — 30d line just hides */ }
+      } catch { /* leave null — 30d line just hides, index falls back to the average */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
+  const currentIndex = useMemo(
+    () => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]
+  );
+
   // 24h sparkline data
   const { change24h, changePct24h, sparklineData } = useMemo(() => {
-    const points = buildIndexSeries(priceHistory, currentIndex, 24);
+    const points = buildIndexSeries(priceHistory, currentIndex, 24, divisor);
     if (points.length === 0) return { change24h: 0, changePct24h: 0, sparklineData: [] };
     const idx24hAgo = points[0].price;
     const change = currentIndex - idx24hAgo;
     const pct = idx24hAgo !== 0 ? (change / idx24hAgo) * 100 : 0;
     return { change24h: change, changePct24h: pct, sparklineData: points };
-  }, [priceHistory, currentIndex]);
+  }, [priceHistory, currentIndex, divisor]);
 
   // Expanded chart data
   const chartData = useMemo(() => {
     if (!expanded) return [];
     const range = TIME_RANGES.find(r => r.key === timeRange);
-    return buildIndexSeries(priceHistory, currentIndex, range.hours);
-  }, [expanded, timeRange, priceHistory, currentIndex]);
+    return buildIndexSeries(priceHistory, currentIndex, range.hours, divisor);
+  }, [expanded, timeRange, priceHistory, currentIndex, divisor]);
 
   const isUp = change24h >= 0;
   const upColor = colorBlindMode ? 'text-teal-400' : 'text-green-500';
