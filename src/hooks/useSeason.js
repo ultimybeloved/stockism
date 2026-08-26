@@ -75,6 +75,9 @@ export function useSeason() {
     weeks,
     thresholds,
     inSeason,
+    // Raw weekly record straight off the user doc; SeasonProgress derives from it.
+    seasonWeeks: userData?.seasonWeeks || [],
+    baselineValue: baseline?.value || 0,
     returnPercent,
     returnWithLadder,
     lockedTier,

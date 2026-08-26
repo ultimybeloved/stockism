@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useSeason } from '../../hooks/useSeason';
+import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 
@@ -15,6 +16,7 @@ const SeasonCard = () => {
   const {
     active, season, weeks, inSeason, returnPercent, returnWithLadder,
     lockedTier, lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, nextTarget,
+    seasonWeeks, baselineValue,
   } = useSeason();
 
   if (!active) return null;
@@ -67,6 +69,8 @@ const SeasonCard = () => {
               so it doesn't count toward your season.
             </p>
           )}
+
+          <SeasonProgress season={season} seasonWeeks={seasonWeeks} baselineValue={baselineValue} />
 
           {nextTier && toNext !== null && (
             <p className={`text-sm ${textClass} mt-2`}>
