@@ -112,3 +112,17 @@ jobs:
 
       - name: Discord commands
         run: npm run test:discord
+
+      - name: Ladder money paths
+        run: npm run test:ladder
+
+      - name: Daily drop halt gate
+        run: npm run test:drophalt
+
+      - name: Review collapse
+        run: npm run test:collapse
+
+      # Last because it is the only suite that boots the functions emulator,
+      # which loads every function and is much slower than the rest.
+      - name: Event markets
+        run: npm run test:eventmarket

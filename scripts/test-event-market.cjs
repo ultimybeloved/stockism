@@ -5,9 +5,13 @@
 // admin Firestore write for create/resolve exactly as the admin panel does.
 // Never touches production. Run with emulators up: node scripts/test-event-market.cjs
 
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-process.env.GCLOUD_PROJECT = 'stockism-abb28';
+// Defaults match firebase.json, but emulators:exec sets these itself — don't
+// stomp on what it chose or the suite silently talks to the wrong ports.
+process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
+const [AUTH_HOST, AUTH_PORT] = process.env.FIREBASE_AUTH_EMULATOR_HOST.split(':');
+const FUNCTIONS_PORT = Number(process.env.FUNCTIONS_EMULATOR_PORT || 5001);
 
 const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
@@ -37,9 +41,9 @@ const aauth = admin.auth();
 
 const clientApp = initializeApp({ projectId: PROJECT, apiKey: 'fake-emulator-key', authDomain: `${PROJECT}.firebaseapp.com` });
 const auth = getAuth(clientApp);
-connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+connectAuthEmulator(auth, `http://${AUTH_HOST}:${AUTH_PORT}`, { disableWarnings: true });
 const fns = getFunctions(clientApp);
-connectFunctionsEmulator(fns, '127.0.0.1', 5001);
+connectFunctionsEmulator(fns, '127.0.0.1', FUNCTIONS_PORT);
 
 const marketId = `evt_test_${Date.now()}`;
 
@@ -58,8 +62,23 @@ async function main() {
   // Setup: an admin user, a tester user, a tester user-doc with cash, and a market doc.
   await ensureUser(ADMIN_UID, 'admin@test.local');
   await ensureUser('tester1', 'tester@test.local');
+  // Holdings are NOT decoration. Event-market exposure is capped at what a player
+  // has invested in stocks (added 2026-06-21, after this test was written), so a
+  // fixture with an empty holdings map fails on the very first buy. That is what
+  // had this suite dead: it was never wired into package.json, so nobody saw it.
   await adb.collection('users').doc('tester1').set({
+    cash: 10000, holdings: { JAY: 200 }, costBasis: { JAY: 50 }, shorts: {},
+    achievements: [], predictionWins: 0, createdAt: Date.now(),
+  });
+  // Two more fixtures for the cap itself, which nothing tested.
+  await ensureUser('tester_nostock', 'nostock@test.local');
+  await adb.collection('users').doc('tester_nostock').set({
     cash: 10000, holdings: {}, costBasis: {}, shorts: {}, achievements: [], predictionWins: 0, createdAt: Date.now(),
+  });
+  await ensureUser('tester_small', 'small@test.local');
+  await adb.collection('users').doc('tester_small').set({
+    cash: 10000, holdings: { JAY: 1 }, costBasis: { JAY: 20 }, shorts: {},
+    achievements: [], predictionWins: 0, createdAt: Date.now(),
   });
   await adb.collection('market').doc('current').set({ marketHalted: false, prices: {}, launchedTickers: [] }, { merge: true });
 
@@ -121,6 +140,31 @@ async function main() {
   try { openedOk = (await buy({ marketId: timerId, outcome: 'Yes', shares: 10 })).data.success === true; }
   catch (e) { openedOk = false; }
   openedOk ? pass('buy allowed once opensAt has passed') : fail('buy still blocked after open time');
+
+  // 3c) The invested-value cap. Every value-farming side game is capped at what
+  //      the player has put into stocks, server-side, so the AMM can't be farmed
+  //      by a barely-invested account. Both halves of that gate are checked.
+  await auth.signOut();
+  await signInWithEmailAndPassword(auth, 'nostock@test.local', 'test123456');
+  let gated = false;
+  try { await buy({ marketId, outcome: 'Yes', shares: 20 }); }
+  catch (e) { gated = /invest in stocks/i.test(e.message); }
+  gated ? pass('buy rejected for a player with nothing invested') : fail('uninvested player was allowed to buy');
+
+  await auth.signOut();
+  await signInWithEmailAndPassword(auth, 'small@test.local', 'test123456');
+  let capped = false;
+  try { await buy({ marketId, outcome: 'Yes', shares: 200 }); } // ~$100 against $20 invested
+  catch (e) { capped = /capped at what you've invested/i.test(e.message); }
+  capped ? pass('buy rejected when it would exceed the invested-value cap') : fail('cap did not hold');
+
+  let underCap = false;
+  try { underCap = (await buy({ marketId, outcome: 'Yes', shares: 10 })).data.success === true; }
+  catch (e) { underCap = false; }
+  underCap ? pass('a buy inside the cap still goes through') : fail('buy inside the cap was wrongly rejected');
+
+  await auth.signOut();
+  await signInWithEmailAndPassword(auth, 'tester@test.local', 'test123456');
 
   // 4) Admin resolves Yes, then settles. Winners redeem at $1/share.
   const list = (await predRef.get()).data().list.map(m => m.id === marketId ? { ...m, resolved: true, outcomes: ['Yes'], outcome: 'Yes' } : m);

@@ -29,6 +29,8 @@
     "test:exploits": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"node scripts/seed-emulator.cjs && node scripts/test-exploit-fixes-emulator.cjs\"",
     "loadtest:trades": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/loadtest-trades-emulator.cjs\"",
     "loadtest:txn": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/loadtest-txn-probe.cjs\"",
+    "test:ladder": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-ladder-emulator.cjs\"",
+    "test:eventmarket": "firebase emulators:exec --only auth,firestore,functions \"node scripts/seed-emulator.cjs && node scripts/test-event-market.cjs\"",
     "test:drophalt": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-drop-halt-emulator.cjs\"",
     "test:collapse": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-review-collapse-emulator.cjs\"",
     "test:pricehistory": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/seed-emulator.cjs && node scripts/test-price-history-split-emulator.cjs\"",
