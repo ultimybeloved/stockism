@@ -1,6 +1,11 @@
 // Pre-deploy sanity checks for functions/. Run: npm run check:functions
 //
-// Two checks, both of which have caught real problems:
+// Three checks, all of which have caught real problems:
+//
+//  0. ENVIRONMENT — functions/.env is uploaded by the deploy and REPLACES the
+//     whole live environment. Deploying without it wipes the Discord tokens and
+//     Sentry DSN from production while reporting success. Lives in check-env.cjs
+//     so `npm run check:env` and the firebase.json predeploy hook share it.
 //
 //  1. EXPORT PURITY — functions/index.js re-exports everything a service file
 //     exports (`Object.assign(exports, require('./services/x'))`). If a service
@@ -23,6 +28,12 @@ const FUNCTIONS_DIR = path.join(__dirname, '..', 'functions');
 const SERVICES_DIR = path.join(FUNCTIONS_DIR, 'services');
 
 let problems = 0;
+
+// --- 0. Environment ---------------------------------------------------------
+
+// First, because on a fresh clone it is the check most likely to fail and the
+// only one whose failure would silently break production.
+problems += require('./check-env.cjs').checkEnv();
 
 // --- 1. Export purity -------------------------------------------------------
 
@@ -71,6 +82,10 @@ if (unscannable.length > 0) {
 
 const constantNames = Object.keys(require(path.join(FUNCTIONS_DIR, 'constants.js')));
 
+// Counted separately from `problems` so a failure in an earlier check does not
+// hide whether this one actually passed.
+let constantsProblems = 0;
+
 // Comments routinely mention constants by name to explain behaviour ("the slot
 // frees up after DISCORD_RELINK_COOLDOWN_MS"). Scanning raw source flags those
 // as missing imports, so strip comments and strings before looking for real use.
@@ -99,13 +114,15 @@ fs.readdirSync(SERVICES_DIR)
       && !new RegExp(`const ${name}\\b`).test(source)
     );
     if (missing.length > 0) {
-      problems += missing.length;
+      constantsProblems += missing.length;
       console.log(`${file}: missing constants import — ${missing.join(', ')}`);
     }
   });
 
+if (constantsProblems === 0) console.log('Constants imports: OK');
+problems += constantsProblems;
+
 if (problems === 0) {
-  console.log('Constants imports: OK');
   console.log('\nAll checks passed.');
 } else {
   console.log(`\n${problems} problem(s) found. Fix before deploying.`);

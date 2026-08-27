@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "sync:chars": "node scripts/sync-chars.cjs",
     "check:functions": "node scripts/check-function-exports.cjs",
+    "check:env": "node scripts/check-env.cjs",
     "check:data": "node scripts/check-data.cjs",
     "check:sync": "node scripts/check-sync.cjs",
     "audit:halt": "node scripts/halt-price-audit.cjs",

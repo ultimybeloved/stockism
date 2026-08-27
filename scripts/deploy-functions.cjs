@@ -139,6 +139,14 @@ function requestedNames(allNames) {
 }
 
 async function main() {
+  // The firebase.json predeploy hook runs this too, but it runs per batch and
+  // only after the CLI has spun up. Checking here fails in a second, before any
+  // batch starts, with the same message.
+  if (require('./check-env.cjs').checkEnv() > 0) {
+    console.error('\nEnvironment check failed. Nothing deployed.');
+    process.exit(1);
+  }
+
   const allNames = requestedNames(getFunctionNames());
   console.log(`Deploying ${allNames.length} function(s)`);
 

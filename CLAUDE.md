@@ -65,12 +65,27 @@ You are the **sole developer** of this codebase. The user (Darth YG) is a non-te
 
 ## Before Deploying Backend Functions
 
-Run `npm run check:functions` before any `firebase deploy`. It exits non-zero and prints what to fix if either check fails:
+Run `npm run check:functions` before any `firebase deploy`. It exits non-zero and prints what to fix if any check fails:
 
-1. **Export purity** — `functions/index.js` must export only real Cloud Functions. Service files sometimes export an internal helper so a sibling service or an emulator test can drive it; those must not reach index.js. Shared helpers go in `functions/helpers.js` or an internal module index.js doesn't require.
-2. **Constants imports** — every service file must import everything it uses from `functions/constants.js`. A missing import throws in production on whichever code path touches it.
+1. **Environment** — `functions/.env` must exist with every required key filled in (`scripts/check-env.cjs` owns the list). Also runs standalone as `npm run check:env`.
+2. **Export purity** — `functions/index.js` must export only real Cloud Functions. Service files sometimes export an internal helper so a sibling service or an emulator test can drive it; those must not reach index.js. Shared helpers go in `functions/helpers.js` or an internal module index.js doesn't require.
+3. **Constants imports** — every service file must import everything it uses from `functions/constants.js`. A missing import throws in production on whichever code path touches it.
 
 Silent success = clean.
+
+### Files that must be on any machine that deploys
+
+These are gitignored, so a fresh clone never has them. Carry them by password manager or USB, never email or Discord.
+
+| File | Needed for | If missing |
+|---|---|---|
+| `functions/.env` | `firebase deploy --only functions` | **Wipes the live backend environment.** A deploy uploads this file and *replaces* the whole environment rather than merging, so deploying without it clears the Discord tokens, OAuth secret and Sentry DSN from production. The bot goes silent on unsurfaced 403s, Discord login breaks, error reporting stops, and the deploy still reports success. This shipped once from a fresh clone on a second machine |
+| `.env.local` | `npm run dev`, local `npm run build` | Local dev only. Vercel builds with its own dashboard env vars, so production is unaffected |
+| `service-account-key.json` | the admin scripts in `scripts/` | Those scripts refuse to run. Not needed for dev or deploys |
+
+`npm run check:env` enforces the first one. It's wired into `check:functions`, into `npm run deploy:functions`, and into the `predeploy` hook in `firebase.json`, so a bare `firebase deploy --only functions` is blocked too. When adding a new backend env var, classify it in `scripts/check-env.cjs` as REQUIRED or OPTIONAL — the check fails on any unclassified one rather than assuming it's safe.
+
+Also needed on a second machine: `firebase login`, Node 22, `npm install` in both the root and `functions/`, and Java 21+ for the emulator sandbox.
 
 \## Cost \& Token Efficiency Rules
 
