@@ -82,7 +82,7 @@ export const CREWS = {
     color: '#f3c803',
     emblem: '⛩️',
     icon: '/crews/yamazaki.png',
-    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI', 'YADV', 'REI', 'IJA', 'KMSH', 'SUMO', 'OYA']
+    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI', 'YADV', 'REI', 'IJA', 'KMSH', 'SUMO', 'OYA', 'TCHI', 'IKO', 'BUFF']
   }
 };
 

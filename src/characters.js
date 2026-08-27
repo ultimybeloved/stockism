@@ -238,6 +238,9 @@ export const CHARACTERS = [
   { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre" },
   { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", generation: "pre" },
   { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre" },
+  { name: "Sasaki Musashi", ticker: "TCHI", basePrice: 95, dateAdded: "2026-08-27T00:00:00", generation: "pre", ipoRequired: true },
+  { name: "Magami Sogen", ticker: "IKO", basePrice: 90, dateAdded: "2026-08-27T00:01:00", generation: "pre", ipoRequired: true },
+  { name: "Takuma", ticker: "BUFF", basePrice: 90, dateAdded: "2026-08-27T00:02:00", generation: "pre", ipoRequired: true },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -330,14 +333,16 @@ export const CHARACTERS = [
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA", "TCHI", "IKO", "BUFF"],
     trailingFactors: [
-      { ticker: "GUN", coefficient: 0.067 }, { ticker: "SHNG", coefficient: 0.067 },
-      { ticker: "SHRO", coefficient: 0.067 }, { ticker: "SHKO", coefficient: 0.067 },
-      { ticker: "HIKO", coefficient: 0.067 }, { ticker: "SOMI", coefficient: 0.067 },
-      { ticker: "YADV", coefficient: 0.067 }, { ticker: "REI", coefficient: 0.067 },
-      { ticker: "IJA", coefficient: 0.067 }, { ticker: "KMSH", coefficient: 0.067 },
-      { ticker: "SUMO", coefficient: 0.067 }, { ticker: "OYA", coefficient: 0.067 }
+      { ticker: "GUN", coefficient: 0.053 }, { ticker: "SHNG", coefficient: 0.053 },
+      { ticker: "SHRO", coefficient: 0.053 }, { ticker: "SHKO", coefficient: 0.053 },
+      { ticker: "HIKO", coefficient: 0.053 }, { ticker: "SOMI", coefficient: 0.053 },
+      { ticker: "YADV", coefficient: 0.053 }, { ticker: "REI", coefficient: 0.053 },
+      { ticker: "IJA", coefficient: 0.053 }, { ticker: "KMSH", coefficient: 0.053 },
+      { ticker: "SUMO", coefficient: 0.053 }, { ticker: "OYA", coefficient: 0.053 },
+      { ticker: "TCHI", coefficient: 0.053 }, { ticker: "IKO", coefficient: 0.053 },
+      { ticker: "BUFF", coefficient: 0.053 }
     ]
   },
   {
