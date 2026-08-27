@@ -35,10 +35,17 @@ export function useMarketData() {
         const launched = data.launchedTickers || [];
         const mergedPrices = {};
         CHARACTERS.forEach(c => {
-          // Only include character if it doesn't require IPO, or if it's been launched
-          if (!c.ipoRequired || launched.includes(c.ticker)) {
-            mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
-          }
+          const gated = c.ipoRequired && !launched.includes(c.ticker);
+          // A gated character is left out so an unlaunched IPO stock can't be
+          // priced or shown before it exists. But the moment its IPO opens the
+          // market doc carries a real price and players hold shares they bought
+          // in it, and leaving it out then values those shares at $0 —
+          // calculations.js reads `prices[ticker] || 0` — so the portfolio
+          // shows a loss equal to what they paid. Keep it out only while the
+          // market doc has no price for it. Trading stays gated by the
+          // ipoRequired checks in the browser and trade paths, not by this map.
+          if (gated && storedPrices[c.ticker] === undefined) return;
+          mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
         });
         setPrices(mergedPrices);
         setMarketData(data);
