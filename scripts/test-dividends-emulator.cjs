@@ -278,6 +278,54 @@ async function main() {
     near((await cashOf('div_price')) - 1000, expected(100)),
     `paid=${(await cashOf('div_price')) - 1000}, a live-price read would pay 5x`);
 
+  // ── G. Granted value ──────────────────────────────────────────────────────
+  // A dividend is free value, so it has to be booked as granted or the season
+  // and percent boards read a faucet as trading skill. See the granted value
+  // block in helpers.js.
+  console.log('\nG. Granted value');
+
+  await seed('div_grant_none', { holdings: {} });
+  await seed('div_grant_cash', {
+    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
+  });
+  await seed('div_grant_drip', {
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
+    drip: { [T]: true },
+  });
+  await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
+
+  const grantPayout = expected(100);
+  const grantCashUser = await getUser('div_grant_cash');
+  const grantDripUser = await getUser('div_grant_drip');
+
+  check('a cash payout books granted value equal to the payout',
+    near(grantCashUser.grantedValue || 0, grantPayout),
+    `granted=${grantCashUser.grantedValue}, paid=${grantPayout}`);
+  check('a player paid nothing books nothing',
+    !((await getUser('div_grant_none')).grantedValue));
+
+  // The easy one to get wrong: DRIP pays mostly in SHARES, and booking only
+  // the cash remainder would leave reinvestors banking the rest as return.
+  const dripGranted = grantDripUser.grantedValue || 0;
+  const dripCashPart = grantDripUser.cash - 1000;
+  check('DRIP books the whole payout, not just the cash remainder',
+    near(dripGranted, grantPayout) && dripGranted > dripCashPart,
+    `granted=${dripGranted}, cash part=${dripCashPart}, payout=${grantPayout}`);
+
+  // The property the season metric rests on: everything the dividend added to
+  // the portfolio is booked, so return net of grants moves by exactly zero.
+  const dripSharesAdded = grantDripUser.holdings[T] - 100;
+  check('granted equals the value added, so a dividend nets out to 0% return',
+    near(dripGranted, dripSharesAdded * PRICE + dripCashPart),
+    `granted=${dripGranted}, added=${dripSharesAdded * PRICE + dripCashPart}`);
+
+  const grantedBefore = grantCashUser.grantedValue || 0;
+  await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
+  check('and it accumulates across runs rather than overwriting',
+    ((await getUser('div_grant_cash')).grantedValue || 0) > grantedBefore,
+    `before=${grantedBefore}`);
+
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL DIVIDEND CHECKS PASSED' : `${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);

@@ -19,6 +19,7 @@ const {
   writeNotification,
   reportError,
   recordHeartbeat,
+  grantedValueUpdate,
 } = require('../helpers');
 
 // ─── Internal ────────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     const drip = data.drip || {};
 
     let totalPaid = 0;
+    let grantedTotal = 0;
     const payoutsByTicker = {};
     const reinvestedBreakdown = {};
     const cohortUpdates = {};
@@ -122,6 +124,14 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
           const payout = Math.round(weightedShares * price * rate * 100) / 100;
           if (payout > 0) {
             stats.tickerTotals[ticker] = (stats.tickerTotals[ticker] || 0) + payout;
+            // A dividend is a faucet, not a return. The shares appear at an
+            // admin-set rate and never move a price, so every holder's portfolio
+            // grows while the index stands still — on a percent board that reads
+            // as beating the market for doing nothing, and the loyalty ladder
+            // pays MOST to whoever trades least. Booked so season and percent
+            // returns net it out. Whole payout, cash and DRIP alike: free shares
+            // are still free money.
+            grantedTotal += payout;
             if (drip[ticker] && price > 0) {
               // DRIP: buy shares instead of paying cash
               const sharesToAdd = Math.floor((payout / price) * 100) / 100;
@@ -152,6 +162,8 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     for (const [ticker, sharesToAdd] of Object.entries(holdingIncrements)) {
       updates[`holdings.${ticker}`] = admin.firestore.FieldValue.increment(sharesToAdd);
     }
+
+    Object.assign(updates, grantedValueUpdate(grantedTotal));
 
     const hasCashPayout = totalPaid > 0;
     const hasDrip = Object.keys(reinvestedBreakdown).length > 0;

@@ -501,8 +501,10 @@ const getLadderRampEndDate = (userData) => {
 // ── Granted value ────────────────────────────────────────────────────────────
 // Value that lands in an account without being traded for: daily drops,
 // check-ins, mission rewards, admin giveaways, bailouts, the Discord starting-
-// cash unlock. Measured 2026-08-13: the median player was +67% over 30 days
-// while the median STOCK moved +0.8%, so on a percent leaderboard free money
+// cash unlock, and weekly dividends (a faucet paid at an admin-set rate that
+// never moves a price, so it lifts holders without lifting the index).
+// Measured 2026-08-13: the median player was +67% over 30 days while the
+// median STOCK moved +0.8%, so on a percent leaderboard free money
 // buries trading entirely. Every percent-return figure has to be net of this or
 // it is ranking who collected the most, not who traded best.
 //
