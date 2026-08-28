@@ -89,11 +89,38 @@ async function readMarket(env, token) {
   };
 }
 
+/**
+ * The market index doc. Season tiers are scored against this line, and the
+ * divisor is what stops a roster addition moving it on its own, so "did the
+ * divisor actually get written" is now a thing worth being able to check.
+ */
+async function readIndex(env, token) {
+  const fields = ['divisor', 'lastDivisorAdjustment', 'constituents']
+    .map((f) => `mask.fieldPaths=${f}`).join('&');
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}`
+    + `/databases/(default)/documents/market/indexHistory?key=${env.VITE_FIREBASE_API_KEY}&${fields}`;
+  const res = await fetch(url, { headers: { Referer: REFERER, 'X-Firebase-AppCheck': token } });
+  if (!res.ok) return { error: `${res.status} ${await res.text()}` };
+  const f = (await res.json()).fields || {};
+  const adj = f.lastDivisorAdjustment?.mapValue?.fields || {};
+  return {
+    divisor: Number(f.divisor?.doubleValue ?? f.divisor?.integerValue ?? 0),
+    constituents: (f.constituents?.arrayValue?.values || []).length,
+    lastAdjustment: Object.keys(adj).length ? {
+      reason: adj.reason?.stringValue,
+      at: Number(adj.at?.doubleValue ?? adj.at?.integerValue ?? 0),
+      count: Number(adj.count?.doubleValue ?? adj.count?.integerValue ?? 0),
+    } : null,
+  };
+}
+
 const list = (arr) => (arr.length ? arr.join(', ') : '(none)');
 
 async function main() {
   const env = readEnvLocal();
-  const { prices, launched, manualHalt } = await readMarket(env, await appCheckToken(env));
+  const token = await appCheckToken(env);
+  const { prices, launched, manualHalt } = await readMarket(env, token);
+  const index = await readIndex(env, token);
 
   const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
   console.log(`\nLIVE MARKET STATUS  —  ${now} UTC\n`);
@@ -138,6 +165,27 @@ async function main() {
     console.log('     them), but do NOT just delete the price: confirm nobody still');
     console.log('     holds the ticker first, or you strand their position.');
   }
+  console.log('\nMARKET INDEX');
+  if (index.error) {
+    console.log(`  Could not read market/indexHistory: ${index.error}`);
+  } else if (!(index.divisor > 0)) {
+    console.log('  NO DIVISOR YET. The index is still on the plain average, so a');
+    console.log('  roster addition drags it down and every player looks like they');
+    console.log('  beat the market. It is written by dailyMarketSummary at 21:00');
+    console.log('  UTC — if a scheduled run has passed since the deploy and this is');
+    console.log('  still empty, that job is not running.');
+  } else {
+    console.log(`  Divisor      : ${index.divisor} over ${index.constituents} constituents`);
+    if (index.constituents !== CHARACTERS.filter((c) => !c.isETF && c.basePrice > 0).length) {
+      console.log('  -> roster has changed since the last daily run; the next one');
+      console.log('     rescales the divisor so the index does not step.');
+    }
+    if (index.lastAdjustment) {
+      const when = new Date(index.lastAdjustment.at).toISOString().replace('T', ' ').slice(0, 16);
+      console.log(`  Last change  : ${index.lastAdjustment.reason} at ${when} UTC (${index.lastAdjustment.count} constituents)`);
+    }
+  }
+
   console.log('');
 }
 

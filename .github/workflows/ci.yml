@@ -116,6 +116,9 @@ jobs:
       - name: Ladder money paths
         run: npm run test:ladder
 
+      - name: Dividend payouts
+        run: npm run test:dividends
+
       - name: Daily drop halt gate
         run: npm run test:drophalt
 
