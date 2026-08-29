@@ -214,4 +214,7 @@ export const adminUpdateDiscordMessageFunction = httpsCallable(functions, 'admin
 export const adminDeleteDiscordMessageFunction = httpsCallable(functions, 'adminDeleteDiscordMessage');
 export const adminImportDiscordMessageFunction = httpsCallable(functions, 'adminImportDiscordMessage');
 
+// Admin: read the cash adjustment audit log
+export const adminListCashLogFunction = httpsCallable(functions, 'adminListCashLog');
+
 export default app;

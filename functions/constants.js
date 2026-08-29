@@ -403,6 +403,11 @@ const ADMIN_UID = process.env.ADMIN_UID || '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 // month later otherwise.
 const ADMIN_MEMO_MAX_LENGTH = 200;
 
+// How many cash-log rows the admin panel pulls in one go. The panel filters the
+// page it already has rather than re-querying, so this is also the size of the
+// window the "given away" total is calculated over.
+const ADMIN_CASH_LOG_PAGE_MAX = 200;
+
 // ============================================
 // DISCORD CHANNELS
 // ============================================
@@ -814,6 +819,7 @@ module.exports = {
   CREW_CONTRIB,
   ADMIN_UID,
   ADMIN_MEMO_MAX_LENGTH,
+  ADMIN_CASH_LOG_PAGE_MAX,
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_GUILD_ID,
   CREW_HEAD_ROLE_IDS,

@@ -397,6 +397,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // ADMIN CASH AUDIT LOG
+    // ============================================
+    // Every manual balance change, with the admin's internal memo. Read through
+    // the admin-gated callable only: the memos are private notes and are never
+    // shown to the player the entry is about.
+    match /adminCashLog/{entryId} {
+      allow read, write: if false;
+    }
+
+    // ============================================
     // ADMIN-MANAGED DISCORD MESSAGES
     // ============================================
     // Records of bot messages the admin panel can edit. Cloud Functions only:

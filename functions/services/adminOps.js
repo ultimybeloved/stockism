@@ -17,6 +17,7 @@ const {
   COSMETIC_CATALOG,
 } = require('../constants');
 const { grantedValueUpdate } = require('../helpers');
+const { notifyCashGrant } = require('./adminCashNotify');
 
 exports.removeAchievement = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -75,6 +76,9 @@ exports.reinstateUser = cf().https.onCall(async (data, context) => {
     // Booked as granted so a reinstate can't read as a spectacular recovery.
     ...grantedValueUpdate(cashBoost),
   });
+
+  // After the write, so we never announce money that failed to land.
+  await notifyCashGrant(userId, userData, cashBoost);
 
   return { success: true, userId, cashAdded: cashBoost };
 });
@@ -163,8 +167,18 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     console.error('adminSetCash: failed to write adminCashLog:', err.message);
   }
 
+  // Raises only. The memo stays internal; the player is told the amount and
+  // nothing else. Fail-soft: the cash is already theirs either way.
+  let delivery = { notified: false, dmSent: false };
+  try {
+    delivery = await notifyCashGrant(userId, userData, newCash - prevCash);
+  } catch (err) {
+    console.error('adminSetCash: failed to notify player:', err.message);
+  }
+
   return {
     success: true, userId, mode,
+    notified: delivery.notified, dmSent: delivery.dmSent,
     previousCash: prevCash, newCash,
     delta: Math.round((newCash - prevCash) * 100) / 100,
   };
