@@ -26,6 +26,12 @@ jobs:
 
       - run: npm ci
 
+      # The export-purity check below loads functions/index.js for real, which
+      # pulls in firebase-functions. Without this the step dies on a missing
+      # module rather than on anything to do with the code, which is exactly
+      # what reddened every run on this workflow until 2026-08-29.
+      - run: npm ci --prefix functions
+
       # Data checks run before the test suite: when the roster is inconsistent
       # these say exactly what is wrong, where a test failure would only say
       # something broke.
