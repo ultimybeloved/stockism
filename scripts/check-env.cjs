@@ -22,6 +22,14 @@
 //     only breaks local `npm run dev` / `npm run build`, never production.
 //
 // Values are never printed. Key names only.
+//
+// CI CANNOT RUN THE FILE CHECKS. functions/.env is gitignored, so a GitHub
+// Actions checkout never has it and check 1 would fail every single run — which
+// it did, reddening every build from 2026-08-27 until this was split out. So on
+// CI the two FILE checks are skipped and only the source scan below runs.
+// Nothing deploys from CI; every real deploy path (npm run deploy:functions,
+// the firebase.json predeploy hook, a bare firebase deploy) runs locally where
+// the guard is fully armed.
 
 'use strict';
 
@@ -98,7 +106,13 @@ function envKeysWithValues(file) {
   return keys;
 }
 
-function checkEnv() {
+/**
+ * @param {Object} [opts]
+ * @param {boolean} [opts.filesRequired] - Check that functions/.env and
+ *        .env.local actually exist and are complete. True everywhere a deploy
+ *        can happen; false on CI, which has neither file by design.
+ */
+function checkEnv({ filesRequired = !process.env.CI } = {}) {
   let problems = 0;
 
   // --- 1. functions/.env (FATAL) -------------------------------------------
@@ -115,6 +129,11 @@ function checkEnv() {
     console.log('Backend env vars not classified in scripts/check-env.cjs:');
     unclassified.forEach((n) => console.log(`  ${n}`));
     console.log('  -> add each to REQUIRED (prod breaks without it) or OPTIONAL (with the reason)\n');
+  }
+
+  if (!filesRequired) {
+    console.log('Env files: skipped (CI has no functions/.env by design; the deploy paths still check it)');
+    return problems;
   }
 
   const fnKeys = envKeysWithValues(path.join(ROOT, 'functions', '.env'));
@@ -169,8 +188,12 @@ function checkEnv() {
 
 module.exports = { checkEnv };
 
+// Run directly (npm run check:env) this IS the deploy guard — the predeploy hook
+// in firebase.json and npm run deploy:functions both come through here. The file
+// checks are forced on regardless of CI, so the guard can never be disarmed by
+// an environment variable. Only check-function-exports.cjs gets the CI default.
 if (require.main === module) {
-  const problems = checkEnv();
+  const problems = checkEnv({ filesRequired: true });
   if (problems > 0) console.log(`\n${problems} problem(s) found. Fix before deploying.`);
   process.exit(problems > 0 ? 1 : 0);
 }
