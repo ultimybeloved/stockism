@@ -206,4 +206,12 @@ export const triggerWeeklyMarketSummaryFunction = httpsCallable(functions, 'trig
 // Admin: write the trade records that old limit/stop-loss/pre-market fills never wrote
 export const backfillFillTradeRecordsFunction = httpsCallable(functions, 'backfillFillTradeRecords');
 
+// Admin: Discord message manager (post / edit / delete bot messages from the panel)
+export const adminListDiscordChannelsFunction = httpsCallable(functions, 'adminListDiscordChannels');
+export const adminListDiscordMessagesFunction = httpsCallable(functions, 'adminListDiscordMessages');
+export const adminSendDiscordMessageFunction = httpsCallable(functions, 'adminSendDiscordMessage');
+export const adminUpdateDiscordMessageFunction = httpsCallable(functions, 'adminUpdateDiscordMessage');
+export const adminDeleteDiscordMessageFunction = httpsCallable(functions, 'adminDeleteDiscordMessage');
+export const adminImportDiscordMessageFunction = httpsCallable(functions, 'adminImportDiscordMessage');
+
 export default app;

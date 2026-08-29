@@ -31,6 +31,7 @@ module.exports = [
   './services/discord',
   './services/discordInteractions',
   './services/discordAdmin',
+  './services/discordMessages',
   './services/dropAudit',
   './services/dividends',
   './services/watchlist',

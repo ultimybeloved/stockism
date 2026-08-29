@@ -15,6 +15,7 @@ import MarketTab from './components/admin/MarketTab';
 import WatchlistTab from './components/admin/WatchlistTab';
 import DiagnosticTab from './components/admin/DiagnosticTab';
 import DividendsTab from './components/admin/DividendsTab';
+import DiscordTab from './components/admin/DiscordTab';
 import PriceAdjustModal from './components/admin/PriceAdjustModal';
 import { useAdminDividends } from './hooks/admin/useAdminDividends';
 import { useAdminWatchlist } from './hooks/admin/useAdminWatchlist';
@@ -44,6 +45,7 @@ import { useAdminRecoveryTools } from './hooks/admin/useAdminRecoveryTools';
 import { useAdminUserList } from './hooks/admin/useAdminUserList';
 import { useAdminUserDeletion } from './hooks/admin/useAdminUserDeletion';
 import { useAdminPortfolioSync } from './hooks/admin/useAdminPortfolioSync';
+import { useAdminDiscordMessages } from './hooks/admin/useAdminDiscordMessages';
 
 // Orchestrator only: state and handlers live in src/hooks/admin/*, one hook per
 // domain, and each tab component receives its hook's return spread as props.
@@ -110,6 +112,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const ipo = useAdminIpo({ showMessage, setLoading });
   const trades = useAdminTrades({ showMessage });
   const recoveryTools = useAdminRecoveryTools({ showMessage, setLoading });
+  const discordMessages = useAdminDiscordMessages({ showMessage });
 
   // Check admin access
   if (!isAdmin) {
@@ -168,6 +171,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               { id: 'bots', icon: '🤖', label: 'Bots', load: bots.handleLoadBots },
               { id: 'badges', icon: '🏅', label: 'Badges', load: badges.loadBadgeUsers },
               { id: 'watchlist', icon: '👁️', label: 'Watchlist', load: () => { if (!watchlist.watchlistLoaded) watchlist.loadWatchlist(); } },
+              { id: 'discord', icon: '💬', label: 'Discord', load: () => { if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages(); } },
               { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
               { id: 'recovery', icon: '🔧', label: 'Recovery' },
             ].map(tab => (
@@ -291,6 +295,11 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           {/* DIAGNOSTIC TAB */}
           {activeTab === 'diagnostic' && (
             <DiagnosticTab {...common} {...diagnostics} />
+          )}
+
+          {/* DISCORD TAB */}
+          {activeTab === 'discord' && (
+            <DiscordTab {...common} {...discordMessages} />
           )}
 
           {/* DIVIDENDS TAB */}

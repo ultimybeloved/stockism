@@ -41,8 +41,9 @@ const INTRO = [
 
 // Role mentions render as coloured pills. They never ping from inside an embed,
 // and allowed_mentions is empty on send as a second belt.
+const PRESIDENT = '<@&1495943413147893831>';
 const ANGEL_INVESTORS = '<@&1472108261040980230>';
-const CUSTOM_ROLES = `Custom roles available to ${ANGEL_INVESTORS}`;
+const CUSTOM_ROLES = `Custom role available as a ${PRESIDENT} or ${ANGEL_INVESTORS}`;
 
 const STAFF = [
   '<@&1470614423910482081> - <@539194416120987648>',

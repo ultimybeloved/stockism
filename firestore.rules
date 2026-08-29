@@ -397,6 +397,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // ADMIN-MANAGED DISCORD MESSAGES
+    // ============================================
+    // Records of bot messages the admin panel can edit. Cloud Functions only:
+    // the panel reads them through admin-gated callables, never directly, and
+    // nothing here is meant for players.
+    match /discordMessages/{messageId} {
+      allow read, write: if false;
+    }
+
+    // ============================================
     // DISCORD LINK CODES
     // ============================================
     // Single-use handoff codes for the Discord OAuth flow. Cloud Functions only:
