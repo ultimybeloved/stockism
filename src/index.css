@@ -50,6 +50,26 @@ body {
   animation: ticker-scroll 12s linear infinite;
 }
 
+/* Site announcement bar. Slower than the price ticker: this is prose the reader
+   has to actually finish, not glanceable numbers. */
+.site-message-scroll {
+  animation: ticker-scroll 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-message-scroll {
+    animation: none;
+  }
+  /* The seamless-loop duplicate is noise once nothing is moving. */
+  .site-message-scroll > [aria-hidden='true'] {
+    display: none;
+  }
+  /* Without the scroll the text would simply be clipped, so let it pan. */
+  .site-message-bar {
+    overflow-x: auto;
+  }
+}
+
 @media (min-width: 768px) {
   .ticker-scroll-active {
     animation-duration: 30s;

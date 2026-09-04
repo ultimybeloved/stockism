@@ -11,6 +11,7 @@ export function useMarketData() {
   const [priceHistory, setPriceHistory] = useState({});
   const [marketData, setMarketData] = useState(null);
   const [dividendTierOverrides, setDividendTierOverrides] = useState({});
+  const [siteMessages, setSiteMessages] = useState([]);
   const [launchedTickers, setLaunchedTickers] = useState([]);
   const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
   const [predictions, setPredictions] = useState([]);
@@ -97,6 +98,21 @@ export function useMarketData() {
     }, (err) => {
       // Missing doc is fine — fall back to hardcoded defaults.
       console.warn('dividendConfig/tierOverrides subscription:', err?.message);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Admin-written site announcements. Same shape as the dividend config above:
+  // a world-readable doc the admin edits straight from the panel, so there is no
+  // Cloud Function in the loop and guests get it without signing in.
+  useEffect(() => {
+    const ref = doc(db, 'config', 'siteMessages');
+    const unsubscribe = onSnapshot(ref, (snap) => {
+      setSiteMessages(snap.exists() ? (snap.data().messages || []) : []);
+    }, (err) => {
+      // No doc yet is the normal state. The bar renders nothing.
+      console.warn('config/siteMessages subscription:', err?.message);
+      setSiteMessages([]);
     });
     return () => unsubscribe();
   }, []);
@@ -188,5 +204,5 @@ export function useMarketData() {
     return () => unsubscribe();
   }, []);
 
-  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges };
+  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages };
 }

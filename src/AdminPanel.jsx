@@ -17,6 +17,7 @@ import DiagnosticTab from './components/admin/DiagnosticTab';
 import DividendsTab from './components/admin/DividendsTab';
 import DiscordTab from './components/admin/DiscordTab';
 import CashLogCard from './components/admin/CashLogCard';
+import SiteMessagesTab from './components/admin/SiteMessagesTab';
 import PriceAdjustModal from './components/admin/PriceAdjustModal';
 import { useAdminDividends } from './hooks/admin/useAdminDividends';
 import { useAdminWatchlist } from './hooks/admin/useAdminWatchlist';
@@ -48,6 +49,7 @@ import { useAdminUserDeletion } from './hooks/admin/useAdminUserDeletion';
 import { useAdminPortfolioSync } from './hooks/admin/useAdminPortfolioSync';
 import { useAdminDiscordMessages } from './hooks/admin/useAdminDiscordMessages';
 import { useAdminCashLog } from './hooks/admin/useAdminCashLog';
+import { useAdminSiteMessages } from './hooks/admin/useAdminSiteMessages';
 
 // Orchestrator only: state and handlers live in src/hooks/admin/*, one hook per
 // domain, and each tab component receives its hook's return spread as props.
@@ -116,6 +118,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const recoveryTools = useAdminRecoveryTools({ showMessage, setLoading });
   const discordMessages = useAdminDiscordMessages({ showMessage });
   const cashLog = useAdminCashLog({ showMessage });
+  const siteMessages = useAdminSiteMessages({ showMessage });
 
   // Check admin access
   if (!isAdmin) {
@@ -175,6 +178,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               { id: 'badges', icon: '🏅', label: 'Badges', load: badges.loadBadgeUsers },
               { id: 'watchlist', icon: '👁️', label: 'Watchlist', load: () => { if (!watchlist.watchlistLoaded) watchlist.loadWatchlist(); } },
               { id: 'giveaways', icon: '💸', label: 'Giveaways', load: () => { if (!cashLog.cashLogLoaded) cashLog.loadCashLog(); } },
+              { id: 'siteMessages', icon: '📣', label: 'Site Msgs', load: () => { if (!siteMessages.siteMessagesLoaded) siteMessages.loadSiteMessages(); } },
               { id: 'discord', icon: '💬', label: 'Discord', load: () => { if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages(); } },
               { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
               { id: 'recovery', icon: '🔧', label: 'Recovery' },
@@ -304,6 +308,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           {/* GIVEAWAYS TAB */}
           {activeTab === 'giveaways' && (
             <CashLogCard {...common} {...cashLog} />
+          )}
+
+          {activeTab === 'siteMessages' && (
+            <SiteMessagesTab {...common} {...siteMessages} />
           )}
 
           {/* DISCORD TAB */}

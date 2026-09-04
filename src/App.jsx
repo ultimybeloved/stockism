@@ -163,7 +163,7 @@ export default function App() {
   const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName } = useAuthUser({ setDarkMode, showNotification });
 
   // Global market subscriptions: prices, chart history, IPOs, predictions
-  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges } = useMarketData();
+  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages } = useMarketData();
 
   // Bell notifications + price alerts (subscriptions and handlers)
   const {
@@ -301,8 +301,9 @@ export default function App() {
     launchedTickers,
     rarityTiers,
     crewStats,
-    storedReviewChanges
-  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers, rarityTiers, crewStats, storedReviewChanges]);
+    storedReviewChanges,
+    siteMessages
+  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers, rarityTiers, crewStats, storedReviewChanges, siteMessages]);
 
   if (loading) {
     return (

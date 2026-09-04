@@ -3,6 +3,7 @@ import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
 import MarketTicker from '../MarketTicker';
+import SiteMessageBar from '../SiteMessageBar';
 import { useAppContext } from '../../context/AppContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
@@ -22,6 +23,7 @@ const Layout = ({ children, setDarkMode, onShowAdminPanel, isGuest, onShowLogin,
       />
 
       <MarketTicker />
+      <SiteMessageBar />
 
       {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
       <div className="hidden md:flex justify-center py-2">
