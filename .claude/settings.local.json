@@ -63,13 +63,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "type STOCKISM_CONTEXT.md",
+            "command": "cat STOCKISM_CONTEXT.md",
             "statusMessage": "Loading Stockism context..."
-          },
-          {
-            "type": "command",
-            "command": "type CLAUDE.md",
-            "statusMessage": "Loading Claude instructions..."
           }
         ]
       }
