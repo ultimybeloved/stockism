@@ -404,10 +404,14 @@ const run = (mode, opts = {}) => R.runRename({
   check('the failure is surfaced, not swallowed', threw);
   const failedMarket = await getMarket();
   check('MARKET STAYS HALTED after a failure', failedMarket.marketHalted === true);
-  check('halt reason tells the admin what to do',
-    /Resume or abort/i.test(failedMarket.haltReason || ''), failedMarket.haltReason);
+  // The player-facing banner must NOT change on failure: it named tickers and
+  // printed admin instructions to the whole site.
+  check('banner stays neutral and names no ticker',
+    !/rename|incomplete|resume|abort/i.test(failedMarket.haltReason || ''), failedMarket.haltReason);
   const failedJournal = await getJournal();
   check('journal records the failure', failedJournal.status === 'failed');
+  check('journal carries the detail the admin panel needs',
+    /injected failure/.test(failedJournal.lastError || ''), failedJournal.lastError);
 
   let recovered = null;
   guard = 0;

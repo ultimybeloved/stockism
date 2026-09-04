@@ -607,9 +607,14 @@ const freshJournal = ({ old, nw, uid, haltWasPreexisting }) => ({
   lastError: null,
 });
 
-const HALT_FIELDS = (old, nw) => ({
+// haltReason renders to every player as a full-width red banner in the site
+// ticker, so it stays neutral and names no tickers. The admin detail lives in
+// the journal, which is what the recovery panel reads.
+const HALT_REASON = 'Ticker reassignment underway';
+
+const HALT_FIELDS = () => ({
   marketHalted: true,
-  haltReason: `Ticker rename ${old} to ${nw} in progress`,
+  haltReason: HALT_REASON,
   haltedAt: Date.now(),
 });
 
@@ -645,7 +650,7 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     } else {
       const market = (await marketRef().get()).data() || {};
       journal = freshJournal({ old, nw, uid, haltWasPreexisting: !!market.marketHalted });
-      await marketRef().update(HALT_FIELDS(old, nw));
+      await marketRef().update(HALT_FIELDS());
     }
   }
 
@@ -715,9 +720,12 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     await journalRef().set(journal);
     // Deliberately NOT un-halting. A half-renamed database with an open market
     // is the worst outcome available.
-    await marketRef().update({
-      haltReason: `Ticker rename ${ctx.old} to ${ctx.nw} INCOMPLETE. Resume or abort in Admin, Recovery. Do not un-halt by hand.`,
-    });
+    //
+    // The banner text does not change on failure: players do not need to be
+    // told the migration broke, and the old wording printed admin instructions
+    // to the whole site. The recovery panel reads the journal instead, and
+    // shows its own red "resume or abort" banner to the admin.
+    await marketRef().update({ marketHalted: true, haltReason: HALT_REASON });
     throw new functions.https.HttpsError('internal',
       `Rename failed in progress: ${err.message}. Market stays halted. Resume from the admin panel.`);
   }
