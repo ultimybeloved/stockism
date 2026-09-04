@@ -224,6 +224,11 @@ export const CHARACTERS = [
   { name: "Childu Park", ticker: "GW", basePrice: 40, dateAdded: "2026-08-20T00:03:00", generation: "pre" },
   { name: "Yongju Choi", ticker: "OGCH", basePrice: 40, dateAdded: "2026-08-20T00:04:00", generation: "pre" },
   { name: "Yeongbeom Seok", ticker: "GYNG", basePrice: 40, dateAdded: "2026-08-20T00:05:00", generation: "pre" },
+  { name: "Matsumoto Takeshi", ticker: "RED", basePrice: 40, dateAdded: "2026-09-03T00:00:00", generation: "pre" },
+  { name: "Takanobu Masaichi", ticker: "URAM", basePrice: 35, dateAdded: "2026-09-03T00:01:00", generation: "pre" },
+  { name: "Kokuin Watanabe", ticker: "BLUE", basePrice: 40, dateAdded: "2026-09-03T00:02:00", generation: "pre" },
+  { name: "Renji Yamazaki", ticker: "BRCR", basePrice: 30, dateAdded: "2026-09-03T00:03:00", generation: "pre" },
+  { name: "Shunya Yamazaki", ticker: "GRVS", basePrice: 30, dateAdded: "2026-09-03T00:04:00", generation: "pre" },
 
   // Characters that launched via IPO. `ipoRequired: true` gates a character out
   // of trading until an admin launches it; every gate reads it as
@@ -238,9 +243,9 @@ export const CHARACTERS = [
   { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre" },
   { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", generation: "pre" },
   { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre" },
-  { name: "Sasaki Musashi", ticker: "TCHI", basePrice: 95, dateAdded: "2026-08-27T00:00:00", generation: "pre", ipoRequired: true },
-  { name: "Magami Sogen", ticker: "IKO", basePrice: 90, dateAdded: "2026-08-27T00:01:00", generation: "pre", ipoRequired: true },
-  { name: "Takuma", ticker: "BUFF", basePrice: 90, dateAdded: "2026-08-27T00:02:00", generation: "pre", ipoRequired: true },
+  { name: "Musashi Sasaki", ticker: "TCHI", basePrice: 95, dateAdded: "2026-08-27T00:00:00", generation: "pre" },
+  { name: "Sogen Magami", ticker: "IKO", basePrice: 90, dateAdded: "2026-08-27T00:01:00", generation: "pre" },
+  { name: "Takuma Arashimaya", ticker: "BUFF", basePrice: 90, dateAdded: "2026-08-27T00:02:00", generation: "pre" },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -333,16 +338,18 @@ export const CHARACTERS = [
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA", "TCHI", "IKO", "BUFF"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA", "TCHI", "IKO", "BUFF", "RED", "URAM", "BLUE", "BRCR", "GRVS"],
     trailingFactors: [
-      { ticker: "GUN", coefficient: 0.053 }, { ticker: "SHNG", coefficient: 0.053 },
-      { ticker: "SHRO", coefficient: 0.053 }, { ticker: "SHKO", coefficient: 0.053 },
-      { ticker: "HIKO", coefficient: 0.053 }, { ticker: "SOMI", coefficient: 0.053 },
-      { ticker: "YADV", coefficient: 0.053 }, { ticker: "REI", coefficient: 0.053 },
-      { ticker: "IJA", coefficient: 0.053 }, { ticker: "KMSH", coefficient: 0.053 },
-      { ticker: "SUMO", coefficient: 0.053 }, { ticker: "OYA", coefficient: 0.053 },
-      { ticker: "TCHI", coefficient: 0.053 }, { ticker: "IKO", coefficient: 0.053 },
-      { ticker: "BUFF", coefficient: 0.053 }
+      { ticker: "GUN", coefficient: 0.040 }, { ticker: "SHNG", coefficient: 0.040 },
+      { ticker: "SHRO", coefficient: 0.040 }, { ticker: "SHKO", coefficient: 0.040 },
+      { ticker: "HIKO", coefficient: 0.040 }, { ticker: "SOMI", coefficient: 0.040 },
+      { ticker: "YADV", coefficient: 0.040 }, { ticker: "REI", coefficient: 0.040 },
+      { ticker: "IJA", coefficient: 0.040 }, { ticker: "KMSH", coefficient: 0.040 },
+      { ticker: "SUMO", coefficient: 0.040 }, { ticker: "OYA", coefficient: 0.040 },
+      { ticker: "TCHI", coefficient: 0.040 }, { ticker: "IKO", coefficient: 0.040 },
+      { ticker: "BUFF", coefficient: 0.040 }, { ticker: "RED", coefficient: 0.040 },
+      { ticker: "URAM", coefficient: 0.040 }, { ticker: "BLUE", coefficient: 0.040 },
+      { ticker: "BRCR", coefficient: 0.040 }, { ticker: "GRVS", coefficient: 0.040 }
     ]
   },
   {
