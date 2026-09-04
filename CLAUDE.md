@@ -308,8 +308,47 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/marketOrders.js` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
 | `functions/services/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
+| `functions/services/tickerRename.js` | **Internal module, not in servicePaths.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
+| `functions/services/tickerStats.js` | recordPriceExtremes — hourly all-time high/low sweep |
 
 ---
+
+## Renaming a Ticker
+
+`renameTicker` (Admin -> Recovery -> Rename Ticker) rewrites a ticker everywhere
+the game computes on it. The engine is `functions/services/tickerRename.js`, an
+internal module not listed in `servicePaths.js`.
+
+**Order is enforced. Source edit and deploy come first, migration second.**
+Running the migration first makes `initNewCharacterPrices` see the old ticker
+still in the roster with no price and re-seed it at base price, creating a
+duplicate stock at the wrong price.
+
+1. Edit `src/characters.js` (the `ticker`, plus **every** ETF `constituents` and
+   `trailingFactors` reference) and `src/crews.js` `members`.
+2. `npm run check:data` then `npm run sync:chars`
+3. `npm test` and `npm run build`
+4. Commit source and generated together, push, then
+   `firebase deploy --only functions`
+5. Admin -> Recovery -> Rename Ticker -> **Dry Run**. Read all nine preflight
+   rows and the "left as history" list.
+6. **Execute.** The market halts. If it pauses on the time budget, click Resume
+   until it completes. If it fails, fix the cause and Resume.
+   **Never un-halt the market by hand while a rename is incomplete.**
+7. Verify: `npm run status:market`, confirm the index did not step, open the old
+   ticker's URL and confirm it redirects, spot-check a top holder's loyalty lots
+   and DRIP toggle.
+
+**What is rewritten vs aliased.** Anything the game computes on is rewritten
+(prices, history, holdings, `holdingCohorts`, `drip`, open orders, alerts, index
+constituents, dividend config). Anything that is only a historical record a human
+reads keeps the old name and resolves through `market/current.tickerAliases`:
+bell notifications, feed entries past their 7-day TTL, and backups in Cloud
+Storage. `restoreBackup` remaps keys through that alias, which is what stops a
+pre-rename backup resurrecting a retired ticker.
+
+**Tests:** `npm run test:rename` (emulator, end to end) and the unit tests in
+`functions/tickerRename.test.js`. Run both before and after touching the engine.
 
 ## Deploy Checklist
 
@@ -358,4 +397,4 @@ Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`p
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
 - **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.js`. The backend uses `calculateMarginalImpact` in `functions/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
-- **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF tickers are identified by the `type: 'etf'` field in `src/characters.js`.
+- **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.js` (there is no `type` field).

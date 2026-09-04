@@ -12,7 +12,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID, BACKUP_TOP_USERS } = require('../constants');
-const { priceHistoryRef } = require('../helpers');
+const { priceHistoryRef, remapAliasedKeys } = require('../helpers');
 
 /**
  * The top players' portfolios, for the leaderboard backups.
@@ -295,7 +295,19 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
 
     // Restore price history to Firestore (keep current prices).
     // History lives in its own doc now.
-    await priceHistoryRef().set(backupData.priceHistory);
+    //
+    // Keys go through the alias map first. This write is a full overwrite, so
+    // restoring a backup taken before a ticker rename would otherwise put the
+    // retired name back and drop the current one, leaving a stock priced under
+    // a name no player can see. That is how the DOTS orphan happened.
+    const aliasSnap = await db.collection('market').doc('current').get();
+    const aliases = aliasSnap.exists ? (aliasSnap.data().tickerAliases || {}) : {};
+    const restored = remapAliasedKeys(backupData.priceHistory, aliases);
+    const remapped = Object.keys(aliases).filter((t) => backupData.priceHistory?.[t] !== undefined);
+    if (remapped.length) {
+      console.log(`Backup predates ${remapped.length} rename(s), remapped: ${remapped.join(', ')}`);
+    }
+    await priceHistoryRef().set(restored);
 
     console.log('✅ Price history restored successfully!');
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency, formatChange } from '../utils/formatters';
@@ -33,6 +33,15 @@ const StockPage = ({ onTrade }) => {
   } = useStockPageData(ticker, timeRange);
 
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
+
+  // A renamed ticker keeps turning up long after the rename: in old bell
+  // notifications, in links posted to Discord, in someone's browser history.
+  // market/current.tickerAliases maps every retired name to its current one, so
+  // those land on the right stock instead of an "unknown ticker" dead end.
+  const aliasTarget = marketData?.tickerAliases?.[ticker];
+  useEffect(() => {
+    if (!character && aliasTarget) navigate(`/stock/${aliasTarget}`, { replace: true });
+  }, [character, aliasTarget, navigate]);
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -71,7 +80,9 @@ const StockPage = ({ onTrade }) => {
     return (
       <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
         <div className="text-center">
-          <p className={`text-lg ${textClass} mb-2`}>Unknown ticker: ${ticker}</p>
+          <p className={`text-lg ${textClass} mb-2`}>
+            {aliasTarget ? `Redirecting to $${aliasTarget}...` : `Unknown ticker: $${ticker}`}
+          </p>
           <button onClick={() => navigate('/')} className="text-orange-500 hover:underline text-sm">← Back to market</button>
         </div>
       </div>

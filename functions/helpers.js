@@ -271,6 +271,34 @@ const appendPriceHistory = (transaction, points) => {
 // on market/current because they are worth showing on a stock page.
 const tickerStatsRef = () => db.collection('market').doc('tickerStats');
 
+// ============================================
+// TICKER ALIASES
+// ============================================
+// market/current.tickerAliases is a permanent { retiredTicker: currentTicker }
+// map written by every rename. It exists because some records are immutable or
+// not worth rewriting: bell notifications carry the ticker inside free text,
+// old deep links are already out in Discord, and backups in Cloud Storage are
+// frozen JSON. Resolving on read costs nothing and covers all of them.
+//
+// Renames collapse the chain when they are applied, so this is always one hop.
+const resolveTicker = (aliases, ticker) => (aliases || {})[ticker] || ticker;
+
+/**
+ * Rewrite the keys of a ticker-keyed object through the alias map.
+ *
+ * Restoring a backup taken before a rename would otherwise resurrect the old
+ * ticker and drop the new one — which is exactly how the DOTS orphan survived
+ * a rename and was still being traded by bots a year later.
+ */
+const remapAliasedKeys = (obj, aliases) => {
+  if (!obj || !aliases || !Object.keys(aliases).length) return obj;
+  const out = {};
+  for (const [ticker, value] of Object.entries(obj)) {
+    out[resolveTicker(aliases, ticker)] = value;
+  }
+  return out;
+};
+
 // One calendar month of closing prices per document, shape
 // { closes: { 'YYYY-MM-DD': { [ticker]: price } } }. Chunked by month from the
 // start on purpose: the live price-history doc hit Firestore's 40k index-entry
@@ -1487,6 +1515,8 @@ module.exports = {
   priceHistoryRef,
   appendPriceHistory,
   tickerStatsRef,
+  resolveTicker,
+  remapAliasedKeys,
   dailyClosesRef,
   buildTickerFlowUpdate,
   buildExtremeUpdates,

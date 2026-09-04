@@ -40,7 +40,8 @@
     "test:crewroles": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-crew-roles-emulator.cjs\"",
     "test:crewswitch": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-crew-switch-emulator.cjs\"",
     "lint": "eslint src --ext .js,.jsx",
-    "deploy:functions": "node scripts/deploy-functions.cjs"
+    "deploy:functions": "node scripts/deploy-functions.cjs",
+    "test:rename": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-rename-ticker-emulator.cjs\""
   },
   "dependencies": {
     "@sentry/react": "^10.52.0",

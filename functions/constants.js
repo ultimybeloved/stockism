@@ -58,6 +58,21 @@ const NAME_CHANGE_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
 // long so they can't claw the adjustment back. Resets each time admin re-sets.
 const ADMIN_PRICE_PROTECTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// ── Ticker rename migration ──────────────────────────────────────────────────
+// A rename walks every player document and several collections, which cannot be
+// one transaction, so it runs as journalled phases that pause and resume.
+//
+// The budget sits under the 540s function timeout with room to write the
+// journal and return. Batch size is under Firestore's 500-op cap on purpose,
+// leaving headroom for the delete that pairs with every move.
+const RENAME_TIME_BUDGET_MS = 480 * 1000;
+const RENAME_BATCH_SIZE = 400;
+const RENAME_PAGE_SIZE = 300;
+const RENAME_JOURNAL_DOC = 'tickerRename';
+// Anchored and character-restricted: a ticker containing a dot would be a field
+// path, not a key, and would write to the wrong place in prices.<ticker>.
+const TICKER_PATTERN = /^[A-Z0-9]{2,6}$/;
+
 // Anti-manipulation: reduced price impact for brand-new accounts.
 // Mirrors src/constants/economy.js — keep both in sync.
 const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;  // ramps over the first 3 days
@@ -704,6 +719,11 @@ module.exports = {
   DIVIDEND_DEMON_HOLD_MS,
   NAME_CHANGE_COOLDOWN_MS,
   ADMIN_PRICE_PROTECTION_MS,
+  RENAME_TIME_BUDGET_MS,
+  RENAME_BATCH_SIZE,
+  RENAME_PAGE_SIZE,
+  RENAME_JOURNAL_DOC,
+  TICKER_PATTERN,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MAX_ACCOUNTS_PER_IP,
