@@ -257,6 +257,86 @@ const appendPriceHistory = (transaction, points) => {
   return priceHistoryRef().set(updates, { merge: true });
 };
 
+// ============================================
+// PER-TICKER STATS
+// ============================================
+// Running totals and records that cannot be reconstructed after the fact. Live
+// price history keeps only PRICE_HISTORY_LIVE_MAX points per ticker, so an
+// all-time high that scrolls out of that window is gone for good unless it was
+// written down when it happened.
+//
+// Flow stats live on their own document rather than market/current: every
+// client subscribes to that doc on every page load and none of this is needed
+// to render the site. The all-time high/low marks are the exception — they go
+// on market/current because they are worth showing on a stock page.
+const tickerStatsRef = () => db.collection('market').doc('tickerStats');
+
+// One calendar month of closing prices per document, shape
+// { closes: { 'YYYY-MM-DD': { [ticker]: price } } }. Chunked by month from the
+// start on purpose: the live price-history doc hit Firestore's 40k index-entry
+// limit once and took trading down with it.
+const dailyClosesRef = (monthId) => db.collection('market').doc('current')
+  .collection('daily_closes').doc(monthId);
+
+const monthIdOf = (ms) => new Date(ms).toISOString().slice(0, 7);
+const dayIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * Fold one fill into a ticker's running totals.
+ *
+ * Buying and covering push money into a stock, selling and shorting pull it
+ * out, so netFlow reads as directional pressure rather than raw volume. Price
+ * alone cannot tell a real rally from three players trading with each other.
+ */
+const buildTickerFlowUpdate = ({ ticker, action, amount, totalValue, now }) => {
+  const direction = (action === 'buy' || action === 'cover') ? 1 : -1;
+  return {
+    [ticker]: {
+      trades: admin.firestore.FieldValue.increment(1),
+      shares: admin.firestore.FieldValue.increment(amount || 0),
+      netFlow: admin.firestore.FieldValue.increment(direction * (totalValue || 0)),
+      lastTradedAt: now,
+    },
+  };
+};
+
+/**
+ * Dotted-path updates moving the all-time high/low marks for any ticker whose
+ * price has passed them. Returns {} when nothing moved so callers can skip the
+ * write entirely.
+ *
+ * Guarded by isRosterTicker: the price map can outlive the roster, and a stock
+ * no player can see should not be setting records.
+ */
+const buildExtremeUpdates = (prices, ath = {}, atl = {}) => {
+  const updates = {};
+  for (const [ticker, price] of Object.entries(prices || {})) {
+    if (!(price > 0) || !isRosterTicker(ticker)) continue;
+    if (!(ath[ticker] > 0) || price > ath[ticker]) updates[`ath.${ticker}`] = price;
+    if (!(atl[ticker] > 0) || price < atl[ticker]) updates[`atl.${ticker}`] = price;
+  }
+  return updates;
+};
+
+/**
+ * Write one day's closing prices. Idempotent: a re-run for the same day
+ * overwrites that day rather than appending a second copy of it.
+ */
+const recordDailyCloses = async (prices, now = Date.now()) => {
+  const closes = {};
+  for (const [ticker, price] of Object.entries(prices || {})) {
+    if (!(price > 0) || !isRosterTicker(ticker)) continue;
+    closes[ticker] = price;
+  }
+  if (!Object.keys(closes).length) return 0;
+  await dailyClosesRef(monthIdOf(now)).set({
+    month: monthIdOf(now),
+    closes: { [dayIdOf(now)]: closes },
+    updatedAt: now,
+  }, { merge: true });
+  return Object.keys(closes).length;
+};
+
 const applyDueIPOJumps = async () => {
   const ipoRef = db.collection('market').doc('ipos');
   const marketRef = db.collection('market').doc('current');
@@ -1292,6 +1372,18 @@ function recordTrade(transaction, {
   if (orderId) record.orderId = orderId;
 
   transaction.set(db.collection('trades').doc(), record);
+
+  // Per-ticker running totals, written in the same transaction as the record
+  // itself so the two can never disagree. Dividends and forced margin closes
+  // are excluded for the same reason sumMarketActivity excludes them: nobody
+  // chose to trade this stock.
+  if (TRADE_RECORD_ACTIONS.has(action)) {
+    transaction.set(
+      tickerStatsRef(),
+      buildTickerFlowUpdate({ ticker, action, amount, totalValue, now: Date.now() }),
+      { merge: true }
+    );
+  }
 }
 
 // Trades and cash volume in a window, for the daily and weekly market reports.
@@ -1394,6 +1486,11 @@ module.exports = {
   applyDueIPOJumps,
   priceHistoryRef,
   appendPriceHistory,
+  tickerStatsRef,
+  dailyClosesRef,
+  buildTickerFlowUpdate,
+  buildExtremeUpdates,
+  recordDailyCloses,
   isPriceProtected,
   getReviewWindowChanges,
   getAccountAgeImpactFactor,

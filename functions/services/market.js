@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_LOCK_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat } = require('../helpers');
+const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat, recordDailyCloses } = require('../helpers');
 const { writeReviewChanges } = require('./reviewChanges');
 const { indexConstituents, reconcileDivisor, computeIndexValue } = require('./indexMaintenance');
 
@@ -99,6 +99,19 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
         await idxRef.set(idxUpdate, { merge: true });
       } catch (e) {
         console.error('index history record failed:', e.message);
+      }
+
+      // Today's closing prices, one document per calendar month. The live
+      // price-history doc keeps only the most recent points per ticker and
+      // archives the rest, so this is the only place a clean daily series
+      // exists. Idempotent — a re-run overwrites today rather than duplicating
+      // it — and best-effort, because a failed archive must never take down the
+      // daily summary.
+      try {
+        const closed = await recordDailyCloses(prices, now);
+        console.log(`daily closes recorded: ${closed} tickers`);
+      } catch (e) {
+        console.error('daily close record failed:', e.message);
       }
 
       // Trading volume and counts. Bots count toward market volume but never

@@ -132,6 +132,13 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
       }
+
+      // Daily closing prices, one document per calendar month. Same access as
+      // the price history it complements: public to read, server-written only.
+      match /daily_closes/{monthId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // ============================================
