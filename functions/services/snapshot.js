@@ -251,17 +251,18 @@ const runArchive = async (includePredictions) => {
   return results;
 };
 
-// Daily at 21:30 UTC, half an hour after the market's daily boundary. On
-// Thursdays that is also half an hour after the weekly halt lifts, so the
-// chapter-review state still gets captured exactly as it did when this ran
-// weekly — it just no longer misses the six days in between.
+// Thursday 21:30 UTC — half an hour after the weekly halt lifts, so the archived
+// state is the market as it stands for the new chapter. That alignment is the
+// reason this is not simply "every N days": the chapter review is the biggest
+// price event of the week, and a fixed-interval schedule would drift off it.
 //
-// Cheap by construction: the route is edge-cached for CACHE_SECONDS and each
-// render is a handful of reads, so this is a few reads a day.
+// Deliberately not daily. Save Page Now is a free public service and there is no
+// reason to hammer it, and the per-day detail now lives in the dated routes
+// (/snapshot/YYYY-MM-DD) which are backed by our own daily closes.
 //
 // Predictions ride along on the 1st-8th, which works out to roughly monthly.
 exports.archiveSnapshot = cf().pubsub
-  .schedule('30 21 * * *')
+  .schedule('30 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     const includePredictions = new Date().getUTCDate() <= 7;
