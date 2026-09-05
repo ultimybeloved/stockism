@@ -65,6 +65,35 @@ const ADMIN_PRICE_PROTECTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // The budget sits under the 540s function timeout with room to write the
 // journal and return. Batch size is under Firestore's 500-op cap on purpose,
 // leaving headroom for the delete that pairs with every move.
+// ── Neglect decay ────────────────────────────────────────────────────────────
+// A stock no real player has traded in this long starts drifting down. Bots do
+// not count: bot churn is not interest, and counting it would keep every stock
+// alive forever.
+const NEGLECT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+// Compounding daily. At 1% a day a neglected stock loses about a quarter of its
+// value in a month, which reads as a slide rather than a crash.
+const NEGLECT_DECAY_DAILY_RATE = 0.01;
+
+// The floor is a fraction of basePrice, drawn from this band per character (see
+// neglectFloorFraction). A FIXED fraction would be public the first time anyone
+// noticed two dead stocks stopping at the same percentage, and every floor on
+// the board would be known.
+const NEGLECT_FLOOR_MIN = 0.30;
+const NEGLECT_FLOOR_MAX = 0.75;
+
+// Open short interest pauses the decay: a stock somebody is short is not
+// neglected, and this is what stops a short seller farming a guaranteed decline.
+// The threshold is not 1 share, because that would let anyone freeze a stock's
+// decay for the price of a single share to protect a big holding.
+const NEGLECT_SHORT_INTEREST_THRESHOLD = 25; // shares
+
+// Short interest is recomputed by the 30-minute margin scanner. If that has not
+// run recently the number cannot be trusted, and decaying on a stale "nobody is
+// short" reading is exactly the hole the pause exists to close, so decay skips
+// its run instead.
+const SHORT_INTEREST_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
+
 const RENAME_TIME_BUDGET_MS = 480 * 1000;
 const RENAME_BATCH_SIZE = 400;
 const RENAME_PAGE_SIZE = 300;
@@ -719,6 +748,12 @@ module.exports = {
   DIVIDEND_DEMON_HOLD_MS,
   NAME_CHANGE_COOLDOWN_MS,
   ADMIN_PRICE_PROTECTION_MS,
+  NEGLECT_WINDOW_MS,
+  NEGLECT_DECAY_DAILY_RATE,
+  NEGLECT_FLOOR_MIN,
+  NEGLECT_FLOOR_MAX,
+  NEGLECT_SHORT_INTEREST_THRESHOLD,
+  SHORT_INTEREST_MAX_AGE_MS,
   RENAME_TIME_BUDGET_MS,
   RENAME_BATCH_SIZE,
   RENAME_PAGE_SIZE,

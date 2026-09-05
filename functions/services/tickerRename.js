@@ -403,9 +403,19 @@ const PHASES = [
       // Dividends are paid off the pre-halt snapshot, so a rename that misses
       // it pays this week's holders nothing.
       await move(m.doc('preHaltSnapshot'), (d) => mapMoveUpdates('prices', d.prices, old, nw));
-      // tickerStats is keyed by ticker at the top level, not inside a map.
-      await move(m.doc('tickerStats'),
-        (d) => (d[old] === undefined ? {} : { [nw]: d[old], [old]: DELETE() }));
+      // tickerStats keys flow stats by ticker at the TOP level, and also
+      // carries a nested shortInterest map that the neglect decay reads. Miss
+      // that one and a renamed stock looks un-shorted, which silently switches
+      // its decay back on.
+      await move(m.doc('tickerStats'), (d) => {
+        const updates = {};
+        if (d[old] !== undefined) {
+          updates[nw] = d[old];
+          updates[old] = DELETE();
+        }
+        Object.assign(updates, mapMoveUpdates('shortInterest', d.shortInterest, old, nw));
+        return updates;
+      });
       await move(m.doc('reviewChanges'), (d) => mapMoveUpdates('changes', d.changes, old, nw));
       await move(m.doc('reviewDetail'), (d) => mapMoveUpdates('detail', d.detail, old, nw));
 
@@ -522,6 +532,7 @@ const verifyClean = async (old) => {
 
   const stats = (await db.collection('market').doc('tickerStats').get()).data() || {};
   note('market/tickerStats', stats[old] !== undefined ? 1 : 0);
+  note('market/tickerStats.shortInterest', (stats.shortInterest || {})[old] !== undefined ? 1 : 0);
 
   for (const [name, ref] of [
     ['preHaltSnapshot', db.collection('market').doc('preHaltSnapshot')],

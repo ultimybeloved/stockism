@@ -51,6 +51,7 @@ module.exports = [
   './services/preMarket',
   './services/marketMaker',
   './services/tickerStats',
+  './services/neglectDecay',
   './services/crewMissions',
   './services/health',
   './services/billing',

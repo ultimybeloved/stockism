@@ -123,6 +123,9 @@ const {
   ETF_BID_ASK_SPREAD,
   MIN_EXIT_SHARES,
   EXIT_SHARE_DECIMALS,
+  NEGLECT_FLOOR_MIN,
+  NEGLECT_FLOOR_MAX,
+  MIN_PRICE,
 } = require('./constants');
 
 // ── Exit share sizes ─────────────────────────────────────────────────────────
@@ -345,6 +348,50 @@ const buildExtremeUpdates = (prices, ath = {}, atl = {}) => {
   }
   return updates;
 };
+
+/**
+ * Total shares short per ticker, plus when it was measured.
+ *
+ * Recomputed in full each time rather than incremented on every short and
+ * cover: a counter maintained across four fill paths plus forced covers plus
+ * bailouts would drift, and a drifted count silently switches the neglect decay
+ * on or off for a stock. This rides the margin scanner, which already loads
+ * every open short position every 30 minutes, so it costs no extra reads.
+ */
+const writeShortInterest = async (totals, now = Date.now()) => tickerStatsRef().set({
+  shortInterest: totals,
+  shortInterestAt: now,
+}, { merge: true });
+
+/**
+ * The price a neglected stock stops falling at, as a fraction of its basePrice.
+ *
+ * Deliberately opaque. A fixed fraction becomes public knowledge the first time
+ * someone notices two dead stocks halting at the same percentage, and then every
+ * floor on the board is known in advance. This is stable for a given character
+ * and trade count, so it is reproducible and testable, but not guessable.
+ *
+ * Mixing in the lifetime trade count is what re-evaluates a stock: a character
+ * who draws a burst of attention and then goes quiet again lands on a different
+ * floor the second time rather than returning to the old one.
+ */
+const neglectFloorFraction = (ticker, tradeCount = 0) => {
+  // FNV-1a. Not for security, just a good spread from a short string.
+  const seed = `${ticker}:${tradeCount}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  const t = h / 0xffffffff;
+  return NEGLECT_FLOOR_MIN + t * (NEGLECT_FLOOR_MAX - NEGLECT_FLOOR_MIN);
+};
+
+/** The floor as an actual price. Never below MIN_PRICE. */
+const neglectFloorPrice = (character, tradeCount = 0) => Math.max(
+  MIN_PRICE,
+  round2((character?.basePrice || 0) * neglectFloorFraction(character?.ticker || '', tradeCount)),
+);
 
 /**
  * Write one day's closing prices. Idempotent: a re-run for the same day
@@ -1521,6 +1568,9 @@ module.exports = {
   buildTickerFlowUpdate,
   buildExtremeUpdates,
   recordDailyCloses,
+  writeShortInterest,
+  neglectFloorFraction,
+  neglectFloorPrice,
   isPriceProtected,
   getReviewWindowChanges,
   getAccountAgeImpactFactor,

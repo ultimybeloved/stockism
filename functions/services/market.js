@@ -331,22 +331,15 @@ exports.chapterReviewRecap = cf().pubsub
       losers.sort((a, b) => a.change - b.change);
 
       // Compute SMI before and after
-      const nonETFChars = CHARACTERS.filter(c => !c.isETF);
-      const computeSMI = (prices) => {
-        let sum = 0;
-        let count = 0;
-        for (const char of nonETFChars) {
-          const base = char.basePrice;
-          if (base <= 0) continue;
-          const price = prices[char.ticker];
-          sum += (price != null ? price : base) / base;
-          count++;
-        }
-        return count > 0 ? 1000 * (sum / count) : 1000;
-      };
-
-      const smiBefore = computeSMI(beforePrices);
-      const smiAfter = computeSMI(afterPrices);
+      // The recap used to compute its own index with a plain average, which
+      // gave the right percentage change but absolute numbers that have not
+      // matched the site's index since the divisor was introduced. Same
+      // function as the real one now, so the recap and the site agree.
+      const idxSnap = await db.collection('market').doc('indexHistory').get();
+      const idxDivisor = idxSnap.exists ? (idxSnap.data().divisor || 0) : 0;
+      const idxConstituents = indexConstituents();
+      const smiBefore = computeIndexValue(beforePrices, idxConstituents, idxDivisor);
+      const smiAfter = computeIndexValue(afterPrices, idxConstituents, idxDivisor);
       const smiChange = smiBefore > 0
         ? ((smiAfter - smiBefore) / smiBefore) * 100
         : 0;

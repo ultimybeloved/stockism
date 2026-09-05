@@ -28,7 +28,7 @@ const {
   SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO, MARGIN_LIQUIDATION_SLIPPAGE,
   FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity } = require('../helpers');
+const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity, writeShortInterest } = require('../helpers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -135,6 +135,10 @@ exports.checkShortMarginCalls = cf().pubsub
       let checkedCount = 0;
       let throttledCount = 0;
       const tickerCoverCount = {};
+      // Total shares short per ticker. Free to collect here because this scan
+      // already has every open short position in hand, and the neglect decay
+      // needs it: a stock somebody is short is not a neglected stock.
+      const shortInterest = {};
 
       for (const userDoc of shortHolderDocs) {
         const userData = userDoc.data();
@@ -152,6 +156,10 @@ exports.checkShortMarginCalls = cf().pubsub
         checkedCount++;
 
         for (const [ticker, position] of shortEntries) {
+          // Counted before any skip below, so a throttled or unpriced position
+          // still registers as open interest.
+          shortInterest[ticker] = (shortInterest[ticker] || 0) + position.shares;
+
           const currentPrice = prices[ticker];
           if (!currentPrice) continue;
 
@@ -299,8 +307,15 @@ exports.checkShortMarginCalls = cf().pubsub
         }
       }
 
+      // Published for the neglect decay, which refuses to run on a stale
+      // reading. Written after the covers above so it reflects what is still
+      // open, and best-effort because a failed write must not fail the scan.
+      await writeShortInterest(shortInterest).catch((e) => {
+        console.error('short interest write failed:', e.message);
+      });
+
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled in ${elapsed}s`);
+      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled, ${Object.keys(shortInterest).length} tickers with open shorts in ${elapsed}s`);
       await recordHeartbeat('checkShortMarginCalls');
       return { checked: checkedCount, liquidated: liquidatedCount, throttled: throttledCount, elapsed };
 

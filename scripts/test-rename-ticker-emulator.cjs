@@ -151,6 +151,8 @@ const seed = async (ticker = OLD) => {
   await db.collection('market').doc('tickerStats').set({
     [t]: { trades: 9, netFlow: 500, lastTradedAt: now },
     [OTHER]: { trades: 2, netFlow: 10, lastTradedAt: now },
+    shortInterest: { [t]: 40, [OTHER]: 5 },
+    shortInterestAt: now,
   });
   await db.collection('dividendConfig').doc('tierOverrides').set({ tiers: both('rare', 'common') });
 
@@ -293,6 +295,11 @@ const run = (mode, opts = {}) => R.runRename({
   check('IPO list moved', ipos.list.some((i) => i.ticker === NEW));
   const stats = await getDoc('market', 'tickerStats');
   check('ticker stats moved', stats[NEW]?.trades === 9 && stats[OLD] === undefined);
+  // Missed, a renamed stock reads as un-shorted and its neglect decay switches
+  // back on even though someone is short it.
+  check('short interest moved with the ticker',
+    stats.shortInterest?.[NEW] === 40 && stats.shortInterest?.[OLD] === undefined);
+  check('neighbour short interest untouched', stats.shortInterest?.[OTHER] === 5);
   const divCfg = await getDoc('dividendConfig', 'tierOverrides');
   check('dividend tier override moved', divCfg.tiers[NEW] === 'rare');
 

@@ -1,0 +1,50 @@
+'use strict';
+// The neglect-decay decision, split from the scheduled function so every skip
+// reason is testable without an emulator.
+//
+// INTERNAL MODULE — required directly by neglectDecay.js and deliberately
+// absent from servicePaths.js. It exports no Cloud Functions.
+const {
+  NEGLECT_WINDOW_MS,
+  NEGLECT_DECAY_DAILY_RATE,
+  NEGLECT_SHORT_INTEREST_THRESHOLD,
+  ADMIN_PRICE_PROTECTION_MS,
+  MIN_PRICE,
+} = require('../constants');
+const { isPriceProtected, neglectFloorPrice } = require('../helpers');
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Decide one ticker's fate. Returns the new price, or null to leave it alone.
+ *
+ * Split out from the scheduled function so every skip reason is testable
+ * without an emulator.
+ */
+const decayTarget = ({ character, price, stats, shortInterest, priceHistory, now }) => {
+  if (character.isETF) return null;
+  if (!(price > 0)) return null;
+
+  const lastTraded = stats?.lastTradedAt || 0;
+  // Never traded is still neglected — a stock that launched and was ignored is
+  // exactly the case this exists for. dateAdded stands in so a character added
+  // yesterday is not decayed on day one.
+  const reference = lastTraded || new Date(character.dateAdded).getTime();
+  if (now - reference < NEGLECT_WINDOW_MS) return null;
+
+  if ((shortInterest[character.ticker] || 0) >= NEGLECT_SHORT_INTEREST_THRESHOLD) return null;
+
+  // Automated movers never undo an admin's manual price decision.
+  if (isPriceProtected(priceHistory, character.ticker, ADMIN_PRICE_PROTECTION_MS, now)) return null;
+
+  const floor = neglectFloorPrice(character, stats?.trades || 0);
+  if (price <= floor) return null;
+
+  const target = Math.max(floor, MIN_PRICE, round2(price * (1 - NEGLECT_DECAY_DAILY_RATE)));
+  // A price so low that a 1% step rounds to nothing would otherwise write the
+  // same number every day forever.
+  return target < price ? target : null;
+};
+
+
+module.exports = { decayTarget };
