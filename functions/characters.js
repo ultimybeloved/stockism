@@ -6,6 +6,7 @@ export const CHARACTERS = [
   {
     name: "Mujin Jin",
     ticker: "JIN",
+    status: "flashback",
     basePrice: 85,
     dateAdded: "2026-01-13T00:00:30", generation: "pre",
     // GAP/JIN/SHNG all point at each other, and all three are usually adjusted in
@@ -21,6 +22,7 @@ export const CHARACTERS = [
   {
     name: "Shingen Yamazaki",
     ticker: "SHNG",
+    status: "flashback",
     basePrice: 85,
     dateAdded: "2026-01-13T00:01:00", generation: "pre",
     // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2.
@@ -32,6 +34,7 @@ export const CHARACTERS = [
   {
     name: "Gapryong Kim",
     ticker: "GAP",
+    status: "flashback",
     basePrice: 85,
     dateAdded: "2026-01-13T00:02:00", generation: "pre",
     // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2. KTAE and
@@ -59,11 +62,11 @@ export const CHARACTERS = [
   { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, dateAdded: "2026-01-13T00:07:00", generation: "1st", altNames: ["Gitae Kim"] },
   { name: "Johan Seong", ticker: "GDOG", basePrice: 80, dateAdded: "2026-01-13T00:08:00", generation: "2nd", altNames: ["Yohan Seong"] },
   { name: "Tom Lee", ticker: "TOM", basePrice: 78, dateAdded: "2026-01-13T00:09:00", generation: "pre" },
-  { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, dateAdded: "2026-01-13T00:10:00", generation: "pre" },
+  { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, dateAdded: "2026-01-13T00:10:00", generation: "pre", status: "flashback" },
   { name: "Changsu Oh", ticker: "CROW", basePrice: 75, dateAdded: "2026-01-13T00:11:00", generation: "1st" },
   { name: "Manager Kim", ticker: "SRMK", basePrice: 74, dateAdded: "2026-01-13T00:12:00", generation: "pre" },
-  { name: "Charles Choi", ticker: "ELIT", basePrice: 72, dateAdded: "2026-01-13T00:13:00", generation: "pre", altNames: ["Elite"] },
-  { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, dateAdded: "2026-01-13T00:14:00", generation: "pre" },
+  { name: "Charles Choi", ticker: "ELIT", basePrice: 72, dateAdded: "2026-01-13T00:13:00", generation: "pre", altNames: ["Elite"], status: "flashback" },
+  { name: "Jinyeong Park", ticker: "JYNG", basePrice: 72, dateAdded: "2026-01-13T00:14:00", generation: "pre", status: "flashback" },
   {
     name: "Daniel Park (Small)",
     ticker: "LDNL",
@@ -74,15 +77,15 @@ export const CHARACTERS = [
       { ticker: "BDNL", coefficient: 0.3 }
     ]
   },
-  { name: "Paecheon Jo", ticker: "CROC", basePrice: 66, dateAdded: "2026-01-13T00:16:00", generation: "pre" },
+  { name: "Paecheon Jo", ticker: "CROC", basePrice: 66, dateAdded: "2026-01-13T00:16:00", generation: "pre", status: "dead" },
   { name: "Jake Kim", ticker: "JAKE", basePrice: 65, dateAdded: "2026-01-13T00:17:00", generation: "2nd" },
   { name: "Jaegyeon Na", ticker: "JAEG", basePrice: 62, dateAdded: "2026-01-13T00:18:00", generation: "1st" },
-  { name: "Yujae Seon", ticker: "YUJA", basePrice: 62, dateAdded: "2026-01-13T00:19:00", generation: "1st" },
+  { name: "Yujae Seon", ticker: "YUJA", basePrice: 62, dateAdded: "2026-01-13T00:19:00", generation: "1st", status: "dead" },
   { name: "Eli Jang", ticker: "ELI", basePrice: 60, dateAdded: "2026-01-13T00:20:00", generation: "2nd" },
   { name: "Samuel Seo", ticker: "SAM", basePrice: 60, dateAdded: "2026-01-13T00:21:00", generation: "2nd" },
   { name: "Taesoo Ma", ticker: "TM", basePrice: 60, dateAdded: "2026-01-13T00:22:00", generation: "1st" },
   { name: "Gongseop Ji", ticker: "GONG", basePrice: 60, dateAdded: "2026-01-13T00:23:00", generation: "1st", altNames: ["Gongseob Ji"] },
-  { name: "Seongji Yuk", ticker: "6KNG", basePrice: 60, dateAdded: "2026-01-13T00:24:00", generation: "1st" },
+  { name: "Seongji Yuk", ticker: "6KNG", basePrice: 60, dateAdded: "2026-01-13T00:24:00", generation: "1st", status: "dead" },
   { name: "Lang Jin", ticker: "WOLF", basePrice: 60, dateAdded: "2026-01-13T00:25:00", generation: "1st", altNames: ["Jinrang"] },
   { name: "J", ticker: "COP", basePrice: 60, dateAdded: "2026-01-13T00:26:00", generation: "1st" },
   { name: "Vin Jin", ticker: "VIN", basePrice: 57, dateAdded: "2026-01-13T00:27:00", generation: "2nd" },
@@ -90,7 +93,7 @@ export const CHARACTERS = [
   { name: "Zack Lee", ticker: "ZACK", basePrice: 55, dateAdded: "2026-01-13T00:29:00", generation: "2nd" },
   { name: "Ryuhei Kuroda", ticker: "NOMN", basePrice: 55, dateAdded: "2026-01-13T00:30:00", generation: "2nd" },
   { name: "Yuseong", ticker: "CAPG", basePrice: 50, dateAdded: "2026-01-13T00:31:00", generation: "2nd", altNames: ["Cap Guy"] },
-  { name: "Mandeok Bang", ticker: "BANG", basePrice: 50, dateAdded: "2026-01-13T00:32:00", generation: "2nd" },
+  { name: "Mandeok Bang", ticker: "BANG", basePrice: 50, dateAdded: "2026-01-13T00:32:00", generation: "2nd", status: "dead" },
   { name: "Jichang Kwak", ticker: "SNEK", basePrice: 50, dateAdded: "2026-01-13T00:33:00", generation: "1st" },
   { name: "Seokdu Wang", ticker: "SEOK", basePrice: 50, dateAdded: "2026-01-13T00:34:00", generation: "1st" },
   { name: "Sinu Han", ticker: "SINU", basePrice: 48, dateAdded: "2026-01-13T00:35:00", generation: "1.5" },
@@ -102,7 +105,7 @@ export const CHARACTERS = [
   { name: "Logan Lee", ticker: "LOGN", basePrice: 30, dateAdded: "2026-01-13T00:41:00", generation: "2nd" },
   { name: "Eugene", ticker: "WRKR", basePrice: 26, dateAdded: "2026-01-13T00:42:00", generation: "2nd", altNames: ["Yoojin"] },
   { name: "Crystal Choi", ticker: "CRYS", basePrice: 25, dateAdded: "2026-01-13T00:43:00", generation: "2nd" },
-  { name: "Olly Wang", ticker: "OLLY", basePrice: 20, dateAdded: "2026-01-13T00:44:00", generation: "2nd" },
+  { name: "Olly Wang", ticker: "OLLY", basePrice: 20, dateAdded: "2026-01-13T00:44:00", generation: "2nd", status: "dead" },
   { name: "Brad Lee", ticker: "BRAD", basePrice: 18, dateAdded: "2026-01-13T00:45:00", generation: "2nd" },
   { name: "Jason Yoon", ticker: "JSN", basePrice: 16, dateAdded: "2026-01-13T00:46:00", generation: "2nd" },
   { name: "Lineman", ticker: "LINE", basePrice: 15, dateAdded: "2026-01-13T00:47:00", generation: "2nd" },
@@ -111,7 +114,7 @@ export const CHARACTERS = [
   { name: "Mira Kim", ticker: "MIRA", basePrice: 12, dateAdded: "2026-01-13T00:50:00", generation: "2nd" },
   { name: "Zoe Park", ticker: "ZOE", basePrice: 11, dateAdded: "2026-01-13T00:51:00", generation: "2nd" },
   { name: "Doo Lee", ticker: "DOO", basePrice: 10, dateAdded: "2026-01-13T00:52:00", generation: "2nd" },
-  { name: "Jiho Park", ticker: "JIHO", basePrice: 7, dateAdded: "2026-01-13T00:53:00", generation: "2nd" },
+  { name: "Jiho Park", ticker: "JIHO", basePrice: 7, dateAdded: "2026-01-13T00:53:00", generation: "2nd", status: "dead" },
   
   // New characters added 2026-01-16
   { name: "Seonhui Park", ticker: "MOM", basePrice: 15, dateAdded: "2026-01-16T00:00:00", generation: "pre" },
@@ -119,12 +122,12 @@ export const CHARACTERS = [
   { name: "Kouji", ticker: "HACK", basePrice: 12, dateAdded: "2026-01-16T00:02:00", generation: "2nd" },
   { name: "Mary Kim", ticker: "2SEC", basePrice: 25, dateAdded: "2026-01-16T00:03:00", generation: "2nd" },
   { name: "Duke Pyeon", ticker: "DUKE", basePrice: 20, dateAdded: "2026-01-16T00:04:00", generation: "2nd" },
-  { name: "Baekho Kwon", ticker: "KWON", basePrice: 70, dateAdded: "2026-01-16T00:05:00", generation: "pre" },
-  { name: "Lightning Choi", ticker: "DNCE", basePrice: 30, dateAdded: "2026-01-16T00:06:00", generation: "pre" },
+  { name: "Baekho Kwon", ticker: "KWON", basePrice: 70, dateAdded: "2026-01-16T00:05:00", generation: "pre", status: "flashback" },
+  { name: "Lightning Choi", ticker: "DNCE", basePrice: 30, dateAdded: "2026-01-16T00:06:00", generation: "pre", status: "flashback" },
   { name: "Gentleman", ticker: "GNTL", basePrice: 50, dateAdded: "2026-01-16T00:07:00", generation: "pre", altNames: ["Chilbok Kang"] },
   { name: "Shigeaki Kojima", ticker: "SHKO", basePrice: 40, dateAdded: "2026-01-16T00:08:00", generation: "pre" },
   { name: "Hiroaki Kojima", ticker: "HIKO", basePrice: 40, dateAdded: "2026-01-16T00:09:00", generation: "pre" },
-  { name: "Yugang Ha", ticker: "INCH", basePrice: 60, dateAdded: "2026-01-16T00:10:00", generation: "pre" },
+  { name: "Yugang Ha", ticker: "INCH", basePrice: 60, dateAdded: "2026-01-16T00:10:00", generation: "pre", status: "dead" },
   { name: "Yeonwoo Kim", ticker: "MISS", basePrice: 40, dateAdded: "2026-01-16T00:11:00", generation: "pre", altNames: ["Reporter Kim"] },
   { name: "Doksu Heo", ticker: "PYNG", basePrice: 40, dateAdded: "2026-01-16T00:12:00", generation: "1st" },
   { name: "Jinyoung Go", ticker: "SNAM", basePrice: 40, dateAdded: "2026-01-16T00:13:00", generation: "1st" },
@@ -166,7 +169,7 @@ export const CHARACTERS = [
   { name: "Beolgu Lee", ticker: "LIAR", basePrice: 15, dateAdded: "2026-01-24T00:02:00", generation: "pre" },
   { name: "Jaesu Noh", ticker: "NOH", basePrice: 13, dateAdded: "2026-01-24T00:03:00", generation: "pre" },
   { name: "Gyeol Baek", ticker: "DOC", basePrice: 12.50, dateAdded: "2026-01-24T00:04:00", generation: "2nd" },
-  { name: "Sujin Kim", ticker: "SUJN", basePrice: 15, dateAdded: "2026-01-24T00:05:00", generation: "2nd" },
+  { name: "Sujin Kim", ticker: "SUJN", basePrice: 15, dateAdded: "2026-01-24T00:05:00", generation: "2nd", status: "dead" },
   { name: "Byeon Kim", ticker: "LAW", basePrice: 30, dateAdded: "2026-01-24T00:06:00" },
   { name: "Jihan Kwak", ticker: "CHCH", basePrice: 30, dateAdded: "2026-01-24T00:07:00", generation: "2nd" },
   { name: "Jibeom Kwak", ticker: "BEOM", basePrice: 15, dateAdded: "2026-01-24T00:08:00", generation: "2nd" },
@@ -175,7 +178,7 @@ export const CHARACTERS = [
   { name: "Brekdak", ticker: "MUAY", basePrice: 70, dateAdded: "2026-01-26T00:00:00", generation: "pre" },
 
   // New characters added 2026-04-23
-  { name: "Sangcheol Park", ticker: "DAD", basePrice: 30, dateAdded: "2026-04-23T00:00:00", generation: "pre" },
+  { name: "Sangcheol Park", ticker: "DAD", basePrice: 30, dateAdded: "2026-04-23T00:00:00", generation: "pre", status: "flashback" },
 
   // New characters added 2026-04-25
   { name: "Enu", ticker: "ENU", basePrice: 10, dateAdded: "2026-04-25T00:00:00", generation: "2nd" },
@@ -195,7 +198,7 @@ export const CHARACTERS = [
   { name: "Chunhui Oh", ticker: "CHUN", basePrice: 7.50, dateAdded: "2026-06-01T00:00:00" },
   { name: "Isu Jo", ticker: "ISU", basePrice: 10, dateAdded: "2026-06-01T00:01:00", generation: "2nd" },
   { name: "Steve Hong", ticker: "HONG", basePrice: 12.50, dateAdded: "2026-06-01T00:02:00", generation: "pre" },
-  { name: "Bakgu Noh", ticker: "TAXI", basePrice: 12.50, dateAdded: "2026-06-01T00:03:00", generation: "pre" },
+  { name: "Bakgu Noh", ticker: "TAXI", basePrice: 12.50, dateAdded: "2026-06-01T00:03:00", generation: "pre", status: "flashback" },
   { name: "Tae-Oh Jang", ticker: "TAEJ", basePrice: 12.50, dateAdded: "2026-06-01T00:04:00", generation: "pre" },
   { name: "Hwasu Park", ticker: "HPRK", basePrice: 12.50, dateAdded: "2026-06-01T00:05:00", generation: "pre" },
   { name: "Myeongho Choi", ticker: "SNGH", basePrice: 15, dateAdded: "2026-06-01T00:06:00", generation: "pre" },
@@ -212,7 +215,7 @@ export const CHARACTERS = [
   { name: "Reiji Madarame", ticker: "SUMO", basePrice: 12.5, dateAdded: "2026-07-02T00:02:00", generation: "pre" },
 
   // New characters added 2026-07-23
-  { name: "Shinji Yamazaki", ticker: "OYA", basePrice: 85, dateAdded: "2026-07-23T00:00:00", generation: "pre" },
+  { name: "Shinji Yamazaki", ticker: "OYA", basePrice: 85, dateAdded: "2026-07-23T00:00:00", generation: "pre", status: "flashback" },
 
   // New characters added 2026-08-06
   { name: "Gibok Jang", ticker: "YH", basePrice: 45, dateAdded: "2026-08-06T00:00:00", generation: "pre" },
@@ -221,9 +224,9 @@ export const CHARACTERS = [
   { name: "Mr. Han", ticker: "SUIT", basePrice: 35, dateAdded: "2026-08-20T00:00:00", generation: "pre" },
   { name: "Beom Jo", ticker: "DOGH", basePrice: 20, dateAdded: "2026-08-20T00:01:00", generation: "pre" },
   { name: "Dongchil Jeong", ticker: "TOAD", basePrice: 20, dateAdded: "2026-08-20T00:02:00", generation: "pre" },
-  { name: "Childu Park", ticker: "GW", basePrice: 40, dateAdded: "2026-08-20T00:03:00", generation: "pre" },
-  { name: "Yongju Choi", ticker: "OGCH", basePrice: 40, dateAdded: "2026-08-20T00:04:00", generation: "pre" },
-  { name: "Yeongbeom Seok", ticker: "GYNG", basePrice: 40, dateAdded: "2026-08-20T00:05:00", generation: "pre" },
+  { name: "Childu Park", ticker: "GW", basePrice: 40, dateAdded: "2026-08-20T00:03:00", generation: "pre", status: "dead" },
+  { name: "Yongju Choi", ticker: "OGCH", basePrice: 40, dateAdded: "2026-08-20T00:04:00", generation: "pre", status: "dead" },
+  { name: "Yeongbeom Seok", ticker: "GYNG", basePrice: 40, dateAdded: "2026-08-20T00:05:00", generation: "pre", status: "dead" },
   { name: "Matsumoto Takeshi", ticker: "RED", basePrice: 40, dateAdded: "2026-09-03T00:00:00", generation: "pre", status: "flashback" },
   { name: "Takanobu Masaichi", ticker: "URAM", basePrice: 35, dateAdded: "2026-09-03T00:01:00", generation: "pre", status: "flashback" },
   { name: "Kokuin Watanabe", ticker: "BLUE", basePrice: 40, dateAdded: "2026-09-03T00:02:00", generation: "pre", status: "flashback" },
@@ -238,9 +241,9 @@ export const CHARACTERS = [
   // stock in the admin IPO panel as a candidate for another launch.
   // A NEW character that needs an IPO gets `ipoRequired: true` here until launch.
   { name: "Baekgeon Ryu", ticker: "RYU", basePrice: 55, dateAdded: "2026-02-12T00:00:00", generation: "pre" },
-  { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00", generation: "pre" },
+  { name: "Eunha Lee", ticker: "EUNH", basePrice: 30, dateAdded: "2026-05-28T00:00:00", generation: "pre", status: "flashback" },
   { name: "Bangho Lee", ticker: "MONO", basePrice: 80, dateAdded: "2026-06-04T00:04:00", generation: "pre" },
-  { name: "Genjo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre" },
+  { name: "Kenzo Yamazaki", ticker: "YADV", basePrice: 80, dateAdded: "2026-06-25T00:00:00", generation: "pre", status: "dead", altNames: ["Genjo Yamazaki"] },
   { name: "Rei Yamazaki", ticker: "REI", basePrice: 20, dateAdded: "2026-07-02T00:03:00", generation: "pre" },
   { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre" },
   { name: "Musashi Sasaki", ticker: "TCHI", basePrice: 95, dateAdded: "2026-08-27T00:00:00", generation: "pre" },
