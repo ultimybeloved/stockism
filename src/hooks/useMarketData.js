@@ -7,6 +7,15 @@ import { IPO_TOTAL_SHARES } from '../constants';
 // All global market subscriptions: prices/market doc, chart history,
 // dividend tier overrides, IPOs, and predictions.
 export function useMarketData() {
+  // 'loading' until the market doc answers, then 'ready'. 'unavailable' only if
+  // the very first read fails: an archive crawler has no App Check token and is
+  // refused, and so is a player whose connection stalls. Without this the app
+  // falls back to basePrice everywhere and presents invented numbers as live
+  // prices, which is what the Wayback captures of the site were showing.
+  //
+  // A failure AFTER a successful load leaves the status alone. Last-known real
+  // prices beat a blank page for a transient blip.
+  const [marketStatus, setMarketStatus] = useState('loading');
   const [prices, setPrices] = useState({});
   const [priceHistory, setPriceHistory] = useState({});
   const [marketData, setMarketData] = useState(null);
@@ -29,6 +38,7 @@ export function useMarketData() {
     const marketRef = doc(db, 'market', 'current');
 
     const unsubscribe = onSnapshot(marketRef, (snap) => {
+      setMarketStatus('ready');
       if (snap.exists()) {
         const data = snap.data();
         // Merge stored prices with basePrices for any new characters
@@ -81,6 +91,11 @@ export function useMarketData() {
         setPrices(initialPrices);
         setLaunchedTickers([]);
       }
+    }, (err) => {
+      // Refused or unreachable. Only meaningful before the first successful
+      // read; after that the data on screen is real and worth keeping.
+      console.warn('market/current subscription:', err?.message);
+      setMarketStatus((prev) => (prev === 'ready' ? 'ready' : 'unavailable'));
     });
 
     return () => unsubscribe();
@@ -204,5 +219,5 @@ export function useMarketData() {
     return () => unsubscribe();
   }, []);
 
-  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages };
+  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages, marketStatus };
 }

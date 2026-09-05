@@ -16,7 +16,7 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, DISCORD_API_TIMEOUT_MS, isWeeklyTradingHalt } = require('../constants');
 const { isRosterTicker } = require('../helpers');
 
@@ -87,6 +87,34 @@ ${rows.map((r) => `<tr><td>${esc(r.ticker)}</td><td>${esc(r.name)}</td><td class
 </tbody></table>`;
 };
 
+// A single past day, read from the daily closes recorded by dailyMarketSummary.
+// This is what makes the archive answer "what was true on this date" rather than
+// only ever showing whatever is current.
+const datedPricesSection = (closes, day) => {
+  const rows = Object.entries(closes || {})
+    .filter(([ticker]) => isRosterTicker(ticker))
+    .map(([ticker, price]) => ({
+      ticker, price, name: CHARACTER_MAP[ticker]?.name || ticker,
+    }))
+    .sort((a, b) => b.price - a.price);
+
+  if (!rows.length) {
+    return `<h2>${esc(day)}</h2><p class="meta">No closing prices recorded for this date.</p>`;
+  }
+  return `<h2>Closing prices for ${esc(day)} (${rows.length})</h2>
+<table><thead><tr><th>Ticker</th><th>Name</th><th class="n">Close</th></tr></thead><tbody>
+${rows.map((r) => `<tr><td>${esc(r.ticker)}</td><td>${esc(r.name)}</td><td class="n">$${money(r.price)}</td></tr>`).join('\n')}
+</tbody></table>`;
+};
+
+// Every date the archive holds for one month, so a crawler following links
+// reaches all of them without guessing dates.
+const monthIndexSection = (monthId, days) => {
+  if (!days.length) return `<h2>${esc(monthId)}</h2><p class="meta">Nothing recorded.</p>`;
+  return `<h2>${esc(monthId)} — ${days.length} day${days.length === 1 ? '' : 's'}</h2>
+<p>${days.map((d) => `<a href="${SITE}/snapshot/${esc(d)}">${esc(d)}</a>`).join(' · ')}</p>`;
+};
+
 const leaderboardSection = (entries) => {
   if (!entries.length) return '';
   return `<h2>Leaderboard — top ${entries.length}</h2>
@@ -131,6 +159,33 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
     const takenAt = stamp();
     const wantsPredictions = /predictions/i.test(req.path || '');
 
+    // /snapshot/YYYY-MM-DD  a single past day's closing prices
+    // /snapshot/YYYY-MM     the dates available in that month
+    //
+    // Both read the daily closes written by dailyMarketSummary, so the archive
+    // can answer for any recorded date rather than only for right now. Dates
+    // before that recording started simply have nothing, which the page says.
+    const dated = /(\d{4}-\d{2})(-\d{2})?\s*$/.exec(req.path || '');
+    if (dated && !wantsPredictions) {
+      const monthId = dated[1];
+      const day = dated[2] ? `${monthId}${dated[2]}` : null;
+      const doc = await db.collection('market').doc('current')
+        .collection('daily_closes').doc(monthId).get();
+      const closes = doc.exists ? ((doc.data() || {}).closes || {}) : {};
+
+      if (day) {
+        const body = datedPricesSection(closes[day], day)
+          + `<p class="meta"><a href="${SITE}/snapshot/${monthId}">All of ${monthId}</a>`
+          + ` · <a href="${SITE}/snapshot">Current market</a></p>`;
+        return res.status(200).send(page(`Market on ${day}`, body, takenAt));
+      }
+
+      const days = Object.keys(closes).sort();
+      const body = monthIndexSection(monthId, days)
+        + `<p class="meta"><a href="${SITE}/snapshot">Current market</a></p>`;
+      return res.status(200).send(page(`Market archive ${monthId}`, body, takenAt));
+    }
+
     if (wantsPredictions) {
       const snap = await db.collection('predictions').doc('current').get();
       const list = snap.exists ? (snap.data().list || []) : [];
@@ -154,7 +209,8 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
       pricesSection(market),
       leaderboardSection(entries),
       seasonSection(season, seasonBoard),
-      `<p class="meta"><a href="${SITE}/snapshot/predictions">Predictions snapshot →</a></p>`,
+      `<p class="meta"><a href="${SITE}/snapshot/predictions">Predictions snapshot →</a>`
+        + ` · <a href="${SITE}/snapshot/${new Date().toISOString().slice(0, 7)}">This month's daily closes →</a></p>`,
     ].join('\n');
 
     return res.status(200).send(page('Market snapshot', body, takenAt));
@@ -195,11 +251,17 @@ const runArchive = async (includePredictions) => {
   return results;
 };
 
-// Thursday 21:30 UTC — half an hour after the weekly halt lifts, so the archived
-// state is the market as it stands for the new chapter. Predictions ride along
-// on the 1st-8th of the month, which works out to roughly monthly.
+// Daily at 21:30 UTC, half an hour after the market's daily boundary. On
+// Thursdays that is also half an hour after the weekly halt lifts, so the
+// chapter-review state still gets captured exactly as it did when this ran
+// weekly — it just no longer misses the six days in between.
+//
+// Cheap by construction: the route is edge-cached for CACHE_SECONDS and each
+// render is a handful of reads, so this is a few reads a day.
+//
+// Predictions ride along on the 1st-8th, which works out to roughly monthly.
 exports.archiveSnapshot = cf().pubsub
-  .schedule('30 21 * * 4')
+  .schedule('30 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     const includePredictions = new Date().getUTCDate() <= 7;

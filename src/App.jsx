@@ -163,7 +163,7 @@ export default function App() {
   const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName } = useAuthUser({ setDarkMode, showNotification });
 
   // Global market subscriptions: prices, chart history, IPOs, predictions
-  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages } = useMarketData();
+  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages, marketStatus } = useMarketData();
 
   // Bell notifications + price alerts (subscriptions and handlers)
   const {
@@ -276,7 +276,7 @@ export default function App() {
   }, [activeIPOs]);
 
   // Styling - Orange/Yellow theme inspired by logo
-  const { bgClass, mutedClass } = getThemeClasses(darkMode);
+  const { bgClass, mutedClass, textClass } = getThemeClasses(darkMode);
 
   // Rarity tiers by market standing — computed once here so every card shares the
   // same ranking instead of each re-ranking the whole roster. See utils/rarity.js.
@@ -309,6 +309,36 @@ export default function App() {
     return (
       <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
         <div className={`text-lg ${mutedClass}`}>Loading Stockism...</div>
+      </div>
+    );
+  }
+
+  // Never reached the market data at all. Rendering the app here would fill every
+  // price with the character's basePrice, because roughly twenty components fall
+  // back to it, and present those invented numbers as live prices. That is what
+  // archive crawlers were capturing, and what a player with a stalled connection
+  // was being shown. Say so instead.
+  //
+  // Only triggers when the FIRST read fails. A later failure keeps the real
+  // prices already on screen.
+  if (marketStatus === 'unavailable') {
+    return (
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-6`}>
+        <div className="text-center max-w-sm">
+          <p className={`text-lg ${textClass} mb-2`}>Live market data is unavailable</p>
+          <p className={`text-sm ${mutedClass} mb-4`}>
+            Prices could not be loaded, so none are shown rather than showing
+            numbers that are not real. Try again in a moment.
+          </p>
+          <button onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm">
+            Reload
+          </button>
+          <p className={`text-xs ${mutedClass} mt-4`}>
+            A plain snapshot of the current market is always available at{' '}
+            <a href="/snapshot" className="text-orange-500 underline">/snapshot</a>.
+          </p>
+        </div>
       </div>
     );
   }

@@ -7,6 +7,10 @@ const Footer = () => {
   const links = [
     { href: 'https://discord.gg/hpVm8nQMvY', label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },
+    // Plain-HTML view of the live market. Linked here so archive crawlers and
+    // search engines can reach it from the front page, and so it is findable by
+    // anyone who wants the data without the app.
+    { href: '/snapshot', label: 'Market Snapshot', external: true },
     { href: '/terms.html', label: 'Terms of Service', external: true },
     { href: '/privacy.html', label: 'Privacy Policy', external: true }
   ];
