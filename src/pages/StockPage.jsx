@@ -6,6 +6,7 @@ import { getThemeClasses, getReadableCrewColor } from '../utils/theme';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../components/modals/TradeActionModal';
 import { getMarketClosedState } from '../utils/marketHours';
+import { statusBadge, STATUS_MAP, statusOf } from '../constants/statuses';
 import { useStockPageData } from '../hooks/useStockPageData';
 
 const CHART_TYPES = [
@@ -104,6 +105,11 @@ const StockPage = ({ onTrade }) => {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-orange-500 font-mono text-xl font-bold">${ticker}</span>
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
+                {!character.isETF && statusBadge(character) && (
+                  <span className="text-sm" title={STATUS_MAP[statusOf(character)]?.hint}>
+                    {statusBadge(character)}
+                  </span>
+                )}
                 {crews.map(crew => (
                   <span key={crew.id} className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
                     style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55`, color: getReadableCrewColor(crew.color, darkMode) }}>

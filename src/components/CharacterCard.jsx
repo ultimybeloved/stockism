@@ -5,6 +5,7 @@ import CharacterMeta from './character/CharacterMeta';
 import ReviewChangeBadge from './character/ReviewChangeBadge';
 import { getThemeClasses, getRarityStagger, SPACING } from '../utils/theme';
 import { rarityClassFor } from '../utils/rarity';
+import { statusBadge, STATUS_MAP, statusOf } from '../constants/statuses';
 import SimpleLineChart from './charts/SimpleLineChart';
 import ShortRiskTag from './ShortRiskTag';
 import TradeActionModal from './modals/TradeActionModal';
@@ -225,6 +226,11 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               <div className="flex items-center gap-1">
                 <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
+                {!isETF && statusBadge(character) && (
+                  <span className="text-xs" title={STATUS_MAP[statusOf(character)]?.hint}>
+                    {statusBadge(character)}
+                  </span>
+                )}
               </div>
               {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
               <CharacterMeta character={character} />

@@ -126,11 +126,9 @@ const HomePage = ({
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
             <MarketControls
-              marketTab={browser.marketTab} setMarketTab={browser.setMarketTab}
-              crewFilter={browser.crewFilter} setCrewFilter={browser.setCrewFilter}
-              generationFilter={browser.generationFilter} setGenerationFilter={browser.setGenerationFilter}
+              filters={browser.filters} setFilter={browser.setFilter}
+              clearFilters={browser.clearFilters}
               sortBy={browser.sortBy} setSortBy={browser.setSortBy}
-              searchQuery={browser.searchQuery} setSearchQuery={browser.setSearchQuery}
               currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
               showAll={browser.showAll} setShowAll={browser.setShowAll}
@@ -147,10 +145,10 @@ const HomePage = ({
               onToggleWatchlist={onToggleWatchlist}
               tradeAnimation={tradeAnimation}
               onSetAlert={onSetAlert}
-              marketTab={browser.marketTab}
+              marketTab={browser.filters.tab}
               reviewChanges={browser.reviewChanges}
               reviewSections={browser.reviewSections}
-              searchQuery={browser.searchQuery}
+              searchQuery={browser.filters.search}
               currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
               showAll={browser.showAll}

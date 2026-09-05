@@ -4,6 +4,7 @@ import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { CREWS } from '../../crews';
 import { CHARACTERS } from '../../characters';
+import { fundsContaining } from '../../utils/marketFilters';
 
 // The metadata under a card's name: crew badge, the funds a character belongs
 // to, the description, and (for a fund) its constituents with a show-more
@@ -21,9 +22,7 @@ const CharacterMeta = ({ character }) => {
   const characterCrews = !isETF
     ? Object.values(CREWS).filter(c => c.members.includes(character.ticker))
     : [];
-  const characterEtfs = !isETF
-    ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(character.ticker))
-    : [];
+  const characterEtfs = fundsContaining(CHARACTERS, character.ticker, isETF);
 
   // Constituents read best most-expensive first.
   const sorted = isETF && character.constituents

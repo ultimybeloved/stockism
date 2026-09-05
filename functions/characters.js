@@ -224,9 +224,9 @@ export const CHARACTERS = [
   { name: "Childu Park", ticker: "GW", basePrice: 40, dateAdded: "2026-08-20T00:03:00", generation: "pre" },
   { name: "Yongju Choi", ticker: "OGCH", basePrice: 40, dateAdded: "2026-08-20T00:04:00", generation: "pre" },
   { name: "Yeongbeom Seok", ticker: "GYNG", basePrice: 40, dateAdded: "2026-08-20T00:05:00", generation: "pre" },
-  { name: "Matsumoto Takeshi", ticker: "RED", basePrice: 40, dateAdded: "2026-09-03T00:00:00", generation: "pre" },
-  { name: "Takanobu Masaichi", ticker: "URAM", basePrice: 35, dateAdded: "2026-09-03T00:01:00", generation: "pre" },
-  { name: "Kokuin Watanabe", ticker: "BLUE", basePrice: 40, dateAdded: "2026-09-03T00:02:00", generation: "pre" },
+  { name: "Matsumoto Takeshi", ticker: "RED", basePrice: 40, dateAdded: "2026-09-03T00:00:00", generation: "pre", status: "flashback" },
+  { name: "Takanobu Masaichi", ticker: "URAM", basePrice: 35, dateAdded: "2026-09-03T00:01:00", generation: "pre", status: "flashback" },
+  { name: "Kokuin Watanabe", ticker: "BLUE", basePrice: 40, dateAdded: "2026-09-03T00:02:00", generation: "pre", status: "flashback" },
   { name: "Renji Yamazaki", ticker: "BRCR", basePrice: 30, dateAdded: "2026-09-03T00:03:00", generation: "pre" },
   { name: "Shunya Yamazaki", ticker: "GRVS", basePrice: 30, dateAdded: "2026-09-03T00:04:00", generation: "pre" },
 

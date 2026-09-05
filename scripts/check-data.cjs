@@ -19,6 +19,7 @@ const ROOT = path.join(__dirname, '..');
 const { CHARACTERS, CHARACTER_MAP } = require(path.join(ROOT, 'src/characters.js'));
 const { CREWS } = require(path.join(ROOT, 'src/crews.js'));
 const { GENERATION_IDS } = require(path.join(ROOT, 'src/constants/generations.js'));
+const { STORED_STATUS_IDS } = require(path.join(ROOT, 'src/constants/statuses.js'));
 
 // Every ETF trails its members at this combined weight. Individual coefficients
 // are ~TARGET/N, rounded to 3 decimals, so the sum lands slightly off.
@@ -55,6 +56,16 @@ for (const c of CHARACTERS) {
     if (c.isETF) errors.push(`${c.ticker}: ETFs do not have a generation`);
     else if (!GENERATION_IDS.includes(c.generation)) {
       errors.push(`${c.ticker}: unknown generation "${c.generation}" — expected one of ${GENERATION_IDS.join(', ')}`);
+    }
+  }
+
+  // Story status. Absent means alive, which is the common case, so 'alive' is
+  // never written out — spelling it explicitly is a sign someone misread the
+  // convention and may have set it on characters who are not alive.
+  if (c.status !== undefined) {
+    if (c.isETF) errors.push(`${c.ticker}: ETFs do not have a status`);
+    else if (!STORED_STATUS_IDS.includes(c.status)) {
+      errors.push(`${c.ticker}: unknown status "${c.status}" — expected one of ${STORED_STATUS_IDS.join(', ')} (omit the field for alive)`);
     }
   }
 }

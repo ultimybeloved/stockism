@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../constants/economy';
 import { TIME_RANGES } from '../components/PriceChart';
 import { usePriceHistory } from './usePriceHistory';
+import { fundsContaining } from '../utils/marketFilters';
 
 // Everything StockPage derives about one ticker: the position, the price stats
 // for the selected range, dividend estimate, and the crew/ETF it belongs to.
@@ -80,7 +81,7 @@ export const useStockPageData = (ticker, timeRange) => {
   // Every crew, not the first: a character can belong to more than one (TOM is
   // in both Fist Gang and WTJC), and showing one of them silently hid the rest.
   const crews = !character?.isETF ? Object.values(CREWS).filter(c => c.members.includes(ticker)) : [];
-  const memberOfETFs = !character?.isETF ? CHARACTERS.filter(c => c.isETF && c.constituents?.includes(ticker)) : [];
+  const memberOfETFs = fundsContaining(CHARACTERS, ticker, character?.isETF);
 
   return {
     character, fullHistory, currentPrice, positionShares, shortPosition, avgCost,

@@ -50,6 +50,7 @@ import { getThemeClasses } from './utils/theme';
 import { ADMIN_UIDS, UNVERIFIED_STARTING_CASH } from './constants';
 import { calculatePortfolioValue } from './utils/calculations';
 import { getWeekStart } from './utils/date';
+import { newThisWeek } from './utils/marketFilters';
 
 
 // ============================================
@@ -195,11 +196,7 @@ export default function App() {
   // Compute new characters for header notification
   const newCharactersWithData = useMemo(() => {
     const weekStart = getWeekStart();
-    return CHARACTERS.filter(char => {
-      const isNewThisWeek = new Date(char.dateAdded) >= weekStart;
-      const isAvailable = !char.ipoRequired || launchedTickers.includes(char.ticker);
-      return isNewThisWeek && isAvailable;
-    }).map(char => {
+    return newThisWeek(CHARACTERS, launchedTickers, weekStart).map(char => {
       const currentPrice = prices[char.ticker] || char.basePrice;
       const history = priceHistory[char.ticker] || [];
       const weekStartTime = weekStart.getTime();

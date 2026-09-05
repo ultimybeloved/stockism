@@ -1,20 +1,14 @@
 import { CHARACTERS } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 import { getWeekStart } from '../utils/date';
+import { newThisWeek } from '../utils/marketFilters';
 
 const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false, launchedTickers = [] }) => {
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const weekStart = getWeekStart();
 
-  // Find characters added this week
-  const newCharacters = CHARACTERS.filter(char => {
-    const addedDate = new Date(char.dateAdded);
-    // Only show if added this week AND either not IPO-required or already launched
-    const isNewThisWeek = addedDate >= weekStart;
-    const isAvailable = !char.ipoRequired || launchedTickers.includes(char.ticker);
-    return isNewThisWeek && isAvailable;
-  }).sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
+  const newCharacters = newThisWeek(CHARACTERS, launchedTickers, weekStart);
 
   if (newCharacters.length === 0) return null;
 
