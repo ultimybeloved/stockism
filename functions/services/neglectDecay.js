@@ -78,6 +78,14 @@ exports.applyNeglectDecay = cf().pubsub
         return null;
       }
 
+      // First run establishes when neglect tracking began and decays nothing.
+      // Nothing can be called neglected before we were watching it.
+      if (!stats.neglectTrackingStartedAt) {
+        await tickerStatsRef().set({ neglectTrackingStartedAt: now }, { merge: true });
+        console.log('applyNeglectDecay: tracking start recorded, no decay on the first run');
+        return null;
+      }
+
       const prices = marketData.prices || {};
       const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
 
@@ -93,6 +101,7 @@ exports.applyNeglectDecay = cf().pubsub
           shortInterest,
           priceHistory,
           now,
+          trackingStartedAt: stats.neglectTrackingStartedAt,
         });
         if (target === null) continue;
 

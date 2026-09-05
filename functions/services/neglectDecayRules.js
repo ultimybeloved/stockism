@@ -21,15 +21,22 @@ const round2 = (n) => Math.round(n * 100) / 100;
  * Split out from the scheduled function so every skip reason is testable
  * without an emulator.
  */
-const decayTarget = ({ character, price, stats, shortInterest, priceHistory, now }) => {
+const decayTarget = ({
+  character, price, stats, shortInterest, priceHistory, now, trackingStartedAt,
+}) => {
   if (character.isETF) return null;
   if (!(price > 0)) return null;
 
-  const lastTraded = stats?.lastTradedAt || 0;
-  // Never traded is still neglected — a stock that launched and was ignored is
-  // exactly the case this exists for. dateAdded stands in so a character added
-  // yesterday is not decayed on day one.
-  const reference = lastTraded || new Date(character.dateAdded).getTime();
+  // When was this stock last shown any interest?
+  //
+  // With no recorded trade the honest answer is "not since we started
+  // watching". Per-ticker trade times only began being recorded on the day this
+  // system shipped, so falling back to dateAdded alone would treat a stock that
+  // traded last week — before tracking existed — as long dead and decay it
+  // immediately. trackingStartedAt is the floor on how far back any claim of
+  // neglect can reach.
+  const reference = stats?.lastTradedAt
+    || Math.max(new Date(character.dateAdded).getTime(), trackingStartedAt || 0);
   if (now - reference < NEGLECT_WINDOW_MS) return null;
 
   if ((shortInterest[character.ticker] || 0) >= NEGLECT_SHORT_INTEREST_THRESHOLD) return null;

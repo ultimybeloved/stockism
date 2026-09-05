@@ -33,6 +33,7 @@ const args = (over = {}) => ({
   shortInterest: {},
   priceHistory: {},
   now: NOW,
+  trackingStartedAt: NOW - 200 * DAY,
   ...over,
 });
 
@@ -100,6 +101,41 @@ describe('leaves a stock alone when', () => {
   it('it has no price', () => {
     expect(decayTarget(args({ price: undefined }))).toBeNull();
     expect(decayTarget(args({ price: 0 }))).toBeNull();
+  });
+});
+
+describe('the tracking-start floor', () => {
+  // Per-ticker trade times only began recording the day this shipped. Without
+  // this floor, every stock that had not traded since would be judged on
+  // dateAdded and decayed on day one, including ones that traded last week.
+  it('does not decay a long-standing stock we have only just started watching', () => {
+    expect(decayTarget(args({
+      stats: undefined,
+      trackingStartedAt: NOW - 2 * DAY,
+    }))).toBeNull();
+  });
+
+  it('starts decaying once we have watched it for the full window', () => {
+    expect(decayTarget(args({
+      stats: undefined,
+      trackingStartedAt: NOW - (C.NEGLECT_WINDOW_MS + DAY),
+    }))).toBeLessThan(100);
+  });
+
+  it('still respects a real recorded trade over the tracking floor', () => {
+    expect(decayTarget(args({
+      stats: { lastTradedAt: NOW - DAY },
+      trackingStartedAt: NOW - 500 * DAY,
+    }))).toBeNull();
+  });
+
+  it('uses the later of dateAdded and tracking start', () => {
+    // A character added after tracking began is judged from when it was added.
+    expect(decayTarget(args({
+      character: char({ dateAdded: new Date(NOW - DAY).toISOString() }),
+      stats: undefined,
+      trackingStartedAt: NOW - 500 * DAY,
+    }))).toBeNull();
   });
 });
 
