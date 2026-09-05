@@ -245,7 +245,7 @@ export const CHARACTERS = [
   { name: "Wondo Lee", ticker: "POLR", basePrice: 90, dateAdded: "2026-08-20T00:06:00", generation: "pre" },
   { name: "Musashi Sasaki", ticker: "TCHI", basePrice: 95, dateAdded: "2026-08-27T00:00:00", generation: "pre" },
   { name: "Sogen Magami", ticker: "IKO", basePrice: 90, dateAdded: "2026-08-27T00:01:00", generation: "pre" },
-  { name: "Takuma Arashimaya", ticker: "BUFF", basePrice: 90, dateAdded: "2026-08-27T00:02:00", generation: "pre" },
+  { name: "Takuma Arashimaya", ticker: "YOKO", basePrice: 90, dateAdded: "2026-08-27T00:02:00", generation: "pre" },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
@@ -338,7 +338,7 @@ export const CHARACTERS = [
   {
     name: "Yamazaki Fund", ticker: "YAMA", basePrice: 84, dateAdded: "2026-02-20T00:07:00",
     isETF: true, description: "Yamazaki ETF",
-    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA", "TCHI", "IKO", "BUFF", "RED", "URAM", "BLUE", "BRCR", "GRVS"],
+    constituents: ["GUN", "SHNG", "SHRO", "SHKO", "HIKO", "SOMI", "YADV", "REI", "IJA", "KMSH", "SUMO", "OYA", "TCHI", "IKO", "YOKO", "RED", "URAM", "BLUE", "BRCR", "GRVS"],
     trailingFactors: [
       { ticker: "GUN", coefficient: 0.040 }, { ticker: "SHNG", coefficient: 0.040 },
       { ticker: "SHRO", coefficient: 0.040 }, { ticker: "SHKO", coefficient: 0.040 },
@@ -347,7 +347,7 @@ export const CHARACTERS = [
       { ticker: "IJA", coefficient: 0.040 }, { ticker: "KMSH", coefficient: 0.040 },
       { ticker: "SUMO", coefficient: 0.040 }, { ticker: "OYA", coefficient: 0.040 },
       { ticker: "TCHI", coefficient: 0.040 }, { ticker: "IKO", coefficient: 0.040 },
-      { ticker: "BUFF", coefficient: 0.040 }, { ticker: "RED", coefficient: 0.040 },
+      { ticker: "YOKO", coefficient: 0.040 }, { ticker: "RED", coefficient: 0.040 },
       { ticker: "URAM", coefficient: 0.040 }, { ticker: "BLUE", coefficient: 0.040 },
       { ticker: "BRCR", coefficient: 0.040 }, { ticker: "GRVS", coefficient: 0.040 }
     ]

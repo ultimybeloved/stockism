@@ -17,8 +17,10 @@ beforeAll(() => {
 
 // Real roster tickers, because the extremes sweep filters through
 // isRosterTicker and a made-up ticker would be dropped for the wrong reason.
+// Long-standing tickers on purpose: a renamed one would start failing the
+// isRosterTicker guard and the failure would look like a logic bug.
 const A = 'DG';
-const B = 'BUFF';
+const B = 'JIN';
 
 describe('all-time high/low marks', () => {
   it('sets both marks the first time a price is seen', () => {
