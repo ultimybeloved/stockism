@@ -3,6 +3,7 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
+import { seasonTierRule } from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -14,16 +15,32 @@ const SeasonCard = () => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const {
-    active, season, weeks, inSeason, returnPercent, returnWithLadder,
-    lockedTier, lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, nextTarget,
-    seasonWeeks, baselineValue,
+    active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
+    lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier,
+    seasonWeeks, baselineValue, baselineIndex,
   } = useSeason();
 
   if (!active) return null;
 
   const fmtPct = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
-  const toNext = (nextTarget !== null && returnPercent !== null)
-    ? nextTarget - returnPercent : null;
+
+  // What the next tier asks for, in this player's own numbers where there are any.
+  const nextHint = () => {
+    if (!nextTier || returnPercent === null) return null;
+    switch (nextTier.id) {
+      case 'bronze':
+        return `Be active in ${bronzeActiveWeeks} weeks of the season. You have ${activeWeeks} so far.`;
+      case 'silver':
+        return returnPercent > 0
+          ? 'You\'re up. Still be up at Thursday\'s checkpoint and it\'s yours.'
+          : `Get back above where you started. You're at ${fmtPct(returnPercent)}.`;
+      case 'gold':
+        return 'Be ahead of the market at a Thursday checkpoint. The chart above shows where you stood at the last one.';
+      default:
+        return `${seasonTierRule(nextTier.id, rules)} Decided when the season ends. The season board shows where you'd land right now.`;
+    }
+  };
+  const hint = nextHint();
 
   return (
     <div className={`p-4 rounded-sm border mb-4 ${
@@ -70,25 +87,22 @@ const SeasonCard = () => {
             </p>
           )}
 
-          <SeasonProgress season={season} seasonWeeks={seasonWeeks} baselineValue={baselineValue} />
+          <SeasonProgress
+            season={season}
+            seasonWeeks={seasonWeeks}
+            baselineValue={baselineValue}
+            baselineIndex={baselineIndex}
+          />
 
-          {nextTier && toNext !== null && (
+          {hint && (
             <p className={`text-sm ${textClass} mt-2`}>
-              {toNext > 0
-                ? <>Next up <span className="font-semibold" style={{ color: nextTier.color }}>{nextTier.name}</span> at {fmtPct(nextTarget)} — {fmtPct(toNext).replace('+', '')} to go.</>
-                : <>You're above <span className="font-semibold" style={{ color: nextTier.color }}>{nextTier.name}</span>. Hold it until Thursday and it's yours.</>}
-            </p>
-          )}
-
-          {!lockedTier && (
-            <p className={`text-xs ${mutedClass} mt-2`}>
-              Bronze needs {bronzeActiveWeeks} active weeks — you have {activeWeeks}. Just showing
-              up earns it, whatever the market does.
+              Next up <span className="font-semibold" style={{ color: nextTier.color }}>{nextTier.name}</span>. {hint}
             </p>
           )}
 
           <p className={`text-xs ${mutedClass} mt-2`}>
-            Tiers are banked each Thursday. Once earned, a tier can't be lost.
+            Bronze, Silver and Gold are banked at Thursday checkpoints and can't be lost. Platinum and
+            Diamond are handed out when the season ends.
           </p>
         </>
       )}

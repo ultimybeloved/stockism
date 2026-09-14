@@ -2,23 +2,22 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
+import { calculatePortfolioValue } from '../utils/calculations';
 import {
-  DEFAULT_SEASON_THRESHOLDS,
-  SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
-  seasonTierTarget,
-  nextSeasonTier,
   SEASON_TIER_MAP,
+  nextSeasonTier,
+  seasonRulesFor,
 } from '../constants/seasons';
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // The live season plus where this player stands in it. market/season is a small
 // world-readable doc, so a subscription is cheap and the card stays current
-// without polling. Return is computed client-side from the pinned baseline —
-// the same formula the server uses, so the card matches the standings board.
+// without polling. Return is computed client-side from the pinned baseline, the
+// same way the server scores it, so the card matches the standings board.
 export function useSeason() {
-  const { userData } = useAppContext();
+  const { userData, prices } = useAppContext();
   const [season, setSeason] = useState(null);
 
   useEffect(() => {
@@ -34,22 +33,30 @@ export function useSeason() {
   if (!active) return { season, active: false };
 
   const weeks = Math.max(1, Math.ceil((Date.now() - season.startedAt) / ONE_WEEK_MS));
-  const thresholds = season.thresholds || DEFAULT_SEASON_THRESHOLDS;
+  const rules = seasonRulesFor(season);
 
   const baseline = userData?.seasonBaseline;
-  // Same floor the server scores against (seasonReturnFor). It used to be a
-  // bare > 0 here, so a player who started the season under the floor watched
-  // their return and tier progress climb on a card that the weekly checkpoint
-  // was silently skipping.
+  // Same floor the server scores against (seasonScore). It used to be a bare > 0
+  // here, so a player who started the season under the floor watched their return
+  // and tier progress climb on a card that the weekly checkpoint was skipping.
   const inSeason = !!baseline && baseline.seasonId === season.id
     && baseline.value >= SEASON_MIN_BASELINE;
 
+  // The market reading this player is measured from. Someone who joined
+  // mid-season is compared with the market from when they joined.
+  const baselineIndex = baseline?.index > 0 ? baseline.index : (season.indexAtStart || 0);
+
   // Signed on purpose — a ladder deposit books a negative flow, so clamping to
-  // zero would read as a trading loss. Mirrors seasonReturnFor on the server.
+  // zero would read as a trading loss. Mirrors seasonScore on the server.
   let returnPercent = null;
   let returnWithLadder = null;
   if (inSeason) {
-    const current = userData.portfolioValue || 0;
+    // Net equity at live prices, the figure the server scores. The stored
+    // portfolioValue lags until the next sync and counts margin loans as value.
+    const gross = prices && Object.keys(prices).length
+      ? calculatePortfolioValue(userData, prices)
+      : (userData.portfolioValue || 0);
+    const current = gross - (userData.marginUsed || 0);
     const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
     const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
     returnPercent = ((current - granted - baseline.value) / baseline.value) * 100;
@@ -62,29 +69,22 @@ export function useSeason() {
   const activeWeeks = (userData?.seasonActiveWeeks?.seasonId === season.id)
     ? (userData.seasonActiveWeeks.weeks || 0) : 0;
 
-  // The bar to beat next. Bronze is about turning up, so it has no return target.
-  const next = nextSeasonTier(lockedTier);
-  let nextTarget = null;
-  if (next && thresholds[next.id] !== undefined) {
-    nextTarget = seasonTierTarget(thresholds[next.id], weeks);
-  }
-
   return {
     season,
     active: true,
     weeks,
-    thresholds,
+    rules,
     inSeason,
     // Raw weekly record straight off the user doc; SeasonProgress derives from it.
     seasonWeeks: userData?.seasonWeeks || [],
     baselineValue: baseline?.value || 0,
+    baselineIndex,
     returnPercent,
     returnWithLadder,
     lockedTier,
     lockedTierMeta: lockedTier ? SEASON_TIER_MAP[lockedTier] : null,
     activeWeeks,
-    bronzeActiveWeeks: season.bronzeActiveWeeks || SEASON_BRONZE_ACTIVE_WEEKS,
-    nextTier: next,
-    nextTarget,
+    bronzeActiveWeeks: rules.bronzeActiveWeeks,
+    nextTier: nextSeasonTier(lockedTier),
   };
 }

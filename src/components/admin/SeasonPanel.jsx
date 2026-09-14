@@ -1,10 +1,10 @@
-import { SEASON_TIER_MAP, seasonTierTarget } from '../../constants/seasons';
+import { SEASON_TIERS, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
 
 // Start / end a season and see where the current one stands. Lives in the
 // Market tab because ending a season is tied to the chapter cycle.
 const SeasonPanel = ({
   darkMode, textClass, mutedClass, loading,
-  season, seasonName, setSeasonName, thresholds, setThresholds,
+  season, seasonName, setSeasonName,
   handleStartSeason, handleEndSeason, handleRunCheckpoint,
 }) => {
   const active = season?.status === 'active';
@@ -16,6 +16,20 @@ const SeasonPanel = ({
     darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
   }`;
 
+  // A running season shows the rules it was started with; otherwise the ones a
+  // new season would get.
+  const rules = seasonRulesFor(active ? season : null);
+  const rulesList = (
+    <ul className="space-y-1 mb-3">
+      {SEASON_TIERS.map((t) => (
+        <li key={t.id} className={`text-xs ${mutedClass}`}>
+          <span className="font-semibold" style={{ color: t.color }}>{t.name}</span>{' '}
+          {seasonTierRule(t.id, rules)}
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
       <h3 className={`font-semibold ${textClass} mb-1`}>🏅 Season</h3>
@@ -26,22 +40,11 @@ const SeasonPanel = ({
             Season {season.number} · <span className="font-semibold">{season.name}</span>
           </p>
           <p className={`text-xs ${mutedClass} mb-2`}>
-            Week {weeks} · {season.playersPinned} baselines pinned
+            Week {weeks} · {season.playersPinned} baselines pinned · {(season.checkpointWeeks || []).length} checkpoints run
             {season.lastCheckpointAt && ` · last checkpoint ${new Date(season.lastCheckpointAt).toLocaleDateString()}`}
           </p>
 
-          <div className={`text-xs ${mutedClass} mb-3`}>
-            Targets right now:{' '}
-            {['silver', 'gold', 'platinum', 'diamond'].map((id) => {
-              const rate = (season.thresholds || {})[id];
-              if (rate === undefined) return null;
-              return (
-                <span key={id} className="mr-2 font-semibold" style={{ color: SEASON_TIER_MAP[id].color }}>
-                  {SEASON_TIER_MAP[id].name} +{seasonTierTarget(rate, weeks).toFixed(1)}%
-                </span>
-              );
-            })}
-          </div>
+          {rulesList}
 
           <div className="flex gap-2 flex-wrap">
             <button
@@ -61,8 +64,9 @@ const SeasonPanel = ({
             </button>
           </div>
           <p className={`text-xs ${mutedClass} mt-2`}>
-            End it during the Thursday halt the week a Finale chapter drops. Prices are frozen
-            then, so the closing standings can't be sniped.
+            End it during the Thursday halt the week a Finale chapter drops. Prices are frozen then,
+            so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out
+            Platinum and Diamond.
           </p>
         </>
       ) : (
@@ -91,29 +95,12 @@ const SeasonPanel = ({
             </button>
           </div>
 
-          <label className={`text-xs ${mutedClass} block mb-1`}>
-            Weekly rate per tier (%/week, compounded). Set these from Stats → Return Distribution:
-          </label>
-          <div className="flex gap-2 flex-wrap">
-            {['silver', 'gold', 'platinum', 'diamond'].map((id) => (
-              <div key={id} className="flex items-center gap-1">
-                <span className="text-xs font-semibold" style={{ color: SEASON_TIER_MAP[id].color }}>
-                  {SEASON_TIER_MAP[id].name}
-                </span>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={thresholds[id] ?? ''}
-                  onChange={(e) => setThresholds({ ...thresholds, [id]: Number(e.target.value) })}
-                  className={`w-16 ${inputClass}`}
-                />
-              </div>
-            ))}
-          </div>
-          <p className={`text-xs ${mutedClass} mt-2`}>
-            These are placeholders until the return-distribution readout has ~30 days of grant
-            data. Aim for roughly 3-5% of players reaching Diamond.
+          <p className={`text-xs ${mutedClass} mb-1`}>A new season starts with these rules:</p>
+          {rulesList}
+          <p className={`text-xs ${mutedClass}`}>
+            Bronze, Silver and Gold are banked at each Thursday checkpoint. Platinum and Diamond are
+            shares of the season board, handed out when you end the season, so there are no targets
+            to set.
           </p>
         </>
       )}

@@ -9,28 +9,31 @@
 // stock moved +0.8%; ranking on raw return would rank free-money collection.
 //
 // Season length is never known ahead of time — an arc ends when "Finale" shows
-// up in a chapter title — so tier targets are weekly rates compounded over the
-// weeks actually elapsed, and the season is ended by an admin button rather than
-// a schedule.
+// up in a chapter title — so the season is ended by an admin button rather than
+// a schedule. Who earns which tier is decided in seasonTiers.js.
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { indexConstituents, computeIndexValue } = require('./indexMaintenance');
 const {
-  ADMIN_UID,
-  ONE_WEEK_MS,
-  INDEX_BASE_VALUE,
-  SEASON_TIER_ORDER,
-  DEFAULT_SEASON_THRESHOLDS,
-  SEASON_BRONZE_ACTIVE_WEEKS,
-  SEASON_MIN_BASELINE,
-  LEADERBOARD_CACHE_TTL,
-  ACTIVE_USER_WINDOW_MS,
-} = require('../constants');
-const { netReturnPercent, writeNotification, recordHeartbeat, getLastActiveMs } = require('../helpers');
+  DEFAULT_SEASON_RULES,
+  rulesFor,
+  tierRank,
+  higherTier,
+  buildSeasonBaseline,
+  baselineIndexFor,
+  seasonScore,
+  checkpointTier,
+  weeklyRecordSummary,
+  topTierSlots,
+  rankTopTiers,
+} = require('./seasonTiers');
+const { ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, ACTIVE_USER_WINDOW_MS } = require('../constants');
+const {
+  writeNotification, recordHeartbeat, getLastActiveMs, netEquityAt, readIndexNow, round2,
+} = require('../helpers');
 
 const seasonRef = () => db.collection('market').doc('season');
 const BATCH_LIMIT = 400;
@@ -38,40 +41,18 @@ const BATCH_LIMIT = 400;
 // very long season from growing the user doc without bound.
 const SEASON_WEEK_RECORD_CAP = 80;
 
-/**
- * The market index right now, plus the constituent set behind it.
- *
- * Read once per job, never per player. Tiers are scored against this line, so it
- * has to be the same divisor-adjusted number the daily job records rather than a
- * fresh average — see functions/services/indexMaintenance.js.
- */
-const readIndexNow = async () => {
-  const [marketSnap, idxSnap] = await Promise.all([
-    db.collection('market').doc('current').get(),
-    db.collection('market').doc('indexHistory').get(),
-  ]);
-  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
-  const stored = idxSnap.exists ? (idxSnap.data() || {}) : {};
-  const constituents = (Array.isArray(stored.constituents) && stored.constituents.length)
-    ? stored.constituents
-    : indexConstituents();
-  const divisor = stored.divisor > 0
-    ? stored.divisor
-    : (constituents.length || 1) / INDEX_BASE_VALUE;
-  return { prices, value: computeIndexValue(prices, constituents, divisor) };
-};
+const round1 = (n) => Math.round(n * 10) / 10;
 
 /**
  * One week's raw measurements for a player. Deliberately NOT a verdict.
  *
  * Storing "beat the index: true" would marry the season to whatever tier rule
- * shipped with it, and the rule is exactly the thing that can't be settled until
- * the calibration data lands. Storing the underlying numbers means the rule can
- * change at any point, mid-season included, and every past week can be rescored
- * from the record.
+ * shipped with it. Storing the underlying numbers means the rule can change at
+ * any point, mid-season included, and every past week can be rescored from the
+ * record.
  *
- *   v  portfolio value now          g  granted value since the season baseline
- *   x  market index now             c  value of the single largest holding
+ *   v  net equity at checkpoint prices   g  granted value since the season baseline
+ *   x  market index now                  c  value of the single largest holding
  *   h  total value of all holdings
  *
  * Cumulative return, weekly return, excess over the index and concentration are
@@ -107,32 +88,20 @@ const appendWeekRecord = (existing, record) => {
   return [...kept, record].slice(-SEASON_WEEK_RECORD_CAP);
 };
 
-// ── Shared maths (mirror of src/constants/seasons.js) ────────────────────────
+const latestWeekRecord = (seasonWeeks, seasonId) => (Array.isArray(seasonWeeks) ? seasonWeeks : [])
+  .filter((r) => r && r.s === seasonId)
+  .reduce((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
 
 const weeksElapsed = (startedAt) =>
   Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
-
-const tierTarget = (weeklyRatePercent, weeks) =>
-  (Math.pow(1 + (weeklyRatePercent / 100), Math.max(1, weeks)) - 1) * 100;
-
-const tierFor = ({ returnPercent, weeks, activeWeeks, thresholds }) => {
-  const t = thresholds || DEFAULT_SEASON_THRESHOLDS;
-  for (const id of ['diamond', 'platinum', 'gold', 'silver']) {
-    if (t[id] !== undefined && returnPercent >= tierTarget(t[id], weeks)) return id;
-  }
-  return (activeWeeks || 0) >= SEASON_BRONZE_ACTIVE_WEEKS ? 'bronze' : null;
-};
-
-const tierRank = (tierId) => (tierId ? SEASON_TIER_ORDER.indexOf(tierId) + 1 : 0);
 
 /**
  * Whether a player belongs on the season standings board.
  *
  * adminStartSeason pins a baseline for EVERY non-bot account, so without this
  * the board fills up with people who signed up once and never came back, sitting
- * at roughly 0%. They can't take a tier off anyone — tiers are absolute bars,
- * not rankings — but they pad the field and make "top 5%" a much softer thing
- * than it sounds.
+ * at roughly 0%. Platinum and Diamond places are shares of this board, so padding
+ * it would also hand out places that nobody on it earned.
  *
  * Two ways to qualify, and both are needed. Banked active weeks cover a player
  * who competed early and went quiet, and there are none of those before the
@@ -147,57 +116,41 @@ const isSeasonParticipant = (userData, season, now = Date.now()) => {
 };
 
 /**
- * A user's season return, or null if they can't be scored.
- *
- * Grants booked since the season started are subtracted using the baseline
- * snapshot of grantedValue rather than the rolling grantedSamples, so the window
- * lines up exactly with the season no matter how long it runs.
+ * One player scored for the board: where they stand, their banked tier, and the
+ * two figures Diamond is judged on. Null if they can't be scored.
  */
-const seasonReturnFor = (userData, season) => {
-  const baseline = userData.seasonBaseline;
-  if (!baseline || baseline.seasonId !== season.id) return null;
-  if (!baseline.value || baseline.value < SEASON_MIN_BASELINE) return null;
-
-  // Signed: ladder deposits book a negative flow (see grantedFlowUpdate), and
-  // clamping would turn money parked in the ladder into a fake trading loss.
-  const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
-  return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted);
+const boardEntry = (uid, u, season, { value, indexNow, granted }) => {
+  const score = seasonScore(u, season, { value, indexNow, granted });
+  if (!score) return null;
+  const summary = weeklyRecordSummary(u.seasonWeeks, {
+    seasonId: season.id,
+    baselineValue: u.seasonBaseline.value,
+    baselineIndex: baselineIndexFor(u.seasonBaseline, season),
+  }, (season.checkpointWeeks || []).length);
+  return {
+    uid,
+    ...score,
+    tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
+    activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
+    beatShare: summary.beatShare,
+    peakConcentration: summary.peakConcentration,
+  };
 };
 
-/**
- * What the season return WOULD have been if ladder winnings counted.
- *
- * Not used for ranking anything — it exists so a player who had a good run at
- * the ladder can see what it was worth, and so the number that doesn't count is
- * visible rather than merely asserted. Adding the ladder's net flow back cancels
- * the exclusion for this one figure.
- */
-const seasonReturnWithLadderFor = (userData, season) => {
-  const baseline = userData.seasonBaseline;
-  if (!baseline || baseline.seasonId !== season.id) return null;
-  if (!baseline.value || baseline.value < SEASON_MIN_BASELINE) return null;
-
-  const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
-  const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
-  return netReturnPercent(userData.portfolioValue || 0, baseline.value, granted - ladderNet);
-};
-
-// Exported for the standings reader and the weekly checkpoint. The serviceLoader
-// copies only real Cloud Functions, so these never reach index.js.
+// Exported for tests. The serviceLoader copies only real Cloud Functions, so
+// these never reach index.js.
 exports.buildWeekRecord = buildWeekRecord;
 exports.isSeasonParticipant = isSeasonParticipant;
 exports.appendWeekRecord = appendWeekRecord;
-exports.seasonReturnFor = seasonReturnFor;
-exports.seasonReturnWithLadderFor = seasonReturnWithLadderFor;
 
 // ── Admin: start a season ────────────────────────────────────────────────────
 
 /**
  * Open a season and pin every player's baseline.
  *
- * The baseline captures portfolio value AND the granted-value counter at the
- * same instant, which is what makes "return net of free money" computable over
- * an arbitrary window later. One write per user, once per season.
+ * The baseline captures net equity, the granted-value counter and the index at
+ * the same instant, which is what makes "return net of free money, against the
+ * market" computable over an arbitrary window later. One write per user.
  */
 exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -205,7 +158,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
-  const { name, thresholds } = data || {};
+  const { name } = data || {};
   if (!name || typeof name !== 'string' || !name.trim()) {
     throw new functions.https.HttpsError('invalid-argument', 'Season name (the arc) is required');
   }
@@ -220,12 +173,14 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   const id = `S${number}`;
   const startedAt = Date.now();
 
-  // The index at the moment the season opens. Every "did you beat the market"
-  // question for the whole arc is measured from this number, so it is pinned
-  // once here rather than reconstructed later from daily history.
-  const { value: indexAtStart } = await readIndexNow();
+  // The index and prices at the moment the season opens. Baselines are valued at
+  // these prices rather than read off portfolioValue, which is only as fresh as
+  // each player's last login and counts margin loans as value.
+  const { prices, value: indexAtStart } = await readIndexNow();
 
-  const snap = await db.collection('users').select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot').get();
+  const snap = await db.collection('users')
+    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue', 'isBot')
+    .get();
 
   let pinned = 0;
   let batch = db.batch();
@@ -234,14 +189,14 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     const u = doc.data();
     if (u.isBot) continue;
     batch.update(doc.ref, {
-      seasonBaseline: {
+      seasonBaseline: buildSeasonBaseline({
         seasonId: id,
-        value: u.portfolioValue || 0,
-        granted: u.grantedValue || 0,
-        // Pinned so the ladder shadow stat can be worked out over the season.
-        ladderFlow: u.ladderFlowValue || 0,
+        value: netEquityAt(u, prices),
+        granted: u.grantedValue,
+        ladderFlow: u.ladderFlowValue,
+        index: indexAtStart,
         pinnedAt: startedAt,
-      },
+      }),
       // Cleared rather than deleted so last season's tier can't leak forward.
       seasonTier: FieldValue.delete(),
       seasonActiveWeeks: FieldValue.delete(),
@@ -259,9 +214,11 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     status: 'active',
     startedAt,
     endedAt: null,
-    thresholds: thresholds && typeof thresholds === 'object' ? thresholds : DEFAULT_SEASON_THRESHOLDS,
-    indexAtStart: Math.round(indexAtStart * 100) / 100,
-    bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
+    // The rules this season was started under, on record with it.
+    rules: { ...DEFAULT_SEASON_RULES },
+    indexAtStart: round2(indexAtStart),
+    // Weeks a checkpoint has actually run. Diamond's share of weeks is out of this.
+    checkpointWeeks: [],
     playersPinned: pinned,
   });
 
@@ -276,7 +233,8 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
  *
  * Two reasons it is a checkpoint rather than continuous: a tier can't be claimed
  * by touching it for sixty seconds on a spike, and a good season can't be erased
- * by one bad final week. Tiers only ever ratchet up.
+ * by one bad final week. Tiers only ever ratchet up, and only Bronze, Silver and
+ * Gold are banked here.
  *
  * Runs inside the halt (13:00-21:00 UTC Thursday) so prices are frozen while it
  * reads — nobody can move the market during the scan.
@@ -287,17 +245,17 @@ const runSeasonCheckpoint = async () => {
     return { ran: false, reason: 'no active season' };
   }
   const season = seasonSnap.data();
+  const rules = rulesFor(season);
   const weeks = weeksElapsed(season.startedAt);
   const activeCutoff = Date.now() - ONE_WEEK_MS;
 
   // Prices are frozen (this runs inside the halt), so one read serves every
-  // player and every concentration figure lines up with the same market.
+  // player and every value and concentration figure lines up with one market.
   const { prices, value: indexValue } = await readIndexNow();
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned',
-      'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
-      'holdings', 'lastActive', 'displayName')
+    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue',
+      'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks', 'lastActive')
     .get();
 
   let promoted = 0;
@@ -310,46 +268,58 @@ const runSeasonCheckpoint = async () => {
     const u = doc.data();
     if (u.isBot || u.isBanned) continue;
 
+    // Valued at the frozen checkpoint prices, never the stored portfolioValue.
+    // That is only rewritten when a player opens the app, so someone could log
+    // in at a spike and stay away until a checkpoint had banked a tier off it.
+    const value = netEquityAt(u, prices);
+
     // Safety net for a player with no baseline for this season: createUser pins
     // one at signup, but an account that predates that (or lands in a race with
-    // adminStartSeason) would otherwise sit outside the season for good, because
-    // seasonReturnFor skips anyone unbaselined. Pin from where they stand now and
-    // they are scored from the next checkpoint on.
+    // adminStartSeason) would otherwise sit outside the season for good. Pin from
+    // where they stand now and they are scored from the next checkpoint on.
     if (!u.seasonBaseline || u.seasonBaseline.seasonId !== season.id) {
-      const baseline = {
-        seasonId: season.id,
-        value: u.portfolioValue || 0,
-        granted: u.grantedValue || 0,
-        ladderFlow: u.ladderFlowValue || 0,
-        pinnedAt: Date.now(),
-      };
-      batch.update(doc.ref, { seasonBaseline: baseline });
+      batch.update(doc.ref, {
+        seasonBaseline: buildSeasonBaseline({
+          seasonId: season.id,
+          value,
+          granted: u.grantedValue,
+          ladderFlow: u.ladderFlowValue,
+          index: indexValue,
+          pinnedAt: Date.now(),
+        }),
+      });
       pinned++;
       if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
       continue;
     }
 
-    const ret = seasonReturnFor(u, season);
-    if (ret === null) continue;
+    const score = seasonScore(u, season, { value, indexNow: indexValue });
+    if (!score) continue;
     scored++;
 
     // Turning up this week counts toward Bronze, whatever the portfolio did.
+    // Once per week: adminEndSeason always re-runs the checkpoint, so ending on a
+    // Thursday after the scheduled run would otherwise count that week twice and
+    // hand Bronze, and a shot at a Platinum place, to a one-week player.
     const wasActive = (u.lastActive || 0) >= activeCutoff;
-    const priorWeeks = (u.seasonActiveWeeks?.seasonId === season.id)
-      ? (u.seasonActiveWeeks.weeks || 0) : 0;
-    const activeWeeks = priorWeeks + (wasActive ? 1 : 0);
+    const prior = (u.seasonActiveWeeks?.seasonId === season.id) ? u.seasonActiveWeeks : null;
+    const alreadyCounted = prior?.lastWeek === weeks;
+    const activeWeeks = (prior?.weeks || 0) + (wasActive && !alreadyCounted ? 1 : 0);
 
-    const earned = tierFor({ returnPercent: ret, weeks, activeWeeks, thresholds: season.thresholds });
+    const earned = checkpointTier({ ...score, activeWeeks }, rules);
     const held = (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null;
 
     const update = {
-      seasonActiveWeeks: { seasonId: season.id, weeks: activeWeeks },
-      // The raw week record. This is the part the eventual tier rule is computed
-      // FROM, so it is written for every scored player whether or not they moved
-      // a tier this week.
+      seasonActiveWeeks: {
+        seasonId: season.id,
+        weeks: activeWeeks,
+        lastWeek: (wasActive || alreadyCounted) ? weeks : (prior?.lastWeek ?? null),
+      },
+      // The raw week record. Diamond is judged from it when the season ends, so
+      // it is written for every scored player whether or not they moved a tier.
       seasonWeeks: appendWeekRecord(
         u.seasonWeeks,
-        buildWeekRecord({ season, weeks, userData: u, prices, indexValue })
+        buildWeekRecord({ season, weeks, userData: { ...u, portfolioValue: value }, prices, indexValue })
       ),
     };
     if (earned && tierRank(earned) > tierRank(held)) {
@@ -366,7 +336,8 @@ const runSeasonCheckpoint = async () => {
     lastCheckpointAt: Date.now(),
     lastCheckpointWeeks: weeks,
     lastCheckpointScored: scored,
-    lastCheckpointIndex: Math.round(indexValue * 100) / 100,
+    lastCheckpointIndex: round2(indexValue),
+    checkpointWeeks: FieldValue.arrayUnion(weeks),
   });
 
   console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned, index ${indexValue.toFixed(2)}`);
@@ -401,8 +372,9 @@ exports.triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(async
  * Pressed the week a Finale chapter lands, during the halt — prices are frozen,
  * so the closing standings can't be sniped by a last-minute pump.
  *
- * Runs a final checkpoint first so the closing week counts, then awards two
- * titles per tiered player: one for the season number and one for the arc name.
+ * Runs a final checkpoint first so the closing week counts, then hands out
+ * Platinum and Diamond across the board and awards two titles per tiered player:
+ * one for the season number and one for the arc name.
  */
 exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -418,33 +390,50 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   await runSeasonCheckpoint();
 
   const season = (await seasonRef().get()).data();
+  const rules = rulesFor(season);
   const weeks = weeksElapsed(season.startedAt);
 
   const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'isBot', 'isBanned', 'seasonBaseline', 'seasonTier',
-      'displayName', 'ownedTitles')
+    .select('isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
+      'displayName', 'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
     .get();
 
+  // Everyone is scored off the record the final checkpoint just wrote, so the
+  // result is exactly what that checkpoint measured at frozen halt prices.
+  const scoredPlayers = [];
+  const field = [];
+  for (const doc of snap.docs) {
+    const u = doc.data();
+    if (u.isBot || u.isBanned) continue;
+    const latest = latestWeekRecord(u.seasonWeeks, season.id);
+    if (!latest) continue;
+    const entry = boardEntry(doc.id, u, season, { value: latest.v, indexNow: latest.x, granted: latest.g });
+    if (!entry) continue;
+    scoredPlayers.push({ entry, ref: doc.ref, displayName: u.displayName || 'Anonymous' });
+    // The same field the season board ranks, so the places handed out here are
+    // the ones the board was showing.
+    if (isSeasonParticipant(u, season)) field.push(entry);
+  }
+
+  const ranked = rankTopTiers(field, rules);
+  const endedAt = Date.now();
   const standings = [];
+  const tierCounts = {};
   let batch = db.batch();
   let ops = 0;
   let awarded = 0;
 
-  for (const doc of snap.docs) {
-    const u = doc.data();
-    if (u.isBot || u.isBanned) continue;
-    const ret = seasonReturnFor(u, season);
-    if (ret === null) continue;
-
-    const tier = (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null;
+  for (const { entry, ref, displayName } of scoredPlayers) {
+    const tier = higherTier(entry.tier, ranked.get(entry.uid));
     standings.push({
-      uid: doc.id,
-      displayName: u.displayName || 'Anonymous',
-      returnPercent: Math.round(ret * 10) / 10,
+      uid: entry.uid,
+      displayName,
+      returnPercent: round1(entry.returnPercent),
+      excess: round1(entry.excess),
       tier,
     });
-
     if (!tier) continue;
+    tierCounts[tier] = (tierCounts[tier] || 0) + 1;
 
     // Two titles: the season number and the arc it covered. Both are permanent
     // and dated, which is the point — they can never be bought or re-earned.
@@ -453,18 +442,19 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
       { id: `season_${season.number}_${tier}`, text: `Season ${season.number} ${label}` },
       { id: `arc_${season.id.toLowerCase()}_${tier}`, text: `${season.name} ${label}` },
     ];
-    batch.update(doc.ref, {
+    batch.update(ref, {
       ownedTitles: FieldValue.arrayUnion(...titles.map(t => t.id)),
-      [`titleMeta.season_${season.number}_${tier}`]: titles[0].text,
-      [`titleMeta.arc_${season.id.toLowerCase()}_${tier}`]: titles[1].text,
+      [`titleMeta.${titles[0].id}`]: titles[0].text,
+      [`titleMeta.${titles[1].id}`]: titles[1].text,
+      // Platinum and Diamond only exist from this moment, so they are written here.
+      ...(tier !== entry.tier ? { seasonTier: { seasonId: season.id, tier, lockedAt: endedAt } } : {}),
     });
     awarded++;
     if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
   }
   if (ops > 0) await batch.commit();
 
-  standings.sort((a, b) => b.returnPercent - a.returnPercent);
-  const endedAt = Date.now();
+  standings.sort((a, b) => b.excess - a.excess);
 
   await db.collection('seasonResults').doc(season.id).set({
     ...season,
@@ -474,22 +464,24 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     // Full standings would be unbounded; the top 100 is what anyone looks at.
     standings: standings.slice(0, 100),
     totalScored: standings.length,
+    boardSize: field.length,
+    tierCounts,
     awarded,
   });
   await seasonRef().update({ status: 'ended', endedAt, awarded, totalScored: standings.length });
 
   // Tell the winners. Best-effort — the season is already filed.
-  for (const row of standings.slice(0, 3)) {
+  for (const [i, row] of standings.slice(0, 3).entries()) {
     try {
       await writeNotification(row.uid, {
         type: 'season_end',
-        message: `${season.name} is over. You finished #${standings.indexOf(row) + 1} at ${row.returnPercent > 0 ? '+' : ''}${row.returnPercent}%.`,
+        message: `${season.name} is over. You finished #${i + 1}, ${Math.abs(row.excess)}% ${row.excess >= 0 ? 'ahead of' : 'behind'} the market.`,
       });
     } catch (err) { /* never block the close on a notification */ }
   }
 
-  console.log(`SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`);
-  return { success: true, seasonId: season.id, weeks, totalScored: standings.length, awarded, top: standings.slice(0, 10) };
+  console.log(`SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`, tierCounts);
+  return { success: true, seasonId: season.id, weeks, totalScored: standings.length, awarded, tierCounts, top: standings.slice(0, 10) };
 });
 
 // ── Standings ────────────────────────────────────────────────────────────────
@@ -497,6 +489,10 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
 /**
  * The season board. Cached in a doc the same way the main leaderboard is, so a
  * page load costs one document read rather than a full user scan.
+ *
+ * Ranked on how far ahead of the market each player is. Platinum and Diamond are
+ * projected with the same function adminEndSeason hands them out with, so the
+ * board shows exactly where they would land if the season ended now.
  */
 exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -512,36 +508,47 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     return { active: false, entries: [], generatedAt: Date.now() };
   }
   const season = seasonSnap.data();
+  const rules = rulesFor(season);
 
-  const snap = await db.collection('users')
-    .select('portfolioValue', 'grantedValue', 'ladderFlowValue', 'isBot', 'isBanned', 'seasonBaseline',
-      'seasonTier', 'seasonActiveWeeks', 'displayName', 'crew', 'activeCosmetics', 'ownedCosmetics',
-      // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
-      'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
-    .get();
+  const [{ prices, value: indexValue }, snap] = await Promise.all([
+    readIndexNow(),
+    db.collection('users')
+      .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue',
+        'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
+        'displayName', 'crew',
+        // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
+        'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
+      .get(),
+  ]);
 
-  const entries = [];
+  const field = [];
+  const names = new Map();
   snap.forEach((doc) => {
     const u = doc.data();
     if (u.isBot || u.isBanned) return;
     if (!isSeasonParticipant(u, season)) return;
-    const ret = seasonReturnFor(u, season);
-    if (ret === null) return;
-    const withLadder = seasonReturnWithLadderFor(u, season);
-    entries.push({
-      userId: doc.id,
-      displayName: u.displayName || 'Anonymous',
-      crew: u.crew || null,
-      returnPercent: Math.round(ret * 10) / 10,
-      // Never ranked on — shown on your own row so you can see what the ladder
-      // would have been worth if it counted.
-      returnWithLadder: withLadder === null ? null : Math.round(withLadder * 10) / 10,
-      tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
-      activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
-    });
+    // Live prices, not the stored portfolioValue, which lags each player's login.
+    const entry = boardEntry(doc.id, u, season, { value: netEquityAt(u, prices), indexNow: indexValue });
+    if (!entry) return;
+    field.push(entry);
+    names.set(doc.id, { displayName: u.displayName || 'Anonymous', crew: u.crew || null });
   });
 
-  entries.sort((a, b) => b.returnPercent - a.returnPercent);
+  const projected = rankTopTiers(field, rules);
+  const entries = [...field]
+    .sort((a, b) => b.excess - a.excess)
+    .map((e) => ({
+      userId: e.uid,
+      ...names.get(e.uid),
+      returnPercent: round1(e.returnPercent),
+      // Never ranked on — shown on your own row so you can see what the ladder
+      // would have been worth if it counted.
+      returnWithLadder: round1(e.returnWithLadder),
+      excess: round1(e.excess),
+      tier: e.tier,
+      projectedTier: projected.get(e.uid) || null,
+      activeWeeks: e.activeWeeks,
+    }));
 
   const payload = {
     active: true,
@@ -550,8 +557,11 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     name: season.name,
     startedAt: season.startedAt,
     weeks: weeksElapsed(season.startedAt),
-    thresholds: season.thresholds || DEFAULT_SEASON_THRESHOLDS,
-    bronzeActiveWeeks: season.bronzeActiveWeeks || SEASON_BRONZE_ACTIVE_WEEKS,
+    rules,
+    marketPercent: season.indexAtStart > 0
+      ? round1(((indexValue - season.indexAtStart) / season.indexAtStart) * 100)
+      : null,
+    slots: topTierSlots(field.length, rules),
     entries: entries.slice(0, 100),
     totalScored: entries.length,
     generatedAt: Date.now(),

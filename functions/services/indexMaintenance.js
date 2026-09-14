@@ -94,10 +94,26 @@ const computeIndexValue = (prices, constituents, divisor) => (divisor > 0
   ? sumRatios(prices, constituents) / divisor
   : INDEX_BASE_VALUE);
 
+/**
+ * The index at `prices`, using the constituent list and divisor the daily job
+ * last stored on market/indexHistory. Before one has ever been stored, today's
+ * roster and the count-based divisor stand in.
+ */
+const indexFromStored = (prices, stored) => {
+  const constituents = (Array.isArray(stored?.constituents) && stored.constituents.length)
+    ? stored.constituents
+    : indexConstituents();
+  const divisor = stored?.divisor > 0
+    ? stored.divisor
+    : (constituents.length || 1) / INDEX_BASE_VALUE;
+  return computeIndexValue(prices, constituents, divisor);
+};
+
 module.exports = {
   indexConstituents,
   sumRatios,
   sameConstituents,
   reconcileDivisor,
   computeIndexValue,
+  indexFromStored,
 };

@@ -12,7 +12,8 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate } = require('../helpers');
+const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate, readIndexNow } = require('../helpers');
+const { buildSeasonBaseline } = require('./seasonTiers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
@@ -224,6 +225,19 @@ exports.createUser = cf().https.onCall(async (data, context) => {
 
   // Use a transaction to atomically check and create
   try {
+    // The market index a mid-season signup is measured from. Read outside the
+    // transaction, because a transactional read of market/current would hold a
+    // lock on the doc every trade writes. Never allowed to block a signup.
+    let signupIndex = 0;
+    try {
+      const seasonDoc = await db.collection('market').doc('season').get();
+      if (seasonDoc.exists && seasonDoc.data().status === 'active') {
+        signupIndex = (await readIndexNow()).value;
+      }
+    } catch (err) {
+      console.error('Season index read failed at signup:', err.message);
+    }
+
     await db.runTransaction(async (transaction) => {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
       const userRef = db.collection('users').doc(uid);
@@ -331,13 +345,16 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         signupIp: sanitizedSignupIp || null,
         requiresDiscordLink,
         ...(activeSeason ? {
-          seasonBaseline: {
+          seasonBaseline: buildSeasonBaseline({
             seasonId: activeSeason.id,
             value: UNVERIFIED_STARTING_CASH,
             granted: 0,
             ladderFlow: 0,
+            // Zero only if the season started mid-signup; scoring then falls back
+            // to the season's opening index.
+            index: signupIndex,
             pinnedAt: Date.now(),
-          }
+          })
         } : {})
       });
 

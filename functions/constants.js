@@ -654,17 +654,22 @@ const CREW_HEAD_DYNASTY_WEEKS = 4;
 const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
 
 // ── Seasons ──────────────────────────────────────────────────────────────────
-// Mirror of src/constants/seasons.js — keep both in sync.
-// Tier targets are a WEEKLY RATE compounded over however many weeks the season
-// has run, because arc length is never known in advance. Per-season overrides
-// live on the market/season doc; these are the fallbacks.
+// Mirror of src/constants/seasons.js — keep both in sync. The rules these feed
+// are explained at the top of functions/services/seasonTiers.js.
 const SEASON_TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
-const DEFAULT_SEASON_THRESHOLDS = {
-  silver: 0.4,
-  gold: 1.0,
-  platinum: 2.0,
-  diamond: 3.5,
-};
+// Platinum and Diamond are shares of the season board, handed out when the
+// season ends. Fixed return targets were dropped on 2026-09-13: one hot month
+// (median active player +34% while the index made +5%) can't say what a whole
+// arc will look like, so any number set from it is trivial or impossible next arc.
+const SEASON_PLATINUM_TOP_SHARE = 0.15;
+const SEASON_DIAMOND_TOP_SHARE = 0.05;
+// Diamond also needs the market beaten in this share of the season's weeks...
+const SEASON_DIAMOND_BEAT_SHARE = 0.75;
+// ...and no single character above this share of invested money at ANY weekly
+// checkpoint. Permanent for the season on purpose: dodging it means selling down
+// before every Thursday and buying back after, paying price impact both ways.
+// 16 of 39 measurable active players were over 90% in one character.
+const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
 // Bronze is earned by turning up, not by performance — see the note in
 // src/constants/seasons.js for why a losing season must still pay something.
 const SEASON_BRONZE_ACTIVE_WEEKS = 2;
@@ -810,7 +815,10 @@ module.exports = {
   CREW_HEAD_DYNASTY_WEEKS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
   SEASON_TIER_ORDER,
-  DEFAULT_SEASON_THRESHOLDS,
+  SEASON_PLATINUM_TOP_SHARE,
+  SEASON_DIAMOND_TOP_SHARE,
+  SEASON_DIAMOND_BEAT_SHARE,
+  SEASON_DIAMOND_MAX_CONCENTRATION,
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
   PRICE_HISTORY_LIVE_MAX,

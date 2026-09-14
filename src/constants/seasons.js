@@ -1,12 +1,13 @@
-// Season tiers. Mirror of SEASON_TIERS / seasonTierFor in functions/constants.js
-// and functions/services/season.js — keep both in sync.
+// Season tiers. Mirror of the season constants in functions/constants.js and the
+// rules in functions/services/seasonTiers.js — keep them in sync
+// (functions/seasonTiers.test.js checks the rules match).
 //
-// Seasons run for one story arc. Nobody knows an arc's length ahead of time (the
-// finale is only announced by "Finale" appearing in a chapter title), so tier
-// targets are stored as a WEEKLY RATE and compounded over however many weeks the
-// season has actually run. A fixed "+80% for Diamond" would be trivial in a
-// 20-week arc and impossible in a 6-week one. Players never see the rate — the
-// UI shows the live absolute target it works out to.
+// Bronze, Silver and Gold are checked at every Thursday checkpoint and kept once
+// earned. Platinum and Diamond are shares of the season board, handed out when
+// the season ends. Arc length is never known in advance (the finale is only
+// announced by "Finale" appearing in a chapter title), and one month of market
+// can't say what a whole arc will do, so fixed return targets would be trivial in
+// one arc and impossible in the next.
 
 export const SEASON_TIERS = [
   { id: 'bronze', name: 'Bronze', order: 1, color: '#CD7F32' },
@@ -17,17 +18,6 @@ export const SEASON_TIERS = [
 ];
 
 export const SEASON_TIER_MAP = Object.fromEntries(SEASON_TIERS.map(t => [t.id, t]));
-
-// Placeholder weekly rates, in percent per week, net of granted value. These are
-// deliberate guesses — the real numbers come from the admin return-distribution
-// readout once grant tracking has ~30 days of history. Diamond should land on
-// roughly the top 3-5% of players.
-export const DEFAULT_SEASON_THRESHOLDS = {
-  silver: 0.4,
-  gold: 1.0,
-  platinum: 2.0,
-  diamond: 3.5,
-};
 
 // Bronze is not a return threshold. It is for turning up: a player active at this
 // many weekly checkpoints earns it regardless of performance, so a losing season
@@ -41,31 +31,37 @@ export const SEASON_BRONZE_ACTIVE_WEEKS = 2;
 // has to use the same gate or it shows tier progress that is never banked.
 export const SEASON_MIN_BASELINE = 1000;
 
-/**
- * The absolute return a tier requires after `weeks` of season, from its weekly
- * rate. Compounding, so a longer arc asks for more in total but the same
- * per-week pace.
- */
-export const seasonTierTarget = (weeklyRatePercent, weeks) => {
-  const w = Math.max(1, weeks || 1);
-  return (Math.pow(1 + (weeklyRatePercent / 100), w) - 1) * 100;
-};
+// Platinum and Diamond, as shares of the season board when the season ends.
+export const SEASON_PLATINUM_TOP_SHARE = 0.15;
+export const SEASON_DIAMOND_TOP_SHARE = 0.05;
+// Diamond also needs the market beaten in this share of the season's weeks, and
+// no single character above this share of invested money at any checkpoint.
+export const SEASON_DIAMOND_BEAT_SHARE = 0.75;
+export const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
 
-/**
- * Highest tier a player has reached. `activeWeeks` only affects Bronze.
- * Returns null when nothing has been earned yet.
- */
-export const seasonTierFor = ({ returnPercent, weeks, activeWeeks, thresholds }) => {
-  const t = thresholds || DEFAULT_SEASON_THRESHOLDS;
-  const ranked = ['diamond', 'platinum', 'gold', 'silver'];
-  for (const id of ranked) {
-    if (t[id] !== undefined && returnPercent >= seasonTierTarget(t[id], weeks)) return id;
-  }
-  if ((activeWeeks || 0) >= SEASON_BRONZE_ACTIVE_WEEKS) return 'bronze';
-  return null;
-};
+export const DEFAULT_SEASON_RULES = Object.freeze({
+  bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
+  platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
+  diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
+  diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
+  diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
+});
 
-/** The tier above `tierId`, or null at the top. Drives "next target" in the UI. */
+/** The rules a season is scored by: whatever it was started with, over the defaults. */
+export const seasonRulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season?.rules || {}) });
+
+const asPercent = (share) => `${Math.round(share * 100)}%`;
+
+/** One plain sentence per tier, for the card, the board and the admin panel. */
+export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
+  bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
+  silver: 'Be up on the season. Free stock and bonuses don\'t count.',
+  gold: 'Beat the market.',
+  platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of the season board against the market.`,
+  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of the board, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
+}[tierId] || '');
+
+/** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */
 export const nextSeasonTier = (tierId) => {
   const order = tierId ? (SEASON_TIER_MAP[tierId]?.order || 0) : 0;
   return SEASON_TIERS.find(t => t.order === order + 1) || null;

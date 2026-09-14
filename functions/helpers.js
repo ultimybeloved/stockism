@@ -706,28 +706,84 @@ const grantedFlowUpdate = (signedAmount) => {
 };
 
 /**
- * Grants booked within the last `windowMs`, from the daily samples syncPortfolio
- * keeps. Returns 0 when there is no sample old enough — deliberately, since
- * over-subtracting would invent negative returns. That means figures are only
- * fully clean once tracking has been live for the whole window.
+ * Cumulative granted value as it stood at `ts`, from the daily samples
+ * syncPortfolio keeps. Null when the player has no samples at all.
+ *
+ * When no sample is that old, the oldest one stands in. That reads high for the
+ * start of a window, so grants inside the window come out too small, never too
+ * big, and a return is never pushed below what the player actually earned.
+ * Returning nothing in that case, as this used to, left 243 of 315 players on
+ * the 2026-09-13 admin readout with no free money removed at all: samples are
+ * only written when a player opens the app, so most had none from day one.
+ * @param {Object} userData
+ * @param {number} ts
+ * @returns {number|null}
+ */
+const grantedTotalAt = (userData, ts) => {
+  const samples = Array.isArray(userData?.grantedSamples) ? userData.grantedSamples : [];
+  let atOrBefore = null;
+  let oldest = null;
+  for (const s of samples) {
+    if (!s || typeof s.ts !== 'number') continue;
+    if (s.ts <= ts && (!atOrBefore || s.ts > atOrBefore.ts)) atOrBefore = s;
+    if (!oldest || s.ts < oldest.ts) oldest = s;
+  }
+  const sample = atOrBefore || oldest;
+  return sample ? (sample.total || 0) : null;
+};
+
+/**
+ * Grants booked within the last `windowMs`. See grantedTotalAt for why a window
+ * older than the samples still gets a (low) figure rather than zero.
  * @param {Object} userData
  * @param {number} windowMs
  * @returns {number}
  */
 const grantedSince = (userData, windowMs) => {
-  const total = userData?.grantedValue || 0;
-  const samples = userData?.grantedSamples;
-  if (!total || !Array.isArray(samples) || !samples.length) return 0;
-  const cutoff = Date.now() - windowMs;
-  // Newest sample at or before the cutoff is the total as of the window start.
-  let atCutoff = null;
-  for (const s of samples) {
-    if (s && s.ts <= cutoff) atCutoff = s;
-  }
-  if (!atCutoff) return 0;
+  const atStart = grantedTotalAt(userData, Date.now() - windowMs);
+  if (atStart === null) return 0;
   // Signed on purpose: a ladder deposit books a negative flow, and clamping that
   // to zero would leave the deposit looking like a trading loss.
-  return total - (atCutoff.total || 0);
+  return (userData.grantedValue || 0) - atStart;
+};
+
+/**
+ * What an account is worth at `prices`: cash, holdings and open shorts, less any
+ * margin loan.
+ *
+ * The stored portfolioValue can't stand in when players are compared at one
+ * moment. It is only rewritten when the player opens the app, so it can be days
+ * old, and it counts borrowed margin as value (the leaderboard's netEquity
+ * subtracts marginUsed for the same reason).
+ * @param {Object} userData
+ * @param {Object} prices
+ * @returns {number}
+ */
+const netEquityAt = (userData, prices) => {
+  if (!userData) return 0;
+  const holdingsValue = Object.entries(userData.holdings || {}).reduce(
+    (sum, [ticker, shares]) => sum + (shares > 0 ? (prices?.[ticker] || 0) * shares : 0), 0
+  );
+  return round2((userData.cash || 0) + holdingsValue
+    + shortsEquity(userData.shorts, prices) - (userData.marginUsed || 0));
+};
+
+const { indexFromStored } = require('./services/indexMaintenance');
+
+/**
+ * The market index right now, plus the prices behind it. Two reads.
+ *
+ * Season tiers are scored against this line, so it has to be the same
+ * divisor-adjusted number the daily job records rather than a fresh average.
+ * @returns {Promise<{prices: Object, value: number}>}
+ */
+const readIndexNow = async () => {
+  const [marketSnap, idxSnap] = await Promise.all([
+    db.collection('market').doc('current').get(),
+    db.collection('market').doc('indexHistory').get(),
+  ]);
+  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+  return { prices, value: indexFromStored(prices, idxSnap.exists ? idxSnap.data() : null) };
 };
 
 /**
@@ -1580,9 +1636,13 @@ module.exports = {
   getLadderWithdrawable,
   grantedValueUpdate,
   grantedFlowUpdate,
+  grantedTotalAt,
   grantedSince,
   netReturnPercent,
   shortsEquity,
+  netEquityAt,
+  readIndexNow,
+  toMs,
   getTotalInvested,
   lmsrCost,
   lmsrPrices,

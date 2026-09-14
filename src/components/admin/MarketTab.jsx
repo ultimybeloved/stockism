@@ -25,8 +25,6 @@ const MarketTab = ({
   season,
   seasonName,
   setSeasonName,
-  thresholds,
-  setThresholds,
   handleStartSeason,
   handleEndSeason,
   handleRunCheckpoint,
@@ -38,7 +36,7 @@ const MarketTab = ({
     <div className="space-y-4">
       <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Controls</h3>
 
-      <SeasonPanel {...{ darkMode, textClass, mutedClass, loading, season, seasonName, setSeasonName, thresholds, setThresholds, handleStartSeason, handleEndSeason, handleRunCheckpoint }} />
+      <SeasonPanel {...{ darkMode, textClass, mutedClass, loading, season, seasonName, setSeasonName, handleStartSeason, handleEndSeason, handleRunCheckpoint }} />
 
       {/* Status */}
       <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>

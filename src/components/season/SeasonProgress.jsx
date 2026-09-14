@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { deriveSeasonWeeks, summariseSeasonWeeks, buildSeasonSeries } from '../../utils/seasonWeeks';
+import { seasonRulesFor } from '../../constants/seasons';
 
 // How the season has actually gone, week by week.
 //
@@ -9,31 +10,36 @@ import { deriveSeasonWeeks, summariseSeasonWeeks, buildSeasonSeries } from '../.
 // from. The chart is your line against the market's, on one shared scale, so
 // "did you beat the market" is a picture rather than a claim. The strip below it
 // is one mark per week, filled where you beat the market that week — which IS
-// the consistency measure, rendered directly. People accept a requirement they
-// have watched accumulate far better than one announced at the end.
+// the consistency Diamond is judged on, rendered directly. People accept a
+// requirement they have watched accumulate far better than one announced at the end.
 //
 // Everything here is derived client-side from the raw weekly record on the
 // user's own doc. No extra reads.
-const SeasonProgress = ({ season, seasonWeeks, baselineValue }) => {
+const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineIndex }) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
+  const rules = seasonRulesFor(season);
 
   const youColor = colorBlindMode ? '#2dd4bf' : '#22c55e';
   const marketColor = darkMode ? '#a1a1aa' : '#71717a';
+
+  // A player who joined mid-season is measured against the market from when they
+  // joined. Older baselines carry no index, so the season's opening one stands in.
+  const indexAtStart = baselineIndex > 0 ? baselineIndex : season?.indexAtStart;
 
   const { weeks, summary, series } = useMemo(() => {
     const derived = deriveSeasonWeeks(seasonWeeks, {
       seasonId: season?.id,
       baselineValue,
-      indexAtStart: season?.indexAtStart,
+      indexAtStart,
     });
     return {
       weeks: derived,
       summary: summariseSeasonWeeks(derived),
       series: buildSeasonSeries(derived),
     };
-  }, [seasonWeeks, season?.id, season?.indexAtStart, baselineValue]);
+  }, [seasonWeeks, season?.id, indexAtStart, baselineValue]);
 
   // Before the first Thursday there is nothing to draw, and saying so beats an
   // empty box.
@@ -46,7 +52,12 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue }) => {
   }
 
   const fmt = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const pct = (share) => `${Math.round(share * 100)}%`;
   const ahead = summary.excess >= 0;
+  // Weeks missed count against Diamond, so the count is out of every checkpoint
+  // the season has had, not just the ones on this player's record.
+  const seasonCheckpoints = Math.max(summary.weeks, (season?.checkpointWeeks || []).length);
+  const overLimit = summary.peakConcentration > rules.diamondMaxConcentration;
 
   return (
     <div className="mt-4">
@@ -91,8 +102,11 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue }) => {
       {/* One mark per week. This is the consistency record itself. */}
       <div className="mt-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <p className={`text-xs font-semibold ${textClass}`}>Weeks you beat the market</p>
-          <p className={`text-xs ${mutedClass}`}>{summary.beatCount} of {summary.weeks}</p>
+          <p className={`text-xs font-semibold ${textClass}`}>
+            Weeks you beat the market{' '}
+            <span className={`font-normal ${mutedClass}`}>(Diamond needs {pct(rules.diamondBeatShare)})</span>
+          </p>
+          <p className={`text-xs ${mutedClass}`}>{summary.beatCount} of {seasonCheckpoints}</p>
         </div>
         <div className="flex flex-wrap gap-1 mt-1.5">
           {weeks.map((w) => (
@@ -109,12 +123,15 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue }) => {
         </div>
       </div>
 
-      {/* Concentration. Both readings, because the top-tier rule may end up
-          keyed on either the peak or the average. */}
+      {/* Concentration. Diamond is out for the season the first time a checkpoint
+          finds more than the limit in one character. */}
       <p className={`text-xs ${mutedClass} mt-3`}>
-        Biggest single holding: {(summary.avgConcentration * 100).toFixed(0)}% of your invested
-        money on average, {(summary.peakConcentration * 100).toFixed(0)}% at its highest.
-        {summary.peakConcentration >= 0.9 && ' Riding one character is not the same as reading the market.'}
+        {overLimit
+          ? <>Your biggest holding reached {pct(summary.peakConcentration)} of your invested money at a checkpoint,
+            over the {pct(rules.diamondMaxConcentration)} Diamond limit. Diamond is out this season, but Platinum is
+            still open.</>
+          : <>Your biggest holding has peaked at {pct(summary.peakConcentration)} of your invested money. Diamond
+            needs it at or under {pct(rules.diamondMaxConcentration)} at every Thursday checkpoint.</>}
       </p>
     </div>
   );

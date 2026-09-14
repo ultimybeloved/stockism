@@ -310,6 +310,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 | `functions/services/tickerRename.js` | **Internal module, not in servicePaths.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
 | `functions/services/tickerStats.js` | recordPriceExtremes — hourly all-time high/low sweep |
+| `functions/services/season.js` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
+| `functions/services/seasonTiers.js` | **Internal module, not in servicePaths.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked across the board at season end. Mirrored in `src/constants/seasons.js` + `src/utils/seasonWeeks.js`; `functions/seasonTiers.test.js` fails if the rules drift |
 
 ---
 

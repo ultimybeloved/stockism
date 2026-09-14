@@ -64,20 +64,41 @@ describe('SeasonProgress', () => {
     expect(screen.getByText(/behind the market/i)).toBeInTheDocument();
   });
 
-  it('calls out a portfolio parked in a single character', () => {
+  it('rules out Diamond once a checkpoint finds one character over the limit', () => {
     render(
-      <SeasonProgress season={season} baselineValue={10000}
-        seasonWeeks={[row(1, { v: 20000, x: 1010, c: 1000, h: 1000 })]} />
+      <SeasonProgress season={season} baselineValue={10000} seasonWeeks={[
+        row(1, { v: 20000, x: 1010, c: 300, h: 1000 }),
+        row(2, { v: 21000, x: 1010, c: 1000, h: 1000 }),
+      ]} />
     );
-    expect(screen.getByText(/Riding one character is not the same/i)).toBeInTheDocument();
+    expect(screen.getByText(/Diamond is out this season/i)).toBeInTheDocument();
   });
 
-  it('stays quiet about concentration for a spread portfolio', () => {
+  it('shows the Diamond limit as still open for a spread portfolio', () => {
     render(
       <SeasonProgress season={season} baselineValue={10000}
-        seasonWeeks={[row(1, { v: 20000, x: 1010, c: 300, h: 1000 })]} />
+        seasonWeeks={[row(1, { v: 20000, x: 1010, c: 600, h: 1000 })]} />
     );
-    expect(screen.queryByText(/Riding one character/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Diamond is out/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/at or under 60%/i)).toBeInTheDocument();
+  });
+
+  it('counts weeks out of every checkpoint the season has run', () => {
+    // Joined late: one week on record out of three checkpoints.
+    render(
+      <SeasonProgress season={{ ...season, checkpointWeeks: [1, 2, 3] }} baselineValue={10000}
+        seasonWeeks={[row(3, { v: 11000, x: 1000, c: 100, h: 1000 })]} />
+    );
+    expect(screen.getByText('1 of 3')).toBeInTheDocument();
+  });
+
+  it('measures a late joiner against the market from when they joined', () => {
+    render(
+      <SeasonProgress season={season} baselineValue={10000} baselineIndex={1100}
+        seasonWeeks={[row(1, { v: 10000, x: 1210, c: 100, h: 1000 })]} />
+    );
+    // 1100 -> 1210 is +10%. Measured from the season's 1000 it would read +21%.
+    expect(screen.getByText(/market \+10\.0%/)).toBeInTheDocument();
   });
 
   it('survives a record with no holdings at all', () => {
