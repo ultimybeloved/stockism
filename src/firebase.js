@@ -163,6 +163,9 @@ export const getSeasonStandingsFunction = httpsCallable(functions, 'getSeasonSta
 export const adminStartSeasonFunction = httpsCallable(functions, 'adminStartSeason');
 export const adminEndSeasonFunction = httpsCallable(functions, 'adminEndSeason');
 export const triggerSeasonCheckpointFunction = httpsCallable(functions, 'triggerSeasonCheckpoint');
+// Season dry runs — the weekly rehearsal that runs while no season is on
+export const triggerSeasonDryRunFunction = httpsCallable(functions, 'triggerSeasonDryRun');
+export const adminSeasonDryRunReportFunction = httpsCallable(functions, 'adminSeasonDryRunReport');
 export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
 export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
 export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');

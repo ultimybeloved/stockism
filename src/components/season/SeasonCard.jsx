@@ -3,7 +3,7 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
-import { seasonTierRule } from '../../constants/seasons';
+import { seasonTierRule, SEASON_MIN_BASELINE } from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -16,7 +16,7 @@ const SeasonCard = () => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const {
     active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
-    lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier,
+    lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, belowFloor,
     seasonWeeks, baselineValue, baselineIndex,
   } = useSeason();
 
@@ -67,7 +67,9 @@ const SeasonCard = () => {
 
       {!inSeason ? (
         <p className={`text-sm ${mutedClass} mt-3`}>
-          You joined after this season started, so you'll be scored from the next one.
+          {belowFloor
+            ? `Your account was under $${SEASON_MIN_BASELINE.toLocaleString()} when this season started, so it isn't scored this season. The next season starts fresh.`
+            : "You're not in this season yet. Thursday's checkpoint adds you, and you're scored from there."}
         </p>
       ) : (
         <>

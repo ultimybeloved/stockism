@@ -25,9 +25,11 @@ export const CHARACTERS = [
     status: "flashback",
     basePrice: 85,
     dateAdded: "2026-01-13T00:01:00", generation: "pre",
-    // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2.
+    // The direct SHNG <-> GAP link was cut on 2026-09-17: they have finally met
+    // in the chapter and are about to fight, so one rising should not carry the
+    // other. Both still link to JIN, which leaves a weaker second-hand path
+    // (0.2 x 0.2) rather than a direct one.
     trailingFactors: [
-      { ticker: "GAP", coefficient: 0.2 },
       { ticker: "JIN", coefficient: 0.2 }
     ]
   },
@@ -37,10 +39,9 @@ export const CHARACTERS = [
     status: "flashback",
     basePrice: 85,
     dateAdded: "2026-01-13T00:02:00", generation: "pre",
-    // See the note on JIN: the mutual triangle was halved 0.4 -> 0.2. KTAE and
-    // JAKE are one-way and were already 0.2, so they are unchanged.
+    // See the note on SHNG: the direct GAP <-> SHNG link was cut 2026-09-17.
+    // KTAE and JAKE are one-way and were already 0.2, so they are unchanged.
     trailingFactors: [
-      { ticker: "SHNG", coefficient: 0.2 },
       { ticker: "JIN", coefficient: 0.2 },
       { ticker: "KTAE", coefficient: 0.2 },
       { ticker: "JAKE", coefficient: 0.2 }

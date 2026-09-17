@@ -39,8 +39,12 @@ export function useSeason() {
   // Same floor the server scores against (seasonScore). It used to be a bare > 0
   // here, so a player who started the season under the floor watched their return
   // and tier progress climb on a card that the weekly checkpoint was skipping.
-  const inSeason = !!baseline && baseline.seasonId === season.id
-    && baseline.value >= SEASON_MIN_BASELINE;
+  const hasBaseline = !!baseline && baseline.seasonId === season.id;
+  // Two very different reasons to be out, and the card has to tell them apart:
+  // under the floor is out for the whole season, no baseline yet just means the
+  // next Thursday checkpoint has not picked them up.
+  const belowFloor = hasBaseline && baseline.value < SEASON_MIN_BASELINE;
+  const inSeason = hasBaseline && !belowFloor;
 
   // The market reading this player is measured from. Someone who joined
   // mid-season is compared with the market from when they joined.
@@ -75,6 +79,9 @@ export function useSeason() {
     weeks,
     rules,
     inSeason,
+    // Out for the whole season because the account was under the floor when it
+    // started, as opposed to not picked up by a checkpoint yet.
+    belowFloor,
     // Raw weekly record straight off the user doc; SeasonProgress derives from it.
     seasonWeeks: userData?.seasonWeeks || [],
     baselineValue: baseline?.value || 0,
