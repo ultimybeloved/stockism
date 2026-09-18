@@ -94,9 +94,11 @@ const run = async () => {
   check('opening index read from the stored divisor', close(season.indexAtStart, 1000), season.indexAtStart);
   check('checkpoint week list starts empty', Array.isArray(season.checkpointWeeks) && season.checkpointWeeks.length === 0);
   check('thresholds are gone', season.thresholds === undefined);
-  check('baseline valued from holdings, pinned with the index', close((await user('diverse')).seasonBaseline.value, 10000)
+  // Holdings count at what they'd sell for: 100 shares at $50 move the price
+  // 1.2%, so each $5,000 position is worth $4,940.
+  check('baseline valued at sell value, pinned with the index', close((await user('diverse')).seasonBaseline.value, 9880)
     && close((await user('diverse')).seasonBaseline.index, 1000));
-  check('margin loan is not baseline value', close((await user('margin')).seasonBaseline.value, 10000), (await user('margin')).seasonBaseline);
+  check('margin loan is not baseline value', close((await user('margin')).seasonBaseline.value, 9940), (await user('margin')).seasonBaseline);
   check('stale stored portfolioValue is ignored', close((await user('stale')).seasonBaseline.value, 10000), (await user('stale')).seasonBaseline);
   check('bots get no baseline', !(await user('bot')).seasonBaseline);
 
@@ -111,7 +113,8 @@ const run = async () => {
   check('diverse banks Gold (+10% vs +5%)', (await user('diverse')).seasonTier?.tier === 'gold', (await user('diverse')).seasonTier);
   check('sitter banks Gold', (await user('sitter')).seasonTier?.tier === 'gold');
   const marginRec = (await user('margin')).seasonWeeks?.[0];
-  check('week record stores net equity, not gross', close(marginRec?.v, 11000), marginRec);
+  // 10,000 cash + 100 CROC selling at 60 - 0.72 - 5,000 loan.
+  check('week record stores net sell value, not gross', close(marginRec?.v, 10928), marginRec);
   check('stale spike banks nothing', !(await user('stale')).seasonTier, (await user('stale')).seasonTier);
   check('free money banks nothing', !(await user('granted')).seasonTier, (await user('granted')).seasonTier);
   check('loser banks nothing yet (one active week)', !(await user('loser')).seasonTier);
@@ -183,7 +186,8 @@ const run = async () => {
   const small = await user('small');
   check('grown past the floor: re-pinned at the checkpoint', small.seasonBaseline.seasonId === 'P1' && close(small.seasonBaseline.value, 2000), small.seasonBaseline);
   check('re-pinned player is not scored on the week they were pinned', !small.seasonWeeks);
-  check('a player already over the floor is not re-pinned', close((await user('diverse')).seasonBaseline.value, 12100), (await user('diverse')).seasonBaseline);
+  // Pinned at the preseason start: CROC 71 and XIAO 50, each sold down 1.2%.
+  check('a player already over the floor is not re-pinned', close((await user('diverse')).seasonBaseline.value, 11954.8), (await user('diverse')).seasonBaseline);
 
   await adminEndSeason.run({}, adminCtx);
   const preDiverse = await user('diverse');

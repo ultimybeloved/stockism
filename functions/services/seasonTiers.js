@@ -40,6 +40,7 @@ const {
   SEASON_DIAMOND_TOP_SHARE,
   SEASON_DIAMOND_BEAT_SHARE,
   SEASON_DIAMOND_MAX_CONCENTRATION,
+  SEASON_TITLED_TIERS,
   WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
 } = require('../constants');
@@ -51,6 +52,7 @@ const DEFAULT_SEASON_RULES = Object.freeze({
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
+  titledTiers: SEASON_TITLED_TIERS,
 });
 
 const rulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season?.rules || {}) });
@@ -198,9 +200,11 @@ const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
 /**
  * The permanent titles a tier earns when the season ends. A real season gives
  * two, the season number and the arc it covered. A preseason gives one,
- * "Preseason <Tier>", so a trial run can never pass for Season 1.
+ * "Preseason <Tier>", so a trial run can never pass for Season 1. A tier outside
+ * the season's `titledTiers` gives none.
  */
 const seasonTitles = (season, tier) => {
+  if (!tier || !rulesFor(season).titledTiers.includes(tier)) return [];
   const label = tier.charAt(0).toUpperCase() + tier.slice(1);
   if (season.preseason) {
     const n = season.preseasons || 1;

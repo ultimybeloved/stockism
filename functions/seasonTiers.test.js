@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import * as frontendSeasons from '../src/constants/seasons.js';
+import { calculateExitValue } from '../src/utils/calculations.js';
 
 const require = createRequire(import.meta.url);
 
@@ -22,7 +23,7 @@ const {
   lastHaltStart,
   rankTopTiers,
 } = require('./services/seasonTiers');
-const { grantedTotalAt, grantedSince, netEquityAt } = require('./helpers');
+const { grantedTotalAt, grantedSince, netEquityAt, exitEquityAt } = require('./helpers');
 
 const season = { id: 'S1', indexAtStart: 1000 };
 const DAY = 24 * 60 * 60 * 1000;
@@ -272,6 +273,39 @@ describe('netEquityAt', () => {
   });
 });
 
+describe('exitEquityAt', () => {
+  const prices = { GAP: 100, SHNG: 50 };
+
+  it('sells holdings and covers shorts at the price their own order pushes to', () => {
+    // 100 GAP: impact 100 x 1.2% x sqrt(100/100) = $1.20, so each sells at $98.80.
+    expect(exitEquityAt({ cash: 1000, holdings: { GAP: 100 } }, prices)).toBe(10880);
+    // Cover 10 SHNG at 50 + 50 x 1.2% x sqrt(0.1) = 50.1897: 600 + (60 - 50.1897) x 10.
+    const u = { cash: 0, shorts: { SHNG: { shares: 10, costBasis: 60, margin: 600 } } };
+    expect(exitEquityAt(u, prices)).toBe(698.1);
+  });
+
+  it('costs a bigger position more, capped at one order\'s 5% move', () => {
+    const haircut = (shares) => 1 - exitEquityAt({ holdings: { GAP: shares } }, prices) / (100 * shares);
+    expect(haircut(1000)).toBeGreaterThan(haircut(100));
+    expect(haircut(100000)).toBeCloseTo(0.05, 5);
+  });
+
+  it('subtracts a margin loan and survives nothing', () => {
+    expect(exitEquityAt({ cash: 1000, marginUsed: 400 }, prices)).toBe(600);
+    expect(exitEquityAt(null, prices)).toBe(0);
+  });
+
+  it('matches the season card on the site', () => {
+    const u = {
+      cash: 1234.5,
+      holdings: { GAP: 37, SHNG: 2500 },
+      shorts: { GAP: { shares: 12, costBasis: 110, margin: 1320, system: 'v2' } },
+      marginUsed: 300,
+    };
+    expect(calculateExitValue(u, prices)).toBeCloseTo(exitEquityAt(u, prices), 1);
+  });
+});
+
 describe('seasonTitles', () => {
   it('gives a real season the season and arc titles', () => {
     const t = seasonTitles({ id: 'S1', number: 1, name: 'Gapryong Kim Arc' }, 'gold');
@@ -287,8 +321,21 @@ describe('seasonTitles', () => {
   });
 
   it('numbers a second preseason', () => {
-    const t = seasonTitles({ id: 'P2', number: 1, preseason: true, preseasons: 2, name: 'X' }, 'bronze');
-    expect(t).toEqual([{ id: 'preseason_2_bronze', text: 'Preseason 2 Bronze' }]);
+    const t = seasonTitles({ id: 'P2', number: 1, preseason: true, preseasons: 2, name: 'X' }, 'gold');
+    expect(t).toEqual([{ id: 'preseason_2_gold', text: 'Preseason 2 Gold' }]);
+  });
+
+  it('gives Bronze and Silver no title by default', () => {
+    const s1 = { id: 'S1', number: 1, name: 'X' };
+    expect(seasonTitles(s1, 'bronze')).toEqual([]);
+    expect(seasonTitles({ ...s1, preseason: true }, 'silver')).toEqual([]);
+    expect(seasonTitles(s1, null)).toEqual([]);
+  });
+
+  it('follows the titled tiers pinned on the season', () => {
+    const s1 = { id: 'S1', number: 1, name: 'X', rules: { titledTiers: ['diamond'] } };
+    expect(seasonTitles(s1, 'platinum')).toEqual([]);
+    expect(seasonTitles(s1, 'diamond')).toHaveLength(2);
   });
 });
 

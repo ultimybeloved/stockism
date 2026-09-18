@@ -768,6 +768,37 @@ const netEquityAt = (userData, prices) => {
     + shortsEquity(userData.shorts, prices) - (userData.marginUsed || 0));
 };
 
+/**
+ * What an account would actually walk away with at `prices`: every holding sold
+ * and every short covered, one order each, at the price that order pushes the
+ * stock to. The same impact math a real sell or cover uses.
+ *
+ * Seasons score on this, not netEquityAt. Marked at the last trade, a player
+ * (or a friend) buying a thin stock just before a checkpoint shows a paper gain
+ * they could never cash out, because selling would push the price straight back
+ * down. Here that gain and the exit cost cancel. Spread is left out: it's the
+ * same share at the baseline and at every checkpoint, so it can't move a return.
+ * @param {Object} userData
+ * @param {Object} prices
+ * @returns {number}
+ */
+const exitEquityAt = (userData, prices) => {
+  if (!userData) return 0;
+  const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
+    const price = prices?.[ticker] || 0;
+    if (!(shares > 0) || !(price > 0)) return sum;
+    return sum + Math.max(MIN_PRICE, price - calculateMarginalImpact(price, shares, 0)) * shares;
+  }, 0);
+  // Covering buys the shares back, so the price it's measured at is pushed up.
+  const coverPrices = {};
+  for (const [ticker, pos] of Object.entries(userData.shorts || {})) {
+    const price = prices?.[ticker] || 0;
+    if (pos && pos.shares > 0) coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0);
+  }
+  return round2((userData.cash || 0) + holdingsValue
+    + shortsEquity(userData.shorts, coverPrices) - (userData.marginUsed || 0));
+};
+
 const { indexFromStored } = require('./services/indexMaintenance');
 
 /**
@@ -1641,6 +1672,7 @@ module.exports = {
   netReturnPercent,
   shortsEquity,
   netEquityAt,
+  exitEquityAt,
   readIndexNow,
   toMs,
   getTotalInvested,

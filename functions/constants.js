@@ -677,6 +677,10 @@ const SEASON_BRONZE_ACTIVE_WEEKS = 2;
 // A season baseline below this is not a meaningful denominator; the same reason
 // LEADERBOARD_PERCENT_MIN_BASELINE exists.
 const SEASON_MIN_BASELINE = 1000;
+// Tiers that hand out a permanent title when the season ends. The lower tiers
+// still show on the card and board, they just don't pay a title: a title every
+// active player owns means nothing. Pinned on each season's rules at start.
+const SEASON_TITLED_TIERS = Object.freeze(['gold', 'platinum', 'diamond']);
 
 // Max LIVE price-history points kept per ticker in market/priceHistory. The
 // limit that matters is Firestore's ~40k index entries PER DOCUMENT, shared by
@@ -823,6 +827,7 @@ module.exports = {
   SEASON_DIAMOND_MAX_CONCENTRATION,
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
+  SEASON_TITLED_TIERS,
   PRICE_HISTORY_LIVE_MAX,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,

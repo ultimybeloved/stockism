@@ -39,12 +39,18 @@ export const SEASON_DIAMOND_TOP_SHARE = 0.05;
 export const SEASON_DIAMOND_BEAT_SHARE = 0.75;
 export const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
 
+// Tiers that give a permanent title when the season ends. Mirror of
+// SEASON_TITLED_TIERS in functions/constants.js. The rest still show, they just
+// don't pay a title.
+export const SEASON_TITLED_TIERS = Object.freeze(['gold', 'platinum', 'diamond']);
+
 export const DEFAULT_SEASON_RULES = Object.freeze({
   bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
   platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
+  titledTiers: SEASON_TITLED_TIERS,
 });
 
 /** The rules a season is scored by: whatever it was started with, over the defaults. */
@@ -60,6 +66,9 @@ export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of the season board against the market.`,
   diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of the board, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
 }[tierId] || '');
+
+/** Whether finishing on `tierId` earns a title this season. */
+export const tierGivesTitle = (tierId, rules = DEFAULT_SEASON_RULES) => rules.titledTiers.includes(tierId);
 
 /** "Season 2", or "Preseason" for a trial run that doesn't use up a number. */
 export const seasonLabel = (season) => {

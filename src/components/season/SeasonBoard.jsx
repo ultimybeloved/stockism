@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
-import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
+import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierRule, tierGivesTitle } from '../../constants/seasons';
 
 // Season standings, ranked on how far ahead of the market each player is with
 // free money removed. Server-cached, so this is one document read per load.
+//
+// One number per row, the player's return. Green means ahead of the market. For
+// everyone pinned at the start, return and "ahead of the market" rank the same,
+// so a second column only repeated the first with the market subtracted.
 //
 // Banked tiers show solid. Platinum and Diamond aren't decided until the season
 // ends, so they show dashed, as where each would land if it ended now.
@@ -49,19 +53,21 @@ const SeasonBoard = () => {
             <li key={t.id} className="text-xs">
               <span className="font-semibold" style={{ color: t.color }}>{t.name}</span>{' '}
               <span className={mutedClass}>{seasonTierRule(t.id, rules)}</span>
+              {!tierGivesTitle(t.id, rules) && <span className={mutedClass}> No title.</span>}
             </li>
           ))}
         </ul>
         <p className={`text-xs ${mutedClass} mt-2`}>
-          Ranked on how far ahead of the market you are. Free stock and bonuses don't count.
-          Dashed badges show where Platinum and Diamond would land if the season ended now.
+          Ranked on how far ahead of the market you are. Green means you're beating it. Free stock
+          and bonuses don't count, and holdings count at what they'd sell for, after your own sale
+          moves the price. Dashed badges show where Platinum and Diamond would land if the season
+          ended now.
         </p>
       </div>
 
       <div className={`flex items-center gap-2 px-2 pb-1 text-[10px] uppercase tracking-wide ${mutedClass}`}>
         <span className="flex-1" />
-        <span className="w-16 text-right">Return</span>
-        <span className="w-20 text-right">vs market</span>
+        <span className="w-20 text-right">Return</span>
       </div>
 
       <div className="space-y-1">
@@ -92,13 +98,13 @@ const SeasonBoard = () => {
                   {badge.name}
                 </span>
               )}
-              <span className={`w-16 text-right text-xs tabular-nums ${mutedClass}`}>
+              <span
+                className={`w-20 text-right font-semibold tabular-nums ${
+                  excess >= 0 ? 'text-green-500' : 'text-red-400'
+                }`}
+                title={`${fmt(excess)} against the market`}
+              >
                 {fmt(e.returnPercent)}
-              </span>
-              <span className={`w-20 text-right font-semibold tabular-nums ${
-                excess >= 0 ? 'text-green-500' : 'text-red-400'
-              }`}>
-                {fmt(excess)}
               </span>
             </div>
           );

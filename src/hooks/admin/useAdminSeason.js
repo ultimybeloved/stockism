@@ -55,8 +55,8 @@ export function useAdminSeason({ showMessage, setLoading }) {
     if (!season || season.status !== 'active') return;
     if (!confirm(
       `End "${season.name}" now?\n\n` +
-      'Standings freeze, Platinum and Diamond are handed out, everyone who earned a tier gets ' +
-      'their two titles permanently, and the results are filed.\n\n' +
+      'Standings freeze, Platinum and Diamond are handed out, titles go to every tier that ' +
+      'pays one, and the results are filed.\n\n' +
       'Best pressed during the Thursday halt, the week the arc finale lands. Prices are ' +
       'frozen then, so nobody can spike the closing numbers.\n\nThis cannot be undone.'
     )) return;

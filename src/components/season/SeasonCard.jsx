@@ -3,7 +3,7 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
-import { seasonTierRule, seasonLabel, SEASON_MIN_BASELINE } from '../../constants/seasons';
+import { SEASON_TIERS, seasonTierRule, seasonLabel, tierGivesTitle, SEASON_MIN_BASELINE } from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -41,6 +41,8 @@ const SeasonCard = () => {
     }
   };
   const hint = nextHint();
+  // The lowest tier that pays a title. Everything above it does too.
+  const firstTitled = SEASON_TIERS.find(t => tierGivesTitle(t.id, rules));
 
   return (
     <div className={`p-4 rounded-sm border mb-4 ${
@@ -56,7 +58,8 @@ const SeasonCard = () => {
           </p>
           {season.preseason && (
             <p className={`text-xs ${mutedClass} mt-1`}>
-              A trial run before Season 1. Tiers earned here give a Preseason title.
+              A trial run before Season 1.
+              {firstTitled && ` Finishing ${firstTitled.name} or better gives a Preseason title.`}
             </p>
           )}
         </div>
@@ -110,6 +113,7 @@ const SeasonCard = () => {
           <p className={`text-xs ${mutedClass} mt-2`}>
             Bronze, Silver and Gold are banked at Thursday checkpoints and can't be lost. Platinum and
             Diamond are handed out when the season ends.
+            {firstTitled && ` ${firstTitled.name} and up earn a permanent title.`}
           </p>
         </>
       )}

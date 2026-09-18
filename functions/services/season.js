@@ -36,7 +36,7 @@ const {
   ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE,
 } = require('../constants');
 const {
-  writeNotification, recordHeartbeat, getLastActiveMs, netEquityAt, readIndexNow, round2,
+  writeNotification, recordHeartbeat, getLastActiveMs, exitEquityAt, readIndexNow, round2,
 } = require('../helpers');
 
 const seasonRef = () => db.collection('market').doc('season');
@@ -210,7 +210,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     batch.update(doc.ref, {
       seasonBaseline: buildSeasonBaseline({
         seasonId: id,
-        value: netEquityAt(u, prices),
+        value: exitEquityAt(u, prices),
         granted: u.grantedValue,
         ladderFlow: u.ladderFlowValue,
         index: indexAtStart,
@@ -295,7 +295,7 @@ const runSeasonCheckpoint = async () => {
     // Valued at the frozen checkpoint prices, never the stored portfolioValue.
     // That is only rewritten when a player opens the app, so someone could log
     // in at a spike and stay away until a checkpoint had banked a tier off it.
-    const value = netEquityAt(u, prices);
+    const value = exitEquityAt(u, prices);
 
     // Safety net for a player with no baseline for this season: createUser pins
     // one at signup, but an account that predates that (or lands in a race with
@@ -404,8 +404,7 @@ exports.triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(async
  * so the closing standings can't be sniped by a last-minute pump.
  *
  * Runs a final checkpoint first so the closing week counts, then hands out
- * Platinum and Diamond across the board and awards two titles per tiered player:
- * one for the season number and one for the arc name.
+ * Platinum and Diamond across the board and awards titles (see seasonTitles).
  */
 exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -466,17 +465,18 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     if (!tier) continue;
     tierCounts[tier] = (tierCounts[tier] || 0) + 1;
 
-    // Two titles: the season number and the arc it covered. Both are permanent
-    // and dated, which is the point — they can never be bought or re-earned.
-    // A preseason hands out one, "Preseason <Tier>".
+    // Season number + arc (a preseason: one "Preseason <Tier>"). Permanent and
+    // dated. Tiers outside the season's titledTiers get none.
     const titles = seasonTitles(season, tier);
-    batch.update(ref, {
-      ownedTitles: FieldValue.arrayUnion(...titles.map(t => t.id)),
+    const update = {
+      ...(titles.length ? { ownedTitles: FieldValue.arrayUnion(...titles.map(t => t.id)) } : {}),
       ...Object.fromEntries(titles.map(t => [`titleMeta.${t.id}`, t.text])),
       // Platinum and Diamond only exist from this moment, so they are written here.
       ...(tier !== entry.tier ? { seasonTier: { seasonId: season.id, tier, lockedAt: endedAt } } : {}),
-    });
+    };
     awarded++;
+    if (!Object.keys(update).length) continue;
+    batch.update(ref, update);
     if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
   }
   if (ops > 0) await batch.commit();
@@ -555,7 +555,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     if (u.isBot || u.isBanned) return;
     if (!isSeasonParticipant(u, season)) return;
     // Live prices, not the stored portfolioValue, which lags each player's login.
-    const entry = boardEntry(doc.id, u, season, { value: netEquityAt(u, prices), indexNow: indexValue });
+    const entry = boardEntry(doc.id, u, season, { value: exitEquityAt(u, prices), indexNow: indexValue });
     if (!entry) return;
     field.push(entry);
     names.set(doc.id, { displayName: u.displayName || 'Anonymous', crew: u.crew || null });

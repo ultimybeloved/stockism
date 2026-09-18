@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
-import { calculatePortfolioValue } from '../utils/calculations';
+import { calculateExitValue } from '../utils/calculations';
 import {
   SEASON_MIN_BASELINE,
   SEASON_TIER_MAP,
@@ -55,12 +55,11 @@ export function useSeason() {
   let returnPercent = null;
   let returnWithLadder = null;
   if (inSeason) {
-    // Net equity at live prices, the figure the server scores. The stored
-    // portfolioValue lags until the next sync and counts margin loans as value.
-    const gross = prices && Object.keys(prices).length
-      ? calculatePortfolioValue(userData, prices)
-      : (userData.portfolioValue || 0);
-    const current = gross - (userData.marginUsed || 0);
+    // What the account would sell for at live prices, the figure the server
+    // scores (exitEquityAt). The stored portfolioValue lags until the next sync.
+    const current = prices && Object.keys(prices).length
+      ? calculateExitValue(userData, prices)
+      : (userData.portfolioValue || 0) - (userData.marginUsed || 0);
     const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
     const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
     returnPercent = ((current - granted - baseline.value) / baseline.value) * 100;

@@ -209,6 +209,35 @@ export const calculatePortfolioValue = (userData, prices) => {
 };
 
 /**
+ * What an account would actually walk away with: every holding sold and every
+ * short covered, one order each, at the price that order pushes the stock to.
+ * Less any margin loan. Mirror of exitEquityAt in functions/helpers.js, which
+ * seasons are scored on, so a paper gain from pumping a thin stock can't count.
+ * @param {Object} userData - User data object
+ * @param {Object} prices - Current prices by ticker
+ * @returns {number} Exit value
+ */
+export const calculateExitValue = (userData, prices) => {
+  if (!userData || !prices) return 0;
+  const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
+    const price = prices[ticker] || 0;
+    if (!(shares > 0) || !(price > 0)) return sum;
+    return sum + Math.max(MIN_PRICE, price - calculatePriceImpactDollars(price, shares)) * shares;
+  }, 0);
+  // Covering buys the shares back, so it's measured at the price that pushes to.
+  // Same v2 default as the server's shortsEquity.
+  const shortsValue = Object.entries(userData.shorts || {}).reduce((sum, [ticker, pos]) => {
+    if (!pos || !(pos.shares > 0)) return sum;
+    const price = prices[ticker] || 0;
+    const cover = price + calculatePriceImpactDollars(price, pos.shares);
+    return sum + ((pos.system || 'v2') === 'v2'
+      ? (pos.margin || 0) + ((pos.costBasis || 0) - cover) * pos.shares
+      : (pos.margin || 0) - cover * pos.shares);
+  }, 0);
+  return (userData.cash || 0) + holdingsValue + shortsValue - (userData.marginUsed || 0);
+};
+
+/**
  * Calculate margin status for a user
  * @param {Object} userData - User data object
  * @param {Object} prices - Current prices by ticker
