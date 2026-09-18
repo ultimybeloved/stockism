@@ -3,7 +3,7 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
-import { seasonTierRule, SEASON_MIN_BASELINE } from '../../constants/seasons';
+import { seasonTierRule, seasonLabel, SEASON_MIN_BASELINE } from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -49,11 +49,16 @@ const SeasonCard = () => {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className={`font-semibold ${textClass}`}>
-            🏅 Season {season.number} · {season.name}
+            🏅 {seasonLabel(season)} · {season.name}
           </h3>
           <p className={`text-xs ${mutedClass}`}>
             Week {weeks} · ends when the arc finale drops
           </p>
+          {season.preseason && (
+            <p className={`text-xs ${mutedClass} mt-1`}>
+              A trial run before Season 1. Tiers earned here give a Preseason title.
+            </p>
+          )}
         </div>
         {lockedTierMeta && (
           <span
@@ -68,7 +73,7 @@ const SeasonCard = () => {
       {!inSeason ? (
         <p className={`text-sm ${mutedClass} mt-3`}>
           {belowFloor
-            ? `Your account was under $${SEASON_MIN_BASELINE.toLocaleString()} when this season started, so it isn't scored this season. The next season starts fresh.`
+            ? `Your account was under $${SEASON_MIN_BASELINE.toLocaleString()} when this season started. Get it over $${SEASON_MIN_BASELINE.toLocaleString()} and the next Thursday checkpoint adds you, scored from there.`
             : "You're not in this season yet. Thursday's checkpoint adds you, and you're scored from there."}
         </p>
       ) : (

@@ -13,6 +13,8 @@ import {
 export function useAdminSeason({ showMessage, setLoading }) {
   const [season, setSeason] = useState(null);
   const [seasonName, setSeasonName] = useState('');
+  const [preseason, setPreseason] = useState(false);
+  const [countThisWeek, setCountThisWeek] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -30,16 +32,18 @@ export function useAdminSeason({ showMessage, setLoading }) {
       return;
     }
     if (!confirm(
-      `Start a new season for "${name}"?\n\n` +
+      `Start a new ${preseason ? 'PRESEASON (trial run)' : 'season'} for "${name}"?\n\n` +
       'This pins a baseline on EVERY account. Anyone who joins later competes from when they ' +
       'joined, and last season\'s tiers are cleared.\n\nThis cannot be undone.'
     )) return;
 
     setLoading(true);
     try {
-      const { data } = await adminStartSeasonFunction({ name });
-      showMessage('success', `Season ${data.number} "${data.name}" started. ${data.playersPinned} baselines pinned.`);
+      const { data } = await adminStartSeasonFunction({ name, preseason, countThisWeek });
+      showMessage('success', `${data.preseason ? 'Preseason' : `Season ${data.number}`} "${data.name}" started. ${data.playersPinned} baselines pinned.`);
       setSeasonName('');
+      setPreseason(false);
+      setCountThisWeek(false);
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -84,7 +88,7 @@ export function useAdminSeason({ showMessage, setLoading }) {
   };
 
   return {
-    season, seasonName, setSeasonName,
+    season, seasonName, setSeasonName, preseason, setPreseason, countThisWeek, setCountThisWeek,
     handleStartSeason, handleEndSeason, handleRunCheckpoint,
   };
 }

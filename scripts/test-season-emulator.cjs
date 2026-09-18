@@ -15,6 +15,8 @@
 //   - a margin loan doesn't count as value
 //   - a late joiner is measured against the market from when they joined
 //   - ending on the same week as a checkpoint doesn't count an active week twice
+//   - a preseason keeps the season numbering and gives its own title
+//   - a player under the $1,000 floor joins once they grow past it
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -166,6 +168,46 @@ const run = async () => {
   check('results filed with the board size and tier counts', results?.boardSize === 14 && results?.tierCounts?.diamond === 1, { boardSize: results?.boardSize });
   check('standings filed best first', results?.standings?.[0]?.uid === 'sitter');
   check('season marked ended', (await db.collection('market').doc('season').get()).data().status === 'ended');
+
+  console.log('\nF. Preseason');
+  // Under the $1,000 floor when it starts. Used to be out for the whole season.
+  await db.collection('users').doc('small').set({ displayName: 'small', cash: 500, holdings: {}, portfolioValue: 500, grantedValue: 0, lastActive: Date.now() });
+  const pre = await adminStartSeason.run({ name: 'Trial Arc', preseason: true }, adminCtx);
+  const preDoc = (await db.collection('market').doc('season').get()).data();
+  check('preseason does not use up a season number', pre.id === 'P1' && preDoc.number === 1 && preDoc.preseason === true && preDoc.preseasons === 1, preDoc);
+  check('small player pinned under the floor', close((await user('small')).seasonBaseline.value, 500));
+
+  await db.collection('users').doc('small').update({ cash: 2000 });
+  await setPrices({ CROC: 80 });
+  await runSeasonCheckpoint();
+  const small = await user('small');
+  check('grown past the floor: re-pinned at the checkpoint', small.seasonBaseline.seasonId === 'P1' && close(small.seasonBaseline.value, 2000), small.seasonBaseline);
+  check('re-pinned player is not scored on the week they were pinned', !small.seasonWeeks);
+  check('a player already over the floor is not re-pinned', close((await user('diverse')).seasonBaseline.value, 12100), (await user('diverse')).seasonBaseline);
+
+  await adminEndSeason.run({}, adminCtx);
+  const preDiverse = await user('diverse');
+  check('preseason hands out one Preseason title', preDiverse.ownedTitles.includes('preseason_1_gold')
+    && preDiverse.titleMeta.preseason_1_gold === 'Preseason Gold' && !preDiverse.ownedTitles.includes('arc_p1_gold'), preDiverse.ownedTitles);
+  check('preseason results filed under P1', (await db.collection('seasonResults').doc('P1').get()).exists);
+
+  console.log('\nG. Counting the start week');
+  await db.collection('users').doc('diverse').update({ lastActive: Date.now() });
+  const s2start = await adminStartSeason.run({ name: 'Next Arc', countThisWeek: true }, adminCtx);
+  const s2doc = (await db.collection('market').doc('season').get()).data();
+  check('the next real season is Season 2 and keeps the preseason count', s2start.id === 'S2' && s2doc.number === 2 && s2doc.preseasons === 1 && s2doc.preseason === false, s2doc);
+  const sinceStart = Date.now() - s2doc.startedAt;
+  check('dated from the last Thursday halt, within the past week', sinceStart >= 0 && sinceStart < 7 * DAY && new Date(s2doc.startedAt).getUTCDay() === 4, new Date(s2doc.startedAt).toISOString());
+  check('start week credited to recently active players', (await user('diverse')).seasonActiveWeeks?.weeks === 1);
+  check('start week not credited to dormant players', !(await user('dormant')).seasonActiveWeeks);
+  check('start week is not a checkpoint week', s2doc.checkpointWeeks.length === 0);
+  // Next Thursday's checkpoint is week 2 and brings the active count to 2.
+  await db.collection('market').doc('season').update({ startedAt: s2doc.startedAt - 7 * DAY + 60 * 1000 });
+  await db.collection('users').doc('diverse').update({ lastActive: Date.now() });
+  const g2 = await runSeasonCheckpoint();
+  check('next checkpoint is week 2', g2.weeks === 2, g2);
+  const dv = await user('diverse');
+  check('active in both weeks: Bronze at the first real checkpoint', dv.seasonActiveWeeks.weeks === 2 && dv.seasonTier?.tier === 'bronze', { a: dv.seasonActiveWeeks, t: dv.seasonTier });
 
   console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll season checks passed.');
   process.exit(failures ? 1 : 0);

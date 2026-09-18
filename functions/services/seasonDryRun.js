@@ -152,7 +152,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
 const runSeasonDryRun = async () => {
   const seasonSnap = await db.collection('market').doc('season').get();
   if (seasonSnap.exists && seasonSnap.data().status === 'active') {
-    return { ran: false, reason: 'a real season is running' };
+    return { ran: false, reason: 'a season is running' };
   }
 
   const now = Date.now();

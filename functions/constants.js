@@ -150,6 +150,7 @@ const PUBLIC_PROFILE_SPARKLINE_MAX_POINTS = 150;
 // ============================================
 // WEEKLY TRADING HALT (Thursday 13:00–21:00 UTC)
 // ============================================
+const WEEKLY_HALT_WEEKDAY = 4;         // Thursday (Date#getUTCDay)
 const WEEKLY_HALT_START_MINUTE = 780;  // 13 * 60
 const WEEKLY_HALT_END_MINUTE   = 1260; // 21 * 60
 const PRE_MARKET_START_MINUTE  = 1230; // 20:30 UTC
@@ -170,7 +171,7 @@ const SHORT_CONCENTRATION_CAP = 0.5;
 
 const isWeeklyTradingHalt = () => {
   const now = new Date();
-  if (now.getUTCDay() !== 4) return false;
+  if (now.getUTCDay() !== WEEKLY_HALT_WEEKDAY) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE;
 };
@@ -778,6 +779,7 @@ module.exports = {
   PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
   NINETY_DAYS_MS,
   SHORT_MARGIN_RATIO,
+  WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_START_MINUTE,

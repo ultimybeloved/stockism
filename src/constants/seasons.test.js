@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SEASON_RULES, seasonRulesFor, seasonTierRule, nextSeasonTier } from './seasons';
+import { DEFAULT_SEASON_RULES, seasonRulesFor, seasonTierRule, nextSeasonTier, seasonLabel } from './seasons';
 
 describe('seasonRulesFor', () => {
   it('uses the defaults when a season carries no rules', () => {
@@ -43,5 +43,13 @@ describe('nextSeasonTier', () => {
     expect(nextSeasonTier(null).id).toBe('bronze');
     expect(nextSeasonTier('gold').id).toBe('platinum');
     expect(nextSeasonTier('diamond')).toBeNull();
+  });
+});
+
+describe('seasonLabel', () => {
+  it('names a real season by number and a preseason by name', () => {
+    expect(seasonLabel({ number: 1 })).toBe('Season 1');
+    expect(seasonLabel({ number: 0, preseason: true, preseasons: 1 })).toBe('Preseason');
+    expect(seasonLabel({ number: 1, preseason: true, preseasons: 2 })).toBe('Preseason 2');
   });
 });

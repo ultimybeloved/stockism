@@ -1,10 +1,10 @@
-import { SEASON_TIERS, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
+import { SEASON_TIERS, seasonLabel, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
 
 // Start / end a season and see where the current one stands. Lives in the
 // Market tab because ending a season is tied to the chapter cycle.
 const SeasonPanel = ({
   darkMode, textClass, mutedClass, loading,
-  season, seasonName, setSeasonName,
+  season, seasonName, setSeasonName, preseason, setPreseason, countThisWeek, setCountThisWeek,
   handleStartSeason, handleEndSeason, handleRunCheckpoint,
 }) => {
   const active = season?.status === 'active';
@@ -37,7 +37,7 @@ const SeasonPanel = ({
       {active ? (
         <>
           <p className={`text-sm ${textClass}`}>
-            Season {season.number} · <span className="font-semibold">{season.name}</span>
+            {seasonLabel(season)} · <span className="font-semibold">{season.name}</span>
           </p>
           <p className={`text-xs ${mutedClass} mb-2`}>
             Week {weeks} · {season.playersPinned} baselines pinned · {(season.checkpointWeeks || []).length} checkpoints run
@@ -91,9 +91,25 @@ const SeasonPanel = ({
               disabled={loading || !seasonName.trim()}
               className="px-3 py-1 text-xs font-semibold rounded bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
             >
-              Start season
+              {preseason ? 'Start preseason' : 'Start season'}
             </button>
           </div>
+          <label className={`flex items-start gap-2 text-xs ${mutedClass} mb-3`}>
+            <input type="checkbox" checked={preseason} onChange={(e) => setPreseason(e.target.checked)} className="mt-0.5" />
+            <span>
+              Preseason (trial run). Doesn't use up a season number, so the next real one is
+              still {seasonLabel({ number: (season?.number || 0) + 1 })}. Tiers earn a single
+              "Preseason Gold" style title instead of the season and arc titles.
+            </span>
+          </label>
+          <label className={`flex items-start gap-2 text-xs ${mutedClass} mb-3`}>
+            <input type="checkbox" checked={countThisWeek} onChange={(e) => setCountThisWeek(e.target.checked)} className="mt-0.5" />
+            <span>
+              Count this week as week 1. Use this when starting after Thursday&apos;s checkpoint has
+              already run. Everyone active in the last 7 days gets this week toward Bronze, and next
+              Thursday&apos;s checkpoint is week 2.
+            </span>
+          </label>
 
           <p className={`text-xs ${mutedClass} mb-1`}>A new season starts with these rules:</p>
           {rulesList}

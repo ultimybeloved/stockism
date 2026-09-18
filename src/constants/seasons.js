@@ -61,6 +61,13 @@ export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of the board, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
 }[tierId] || '');
 
+/** "Season 2", or "Preseason" for a trial run that doesn't use up a number. */
+export const seasonLabel = (season) => {
+  if (!season?.preseason) return `Season ${season?.number}`;
+  const n = season.preseasons || 1;
+  return n > 1 ? `Preseason ${n}` : 'Preseason';
+};
+
 /** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */
 export const nextSeasonTier = (tierId) => {
   const order = tierId ? (SEASON_TIER_MAP[tierId]?.order || 0) : 0;

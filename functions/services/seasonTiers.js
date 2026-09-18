@@ -40,6 +40,8 @@ const {
   SEASON_DIAMOND_TOP_SHARE,
   SEASON_DIAMOND_BEAT_SHARE,
   SEASON_DIAMOND_MAX_CONCENTRATION,
+  WEEKLY_HALT_WEEKDAY,
+  WEEKLY_HALT_START_MINUTE,
 } = require('../constants');
 
 /** The rules a season is scored by. Pinned onto the season doc when it starts. */
@@ -193,6 +195,39 @@ const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
   return result;
 };
 
+/**
+ * The permanent titles a tier earns when the season ends. A real season gives
+ * two, the season number and the arc it covered. A preseason gives one,
+ * "Preseason <Tier>", so a trial run can never pass for Season 1.
+ */
+const seasonTitles = (season, tier) => {
+  const label = tier.charAt(0).toUpperCase() + tier.slice(1);
+  if (season.preseason) {
+    const n = season.preseasons || 1;
+    return [{ id: `preseason_${n}_${tier}`, text: `Preseason${n > 1 ? ` ${n}` : ''} ${label}` }];
+  }
+  return [
+    { id: `season_${season.number}_${tier}`, text: `Season ${season.number} ${label}` },
+    { id: `arc_${season.id.toLowerCase()}_${tier}`, text: `${season.name} ${label}` },
+  ];
+};
+
+/**
+ * When the most recent Thursday halt began (13:00 UTC), at or before `now`.
+ *
+ * A season dated from here counts the current Thursday-to-Thursday week as
+ * week 1, so the next scheduled checkpoint lands in week 2 even when the season
+ * is started after this week's checkpoint has already run.
+ */
+const lastHaltStart = (now = Date.now()) => {
+  const d = new Date(now);
+  const daysBack = (d.getUTCDay() - WEEKLY_HALT_WEEKDAY + 7) % 7;
+  const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - daysBack)
+    + WEEKLY_HALT_START_MINUTE * 60 * 1000;
+  // Thursday morning, before the halt: that's last week's halt.
+  return start > now ? start - 7 * 24 * 60 * 60 * 1000 : start;
+};
+
 module.exports = {
   DEFAULT_SEASON_RULES,
   rulesFor,
@@ -205,4 +240,6 @@ module.exports = {
   weeklyRecordSummary,
   topTierSlots,
   rankTopTiers,
+  seasonTitles,
+  lastHaltStart,
 };

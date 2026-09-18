@@ -18,6 +18,8 @@ const {
   checkpointTier,
   weeklyRecordSummary,
   topTierSlots,
+  seasonTitles,
+  lastHaltStart,
   rankTopTiers,
 } = require('./services/seasonTiers');
 const { grantedTotalAt, grantedSince, netEquityAt } = require('./helpers');
@@ -267,5 +269,39 @@ describe('netEquityAt', () => {
   it('ignores negative share counts and survives nothing', () => {
     expect(netEquityAt({ cash: 10, holdings: { GAP: -3 } }, prices)).toBe(10);
     expect(netEquityAt(null, prices)).toBe(0);
+  });
+});
+
+describe('seasonTitles', () => {
+  it('gives a real season the season and arc titles', () => {
+    const t = seasonTitles({ id: 'S1', number: 1, name: 'Gapryong Kim Arc' }, 'gold');
+    expect(t).toEqual([
+      { id: 'season_1_gold', text: 'Season 1 Gold' },
+      { id: 'arc_s1_gold', text: 'Gapryong Kim Arc Gold' },
+    ]);
+  });
+
+  it('gives a preseason one title that never says Season N', () => {
+    const t = seasonTitles({ id: 'P1', number: 0, preseason: true, preseasons: 1, name: 'Gapryong Kim Arc' }, 'diamond');
+    expect(t).toEqual([{ id: 'preseason_1_diamond', text: 'Preseason Diamond' }]);
+  });
+
+  it('numbers a second preseason', () => {
+    const t = seasonTitles({ id: 'P2', number: 1, preseason: true, preseasons: 2, name: 'X' }, 'bronze');
+    expect(t).toEqual([{ id: 'preseason_2_bronze', text: 'Preseason 2 Bronze' }]);
+  });
+});
+
+describe('lastHaltStart', () => {
+  const at = (iso) => Date.parse(iso);
+  it('is this Thursday 13:00 UTC from later in the week', () => {
+    expect(lastHaltStart(at('2026-09-18T01:33:00Z'))).toBe(at('2026-09-17T13:00:00Z'));
+    expect(lastHaltStart(at('2026-09-23T23:00:00Z'))).toBe(at('2026-09-17T13:00:00Z'));
+  });
+  it('is today once the halt has begun', () => {
+    expect(lastHaltStart(at('2026-09-17T13:00:00Z'))).toBe(at('2026-09-17T13:00:00Z'));
+  });
+  it('is last week on a Thursday morning', () => {
+    expect(lastHaltStart(at('2026-09-24T09:00:00Z'))).toBe(at('2026-09-17T13:00:00Z'));
   });
 });

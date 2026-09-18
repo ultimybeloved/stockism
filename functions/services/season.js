@@ -29,8 +29,12 @@ const {
   weeklyRecordSummary,
   topTierSlots,
   rankTopTiers,
+  seasonTitles,
+  lastHaltStart,
 } = require('./seasonTiers');
-const { ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, ACTIVE_USER_WINDOW_MS } = require('../constants');
+const {
+  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE,
+} = require('../constants');
 const {
   writeNotification, recordHeartbeat, getLastActiveMs, netEquityAt, readIndexNow, round2,
 } = require('../helpers');
@@ -159,6 +163,15 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   }
 
   const { name } = data || {};
+  // A preseason is a trial run: same rules, same board, but it doesn't use up a
+  // season number and its title reads "Preseason <Tier>", never "Season N".
+  const preseason = data?.preseason === true;
+  // Started after this week's checkpoint: date the season from this week's halt
+  // so this week is week 1, and credit it as an active week to everyone active in
+  // the last seven days. Nothing else is banked for it — every return is 0% at
+  // the moment of pinning — and it is not a checkpoint week, so Diamond's share
+  // of weeks beaten is still out of real checkpoints only.
+  const countThisWeek = data?.countThisWeek === true;
   if (!name || typeof name !== 'string' || !name.trim()) {
     throw new functions.https.HttpsError('invalid-argument', 'Season name (the arc) is required');
   }
@@ -169,9 +182,15 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
       `Season "${existing.data().name}" is still running. End it first.`);
   }
 
-  const number = (existing.exists ? (existing.data().number || 0) : 0) + 1;
-  const id = `S${number}`;
-  const startedAt = Date.now();
+  // Both counters carry over from whatever ran last, so a preseason never shifts
+  // the numbering of the real seasons around it.
+  const prev = existing.exists ? existing.data() : {};
+  const number = (prev.number || 0) + (preseason ? 0 : 1);
+  const preseasons = (prev.preseasons || 0) + (preseason ? 1 : 0);
+  const id = preseason ? `P${preseasons}` : `S${number}`;
+  const now = Date.now();
+  const startedAt = countThisWeek ? lastHaltStart(now) : now;
+  const activeCutoff = now - ONE_WEEK_MS;
 
   // The index and prices at the moment the season opens. Baselines are valued at
   // these prices rather than read off portfolioValue, which is only as fresh as
@@ -179,7 +198,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   const { prices, value: indexAtStart } = await readIndexNow();
 
   const snap = await db.collection('users')
-    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue', 'isBot')
+    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue', 'isBot', 'lastActive')
     .get();
 
   let pinned = 0;
@@ -195,11 +214,13 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
         granted: u.grantedValue,
         ladderFlow: u.ladderFlowValue,
         index: indexAtStart,
-        pinnedAt: startedAt,
+        pinnedAt: now,
       }),
       // Cleared rather than deleted so last season's tier can't leak forward.
       seasonTier: FieldValue.delete(),
-      seasonActiveWeeks: FieldValue.delete(),
+      seasonActiveWeeks: (countThisWeek && (u.lastActive || 0) >= activeCutoff)
+        ? { seasonId: id, weeks: 1, lastWeek: 1 }
+        : FieldValue.delete(),
       seasonWeeks: FieldValue.delete(),
     });
     pinned++;
@@ -210,6 +231,8 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   await seasonRef().set({
     id,
     number,
+    preseason,
+    preseasons,
     name: name.trim(),
     status: 'active',
     startedAt,
@@ -219,11 +242,12 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
     indexAtStart: round2(indexAtStart),
     // Weeks a checkpoint has actually run. Diamond's share of weeks is out of this.
     checkpointWeeks: [],
+    countedStartWeek: countThisWeek,
     playersPinned: pinned,
   });
 
   console.log(`SEASON STARTED: ${id} "${name}" — ${pinned} baselines pinned`);
-  return { success: true, id, number, name: name.trim(), playersPinned: pinned };
+  return { success: true, id, number, preseason, name: name.trim(), playersPinned: pinned };
 });
 
 // ── Weekly checkpoint ────────────────────────────────────────────────────────
@@ -277,7 +301,14 @@ const runSeasonCheckpoint = async () => {
     // one at signup, but an account that predates that (or lands in a race with
     // adminStartSeason) would otherwise sit outside the season for good. Pin from
     // where they stand now and they are scored from the next checkpoint on.
-    if (!u.seasonBaseline || u.seasonBaseline.seasonId !== season.id) {
+    //
+    // Same for a player pinned under SEASON_MIN_BASELINE who has since grown past
+    // it. They used to be out for the whole season; now they join from here, like
+    // a late signup.
+    const noBaseline = !u.seasonBaseline || u.seasonBaseline.seasonId !== season.id;
+    const grewPastFloor = !noBaseline && (u.seasonBaseline.value || 0) < SEASON_MIN_BASELINE
+      && value >= SEASON_MIN_BASELINE;
+    if (noBaseline || grewPastFloor) {
       batch.update(doc.ref, {
         seasonBaseline: buildSeasonBaseline({
           seasonId: season.id,
@@ -437,15 +468,11 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
 
     // Two titles: the season number and the arc it covered. Both are permanent
     // and dated, which is the point — they can never be bought or re-earned.
-    const label = tier.charAt(0).toUpperCase() + tier.slice(1);
-    const titles = [
-      { id: `season_${season.number}_${tier}`, text: `Season ${season.number} ${label}` },
-      { id: `arc_${season.id.toLowerCase()}_${tier}`, text: `${season.name} ${label}` },
-    ];
+    // A preseason hands out one, "Preseason <Tier>".
+    const titles = seasonTitles(season, tier);
     batch.update(ref, {
       ownedTitles: FieldValue.arrayUnion(...titles.map(t => t.id)),
-      [`titleMeta.${titles[0].id}`]: titles[0].text,
-      [`titleMeta.${titles[1].id}`]: titles[1].text,
+      ...Object.fromEntries(titles.map(t => [`titleMeta.${t.id}`, t.text])),
       // Platinum and Diamond only exist from this moment, so they are written here.
       ...(tier !== entry.tier ? { seasonTier: { seasonId: season.id, tier, lockedAt: endedAt } } : {}),
     });
@@ -554,6 +581,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     active: true,
     seasonId: season.id,
     number: season.number,
+    preseason: !!season.preseason,
     name: season.name,
     startedAt: season.startedAt,
     weeks: weeksElapsed(season.startedAt),

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
-import { SEASON_TIERS, SEASON_TIER_MAP, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
+import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
 
 // Season standings, ranked on how far ahead of the market each player is with
 // free money removed. Server-cached, so this is one document read per load.
@@ -38,7 +38,7 @@ const SeasonBoard = () => {
     <div>
       <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-zinc-900' : 'bg-amber-50'}`}>
         <h3 className={`font-semibold ${textClass}`}>
-          Season {data.number} · {data.name}
+          {seasonLabel(data)} · {data.name}
         </h3>
         <p className={`text-xs ${mutedClass}`}>
           Week {data.weeks} · {data.totalScored} players
