@@ -17,7 +17,7 @@ const SeasonCard = () => {
   const {
     active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
     lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, belowFloor,
-    seasonWeeks, baselineValue, baselineIndex, division,
+    seasonWeeks, baselineValue, baselineLadder, baselinePinnedAt, baselineIndex, division,
   } = useSeason();
 
   if (!active) return null;
@@ -31,11 +31,9 @@ const SeasonCard = () => {
       case 'bronze':
         return `Be active in ${bronzeActiveWeeks} weeks of the season. You have ${activeWeeks} so far.`;
       case 'silver':
-        return returnPercent > 0
-          ? 'You\'re up. Still be up at Thursday\'s checkpoint and it\'s yours.'
-          : `Get back above where you started. You're at ${fmtPct(returnPercent)}.`;
+        return `Finish the season above where you started. You're at ${fmtPct(returnPercent)}.`;
       case 'gold':
-        return 'Be ahead of the market at a Thursday checkpoint. The chart above shows where you stood at the last one.';
+        return 'You\'re up, which is Silver if you finish there. For Gold, finish the season ahead of the market. The chart above shows where you stood at the last checkpoint.';
       default:
         return `${seasonTierRule(nextTier.id, rules)} Decided when the season ends. The season board shows where you'd land right now.`;
     }
@@ -107,6 +105,8 @@ const SeasonCard = () => {
             season={season}
             seasonWeeks={seasonWeeks}
             baselineValue={baselineValue}
+            baselineLadder={baselineLadder}
+            baselinePinnedAt={baselinePinnedAt}
             baselineIndex={baselineIndex}
           />
 
@@ -117,8 +117,9 @@ const SeasonCard = () => {
           )}
 
           <p className={`text-xs ${mutedClass} mt-2`}>
-            Bronze, Silver and Gold are banked at Thursday checkpoints and can't be lost. Platinum and
-            Diamond are handed out when the season ends.
+            Bronze is banked at Thursday checkpoints and can't be lost. Silver and Gold go by where you
+            finish, and Platinum and Diamond are handed out when the season ends. Borrowed money counts as
+            money you traded with for as long as you owe it, so margin can't make your return look bigger.
             {firstTitled && ` ${firstTitled.name} and up earn a permanent title.`}
           </p>
         </>

@@ -13,6 +13,8 @@ const {
   MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../helpers');
+// Seasons average margin owed over time, so every change to marginUsed logs it.
+const { seasonMarginUpdate } = require('./seasonTiers');
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -49,10 +51,12 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
     const repayAmount = Math.min(amount, marginUsed);
     const newMarginUsed = marginUsed - repayAmount;
 
+    const storedMarginUsed = newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100;
     transaction.update(userRef, {
       cash: (userData.cash || 0) - repayAmount,
-      marginUsed: newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100,
-      marginCallAt: null
+      marginUsed: storedMarginUsed,
+      marginCallAt: null,
+      ...seasonMarginUpdate(userData, storedMarginUsed),
     });
 
     return { success: true, repaid: repayAmount, remaining: newMarginUsed < 0.01 ? 0 : newMarginUsed };
@@ -109,6 +113,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       portfolioValue: BAILOUT_CASH,
       marginEnabled: false,
       marginUsed: 0,
+      ...seasonMarginUpdate(userData, 0),
       isBankrupt: false,
       bankruptAt: null,
       crew: null,
@@ -223,7 +228,8 @@ exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
     const interest = marginUsed * MARGIN_INTEREST_RATE;
     transaction.update(userRef, {
       marginUsed: marginUsed + interest,
-      lastMarginInterestCharge: now
+      lastMarginInterestCharge: now,
+      ...seasonMarginUpdate(userData, marginUsed + interest, now),
     });
 
     return { success: true, charged: interest };

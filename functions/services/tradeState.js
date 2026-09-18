@@ -8,6 +8,7 @@ const {
   SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS,
 } = require('../constants');
 const { pruneAndSumTradeHistory, addPendingShares, decrementCohort } = require('../helpers');
+const { seasonMarginUpdate } = require('./seasonTiers');
 
 // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts
 // on the same IP). Must run before any transaction writes.
@@ -108,6 +109,12 @@ function buildUserUpdates({
     lastTradeTime: admin.firestore.Timestamp.now(),
     ...creditUpdates
   };
+
+  // Seasons measure return against margin owed, averaged over time, so any
+  // change in debt is logged when it happens (see seasonTiers.js).
+  if (newMarginUsed !== (userData.marginUsed || 0)) {
+    Object.assign(updates, seasonMarginUpdate(userData, newMarginUsed));
+  }
 
   // ANTI-MANIPULATION: Track ticker trade times for buy/short cooldown
   if (action === 'buy' || action === 'short') {

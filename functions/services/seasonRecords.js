@@ -6,7 +6,9 @@
 // INTERNAL MODULE — required by season.js, never listed in servicePaths.js.
 const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
 const { getLastActiveMs } = require('../helpers');
-const { baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor } = require('./seasonTiers');
+const {
+  baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor, seasonAccountSize, marginDollarDays,
+} = require('./seasonTiers');
 
 // A season's weekly record is capped. Far longer than any arc, and it stops one
 // very long season from growing the user doc without bound.
@@ -22,12 +24,12 @@ const SEASON_WEEK_RECORD_CAP = 80;
  *
  *   v  net equity at checkpoint prices   g  granted value since the season baseline
  *   x  market index now                  c  value of the single largest holding
- *   h  total value of all holdings
+ *   h  total value of all holdings       d  dollar-days owed on margin since pinning
  *
  * Cumulative return, weekly return, excess over the index and concentration are
  * all derivable from consecutive entries. None of them are stored.
  */
-const buildWeekRecord = ({ season, weeks, userData, prices, indexValue }) => {
+const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Date.now() }) => {
   const holdings = userData.holdings || {};
   let largest = 0;
   let total = 0;
@@ -41,12 +43,14 @@ const buildWeekRecord = ({ season, weeks, userData, prices, indexValue }) => {
   return {
     s: season.id,
     w: weeks,
-    t: Date.now(),
+    t: now,
     v: Math.round((userData.portfolioValue || 0) * 100) / 100,
     g: Math.round(((userData.grantedValue || 0) - baselineGranted) * 100) / 100,
     x: Math.round(indexValue * 100) / 100,
     c: Math.round(largest * 100) / 100,
     h: Math.round(total * 100) / 100,
+    // Averages come from the difference between two of these, over the time between.
+    d: Math.round(marginDollarDays(userData, season.id, now) * 100) / 100,
   };
 };
 
@@ -89,19 +93,20 @@ const isSeasonParticipant = (userData, season, now = Date.now()) => {
  * size division, and the two figures Diamond is judged on. Null if they can't be
  * scored.
  */
-const boardEntry = (uid, u, season, { value, indexNow, granted }) => {
-  const score = seasonScore(u, season, { value, indexNow, granted });
+const boardEntry = (uid, u, season, { value, indexNow, granted, margin }) => {
+  const score = seasonScore(u, season, { value, indexNow, granted, margin });
   if (!score) return null;
   const summary = weeklyRecordSummary(u.seasonWeeks, {
     seasonId: season.id,
     baselineValue: u.seasonBaseline.value,
     baselineIndex: baselineIndexFor(u.seasonBaseline, season),
+    pinnedAt: u.seasonBaseline.pinnedAt,
   }, (season.checkpointWeeks || []).length);
   return {
     uid,
     ...score,
     // Set by the pinned baseline, so a good month never moves anyone up a division.
-    division: divisionFor(u.seasonBaseline.value, rulesFor(season)),
+    division: divisionFor(seasonAccountSize(u.seasonBaseline), rulesFor(season)),
     tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
     activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
     beatShare: summary.beatShare,

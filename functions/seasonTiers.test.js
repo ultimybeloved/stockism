@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import * as frontendSeasons from '../src/constants/seasons.js';
 import { calculateExitValue } from '../src/utils/calculations.js';
+import * as frontendSeasonWeeks from '../src/utils/seasonWeeks.js';
 
 const require = createRequire(import.meta.url);
 
@@ -16,7 +17,15 @@ const {
   higherTier,
   buildSeasonBaseline,
   seasonScore,
+  seasonCapital,
+  seasonAccountSize,
+  marginDollarDays,
+  seasonAverageMargin,
+  seasonMarginUpdate,
+  freshMarginTally,
   checkpointTier,
+  standingTier,
+  finalTier,
   weeklyRecordSummary,
   topTierSlots,
   divisionFor,
@@ -44,9 +53,76 @@ describe('seasonScore', () => {
   it('strips free money and measures the market from the player\'s own start', () => {
     // Joined when the index was 1100, not the season's 1000.
     const s = seasonScore({ seasonBaseline: baseline, grantedValue: 1500 }, season, { value: 12000, indexNow: 1210 });
-    expect(s.returnPercent).toBeCloseTo(10, 9); // (12000 - 1000 granted - 10000) / 10000
+    // $1,000 profit on the $11,000 traded with (the $1,000 granted is capital too).
+    expect(s.returnPercent).toBeCloseTo((1000 / 11000) * 100, 9);
     expect(s.marketPercent).toBeCloseTo(10, 9); // 1100 -> 1210
-    expect(s.excess).toBeCloseTo(0, 9);
+  });
+
+  // Pinned at T0; the season has run 10 days when scored at T10.
+  const T0 = 1_000_000_000_000;
+  const T10 = T0 + 10 * DAY;
+  const pinned = { ...baseline, granted: 0, pinnedAt: T0 };
+
+  it('measures money owed all season as money traded with, so margin makes no return bigger', () => {
+    // $10k account owes $10k the whole time and makes $2k: +10%, the same as $2k on $20k.
+    const u = { seasonBaseline: pinned, grantedValue: 0, marginUsed: 10000, seasonMargin: freshMarginTally('S1', 10000, T0) };
+    const avg = seasonAverageMargin(u, 'S1', T10);
+    expect(avg).toBeCloseTo(10000, 6);
+    expect(seasonScore(u, season, { value: 12000, indexNow: 1100, margin: avg }).returnPercent).toBeCloseTo(10, 9);
+  });
+
+  it('counts borrowing only for as long as it was owed', () => {
+    // Owed $10k for 1 day of 10, then repaid: averages $1,000.
+    let u = { seasonBaseline: pinned, marginUsed: 10000, seasonMargin: freshMarginTally('S1', 10000, T0) };
+    u = { ...u, marginUsed: 0, ...seasonMarginUpdate(u, 0, T0 + DAY) };
+    expect(seasonAverageMargin(u, 'S1', T10)).toBeCloseTo(1000, 6);
+    expect(marginDollarDays(u, 'S1', T10)).toBeCloseTo(10000, 6);
+  });
+
+  it('cannot be hidden by repaying before a checkpoint', () => {
+    // Borrow $10k on day 1, repay on day 6: five days of $10k still count.
+    let u = { seasonBaseline: pinned, marginUsed: 0, seasonMargin: freshMarginTally('S1', 0, T0) };
+    u = { ...u, marginUsed: 10000, ...seasonMarginUpdate(u, 10000, T0 + DAY) };
+    u = { ...u, marginUsed: 0, ...seasonMarginUpdate(u, 0, T0 + 6 * DAY) };
+    expect(seasonAverageMargin(u, 'S1', T10)).toBeCloseTo(5000, 6);
+  });
+
+  it('ignores a tally from another season and writes nothing outside one', () => {
+    const u = { seasonBaseline: pinned, seasonMargin: { seasonId: 'S0', dd: 99999, amount: 5000, at: T0 } };
+    expect(seasonAverageMargin(u, 'S1', T10)).toBe(0);
+    expect(seasonMarginUpdate({ marginUsed: 5 }, 10, T10)).toEqual({});
+  });
+
+  it('matches the site', () => {
+    let u = { seasonBaseline: pinned, marginUsed: 3000, seasonMargin: freshMarginTally('S1', 3000, T0) };
+    u = { ...u, marginUsed: 700, ...seasonMarginUpdate(u, 700, T0 + 3.5 * DAY) };
+    for (const t of [T0, T0 + DAY, T10, T10 + 40 * DAY]) {
+      expect(frontendSeasonWeeks.marginDollarDays(u, 'S1', t)).toBeCloseTo(marginDollarDays(u, 'S1', t), 9);
+      expect(frontendSeasonWeeks.seasonAverageMargin(u, 'S1', t)).toBeCloseTo(seasonAverageMargin(u, 'S1', t), 9);
+    }
+    expect(frontendSeasonWeeks.seasonAccountSize({ value: 8000, ladder: 700 })).toBe(seasonAccountSize({ value: 8000, ladder: 700 }));
+    for (const granted of [-3000, 0, 500, 5000]) {
+      expect(frontendSeasonWeeks.seasonCapital({ value: 8000, ladder: 700 }, { granted, margin: 2500 }))
+        .toBe(seasonCapital({ value: 8000, ladder: 700 }, { granted, margin: 2500 }));
+    }
+  });
+
+  it('counts cash parked in the ladder at the start as money traded with', () => {
+    // $5k account with $5k parked in the ladder. Takes it out (+5000 flow) and
+    // makes $1k trading $10k: +10%, not +20% on the $5k left outside.
+    const b = { ...baseline, value: 5000, ladder: 5000, granted: 0, ladderFlow: 0 };
+    const u = { seasonBaseline: b, grantedValue: 5000, ladderFlowValue: 5000 };
+    const s = seasonScore(u, season, { value: 11000, indexNow: 1100 });
+    expect(s.returnPercent).toBeCloseTo(10, 9);
+    expect(seasonAccountSize(b)).toBe(10000);
+    expect(divisionFor(seasonAccountSize(b))).toBe('trader');
+  });
+
+  it('adds ladder winnings taken out beyond what was parked to the money traded with', () => {
+    // Parked $1k, took out $3k: the extra $2k is new money to trade with.
+    expect(seasonCapital({ value: 10000, ladder: 1000 }, { granted: 3000, margin: 0 })).toBe(13000);
+    // Depositing more never shrinks it.
+    expect(seasonCapital({ value: 10000, ladder: 0 }, { granted: -4000, margin: 0 })).toBe(10000);
   });
 
   it('falls back to the season\'s opening index for a baseline without one', () => {
@@ -72,30 +148,62 @@ describe('seasonScore', () => {
     expect(seasonScore({ seasonBaseline: { ...baseline, seasonId: 'S0' } }, season, { value: 1 })).toBeNull();
     expect(seasonScore({}, season, { value: 1 })).toBeNull();
     expect(seasonScore({ seasonBaseline: { ...baseline, value: 999 } }, season, { value: 1 })).toBeNull();
+    // Ladder cash counts toward the floor.
+    expect(seasonScore({ seasonBaseline: { ...baseline, value: 600, ladder: 400 } }, season, { value: 1 })).not.toBeNull();
   });
 });
 
 describe('checkpointTier', () => {
-  it('banks Gold for beating the market, even in a falling one', () => {
-    expect(checkpointTier({ returnPercent: 12, marketPercent: 5, activeWeeks: 0 })).toBe('gold');
-    expect(checkpointTier({ returnPercent: -2, marketPercent: -8, activeWeeks: 0 })).toBe('gold');
-  });
-
-  it('banks Silver for being up but behind the market', () => {
-    expect(checkpointTier({ returnPercent: 3, marketPercent: 5, activeWeeks: 0 })).toBe('silver');
-  });
-
-  it('treats matching the market as not beating it', () => {
-    expect(checkpointTier({ returnPercent: 5, marketPercent: 5, activeWeeks: 0 })).toBe('silver');
-  });
-
   it('banks Bronze only for turning up', () => {
-    expect(checkpointTier({ returnPercent: -4, marketPercent: 5, activeWeeks: 2 })).toBe('bronze');
-    expect(checkpointTier({ returnPercent: -4, marketPercent: 5, activeWeeks: 1 })).toBeNull();
+    expect(checkpointTier({ activeWeeks: 2 })).toBe('bronze');
+    expect(checkpointTier({ activeWeeks: 1 })).toBeNull();
   });
 
-  it('never banks Platinum or Diamond', () => {
-    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 20 })).toBe('gold');
+  it('never banks anything above Bronze, however well the week went', () => {
+    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 20 })).toBe('bronze');
+    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 0 })).toBeNull();
+  });
+});
+
+describe('standingTier', () => {
+  it('is Gold for beating the market over the season, even a falling one', () => {
+    expect(standingTier({ returnPercent: 12, marketPercent: 5 })).toBe('gold');
+    expect(standingTier({ returnPercent: -2, marketPercent: -8 })).toBe('gold');
+  });
+
+  it('is Silver for being up but behind the market, matching it included', () => {
+    expect(standingTier({ returnPercent: 3, marketPercent: 5 })).toBe('silver');
+    expect(standingTier({ returnPercent: 5, marketPercent: 5 })).toBe('silver');
+  });
+
+  it('is nothing when down and behind', () => {
+    expect(standingTier({ returnPercent: -4, marketPercent: 5 })).toBeNull();
+  });
+
+  it('matches the site', () => {
+    for (const [r, m] of [[12, 5], [-2, -8], [3, 5], [5, 5], [-4, 5], [0, -1]]) {
+      expect(frontendSeasons.seasonStandingTier({ returnPercent: r, marketPercent: m }))
+        .toBe(standingTier({ returnPercent: r, marketPercent: m }));
+    }
+  });
+});
+
+describe('finalTier', () => {
+  const ranked = new Map([['p', 'platinum']]);
+
+  it('judges Silver and Gold on where the player finishes, not a week they touched it', () => {
+    // Ahead of the market once mid-season, behind at the end: Bronze only.
+    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: -3, marketPercent: 4 }, ranked)).toBe('bronze');
+    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: 2, marketPercent: 4 }, ranked)).toBe('silver');
+    expect(finalTier({ uid: 'a', tier: null, returnPercent: 9, marketPercent: 4 }, ranked)).toBe('gold');
+  });
+
+  it('takes a ranked place over the standing tier', () => {
+    expect(finalTier({ uid: 'p', tier: 'bronze', returnPercent: 50, marketPercent: 4 }, ranked)).toBe('platinum');
+  });
+
+  it('gives nothing to a player with nothing', () => {
+    expect(finalTier({ uid: 'z', tier: null, returnPercent: -1, marketPercent: 4 }, ranked)).toBeNull();
   });
 });
 
@@ -132,6 +240,22 @@ describe('weeklyRecordSummary', () => {
   it('strips free money before scoring a week', () => {
     const out = weeklyRecordSummary([row(1, 11000, 1000, 0, 0, 1000)], ctx, 1);
     expect(out.beatWeeks).toBe(0);
+  });
+
+  it('measures a week against borrowing too, and matches the site', () => {
+    // +$1,000 on $10k with $10k owed all week (70,000 dollar-days over 7 days):
+    // +5%, which loses to a +6% market.
+    const WEEK = 7 * DAY;
+    const rows = [{ ...row(1, 11000, 1060), t: WEEK, d: 70000 }];
+    const pinnedCtx = { ...ctx, pinnedAt: 0.0001 };
+    expect(weeklyRecordSummary(rows, pinnedCtx, 1).beatWeeks).toBe(0);
+    expect(weeklyRecordSummary([{ ...row(1, 11000, 1060), t: WEEK, d: 0 }], pinnedCtx, 1).beatWeeks).toBe(1);
+    const site = frontendSeasonWeeks.deriveSeasonWeeks(rows, {
+      seasonId: 'S1', baselineValue: 10000, indexAtStart: 1000, pinnedAt: 0.0001,
+    });
+    expect(site[0].beat).toBe(false);
+    expect(site[0].weekReturn).toBeCloseTo(5, 9);
+    expect(site[0].totalReturn).toBeCloseTo(5, 9);
   });
 
   it('reports the peak concentration of invested money', () => {

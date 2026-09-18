@@ -12,7 +12,9 @@
 //
 // Checks the holes closed on 2026-09-13 as well as the rules:
 //   - a stale stored portfolioValue can't set a baseline or bank a tier
-//   - a margin loan doesn't count as value
+//   - a margin loan doesn't count as value, and is measured as money traded with
+//   - cash parked in the ladder counts toward the starting size
+//   - only Bronze banks at a checkpoint; Silver and Gold go by the finish
 //   - a late joiner is measured against the market from when they joined
 //   - ending on the same week as a checkpoint doesn't count an active week twice
 //   - a preseason keeps the season numbering and gives its own title
@@ -65,6 +67,9 @@ const seed = async () => {
     granted: { cash: 10000, holdings: {} },
     loser: { cash: 0, holdings: { MIRA: 1000 } },
     dormant: { cash: 10000, holdings: {}, lastActive: now - 60 * DAY },
+    // $6,000 outside plus $5,000 parked in the ladder. Dormant so the board and
+    // tier counts below are unchanged.
+    parker: { cash: 6000, holdings: {}, lastActive: now - 60 * DAY },
     bot: { cash: 10000, holdings: {}, isBot: true },
   };
   // Cash-only players who turn up and do nothing. Under $10,000, so they sit in
@@ -82,6 +87,9 @@ const seed = async () => {
       ...p,
     });
   }
+  batch.set(db.collection('ladderGameUsers').doc('parker'), {
+    balance: 5000, nonWithdrawable: 0, chipsMigrated: true, totalDeposited: 5000,
+  });
   await batch.commit();
 };
 
@@ -102,6 +110,10 @@ const run = async () => {
   check('margin loan is not baseline value', close((await user('margin')).seasonBaseline.value, 9940), (await user('margin')).seasonBaseline);
   check('stale stored portfolioValue is ignored', close((await user('stale')).seasonBaseline.value, 10000), (await user('stale')).seasonBaseline);
   check('bots get no baseline', !(await user('bot')).seasonBaseline);
+  const parker = (await user('parker')).seasonBaseline;
+  check('ladder cash pinned beside the baseline', close(parker.value, 6000) && close(parker.ladder, 5000), parker);
+  const tally = (await user('margin')).seasonMargin;
+  check('margin tally opened at the start', tally?.seasonId === 'S1' && close(tally.amount, 5000) && tally.dd === 0, tally);
 
   // A player who signs up after the start with no baseline yet.
   await db.collection('users').doc('late').set({ displayName: 'late', cash: 3000, holdings: {}, portfolioValue: 3000, grantedValue: 0, lastActive: Date.now() });
@@ -111,11 +123,15 @@ const run = async () => {
   await db.collection('users').doc('granted').update({ cash: 12000, grantedValue: 2000 });
   const cp1 = await runSeasonCheckpoint();
   check('checkpoint ran as week 1', cp1.ran && cp1.weeks === 1, cp1);
-  check('diverse banks Gold (+10% vs +5%)', (await user('diverse')).seasonTier?.tier === 'gold', (await user('diverse')).seasonTier);
-  check('sitter banks Gold', (await user('sitter')).seasonTier?.tier === 'gold');
+  // Ahead of the market this week, but Gold goes by where the season finishes.
+  check('a good week banks no Gold', !(await user('diverse')).seasonTier && !(await user('sitter')).seasonTier,
+    [(await user('diverse')).seasonTier, (await user('sitter')).seasonTier]);
   const marginRec = (await user('margin')).seasonWeeks?.[0];
   // 10,000 cash + 100 CROC selling at 60 - 0.72 - 5,000 loan.
   check('week record stores net sell value, not gross', close(marginRec?.v, 10928), marginRec);
+  check('week record stores dollar-days owed', typeof marginRec?.d === 'number' && marginRec.d > 0, marginRec);
+  const synced = (await user('margin')).seasonMargin;
+  check('checkpoint re-syncs the margin tally', close(synced?.amount, 5000) && synced.dd > 0 && close(synced.dd, marginRec.d), synced);
   check('stale spike banks nothing', !(await user('stale')).seasonTier, (await user('stale')).seasonTier);
   check('free money banks nothing', !(await user('granted')).seasonTier, (await user('granted')).seasonTier);
   check('loser banks nothing yet (one active week)', !(await user('loser')).seasonTier);
@@ -154,6 +170,9 @@ const run = async () => {
   check('sitter projected Platinum, not Diamond', row('sitter').projectedTier === 'platinum', row('sitter'));
   check('diverse projected Diamond', row('diverse').projectedTier === 'diamond', row('diverse'));
   check('late joiner measured from their own start (market +4.8%, not +10%)', close(row('late').excess, -4.76, 0.1), row('late'));
+  // $1,580.80 made on $9,940 of equity plus $5,000 owed the whole time: +10.6%, not +15.9%.
+  check('margin return measured on borrowed money too', close(row('margin').returnPercent, 10.6, 0.1), row('margin'));
+  check('margin projected Gold from the finish', row('margin').projectedTier === 'gold', row('margin'));
 
   console.log('\nE. End');
   const end = await adminEndSeason.run({}, adminCtx);
@@ -165,7 +184,7 @@ const run = async () => {
     && diverse.ownedTitles?.includes('season_1_diamond') && diverse.ownedTitles?.includes('arc_s1_diamond')
     && diverse.titleMeta?.season_1_diamond === 'Season 1 Diamond', { tier: diverse.seasonTier, titles: diverse.ownedTitles });
   check('sitter ends Platinum', (await user('sitter')).seasonTier?.tier === 'platinum');
-  check('margin keeps banked Gold', (await user('margin')).seasonTier?.tier === 'gold');
+  check('margin ends Gold, ahead of the market over the season', (await user('margin')).seasonTier?.tier === 'gold');
   // The late joiner was pinned at checkpoint 1 and scored when that week re-ran,
   // so they were active in weeks 1 and 2. Ending re-runs week 2 and must not
   // make it three.

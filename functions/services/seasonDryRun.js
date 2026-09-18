@@ -17,7 +17,7 @@ const db = admin.firestore();
 const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../constants');
 const { netEquityAt, getLastActiveMs, readIndexNow, round2 } = require('../helpers');
 const {
-  DEFAULT_SEASON_RULES, checkpointTier, rankTopTiers, divisionFor, divisionSlots,
+  DEFAULT_SEASON_RULES, checkpointTier, finalTier, rankTopTiers, divisionFor, divisionSlots,
 } = require('./seasonTiers');
 
 const dryRuns = () => db.collection('seasonDryRuns');
@@ -128,8 +128,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   const ranked = rankTopTiers(scored, rules);
   const tierCounts = {};
   for (const p of scored) {
-    p.tier = ranked.get(p.uid)
-      || checkpointTier({ returnPercent: p.returnPercent, marketPercent: p.marketPercent, activeWeeks: p.activeWeeks }, rules);
+    p.tier = finalTier({ ...p, tier: checkpointTier({ activeWeeks: p.activeWeeks }, rules) }, ranked);
     if (p.tier) tierCounts[p.tier] = (tierCounts[p.tier] || 0) + 1;
   }
   scored.sort((a, b) => b.excess - a.excess);

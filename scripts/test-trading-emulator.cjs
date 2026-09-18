@@ -571,6 +571,20 @@ async function testMarginBuy() {
     lock.until > Date.now() + MARGIN_SELL_LOCKUP_MS - 10000, JSON.stringify(lock));
   check('margin: buy succeeded with holdings credited', r.success && u.holdings[T3] === 3, JSON.stringify(u.holdings));
 
+  // In a season, margin owed is averaged over time, so a buy that changes the
+  // debt closes the running span and opens a new one at the new amount.
+  await seedMarket({ [T3]: 40 });
+  const pinnedAt = Date.now() - 2 * 24 * 60 * 60 * 1000;
+  await setUser('mgn_season', { cash: 100, marginEnabled: true, peakPortfolioValue: 0, marginUsed: 0,
+    seasonBaseline: { seasonId: 'S9', value: 100, pinnedAt },
+    seasonMargin: { seasonId: 'S9', dd: 0, amount: 0, at: pinnedAt } });
+  await ok({ ticker: T3, action: 'buy', amount: 3 }, 'mgn_season');
+  const us = await getUser('mgn_season');
+  check('margin: season margin tally logs the new debt', us.seasonMargin?.seasonId === 'S9'
+    && near(us.seasonMargin.amount, Math.round(us.marginUsed * 100) / 100, 1e-6)
+    && us.seasonMargin.dd === 0 && us.seasonMargin.at > pinnedAt, JSON.stringify(us.seasonMargin));
+  check('margin: no season, no margin tally written', u.seasonMargin === undefined, JSON.stringify(u.seasonMargin));
+
   // Beyond available margin → rejected
   await setUser('mgn_over', { cash: 100, marginEnabled: true, peakPortfolioValue: 0 });
   const eOver = await err({ ticker: T3, action: 'buy', amount: 4 }, 'mgn_over'); // ~160 > 100+25

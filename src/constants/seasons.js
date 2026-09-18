@@ -2,9 +2,9 @@
 // rules in functions/services/seasonTiers.js — keep them in sync
 // (functions/seasonTiers.test.js checks the rules match).
 //
-// Bronze, Silver and Gold are checked at every Thursday checkpoint and kept once
-// earned. Platinum and Diamond are shares of the season board, handed out when
-// the season ends. Arc length is never known in advance (the finale is only
+// Bronze is banked at the Thursday checkpoints and kept once earned. Silver and
+// Gold are judged on where a player finishes the season. Platinum and Diamond
+// are shares of the season board, handed out when the season ends. Arc length is never known in advance (the finale is only
 // announced by "Finale" appearing in a chapter title), and one month of market
 // can't say what a whole arc will do, so fixed return targets would be trivial in
 // one arc and impossible in the next.
@@ -72,8 +72,8 @@ const asPercent = (share) => `${Math.round(share * 100)}%`;
 /** One plain sentence per tier, for the card, the board and the admin panel. */
 export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
-  silver: 'Be up on the season. Free stock and bonuses don\'t count.',
-  gold: 'Beat the market.',
+  silver: 'Finish the season up. Free stock and bonuses don\'t count.',
+  gold: 'Finish the season ahead of the market.',
   platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
   diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
 }[tierId] || '');
@@ -101,6 +101,13 @@ export const seasonLabel = (season) => {
   if (!season?.preseason) return `Season ${season?.number}`;
   const n = season.preseasons || 1;
   return n > 1 ? `Preseason ${n}` : 'Preseason';
+};
+
+/** Silver or Gold from where a player stands on the season. Mirror of standingTier in seasonTiers.js. */
+export const seasonStandingTier = ({ returnPercent, marketPercent }) => {
+  if (returnPercent > marketPercent) return 'gold';
+  if (returnPercent > 0) return 'silver';
+  return null;
 };
 
 /** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */

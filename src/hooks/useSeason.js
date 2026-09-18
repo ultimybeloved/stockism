@@ -3,6 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
 import { calculateExitValue } from '../utils/calculations';
+import { seasonAccountSize, seasonCapital, seasonAverageMargin } from '../utils/seasonWeeks';
 import {
   SEASON_MIN_BASELINE,
   SEASON_TIER_MAP,
@@ -44,7 +45,7 @@ export function useSeason() {
   // Two reasons to be out, and the card tells them apart: under the floor means
   // the checkpoint re-pins them once they grow past it, no baseline yet just
   // means the next Thursday checkpoint has not picked them up.
-  const belowFloor = hasBaseline && baseline.value < SEASON_MIN_BASELINE;
+  const belowFloor = hasBaseline && seasonAccountSize(baseline) < SEASON_MIN_BASELINE;
   const inSeason = hasBaseline && !belowFloor;
 
   // The market reading this player is measured from. Someone who joined
@@ -63,9 +64,11 @@ export function useSeason() {
       : (userData.portfolioValue || 0) - (userData.marginUsed || 0);
     const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
     const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
-    returnPercent = ((current - granted - baseline.value) / baseline.value) * 100;
+    // Measured against the money traded with, margin owed on average included.
+    const capital = seasonCapital(baseline, { granted, margin: seasonAverageMargin(userData, season.id) });
+    returnPercent = ((current - granted - baseline.value) / capital) * 100;
     // What it would have been if ladder winnings counted. Shown, never ranked.
-    returnWithLadder = ((current - (granted - ladderNet) - baseline.value) / baseline.value) * 100;
+    returnWithLadder = ((current - (granted - ladderNet) - baseline.value) / capital) * 100;
   }
 
   const lockedTier = (userData?.seasonTier?.seasonId === season.id)
@@ -85,8 +88,10 @@ export function useSeason() {
     // Raw weekly record straight off the user doc; SeasonProgress derives from it.
     seasonWeeks: userData?.seasonWeeks || [],
     baselineValue: baseline?.value || 0,
+    baselineLadder: baseline?.ladder || 0,
+    baselinePinnedAt: baseline?.pinnedAt || 0,
     // Platinum and Diamond are ranked within this. Fixed by the pinned baseline.
-    division: inSeason ? seasonDivisionFor(baseline.value, rules) : null,
+    division: inSeason ? seasonDivisionFor(seasonAccountSize(baseline), rules) : null,
     baselineIndex,
     returnPercent,
     returnWithLadder,
@@ -94,6 +99,10 @@ export function useSeason() {
     lockedTierMeta: lockedTier ? SEASON_TIER_MAP[lockedTier] : null,
     activeWeeks,
     bronzeActiveWeeks: rules.bronzeActiveWeeks,
-    nextTier: nextSeasonTier(lockedTier),
+    // Up on the season means Silver if they finish there, so point at Gold next.
+    nextTier: nextSeasonTier(
+      returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order
+        ? 'silver' : lockedTier
+    ),
   };
 }

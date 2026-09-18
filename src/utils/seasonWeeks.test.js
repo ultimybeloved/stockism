@@ -24,7 +24,8 @@ describe('deriveSeasonWeeks', () => {
       row(1, { v: 11000, g: 500, x: 1000 }),
       row(2, { v: 12000, g: 1500, x: 1000 }),
     ], ctx);
-    expect(out[1].totalReturn).toBeCloseTo(5, 9); // (12000 - 1500 - 10000) / 10000
+    // $500 profit on the $11,500 traded with (the $1,500 granted is capital too).
+    expect(out[1].totalReturn).toBeCloseTo((500 / 11500) * 100, 9);
   });
 
   it('chains weeks off the previous row', () => {

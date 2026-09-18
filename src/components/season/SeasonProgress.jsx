@@ -15,7 +15,7 @@ import { seasonRulesFor } from '../../constants/seasons';
 //
 // Everything here is derived client-side from the raw weekly record on the
 // user's own doc. No extra reads.
-const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineIndex }) => {
+const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0, baselinePinnedAt = 0, baselineIndex }) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -32,6 +32,8 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineIndex }) =
     const derived = deriveSeasonWeeks(seasonWeeks, {
       seasonId: season?.id,
       baselineValue,
+      baselineLadder,
+      pinnedAt: baselinePinnedAt,
       indexAtStart,
     });
     return {
@@ -39,7 +41,7 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineIndex }) =
       summary: summariseSeasonWeeks(derived),
       series: buildSeasonSeries(derived),
     };
-  }, [seasonWeeks, season?.id, indexAtStart, baselineValue]);
+  }, [seasonWeeks, season?.id, indexAtStart, baselineValue, baselineLadder, baselinePinnedAt]);
 
   // Before the first Thursday there is nothing to draw, and saying so beats an
   // empty box.

@@ -114,9 +114,9 @@ const SeasonPanel = ({
           <p className={`text-xs ${mutedClass} mb-1`}>A new season starts with these rules:</p>
           {rulesList}
           <p className={`text-xs ${mutedClass}`}>
-            Bronze, Silver and Gold are banked at each Thursday checkpoint. Platinum and Diamond are
-            shares of the season board, handed out when you end the season, so there are no targets
-            to set.
+            Bronze is banked at each Thursday checkpoint. Silver and Gold go by where a player finishes.
+            Platinum and Diamond are shares of the season board, handed out when you end the season, so
+            there are no targets to set.
           </p>
         </>
       )}

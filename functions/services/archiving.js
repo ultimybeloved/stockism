@@ -6,6 +6,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } = require('../constants');
 const { priceHistoryRef, writeNotification } = require('../helpers');
+const { seasonMarginUpdate } = require('./seasonTiers');
 const {
   loyaltyTierFor, LOYALTY_TIER_LABEL,
   dividendMultiplierForAgeMs, exitDiscountForAgeMs,
@@ -314,6 +315,7 @@ exports.syncAllPortfolios = cf().pubsub
             if (marginInterest > 0) {
               updateFields.marginUsed = marginUsed + marginInterest;
               updateFields.lastMarginInterestCharge = startTime;
+              Object.assign(updateFields, seasonMarginUpdate(userData, marginUsed + marginInterest, startTime));
             }
             if (loyalty.changed) {
               updateFields.loyaltyTierNotified = loyalty.current;

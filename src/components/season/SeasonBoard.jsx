@@ -14,8 +14,8 @@ import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierR
 // One tab per size division. Platinum and Diamond are ranked within a division,
 // so that's the race that matters; it opens on the viewer's own.
 //
-// Banked tiers show solid. Platinum and Diamond aren't decided until the season
-// ends, so they show dashed, as where each would land if it ended now.
+// Banked tiers (Bronze) show solid. Everything above is decided when the season
+// ends, so it shows dashed, as where each player would land if it ended now.
 const SeasonBoard = () => {
   const { darkMode, user } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);

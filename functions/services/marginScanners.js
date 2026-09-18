@@ -29,6 +29,7 @@ const {
   FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
 } = require('../constants');
 const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity, writeShortInterest } = require('../helpers');
+const { seasonMarginUpdate } = require('./seasonTiers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -454,6 +455,7 @@ exports.checkMarginLending = cf().pubsub
 
               updateData.cash = finalCash;
               updateData.marginUsed = 0;
+              Object.assign(updateData, seasonMarginUpdate(freshData, 0, now));
               updateData.marginCallAt = null;
               updateData.lastLiquidation = now;
               updateData.marginEnabled = false;
