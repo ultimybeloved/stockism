@@ -17,7 +17,7 @@ const db = admin.firestore();
 const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../constants');
 const { netEquityAt, getLastActiveMs, readIndexNow, round2 } = require('../helpers');
 const {
-  DEFAULT_SEASON_RULES, checkpointTier, rankTopTiers, topTierSlots,
+  DEFAULT_SEASON_RULES, checkpointTier, rankTopTiers, divisionFor, divisionSlots,
 } = require('./seasonTiers');
 
 const dryRuns = () => db.collection('seasonDryRuns');
@@ -66,7 +66,7 @@ const buildRow = (uid, u, prices) => {
 const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   const ordered = [...(weeks || [])].filter((w) => w && Array.isArray(w.rows)).sort((a, b) => a.ranAt - b.ranAt);
   if (ordered.length < 2) {
-    return { weeks: ordered.length, scored: [], tierCounts: {}, slots: { platinum: 0, diamond: 0 }, belowFloor: 0 };
+    return { weeks: ordered.length, scored: [], tierCounts: {}, divisions: divisionSlots([], rules), belowFloor: 0 };
   }
 
   const state = new Map();
@@ -119,6 +119,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
       beatShare: scoredWeeks ? s.beat / scoredWeeks : 0,
       peakConcentration: Math.round(s.peak * 1000) / 1000,
       activeWeeks: s.appearances,
+      division: divisionFor(s.base, rules),
     });
   }
 
@@ -143,7 +144,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
       : 0,
     scored,
     tierCounts,
-    slots: topTierSlots(scored.length, rules),
+    divisions: divisionSlots(scored, rules),
     belowFloor,
   };
 };

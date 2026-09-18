@@ -3,7 +3,7 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
-import { SEASON_TIERS, seasonTierRule, seasonLabel, tierGivesTitle, SEASON_MIN_BASELINE } from '../../constants/seasons';
+import { SEASON_TIERS, seasonTierRule, seasonLabel, tierGivesTitle, divisionRange, SEASON_MIN_BASELINE } from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -17,7 +17,7 @@ const SeasonCard = () => {
   const {
     active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
     lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, belowFloor,
-    seasonWeeks, baselineValue, baselineIndex,
+    seasonWeeks, baselineValue, baselineIndex, division,
   } = useSeason();
 
   if (!active) return null;
@@ -87,6 +87,12 @@ const SeasonCard = () => {
             </span>
             <span className={`text-xs ${mutedClass}`}>season return, trading only</span>
           </div>
+          {division && (
+            <p className={`text-xs ${mutedClass} mt-1`}>
+              <span className={`font-semibold ${textClass}`}>{division.label} division</span> ({divisionRange(division)} at the start).
+              Platinum and Diamond are ranked against players your size.
+            </p>
+          )}
 
           {/* The ladder is excluded from anything that counts. Showing what it
               would have been is honest, and quietly discourages chasing it. */}

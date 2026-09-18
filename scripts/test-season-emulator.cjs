@@ -67,9 +67,10 @@ const seed = async () => {
     dormant: { cash: 10000, holdings: {}, lastActive: now - 60 * DAY },
     bot: { cash: 10000, holdings: {}, isBot: true },
   };
-  // Cash-only players who turn up and do nothing. They fill the board so it has
-  // two Platinum places and one Diamond place (14 players).
-  for (let i = 0; i < 7; i++) players[`filler${i}`] = { cash: 10000, holdings: {} };
+  // Cash-only players who turn up and do nothing. Under $10,000, so they sit in
+  // the Rookie division with the contenders and give it two Platinum places and
+  // one Diamond place (12 Rookies). stale and granted, at $10,000, are Traders.
+  for (let i = 0; i < 7; i++) players[`filler${i}`] = { cash: 9000, holdings: {} };
 
   const batch = db.batch();
   for (const [uid, p] of Object.entries(players)) {
@@ -145,7 +146,11 @@ const run = async () => {
   check('ranked by lead over the market', board.entries[0].userId === 'sitter', board.entries.slice(0, 3));
   check('sitter: +80% return, +70% over the market', close(row('sitter').returnPercent, 80, 0.1) && close(row('sitter').excess, 70, 0.1), row('sitter'));
   check('market figure for the season', close(board.marketPercent, 10, 0.1), board.marketPercent);
-  check('two Platinum places, one Diamond', board.slots.platinum === 2 && board.slots.diamond === 1, board.slots);
+  const div = Object.fromEntries(board.divisions.map((d) => [d.id, d]));
+  check('Rookies: 12 players, two Platinum places, one Diamond', div.rookie.players === 12
+    && div.rookie.platinum === 2 && div.rookie.diamond === 1, board.divisions);
+  check('Traders ranked in their own division', div.trader.players === 2 && row('stale').division === 'trader'
+    && row('diverse').division === 'rookie', board.divisions);
   check('sitter projected Platinum, not Diamond', row('sitter').projectedTier === 'platinum', row('sitter'));
   check('diverse projected Diamond', row('diverse').projectedTier === 'diamond', row('diverse'));
   check('late joiner measured from their own start (market +4.8%, not +10%)', close(row('late').excess, -4.76, 0.1), row('late'));

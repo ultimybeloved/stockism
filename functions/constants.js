@@ -681,6 +681,18 @@ const SEASON_MIN_BASELINE = 1000;
 // still show on the card and board, they just don't pay a title: a title every
 // active player owns means nothing. Pinned on each season's rules at start.
 const SEASON_TITLED_TIERS = Object.freeze(['gold', 'platinum', 'diamond']);
+// Size divisions, by value when a player's season baseline was pinned. Platinum
+// and Diamond are ranked WITHIN a division: on 2026-09-18 the median 30-day
+// return was about the same at every size (+13% to +21%), but the best Rookie
+// made +2,785% and the best Titan +90%, so one shared board handed the top
+// places to small accounts that can swing further. Also used by the admin return
+// distribution readout. `max: null` = no upper bound (Firestore can't store Infinity).
+const SEASON_DIVISIONS = Object.freeze([
+  Object.freeze({ id: 'rookie', label: 'Rookie', min: 0, max: 10000 }),
+  Object.freeze({ id: 'trader', label: 'Trader', min: 10000, max: 50000 }),
+  Object.freeze({ id: 'whale', label: 'Whale', min: 50000, max: 200000 }),
+  Object.freeze({ id: 'titan', label: 'Titan', min: 200000, max: null }),
+]);
 
 // Max LIVE price-history points kept per ticker in market/priceHistory. The
 // limit that matters is Firestore's ~40k index entries PER DOCUMENT, shared by
@@ -828,6 +840,7 @@ module.exports = {
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
   SEASON_TITLED_TIERS,
+  SEASON_DIVISIONS,
   PRICE_HISTORY_LIVE_MAX,
   CREWS,
   MAX_SHORT_EXPOSURE_RATIO,

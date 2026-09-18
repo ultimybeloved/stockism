@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { buildWeekRecord, appendWeekRecord, isSeasonParticipant } = require('./services/season');
+const { buildWeekRecord, appendWeekRecord, isSeasonParticipant } = require('./services/seasonRecords');
 
 const season = { id: 'S1' };
 const prices = { GAP: 100, SHNG: 50, JAY: 20 };

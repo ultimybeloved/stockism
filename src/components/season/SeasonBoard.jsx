@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
-import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierRule, tierGivesTitle } from '../../constants/seasons';
+import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierRule, tierGivesTitle, divisionRange } from '../../constants/seasons';
 
 // Season standings, ranked on how far ahead of the market each player is with
 // free money removed. Server-cached, so this is one document read per load.
@@ -11,6 +11,9 @@ import { SEASON_TIERS, SEASON_TIER_MAP, seasonLabel, seasonRulesFor, seasonTierR
 // everyone pinned at the start, return and "ahead of the market" rank the same,
 // so a second column only repeated the first with the market subtracted.
 //
+// One tab per size division. Platinum and Diamond are ranked within a division,
+// so that's the race that matters; it opens on the viewer's own.
+//
 // Banked tiers show solid. Platinum and Diamond aren't decided until the season
 // ends, so they show dashed, as where each would land if it ended now.
 const SeasonBoard = () => {
@@ -18,6 +21,7 @@ const SeasonBoard = () => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const [data, setData] = useState(null);
   const [state, setState] = useState('loading');
+  const [picked, setPicked] = useState(null);
 
   useEffect(() => {
     getSeasonStandingsFunction({})
@@ -37,6 +41,11 @@ const SeasonBoard = () => {
 
   const fmt = (v) => `${v > 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
   const rules = seasonRulesFor(data);
+  const divisions = data.divisions || [];
+  const mine = user && data.entries.find((e) => e.userId === user.uid)?.division;
+  const tab = picked || mine || divisions.find((d) => d.players > 0)?.id || divisions[0]?.id;
+  const current = divisions.find((d) => d.id === tab);
+  const rows = data.entries.filter((e) => e.division === tab);
 
   return (
     <div>
@@ -58,12 +67,35 @@ const SeasonBoard = () => {
           ))}
         </ul>
         <p className={`text-xs ${mutedClass} mt-2`}>
-          Ranked on how far ahead of the market you are. Green means you're beating it. Free stock
+          Ranked on how far ahead of the market you are, against players who started the season
+          about your size. Green means you're beating it. Free stock
           and bonuses don't count, and holdings count at what they'd sell for, after your own sale
           moves the price. Dashed badges show where Platinum and Diamond would land if the season
           ended now.
         </p>
       </div>
+
+      <div className="flex gap-1 flex-wrap mb-2">
+        {divisions.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => setPicked(d.id)}
+            className={`px-2 py-1 rounded-sm text-xs font-semibold ${
+              d.id === tab
+                ? 'bg-orange-600 text-white'
+                : (darkMode ? 'bg-zinc-900 text-zinc-300' : 'bg-white text-slate-700')
+            }`}
+          >
+            {d.label}{d.id === mine ? ' (you)' : ''}
+          </button>
+        ))}
+      </div>
+      {current && (
+        <p className={`text-xs ${mutedClass} px-2 pb-2`}>
+          {divisionRange(current)} at the start · {current.players} players ·{' '}
+          {current.platinum} Platinum and {current.diamond} Diamond {current.diamond === 1 ? 'place' : 'places'}
+        </p>
+      )}
 
       <div className={`flex items-center gap-2 px-2 pb-1 text-[10px] uppercase tracking-wide ${mutedClass}`}>
         <span className="flex-1" />
@@ -71,7 +103,10 @@ const SeasonBoard = () => {
       </div>
 
       <div className="space-y-1">
-        {data.entries.map((e, i) => {
+        {rows.length === 0 && (
+          <p className={`text-center py-4 text-sm ${mutedClass}`}>Nobody in this division yet.</p>
+        )}
+        {rows.map((e, i) => {
           const projected = e.projectedTier ? SEASON_TIER_MAP[e.projectedTier] : null;
           const badge = projected || (e.tier ? SEASON_TIER_MAP[e.tier] : null);
           const excess = e.excess ?? e.returnPercent;

@@ -7,6 +7,7 @@ import {
   SEASON_MIN_BASELINE,
   SEASON_TIER_MAP,
   nextSeasonTier,
+  seasonDivisionFor,
   seasonRulesFor,
 } from '../constants/seasons';
 
@@ -84,6 +85,8 @@ export function useSeason() {
     // Raw weekly record straight off the user doc; SeasonProgress derives from it.
     seasonWeeks: userData?.seasonWeeks || [],
     baselineValue: baseline?.value || 0,
+    // Platinum and Diamond are ranked within this. Fixed by the pinned baseline.
+    division: inSeason ? seasonDivisionFor(baseline.value, rules) : null,
     baselineIndex,
     returnPercent,
     returnWithLadder,

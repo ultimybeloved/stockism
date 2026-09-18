@@ -19,6 +19,8 @@ const {
   checkpointTier,
   weeklyRecordSummary,
   topTierSlots,
+  divisionFor,
+  divisionSlots,
   seasonTitles,
   lastHaltStart,
   rankTopTiers,
@@ -270,6 +272,52 @@ describe('netEquityAt', () => {
   it('ignores negative share counts and survives nothing', () => {
     expect(netEquityAt({ cash: 10, holdings: { GAP: -3 } }, prices)).toBe(10);
     expect(netEquityAt(null, prices)).toBe(0);
+  });
+});
+
+describe('size divisions', () => {
+  it('places a baseline by the value it was pinned at', () => {
+    expect(divisionFor(1000)).toBe('rookie');
+    expect(divisionFor(9999.99)).toBe('rookie');
+    expect(divisionFor(10000)).toBe('trader');
+    expect(divisionFor(199999)).toBe('whale');
+    expect(divisionFor(5000000)).toBe('titan');
+    expect(divisionFor(undefined)).toBe('rookie');
+  });
+
+  it('matches the site', () => {
+    for (const v of [0, 500, 10000, 49999, 50000, 200000, 1e7]) {
+      expect(frontendSeasons.seasonDivisionFor(v).id).toBe(divisionFor(v));
+    }
+  });
+
+  it('ranks Platinum and Diamond within each division, not across the board', () => {
+    const p = (uid, excess, division) => ({
+      uid, excess, division, activeWeeks: 2, beatShare: 1, peakConcentration: 0.3,
+    });
+    // Rookies swing further: all ten of them beat every Titan.
+    const rookies = Array.from({ length: 10 }, (_, i) => p(`r${i}`, 500 - i * 10, 'rookie'));
+    const titans = Array.from({ length: 10 }, (_, i) => p(`t${i}`, 50 - i, 'titan'));
+    const out = rankTopTiers([...rookies, ...titans]);
+    // 10 players each: 2 Platinum places (1 of them Diamond) per division.
+    expect(out.get('r0')).toBe('diamond');
+    expect(out.get('r1')).toBe('platinum');
+    expect(out.get('t0')).toBe('diamond');
+    expect(out.get('t1')).toBe('platinum');
+    expect(out.has('r2')).toBe(false);
+    expect(out.has('t2')).toBe(false);
+  });
+
+  it('counts players and places per division', () => {
+    const field = [
+      ...Array.from({ length: 20 }, (_, i) => ({ uid: `r${i}`, baselineValue: 2000 })),
+      { uid: 'w', baselineValue: 60000 },
+    ];
+    const slots = Object.fromEntries(divisionSlots(field).map((d) => [d.id, d]));
+    expect(slots.rookie).toMatchObject({ players: 20, platinum: 3, diamond: 1 });
+    expect(slots.whale).toMatchObject({ players: 1, platinum: 1, diamond: 1 });
+    expect(slots.trader).toMatchObject({ players: 0, platinum: 0, diamond: 0 });
+    expect(slots.titan.max).toBeNull();
   });
 });
 

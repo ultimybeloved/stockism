@@ -13,9 +13,9 @@
 //   Gold      ahead of the market since the player's season began
 //             These three are checked every Thursday and kept once earned.
 //
-//   Platinum  the top SEASON_PLATINUM_TOP_SHARE of the season board against
-//             the market, handed out when the season ends
-//   Diamond   the best of those, at most SEASON_DIAMOND_TOP_SHARE of the board,
+//   Platinum  the top SEASON_PLATINUM_TOP_SHARE of the player's size division
+//             (SEASON_DIVISIONS) against the market, handed out at season end
+//   Diamond   the best of those, at most SEASON_DIAMOND_TOP_SHARE of the division,
 //             who also beat the market in SEASON_DIAMOND_BEAT_SHARE of the
 //             season's weeks and never had more than
 //             SEASON_DIAMOND_MAX_CONCENTRATION of invested money in one
@@ -41,6 +41,7 @@ const {
   SEASON_DIAMOND_BEAT_SHARE,
   SEASON_DIAMOND_MAX_CONCENTRATION,
   SEASON_TITLED_TIERS,
+  SEASON_DIVISIONS,
   WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
 } = require('../constants');
@@ -53,6 +54,7 @@ const DEFAULT_SEASON_RULES = Object.freeze({
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
   titledTiers: SEASON_TITLED_TIERS,
+  divisions: SEASON_DIVISIONS,
 });
 
 const rulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season?.rules || {}) });
@@ -165,35 +167,61 @@ const topTierSlots = (n, rules = DEFAULT_SEASON_RULES) => (n > 0
   }
   : { platinum: 0, diamond: 0 });
 
+/** The size division a baseline value falls in. Below every minimum = the first. */
+const divisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
+  const divisions = rules.divisions || [];
+  const v = baselineValue || 0;
+  const hit = divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max));
+  return (hit || divisions[0])?.id || null;
+};
+
+/** Players and Platinum/Diamond places per division, for the board and admin. */
+const divisionSlots = (field, rules = DEFAULT_SEASON_RULES) => {
+  const players = Array.isArray(field) ? field.filter(Boolean) : [];
+  return (rules.divisions || []).map((d) => {
+    const n = players.filter((p) => (p.division || divisionFor(p.baselineValue, rules)) === d.id).length;
+    return { id: d.id, label: d.label, min: d.min, max: d.max ?? null, players: n, ...topTierSlots(n, rules) };
+  });
+};
+
 /**
- * Hand out Platinum and Diamond across the season board.
+ * Hand out Platinum and Diamond, ranked within each size division.
  *
  * `field` is every player on the board, each { uid, excess, activeWeeks,
- * beatShare, peakConcentration }. Places are shares of the whole board, but only
- * a player who beat the market and turned up for the Bronze minimum can take one.
- * Returns Map uid -> 'platinum' | 'diamond'.
+ * beatShare, peakConcentration, division }. Places are shares of the player's
+ * own division, but only a player who beat the market and turned up for the
+ * Bronze minimum can take one. Returns Map uid -> 'platinum' | 'diamond'.
  */
 const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
   const result = new Map();
   const players = Array.isArray(field) ? field.filter(Boolean) : [];
-  const slots = topTierSlots(players.length, rules);
+  const groups = new Map();
+  for (const p of players) {
+    const id = p.division || divisionFor(p.baselineValue, rules);
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(p);
+  }
 
-  const platinum = players
-    .filter((p) => p.excess > 0 && (p.activeWeeks || 0) >= rules.bronzeActiveWeeks)
-    // Ties broken by uid so the same board always hands out the same places.
-    .sort((a, b) => (b.excess - a.excess) || String(a.uid).localeCompare(String(b.uid)))
-    .slice(0, slots.platinum);
+  for (const group of groups.values()) {
+    const slots = topTierSlots(group.length, rules);
+    const platinum = group
+      .filter((p) => p.excess > 0 && (p.activeWeeks || 0) >= rules.bronzeActiveWeeks)
+      // Ties broken by uid so the same board always hands out the same places.
+      .sort((a, b) => (b.excess - a.excess) || String(a.uid).localeCompare(String(b.uid)))
+      .slice(0, slots.platinum);
 
-  // Diamond is the best of Platinum who also passed both extra tests, not the top
-  // of the board filtered down. Otherwise one-character sitters at the very top
-  // would leave Diamond empty instead of handing it to the best trader who wasn't.
-  const diamond = platinum
-    .filter((p) => p.beatShare >= rules.diamondBeatShare
-      && p.peakConcentration <= rules.diamondMaxConcentration)
-    .slice(0, slots.diamond);
+    // Diamond is the best of Platinum who also passed both extra tests, not the
+    // top of the division filtered down. Otherwise one-character sitters at the
+    // very top would leave Diamond empty instead of handing it to the best trader
+    // who wasn't.
+    const diamond = platinum
+      .filter((p) => p.beatShare >= rules.diamondBeatShare
+        && p.peakConcentration <= rules.diamondMaxConcentration)
+      .slice(0, slots.diamond);
 
-  for (const p of platinum) result.set(p.uid, 'platinum');
-  for (const p of diamond) result.set(p.uid, 'diamond');
+    for (const p of platinum) result.set(p.uid, 'platinum');
+    for (const p of diamond) result.set(p.uid, 'diamond');
+  }
   return result;
 };
 
@@ -243,6 +271,8 @@ module.exports = {
   checkpointTier,
   weeklyRecordSummary,
   topTierSlots,
+  divisionFor,
+  divisionSlots,
   rankTopTiers,
   seasonTitles,
   lastHaltStart,

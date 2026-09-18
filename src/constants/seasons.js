@@ -44,6 +44,16 @@ export const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
 // don't pay a title.
 export const SEASON_TITLED_TIERS = Object.freeze(['gold', 'platinum', 'diamond']);
 
+// Size divisions, by value when your season baseline was pinned. Platinum and
+// Diamond are ranked within a division so small accounts, which swing further,
+// don't take every top place. Mirror of SEASON_DIVISIONS in functions/constants.js.
+export const SEASON_DIVISIONS = Object.freeze([
+  Object.freeze({ id: 'rookie', label: 'Rookie', min: 0, max: 10000 }),
+  Object.freeze({ id: 'trader', label: 'Trader', min: 10000, max: 50000 }),
+  Object.freeze({ id: 'whale', label: 'Whale', min: 50000, max: 200000 }),
+  Object.freeze({ id: 'titan', label: 'Titan', min: 200000, max: null }),
+]);
+
 export const DEFAULT_SEASON_RULES = Object.freeze({
   bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
   platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
@@ -51,6 +61,7 @@ export const DEFAULT_SEASON_RULES = Object.freeze({
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
   titledTiers: SEASON_TITLED_TIERS,
+  divisions: SEASON_DIVISIONS,
 });
 
 /** The rules a season is scored by: whatever it was started with, over the defaults. */
@@ -63,9 +74,24 @@ export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
   silver: 'Be up on the season. Free stock and bonuses don\'t count.',
   gold: 'Beat the market.',
-  platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of the season board against the market.`,
-  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of the board, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
+  platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
+  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
 }[tierId] || '');
+
+/** The size division a baseline value falls in. Mirror of divisionFor in seasonTiers.js. */
+export const seasonDivisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
+  const divisions = rules.divisions || [];
+  const v = baselineValue || 0;
+  return divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max)) || divisions[0] || null;
+};
+
+/** "$10k to $50k", "$200k and up". */
+export const divisionRange = (d) => {
+  const k = (n) => `$${(n / 1000).toLocaleString()}k`;
+  if (!d) return '';
+  if (d.max === null || d.max === undefined) return `${k(d.min)} and up`;
+  return d.min > 0 ? `${k(d.min)} to ${k(d.max)}` : `under ${k(d.max)}`;
+};
 
 /** Whether finishing on `tierId` earns a title this season. */
 export const tierGivesTitle = (tierId, rules = DEFAULT_SEASON_RULES) => rules.titledTiers.includes(tierId);

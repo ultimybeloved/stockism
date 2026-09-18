@@ -23,129 +23,35 @@ const {
   tierRank,
   higherTier,
   buildSeasonBaseline,
-  baselineIndexFor,
   seasonScore,
   checkpointTier,
-  weeklyRecordSummary,
-  topTierSlots,
+  divisionSlots,
   rankTopTiers,
   seasonTitles,
   lastHaltStart,
 } = require('./seasonTiers');
 const {
-  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE,
+  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, SEASON_MIN_BASELINE,
 } = require('../constants');
 const {
-  writeNotification, recordHeartbeat, getLastActiveMs, exitEquityAt, readIndexNow, round2,
+  writeNotification, recordHeartbeat, exitEquityAt, readIndexNow, round2,
 } = require('../helpers');
+const {
+  buildWeekRecord, appendWeekRecord, latestWeekRecord, weeksElapsed, isSeasonParticipant, boardEntry,
+} = require('./seasonRecords');
 
 const seasonRef = () => db.collection('market').doc('season');
 const BATCH_LIMIT = 400;
-// A season's weekly record is capped. Far longer than any arc, and it stops one
-// very long season from growing the user doc without bound.
-const SEASON_WEEK_RECORD_CAP = 80;
-
 const round1 = (n) => Math.round(n * 10) / 10;
+// Rows kept per size division on the live board and in the filed results.
+const BOARD_PER_DIVISION = 100;
+const RESULTS_PER_DIVISION = 50;
 
-/**
- * One week's raw measurements for a player. Deliberately NOT a verdict.
- *
- * Storing "beat the index: true" would marry the season to whatever tier rule
- * shipped with it. Storing the underlying numbers means the rule can change at
- * any point, mid-season included, and every past week can be rescored from the
- * record.
- *
- *   v  net equity at checkpoint prices   g  granted value since the season baseline
- *   x  market index now                  c  value of the single largest holding
- *   h  total value of all holdings
- *
- * Cumulative return, weekly return, excess over the index and concentration are
- * all derivable from consecutive entries. None of them are stored.
- */
-const buildWeekRecord = ({ season, weeks, userData, prices, indexValue }) => {
-  const holdings = userData.holdings || {};
-  let largest = 0;
-  let total = 0;
-  for (const [ticker, shares] of Object.entries(holdings)) {
-    if (!(shares > 0)) continue;
-    const value = (prices[ticker] || 0) * shares;
-    total += value;
-    if (value > largest) largest = value;
-  }
-  const baselineGranted = userData.seasonBaseline?.granted || 0;
-  return {
-    s: season.id,
-    w: weeks,
-    t: Date.now(),
-    v: Math.round((userData.portfolioValue || 0) * 100) / 100,
-    g: Math.round(((userData.grantedValue || 0) - baselineGranted) * 100) / 100,
-    x: Math.round(indexValue * 100) / 100,
-    c: Math.round(largest * 100) / 100,
-    h: Math.round(total * 100) / 100,
-  };
+/** The first `n` of each division, keeping the input's (ranked) order. */
+const topPerDivision = (rows, n) => {
+  const seen = {};
+  return rows.filter((r) => (seen[r.division] = (seen[r.division] || 0) + 1) <= n);
 };
-
-/** Append this week's record, dropping any left over from an earlier season. */
-const appendWeekRecord = (existing, record) => {
-  const kept = (Array.isArray(existing) ? existing : [])
-    .filter((e) => e && e.s === record.s && e.w !== record.w);
-  return [...kept, record].slice(-SEASON_WEEK_RECORD_CAP);
-};
-
-const latestWeekRecord = (seasonWeeks, seasonId) => (Array.isArray(seasonWeeks) ? seasonWeeks : [])
-  .filter((r) => r && r.s === seasonId)
-  .reduce((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
-
-const weeksElapsed = (startedAt) =>
-  Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
-
-/**
- * Whether a player belongs on the season standings board.
- *
- * adminStartSeason pins a baseline for EVERY non-bot account, so without this
- * the board fills up with people who signed up once and never came back, sitting
- * at roughly 0%. Platinum and Diamond places are shares of this board, so padding
- * it would also hand out places that nobody on it earned.
- *
- * Two ways to qualify, and both are needed. Banked active weeks cover a player
- * who competed early and went quiet, and there are none of those before the
- * first checkpoint, so recent activity covers week one. Same lastActive
- * definition the rest of the app uses.
- */
-const isSeasonParticipant = (userData, season, now = Date.now()) => {
-  const activeWeeks = (userData?.seasonActiveWeeks?.seasonId === season?.id)
-    ? (userData.seasonActiveWeeks.weeks || 0) : 0;
-  if (activeWeeks > 0) return true;
-  return getLastActiveMs(userData) >= now - ACTIVE_USER_WINDOW_MS;
-};
-
-/**
- * One player scored for the board: where they stand, their banked tier, and the
- * two figures Diamond is judged on. Null if they can't be scored.
- */
-const boardEntry = (uid, u, season, { value, indexNow, granted }) => {
-  const score = seasonScore(u, season, { value, indexNow, granted });
-  if (!score) return null;
-  const summary = weeklyRecordSummary(u.seasonWeeks, {
-    seasonId: season.id,
-    baselineValue: u.seasonBaseline.value,
-    baselineIndex: baselineIndexFor(u.seasonBaseline, season),
-  }, (season.checkpointWeeks || []).length);
-  return {
-    uid,
-    ...score,
-    tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
-    activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
-    beatShare: summary.beatShare,
-    peakConcentration: summary.peakConcentration,
-  };
-};
-
-// Exported for tests. The serviceLoader copies only real Cloud Functions, so
-// these never reach index.js.
-exports.buildWeekRecord = buildWeekRecord;
-exports.isSeasonParticipant = isSeasonParticipant;
-exports.appendWeekRecord = appendWeekRecord;
 
 // ── Admin: start a season ────────────────────────────────────────────────────
 
@@ -460,6 +366,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
       displayName,
       returnPercent: round1(entry.returnPercent),
       excess: round1(entry.excess),
+      division: entry.division,
       tier,
     });
     if (!tier) continue;
@@ -482,14 +389,16 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   if (ops > 0) await batch.commit();
 
   standings.sort((a, b) => b.excess - a.excess);
+  const divisionLabel = Object.fromEntries((rules.divisions || []).map((d) => [d.id, d.label]));
 
   await db.collection('seasonResults').doc(season.id).set({
     ...season,
     status: 'ended',
     endedAt,
     weeks,
-    // Full standings would be unbounded; the top 100 is what anyone looks at.
-    standings: standings.slice(0, 100),
+    // Full standings would be unbounded; the top of each division is what anyone looks at.
+    standings: topPerDivision(standings, RESULTS_PER_DIVISION),
+    divisions: divisionSlots(field, rules),
     totalScored: standings.length,
     boardSize: field.length,
     tierCounts,
@@ -497,12 +406,14 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   });
   await seasonRef().update({ status: 'ended', endedAt, awarded, totalScored: standings.length });
 
-  // Tell the winners. Best-effort — the season is already filed.
-  for (const [i, row] of standings.slice(0, 3).entries()) {
+  // Tell the top 3 of each division. Best-effort — the season is already filed.
+  const place = {};
+  for (const row of topPerDivision(standings, 3)) {
+    place[row.division] = (place[row.division] || 0) + 1;
     try {
       await writeNotification(row.uid, {
         type: 'season_end',
-        message: `${season.name} is over. You finished #${i + 1}, ${Math.abs(row.excess)}% ${row.excess >= 0 ? 'ahead of' : 'behind'} the market.`,
+        message: `${season.name} is over. You finished #${place[row.division]} in the ${divisionLabel[row.division] || ''} division, ${Math.abs(row.excess)}% ${row.excess >= 0 ? 'ahead of' : 'behind'} the market.`,
       });
     } catch (err) { /* never block the close on a notification */ }
   }
@@ -572,6 +483,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
       // would have been worth if it counted.
       returnWithLadder: round1(e.returnWithLadder),
       excess: round1(e.excess),
+      division: e.division,
       tier: e.tier,
       projectedTier: projected.get(e.uid) || null,
       activeWeeks: e.activeWeeks,
@@ -589,8 +501,9 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     marketPercent: season.indexAtStart > 0
       ? round1(((indexValue - season.indexAtStart) / season.indexAtStart) * 100)
       : null,
-    slots: topTierSlots(field.length, rules),
-    entries: entries.slice(0, 100),
+    // Players and Platinum/Diamond places in each size division.
+    divisions: divisionSlots(field, rules),
+    entries: topPerDivision(entries, BOARD_PER_DIVISION),
     totalScored: entries.length,
     generatedAt: Date.now(),
   };

@@ -73,7 +73,8 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
           <p className={`text-xs ${mutedClass} mt-3`}>
             {report.weeks} scored {report.weeks === 1 ? 'week' : 'weeks'} from {report.from} to {report.to} ·{' '}
             {report.players} players · market {pct(report.marketPercent)} ·{' '}
-            {report.slots.platinum} Platinum and {report.slots.diamond} Diamond {report.slots.diamond === 1 ? 'place' : 'places'}
+            Platinum/Diamond places by division:{' '}
+            {(report.divisions || []).map((d) => `${d.label} ${d.players} players, ${d.platinum}/${d.diamond}`).join(' · ')}
             {report.belowFloor > 0 && ` · ${report.belowFloor} under the $1,000 floor`}
           </p>
 
@@ -90,6 +91,7 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
               <thead>
                 <tr className={mutedClass}>
                   <th className="px-2 py-1 text-left font-semibold">Player</th>
+                  <th className="px-2 py-1 text-left font-semibold">Division</th>
                   <th className="px-2 py-1 text-right font-semibold">Return</th>
                   <th className="px-2 py-1 text-right font-semibold">vs market</th>
                   <th className="px-2 py-1 text-right font-semibold">Weeks beaten</th>
@@ -101,6 +103,9 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
                 {report.scored.map((p) => (
                   <tr key={p.uid}>
                     <td className={`px-2 py-1 text-left ${textClass}`}>{p.name}</td>
+                    <td className={`px-2 py-1 text-left ${mutedClass}`}>
+                      {(report.divisions || []).find((d) => d.id === p.division)?.label || ''}
+                    </td>
                     <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>{pct(p.returnPercent)}</td>
                     <td className={`px-2 py-1 text-right tabular-nums ${p.excess >= 0 ? 'text-teal-400' : 'text-red-400'}`}>
                       {pct(p.excess)}

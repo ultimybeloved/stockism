@@ -9,18 +9,12 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { ADMIN_UID, THIRTY_DAYS_MS, ONE_WEEK_MS } = require('../constants');
+const { ADMIN_UID, THIRTY_DAYS_MS, ONE_WEEK_MS, SEASON_DIVISIONS } = require('../constants');
 const { grantedTotalAt, toMs } = require('../helpers');
 
-// Division boundaries by portfolio value at the START of the window. Assignment
-// uses the baseline, not the current value — a player's division must not shift
-// because they had a good month.
-const DIVISIONS = [
-  { id: 'rookie', label: 'Rookie', min: 0, max: 10000 },
-  { id: 'trader', label: 'Trader', min: 10000, max: 50000 },
-  { id: 'whale', label: 'Whale', min: 50000, max: 200000 },
-  { id: 'titan', label: 'Titan', min: 200000, max: Infinity },
-];
+// The season size divisions. Assignment uses the value at the START of the
+// window, so a player's division can't shift because they had a good month.
+const DIVISIONS = SEASON_DIVISIONS;
 
 // Accounts below this at the start of the window are dropped. A $40 account that
 // receives a $300 drop reads +650% and tells us nothing about trading skill;
@@ -150,7 +144,7 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
     const row = { ret, excess: ret - market };
 
     all.push(row);
-    const div = DIVISIONS.find(d => baseline >= d.min && baseline < d.max);
+    const div = DIVISIONS.find(d => baseline >= d.min && (d.max === null || baseline < d.max));
     if (div) byDivision[div.id].push(row);
   });
 
@@ -170,7 +164,7 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
       id: d.id,
       label: d.label,
       min: d.min,
-      max: d.max === Infinity ? null : d.max,
+      max: d.max,
       ...summariseGroup(byDivision[d.id]),
     })),
     grantCoverage: {
