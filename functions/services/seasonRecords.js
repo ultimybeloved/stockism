@@ -5,7 +5,7 @@
 //
 // INTERNAL MODULE — required by season.js, never listed in servicePaths.js.
 const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
-const { getLastActiveMs } = require('../helpers');
+const { getLastActiveMs, characterExposure } = require('../helpers');
 const {
   baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor, seasonAccountSize, marginDollarDays,
 } = require('./seasonTiers');
@@ -23,22 +23,14 @@ const SEASON_WEEK_RECORD_CAP = 80;
  * record.
  *
  *   v  net equity at checkpoint prices   g  granted value since the season baseline
- *   x  market index now                  c  value of the single largest holding
- *   h  total value of all holdings       d  dollar-days owed on margin since pinning
+ *   x  market index now                  c  most riding on one character
+ *   h  riding on all characters          d  dollar-days owed on margin since pinning
  *
  * Cumulative return, weekly return, excess over the index and concentration are
  * all derivable from consecutive entries. None of them are stored.
  */
 const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Date.now() }) => {
-  const holdings = userData.holdings || {};
-  let largest = 0;
-  let total = 0;
-  for (const [ticker, shares] of Object.entries(holdings)) {
-    if (!(shares > 0)) continue;
-    const value = (prices[ticker] || 0) * shares;
-    total += value;
-    if (value > largest) largest = value;
-  }
+  const { largest, total } = characterExposure(userData, prices);
   const baselineGranted = userData.seasonBaseline?.granted || 0;
   return {
     s: season.id,

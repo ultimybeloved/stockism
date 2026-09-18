@@ -855,6 +855,40 @@ const shortsEquity = (shorts, prices) =>
       : (pos.margin || 0) - price * pos.shares);
   }, 0);
 
+/**
+ * How much of an account rides on each character, for the season Diamond
+ * concentration cap. Returns the biggest single character and the total.
+ *
+ * A short is a bet on a character as much as a holding is, so both count at
+ * their market value. A crew ETF counts toward each member it tracks, split by
+ * its trailing weights, so a character can't be split between its own stock and
+ * its crew fund to slip under the cap.
+ * @param {Object} userData
+ * @param {Object} prices
+ * @returns {{largest: number, total: number}}
+ */
+const characterExposure = (userData, prices) => {
+  const byCharacter = {};
+  const add = (ticker, value) => { byCharacter[ticker] = (byCharacter[ticker] || 0) + value; };
+  const spread = (ticker, value) => {
+    const factors = CHARACTER_MAP[ticker]?.isETF ? (CHARACTER_MAP[ticker].trailingFactors || []) : [];
+    const weight = factors.reduce((s, f) => s + (f.coefficient || 0), 0);
+    if (!(weight > 0)) { add(ticker, value); return; }
+    for (const f of factors) add(f.ticker, value * (f.coefficient || 0) / weight);
+  };
+  for (const [ticker, shares] of Object.entries(userData?.holdings || {})) {
+    if (shares > 0) spread(ticker, (prices?.[ticker] || 0) * shares);
+  }
+  for (const [ticker, pos] of Object.entries(userData?.shorts || {})) {
+    if (pos?.shares > 0) spread(ticker, (prices?.[ticker] || 0) * pos.shares);
+  }
+  const values = Object.values(byCharacter);
+  return {
+    largest: values.length ? Math.max(...values) : 0,
+    total: values.reduce((s, v) => s + v, 0),
+  };
+};
+
 // Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
 // open short positions. Used to cap prediction bets and ladder-game deposits.
 const getTotalInvested = (userData) => {
@@ -1694,6 +1728,7 @@ module.exports = {
   shortsEquity,
   netEquityAt,
   exitEquityAt,
+  characterExposure,
   readIndexNow,
   toMs,
   getTotalInvested,

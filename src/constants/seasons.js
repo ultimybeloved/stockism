@@ -75,7 +75,7 @@ export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   silver: 'Finish the season up. Free stock and bonuses don\'t count.',
   gold: 'Finish the season ahead of the market.',
   platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
-  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money in one character.`,
+  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included).`,
 }[tierId] || '');
 
 /** The size division a baseline value falls in. Mirror of divisionFor in seasonTiers.js. */

@@ -129,11 +129,12 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
           finds more than the limit in one character. */}
       <p className={`text-xs ${mutedClass} mt-3`}>
         {overLimit
-          ? <>Your biggest holding reached {pct(summary.peakConcentration)} of your invested money at a checkpoint,
+          ? <>One character reached {pct(summary.peakConcentration)} of your invested money at a checkpoint,
             over the {pct(rules.diamondMaxConcentration)} Diamond limit. Diamond is out this season, but Platinum is
             still open.</>
-          : <>Your biggest holding has peaked at {pct(summary.peakConcentration)} of your invested money. Diamond
-            needs it at or under {pct(rules.diamondMaxConcentration)} at every Thursday checkpoint.</>}
+          : <>Your most on one character has peaked at {pct(summary.peakConcentration)} of your invested money.
+            Diamond needs it at or under {pct(rules.diamondMaxConcentration)} at every Thursday checkpoint. Shorts
+            count, and crew funds count toward their members.</>}
       </p>
     </div>
   );

@@ -75,6 +75,24 @@ describe('buildWeekRecord', () => {
     const r = buildWeekRecord({ season, weeks: 1, userData, prices, indexValue: 1000 });
     expect(r.c / r.h).toBe(1);
   });
+
+  it('counts a short as money riding on that character', () => {
+    // $1,000 long GAP and a $3,000 short on SHNG: 75% on SHNG.
+    const userData = { ...base, holdings: { GAP: 10 }, shorts: { SHNG: { shares: 60, costBasis: 50, margin: 3000 } } };
+    const r = buildWeekRecord({ season, weeks: 1, userData, prices: { GAP: 100, SHNG: 50 }, indexValue: 1000 });
+    expect(r.c).toBe(3000);
+    expect(r.h).toBe(4000);
+  });
+
+  it('counts a crew fund toward the members it tracks', () => {
+    // 55% in GOO and 45% in its crew fund SCRT, split five ways: 55% + 9% = 64% on GOO.
+    const { CHARACTER_MAP } = require('./characters');
+    const members = CHARACTER_MAP.SCRT.trailingFactors.map((f) => f.ticker);
+    const userData = { ...base, holdings: { [members[0]]: 55, SCRT: 45 } };
+    const r = buildWeekRecord({ season, weeks: 1, userData, prices: { [members[0]]: 100, SCRT: 100 }, indexValue: 1000 });
+    expect(r.h).toBeCloseTo(10000, 6);
+    expect(r.c / r.h).toBeCloseTo(0.55 + 0.45 / members.length, 6);
+  });
 });
 
 describe('appendWeekRecord', () => {

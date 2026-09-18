@@ -114,6 +114,10 @@ const run = async () => {
   check('ladder cash pinned beside the baseline', close(parker.value, 6000) && close(parker.ladder, 5000), parker);
   const tally = (await user('margin')).seasonMargin;
   check('margin tally opened at the start', tally?.seasonId === 'S1' && close(tally.amount, 5000) && tally.dd === 0, tally);
+  // Pinned 8 days ago, so the average owed isn't swamped by cent rounding on a
+  // tally that has only run for a fraction of a second.
+  const eightDaysAgo = Date.now() - 8 * DAY;
+  await db.collection('users').doc('margin').update({ 'seasonBaseline.pinnedAt': eightDaysAgo, 'seasonMargin.at': eightDaysAgo });
 
   // A player who signs up after the start with no baseline yet.
   await db.collection('users').doc('late').set({ displayName: 'late', cash: 3000, holdings: {}, portfolioValue: 3000, grantedValue: 0, lastActive: Date.now() });

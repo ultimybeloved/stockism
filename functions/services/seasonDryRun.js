@@ -15,7 +15,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../constants');
-const { netEquityAt, getLastActiveMs, readIndexNow, round2 } = require('../helpers');
+const { netEquityAt, getLastActiveMs, readIndexNow, round2, characterExposure } = require('../helpers');
 const {
   DEFAULT_SEASON_RULES, checkpointTier, finalTier, rankTopTiers, divisionFor, divisionSlots,
 } = require('./seasonTiers');
@@ -34,14 +34,7 @@ const MAX_WEEKS_READ = 30;
  *   v net equity   g the granted-value counter   c largest holding   h all holdings
  */
 const buildRow = (uid, u, prices) => {
-  let largest = 0;
-  let total = 0;
-  for (const [ticker, shares] of Object.entries(u.holdings || {})) {
-    if (!(shares > 0)) continue;
-    const value = (prices[ticker] || 0) * shares;
-    total += value;
-    if (value > largest) largest = value;
-  }
+  const { largest, total } = characterExposure(u, prices);
   return {
     uid,
     n: u.displayName || 'Anonymous',
