@@ -12,7 +12,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
 const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate, readIndexNow } = require('../helpers');
+const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate, readIndexNow, networkKey } = require('../helpers');
 const { buildSeasonBaseline } = require('./seasonTiers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
@@ -174,7 +174,14 @@ exports.createUser = cf().https.onCall(async (data, context) => {
 
   if (signupIp !== 'unknown') {
     try {
-      const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedSignupIp).get();
+      // The exact address, then its whole connection. A phone's IPv6 address
+      // changes through the day but its /64 prefix doesn't, so a watched network
+      // is stored under networkKey and an exact-only lookup would miss it.
+      let watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedSignupIp).get();
+      const signupNetwork = networkKey(signupIp);
+      if (!watchedIpDoc.exists && signupNetwork && signupNetwork !== signupIp) {
+        watchedIpDoc = await db.collection('watchedIPs').doc(signupNetwork.replace(/[.:/]/g, '_')).get();
+      }
       if (watchedIpDoc.exists) {
         const watchedIpData = watchedIpDoc.data();
         const watchedUserDoc = await db.collection('watchedUsers').doc(watchedIpData.watchedUserId).get();

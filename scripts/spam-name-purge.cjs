@@ -4,6 +4,12 @@
 //
 //   node scripts/spam-name-purge.cjs            (dry run)
 //   node scripts/spam-name-purge.cjs --confirm  (applies)
+//   node scripts/spam-name-purge.cjs --targets=scripts/alt-ring-kizaru-targets.cjs [--confirm]
+//
+// A targets file exports either a plain array (the 2026-08-21 harassment list)
+// or { reason, usernameReason, permanentDiscord, targets }. permanentDiscord
+// makes the Discord tombstone never expire (isDiscordRelinkBlocked), for
+// removals like an alt ring where the person must not come back on it.
 //
 // Same teardown the player-facing deleteAccount does, in the same order, so a
 // purged account leaves the database in the identical state to a self-delete:
@@ -38,10 +44,17 @@ if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in th
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const TARGETS = require('./spam-name-targets.cjs');
+const targetsArg = process.argv.find((a) => a.startsWith('--targets='));
+const TARGETS_FILE = targetsArg ? path.resolve(targetsArg.slice('--targets='.length)) : './spam-name-targets.cjs';
+const loaded = require(TARGETS_FILE);
+const TARGETS = Array.isArray(loaded) ? loaded : loaded.targets;
 
-const REASON = 'Harassment username targeting another player. Account abandoned: '
-  + 'no human activity, only scheduled dividend payouts.';
+const REASON = (!Array.isArray(loaded) && loaded.reason)
+  || ('Harassment username targeting another player. Account abandoned: '
+    + 'no human activity, only scheduled dividend payouts.');
+const USERNAME_REASON = (!Array.isArray(loaded) && loaded.usernameReason)
+  || 'harassment username, removed by moderation';
+const PERMANENT_DISCORD = !Array.isArray(loaded) && loaded.permanentDiscord === true;
 
 const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const norm = (s) => String(s || '').trim().toLowerCase();
@@ -141,7 +154,7 @@ async function main() {
     if (u.displayNameLower || u.displayName) {
       await db.collection('usernames').doc(u.displayNameLower || norm(u.displayName)).set({
         deleted: true, deletedAt: stamp, deletedUid: p.uid,
-        blockedReason: 'harassment username, removed by moderation',
+        blockedReason: USERNAME_REASON,
       }, { merge: true });
     }
 
@@ -170,7 +183,7 @@ async function main() {
     if (u.discordId) {
       try {
         await db.collection('discordTombstones').doc(String(u.discordId))
-          .set({ deletedAt: Date.now(), lastUid: p.uid }, { merge: true });
+          .set({ deletedAt: Date.now(), lastUid: p.uid, ...(PERMANENT_DISCORD ? { permanent: true, reason: REASON } : {}) }, { merge: true });
       } catch (e) { /* best effort */ }
     }
 

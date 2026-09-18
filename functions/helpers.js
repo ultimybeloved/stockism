@@ -111,6 +111,7 @@ const {
   LADDER_RAMP_MIN_FACTOR,
   IPO_PRICE_JUMP,
   DISCORD_RELINK_COOLDOWN_MS,
+  ALT_IPV6_PREFIX_GROUPS,
   DISCORD_BINDING_TTL_MS,
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
@@ -1201,11 +1202,30 @@ function checkDiscordWall(userData) {
 }
 
 /**
+ * Collapse an address to the thing that identifies a connection rather than a
+ * session. IPv4 is used whole. IPv6 keeps only the routing prefix, because the
+ * interface half of the address changes on its own throughout the day.
+ * Shared by the alt detector and the watched-network signup block.
+ * @param {string} ip
+ * @returns {string|null}
+ */
+function networkKey(ip) {
+  if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
+  const addr = ip.trim().toLowerCase();
+  if (!addr.includes(':')) return addr; // IPv4
+  const groups = addr.split(':');
+  if (groups.length < ALT_IPV6_PREFIX_GROUPS) return addr;
+  return groups.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
+}
+
+/**
  * True if this Discord ID was linked to a Stockism account that was deleted
  * within the relink cooldown. Shared by discordAuth and discordLink so the two
  * can't drift. Blocks the create → grab the verified $3k → gamble → delete →
  * remake loop: deleteAccount tombstones the Discord ID, and this keeps it locked
  * for DISCORD_RELINK_COOLDOWN_MS before it can verify a fresh account again.
+ * A tombstone marked `permanent` (a moderation removal, e.g. an alt ring) never
+ * expires.
  * @param {string} discordId
  * @returns {Promise<boolean>}
  */
@@ -1213,6 +1233,7 @@ async function isDiscordRelinkBlocked(discordId) {
   if (!discordId) return false;
   const snap = await db.collection('discordTombstones').doc(String(discordId)).get();
   if (!snap.exists) return false;
+  if (snap.data().permanent === true) return true;
   const deletedAt = snap.data().deletedAt || 0;
   return Date.now() - deletedAt < DISCORD_RELINK_COOLDOWN_MS;
 }
@@ -1694,6 +1715,7 @@ module.exports = {
   checkBanned,
   checkDiscordWall,
   isDiscordRelinkBlocked,
+  networkKey,
   getDiscordBinding,
   isDiscordBindingLocked,
   bindDiscordToUid,

@@ -27,28 +27,15 @@ const {
   ADMIN_UID,
   ALT_SCAN_WINDOW_DAYS,
   ALT_SCAN_MAX_TRADES,
-  ALT_IPV6_PREFIX_GROUPS,
   ALT_CROWDED_NETWORK_LIMIT,
   ALT_SHARED_NETWORKS_HIGH,
   ALT_REALERT_MS,
   ALT_STATE_TTL_MS,
   ADMIN_DISCORD_USER_ID,
 } = require('../constants');
-const { sendDiscordDM, reportError } = require('../helpers');
+const { sendDiscordDM, reportError, networkKey } = require('../helpers');
 
 const STATE_REF = () => db.collection('altDetection').doc('state');
-
-// Collapse an address to the thing that identifies a connection rather than a
-// session. IPv4 is used whole. IPv6 keeps only the routing prefix, because the
-// interface half of the address changes on its own throughout the day.
-function networkKey(ip) {
-  if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
-  const addr = ip.trim().toLowerCase();
-  if (!addr.includes(':')) return addr; // IPv4
-  const groups = addr.split(':');
-  if (groups.length < ALT_IPV6_PREFIX_GROUPS) return addr;
-  return groups.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
-}
 
 const pairKey = (a, b) => [a, b].sort().join('|');
 // Firestore map keys can't contain '/', and a uid pair joined by '|' is safe
