@@ -22,6 +22,7 @@
 //   L. Bailout wipe (share locks must not outlive the shares they locked)
 //   M. Exit loyalty discount
 //   N. Directional daily impact allowance (down and up pools are separate)
+//   O. Circuit breaker (the only cap that looks at the stock, not the trader)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -40,6 +41,7 @@ const {
   MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
@@ -1202,6 +1204,94 @@ async function testDirectionalImpact() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// O. CIRCUIT BREAKER
+// ════════════════════════════════════════════════════════════════════════════
+// The per-user allowance caps one trader. Nothing capped the STOCK, so a group
+// taking turns could walk it as far as they liked — six accounts took $SHNG
+// down 23% in 21 minutes on 2026-09-17, every one of them inside every limit.
+// The breaker is the only rule that looks at the stock instead of the trader.
+//
+// seedMarket wipes the price-history doc, so these seed it afterwards. The
+// reference price is deliberately placed BEFORE the window opens: that is what
+// the breaker measures against, and it is what makes "10% in 5 minutes"
+// different from "10% whenever".
+async function testCircuitBreaker() {
+  console.log('\nO. Circuit breaker');
+  const BEFORE = Date.now() - CIRCUIT_BREAKER_WINDOW_MS - 60000;
+  const seedHistory = async (points) =>
+    db.collection('market').doc('priceHistory').set({ [T]: points });
+
+  // ── Reference 111 -> a sell taking it below ~100 crosses -10% ─────────────
+  await seedMarket({ [T]: 100 });
+  await seedHistory([{ timestamp: BEFORE, price: 111 }]);
+  await setUser('cb_trip', { cash: 0, holdings: { [T]: 5000 } });
+  const rTrip = await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_trip');
+  const haltTrip = ((await getMarket()).haltedTickers || {})[T];
+  check('breaker: a fast enough drop pauses the ticker',
+    rTrip.success && !!haltTrip && haltTrip.resumeAt > Date.now(), JSON.stringify(haltTrip || null));
+  check('breaker: the breaching trade itself still executes',
+    rTrip.success && rTrip.priceImpact > 0, JSON.stringify(rTrip.success));
+  check('breaker: the halt records which way and how far',
+    !!haltTrip && haltTrip.movePercent <= -10, String(haltTrip && haltTrip.movePercent));
+  check('breaker: the daily count was bumped with it',
+    (((await getMarket()).breakerCounts || {})[T] || {}).n === 1,
+    JSON.stringify(((await getMarket()).breakerCounts || {})[T] || null));
+
+  // ── ...and the next trade on it is refused ────────────────────────────────
+  await setUser('cb_next', { cash: 500000, holdings: {} });
+  const ePaused = await err({ ticker: T, action: 'buy', amount: 1 }, 'cb_next');
+  check('breaker: a paused ticker refuses further trades',
+    !!ePaused && /halted|circuit breaker/i.test(ePaused), ePaused || 'no error');
+
+  // ── A move under the threshold does not pause ─────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await seedHistory([{ timestamp: BEFORE, price: 100 }]);
+  await setUser('cb_small', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 5 }, 'cb_small');
+  check('breaker: a small move does not pause',
+    !((await getMarket()).haltedTickers || {})[T]);
+
+  // ── An admin adjustment inside the window is never a cascade ──────────────
+  await seedMarket({ [T]: 100 });
+  await seedHistory([
+    { timestamp: BEFORE, price: 111 },
+    { timestamp: Date.now() - 30000, price: 100, source: 'admin_adjust' },
+  ]);
+  await setUser('cb_admin', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_admin');
+  check('breaker: an admin price set in the window is never a cascade',
+    !((await getMarket()).haltedTickers || {})[T],
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+
+  // ── The daily cap stops the pause being a repeatable weapon ───────────────
+  const today = new Date().toISOString().slice(0, 10);
+  await seedMarket({ [T]: 100 }, { breakerCounts: { [T]: { day: today, n: CIRCUIT_BREAKER_MAX_PER_DAY } } });
+  await seedHistory([{ timestamp: BEFORE, price: 111 }]);
+  await setUser('cb_capped', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_capped');
+  check('breaker: refuses to fire past the daily cap',
+    !((await getMarket()).haltedTickers || {})[T],
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+
+  // ── Yesterday's count must not carry into today ───────────────────────────
+  await seedMarket({ [T]: 100 }, { breakerCounts: { [T]: { day: '2020-01-01', n: 99 } } });
+  await seedHistory([{ timestamp: BEFORE, price: 111 }]);
+  await setUser('cb_stale', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_stale');
+  check('breaker: a stale day count does not block today',
+    !!((await getMarket()).haltedTickers || {})[T]);
+
+  // ── A brand-new ticker has nothing to measure against ─────────────────────
+  await seedMarket({ [T]: 100 });
+  await seedHistory([{ timestamp: Date.now() - 1000, price: 111 }]);
+  await setUser('cb_new', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_new');
+  check('breaker: no history older than the window means no pause',
+    !((await getMarket()).haltedTickers || {})[T],
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -1223,6 +1313,7 @@ async function main() {
   await testBailoutWipe();
   await testExitLoyalty();
   await testDirectionalImpact();
+  await testCircuitBreaker();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

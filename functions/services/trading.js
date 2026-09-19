@@ -22,7 +22,7 @@ const { CHARACTERS } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
-  TRADE_TXN_MAX_ATTEMPTS,
+  TRADE_TXN_MAX_ATTEMPTS, CIRCUIT_BREAKER_PAUSE_MS,
 } = require('../constants');
 const {
   checkBanned,
@@ -32,10 +32,13 @@ const {
   pruneAndSumTradeHistory,
   sumDirectionalImpact,
   impactDirectionOf,
+  evaluateCircuitBreaker,
+  breakerCountUpdate,
   priceHistoryRef,
   appendPriceHistory,
   recordTrade,
   reportError,
+  writeFeedEntry,
 } = require('../helpers');
 const {
   validateTradeInput, assertNoLiveSellOrders, assertMarketTradable,
@@ -208,6 +211,24 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         historyPoints[updatedTicker] = { timestamp, price: updatedPrice };
       });
 
+      // Circuit breaker. Every ticker this trade moved is checked, not just the
+      // one that was traded: a trailing move can carry a linked character just
+      // as far, and a cascade that only paused its origin would simply continue
+      // on the stock next to it. Uses the priceHistory already read above, so it
+      // costs no extra read. The trade itself still completes — see
+      // evaluateCircuitBreaker.
+      const breakerCounts = marketData.breakerCounts || {};
+      const tripped = [];
+      for (const [movedTicker, movedPrice] of Object.entries(priceUpdates)) {
+        const halt = evaluateCircuitBreaker({
+          priceHistory, ticker: movedTicker, newPrice: movedPrice, breakerCounts, now,
+        });
+        if (!halt) continue;
+        marketUpdates[`haltedTickers.${movedTicker}`] = halt;
+        marketUpdates[`breakerCounts.${movedTicker}`] = breakerCountUpdate(breakerCounts, movedTicker, now);
+        tripped.push({ ticker: movedTicker, ...halt });
+      }
+
       transaction.update(marketRef, marketUpdates);
       appendPriceHistory(transaction, historyPoints);
 
@@ -291,9 +312,23 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         isLastTrade: finalTradeCount >= MAX_TRADES_PER_TICKER_24H,
         dailyImpactPercent: cumulativeDailyImpact + impactPercent,
         shortWarning,
-        achievementCtx
+        achievementCtx,
+        circuitBreakers: tripped,
       };
     }, { maxAttempts: TRADE_TXN_MAX_ATTEMPTS });
+
+    // A pause is only worth having if people can see it happen. The halt record
+    // itself already reaches every client through market/current, but the feed
+    // is what someone watching a stock fall is actually looking at, and telling
+    // them "this is a cascade, it is paused" is the whole point of the pause.
+    for (const halt of result.circuitBreakers || []) {
+      await writeFeedEntry({
+        type: 'circuit_breaker',
+        ticker: halt.ticker,
+        message: `Trading paused on $${halt.ticker}. ${halt.reason} Resumes in ${Math.round(CIRCUIT_BREAKER_PAUSE_MS / 60000)} minutes.`,
+      }).catch(() => {});
+    }
+    delete result.circuitBreakers;
 
     // Trade limit notifications (fire-and-forget, after transaction)
     await sendTradeLimitNotifications(uid, action, ticker, result.remainingTrades);

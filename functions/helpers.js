@@ -127,6 +127,10 @@ const {
   NEGLECT_FLOOR_MIN,
   NEGLECT_FLOOR_MAX,
   MIN_PRICE,
+  CIRCUIT_BREAKER_MOVE,
+  CIRCUIT_BREAKER_WINDOW_MS,
+  CIRCUIT_BREAKER_PAUSE_MS,
+  CIRCUIT_BREAKER_MAX_PER_DAY,
 } = require('./constants');
 
 // ── Exit share sizes ─────────────────────────────────────────────────────────
@@ -971,6 +975,78 @@ const pruneAndSumTradeHistory = (entries, now) => {
   return { recent, totalShares, totalImpact, count: realCount };
 };
 
+/**
+ * Should this price move pause the ticker?
+ *
+ * The per-user daily allowance caps how far ONE trader can push a stock. It
+ * says nothing about how far a stock can travel when several traders push it in
+ * turn, which is what happened to $SHNG on 2026-09-17: six accounts, each
+ * inside every limit, took it down 23% in 21 minutes. This is the one rule that
+ * looks at the stock instead of the trader.
+ *
+ * Measured against the last price BEFORE the window opened, so everything that
+ * happened inside the window counts, including trailing moves from other
+ * tickers. A stock with no history older than the window is too new to judge.
+ *
+ * Returns a halt record for `haltedTickers[ticker]`, or null. The breaching
+ * trade itself is NOT blocked — it has already been priced by the time this
+ * runs, and stopping it mid-transaction would leave the price where the cascade
+ * put it with no record of why. Real venues let the breaching print stand and
+ * pause what comes after; so does this.
+ *
+ * @returns {{haltedAt:number,resumeAt:number,reason:string,movePercent:number}|null}
+ */
+const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts, now = Date.now() }) => {
+  if (!(newPrice > 0)) return null;
+
+  const history = (priceHistory && priceHistory[ticker]) || [];
+  if (!history.length) return null;
+
+  const windowStart = now - CIRCUIT_BREAKER_WINDOW_MS;
+
+  // An admin adjustment (or the chapter review's knock-on moves) inside the
+  // window is not a cascade, and halting on one would be automation overriding
+  // a deliberate decision. Leave those alone entirely.
+  for (const point of history) {
+    if (point.timestamp >= windowStart && (point.source === 'admin_adjust' || point.source === 'review')) return null;
+  }
+
+  // Last price before the window opened. Scanning backwards because history is
+  // appended in order and the recent end is the short end.
+  let reference = null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].timestamp < windowStart) { reference = history[i].price; break; }
+  }
+  if (!(reference > 0)) return null; // nothing older than the window yet
+
+  const move = (newPrice - reference) / reference;
+  if (Math.abs(move) < CIRCUIT_BREAKER_MOVE) return null;
+
+  // Daily cap, so a pause can't be used as a repeatable weapon.
+  const today = dayIdOf(now);
+  const count = breakerCounts && breakerCounts[ticker];
+  if (count && count.day === today && (count.n || 0) >= CIRCUIT_BREAKER_MAX_PER_DAY) return null;
+
+  const pct = Math.abs(move) * 100;
+  return {
+    haltedAt: now,
+    resumeAt: now + CIRCUIT_BREAKER_PAUSE_MS,
+    movePercent: Math.round(move * 10000) / 100,
+    reason: move < 0
+      ? `Price fell ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`
+      : `Price rose ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`,
+  };
+};
+
+// The bump to `breakerCounts[ticker]` that goes with a fired breaker. Kept
+// beside it so the counter can never drift from the halt it is counting.
+const breakerCountUpdate = (breakerCounts, ticker, now = Date.now()) => {
+  const today = dayIdOf(now);
+  const prev = breakerCounts && breakerCounts[ticker];
+  const n = prev && prev.day === today ? (prev.n || 0) + 1 : 1;
+  return { day: today, n };
+};
+
 // Which way an action pushes the price. Sells and shorts push down, buys and
 // covers push up. Matches the trailing-entry mapping in tradePricing.js.
 const IMPACT_DIRECTIONS = { sell: 'down', short: 'down', buy: 'up', cover: 'up' };
@@ -1802,6 +1878,8 @@ module.exports = {
   lmsrBuyCost,
   lmsrSellRefund,
   pruneAndSumTradeHistory,
+  evaluateCircuitBreaker,
+  breakerCountUpdate,
   sumDirectionalImpact,
   impactDirectionOf,
   remainingImpactFor,

@@ -38,6 +38,27 @@ const MAX_TRADE_SHARES = 10000;     // max size, any action
 const TRADE_SHARE_DECIMALS = 2;     // decimal places allowed on entries
 const EXIT_SHARE_DECIMALS = 6;      // decimal places exits are held to (matches MIN_EXIT_SHARES)
 
+// ── Circuit breaker ──────────────────────────────────────────────────────────
+// A stock that moves this far this fast pauses for a few minutes. The caps are
+// per USER, so a group can stack their allowances and walk a stock down far
+// faster than any one of them could: on 2026-09-17 six accounts took $SHNG down
+// 23% in 21 minutes, each one individually inside every limit. This is the only
+// rule that looks at the stock rather than the trader.
+//
+// An earlier version of this was removed on 2026-04-30 for being unbearable:
+// it measured over an HOUR, halted for THIRTY minutes, and ran on a 5-minute
+// scheduler so it fired long after the move was over. The numbers below are
+// deliberately the opposite — a short window, a short pause, and evaluated
+// inline on the trade that breaches it, so it lands while the cascade is
+// happening instead of afterwards.
+const CIRCUIT_BREAKER_MOVE = 0.10;                   // 10% move...
+const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000;     // ...within 5 minutes...
+const CIRCUIT_BREAKER_PAUSE_MS = 3 * 60 * 1000;      // ...pauses the ticker 3 min
+// A pause is itself a tool: trigger one deliberately and you freeze a stock
+// while you act elsewhere. Three minutes makes that nearly worthless and this
+// cap stops it being repeatable.
+const CIRCUIT_BREAKER_MAX_PER_DAY = 2;
+
 // Anti-manipulation: per-user, per-ticker, per-day limits
 // Max cumulative price move one user (or one IP) can cause on one ticker per
 // rolling 24h, PER DIRECTION: sells+shorts spend the down allowance, buys+
@@ -769,6 +790,10 @@ module.exports = {
   TRADE_SHARE_DECIMALS,
   EXIT_SHARE_DECIMALS,
   MAX_DAILY_IMPACT,
+  CIRCUIT_BREAKER_MOVE,
+  CIRCUIT_BREAKER_WINDOW_MS,
+  CIRCUIT_BREAKER_PAUSE_MS,
+  CIRCUIT_BREAKER_MAX_PER_DAY,
   MAX_TRADES_PER_TICKER_24H,
   ORDERS_PER_TICKER_PER_CYCLE,
   DIVIDEND_DEMON_HOLD_MS,
