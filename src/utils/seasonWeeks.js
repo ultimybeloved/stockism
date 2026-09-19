@@ -10,6 +10,8 @@
 //   g granted since the season baseline  x index value
 //   c largest single holding's value     h total value of all holdings
 //   d dollar-days owed on margin since the baseline was pinned
+//   a grantedDays counter since the baseline (when money in arrived; absent on
+//     records from before the counter existed)
 
 /** Account size at pinning: value plus ladder cash. Mirror of seasonAccountSize in seasonTiers.js. */
 export const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladder || 0);
@@ -50,9 +52,36 @@ export const weekMargin = (r, prev) => (r.d === undefined || !(prev?.t > 0)
   ? 0
   : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t));
 
+/** Amount x day it landed: what the server adds to grantedDays for a booking. */
+export const grantedDaysFor = (amount, now = Date.now()) => amount * (now / DAY_MS);
+
+/**
+ * Money in since pinning, averaged over the time held. Undefined grantedDays
+ * (an old baseline or record) counts it in full. Mirror of averageGranted in
+ * seasonTiers.js.
+ */
+export const averageGranted = (granted, grantedDays, fromMs, toMs) => {
+  if (grantedDays === undefined || grantedDays === null) return granted || 0;
+  const days = (toMs - fromMs) / DAY_MS;
+  if (!(days > 0)) return 0;
+  const g = granted || 0;
+  const avg = (g * (toMs / DAY_MS) - grantedDays) / days;
+  // Never more than counting it all in full, never past zero. A booking that
+  // missed the time counter would otherwise read as held since 1970.
+  return Math.min(Math.max(avg, Math.min(0, g)), Math.max(0, g));
+};
+
+/** Money in between two week records, averaged over the week. Mirror of weekGranted. */
+export const weekGranted = (r, prev) => {
+  const g = (r.g || 0) - (prev.g || 0);
+  if (r.a === undefined || prev.a === undefined || !(prev.t > 0)) return g;
+  return averageGranted(g, r.a - prev.a, prev.t, r.t);
+};
+
 /**
  * The money a player traded with this season: starting value, ladder cash at the
- * start, the most they borrowed, and money in since. The base of every season
+ * start, what they owed on margin on average, and money in since (averaged over
+ * the time held). The base of every season
  * percentage, so borrowing can't make a return look bigger. Mirror of
  * seasonCapital in seasonTiers.js.
  */
@@ -77,7 +106,7 @@ export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baseli
   if (!rows.length) return [];
 
   const derived = [];
-  let prev = { v: baselineValue, g: 0, x: indexAtStart, t: pinnedAt, d: 0 };
+  let prev = { v: baselineValue, g: 0, a: 0, x: indexAtStart, t: pinnedAt, d: 0 };
 
   const baseline = { value: baselineValue, ladder: baselineLadder };
 
@@ -87,13 +116,16 @@ export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baseli
     // against what was traded with, borrowing included. Mirror of
     // weeklyRecordSummary in seasonTiers.js.
     const grantsThisWeek = (r.g || 0) - (prev.g || 0);
-    const weekCapital = prev.v + Math.max(0, grantsThisWeek) + weekMargin(r, prev);
+    const weekCapital = prev.v + Math.max(0, weekGranted(r, prev)) + weekMargin(r, prev);
     const weekReturn = weekCapital > 0
       ? (((r.v - grantsThisWeek) - prev.v) / weekCapital) * 100
       : 0;
     const weekIndex = prev.x > 0 ? ((r.x - prev.x) / prev.x) * 100 : 0;
     const sinceStart = r.d === undefined ? 0 : averageOwed(r.d, pinnedAt, r.t);
-    const capital = seasonCapital(baseline, { granted: r.g, margin: sinceStart });
+    const capital = seasonCapital(baseline, {
+      granted: averageGranted(r.g, r.a, pinnedAt, r.t),
+      margin: sinceStart,
+    });
 
     derived.push({
       week: r.w,

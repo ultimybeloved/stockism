@@ -672,11 +672,24 @@ const getLadderRampEndDate = (userData) => {
  * @param {number} amount - dollar value granted (share grants pass shares * price)
  * @returns {Object} partial update, or {} when there is nothing to book
  */
-const grantedValueUpdate = (amount) => {
+const grantedValueUpdate = (amount, now = Date.now()) => {
   const value = Number(amount);
   if (!value || !isFinite(value) || value <= 0) return {};
-  return { grantedValue: FieldValue.increment(Math.round(value * 100) / 100) };
+  const rounded = Math.round(value * 100) / 100;
+  return { grantedValue: FieldValue.increment(rounded), ...grantedDaysUpdate(rounded, now) };
 };
+
+/**
+ * When the money arrived, as a running sum of amount x day it landed. Seasons
+ * use it to count money that came in mid-season toward a player's capital only
+ * for the time they have had it, the same way margin is averaged. Counting it
+ * in full on arrival made collecting a mission LOWER a positive season return.
+ *
+ * Days, not ms: amount x ms passes 2^53 after a few thousand dollars and loses
+ * cents. Average held since pinning = (granted x nowDays - sum) / days elapsed.
+ */
+const grantedDaysUpdate = (signedAmount, now = Date.now()) =>
+  ({ grantedDays: FieldValue.increment(signedAmount * (now / TWENTY_FOUR_HOURS_MS)) });
 
 /**
  * Same counter, but SIGNED — for money crossing the portfolio boundary into or
@@ -693,18 +706,29 @@ const grantedValueUpdate = (amount) => {
  * ladder is legitimately "owed" that back in the return calculation.
  * @param {number} signedAmount - positive on the way in, negative on the way out
  */
-const grantedFlowUpdate = (signedAmount) => {
+const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue', now = Date.now()) => {
   const value = Number(signedAmount);
   if (!value || !isFinite(value)) return {};
   const rounded = Math.round(value * 100) / 100;
   return {
     grantedValue: FieldValue.increment(rounded),
+    ...grantedDaysUpdate(rounded, now),
     // Same number kept separately so the ladder's contribution can be added back
     // for the "what it would have been" stat. Without a second counter it is
     // impossible to tell ladder flows apart from genuine grants after the fact.
-    ladderFlowValue: FieldValue.increment(rounded),
+    [counter]: FieldValue.increment(rounded),
   };
 };
+
+/**
+ * Prediction bets and payouts, both lanes (pool bets and long-term markets).
+ * Booked like the ladder so a bet is neither a loss nor a payout a gain on any
+ * percent board. They used to land as plain cash, so one all-in bet at long
+ * odds read as a +1000% season. Own counter, so the ladder shadow stat stays
+ * ladder-only.
+ */
+const predictionFlowUpdate = (signedAmount, now = Date.now()) =>
+  grantedFlowUpdate(signedAmount, 'predictionFlowValue', now);
 
 /**
  * Cumulative granted value as it stood at `ts`, from the daily samples
@@ -1722,6 +1746,7 @@ module.exports = {
   getLadderWithdrawable,
   grantedValueUpdate,
   grantedFlowUpdate,
+  predictionFlowUpdate,
   grantedTotalAt,
   grantedSince,
   netReturnPercent,

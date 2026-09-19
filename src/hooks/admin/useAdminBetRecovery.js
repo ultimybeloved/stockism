@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion, increment } from 'firebase/firestore';
+import { grantedDaysFor } from '../../utils/seasonWeeks';
 import { db } from '../../firebase';
 
 // The stuck-payout recovery tool: scan every user for bets on one prediction,
@@ -107,7 +108,12 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
           cash: bet.cash + payout,
           [`bets.${predId}.paid`]: true,
           [`bets.${predId}.payout`]: payout,
-          predictionWins: newPredictionWins
+          predictionWins: newPredictionWins,
+          // Booked like the server's predictionFlowUpdate, so a recovery payout
+          // never counts as a trading gain on season or percent boards.
+          grantedValue: increment(payout),
+          predictionFlowValue: increment(payout),
+          grantedDays: increment(grantedDaysFor(payout)),
         };
         if (newAchievements.length > 0) updateData.achievements = arrayUnion(...newAchievements);
 

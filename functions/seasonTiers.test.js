@@ -33,8 +33,11 @@ const {
   seasonTitles,
   lastHaltStart,
   rankTopTiers,
+  averageGranted,
 } = require('./services/seasonTiers');
-const { grantedTotalAt, grantedSince, netEquityAt, exitEquityAt } = require('./helpers');
+const {
+  grantedTotalAt, grantedSince, netEquityAt, exitEquityAt, predictionFlowUpdate, grantedFlowUpdate, grantedValueUpdate,
+} = require('./helpers');
 
 const season = { id: 'S1', indexAtStart: 1000 };
 const DAY = 24 * 60 * 60 * 1000;
@@ -150,6 +153,95 @@ describe('seasonScore', () => {
     expect(seasonScore({ seasonBaseline: { ...baseline, value: 999 } }, season, { value: 1 })).toBeNull();
     // Ladder cash counts toward the floor.
     expect(seasonScore({ seasonBaseline: { ...baseline, value: 600, ladder: 400 } }, season, { value: 1 })).not.toBeNull();
+  });
+});
+
+describe('money in mid-season', () => {
+  const T0 = Date.UTC(2026, 8, 18);
+  const pinned = buildSeasonBaseline({ seasonId: 'S1', value: 10000, granted: 0, grantedDays: 0, index: 1000, pinnedAt: T0 });
+  // What the server's grantedValueUpdate / grantedFlowUpdate add to the counters.
+  const book = (u, amount, t) => ({
+    ...u,
+    grantedValue: (u.grantedValue || 0) + amount,
+    grantedDays: (u.grantedDays || 0) + frontendSeasonWeeks.grantedDaysFor(amount, t),
+  });
+  const at = (u, value, t) => seasonScore(u, season, { value, indexNow: 1000, granted: undefined, at: t });
+
+  it('collecting a mission never lowers the return', () => {
+    // Reported bug: +$1k trading was 10%, a $500 mission dropped it to 9.5%.
+    const t = T0 + 10 * DAY;
+    const before = { seasonBaseline: pinned };
+    const after = book(before, 500, t);
+    expect(at(before, 11000, t).returnPercent).toBeCloseTo(10, 9);
+    expect(at(after, 11500, t).returnPercent).toBeCloseTo(10, 9);
+  });
+
+  it('counts money in for the share of the season it was held', () => {
+    // $1,000 in on day 10, scored on day 20: held half the time, counts $500.
+    const u = book({ seasonBaseline: pinned }, 1000, T0 + 10 * DAY);
+    expect(averageGranted(1000, u.grantedDays, T0, T0 + 20 * DAY)).toBeCloseTo(500, 6);
+    expect(at(u, 12050, T0 + 20 * DAY).returnPercent).toBeCloseTo((1050 / 10500) * 100, 6);
+  });
+
+  it('never counts more than the full amount, even if a booking missed the time counter', () => {
+    const u = { seasonBaseline: pinned, grantedValue: 1000, grantedDays: 0 };
+    expect(averageGranted(1000, 0, T0, T0 + DAY)).toBe(1000);
+    expect(averageGranted(-1000, 0, T0, T0 + DAY)).toBe(-1000);
+    expect(at(u, 12100, T0 + DAY).returnPercent).toBeCloseTo((1100 / 11000) * 100, 9);
+  });
+
+  it('counts it in full for a baseline pinned before the counter existed', () => {
+    const { grantedDays, ...old } = pinned;
+    const u = { seasonBaseline: old, grantedValue: 1000, grantedDays: 123 };
+    expect(at(u, 12100, T0 + 20 * DAY).returnPercent).toBeCloseTo((1100 / 11000) * 100, 9);
+  });
+
+  it('weighs weekly records the same way, and matches the site', () => {
+    const ctx = { seasonId: 'S1', baselineValue: 10000, baselineIndex: 1000, pinnedAt: T0 };
+    // $700 mission collected right before the week-1 checkpoint: +$300 trading
+    // on $10k is 3%, which beats a 2.9% market. Counted in full it is 2.8% and would not.
+    const wk = T0 + 7 * DAY;
+    const a = frontendSeasonWeeks.grantedDaysFor(700, wk - 1000);
+    const rows = [{ s: 'S1', w: 1, t: wk, v: 11000, g: 700, a, x: 1029, c: 0, h: 0, d: 0 }];
+    expect(weeklyRecordSummary(rows, ctx, 1).beatWeeks).toBe(1);
+    const { a: _drop, ...oldRow } = rows[0];
+    expect(weeklyRecordSummary([oldRow], ctx, 1).beatWeeks).toBe(0);
+
+    const site = frontendSeasonWeeks.deriveSeasonWeeks(rows, {
+      seasonId: 'S1', baselineValue: 10000, pinnedAt: T0, indexAtStart: 1000,
+    });
+    expect(site[0].beat).toBe(true);
+    const server = seasonScore({ seasonBaseline: pinned }, season, {
+      value: 11000, indexNow: 1029, granted: 700, grantedDays: a, at: wk, margin: 0,
+    });
+    expect(site[0].totalReturn).toBeCloseTo(server.returnPercent, 9);
+    for (const [g, d, from, to] of [[700, a, T0, wk], [0, 0, T0, wk], [500, undefined, T0, wk], [100, 5, wk, wk]]) {
+      expect(frontendSeasonWeeks.averageGranted(g, d, from, to)).toBe(averageGranted(g, d, from, to));
+    }
+  });
+});
+
+describe('prediction flows', () => {
+  it('book on their own counter, never the ladder shadow stat', () => {
+    const u = predictionFlowUpdate(-250);
+    expect(Object.keys(u).sort()).toEqual(['grantedDays', 'grantedValue', 'predictionFlowValue']);
+    expect(Object.keys(grantedFlowUpdate(-250)).sort()).toEqual(['grantedDays', 'grantedValue', 'ladderFlowValue']);
+    expect(Object.keys(grantedValueUpdate(250)).sort()).toEqual(['grantedDays', 'grantedValue']);
+    expect(predictionFlowUpdate(0)).toEqual({});
+  });
+
+  it('a winning all-in bet is not a season gain, and a losing one is not a loss', () => {
+    const T0 = Date.UTC(2026, 8, 18);
+    const b = buildSeasonBaseline({ seasonId: 'S1', value: 10000, granted: 0, grantedDays: 0, index: 1000, pinnedAt: T0 });
+    const flow = (amount, t) => ({ g: amount, d: frontendSeasonWeeks.grantedDaysFor(amount, t) });
+    const bet = flow(-10000, T0 + DAY);
+    const win = flow(100000, T0 + 3 * DAY);
+    const t = T0 + 5 * DAY;
+    // Bet everything, won 10x: $100k in cash, still 0%.
+    const won = { seasonBaseline: b, grantedValue: bet.g + win.g, grantedDays: bet.d + win.d };
+    expect(seasonScore(won, season, { value: 100000, indexNow: 1000, at: t }).returnPercent).toBeCloseTo(0, 6);
+    const lost = { seasonBaseline: b, grantedValue: bet.g, grantedDays: bet.d };
+    expect(seasonScore(lost, season, { value: 0, indexNow: 1000, at: t }).returnPercent).toBeCloseTo(0, 6);
   });
 });
 

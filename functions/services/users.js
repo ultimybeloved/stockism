@@ -356,6 +356,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
             seasonId: activeSeason.id,
             value: UNVERIFIED_STARTING_CASH,
             granted: 0,
+            grantedDays: 0,
             ladderFlow: 0,
             // Zero only if the season started mid-signup; scoring then falls back
             // to the season's opening index.

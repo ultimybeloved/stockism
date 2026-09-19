@@ -8,6 +8,7 @@ const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
 const { getLastActiveMs, characterExposure } = require('../helpers');
 const {
   baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor, seasonAccountSize, marginDollarDays,
+  grantedDaysSince,
 } = require('./seasonTiers');
 
 // A season's weekly record is capped. Far longer than any arc, and it stops one
@@ -25,6 +26,8 @@ const SEASON_WEEK_RECORD_CAP = 80;
  *   v  net equity at checkpoint prices   g  granted value since the season baseline
  *   x  market index now                  c  most riding on one character
  *   h  riding on all characters          d  dollar-days owed on margin since pinning
+ *   a  grantedDays counter since pinning (when money in arrived; absent for a
+ *      baseline pinned before the counter existed)
  *
  * Cumulative return, weekly return, excess over the index and concentration are
  * all derivable from consecutive entries. None of them are stored.
@@ -32,6 +35,7 @@ const SEASON_WEEK_RECORD_CAP = 80;
 const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Date.now() }) => {
   const { largest, total } = characterExposure(userData, prices);
   const baselineGranted = userData.seasonBaseline?.granted || 0;
+  const grantedDays = grantedDaysSince(userData);
   return {
     s: season.id,
     w: weeks,
@@ -43,6 +47,8 @@ const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Da
     h: Math.round(total * 100) / 100,
     // Averages come from the difference between two of these, over the time between.
     d: Math.round(marginDollarDays(userData, season.id, now) * 100) / 100,
+    // Firestore rejects undefined, so an old baseline's record leaves it out.
+    ...(grantedDays === undefined ? {} : { a: Math.round(grantedDays * 100) / 100 }),
   };
 };
 
@@ -85,8 +91,8 @@ const isSeasonParticipant = (userData, season, now = Date.now()) => {
  * size division, and the two figures Diamond is judged on. Null if they can't be
  * scored.
  */
-const boardEntry = (uid, u, season, { value, indexNow, granted, margin }) => {
-  const score = seasonScore(u, season, { value, indexNow, granted, margin });
+const boardEntry = (uid, u, season, { value, indexNow, granted, grantedDays, margin, at }) => {
+  const score = seasonScore(u, season, { value, indexNow, granted, grantedDays, margin, at });
   if (!score) return null;
   const summary = weeklyRecordSummary(u.seasonWeeks, {
     seasonId: season.id,

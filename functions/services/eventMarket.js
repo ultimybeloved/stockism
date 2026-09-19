@@ -30,6 +30,7 @@ const {
   touchLastActive,
   round2,
   reportError,
+  predictionFlowUpdate,
 } = require('../helpers');
 
 // House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
@@ -142,6 +143,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     tx.update(predictionsRef, { list: updatedList });
     tx.update(userRef, {
       cash: round2((userData.cash || 0) - cost),
+      ...predictionFlowUpdate(-cost),
       [`eventPositions.${marketId}`]: {
         shares: newShares,
         costBasis: round2((pos.costBasis || 0) + cost),
@@ -230,6 +232,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     tx.update(predictionsRef, { list: updatedList });
     tx.update(userRef, {
       cash: round2((userData.cash || 0) + refund),
+      ...predictionFlowUpdate(refund),
       [`eventPositions.${marketId}`]: {
         shares: newShares,
         // Clamp at 0: selling at a profit must not go negative, or the surplus
@@ -296,6 +299,7 @@ async function settleResolvedEventMarkets() {
 
         if (payout > 0) {
           updates.cash = round2((ud.cash || 0) + payout);
+          Object.assign(updates, predictionFlowUpdate(payout));
           const newWins = (ud.predictionWins || 0) + 1;
           updates.predictionWins = newWins;
           if (newWins >= 10 && !ach.includes('PROPHET')) newAch.push('PROPHET');
@@ -427,6 +431,7 @@ exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
       const amount = Math.max(0, round2(pos.costBasis || 0));
       tx.update(userDoc.ref, {
         cash: round2((ud.cash || 0) + amount),
+        ...predictionFlowUpdate(amount),
         [`eventPositions.${marketId}`]: {
           shares: {},
           costBasis: 0,

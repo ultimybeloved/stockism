@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, CHAPTER_REVIEW_HALT_MSG, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory, predictionFlowUpdate } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -110,6 +110,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     transaction.update(predictionsRef, { list: updatedList });
     transaction.update(userRef, {
       cash: (userData.cash || 0) - amount,
+      ...predictionFlowUpdate(-amount),
       [`bets.${predictionId}`]: {
         option,
         amount: newBetAmount,
@@ -186,6 +187,7 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
 
       const newPredictionWins = (userData.predictionWins || 0) + 1;
       updates.cash = (userData.cash || 0) + payout;
+      Object.assign(updates, predictionFlowUpdate(payout));
       updates[`bets.${predictionId}.paid`] = true;
       updates[`bets.${predictionId}.payout`] = payout;
       updates.predictionWins = newPredictionWins;

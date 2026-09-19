@@ -126,7 +126,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   const [{ prices, value: indexAtStart }, ladderCash] = await Promise.all([readIndexNow(), readLadderCash()]);
 
   const snap = await db.collection('users')
-    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue', 'isBot', 'lastActive')
+    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue', 'isBot', 'lastActive')
     .get();
 
   let pinned = 0;
@@ -140,6 +140,7 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
         seasonId: id,
         value: exitEquityAt(u, prices),
         granted: u.grantedValue,
+        grantedDays: u.grantedDays,
         ladderFlow: u.ladderFlowValue,
         index: indexAtStart,
         pinnedAt: now,
@@ -209,7 +210,7 @@ const runSeasonCheckpoint = async () => {
   const [{ prices, value: indexValue }, ladderCash] = await Promise.all([readIndexNow(), readLadderCash()]);
 
   const snap = await db.collection('users')
-    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue',
+    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue',
       'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks', 'seasonMargin',
       'lastActive')
     .get();
@@ -248,6 +249,7 @@ const runSeasonCheckpoint = async () => {
           seasonId: season.id,
           value,
           granted: u.grantedValue,
+          grantedDays: u.grantedDays,
           ladderFlow: u.ladderFlowValue,
           index: indexValue,
           pinnedAt,
@@ -380,7 +382,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     const latest = latestWeekRecord(u.seasonWeeks, season.id);
     if (!latest) continue;
     const entry = boardEntry(doc.id, u, season, {
-      value: latest.v, indexNow: latest.x, granted: latest.g,
+      value: latest.v, indexNow: latest.x, granted: latest.g, grantedDays: latest.a, at: latest.t,
       margin: recordMargin(latest, u.seasonBaseline?.pinnedAt),
     });
     if (!entry) continue;
@@ -490,7 +492,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
   const [{ prices, value: indexValue }, snap] = await Promise.all([
     readIndexNow(),
     db.collection('users')
-      .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'ladderFlowValue',
+      .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue',
         'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
         'seasonMargin', 'marginUsed', 'displayName', 'crew',
         // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
