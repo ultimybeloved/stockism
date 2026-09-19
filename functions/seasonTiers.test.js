@@ -222,26 +222,48 @@ describe('money in mid-season', () => {
 });
 
 describe('prediction flows', () => {
-  it('book on their own counter, never the ladder shadow stat', () => {
+  it('book on their own counter, never the ladder shadow stat or the grant clock', () => {
     const u = predictionFlowUpdate(-250);
-    expect(Object.keys(u).sort()).toEqual(['grantedDays', 'grantedValue', 'predictionFlowValue']);
-    expect(Object.keys(grantedFlowUpdate(-250)).sort()).toEqual(['grantedDays', 'grantedValue', 'ladderFlowValue']);
+    expect(Object.keys(u).sort()).toEqual(['grantedValue', 'predictionFlowValue']);
+    expect(Object.keys(grantedFlowUpdate(-250)).sort()).toEqual(['grantedValue', 'ladderFlowValue']);
     expect(Object.keys(grantedValueUpdate(250)).sort()).toEqual(['grantedDays', 'grantedValue']);
     expect(predictionFlowUpdate(0)).toEqual({});
   });
 
+  const T0 = Date.UTC(2026, 8, 18);
+  const b = buildSeasonBaseline({ seasonId: 'S1', value: 10000, granted: 0, grantedDays: 0, index: 1000, pinnedAt: T0 });
+
   it('a winning all-in bet is not a season gain, and a losing one is not a loss', () => {
-    const T0 = Date.UTC(2026, 8, 18);
-    const b = buildSeasonBaseline({ seasonId: 'S1', value: 10000, granted: 0, grantedDays: 0, index: 1000, pinnedAt: T0 });
-    const flow = (amount, t) => ({ g: amount, d: frontendSeasonWeeks.grantedDaysFor(amount, t) });
-    const bet = flow(-10000, T0 + DAY);
-    const win = flow(100000, T0 + 3 * DAY);
     const t = T0 + 5 * DAY;
     // Bet everything, won 10x: $100k in cash, still 0%.
-    const won = { seasonBaseline: b, grantedValue: bet.g + win.g, grantedDays: bet.d + win.d };
+    const won = { seasonBaseline: b, grantedValue: 90000, predictionFlowValue: 90000 };
     expect(seasonScore(won, season, { value: 100000, indexNow: 1000, at: t }).returnPercent).toBeCloseTo(0, 6);
-    const lost = { seasonBaseline: b, grantedValue: bet.g, grantedDays: bet.d };
+    const lost = { seasonBaseline: b, grantedValue: -10000, predictionFlowValue: -10000 };
     expect(seasonScore(lost, season, { value: 0, indexNow: 1000, at: t }).returnPercent).toBeCloseTo(0, 6);
+  });
+
+  it('a payout counts toward capital in full the moment it lands', () => {
+    // HAHA, 2026-09-18: $1,359 start, a $17,416 payout hours before scoring,
+    // down $1,537 trading it. Averaging the payout read that as -31%.
+    const small = { ...b, value: 1359 };
+    const u = { seasonBaseline: small, grantedValue: 17416, predictionFlowValue: 17416 };
+    const s = seasonScore(u, season, { value: 1359 + 17416 - 1537, indexNow: 1000, at: T0 + DAY });
+    expect(s.returnPercent).toBeCloseTo((-1537 / (1359 + 17416)) * 100, 6);
+  });
+
+  it('scores a stored week record the same way, and matches the site', () => {
+    const ctx = { seasonId: 'S1', baselineValue: 10000, baselineIndex: 1000, pinnedAt: T0 };
+    const wk = T0 + 7 * DAY;
+    // $5,000 payout the day before the checkpoint, $500 made on it: 500 / 15000.
+    const rows = [{ s: 'S1', w: 1, t: wk, v: 15500, g: 5000, a: 0, f: 5000, x: 1000, c: 0, h: 0, d: 0 }];
+    const server = seasonScore({ seasonBaseline: b }, season, {
+      value: 15500, indexNow: 1000, granted: 5000, grantedDays: 0, sideFlows: 5000, at: wk, margin: 0,
+    });
+    expect(server.returnPercent).toBeCloseTo((500 / 15000) * 100, 9);
+    const site = frontendSeasonWeeks.deriveSeasonWeeks(rows, { seasonId: 'S1', baselineValue: 10000, pinnedAt: T0, indexAtStart: 1000 });
+    expect(site[0].totalReturn).toBeCloseTo(server.returnPercent, 9);
+    expect(site[0].weekReturn).toBeCloseTo(server.returnPercent, 9);
+    expect(weeklyRecordSummary(rows, ctx, 1).beatWeeks).toBe(1);
   });
 });
 

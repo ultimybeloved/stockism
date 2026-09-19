@@ -27,7 +27,7 @@
 // Return is measured against the money a player actually traded with
 // (seasonCapital): their starting value, cash parked in the ladder at the start,
 // what they owed on margin on average over the season, and any money that came
-// in since, averaged over how long they have had it. Otherwise borrowing, or parking cash in the ladder before the start,
+// in since (grants averaged over how long they have had them). Otherwise borrowing, or parking cash in the ladder before the start,
 // makes the same trading look like a bigger percentage.
 //
 // Gold is generous in an arc that pumps a few characters: 85% of measurable
@@ -79,7 +79,7 @@ const higherTier = (a, b) => (tierRank(b) > tierRank(a) ? b : a) || null;
  * index at one instant, which is what makes "return net of free money, against
  * the market" computable over any span later.
  */
-const buildSeasonBaseline = ({ seasonId, value, granted, grantedDays, ladderFlow, index, pinnedAt, ladder }) => ({
+const buildSeasonBaseline = ({ seasonId, value, granted, grantedDays, ladderFlow, predictionFlow, index, pinnedAt, ladder }) => ({
   seasonId,
   value: round2(value || 0),
   // Cash sitting in the ladder at pinning (withdrawable only). Not in `value`,
@@ -91,6 +91,8 @@ const buildSeasonBaseline = ({ seasonId, value, granted, grantedDays, ladderFlow
   grantedDays: grantedDays || 0,
   // Pinned so the ladder shadow stat can be worked out over the season.
   ladderFlow: ladderFlow || 0,
+  // Prediction flows, pinned so they can be counted apart from grants.
+  predictionFlow: predictionFlow || 0,
   // The market reading this player is measured from. Someone who joins in week
   // five is compared with the market from week five, not from the season start.
   index: round2(index || 0),
@@ -163,12 +165,17 @@ const seasonMarginUpdate = (userData, newAmount, now = Date.now()) => {
   };
 };
 
-// ── Money in, averaged over the season ──────────────────────────────────────
+// ── Money in ────────────────────────────────────────────────────────────────
 //
-// Money that arrives mid-season (missions, dividends, prediction and ladder
-// flows) counts toward capital only for the time the player has had it, like
-// margin. Counting it in full on arrival meant collecting a mission lowered a
-// positive return: same trading profit, bigger base.
+// Grants that arrive mid-season (missions, check-ins, dividends, drops) count
+// toward capital only for the time the player has had them, like margin.
+// Counting them in full on arrival meant collecting a mission lowered a positive
+// return: same trading profit, bigger base.
+//
+// Side-game flows (ladder, predictions) count in full the moment they land.
+// They can be huge lump sums, and averaging one that just arrived leaves the
+// money trading with almost none of it in the base: a day-one $17k payout turned
+// a -7% start into -31%, and a late payout traded up would inflate the same way.
 
 /**
  * Money in since pinning, averaged over `fromMs`..`toMs`. `grantedDays` is the
@@ -184,6 +191,22 @@ const averageGranted = (granted, grantedDays, fromMs, toMs) => {
   // Never more than counting it all in full, never past zero. A booking that
   // missed the time counter would otherwise read as held since 1970.
   return Math.min(Math.max(avg, Math.min(0, g)), Math.max(0, g));
+};
+
+/** Ladder + prediction flows since pinning. */
+const sideFlowsSince = (userData) => {
+  const b = userData?.seasonBaseline || {};
+  return ((userData?.ladderFlowValue || 0) - (b.ladderFlow || 0))
+    + ((userData?.predictionFlowValue || 0) - (b.predictionFlow || 0));
+};
+
+/**
+ * All money in since pinning as it counts toward capital: grants averaged over
+ * the time held, side-game flows in full. `granted` is the whole counter (both).
+ */
+const moneyIn = (granted, grantedDays, sideFlows, fromMs, toMs) => {
+  const side = sideFlows || 0;
+  return averageGranted((granted || 0) - side, grantedDays, fromMs, toMs) + side;
 };
 
 /** The grantedDays counter since pinning, or undefined for an old baseline. */
@@ -217,10 +240,10 @@ const seasonCapital = (baseline, { granted, margin } = {}) => {
  *
  * `value` is their net equity at the moment being scored. The caller works it
  * out, because the stored portfolioValue is only as fresh as their last login.
- * `granted`, `grantedDays`, `margin` (average owed) and `at` override the live
- * counters when scoring from a stored week record.
+ * `granted`, `grantedDays`, `sideFlows`, `margin` (average owed) and `at`
+ * override the live counters when scoring from a stored week record.
  */
-const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, margin, at } = {}) => {
+const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at } = {}) => {
   const baseline = userData?.seasonBaseline;
   if (!baseline || baseline.seasonId !== season?.id) return null;
   if (!baseline.value || seasonAccountSize(baseline) < SEASON_MIN_BASELINE) return null;
@@ -230,10 +253,12 @@ const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, 
   const grantedSinceStart = granted !== undefined
     ? granted
     : (userData.grantedValue || 0) - (baseline.granted || 0);
-  const grantedDaysSinceStart = granted !== undefined ? grantedDays : grantedDaysSince(userData);
+  const fromRecord = granted !== undefined;
+  const grantedDaysSinceStart = fromRecord ? grantedDays : grantedDaysSince(userData);
+  const sideSinceStart = fromRecord ? (sideFlows || 0) : sideFlowsSince(userData);
   const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
   const capital = seasonCapital(baseline, {
-    granted: averageGranted(grantedSinceStart, grantedDaysSinceStart, baseline.pinnedAt || 0, at || Date.now()),
+    granted: moneyIn(grantedSinceStart, grantedDaysSinceStart, sideSinceStart, baseline.pinnedAt || 0, at || Date.now()),
     margin: margin !== undefined ? margin : seasonAverageMargin(userData, season.id),
   });
   const gainPercent = (g) => (((value || 0) - g - baseline.value) / capital) * 100;
@@ -280,11 +305,11 @@ const weekMargin = (r, prev) => (r.d === undefined || !(prev?.t > 0)
   ? 0
   : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t));
 
-/** Money in between two week records, averaged over the week. */
+/** Money in between two week records: grants averaged over the week, flows in full. */
 const weekGranted = (r, prev) => {
   const g = (r.g || 0) - (prev.g || 0);
   if (r.a === undefined || prev.a === undefined || !(prev.t > 0)) return g;
-  return averageGranted(g, r.a - prev.a, prev.t, r.t);
+  return moneyIn(g, r.a - prev.a, (r.f || 0) - (prev.f || 0), prev.t, r.t);
 };
 
 /** Average owed from pinning up to a week record. */
@@ -303,7 +328,7 @@ const weeklyRecordSummary = (seasonWeeks, { seasonId, baselineValue, baselineInd
     .filter((r) => r && r.s === seasonId && r.w > 0)
     .sort((a, b) => a.w - b.w);
 
-  let prev = { v: baselineValue, g: 0, a: 0, x: baselineIndex, t: pinnedAt, d: 0 };
+  let prev = { v: baselineValue, g: 0, a: 0, f: 0, x: baselineIndex, t: pinnedAt, d: 0 };
   let beatWeeks = 0;
   let peakConcentration = 0;
   for (const r of rows) {
@@ -438,6 +463,8 @@ module.exports = {
   seasonMarginUpdate,
   freshMarginTally,
   averageGranted,
+  moneyIn,
+  sideFlowsSince,
   grantedDaysSince,
   weekGranted,
   weekMargin,

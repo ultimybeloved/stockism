@@ -45,7 +45,7 @@ describe('buildWeekRecord', () => {
     // boolean ever appears in here, that stops being true.
     const r = buildWeekRecord({ season, weeks: 1, userData: base, prices, indexValue: 1000 });
     expect(Object.values(r).every((v) => typeof v === 'number' || typeof v === 'string')).toBe(true);
-    expect(Object.keys(r).sort()).toEqual(['c', 'd', 'g', 'h', 's', 't', 'v', 'w', 'x']);
+    expect(Object.keys(r).sort()).toEqual(['c', 'd', 'f', 'g', 'h', 's', 't', 'v', 'w', 'x']);
   });
 
   it('ignores zero and negative share counts', () => {

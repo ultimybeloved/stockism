@@ -680,10 +680,14 @@ const grantedValueUpdate = (amount, now = Date.now()) => {
 };
 
 /**
- * When the money arrived, as a running sum of amount x day it landed. Seasons
- * use it to count money that came in mid-season toward a player's capital only
- * for the time they have had it, the same way margin is averaged. Counting it
- * in full on arrival made collecting a mission LOWER a positive season return.
+ * When free money arrived, as a running sum of amount x day it landed. Seasons
+ * use it to count grants that came in mid-season toward a player's capital only
+ * for the time they have had them, the same way margin is averaged. Counting
+ * them in full on arrival made collecting a mission LOWER a positive return.
+ *
+ * Grants only. Side-game flows (grantedFlowUpdate) stay out: a $17k prediction
+ * payout that barely counted toward capital on day one turned a -7% start into
+ * -31%, and a late payout traded up would inflate a return the same way.
  *
  * Days, not ms: amount x ms passes 2^53 after a few thousand dollars and loses
  * cents. Average held since pinning = (granted x nowDays - sum) / days elapsed.
@@ -706,13 +710,12 @@ const grantedDaysUpdate = (signedAmount, now = Date.now()) =>
  * ladder is legitimately "owed" that back in the return calculation.
  * @param {number} signedAmount - positive on the way in, negative on the way out
  */
-const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue', now = Date.now()) => {
+const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue') => {
   const value = Number(signedAmount);
   if (!value || !isFinite(value)) return {};
   const rounded = Math.round(value * 100) / 100;
   return {
     grantedValue: FieldValue.increment(rounded),
-    ...grantedDaysUpdate(rounded, now),
     // Same number kept separately so the ladder's contribution can be added back
     // for the "what it would have been" stat. Without a second counter it is
     // impossible to tell ladder flows apart from genuine grants after the fact.
@@ -727,8 +730,8 @@ const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue', now = Date
  * odds read as a +1000% season. Own counter, so the ladder shadow stat stays
  * ladder-only.
  */
-const predictionFlowUpdate = (signedAmount, now = Date.now()) =>
-  grantedFlowUpdate(signedAmount, 'predictionFlowValue', now);
+const predictionFlowUpdate = (signedAmount) =>
+  grantedFlowUpdate(signedAmount, 'predictionFlowValue');
 
 /**
  * Cumulative granted value as it stood at `ts`, from the daily samples

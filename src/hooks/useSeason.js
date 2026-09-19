@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAppContext } from '../context/AppContext';
 import { calculateExitValue } from '../utils/calculations';
-import { seasonAccountSize, seasonCapital, seasonAverageMargin, averageGranted } from '../utils/seasonWeeks';
+import { seasonAccountSize, seasonCapital, seasonAverageMargin, moneyIn } from '../utils/seasonWeeks';
 import {
   SEASON_MIN_BASELINE,
   SEASON_TIER_MAP,
@@ -65,12 +65,15 @@ export function useSeason() {
     const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
     const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
     // Measured against the money traded with, margin owed on average included.
-    // Money in counts toward the base only for the time it has been held.
+    // Grants count toward the base only for the time held; ladder and prediction
+    // flows in full. Mirrors seasonScore.
     const grantedDays = baseline.grantedDays === undefined
       ? undefined : (userData.grantedDays || 0) - baseline.grantedDays;
     const now = Date.now();
     const capital = seasonCapital(baseline, {
-      granted: averageGranted(granted, grantedDays, baseline.pinnedAt || 0, now),
+      granted: moneyIn(granted, grantedDays,
+        ladderNet + (userData.predictionFlowValue || 0) - (baseline.predictionFlow || 0),
+        baseline.pinnedAt || 0, now),
       margin: seasonAverageMargin(userData, season.id, now),
     });
     returnPercent = ((current - granted - baseline.value) / capital) * 100;

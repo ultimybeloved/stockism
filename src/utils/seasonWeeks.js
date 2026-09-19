@@ -10,8 +10,9 @@
 //   g granted since the season baseline  x index value
 //   c largest single holding's value     h total value of all holdings
 //   d dollar-days owed on margin since the baseline was pinned
-//   a grantedDays counter since the baseline (when money in arrived; absent on
+//   a grantedDays counter since the baseline (when grants arrived; absent on
 //     records from before the counter existed)
+//   f ladder + prediction flows since the baseline (part of g, counted in full)
 
 /** Account size at pinning: value plus ladder cash. Mirror of seasonAccountSize in seasonTiers.js. */
 export const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladder || 0);
@@ -71,11 +72,20 @@ export const averageGranted = (granted, grantedDays, fromMs, toMs) => {
   return Math.min(Math.max(avg, Math.min(0, g)), Math.max(0, g));
 };
 
-/** Money in between two week records, averaged over the week. Mirror of weekGranted. */
+/**
+ * All money in as it counts toward capital: grants averaged over the time held,
+ * ladder and prediction flows in full. Mirror of moneyIn in seasonTiers.js.
+ */
+export const moneyIn = (granted, grantedDays, sideFlows, fromMs, toMs) => {
+  const side = sideFlows || 0;
+  return averageGranted((granted || 0) - side, grantedDays, fromMs, toMs) + side;
+};
+
+/** Money in between two week records. Mirror of weekGranted. */
 export const weekGranted = (r, prev) => {
   const g = (r.g || 0) - (prev.g || 0);
   if (r.a === undefined || prev.a === undefined || !(prev.t > 0)) return g;
-  return averageGranted(g, r.a - prev.a, prev.t, r.t);
+  return moneyIn(g, r.a - prev.a, (r.f || 0) - (prev.f || 0), prev.t, r.t);
 };
 
 /**
@@ -106,7 +116,7 @@ export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baseli
   if (!rows.length) return [];
 
   const derived = [];
-  let prev = { v: baselineValue, g: 0, a: 0, x: indexAtStart, t: pinnedAt, d: 0 };
+  let prev = { v: baselineValue, g: 0, a: 0, f: 0, x: indexAtStart, t: pinnedAt, d: 0 };
 
   const baseline = { value: baselineValue, ladder: baselineLadder };
 
@@ -123,7 +133,7 @@ export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baseli
     const weekIndex = prev.x > 0 ? ((r.x - prev.x) / prev.x) * 100 : 0;
     const sinceStart = r.d === undefined ? 0 : averageOwed(r.d, pinnedAt, r.t);
     const capital = seasonCapital(baseline, {
-      granted: averageGranted(r.g, r.a, pinnedAt, r.t),
+      granted: moneyIn(r.g, r.a, r.f, pinnedAt, r.t),
       margin: sinceStart,
     });
 
