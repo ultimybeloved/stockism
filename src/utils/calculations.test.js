@@ -4,6 +4,7 @@ import {
   calculatePortfolioValue,
   calculateMarginStatus,
   calculatePriceImpactDollars,
+  calculateTraderImpactDollars,
   getShortLiquidationPrice,
   getCurrentPrice,
   getMarginTierMultiplier,
@@ -16,6 +17,11 @@ import {
   niceStep,
   maxAffordableShares,
 } from './calculations';
+import {
+  MAX_PRICE_CHANGE_PERCENT,
+  BASE_LIQUIDITY,
+  OVERSIZED_IMPACT_MULTIPLE,
+} from '../constants/economy';
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
 
@@ -358,5 +364,38 @@ describe('maxAffordableShares', () => {
 
   it('returns 0 when budget cannot afford a single share', () => {
     expect(maxAffordableShares([0, 0], 100, 0, 0)).toBe(0);
+  });
+});
+
+// ─── calculateTraderImpactDollars (what the player is actually charged) ────────
+// The preview must quote the charge, not the market move. These two numbers are
+// identical below the cap and diverge above it; if the backend's
+// traderMarginalImpact ever changes, these are what should fail first.
+describe('calculateTraderImpactDollars', () => {
+  it('matches the market impact for any order under the cap', () => {
+    for (const shares of [1, 10, 100, 500]) {
+      expect(calculateTraderImpactDollars(100, shares))
+        .toBeCloseTo(calculatePriceImpactDollars(100, shares), 10);
+    }
+  });
+
+  it('charges more than the market moves on an oversized order', () => {
+    // 2000 shares at $100 is ~5.37% raw, over the 5% market cap.
+    expect(calculateTraderImpactDollars(100, 2000))
+      .toBeGreaterThan(calculatePriceImpactDollars(100, 2000));
+  });
+
+  it('is bounded at OVERSIZED_IMPACT_MULTIPLE x the market cap', () => {
+    const ceiling = 100 * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE;
+    expect(calculateTraderImpactDollars(100, 10000)).toBeLessThanOrEqual(ceiling);
+    expect(calculateTraderImpactDollars(100, 1e9)).toBeLessThanOrEqual(ceiling);
+  });
+
+  it('removes the volume discount: one dump costs at least what pieces cost', () => {
+    const atOnce = calculateTraderImpactDollars(100, 1200);
+    const split = calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 0)
+      + calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 400)
+      + calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 800);
+    expect(atOnce).toBeGreaterThanOrEqual(split - 1e-9);
   });
 });

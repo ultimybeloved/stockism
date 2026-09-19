@@ -127,6 +127,7 @@ const {
   NEGLECT_FLOOR_MIN,
   NEGLECT_FLOOR_MAX,
   MIN_PRICE,
+  OVERSIZED_IMPACT_MULTIPLE,
   CIRCUIT_BREAKER_MOVE,
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
@@ -466,14 +467,41 @@ const applyDueIPOJumps = async () => {
   });
 };
 
-const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) => {
-  const rawMarginal = currentPrice * BASE_IMPACT * (
+/**
+ * What moving this many shares actually costs, before any cap.
+ *
+ * Split out from calculateMarginalImpact because the market and the trader are
+ * now told two different numbers. The MARKET move stays capped at
+ * MAX_PRICE_CHANGE_PERCENT so one order can never crater a stock; the TRADER
+ * pays this, bounded by OVERSIZED_IMPACT_MULTIPLE.
+ *
+ * Without the split, the cap was a volume discount on the most disruptive
+ * action in the game. Impact accumulates across a player's trades in the 24h
+ * window, so easing 4,125 shares out in three pieces costs about 7.7% — while
+ * dumping all 4,125 at once costs 5%, because the per-trade cap truncates it.
+ * Selling everything in one go was the cheapest way to do it.
+ */
+const rawMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+  currentPrice * BASE_IMPACT * (
     Math.sqrt((cumulativeSharesBefore + newShares) / BASE_LIQUIDITY) -
     Math.sqrt(cumulativeSharesBefore / BASE_LIQUIDITY)
   );
-  const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-  return Math.min(rawMarginal, maxImpact);
-};
+
+// What the MARKET moves: the raw cost, capped so a single order can't crater a
+// stock. This is what goes on the chart and what the daily allowance counts.
+const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+  Math.min(
+    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore),
+    currentPrice * MAX_PRICE_CHANGE_PERCENT
+  );
+
+// What the TRADER pays: the raw cost, bounded well above the market cap so an
+// oversized order stops being free but can never be charged without limit.
+const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+  Math.min(
+    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore),
+    currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE
+  );
 
 // Admin price protection: true if this ticker was manually set by an admin
 // (a priceHistory point tagged source 'admin_adjust') within `windowMs`.
@@ -1878,6 +1906,8 @@ module.exports = {
   lmsrBuyCost,
   lmsrSellRefund,
   pruneAndSumTradeHistory,
+  rawMarginalImpact,
+  traderMarginalImpact,
   evaluateCircuitBreaker,
   breakerCountUpdate,
   sumDirectionalImpact,

@@ -12,7 +12,7 @@ const admin = require('firebase-admin');
 const { exitLoyaltyDiscount } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
-  calculateMarginalImpact, getAccountAgeImpactFactor,
+  calculateMarginalImpact, traderMarginalImpact, getAccountAgeImpactFactor,
   appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
   sumDirectionalImpact, impactDirectionOf,
 } = require('../helpers');
@@ -33,11 +33,21 @@ const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVo
   const history = userData.tickerTradeHistory || {};
   const spent = sumDirectionalImpact(history[ticker], now)[impactDirectionOf(action)];
   const remaining = Math.max(0, MAX_DAILY_IMPACT - spent);
+  const ageFactor = getAccountAgeImpactFactor(userData);
   const effectiveImpact = Math.min(
-    calculateMarginalImpact(freshPrice, fillShares, cumVolume) * getAccountAgeImpactFactor(userData),
+    calculateMarginalImpact(freshPrice, fillShares, cumVolume) * ageFactor,
     freshPrice * remaining
   );
-  return { effectiveImpact, impactPercent: freshPrice > 0 ? effectiveImpact / freshPrice : 0 };
+  // What the trader is charged, as opposed to how far the market moves. Same
+  // split executeTrade applies — without it here, an oversized LIMIT order
+  // would still get the volume discount that was removed from market orders,
+  // which is simply a slower way to do the same trade.
+  const traderImpact = traderMarginalImpact(freshPrice, fillShares, cumVolume) * ageFactor;
+  return {
+    effectiveImpact,
+    traderImpact,
+    impactPercent: freshPrice > 0 ? effectiveImpact / freshPrice : 0,
+  };
 };
 
 /**
@@ -86,11 +96,12 @@ const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
  */
 const applyBuyFill = (transaction, ctx) => {
   const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, impactPercent, fillSource } = ctx;
+    effectiveImpact, traderImpact, impactPercent, fillSource } = ctx;
   const ticker = order.ticker;
 
   const newMarketPrice = round2(freshPrice + effectiveImpact);
-  const askPrice = newMarketPrice * (1 + spreadFor(ticker) / 2);
+  // Buyer pays their own impact, market moves the capped one.
+  const askPrice = round2(freshPrice + traderImpact) * (1 + spreadFor(ticker) / 2);
   const executedPrice = round2(askPrice);
 
   // Limit semantics: never fill above the user's limit price. The trigger
@@ -162,13 +173,15 @@ const applyBuyFill = (transaction, ctx) => {
  */
 const applySellFill = (transaction, ctx) => {
   const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, impactPercent, fillSource } = ctx;
+    effectiveImpact, traderImpact, impactPercent, fillSource } = ctx;
   const ticker = order.ticker;
 
   const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
 
+  // Seller is priced against their own impact, reduced by exit loyalty; the
+  // market still moves only the capped amount.
   const loyalty = exitLoyaltyDiscount(userData.holdingCohorts?.[ticker], fillShares, now);
-  const sellerMid = Math.max(0.01, round2(freshPrice - effectiveImpact * (1 - loyalty)));
+  const sellerMid = Math.max(0.01, round2(freshPrice - traderImpact * (1 - loyalty)));
   const bidPrice = sellerMid * (1 - spreadFor(ticker) / 2);
   const executedPrice = round2(bidPrice);
 

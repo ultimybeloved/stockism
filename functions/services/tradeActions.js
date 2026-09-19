@@ -12,7 +12,7 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
   MIN_EXIT_SHARES,
 } = require('../constants');
-const { calculateMarginalImpact, lockedShares, remainingShares, shortsEquity } = require('../helpers');
+const { calculateMarginalImpact, traderMarginalImpact, lockedShares, remainingShares, shortsEquity } = require('../helpers');
 const { exitLoyaltyDiscount } = require('../characters');
 
 function computeBuy({
@@ -20,8 +20,11 @@ function computeBuy({
   cumulativeVolume, cumulativeDailyImpact, ipCumulativeDailyImpact,
   cash, holdings, userData, marginEnabled, marginUsed, tierMultiplier, newHoldings,
 }) {
-  // Calculate marginal price impact (cumulative volume-based)
+  // Two numbers, on purpose. The MARKET move is capped so one order cannot
+  // spike a stock; the TRADER pays what moving this much actually costs. They
+  // are the same number for any order under the cap — see rawMarginalImpact.
   const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const buyerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   const hitMaxImpact = priceImpact >= maxImpact;
 
@@ -35,7 +38,10 @@ function computeBuy({
   }
 
   const newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
-  const executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
+  // The buyer pays against their own (uncapped, bounded) impact, so an oversized
+  // order stops being cheaper per share than easing in.
+  const buyerMid = Math.round((currentPrice + buyerImpact) * 100) / 100;
+  const executionPrice = buyerMid * (1 + effectiveSpread / 2); // Ask price
   const totalCost = executionPrice * amount;
 
   // Validate cash (with margin if enabled)
@@ -131,6 +137,11 @@ function computeSell({
 
   // Calculate marginal price impact (cumulative sell volume-based)
   let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  // What this exit actually costs the seller. Deliberately NOT clamped by the
+  // daily allowance: if it were, spending the allowance on small sells first
+  // would make a huge dump free, which is a better version of the trade the
+  // wash rule exists to stop.
+  const rawSellerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
   // Daily 10% DOWN allowance: sells always execute (players must be able to
   // exit), but once it is spent the trade stops moving the price. Buys and
@@ -147,7 +158,7 @@ function computeSell({
   // the seller keeps more without the market being told a smaller story. At a
   // 0 discount sellerMid === newPrice and this is the original math exactly.
   const loyaltyDiscount = exitLoyaltyDiscount(userData.holdingCohorts?.[ticker], amount, now);
-  const sellerImpact = priceImpact * (1 - loyaltyDiscount);
+  const sellerImpact = rawSellerImpact * (1 - loyaltyDiscount);
   const sellerMid = Math.max(MIN_PRICE, Math.round((currentPrice - sellerImpact) * 100) / 100);
 
   const executionPrice = Math.max(MIN_PRICE, sellerMid * (1 - effectiveSpread / 2)); // Bid price
@@ -225,6 +236,9 @@ function computeShort({
 
   // Calculate marginal price impact (cumulative volume-based)
   const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  // A short entry is priced against its own impact, so a capped one handed big
+  // shorts a better entry than easing in would. Same fix as the other lanes.
+  const shorterImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
   // Daily 10% DOWN allowance, shared with sells.
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
@@ -235,7 +249,8 @@ function computeShort({
   }
 
   const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
-  const executionPrice = Math.max(MIN_PRICE, newPrice * (1 - effectiveSpread / 2)); // Bid price
+  const shorterMid = Math.max(MIN_PRICE, Math.round((currentPrice - shorterImpact) * 100) / 100);
+  const executionPrice = Math.max(MIN_PRICE, shorterMid * (1 - effectiveSpread / 2)); // Bid price
   const totalCost = executionPrice * amount;
 
   // Execute short — v2: deduct margin only, no sale proceeds
@@ -294,6 +309,10 @@ function computeCover({
 
   // Calculate marginal price impact (cumulative cover volume-based)
   let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  // Same split as every other lane: the buy-back is priced against its own
+  // cost, not the capped move the chart shows. Not clamped by the allowance,
+  // for the same reason as the sell lane.
+  const covererImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
   // Daily 10% UP allowance, shared with buys. Covering a short you opened
   // today draws on a full allowance, so the buy-back pushes the price back up
@@ -303,7 +322,8 @@ function computeCover({
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
 
   const newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
-  const executionPrice = newPrice * (1 + effectiveSpread / 2); // Ask price
+  const covererMid = Math.round((currentPrice + covererImpact) * 100) / 100;
+  const executionPrice = covererMid * (1 + effectiveSpread / 2); // Ask price
   const totalCost = executionPrice * amount;
 
   // Calculate margin to return (based on entry price, not current price)

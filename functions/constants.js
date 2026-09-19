@@ -38,6 +38,16 @@ const MAX_TRADE_SHARES = 10000;     // max size, any action
 const TRADE_SHARE_DECIMALS = 2;     // decimal places allowed on entries
 const EXIT_SHARE_DECIMALS = 6;      // decimal places exits are held to (matches MIN_EXIT_SHARES)
 
+// How much more than the market move a trader can be charged for an oversized
+// order. The market is capped at MAX_PRICE_CHANGE_PERCENT so one order cannot
+// crater a stock; the trader pays the real marginal cost of the size they moved,
+// up to this multiple of that cap. At 2 a dump costs at most 10% however big it
+// is, so the penalty is bounded and predictable rather than open-ended.
+//
+// Anything under the cap is unaffected: raw impact below MAX_PRICE_CHANGE_PERCENT
+// means market and trader are charged the identical number, exactly as before.
+const OVERSIZED_IMPACT_MULTIPLE = 2;
+
 // ── Wash rule ────────────────────────────────────────────────────────────────
 // You cannot buy back a stock you just pushed down. Real markets have the same
 // idea (the IRS wash-sale rule runs 30 days); here it exists because the round
@@ -806,6 +816,7 @@ module.exports = {
   TRADE_SHARE_DECIMALS,
   EXIT_SHARE_DECIMALS,
   MAX_DAILY_IMPACT,
+  OVERSIZED_IMPACT_MULTIPLE,
   WASH_RULE_IMPACT_TRIGGER,
   WASH_RULE_COOLDOWN_MS,
   CIRCUIT_BREAKER_MOVE,

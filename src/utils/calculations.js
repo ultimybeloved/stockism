@@ -9,6 +9,7 @@ import {
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
+  OVERSIZED_IMPACT_MULTIPLE,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -75,6 +76,23 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
 };
 
 /**
+ * What the TRADER is charged, as opposed to how far the market moves.
+ *
+ * The two differ only on an oversized order. The market move is capped at
+ * MAX_PRICE_CHANGE_PERCENT so one trade can't crater a stock; the trader pays
+ * the real marginal cost of the size they moved, bounded at
+ * OVERSIZED_IMPACT_MULTIPLE x that cap. Below the cap both return the same
+ * number. Mirrors traderMarginalImpact in functions/helpers.js — if you change
+ * one, change both, and re-run `npm test` plus `npm run test:trading`.
+ */
+export const calculateTraderImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
+  const rawImpact = currentPrice * BASE_IMPACT * (
+    Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
+  );
+  return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE);
+};
+
+/**
  * Price at which a short gets auto force-covered (its equity ratio hits
  * SHORT_MARGIN_CALL_THRESHOLD). This is the price the ticker has to RISE to.
  * Mirrors checkShortMarginCalls in functions/services/margin.js.
@@ -90,7 +108,9 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
  * new accounts.
  */
 export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0 }) => {
-  const priceImpact = calculatePriceImpactDollars(price, amount) * ageFactor;
+  // The preview quotes what the player will actually be charged, so it uses the
+  // TRADER impact. calculatePriceImpactDollars stays the market-move number.
+  const priceImpact = calculateTraderImpactDollars(price, amount) * ageFactor;
   if (action === 'buy') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);
     return ask * amount;

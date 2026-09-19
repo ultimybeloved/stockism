@@ -24,6 +24,7 @@
 //   N. Directional daily impact allowance (down and up pools are separate)
 //   O. Circuit breaker (the only cap that looks at the stock, not the trader)
 //   P. Wash rule (no buying back a stock you just pushed down)
+//   Q. Oversized order impact (market move capped, trader pays the real cost)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -43,7 +44,7 @@ const {
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
-  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER,
+  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER, OVERSIZED_IMPACT_MULTIPLE,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
@@ -1386,6 +1387,102 @@ async function testWashRule() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Q. OVERSIZED ORDER IMPACT
+// ════════════════════════════════════════════════════════════════════════════
+// The market move stays capped at MAX_PRICE_CHANGE_PERCENT so one order cannot
+// crater a stock. The TRADER pays the real marginal cost of the size they
+// moved, bounded at OVERSIZED_IMPACT_MULTIPLE x that cap.
+//
+// Before the split, the cap was a volume discount on the most disruptive action
+// available: impact accumulates across a player's trades, so easing 4,125 shares
+// out in pieces cost ~7.7% while dumping all of them at once cost 5%. Dumping
+// was the cheap option. These checks pin that it no longer is.
+async function testOversizedImpact() {
+  console.log('\nQ. Oversized order impact');
+  const rawImpact = (price, n, cum = 0) =>
+    price * BASE_IMPACT * (Math.sqrt((cum + n) / BASE_LIQUIDITY) - Math.sqrt(cum / BASE_LIQUIDITY));
+
+  // 2000 shares at $100 is ~5.37% raw, just over the 5% cap.
+  const BIG = 2000;
+  check('oversized: the test size really is over the cap',
+    rawImpact(100, BIG) > 100 * MAX_PRICE_CHANGE_PERCENT, `${rawImpact(100, BIG)}`);
+
+  // ── Market move capped, seller charged the real cost ─────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('over_sell', { cash: 0, holdings: { [T]: 10000 } });
+  const rBig = await ok({ ticker: T, action: 'sell', amount: BIG }, 'over_sell');
+  check('oversized sell: the market still only moves the capped 5%',
+    near(rBig.newPrice, 95), `newPrice=${rBig.newPrice}`);
+  check('oversized sell: the seller is paid against the full raw impact',
+    rBig.executionPrice < 95 * (1 - BID_ASK_SPREAD / 2),
+    `exec=${rBig.executionPrice} vs capped bid ${95 * (1 - BID_ASK_SPREAD / 2)}`);
+
+  // ── A normal-sized order is untouched ────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('over_small', { cash: 0, holdings: { [T]: 10000 } });
+  const rSmall = await ok({ ticker: T, action: 'sell', amount: 100 }, 'over_small');
+  const expSmall = sellMath(100, 100);
+  check('normal sell: unchanged, market and seller charged the same',
+    near(rSmall.executionPrice, expSmall.exec) && near(rSmall.newPrice, expSmall.newPrice),
+    `${rSmall.executionPrice} vs ${expSmall.exec}`);
+
+  // ── Dumping at once is no longer cheaper than easing out ─────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('over_once', { cash: 0, holdings: { [T]: 10000 } });
+  const atOnce = await ok({ ticker: T, action: 'sell', amount: 1200 }, 'over_once');
+
+  await seedMarket({ [T]: 100 });
+  await setUser('over_split', { cash: 0, holdings: { [T]: 10000 } });
+  let splitProceeds = 0;
+  for (const chunk of [400, 400, 400]) {
+    const r = await ok({ ticker: T, action: 'sell', amount: chunk }, 'over_split');
+    splitProceeds += r.executionPrice * chunk;
+    await new Promise((res) => setTimeout(res, 3100)); // global 3s trade cooldown
+  }
+  const onceProceeds = atOnce.executionPrice * 1200;
+  check('oversized: dumping at once no longer beats easing out',
+    onceProceeds <= splitProceeds * 1.005,
+    `atOnce ${onceProceeds.toFixed(0)} vs split ${splitProceeds.toFixed(0)}`);
+
+  // ── The penalty is bounded ───────────────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('over_huge', { cash: 0, holdings: { [T]: 10000 } });
+  const rHuge = await ok({ ticker: T, action: 'sell', amount: 10000 }, 'over_huge');
+  const floorPrice = 100 * (1 - MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE);
+  check('oversized: the trader penalty is bounded, never open-ended',
+    rHuge.executionPrice >= floorPrice * (1 - BID_ASK_SPREAD / 2) - 0.02,
+    `exec=${rHuge.executionPrice} floor=${floorPrice}`);
+  check('oversized: a huge dump still only moves the market 5%',
+    near(rHuge.newPrice, 95), `newPrice=${rHuge.newPrice}`);
+
+  // ── Spending the allowance first must not make a dump free ───────────────
+  // This is why the answer to "should the seller still pay at the cap?" is yes:
+  // otherwise burn the allowance on small sells, then dump for nothing.
+  await seedMarket({ [T]: 100 });
+  await setUser('over_capped', {
+    cash: 0, holdings: { [T]: 10000 },
+    tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] } },
+  });
+  const rCapped = await ok({ ticker: T, action: 'sell', amount: BIG }, 'over_capped');
+  check('oversized: at the daily cap the market does not move',
+    near(rCapped.newPrice, 100) && rCapped.priceImpact === 0,
+    `newPrice=${rCapped.newPrice} impact=${rCapped.priceImpact}`);
+  check('oversized: but the seller still pays for the size they moved',
+    rCapped.executionPrice < 100 * (1 - BID_ASK_SPREAD / 2) - 1,
+    `exec=${rCapped.executionPrice}`);
+
+  // ── The buy side has the same split ──────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('over_buy', { cash: 5000000, holdings: {} });
+  const rBuy = await ok({ ticker: T, action: 'buy', amount: BIG }, 'over_buy');
+  check('oversized buy: the market still only moves the capped 5%',
+    near(rBuy.newPrice, 105), `newPrice=${rBuy.newPrice}`);
+  check('oversized buy: the buyer pays against the full raw impact',
+    rBuy.executionPrice > 105 * (1 + BID_ASK_SPREAD / 2),
+    `exec=${rBuy.executionPrice}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -1409,6 +1506,7 @@ async function main() {
   await testDirectionalImpact();
   await testCircuitBreaker();
   await testWashRule();
+  await testOversizedImpact();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

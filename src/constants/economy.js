@@ -101,6 +101,12 @@ export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Matches backend threshold â
 export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
 
 // Anti-manipulation protections
+// How much more than the market move a trader is charged on an oversized order.
+// The market is capped at MAX_PRICE_CHANGE_PERCENT; the trader pays the real
+// marginal cost of their size, up to this multiple of that cap. Mirrors
+// OVERSIZED_IMPACT_MULTIPLE in functions/constants.js â€” keep both in sync.
+export const OVERSIZED_IMPACT_MULTIPLE = 2;
+
 // 10% max cumulative impact per user per ticker per day, PER DIRECTION
 // (sells+shorts down, buys+covers up). Mirrors MAX_DAILY_IMPACT in
 // functions/constants.js.

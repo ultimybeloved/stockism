@@ -85,12 +85,12 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
     readActionHistory(userData.tickerTradeHistory || {}, order.ticker, action, now);
   assertTradeLimit(tradeCount, action, order.ticker);
 
-  const { effectiveImpact, impactPercent } =
+  const { effectiveImpact, traderImpact, impactPercent } =
     computeImpact({ userData, ticker: order.ticker, action, freshPrice, fillShares, cumVolume, now });
 
   const ctx = {
     order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, impactPercent, fillSource,
+    effectiveImpact, traderImpact, impactPercent, fillSource,
   };
   const { executedPrice, tradeValue } = effectiveType === 'BUY'
     ? applyBuyFill(transaction, ctx)
