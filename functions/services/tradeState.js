@@ -5,7 +5,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const {
-  SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS,
+  SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER,
 } = require('../constants');
 const { pruneAndSumTradeHistory, sumDirectionalImpact, addPendingShares, decrementCohort } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
@@ -91,7 +91,7 @@ function buildUserUpdates({
   ticker, action, amount, now, userData, character,
   cash, holdings, shorts, newCash, newHoldings, newShorts, newMarginUsed,
   marginLockUpdate, updatedTickerTradeHistory, creditUpdates,
-  executionPrice, totalCost, currentPrice,
+  executionPrice, totalCost, currentPrice, downImpactAfter = 0,
 }) {
   const updates = {
     cash: newCash,
@@ -116,6 +116,15 @@ function buildUserUpdates({
   // ANTI-MANIPULATION: Track ticker trade times for buy/short cooldown
   if (action === 'buy' || action === 'short') {
     updates[`lastTickerTradeTime.${ticker}`] = admin.firestore.Timestamp.now();
+  }
+
+  // Wash rule: arm the buy-back block once this player's own downward pressure
+  // on this ticker passes the trigger. Stamped on every further sell/short too,
+  // so the clock runs from the LAST push rather than the first — otherwise a
+  // long grind would unlock itself while the grinder was still selling.
+  // Enforced in tradeGuards.assertCooldowns.
+  if ((action === 'sell' || action === 'short') && downImpactAfter >= WASH_RULE_IMPACT_TRIGGER) {
+    updates[`lastHeavySell.${ticker}`] = admin.firestore.Timestamp.now();
   }
 
   if (action === 'buy') {

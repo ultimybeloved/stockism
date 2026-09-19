@@ -259,6 +259,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
         cash, holdings, shorts, newCash, newHoldings, newShorts, newMarginUsed,
         marginLockUpdate, updatedTickerTradeHistory, creditUpdates,
         executionPrice, totalCost, currentPrice,
+        // Down-pressure this player has now put on this ticker in 24h. Arms the
+        // wash rule when it crosses the trigger; only sells/shorts can raise it.
+        downImpactAfter: direction === 'down' ? cumulativeDailyImpact + impactPercent : 0,
       });
 
       // Log trade — no `source`, which is what marks it as manually placed

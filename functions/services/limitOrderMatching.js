@@ -21,7 +21,7 @@ const db = admin.firestore();
 const { ORDERS_PER_TICKER_PER_CYCLE } = require('../constants');
 const {
   screenOrder, screenUser, isTickerHalted, triggerMet,
-  assertOrderStillActive, assertUserEligible, assertLimitStillMet,
+  assertOrderStillActive, assertUserEligible, assertWashRule, assertLimitStillMet,
   assertTradeLimit, resolveFillShares, readActionHistory,
 } = require('./limitOrderGuards');
 const { computeImpact, applyBuyFill, applySellFill, markOrderFilled } = require('./limitOrderFill');
@@ -77,6 +77,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   // Tags the trade record so the player can see why it happened.
   const fillSource = order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit';
   const action = effectiveType.toLowerCase();
+  assertWashRule(userData, order.ticker, action, now);
 
   const fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });
 

@@ -38,6 +38,22 @@ const MAX_TRADE_SHARES = 10000;     // max size, any action
 const TRADE_SHARE_DECIMALS = 2;     // decimal places allowed on entries
 const EXIT_SHARE_DECIMALS = 6;      // decimal places exits are held to (matches MIN_EXIT_SHARES)
 
+// ── Wash rule ────────────────────────────────────────────────────────────────
+// You cannot buy back a stock you just pushed down. Real markets have the same
+// idea (the IRS wash-sale rule runs 30 days); here it exists because the round
+// trip was the whole trade on 2026-09-17: Stitch dumped his entire $SHNG
+// position at 04:04, the price fell 23%, and he was buying it back at 04:07.
+// Three minutes. The shorting alongside it LOST him money — this step is where
+// the $440k came from.
+//
+// Keyed off price impact rather than share count or dollar value, so it scales
+// with the stock instead of needing a threshold per ticker, and so someone
+// selling a large position in a deep stock is not caught for a move they did
+// not cause. Shorts count too: pushing a price down to buy the dip is the same
+// trade whichever way you did the pushing.
+const WASH_RULE_IMPACT_TRIGGER = 0.04;                // 4% of down-impact in 24h arms it
+const WASH_RULE_COOLDOWN_MS = 6 * 60 * 60 * 1000;     // no buying it back for 6h
+
 // ── Circuit breaker ──────────────────────────────────────────────────────────
 // A stock that moves this far this fast pauses for a few minutes. The caps are
 // per USER, so a group can stack their allowances and walk a stock down far
@@ -790,6 +806,8 @@ module.exports = {
   TRADE_SHARE_DECIMALS,
   EXIT_SHARE_DECIMALS,
   MAX_DAILY_IMPACT,
+  WASH_RULE_IMPACT_TRIGGER,
+  WASH_RULE_COOLDOWN_MS,
   CIRCUIT_BREAKER_MOVE,
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,

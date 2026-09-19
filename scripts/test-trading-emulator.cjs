@@ -23,6 +23,7 @@
 //   M. Exit loyalty discount
 //   N. Directional daily impact allowance (down and up pools are separate)
 //   O. Circuit breaker (the only cap that looks at the stock, not the trader)
+//   P. Wash rule (no buying back a stock you just pushed down)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -42,6 +43,7 @@ const {
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
+  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
@@ -1292,6 +1294,98 @@ async function testCircuitBreaker() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// P. WASH RULE
+// ════════════════════════════════════════════════════════════════════════════
+// You cannot buy back a stock you just pushed down. On 2026-09-17 Stitch dumped
+// his whole $SHNG position at 04:04 and was buying it back at 04:07 — the short
+// leg alongside it LOST money, so this round trip was the entire trade. Armed
+// by 24h down-impact crossing the trigger; blocks BUYS only, because an exit is
+// never blocked.
+async function testWashRule() {
+  console.log('\nP. Wash rule');
+  const armed = (ts = Date.now()) => ({ lastHeavySell: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) } });
+
+  // ── A heavy sell arms it ─────────────────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_arm', { cash: 0, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 2000 }, 'wash_arm');
+  const uArm = await getUser('wash_arm');
+  check('wash: a heavy sell arms the buy-back block',
+    !!uArm.lastHeavySell?.[T], JSON.stringify(uArm.lastHeavySell || null));
+
+  // ── ...and the buy-back is refused ───────────────────────────────────────
+  // Re-seeded with the arm the sell just produced, minus lastTradeTime: the 3s
+  // global cooldown would otherwise answer first and prove nothing.
+  await setUser('wash_arm', {
+    cash: 500000, holdings: {}, lastHeavySell: uArm.lastHeavySell,
+  });
+  const eBack = await err({ ticker: T, action: 'buy', amount: 1 }, 'wash_arm');
+  check('wash: buying it back is refused',
+    !!eBack && /wash rule/i.test(eBack), eBack || 'no error');
+
+  // ── A small sell does NOT arm it ─────────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_small', { cash: 500000, holdings: { [T]: 5000 } });
+  await ok({ ticker: T, action: 'sell', amount: 1 }, 'wash_small');
+  const uSmall = await getUser('wash_small');
+  check('wash: a small sell does not arm it',
+    !uSmall.lastHeavySell?.[T], JSON.stringify(uSmall.lastHeavySell || null));
+
+  // ── A heavy SHORT arms it too (same trade, other direction) ──────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_short', { cash: 5000000, holdings: {}, shorts: {} });
+  await ok({ ticker: T, action: 'short', amount: 2000 }, 'wash_short');
+  const uShort = await getUser('wash_short');
+  check('wash: a heavy short arms it as well',
+    !!uShort.lastHeavySell?.[T], JSON.stringify(uShort.lastHeavySell || null));
+
+  // ── Exits are never blocked ──────────────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_exit', { cash: 0, holdings: { [T]: 100 }, ...armed() });
+  const rSell = await ok({ ticker: T, action: 'sell', amount: 10 }, 'wash_exit');
+  check('wash: selling is never blocked by it', rSell.success === true, JSON.stringify(rSell.success));
+
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_cover', {
+    cash: 500000, holdings: {},
+    shorts: { [T]: { shares: 50, costBasis: 100, margin: 5000,
+      openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * MIN), system: 'v2' } },
+    ...armed(),
+  });
+  const rCover = await ok({ ticker: T, action: 'cover', amount: 10 }, 'wash_cover');
+  check('wash: covering is never blocked by it', rCover.success === true, JSON.stringify(rCover.success));
+
+  // ── Other tickers are untouched ──────────────────────────────────────────
+  await seedMarket({ [T]: 100, [T2]: 100 });
+  await setUser('wash_other', { cash: 500000, holdings: {}, ...armed() });
+  const rOther = await ok({ ticker: T2, action: 'buy', amount: 5 }, 'wash_other');
+  check('wash: a different ticker is unaffected', rOther.success === true, JSON.stringify(rOther.success));
+
+  // ── It expires ───────────────────────────────────────────────────────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_expired', {
+    cash: 500000, holdings: {}, ...armed(Date.now() - WASH_RULE_COOLDOWN_MS - MIN),
+  });
+  const rExpired = await ok({ ticker: T, action: 'buy', amount: 5 }, 'wash_expired');
+  check('wash: the block lifts once the cooldown passes',
+    rExpired.success === true, JSON.stringify(rExpired.success));
+
+  // ── Selling again re-arms the clock from the LAST push ───────────────────
+  await seedMarket({ [T]: 100 });
+  const nearlyOver = Date.now() - WASH_RULE_COOLDOWN_MS + 5 * MIN;
+  await setUser('wash_rearm', {
+    cash: 0, holdings: { [T]: 5000 },
+    tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 1, impact: WASH_RULE_IMPACT_TRIGGER }] } },
+    ...armed(nearlyOver),
+  });
+  await ok({ ticker: T, action: 'sell', amount: 5 }, 'wash_rearm');
+  const uRe = await getUser('wash_rearm');
+  const reMs = uRe.lastHeavySell[T].toMillis();
+  check('wash: another push restarts the clock',
+    reMs > nearlyOver + MIN, `${reMs} vs ${nearlyOver}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -1314,6 +1408,7 @@ async function main() {
   await testExitLoyalty();
   await testDirectionalImpact();
   await testCircuitBreaker();
+  await testWashRule();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

@@ -15,6 +15,7 @@ const { CHARACTER_MAP } = require('../characters');
 const { lockedShares, pruneAndSumTradeHistory, floorExitShares } = require('../helpers');
 const {
   MAX_TRADES_PER_TICKER_24H, MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+  WASH_RULE_COOLDOWN_MS,
 } = require('../constants');
 
 const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
@@ -107,6 +108,22 @@ const assertUserEligible = (userData) => {
   if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
 };
 
+/**
+ * Wash rule, same gate executeTrade applies: a player who has pushed this
+ * ticker down today cannot buy it back yet, through any lane. A limit BUY that
+ * lands inside the window DEFERS rather than cancels — the order is still
+ * perfectly valid, it just cannot fill yet, so the wording here must stay out
+ * of CANCEL_ON in limitOrderMatching.
+ */
+const assertWashRule = (userData, ticker, action, now = Date.now()) => {
+  if (action !== 'buy') return;
+  const armed = userData.lastHeavySell?.[ticker];
+  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
+  if (armedMs && now - armedMs < WASH_RULE_COOLDOWN_MS) {
+    throw new Error('Wash rule cooldown active on this ticker');
+  }
+};
+
 /** The trigger, re-checked against the fresh price. */
 const assertLimitStillMet = (order, freshPrice) => {
   if (!triggerMet(order, freshPrice)) {
@@ -177,6 +194,7 @@ module.exports = {
   triggerMet,
   assertOrderStillActive,
   assertUserEligible,
+  assertWashRule,
   assertLimitStillMet,
   assertTradeLimit,
   resolveFillShares,
