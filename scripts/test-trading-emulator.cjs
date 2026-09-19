@@ -20,6 +20,8 @@
 //   J. Short margin-call scanner (checkShortMarginCalls + hasOpenShorts flag)
 //   K. Long margin lending scanner (checkMarginLending liquidation + margin call)
 //   L. Bailout wipe (share locks must not outlive the shares they locked)
+//   M. Exit loyalty discount
+//   N. Directional daily impact allowance (down and up pools are separate)
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -1110,6 +1112,96 @@ async function testExitLoyalty() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// N. DIRECTIONAL DAILY IMPACT ALLOWANCE
+// ════════════════════════════════════════════════════════════════════════════
+// The down allowance (sell/short) and the up allowance (buy/cover) are separate
+// pools of MAX_DAILY_IMPACT each. While they were one shared pool, a player
+// could spend it pushing a stock down and then exit through the clamp that
+// floors exit impact at zero — the market heard the selling and never heard the
+// buying, so a same-day round trip left a permanent one-way dent. These checks
+// pin the split so that hole cannot reopen.
+async function testDirectionalImpact() {
+  console.log('\nN. Directional daily impact allowance');
+  const spent = (action) => ({
+    [T]: { [action]: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] },
+  });
+
+  // ── The ratchet itself: short the allowance out, then cover ───────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_cover', {
+    cash: 500000, holdings: {},
+    shorts: { [T]: { shares: 50, costBasis: 80, margin: 4000,
+      openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000), system: 'v2' } },
+    tickerTradeHistory: spent('short'),
+  });
+  const rCover = await ok({ ticker: T, action: 'cover', amount: 25 }, 'dir_cover');
+  check('directional: cover still moves the price after the down allowance is spent',
+    rCover.success && rCover.priceImpact > 0 && rCover.newPrice > 80,
+    `impact=${rCover.priceImpact} newPrice=${rCover.newPrice}`);
+
+  // ── Same hole in reverse: buy the allowance out, then sell ────────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_sell', { cash: 0, holdings: { [T]: 50 }, tickerTradeHistory: spent('buy') });
+  const rSell = await ok({ ticker: T, action: 'sell', amount: 25 }, 'dir_sell');
+  check('directional: sell still moves the price after the up allowance is spent',
+    rSell.success && rSell.priceImpact > 0 && rSell.newPrice < 80,
+    `impact=${rSell.priceImpact} newPrice=${rSell.newPrice}`);
+
+  // ── Each direction still caps on its OWN history ──────────────────────────
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_buy_block', { cash: 500000, holdings: {}, tickerTradeHistory: spent('buy') });
+  const eBuy = await err({ ticker: T, action: 'buy', amount: 10 }, 'dir_buy_block');
+  check('directional: buy still blocked by a spent UP allowance',
+    !!eBuy && /Daily trading limit/i.test(eBuy), eBuy || 'no error');
+
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_short_block', { cash: 500000, holdings: {}, tickerTradeHistory: spent('sell') });
+  const eShort = await err({ ticker: T, action: 'short', amount: 10 }, 'dir_short_block');
+  check('directional: short still blocked by a spent DOWN allowance',
+    !!eShort && /Daily trading limit/i.test(eShort), eShort || 'no error');
+
+  // ── A spent UP allowance must not block a short, and vice versa ───────────
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_cross_short', { cash: 500000, holdings: {}, tickerTradeHistory: spent('buy') });
+  const rCross = await ok({ ticker: T, action: 'short', amount: 10 }, 'dir_cross_short');
+  check('directional: a spent UP allowance does not block shorting',
+    rCross.success && rCross.priceImpact > 0, JSON.stringify(rCross.priceImpact));
+
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_cross_buy', { cash: 500000, holdings: {}, tickerTradeHistory: spent('short') });
+  const rCrossBuy = await ok({ ticker: T, action: 'buy', amount: 10 }, 'dir_cross_buy');
+  check('directional: a spent DOWN allowance does not block buying',
+    rCrossBuy.success && rCrossBuy.priceImpact > 0, JSON.stringify(rCrossBuy.priceImpact));
+
+  // ── Sells and shorts share one pool; buys and covers share the other ──────
+  await seedMarket({ [T]: 80 });
+  await setUser('dir_same_pool', { cash: 500000, holdings: { [T]: 50 },
+    tickerTradeHistory: spent('short') });
+  const rPooled = await ok({ ticker: T, action: 'sell', amount: 25 }, 'dir_same_pool');
+  check('directional: a short spends the same DOWN pool a sell draws on',
+    rPooled.success && rPooled.priceImpact === 0 && near(rPooled.newPrice, 80),
+    `impact=${rPooled.priceImpact} newPrice=${rPooled.newPrice}`);
+
+  // ── The IP-level allowance is split the same way ──────────────────────────
+  await seedMarket({ [T2]: 80 });
+  const dirIp = '198.18.0.3';
+  await db.collection('ipTracking').doc(dirIp.replace(/[.:/]/g, '_')).set({
+    tickerTradeHistory: { [T2]: { short: [{ ts: Date.now() - 1000, shares: 1, impact: 0.099 }] } },
+    recentTraders: {},
+  });
+  await setUser('dir_ip', { cash: 500000, holdings: {} });
+  const rIpBuy = await ok({ ticker: T2, action: 'buy', amount: 5 }, 'dir_ip', dirIp);
+  check("directional: an IP sibling's DOWN impact does not block a buy",
+    rIpBuy.success && rIpBuy.priceImpact > 0, JSON.stringify(rIpBuy.priceImpact));
+  // A second account on that IP, so the short is not caught by the 3s per-user
+  // trade cooldown from the buy above. Two accounts is within the per-IP cap.
+  await setUser('dir_ip2', { cash: 500000, holdings: {} });
+  const eIpShort = await err({ ticker: T2, action: 'short', amount: 5 }, 'dir_ip2', dirIp);
+  check("directional: an IP sibling's DOWN impact still blocks a short",
+    !!eIpShort && /Daily trading limit/i.test(eIpShort), eIpShort || 'no error');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -1130,6 +1222,7 @@ async function main() {
   await testMarginLendingScanner();
   await testBailoutWipe();
   await testExitLoyalty();
+  await testDirectionalImpact();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

@@ -85,7 +85,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   assertTradeLimit(tradeCount, action, order.ticker);
 
   const { effectiveImpact, impactPercent } =
-    computeImpact({ userData, ticker: order.ticker, freshPrice, fillShares, cumVolume, now });
+    computeImpact({ userData, ticker: order.ticker, action, freshPrice, fillShares, cumVolume, now });
 
   const ctx = {
     order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,

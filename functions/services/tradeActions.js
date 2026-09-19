@@ -25,7 +25,8 @@ function computeBuy({
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   const hitMaxImpact = priceImpact >= maxImpact;
 
-  // Check daily 10% impact cap
+  // Daily 10% impact cap. The caller passes the UP allowance for a buy, so
+  // pushing this stock DOWN earlier today does not consume it.
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
@@ -131,8 +132,10 @@ function computeSell({
   // Calculate marginal price impact (cumulative sell volume-based)
   let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
-  // Daily 10% impact cap: sells always execute (players must be able to
-  // exit), but once the cap is hit the trade stops moving the price.
+  // Daily 10% DOWN allowance: sells always execute (players must be able to
+  // exit), but once it is spent the trade stops moving the price. Buys and
+  // covers draw on a separate UP allowance, so a clamp here can never be used
+  // to walk out of a position through a price move nobody hears.
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
@@ -223,7 +226,7 @@ function computeShort({
   // Calculate marginal price impact (cumulative volume-based)
   const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
-  // Check daily 10% impact cap
+  // Daily 10% DOWN allowance, shared with sells.
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
@@ -292,8 +295,9 @@ function computeCover({
   // Calculate marginal price impact (cumulative cover volume-based)
   let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
 
-  // Daily 10% impact cap: covers always execute (players must be able to
-  // exit), but once the cap is hit the trade stops moving the price.
+  // Daily 10% UP allowance, shared with buys. Covering a short you opened
+  // today draws on a full allowance, so the buy-back pushes the price back up
+  // as hard as the short pushed it down.
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);

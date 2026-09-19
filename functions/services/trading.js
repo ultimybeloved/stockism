@@ -30,6 +30,8 @@ const {
   buildTradeCreditUpdates,
   getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
+  sumDirectionalImpact,
+  impactDirectionOf,
   priceHistoryRef,
   appendPriceHistory,
   recordTrade,
@@ -138,19 +140,20 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       const actionHistory = tickerTradeHistory[ticker]?.[action] || [];
       const { totalShares: cumulativeVolume, count: tradeCount } = pruneAndSumTradeHistory(actionHistory, now);
 
-      // Compute total daily impact across ALL actions for this ticker (for 10% cap)
-      let cumulativeDailyImpact = 0;
+      // Daily impact already spent on this ticker, in the direction this action
+      // pushes. Down (sell/short) and up (buy/cover) get their own 10%, so an
+      // exit can never ride a clamped-to-zero impact out of a position it just
+      // pushed into. See sumDirectionalImpact in helpers.js.
       const allActionsForTicker = tickerTradeHistory[ticker] || {};
-      for (const act of ['buy', 'sell', 'short', 'cover']) {
-        const { totalImpact } = pruneAndSumTradeHistory(allActionsForTicker[act] || [], now);
-        cumulativeDailyImpact += totalImpact;
-      }
+      const direction = impactDirectionOf(action);
+      const cumulativeDailyImpact = sumDirectionalImpact(allActionsForTicker, now)[direction];
 
       // IP-level trade history (shared across all accounts on the same IP);
       // transaction read, so it must come before any transaction writes.
       const ip = context.rawRequest?.ip || 'unknown';
-      const { ipCumulativeDailyImpact, ipTrackingRef, ipTickerTradeHistory, ipRecentTraders } =
+      const { ipDailyImpact, ipTrackingRef, ipTickerTradeHistory, ipRecentTraders } =
         await readIpTradeData(transaction, ip, ticker, now);
+      const ipCumulativeDailyImpact = ipDailyImpact[direction];
 
       assertIpAccountCap({ ip, uid, action, ipRecentTraders, now });
       assertCooldowns(userData, ticker, action, now);

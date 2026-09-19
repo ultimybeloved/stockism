@@ -971,6 +971,43 @@ const pruneAndSumTradeHistory = (entries, now) => {
   return { recent, totalShares, totalImpact, count: realCount };
 };
 
+// Which way an action pushes the price. Sells and shorts push down, buys and
+// covers push up. Matches the trailing-entry mapping in tradePricing.js.
+const IMPACT_DIRECTIONS = { sell: 'down', short: 'down', buy: 'up', cover: 'up' };
+const impactDirectionOf = (action) => IMPACT_DIRECTIONS[action] || 'up';
+
+// The rolling-24h impact a user (or an IP) has already spent on one ticker,
+// split by direction.
+//
+// The two allowances are deliberately separate. While they were one shared
+// pool, spending it in one direction silently disarmed the other: a player
+// could short a stock down the full 10%, then cover the whole position in the
+// same day through the exit clamp, which floors the impact at zero once the
+// pool is empty. The market heard the selling and never heard the buying, so a
+// round trip that should be a wash left a permanent one-way dent. The same hole
+// ran in reverse for buy-then-sell. Per-direction allowances mean an exit
+// always pushes back as hard as the entry pushed.
+const sumDirectionalImpact = (actionsForTicker, now) => {
+  const totals = { down: 0, up: 0 };
+  for (const action of Object.keys(IMPACT_DIRECTIONS)) {
+    const { totalImpact } = pruneAndSumTradeHistory((actionsForTicker || {})[action] || [], now);
+    totals[impactDirectionOf(action)] += totalImpact;
+  }
+  return totals;
+};
+
+// What one action may still move a ticker's price, as a fraction, given the
+// history already spent by this user and by their IP. Whichever is further
+// along wins, so alts on one connection share an allowance.
+const remainingImpactFor = ({ action, userActions, ipActions, now, cap }) => {
+  const direction = impactDirectionOf(action);
+  const spent = Math.max(
+    sumDirectionalImpact(userActions, now)[direction],
+    sumDirectionalImpact(ipActions, now)[direction]
+  );
+  return Math.max(0, cap - spent);
+};
+
 // ============================================
 // NOTIFICATION HELPER
 // ============================================
@@ -1765,6 +1802,9 @@ module.exports = {
   lmsrBuyCost,
   lmsrSellRefund,
   pruneAndSumTradeHistory,
+  sumDirectionalImpact,
+  impactDirectionOf,
+  remainingImpactFor,
   writeNotification,
   writeFeedEntry,
   BANNED_NAMES,

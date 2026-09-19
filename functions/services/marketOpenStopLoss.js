@@ -21,7 +21,7 @@ const {
 } = require('../constants');
 const {
   writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor,
-  pruneAndSumTradeHistory, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
+  pruneAndSumTradeHistory, sumDirectionalImpact, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
   recordTrade, round2, spreadFor, floorExitShares, remainingShares,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
@@ -75,16 +75,13 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   if (tradeCount >= MAX_TRADES_PER_TICKER_24H) throw new Error('Trade limit reached');
 
   // Daily 10% impact cap (same rule as executeTrade): the stop loss still fills,
-  // but stops moving the price once the user's daily impact allowance on this
-  // ticker is used up. New accounts move less.
-  let dailyImpact = 0;
-  for (const act of ['buy', 'sell', 'short', 'cover']) {
-    const { totalImpact } = pruneAndSumTradeHistory(tickerTradeHistory[order.ticker]?.[act] || [], now);
-    dailyImpact += totalImpact;
-  }
+  // but stops moving the price once the user's DOWN allowance on this ticker is
+  // used up. A stop loss is always a sell, so it only ever spends that side.
+  // New accounts move less.
+  const spentDown = sumDirectionalImpact(tickerTradeHistory[order.ticker], now).down;
   const effectiveImpact = Math.min(
     calculateMarginalImpact(freshPrice, fillShares, cumVol) * getAccountAgeImpactFactor(userData),
-    freshPrice * Math.max(0, MAX_DAILY_IMPACT - dailyImpact)
+    freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown)
   );
   const impactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;
 

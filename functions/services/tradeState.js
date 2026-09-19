@@ -7,14 +7,15 @@ const db = admin.firestore();
 const {
   SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS,
 } = require('../constants');
-const { pruneAndSumTradeHistory, addPendingShares, decrementCohort } = require('../helpers');
+const { pruneAndSumTradeHistory, sumDirectionalImpact, addPendingShares, decrementCohort } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 
 // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts
 // on the same IP). Must run before any transaction writes.
 async function readIpTradeData(transaction, ip, ticker, now) {
   const result = {
-    ipCumulativeDailyImpact: 0,
+    // Spent allowance split by direction, same shape as the per-user figure.
+    ipDailyImpact: { down: 0, up: 0 },
     ipTrackingRef: null,
     sanitizedIp: null,
     ipTickerTradeHistory: {},
@@ -29,11 +30,7 @@ async function readIpTradeData(transaction, ip, ticker, now) {
     const ipData = ipDoc.data();
     result.ipTickerTradeHistory = ipData.tickerTradeHistory || {};
     result.ipRecentTraders = ipData.recentTraders || {};
-    const ipAllActions = result.ipTickerTradeHistory[ticker] || {};
-    for (const act of ['buy', 'sell', 'short', 'cover']) {
-      const { totalImpact } = pruneAndSumTradeHistory(ipAllActions[act] || [], now);
-      result.ipCumulativeDailyImpact += totalImpact;
-    }
+    result.ipDailyImpact = sumDirectionalImpact(result.ipTickerTradeHistory[ticker], now);
   }
   return result;
 }

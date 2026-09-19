@@ -101,7 +101,10 @@ export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Matches backend threshold â
 export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
 
 // Anti-manipulation protections
-export const MAX_DAILY_IMPACT_PER_USER = 0.10; // 10% max cumulative impact per user per ticker per day
+// 10% max cumulative impact per user per ticker per day, PER DIRECTION
+// (sells+shorts down, buys+covers up). Mirrors MAX_DAILY_IMPACT in
+// functions/constants.js.
+export const MAX_DAILY_IMPACT_PER_USER = 0.10;
 export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
 export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window (deposit cap + rush fee) â€” keep in sync with functions/constants.js

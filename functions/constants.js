@@ -39,7 +39,11 @@ const TRADE_SHARE_DECIMALS = 2;     // decimal places allowed on entries
 const EXIT_SHARE_DECIMALS = 6;      // decimal places exits are held to (matches MIN_EXIT_SHARES)
 
 // Anti-manipulation: per-user, per-ticker, per-day limits
-const MAX_DAILY_IMPACT = 0.10;          // 10% max cumulative price move
+// Max cumulative price move one user (or one IP) can cause on one ticker per
+// rolling 24h, PER DIRECTION: sells+shorts spend the down allowance, buys+
+// covers spend the up one. See sumDirectionalImpact in helpers.js for why the
+// two are separate.
+const MAX_DAILY_IMPACT = 0.10;
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
 // How many limit orders on the same ticker one sweep may fill. Anything over

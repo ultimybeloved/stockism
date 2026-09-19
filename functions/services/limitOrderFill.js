@@ -12,8 +12,9 @@ const admin = require('firebase-admin');
 const { exitLoyaltyDiscount } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
-  calculateMarginalImpact, getAccountAgeImpactFactor, pruneAndSumTradeHistory,
+  calculateMarginalImpact, getAccountAgeImpactFactor,
   appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
+  sumDirectionalImpact, impactDirectionOf,
 } = require('../helpers');
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
@@ -24,18 +25,14 @@ const round2 = (n) => Math.round(n * 100) / 100;
 
 /**
  * Price impact for this fill, capped by whatever is left of the user's daily
- * allowance on this ticker. Same rule as executeTrade: the fill still executes
- * once the allowance is gone, it just stops moving the price. New accounts
- * move less.
+ * allowance on this ticker IN THE DIRECTION THIS FILL PUSHES. Same rule as
+ * executeTrade: the fill still executes once the allowance is gone, it just
+ * stops moving the price. New accounts move less.
  */
-const computeImpact = ({ userData, ticker, freshPrice, fillShares, cumVolume, now }) => {
+const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVolume, now }) => {
   const history = userData.tickerTradeHistory || {};
-  let dailyImpact = 0;
-  for (const act of ['buy', 'sell', 'short', 'cover']) {
-    const { totalImpact } = pruneAndSumTradeHistory(history[ticker]?.[act] || [], now);
-    dailyImpact += totalImpact;
-  }
-  const remaining = Math.max(0, MAX_DAILY_IMPACT - dailyImpact);
+  const spent = sumDirectionalImpact(history[ticker], now)[impactDirectionOf(action)];
+  const remaining = Math.max(0, MAX_DAILY_IMPACT - spent);
   const effectiveImpact = Math.min(
     calculateMarginalImpact(freshPrice, fillShares, cumVolume) * getAccountAgeImpactFactor(userData),
     freshPrice * remaining
