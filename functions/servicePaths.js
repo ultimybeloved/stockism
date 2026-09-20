@@ -38,6 +38,7 @@ module.exports = [
   './services/dividends',
   './services/watchlist',
   './services/altDetection',
+  './services/coordDetection',
   './services/ladderGame',
   './services/ladderTransfers',
   './services/limitOrders',

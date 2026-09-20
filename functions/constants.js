@@ -455,6 +455,24 @@ const CREW_MILESTONE_THRESHOLDS = [5, 10, 25, 50, 100]; // crew member counts th
 // flagged by hand, so a pair nobody suspected could trade from the same house
 // for months without raising anything. These drive the scan that goes looking
 // on its own (services/altDetection.js).
+// ── Coordinated-pressure detection ───────────────────────────────────────────
+// Alt detection answers "is this one person with many accounts". This answers a
+// different question: "are several DIFFERENT people pushing the same stock the
+// same way". Nothing detected that until 2026-09-19, so the only incidents that
+// ever reached the admin were the ones players got loud enough about.
+//
+// Impact, not share count or dollars, so the thresholds mean the same thing on
+// a $9 stock and a $2,000 one.
+const COORD_SCAN_WINDOW_DAYS = 3;        // days of trades each scan reads
+const COORD_MIN_ACCOUNTS = 2;            // distinct accounts pushing one way
+const COORD_MIN_COMBINED_IMPACT = 0.08;  // 8% of combined same-day pressure
+const COORD_MIN_EACH_IMPACT = 0.01;      // ignore an account that barely took part
+// A cluster this tight is very unlikely to be independent. Reported separately
+// because it is the strongest signal: on 2026-09-17 six accounts shorted $SHNG
+// inside 21 minutes, four of them covering within four minutes of each other.
+const COORD_TIGHT_WINDOW_MS = 30 * 60 * 1000;
+const COORD_HIGH_COMBINED_IMPACT = 0.15; // 15%+ combined lands as high severity
+
 const ALT_SCAN_WINDOW_DAYS = 30;   // how far back through trade records each scan looks
 const ALT_SCAN_MAX_TRADES  = 60000; // safety cap so one scan can't run away with reads
 // An IPv6 address is rotated by the ISP constantly, but the first four groups
@@ -948,6 +966,12 @@ module.exports = {
   WHALE_ALERT_SHARES_HARD,
   CREW_MILESTONE_THRESHOLDS,
   REINSTATE_CASH_DEFAULT,
+  COORD_SCAN_WINDOW_DAYS,
+  COORD_MIN_ACCOUNTS,
+  COORD_MIN_COMBINED_IMPACT,
+  COORD_MIN_EACH_IMPACT,
+  COORD_TIGHT_WINDOW_MS,
+  COORD_HIGH_COMBINED_IMPACT,
   ALT_SCAN_WINDOW_DAYS,
   ALT_SCAN_MAX_TRADES,
   ALT_IPV6_PREFIX_GROUPS,
