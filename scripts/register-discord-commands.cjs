@@ -17,23 +17,7 @@
 // commands that appear in Discord and then fail silently. Asking Discord which
 // app the token belongs to removes the guess entirely.
 
-const fs = require('fs');
-const path = require('path');
-
-const ENV_PATH = path.join(__dirname, '..', 'functions', '.env');
-const API = 'https://discord.com/api/v10';
-
-function readBotToken() {
-  if (process.env.DISCORD_BOT_TOKEN) return process.env.DISCORD_BOT_TOKEN;
-  if (!fs.existsSync(ENV_PATH)) {
-    throw new Error(`No DISCORD_BOT_TOKEN in the environment and no ${ENV_PATH} to read it from.`);
-  }
-  const line = fs.readFileSync(ENV_PATH, 'utf8')
-    .split(/\r?\n/)
-    .find((l) => l.trim().startsWith('DISCORD_BOT_TOKEN='));
-  if (!line) throw new Error('DISCORD_BOT_TOKEN not found in functions/.env');
-  return line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
-}
+const { readBotToken, discord, getApp } = require('./discord-api.cjs');
 
 // Discord option types we use.
 const STRING = 3;
@@ -84,25 +68,9 @@ const COMMANDS = [
   },
 ];
 
-async function discord(token, route, options = {}) {
-  const res = await fetch(`${API}${route}`, {
-    ...options,
-    headers: {
-      Authorization: `Bot ${token}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`Discord ${options.method || 'GET'} ${route} failed (${res.status}): ${text}`);
-  }
-  return text ? JSON.parse(text) : null;
-}
-
 async function main() {
   const token = readBotToken();
-  const app = await discord(token, '/oauth2/applications/@me');
+  const app = await getApp(token);
 
   console.log(`App:  ${app.name} (${app.id})`);
   console.log(`Public bot (installable in other servers): ${app.bot_public ? 'YES' : 'NO'}`);

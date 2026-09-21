@@ -18,6 +18,7 @@
     "audit:halt": "node scripts/halt-price-audit.cjs",
     "status:market": "node scripts/market-status.cjs",
     "discord:commands": "node scripts/register-discord-commands.cjs",
+    "discord:emojis": "node scripts/sync-crew-emojis.cjs",
     "test:discord": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-discord-commands-emulator.cjs\"",
     "test:discord:endpoint": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-discord-endpoint-emulator.cjs\"",
     "test": "vitest run",

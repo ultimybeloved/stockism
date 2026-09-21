@@ -25,7 +25,7 @@ const {
 } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, CREWS } = require('../crews');
 const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('./missionChecks');
-const { countRankAbove, getWeekId } = require('../helpers');
+const { countRankAbove, getWeekId, crewEmoji } = require('../helpers');
 
 const BRAND_COLOR = 0x5865f2;
 const EPHEMERAL = 64;
@@ -215,10 +215,11 @@ const cmdProfile = async (interaction) => {
     { name: 'Stocks held', value: `${distinct}`, inline: true },
     { name: 'Achievements', value: `${achievements}`, inline: true },
   ];
-  // Crews are stored by id (BIG_DEAL); show the human name and emblem instead.
+  // Crews are stored by id (BIG_DEAL); show the human name and the crew's
+  // custom Discord emoji instead (crewEmoji falls back to the Unicode emblem).
   const crew = CREWS[data.crew];
   if (crew) {
-    fields.push({ name: 'Crew', value: `${crew.emblem || ''} ${crew.name}`.trim(), inline: true });
+    fields.push({ name: 'Crew', value: `${crewEmoji(data.crew)} ${crew.name}`.trim(), inline: true });
   } else if (data.crew) {
     fields.push({ name: 'Crew', value: safeEcho(data.crew, 32), inline: true });
   }

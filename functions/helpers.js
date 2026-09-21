@@ -120,6 +120,9 @@ const {
   TRADE_TX_TYPES,
   TRADE_RECORD_ACTIONS,
   DISCORD_API_TIMEOUT_MS,
+  CREW_EMOJIS,
+  DISCORD_EMOJI_PATTERN,
+  CREWS,
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_EXIT_SHARES,
@@ -1512,6 +1515,23 @@ async function bindDiscordToUid(discordId, uid, discordUsername) {
 }
 
 /**
+ * The emoji that stands for a crew in Discord.
+ *
+ * Prefers the custom crew emoji (CREW_EMOJIS in constants.js) and falls back to
+ * the Unicode emblem from crews.js, which is what the website shows. Returns ''
+ * for an unknown crew id so callers can interpolate it blindly.
+ *
+ * Anything in CREW_EMOJIS that is not well-formed `<:name:id>` markup is treated
+ * as absent: a half-pasted ID would otherwise print as literal angle brackets in
+ * the middle of an embed, which looks far worse than the plain emblem.
+ */
+function crewEmoji(crewId) {
+  const custom = CREW_EMOJIS[crewId];
+  if (custom && DISCORD_EMOJI_PATTERN.test(custom)) return custom;
+  return (CREWS[crewId] && CREWS[crewId].emblem) || '';
+}
+
+/**
  * One raw call to the Discord REST API as the bot.
  *
  * Deliberately does NOT throw on HTTP errors — Discord answers with meaningful
@@ -1931,6 +1951,7 @@ module.exports = {
   isDiscordBindingLocked,
   bindDiscordToUid,
   discordApi,
+  crewEmoji,
   sendDiscordMessage,
   sendDiscordDM,
   sendMarketStatusAlert,
