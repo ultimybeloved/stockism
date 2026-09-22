@@ -10,6 +10,8 @@ const {
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
   LADDER_ACHIEVEMENT_HIGH_BETS,
+  LADDER_LEADERBOARD_SIZE,
+  LADDER_LEADERBOARD_OVERFETCH,
 } = require('../constants');
 
 // Deposits, withdrawals (incl. the withdrawal tax), and admin transfers live in
@@ -228,9 +230,15 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
 exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
   try {
+    // Over-fetch, then drop the entries that should not hold a slot and trim.
+    // A ladder doc is keyed by uid and outlives the account: deletions only
+    // recently started removing it, and a ban leaves it entirely. Both used to
+    // sit on this board — a deleted account as "Anonymous" with a real balance,
+    // a banned one under its own name — while the main leaderboard has always
+    // excluded bots and bans. Same rule here.
     const ladderUsersSnap = await db.collection('ladderGameUsers')
       .orderBy('balance', 'desc')
-      .limit(50)
+      .limit(LADDER_LEADERBOARD_SIZE * LADDER_LEADERBOARD_OVERFETCH)
       .get();
 
     const userIds = ladderUsersSnap.docs.map(doc => doc.id);
@@ -242,11 +250,14 @@ exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
     userDocs.forEach(doc => { if (doc.exists) userMap[doc.id] = doc.data(); });
 
     for (const doc of ladderUsersSnap.docs) {
+      if (leaderboard.length >= LADDER_LEADERBOARD_SIZE) break;
       const ladderData = doc.data();
       const userData = userMap[doc.id];
+      // No user doc = the account is gone; the balance is a leftover.
+      if (!userData || userData.isBanned || userData.isBot) continue;
       leaderboard.push({
         userId: doc.id,
-        username: userData?.displayName || 'Anonymous',
+        username: userData.displayName || 'Anonymous',
         balance: ladderData.balance || 0,
         gamesPlayed: ladderData.gamesPlayed || 0,
         wins: ladderData.wins || 0,

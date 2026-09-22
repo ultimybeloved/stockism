@@ -107,7 +107,12 @@ const readState = async () => {
     .flat()
     .filter((p) => p && p.source === 'daily_drop');
   const shares = Object.values(user.holdings || {}).reduce((a, b) => a + b, 0);
-  return { prices, dropPoints, shares };
+  // Dividend/exit-loyalty lots across every ticker, and the claim ledger that
+  // is pruned to the 72-hour window.
+  const lotShares = Object.values(user.holdingCohorts || {}).reduce(
+    (a, c) => a + (c.eligible || 0) + (c.pending || []).reduce((s, p) => s + (p.shares || 0), 0), 0);
+  const claimed = (user.claimedDailyStockMessages || []).length;
+  return { prices, dropPoints, shares, lotShares, claimed };
 };
 
 async function seed() {
@@ -139,6 +144,8 @@ async function claimUnder(label, { weekly = false, manual = false }) {
     label,
     moved,
     granted: after.shares - before.shares,
+    lotGranted: after.lotShares - before.lotShares,
+    claimed: after.claimed,
     newDropPoints: after.dropPoints.length - before.dropPoints.length,
   };
 }
@@ -149,6 +156,12 @@ async function main() {
   console.log('\n--- No halt: the drop should behave normally ---');
   const open = await claimUnder('open market', {});
   check('shares were granted', open.granted > 0, `granted ${open.granted}`);
+  // A drop is the sixth way to acquire shares, and it was not opening dividend
+  // lots for them — so the next dividend run found them unaccounted and opened
+  // a FRESH lot, restarting the holder's 10-day clock from that run.
+  check('drop shares opened matching dividend lots',
+    Math.abs(open.lotGranted - open.granted) < 1e-6,
+    `granted ${open.granted} shares but ${open.lotGranted} in lots`);
   check('prices moved', open.moved.length > 0, `moved ${open.moved.length} tickers`);
   check('the points are tagged daily_drop', open.newDropPoints > 0,
     `${open.newDropPoints} tagged points`);
@@ -174,6 +187,22 @@ async function main() {
   const reopened = await claimUnder('reopened', {});
   check('prices move again once the halt lifts', reopened.moved.length > 0,
     `moved ${reopened.moved.length} tickers`);
+
+  console.log('\n--- The claim ledger stays bounded ---');
+  // claimedDailyStockMessages only exists to stop a drop being claimed twice,
+  // and a drop older than the 72-hour window is refused by the expiry check
+  // anyway. It used to arrayUnion forever, so it grew by one entry per claim
+  // for the life of the account. Anything past the window is now pruned.
+  const ancient = String(BigInt(Date.now() - 1420070400000 - 40 * 86400000) << 22n);
+  await db.collection('users').doc(UID).update({ claimedDailyStockMessages: [ancient] });
+  const recent = freshMessageId();
+  await callClaim(recent);
+  const ledger = ((await db.collection('users').doc(UID).get()).data() || {})
+    .claimedDailyStockMessages || [];
+  check('a 40-day-old claim entry is pruned', !ledger.includes(ancient),
+    `ledger: ${ledger.length} entries`);
+  check('the claim just made is still recorded', ledger.includes(recent),
+    `ledger: ${ledger.length} entries`);
 
   console.log(failures === 0 ? '\nALL DROP-HALT E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);

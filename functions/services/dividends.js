@@ -181,7 +181,13 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         breakdown: payoutsByTicker,
         ...(hasDrip && { reinvestedBreakdown }),
       };
-      updates.transactionLog = admin.firestore.FieldValue.arrayUnion(txLogEntry);
+      // Same 100-entry cap every other writer applies (tradeState, dailyCheckin,
+      // botTrader). This used to arrayUnion, which never trims — so for a player
+      // who only holds and never trades or checks in, nothing ever trimmed it
+      // and a dividend entry (one per paid ticker, plus the DRIP breakdown) was
+      // appended to their user doc every week forever. Those are exactly the
+      // players the loyalty ladder rewards for never trading.
+      updates.transactionLog = [...(data.transactionLog || []), txLogEntry].slice(-100);
 
       stats.usersPaid += 1;
       stats.totalPaid += totalPaid;

@@ -547,6 +547,15 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     // plain doc delete would orphan that data forever.
     await db.recursiveDelete(userRef);
 
+    // The ladder account is a TOP-LEVEL doc keyed by uid, so recursiveDelete
+    // above does not reach it. Left behind it becomes a ghost: the collection is
+    // world-readable for the ladder leaderboard, and an orphan with no user doc
+    // renders there as "Anonymous" holding a real balance and occupying a
+    // top-50 slot. Best-effort — a failure here must not block the deletion.
+    try {
+      await db.collection('ladderGameUsers').doc(uid).delete();
+    } catch (e) { /* nothing to remove, or already gone */ }
+
     // Release this account's per-IP slot, but only after IP_SLOT_RELEASE_MS. We drop
     // it from the live `accounts` map and tombstone it in `deletedAccounts` with the
     // deletion time; the signup cap counts recent tombstones, so the slot stays held

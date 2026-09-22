@@ -9,8 +9,10 @@ const db = admin.firestore();
 const {
   BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
   ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS, isWeeklyTradingHalt,
+  DROP_CLAIM_WINDOW_MS, DISCORD_EPOCH_MS,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate } = require('../helpers');
+const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate, cohortAddUpdate } = require('../helpers');
+const { CHARACTER_MAP } = require('../characters');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
 const { rollDailyStock } = require('./dailyDropRoll');
 
@@ -190,11 +192,10 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
         // Check if this drop has expired (72-hour window)
         if (messageId) {
-          const messageTimestamp = Number(BigInt(messageId) >> 22n) + 1420070400000;
-          const ageHours = (Date.now() - messageTimestamp) / (1000 * 60 * 60);
-          if (ageHours > 72) {
+          const messageTimestamp = Number(BigInt(messageId) >> 22n) + DISCORD_EPOCH_MS;
+          if (Date.now() - messageTimestamp > DROP_CLAIM_WINDOW_MS) {
             await editOriginal({
-              content: '⏰ This drop has expired! Daily drops are only claimable for 72 hours.',
+              content: `⏰ This drop has expired! Daily drops are only claimable for ${Math.round(DROP_CLAIM_WINDOW_MS / 3600000)} hours.`,
             });
             return;
           }
@@ -213,8 +214,19 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
                 alreadyClaimed = true;
                 return;
               }
+              // Keep only what the guard can still act on. This array is purely
+              // a double-claim ledger, and a drop older than the 72-hour window
+              // is refused by the expiry check above no matter what is in here,
+              // so anything past the window is dead weight that grew by one
+              // entry per claim forever. Snowflakes carry their own timestamp,
+              // so nothing extra has to be stored to prune them.
+              const keep = freshClaimed.filter((id) => {
+                try {
+                  return Date.now() - (Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS) <= DROP_CLAIM_WINDOW_MS;
+                } catch { return false; } // not a snowflake — cannot be re-claimed anyway
+              });
               tx.update(freshDoc.ref, {
-                claimedDailyStockMessages: admin.firestore.FieldValue.arrayUnion(messageId)
+                claimedDailyStockMessages: [...keep, messageId],
               });
             });
           } catch (txErr) {
@@ -281,6 +293,15 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           // shares themselves are unaffected, only what the boards credit.
           let grantedMarketValue = 0;
 
+          // Dividend/exit-loyalty lot ledger. A drop is the sixth way to
+          // acquire shares and it was not keeping this, so the next dividend
+          // run found the shares unaccounted and opened a FRESH lot for them —
+          // restarting the holder's 10-day clock from that run instead of from
+          // the drop. Carried forward across picks so two picks on the same
+          // ticker both land instead of the second overwriting the first.
+          const claimedAt = Date.now();
+          const workingCohorts = { ...(freshUser.data().holdingCohorts || {}) };
+
           for (const pick of picks) {
             const existingShares = freshHoldings[pick.ticker] || 0;
             const existingCost = freshCostBasis[pick.ticker] || 0;
@@ -292,6 +313,13 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
             updates[`holdings.${pick.ticker}`] = newShares;
             updates[`costBasis.${pick.ticker}`] = newCostBasis;
             grantedMarketValue += (pick.currentPrice || 0) * pick.shares;
+
+            const lot = cohortAddUpdate(
+              { holdingCohorts: workingCohorts }, pick.ticker, pick.shares, claimedAt,
+              !!CHARACTER_MAP[pick.ticker]?.isETF,
+            );
+            Object.assign(updates, lot);
+            workingCohorts[pick.ticker] = lot[`holdingCohorts.${pick.ticker}`];
           }
 
           Object.assign(updates, grantedValueUpdate(grantedMarketValue));

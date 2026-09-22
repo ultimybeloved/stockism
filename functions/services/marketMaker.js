@@ -15,7 +15,7 @@ const {
 } = require('../constants');
 const {
   calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef,
-  dailyClosesRef, monthIdOf,
+  dailyClosesRef, monthIdOf, round2,
 } = require('../helpers');
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
@@ -174,6 +174,13 @@ exports.marketMakerCycle = cf().pubsub
         } else {
           newPrice = Math.min(newPrice, avgPrice);
         }
+
+        // To the cent, like every other price writer. This was the one that
+        // did not, and it left values such as 75.83813448773768 sitting in the
+        // price map and on the chart — every downstream portfolio value and
+        // leaderboard position was then computed on a sub-cent price until the
+        // next real trade rounded it off.
+        newPrice = round2(newPrice);
 
         // Only write if the price actually changed
         if (newPrice === currentPrice) continue;

@@ -423,6 +423,11 @@ const UNIFIER_FULL_SHARE_MIN = 0.999999;
 // LADDER GAME
 // ============================================
 const LADDER_GAME_INITIAL_BALANCE    = 500;   // starting balance for new ladder game users
+const LADDER_LEADERBOARD_SIZE        = 50;    // rows the ladder board shows
+// Ladder docs outlive deleted and banned accounts, so the board reads deeper
+// than it shows and drops the ones that shouldn't hold a slot. 3x covers the
+// ~35% of that collection currently orphaned.
+const LADDER_LEADERBOARD_OVERFETCH   = 3;
 const LADDER_MIN_BET                 = 1;     // ladder bets are whole dollars only; decimals are floored away (no decimals = no rounding exploit)
 const LADDER_HIGH_BET_THRESHOLD      = 50;    // bets at or above this count toward ADDICTED achievement
 const LADDER_ACHIEVEMENT_PROFIT      = 2500;  // net profit needed for COMPULSIVE_GAMBLER achievement
@@ -670,6 +675,15 @@ const DISCORD_PORTFOLIO_ROWS = 8;
 // worst 10% of claims still clear $181. Re-run scripts/sim-daily-drop.cjs
 // after changing any weight below.
 const DAILY_DROP_JACKPOT_CHANCE = 0.03;            // 3% of claims are jackpots
+
+// How long a posted drop stays claimable. Also bounds the per-user
+// claimedDailyStockMessages ledger: a message older than this is refused by the
+// expiry check regardless, so entries past the window are pruned rather than
+// kept forever.
+const DROP_CLAIM_WINDOW_MS = 72 * 60 * 60 * 1000;
+// Discord snowflake epoch (2015-01-01). Message IDs carry their own creation
+// time in the high bits, which is how a drop's age is known without storing it.
+const DISCORD_EPOCH_MS = 1420070400000;
 
 // Bonus table — the cheap end of the roster, added to every single claim.
 const DAILY_DROP_BONUS_TIERS = ['common', 'uncommon'];
@@ -1004,6 +1018,8 @@ module.exports = {
   TRADE_RECORD_ACTIONS,
   UNIFIER_FULL_SHARE_MIN,
   LADDER_GAME_INITIAL_BALANCE,
+  LADDER_LEADERBOARD_SIZE,
+  LADDER_LEADERBOARD_OVERFETCH,
   LADDER_MIN_BET,
   LADDER_HIGH_BET_THRESHOLD,
   LADDER_ACHIEVEMENT_PROFIT,
@@ -1051,6 +1067,8 @@ module.exports = {
   DISCORD_PORTFOLIO_ROWS,
   SITE_URL,
   DAILY_DROP_JACKPOT_CHANCE,
+  DROP_CLAIM_WINDOW_MS,
+  DISCORD_EPOCH_MS,
   DAILY_DROP_BONUS_TIERS,
   DAILY_DROP_BONUS_SHARE_VALUES,
   DAILY_DROP_BONUS_SHARE_WEIGHTS,
