@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_FILTERS, CREW_FILTER_ALL, matchesFilters, sortCharacters,
+  DEFAULT_FILTERS, matchesFilters, sortCharacters,
   activeFilterCount, buildCrewMembership,
 } from './marketFilters';
 import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';

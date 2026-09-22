@@ -106,11 +106,17 @@ export const calculateTraderImpactDollars = (currentPrice, shares, liquidity = B
  * Mirrors the backend execution math: impact-adjusted bid/ask, full short
  * collateral, and v2 cover margin return. ageFactor scales impact down for
  * new accounts.
+ *
+ * `cumulativeVolume` is this player's rolling 24h volume on this ticker for
+ * this action, and it is not optional in practice. Impact is marginal — the
+ * server prices every order against what the player has already moved today —
+ * so leaving it at 0 quoted a second trade at first-trade prices. The trade
+ * form and this preview disagreed by exactly that much, one screen apart.
  */
-export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0 }) => {
+export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0, cumulativeVolume = 0 }) => {
   // The preview quotes what the player will actually be charged, so it uses the
   // TRADER impact. calculatePriceImpactDollars stays the market-move number.
-  const priceImpact = calculateTraderImpactDollars(price, amount) * ageFactor;
+  const priceImpact = calculateTraderImpactDollars(price, amount, BASE_LIQUIDITY, cumulativeVolume) * ageFactor;
   if (action === 'buy') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);
     return ask * amount;
@@ -123,8 +129,11 @@ export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1
     return bid * amount;
   }
   if (action === 'short') {
-    const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - priceImpact), isETF);
-    return bid * amount * SHORT_MARGIN_REQUIREMENT; // collateral deposited
+    // Collateral is charged on the CURRENT mid price, not the price the short
+    // pushes it to — computeShort uses `currentPrice * amount *
+    // SHORT_MARGIN_RATIO`. Quoting it off the impacted bid understated the
+    // deposit by the impact plus half the spread on every short.
+    return price * amount * SHORT_MARGIN_REQUIREMENT; // collateral deposited
   }
   if (action === 'cover') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);

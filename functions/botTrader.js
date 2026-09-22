@@ -8,7 +8,7 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact, isPriceProtected, priceHistoryRef, appendPriceHistory, isRosterTicker } = require('./helpers');
+const { calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -322,6 +322,15 @@ module.exports = {
 
           if (decision.action === 'HOLD') {
             console.log(`${bot.displayName} decided to HOLD`);
+            continue;
+          }
+
+          // Respect the circuit breaker. Real players, limit orders and the
+          // dust sweep all stop on a paused ticker; bots kept trading it and
+          // kept pushing the price, which is exactly the cascade the pause
+          // exists to interrupt. Picked up on a later round, like the cap below.
+          if (isTickerPaused(marketData.haltedTickers, decision.ticker)) {
+            console.log(`${bot.displayName}: skipping ${decision.ticker} — circuit breaker pause active`);
             continue;
           }
 

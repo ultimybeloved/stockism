@@ -261,8 +261,11 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       });
 
       // Ladder balance loses the full gross; the tax just disappears (money sink).
+      // Rounded to the cent: withdrawals accept any float, so the raw
+      // subtraction left balances like 123.45000000000002 behind.
+      const newLadderBalance = Math.round((balance - amount) * 100) / 100;
       transaction.update(ladderUserRef, {
-        balance: balance - amount,
+        balance: newLadderBalance,
         principalWithdrawn: principalWithdrawn + tax.principalPart,
         profitWithdrawn: profitWithdrawn + tax.profitPart,
         // Chips are untouched by a withdrawal (only what sits above them comes
@@ -285,7 +288,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
         rushSurcharge: tax.rushSurcharge,
         totalTax: tax.totalTax,
         netReceived: tax.netReceived,
-        newLadderBalance: balance - amount,
+        newLadderBalance,
         newStockismCash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100
       };
     });

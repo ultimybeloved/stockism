@@ -27,8 +27,9 @@ const {
   LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
   SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO, MARGIN_LIQUIDATION_SLIPPAGE,
   FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
+  ADMIN_PRICE_PROTECTION_MS,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity, writeShortInterest } = require('../helpers');
+const { writeNotification, sendDiscordMessage, reportError, appendPriceHistory, recordHeartbeat, shortsEquity, writeShortInterest, isTickerPaused, isPriceProtected, priceHistoryRef } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
@@ -95,6 +96,9 @@ exports.checkShortMarginCalls = cf().pubsub
         return null;
       }
       const prices = marketData.prices || {};
+      // One read per scan, for the admin-price-protection check below.
+      const phSnap = await priceHistoryRef().get();
+      const priceHistory = phSnap.exists ? (phSnap.data() || {}) : {};
 
       // Users are found via the hasOpenShorts flag (maintained by executeTrade,
       // the force-cover below, bailout, and the admin ban rollback) instead of
@@ -171,6 +175,15 @@ exports.checkShortMarginCalls = cf().pubsub
             continue; // Picked up on the next run of this scan
           }
 
+          // Circuit breaker: a forced cover pushes the price UP, and a pause is
+          // usually a squeeze in progress — covering into it is the cascade the
+          // breaker is trying to interrupt. Same deferral as the cap above; the
+          // pause is 3 minutes and this scan runs every 30.
+          if (isTickerPaused(marketData.haltedTickers, ticker)) {
+            throttledCount++;
+            continue;
+          }
+
           const costBasis = position.costBasis || position.entryPrice || currentPrice;
           const marginDeposited = depositedMargin(position, costBasis);
 
@@ -213,11 +226,19 @@ exports.checkShortMarginCalls = cf().pubsub
 
                 if (freshEquityRatio >= SHORT_MARGIN_CALL_THRESHOLD) return false; // No longer underwater
 
-                // Calculate dampened price impact for forced cover (50% reduced)
+                // Calculate dampened price impact for forced cover (50% reduced).
+                //
+                // An admin-adjusted price is left exactly where the admin put
+                // it: the cover still happens (the position is underwater and
+                // deferring it for the seven-day protection window would be
+                // worse for the player than covering), it just doesn't move the
+                // market. The player covers at the unmoved price, which is
+                // cheaper for them than the alternative.
+                const pricePinned = isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS);
                 const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / BASE_LIQUIDITY);
                 const dampenedImpact = priceImpact * SHORT_MARGIN_DAMPENING_FACTOR;
                 const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
-                const cappedImpact = Math.min(dampenedImpact, maxImpact);
+                const cappedImpact = pricePinned ? 0 : Math.min(dampenedImpact, maxImpact);
                 const newPrice = Math.round((freshPrice + cappedImpact) * 100) / 100;
 
                 // Calculate cover cost and margin return
@@ -262,13 +283,18 @@ exports.checkShortMarginCalls = cf().pubsub
 
                 transaction.update(db.collection('users').doc(userDoc.id), userUpdates);
 
-                // Update market price (dampened)
-                transaction.update(marketRef, {
-                  [`prices.${ticker}`]: newPrice
-                });
-                appendPriceHistory(transaction, {
-                  [ticker]: { timestamp: Date.now(), price: newPrice }
-                });
+                // Update market price (dampened). Skipped entirely when the
+                // price is admin-pinned — newPrice equals freshPrice there, and
+                // writing it back would stamp a fresh history point over an
+                // adjustment that is meant to stand.
+                if (!pricePinned) {
+                  transaction.update(marketRef, {
+                    [`prices.${ticker}`]: newPrice
+                  });
+                  appendPriceHistory(transaction, {
+                    [ticker]: { timestamp: Date.now(), price: newPrice }
+                  });
+                }
 
                 // Log the liquidation trade
                 const tradeRef = db.collection('trades').doc();
@@ -286,7 +312,11 @@ exports.checkShortMarginCalls = cf().pubsub
                 });
 
                 console.log(`Liquidated ${userDoc.id}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`);
-                return true;
+                // The share count travels back out so the notification can
+                // report what actually covered. It used to quote the count from
+                // the pre-transaction scan read, which is stale the moment the
+                // player covers part of the position themselves mid-scan.
+                return freshPosition.shares;
               });
 
               if (didCover) {
@@ -297,7 +327,7 @@ exports.checkShortMarginCalls = cf().pubsub
                 await writeNotification(userDoc.id, {
                   type: 'margin',
                   title: 'Margin Call - Position Liquidated',
-                  message: `Your short on $${ticker} (${position.shares} shares) was force-covered due to low equity.`,
+                  message: `Your short on $${ticker} (${didCover} shares) was force-covered due to low equity.`,
                   data: { ticker }
                 });
               }
@@ -439,13 +469,25 @@ exports.checkMarginLending = cf().pubsub
               let totalRecovered = 0;
               const updateData = {};
 
-              // Sell ALL positions at the forced-liquidation discount
+              // Sell ALL positions at the forced-liquidation discount.
+              //
+              // Every position is fully closed, so this has to leave the account
+              // in the same state a normal full exit does. It used to write
+              // zeros and stop there, which left the dividend/exit-loyalty lot
+              // ledger describing shares that no longer existed — a re-buy then
+              // inherited the wiped position's loyalty standing.
+              const del = admin.firestore.FieldValue.delete();
               Object.entries(freshHoldings).forEach(([ticker, shares]) => {
                 if (shares > 0) {
                   const sellValue = (freshPrices[ticker] || 0) * shares * (1 - MARGIN_LIQUIDATION_SLIPPAGE);
                   totalRecovered += sellValue;
-                  updateData[`holdings.${ticker}`] = 0;
-                  updateData[`costBasis.${ticker}`] = 0;
+                  updateData[`holdings.${ticker}`] = del;
+                  updateData[`costBasis.${ticker}`] = del;
+                  updateData[`lowestWhileHolding.${ticker}`] = del;
+                  updateData[`holdingCohorts.${ticker}`] = del;
+                  // The shares they locked are gone, so the locks go with them.
+                  updateData[`ipoLockup.${ticker}`] = del;
+                  updateData[`marginLockup.${ticker}`] = del;
                 }
               });
 

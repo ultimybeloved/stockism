@@ -53,8 +53,11 @@ async function runAltScan({ dryRun = false } = {}) {
   const now = Date.now();
   const cutoff = new Date(now - ALT_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
+  // Newest-first: an inequality query defaults to ASCENDING on that field, so
+  // the limit was trimming the recent end of the window rather than the far end.
   const snap = await db.collection('trades')
     .where('timestamp', '>', cutoff)
+    .orderBy('timestamp', 'desc')
     .select('uid', 'ip')
     .limit(ALT_SCAN_MAX_TRADES)
     .get();

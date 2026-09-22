@@ -6,10 +6,11 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTER_MAP } = require('../characters');
+const { washRuleRemainingMs } = require('../helpers');
 const {
   isWeeklyTradingHalt, MAX_TRADES_PER_TICKER_24H,
   MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, ADMIN_UID,
-  TICKER_COOLDOWN_MS, TRADE_COOLDOWN_MS, WASH_RULE_COOLDOWN_MS,
+  TICKER_COOLDOWN_MS, TRADE_COOLDOWN_MS,
   MAX_TRADES_PER_TICKER_HOUR, TRADE_BURST_LIMIT, TRADE_BURST_WINDOW_MS,
   TRADE_RECORD_ACTIONS,
   MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
@@ -163,10 +164,8 @@ function assertCooldowns(userData, ticker, action, now) {
   // and it only ever blocks BUYS — covering is an exit, and an exit is never
   // blocked. See WASH_RULE_* in constants.js for why this exists.
   if (action === 'buy') {
-    const armed = userData.lastHeavySell?.[ticker];
-    const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
-    if (armedMs && now - armedMs < WASH_RULE_COOLDOWN_MS) {
-      const remainingMs = WASH_RULE_COOLDOWN_MS - (now - armedMs);
+    const remainingMs = washRuleRemainingMs(userData, ticker, now);
+    if (remainingMs > 0) {
       const hrs = Math.floor(remainingMs / 3600000);
       const mins = Math.ceil((remainingMs % 3600000) / 60000);
       throw new functions.https.HttpsError('failed-precondition',

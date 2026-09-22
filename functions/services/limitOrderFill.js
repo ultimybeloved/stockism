@@ -9,12 +9,12 @@
 
 const admin = require('firebase-admin');
 
-const { exitLoyaltyDiscount } = require('../characters');
+const { exitLoyaltyDiscount, CHARACTER_MAP } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
   calculateMarginalImpact, traderMarginalImpact, getAccountAgeImpactFactor,
   appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
-  sumDirectionalImpact, impactDirectionOf,
+  sumDirectionalImpact, impactDirectionOf, cohortAddUpdate, cohortRemoveUpdate,
 } = require('../helpers');
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
@@ -138,8 +138,14 @@ const applyBuyFill = (transaction, ctx) => {
     cash: admin.firestore.FieldValue.increment(-totalCost),
     [`holdings.${ticker}`]: newHoldings,
     [`costBasis.${ticker}`]: round2(newCostBasis),
+    // The 45-second hold gate. executeTrade and the pre-market auction both
+    // stamp this; without it here, shares bought through a limit order could be
+    // sold again immediately, which is the one lane that skipped the gate.
+    [`lastBuyTime.${ticker}`]: admin.firestore.Timestamp.now(),
     lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
+    // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
+    ...cohortAddUpdate(userData, ticker, fillShares, now, !!CHARACTER_MAP[ticker]?.isETF),
     ...creditUpdates,
   });
 
@@ -214,6 +220,9 @@ const applySellFill = (transaction, ctx) => {
     [`holdings.${ticker}`]: newHoldings,
     lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
+    // Dividend/exit-loyalty lot ledger — same write executeTrade makes. Without
+    // it the sold lots stayed on the books and discounted the NEXT sell.
+    ...cohortRemoveUpdate(userData, ticker, fillShares),
     ...creditUpdates,
   };
   if (!newHoldings) {

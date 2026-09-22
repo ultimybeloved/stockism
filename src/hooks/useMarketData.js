@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
@@ -22,7 +22,8 @@ export function useMarketData() {
   const [dividendTierOverrides, setDividendTierOverrides] = useState({});
   const [siteMessages, setSiteMessages] = useState([]);
   const [launchedTickers, setLaunchedTickers] = useState([]);
-  const [activeIPOs, setActiveIPOs] = useState([]); // IPOs currently in hype or active phase
+  const [allIPOs, setAllIPOs] = useState([]);   // every IPO on the doc, unfiltered
+  const [ipoClock, setIpoClock] = useState(Date.now()); // drives the phase filter below
   const [predictions, setPredictions] = useState([]);
   const [crewStats, setCrewStats] = useState(null); // weekly underdog multipliers + active counts
   // What the admin changed during the last chapter review, computed server-side
@@ -178,29 +179,36 @@ export function useMarketData() {
       .catch(err => console.warn('Failed to load crew stats:', err?.message));
   }, []);
 
-  // Listen to IPO data
+  // Listen to IPO data. The raw list is kept as-is and the phase filter is
+  // derived below, because the phases turn over on the CLOCK, not on a write to
+  // the doc. Filtering inside the snapshot froze `now` at whenever the doc last
+  // changed, so an IPO that ended sat on the page until something else wrote to
+  // the doc or the player reloaded.
   useEffect(() => {
     const ipoRef = doc(db, 'market', 'ipos');
 
     const unsubscribe = onSnapshot(ipoRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const ipos = data.list || [];
-        const now = Date.now();
-
-        // Filter to only show active IPOs (in hype or buying phase)
-        const activeOnes = ipos.filter(ipo => {
-          const inHypePhase = now < ipo.ipoStartsAt;
-          const inBuyingPhase = now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
-          return inHypePhase || inBuyingPhase;
-        });
-
-        setActiveIPOs(activeOnes);
-      }
+      setAllIPOs(snap.exists() ? (snap.data().list || []) : []);
+    }, (err) => {
+      console.warn('market/ipos subscription:', err?.message);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Re-evaluate the phase windows on a slow tick. IPO phases run 24h, so a
+  // minute of lag either side is invisible and this costs nothing.
+  useEffect(() => {
+    const id = setInterval(() => setIpoClock(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const activeIPOs = useMemo(() => allIPOs.filter(ipo => {
+    const inHypePhase = ipoClock < ipo.ipoStartsAt;
+    const inBuyingPhase = ipoClock >= ipo.ipoStartsAt && ipoClock < ipo.ipoEndsAt
+      && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
+    return inHypePhase || inBuyingPhase;
+  }), [allIPOs, ipoClock]);
 
   // Listen to predictions
   useEffect(() => {

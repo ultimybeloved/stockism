@@ -77,7 +77,12 @@ async function main() {
   const tenRecentBuys = Array.from({ length: MAX_TRADES_PER_TICKER_24H }, () => ({ ts: now - 60000, shares: 1, impact: 0.001 }));
   const users = {
     lo_buyer:      { cash: 100000, holdings: {} },
-    lo_seller:     { cash: 0, holdings: { [T_SELL]: 30 } },
+    // Seeded WITH a lot ledger on purpose: without one, "the lot is gone after
+    // the sale" passes whether or not the sell lane maintains the ledger. The
+    // lot is brand new (nothing matured), so it earns no exit-loyalty discount
+    // and the bid-price check below stays a pure test of the fill math.
+    lo_seller:     { cash: 0, holdings: { [T_SELL]: 30 },
+      holdingCohorts: { [T_SELL]: { eligible: 0, pending: [{ shares: 30, availableAt: now + DIVIDEND_HOLD_MS }] } } },
     lo_stopper:    { cash: 0, holdings: { [T_STOP]: 20 } },
     lo_deferrer:   { cash: 100000, holdings: {} },
     lo_walled:     { cash: 100000, holdings: {}, requiresDiscordLink: true },
@@ -163,6 +168,18 @@ async function main() {
   check(`BUY filled at ask ($${expectedAsk})`, a.status === 'FILLED' && Math.abs(a.executedPrice - expectedAsk) < 0.011, JSON.stringify(a));
   const buyer = await getUser('lo_buyer');
   check('BUY holdings=10 and cash deducted', buyer.holdings[T_BUY] === 10 && Math.abs(buyer.cash - (100000 - expectedAsk * 10)) < 0.25, `cash=${buyer.cash} holdings=${JSON.stringify(buyer.holdings)}`);
+  // A limit fill has to leave the same bookkeeping behind as a manual trade.
+  // It did not: no lot was opened, so the next dividend run saw holdings it
+  // could not account for and opened a FRESH lot — restarting the buyer's
+  // 10-day dividend clock from that run instead of from this fill.
+  const buyerLot = buyer.holdingCohorts?.[T_BUY];
+  check('BUY opened a dividend lot for the filled shares',
+    !!buyerLot && (buyerLot.pending || []).reduce((s, p) => s + p.shares, 0) === 10,
+    JSON.stringify(buyerLot));
+  // The 45-second hold gate. executeTrade and the pre-market auction both stamp
+  // this; the limit lane was the one way to acquire shares without it.
+  check('BUY stamped lastBuyTime (45s hold gate applies)',
+    !!buyer.lastBuyTime?.[T_BUY], JSON.stringify(buyer.lastBuyTime || null));
   const postMarket = (await marketRef.get()).data().prices;
   check(`market price moved up by impact ($${P(T_BUY)} -> $${newBuyPrice})`, Math.abs(postMarket[T_BUY] - newBuyPrice) < 0.011, `got ${postMarket[T_BUY]}`);
 
@@ -178,6 +195,12 @@ async function main() {
   check(`SELL filled at bid ($${expectedBid})`, b.status === 'FILLED' && Math.abs(b.executedPrice - expectedBid) < 0.011, JSON.stringify(b));
   const seller = await getUser('lo_seller');
   check('SELL position cleared and cash credited', !seller.holdings?.[T_SELL] && seller.cash > 0, `cash=${seller.cash}`);
+  // Closing the position drops the lot ledger with it. While this lane left the
+  // ledger behind, the matured lots survived the sale and handed the seller's
+  // NEXT sell an exit-loyalty discount on shares they no longer owned.
+  check('SELL dropped the dividend lot with the position',
+    seller.holdingCohorts?.[T_SELL] === undefined,
+    JSON.stringify(seller.holdingCohorts?.[T_SELL] ?? null));
 
   // ── 5. STOP_LOSS fills even below its limit ────────────────────────────
   const c = await get('lo_c_stop');

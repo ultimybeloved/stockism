@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares } = require('../helpers');
+const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares, cohortAddUpdate, cohortRemoveUpdate, washRuleRemainingMs } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
@@ -70,6 +70,20 @@ const runMarketOpenProcessing = async (trigger) => {
     .get();
 
   console.log(`runMarketOpenProcessing(${trigger}): ${preMarketSnap.size} pre-market orders in opening auction`);
+
+  // The only reasons an order is genuinely unfillable. Anything else thrown out
+  // of the fill transaction is infrastructure (contention, a dropped
+  // connection), and burning a valid order on one of those is wrong: it leaves
+  // the order PENDING instead, where triggerMarketOpenOrders can retry it.
+  const FILL_REFUSALS = new Set([
+    'User not found',
+    'Account is banned',
+    'Discord verification required',
+    'Account is bankrupt or in debt',
+    'Insufficient cash',
+    'Insufficient shares',
+    'Wash rule cooldown active on this ticker',
+  ]);
 
   const failOrder = async (doc, order, reason) => {
     await doc.ref.update({ status: 'FAILED', failReason: reason, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -245,6 +259,13 @@ const runMarketOpenProcessing = async (trigger) => {
           if (ud.isBanned) throw new Error('Account is banned');
           if (ud.requiresDiscordLink && !ud.discordId) throw new Error('Discord verification required');
           if (ud.isBankrupt || (ud.cash || 0) < 0) throw new Error('Account is bankrupt or in debt');
+          // Wash rule, the same gate executeTrade and the limit sweep apply.
+          // Unreachable under the current timings — the 6h window opens no later
+          // than the 13:00 halt and the auction is at 20:56 — and kept anyway so
+          // the rule does not quietly depend on those timings staying put.
+          if (order.action === 'buy' && washRuleRemainingMs(ud, order.ticker) > 0) {
+            throw new Error('Wash rule cooldown active on this ticker');
+          }
 
           // Local variable resets correctly on each transaction retry.
           let localFillShares = order.shares;
@@ -273,6 +294,11 @@ const runMarketOpenProcessing = async (trigger) => {
               [`costBasis.${order.ticker}`]: newCostBasis,
               [`lastBuyTime.${order.ticker}`]: admin.firestore.Timestamp.now(),
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              // Dividend/exit-loyalty lot ledger — same write executeTrade
+              // makes. Without it these shares had no lot, and the next
+              // dividend run restarted their 10-day clock from scratch.
+              ...cohortAddUpdate(ud, order.ticker, localFillShares, Date.now(),
+                !!CHARACTER_MAP[order.ticker]?.isETF),
               ...creditUpdates
             });
 
@@ -311,6 +337,8 @@ const runMarketOpenProcessing = async (trigger) => {
             const updates = {
               cash: admin.firestore.FieldValue.increment(executionPrice * localFillShares),
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
+              ...cohortRemoveUpdate(ud, order.ticker, localFillShares),
               ...creditUpdates
             };
             if (!newHoldings) {
@@ -376,8 +404,12 @@ const runMarketOpenProcessing = async (trigger) => {
         });
         summary.pmFilled++;
       } catch (err) {
-        if (err.message !== 'Order already processed') {
+        if (FILL_REFUSALS.has(err.message)) {
           await failOrder(doc, order, err.message);
+        } else if (err.message !== 'Order already processed') {
+          // Left PENDING on purpose — see FILL_REFUSALS above.
+          console.error(`Opening auction: order ${doc.id} left pending — ${err.message}`);
+          reportError(err, { where: 'runMarketOpenProcessing: fill', orderId: doc.id });
         }
       }
     }

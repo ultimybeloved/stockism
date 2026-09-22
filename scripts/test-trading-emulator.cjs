@@ -919,6 +919,13 @@ async function testMarginLendingScanner() {
   await setUser('ml_under', {
     cash: 100, holdings: { [T3]: 10 }, costBasis: { [T3]: 90 },
     marginEnabled: true, marginUsed: 800,
+    // The lot ledger and the per-position bookkeeping a real holder would carry.
+    // A forced liquidation closes the position outright, so all of it has to go
+    // with it — it used to write zeros into holdings and leave these behind,
+    // and a re-buy then inherited the wiped position's loyalty standing.
+    holdingCohorts: { [T3]: { eligible: 10, pending: [] } },
+    lowestWhileHolding: { [T3]: 70 },
+    marginLockup: { [T3]: { shares: 4, until: Date.now() + 36 * 3600 * 1000 } },
   });
   // Margin-call zone: ratio = (1000−720)/1000 = 0.28 — call, but no liquidation
   await setUser('ml_call', {
@@ -942,7 +949,19 @@ async function testMarginLendingScanner() {
   const recovered = 10 * 90 * (1 - MARGIN_LIQUIDATION_SLIPPAGE);
   const expCash = round2(100 + recovered - 800);
   const uU = await getUser('ml_under');
-  check('lending: underwater portfolio fully sold', uU.holdings[T3] === 0, JSON.stringify(uU.holdings));
+  check('lending: underwater portfolio fully sold', !(uU.holdings?.[T3] > 0), JSON.stringify(uU.holdings));
+  // A closed position leaves nothing behind. Same end state as a normal full
+  // exit through executeTrade, so a later re-buy starts from a clean slate.
+  check('lending: position bookkeeping cleared with the shares',
+    uU.holdings?.[T3] === undefined
+    && uU.costBasis?.[T3] === undefined
+    && uU.holdingCohorts?.[T3] === undefined
+    && uU.lowestWhileHolding?.[T3] === undefined
+    && uU.marginLockup?.[T3] === undefined,
+    JSON.stringify({
+      h: uU.holdings?.[T3], cb: uU.costBasis?.[T3], co: uU.holdingCohorts?.[T3],
+      lo: uU.lowestWhileHolding?.[T3], ml: uU.marginLockup?.[T3],
+    }));
   check('lending: payout = cash + holdings at slippage price − debt', near(uU.cash, expCash, 0.01),
     `${uU.cash} vs ${expCash}`);
   check('lending: debt cleared and margin switched off',

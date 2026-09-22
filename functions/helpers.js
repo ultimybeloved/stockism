@@ -98,6 +98,38 @@ const graduateCohort = (cohort, now) => {
   return { ...cohort, eligible, pending: stillPending };
 };
 
+// ── Cohort updates for a fill ────────────────────────────────────────────────
+// The two functions below are the ONLY way a fill lane should touch
+// holdingCohorts. They return a field-path fragment ready to spread into the
+// user-doc update, so executeTrade, limit-order fills, the pre-market auction
+// and the stop-loss sweep all keep the ledger the same way.
+//
+// This exists because they did not. For a long time only executeTrade
+// maintained the ledger, so every other lane left it describing a position the
+// player no longer had (or did not yet have). Two things went wrong with that:
+// a sold-through-a-limit-order position kept its matured lots, handing the next
+// sell an exit-loyalty discount it had not earned, and a bought-through-a-limit
+// -order position had no lot at all, so the next dividend run opened a fresh
+// one and silently restarted the holder's 10-day clock.
+//
+// If you add a lane that changes holdings[ticker], it calls one of these.
+
+// Shares ENTERING a position. `isETF` preserves the Dividend Demon clock.
+const cohortAddUpdate = (userData, ticker, shares, now, isETF = false) => {
+  const existing = userData?.holdingCohorts?.[ticker] || null;
+  const next = addPendingShares(existing, shares, now);
+  if (isETF) next.firstHeldAt = existing?.firstHeldAt || now;
+  return { [`holdingCohorts.${ticker}`]: next };
+};
+
+// Shares LEAVING a position. The ledger is deleted outright when the position
+// closes, so a later re-buy starts a clean clock instead of inheriting the old
+// position's loyalty standing.
+const cohortRemoveUpdate = (userData, ticker, shares) => {
+  const next = decrementCohort(userData?.holdingCohorts?.[ticker] || null, shares);
+  return { [`holdingCohorts.${ticker}`]: next || FieldValue.delete() };
+};
+
 // Cumulative marginal impact: makes splitting trades give same impact as bulk
 // impact = price * 0.012 * (sqrt((cumBefore + new) / 100) - sqrt(cumBefore / 100))
 const {
@@ -105,6 +137,7 @@ const {
   BASE_LIQUIDITY,
   MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
+  WASH_RULE_COOLDOWN_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   LADDER_RAMP_DAYS,
@@ -505,6 +538,44 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =
     rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore),
     currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE
   );
+
+/**
+ * Has this player's own downward pressure on this ticker armed the wash rule?
+ *
+ * `lastHeavySell[ticker]` is stamped by the sell or short that took their 24h
+ * down-impact past WASH_RULE_IMPACT_TRIGGER (see tradeState). While it is armed
+ * they cannot BUY that ticker back — covering is an exit and is never blocked.
+ *
+ * One definition because there are three lanes that have to agree on it:
+ * executeTrade, the limit-order sweep, and the pre-market auction.
+ *
+ * @returns {number} ms remaining on the cooldown, or 0 when not armed
+ */
+const washRuleRemainingMs = (userData, ticker, now = Date.now()) => {
+  const armed = userData?.lastHeavySell?.[ticker];
+  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
+  if (!armedMs) return 0;
+  return Math.max(0, WASH_RULE_COOLDOWN_MS - (now - armedMs));
+};
+
+/**
+ * Is this ticker paused by a circuit breaker right now?
+ *
+ * A pause is only worth having if EVERYTHING that can move a price honours it.
+ * The breaker was wired into the player trade path, the limit-order sweep and
+ * the dust sweep, but not into the bots, the market maker or the forced-cover
+ * scanner — so the three automated movers carried on trading a stock that had
+ * just been closed to every human, which is most of the point of closing it.
+ *
+ * @param {Object} haltedTickers - marketData.haltedTickers
+ * @param {string} ticker
+ * @param {number} now
+ * @returns {boolean}
+ */
+const isTickerPaused = (haltedTickers, ticker, now = Date.now()) => {
+  const halt = (haltedTickers || {})[ticker];
+  return !!(halt && halt.resumeAt && now < halt.resumeAt);
+};
 
 // Admin price protection: true if this ticker was manually set by an admin
 // (a priceHistory point tagged source 'admin_adjust') within `windowMs`.
@@ -1883,6 +1954,8 @@ module.exports = {
   addPendingShares,
   decrementCohort,
   graduateCohort,
+  cohortAddUpdate,
+  cohortRemoveUpdate,
   isRosterTicker,
   spreadFor,
   calculateMarginalImpact,
@@ -1902,6 +1975,8 @@ module.exports = {
   neglectFloorFraction,
   neglectFloorPrice,
   isPriceProtected,
+  isTickerPaused,
+  washRuleRemainingMs,
   getReviewWindowChanges,
   getAccountAgeImpactFactor,
   getLadderDepositFactor,

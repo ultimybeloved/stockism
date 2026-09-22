@@ -22,7 +22,7 @@ const {
 const {
   writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor,
   pruneAndSumTradeHistory, sumDirectionalImpact, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
-  recordTrade, round2, spreadFor, floorExitShares, remainingShares,
+  recordTrade, round2, spreadFor, floorExitShares, remainingShares, cohortRemoveUpdate,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 const { computePriceUpdates, buildTrailingEntries } = require('./tradePricing');
@@ -116,6 +116,8 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
     [`holdings.${order.ticker}`]: newHoldings,
     lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
+    // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
+    ...cohortRemoveUpdate(userData, order.ticker, fillShares),
     ...creditUpdates,
   };
   if (!newHoldings) {

@@ -64,8 +64,16 @@ async function runCoordScan({ dryRun = false } = {}) {
   const now = Date.now();
   const cutoff = new Date(now - COORD_SCAN_WINDOW_DAYS * DAY_MS);
 
+  // orderBy desc is load-bearing, not cosmetic. Firestore orders an inequality
+  // query by that field ASCENDING when nothing says otherwise, so the limit was
+  // taking the OLDEST trades in the window — the moment volume passed the cap
+  // this scan would have stopped seeing recent activity entirely, which is the
+  // only activity it exists to find. Newest-first means the cap costs us the
+  // far end of the window instead of the near one.
   const snap = await db.collection('trades')
     .where('timestamp', '>', cutoff)
+    .orderBy('timestamp', 'desc')
+    .select('uid', 'ticker', 'action', 'priceImpact', 'source', 'timestamp')
     .limit(ALT_SCAN_MAX_TRADES)
     .get();
 

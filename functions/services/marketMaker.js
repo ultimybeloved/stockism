@@ -14,7 +14,7 @@ const {
   isWeeklyTradingHalt,
 } = require('../constants');
 const {
-  calculateMarginalImpact, isPriceProtected, priceHistoryRef,
+  calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef,
   dailyClosesRef, monthIdOf,
 } = require('../helpers');
 
@@ -131,6 +131,13 @@ exports.marketMakerCycle = cf().pubsub
       for (const ticker of NON_ETF_TICKERS) {
         const currentPrice = prices[ticker];
         if (!currentPrice || currentPrice <= 0) continue;
+
+        // Respect the circuit breaker — a paused ticker is closed to everyone
+        // else, and stabilising it mid-pause moves the very price the pause is
+        // meant to hold still. The next cycle picks it up.
+        if (isTickerPaused(marketData.haltedTickers, ticker, now)) {
+          continue;
+        }
 
         // Don't claw back a recent admin price adjustment
         if (isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS, now)) {

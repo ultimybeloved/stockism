@@ -186,6 +186,26 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Utility functions used by multiple service files go here
 - Never copy-paste a helper from one service file to another — move it to helpers.js
 
+**Every lane that fills an order** (executeTrade, `limitOrderFill`, the pre-market
+auction in `marketOrders`, `marketOpenStopLoss`, the liquidations in
+`marginScanners`)
+
+A fill is not just cash and `holdings`. Each of these has to be maintained by
+every lane, and each one was missed by at least one lane until 2026-09-22:
+
+| What | How |
+|---|---|
+| Dividend / exit-loyalty lot ledger | `cohortAddUpdate` / `cohortRemoveUpdate` (helpers.js) — spread into the user update. Never touch `holdingCohorts` by hand |
+| 45-second hold gate | stamp `lastBuyTime.<ticker>` on anything that adds shares |
+| Circuit-breaker pause | `isTickerPaused(marketData.haltedTickers, ticker)` — this binds automated price movers (bots, market maker, forced covers) too, not just player trades |
+| Wash rule | `washRuleRemainingMs(userData, ticker)` — blocks buys only, never exits |
+| Mission / stat credit | `buildTradeCreditUpdates` + `updateCrewMissionProgress` |
+| Trade record | `recordTrade` with a `source` tag (no tag = placed by hand) |
+
+A closed position leaves nothing behind: delete `holdings`, `costBasis`,
+`lowestWhileHolding`, `holdingCohorts` and any lockups together. `drip` is a
+preference and survives on purpose.
+
 **Characters & crews** (`src/characters.js` + `src/crews.js` and their `functions/` copies)
 - `src/characters.js` and `src/crews.js` are the **only files you ever edit**. Never touch `functions/characters.js` or `functions/crews.js` directly — both are generated.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.

@@ -30,7 +30,7 @@ const { runMarketOpenProcessing } = require('../functions/services/marketOrders'
 const { calculateMarginalImpact } = require('../functions/helpers');
 const { BID_ASK_SPREAD } = require('../functions/constants');
 
-const { CHARACTERS, CHARACTER_MAP } = require('../functions/characters');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
 
 const TICKER = 'GUN';        // auction ticker (in the YAMA fund)
 const STOP_TICKER = 'VSCO';  // stop-loss ticker (in the ALLY fund, untouched by the auction)
@@ -61,12 +61,17 @@ async function main() {
   const users = {
     pm_richBuyer:    { cash: 100000, holdings: {} },
     pm_phantom:      { cash: 0, holdings: {} },
-    pm_seller:       { cash: 0, holdings: { [TICKER]: 30 } },
+    // Seeded with a lot ledger so "the lot went with the shares" is a real
+    // check. Brand new lot, so it earns no exit-loyalty discount and the
+    // opening-bid math below is unaffected.
+    pm_seller:       { cash: 0, holdings: { [TICKER]: 30 },
+      holdingCohorts: { [TICKER]: { eligible: 0, pending: [{ shares: 30, availableAt: Date.now() + DIVIDEND_HOLD_MS }] } } },
     pm_partialBuyer: { cash: round2(10 * basePrice), holdings: {} },
     pm_staleUser:    { cash: 1000, holdings: {} },
     pm_ipoUser:      { cash: 5000, holdings: {} },
     // Stop-loss sweep runs on the opening prices, right after the auction.
-    pm_stopper:      { cash: 0, holdings: { [STOP_TICKER]: 20 } },
+    pm_stopper:      { cash: 0, holdings: { [STOP_TICKER]: 20 },
+      holdingCohorts: { [STOP_TICKER]: { eligible: 0, pending: [{ shares: 20, availableAt: Date.now() + DIVIDEND_HOLD_MS }] } } },
     // Dividend/partial-fill dust. createPreMarketOrder accepts a sell this small,
     // and the auction used to round it to cents and fail it as "Insufficient
     // shares" — so the position could be queued but never actually closed.
@@ -156,6 +161,12 @@ async function main() {
     stopUser.holdings[STOP_TICKER] === 10 && stopUser.cash > 0, `holdings=${stopUser.holdings[STOP_TICKER]} cash=${stopUser.cash}`);
   check('stop-loss fill tagged source=stop_loss',
     (await db.collection('trades').where('uid', '==', 'pm_stopper').get()).docs[0]?.data().source === 'stop_loss');
+  // Partial exit: 10 of 20 sold, so the lot ledger has to come down to match
+  // rather than keep describing the whole original position.
+  const stopLot = stopUser.holdingCohorts?.[STOP_TICKER];
+  check('stop-loss sweep decremented the dividend lot to the remaining shares',
+    !!stopLot && (stopLot.pending || []).reduce((s, p) => s + p.shares, 0) === 10,
+    JSON.stringify(stopLot));
 
   // The sweep is a third fill lane and was not propagating to funds until
   // 2026-08-07 — the member dropped, its fund did not.
@@ -176,6 +187,12 @@ async function main() {
   const richUser = (await db.collection('users').doc('pm_richBuyer').get()).data();
   check('rich buyer holdings = 50 and cash deducted', richUser.holdings[TICKER] === 50 && Math.abs(richUser.cash - (100000 - t1.executedPrice * 50)) < 0.02, `cash=${richUser.cash}`);
   check('rich buyer lastBuyTime set (45s hold applies at open)', !!richUser.lastBuyTime?.[TICKER], JSON.stringify(richUser.lastBuyTime || {}));
+  // Auction fills have to keep the same lot ledger a manual trade keeps, or the
+  // next dividend run opens a fresh lot and restarts the buyer's 10-day clock.
+  const richLot = richUser.holdingCohorts?.[TICKER];
+  check('auction buy opened a dividend lot for the filled shares',
+    !!richLot && (richLot.pending || []).reduce((s, p) => s + p.shares, 0) === 50,
+    JSON.stringify(richLot));
 
   const t2 = await get('pm_t2');
   check('phantom zero-cash buy FAILED with Insufficient cash', t2.status === 'FAILED' && /Insufficient cash/.test(t2.failReason || ''), JSON.stringify(t2));
@@ -184,6 +201,9 @@ async function main() {
   check('sell FILLED at opening bid', t3.status === 'FILLED' && t3.filledShares === 30, JSON.stringify(t3));
   const sellerUser = (await db.collection('users').doc('pm_seller').get()).data();
   check('seller holdings cleared and cash credited', !sellerUser.holdings?.[TICKER] && sellerUser.cash > 0, `cash=${sellerUser.cash}`);
+  check('auction sell dropped the dividend lot with the position',
+    sellerUser.holdingCohorts?.[TICKER] === undefined,
+    JSON.stringify(sellerUser.holdingCohorts?.[TICKER] ?? null));
 
   const t4 = await get('pm_t4');
   check('oversized buy PARTIALLY_FILLED (clamped to cash, not failed)',

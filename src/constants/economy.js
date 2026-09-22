@@ -63,6 +63,11 @@ export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be sw
 // a player must always be able to close a position down to the last speck.
 export const MIN_TRADE_SHARES = 0.01;    // min buy/short size
 export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
+// Hard ceiling on any single order, every action. The server rejects anything
+// above this outright, so the Max button has to know about it — without it, a
+// large holder pressing Max produced an order that came back "Invalid trade
+// parameters" with nothing on screen explaining why.
+export const MAX_TRADE_SHARES = 10000;
 export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)

@@ -6,6 +6,7 @@ import { CHARACTER_MAP, exitLoyaltyDiscount } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
 import { estimateTradeTotal, getAccountAgeImpactFactor } from '../utils/calculations';
+import { getCumulativeVolume } from '../utils/tradeLimits';
 import { isCapacityError, isContentionError, isInfraError } from '../utils/errors';
 import { reportError, reportUnexpected } from '../monitoring';
 import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
@@ -180,6 +181,9 @@ export function useTradeManagement({
       ageFactor: getAccountAgeImpactFactor(userData),
       shortPosition: userData.shorts?.[ticker],
       exitDiscount,
+      // Same rolling-24h volume the trade form prices against, so the quote on
+      // the confirmation matches the one the player just saw.
+      cumulativeVolume: getCumulativeVolume(userData, ticker, action),
     });
 
     setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name, exitDiscount });

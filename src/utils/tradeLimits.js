@@ -5,12 +5,13 @@ import {
   BASE_LIQUIDITY,
   MIN_PRICE,
   MIN_EXIT_SHARES,
+  MAX_TRADE_SHARES,
   SHORT_MARGIN_REQUIREMENT,
   MAX_TRADES_PER_TICKER_24H
 } from '../constants';
 import {
   calculatePortfolioValue,
-  calculatePriceImpactDollars,
+  calculateTraderImpactDollars,
   getBidAskPrices,
   calculateMarginStatus
 } from './calculations';
@@ -40,11 +41,18 @@ export const getTradeCount = (userData, ticker, act) => {
   return pruneAndSumTradeHistory(history, Date.now()).count;
 };
 
-// Dynamic bid/ask after the marginal impact of this order
+// Dynamic bid/ask after the marginal impact of this order.
+//
+// TRADER impact, not the market move. These prices are what the player is
+// quoted and what the affordability search below spends against, and the server
+// charges them their own (uncapped, bounded) impact — see traderMarginalImpact.
+// With the market number here, an oversized order was quoted cheaper than it
+// would actually fill. calculatePriceImpactDollars stays the market-move number
+// and is what the pre-market indicative open uses.
 export const getDynamicPrices = (character, price, amt, act, userData) => {
   const liquidity = character.liquidity || BASE_LIQUIDITY;
   const cumVol = getCumulativeVolume(userData, character.ticker, act);
-  const impact = calculatePriceImpactDollars(price, amt, liquidity, cumVol);
+  const impact = calculateTraderImpactDollars(price, amt, liquidity, cumVol);
 
   if (act === 'buy' || act === 'cover') {
     return getBidAskPrices(price + impact, character.isETF);
@@ -70,7 +78,13 @@ export const getBuyingPower = (userCash, userData, prices, priceHistory, include
 
 // Max shares available for this action, honoring trade-count caps, locks,
 // buying power (buy), and short collateral limits.
-export const getMaxShares = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin = true }) => {
+//
+// MAX_TRADE_SHARES is applied once, here, for every action. Only the short
+// branch used to carry the ceiling, so a large holder pressing Max on a sell or
+// a well-funded buy handed the server an order it rejects out of hand.
+export const getMaxShares = (args) => Math.min(maxSharesForAction(args), MAX_TRADE_SHARES);
+
+const maxSharesForAction = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin = true }) => {
   const ticker = character.ticker;
   if (action === 'buy') {
     // Check trade count limit first
@@ -128,7 +142,7 @@ export const getMaxShares = ({ action, character, price, holdings, shortPosition
     const maxByEquity = marginPerShare > 0 ? Math.floor((availableForShorts / marginPerShare) * 100) / 100 : 0;
     // v2: must also have enough cash for the margin deposit
     const maxByCash = marginPerShare > 0 ? Math.floor((userCash / marginPerShare) * 100) / 100 : 0;
-    return Math.max(0, Math.min(Math.min(maxByEquity, maxByCash), 10000));
+    return Math.max(0, Math.min(maxByEquity, maxByCash));
   }
   if (action === 'cover') {
     if (getTradeCount(userData, ticker, 'cover') >= MAX_TRADES_PER_TICKER_24H) return 0;

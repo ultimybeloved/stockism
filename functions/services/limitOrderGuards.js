@@ -12,10 +12,9 @@
 // cancel-vs-defer, so the wording of these throws is load-bearing.
 
 const { CHARACTER_MAP } = require('../characters');
-const { lockedShares, pruneAndSumTradeHistory, floorExitShares } = require('../helpers');
+const { lockedShares, pruneAndSumTradeHistory, floorExitShares, isTickerPaused, washRuleRemainingMs } = require('../helpers');
 const {
   MAX_TRADES_PER_TICKER_24H, MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
-  WASH_RULE_COOLDOWN_MS,
 } = require('../constants');
 
 const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
@@ -63,10 +62,7 @@ const screenUser = (userData) => {
 };
 
 /** Circuit breaker: a ticker halt suspends fills until resumeAt. */
-const isTickerHalted = (haltedTickersMap, ticker) => {
-  const halt = haltedTickersMap[ticker];
-  return !!(halt && halt.resumeAt && Date.now() < halt.resumeAt);
-};
+const isTickerHalted = (haltedTickersMap, ticker) => isTickerPaused(haltedTickersMap, ticker);
 
 /**
  * Has the trigger price been crossed? This checks the MID price; execution
@@ -117,9 +113,7 @@ const assertUserEligible = (userData) => {
  */
 const assertWashRule = (userData, ticker, action, now = Date.now()) => {
   if (action !== 'buy') return;
-  const armed = userData.lastHeavySell?.[ticker];
-  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
-  if (armedMs && now - armedMs < WASH_RULE_COOLDOWN_MS) {
+  if (washRuleRemainingMs(userData, ticker, now) > 0) {
     throw new Error('Wash rule cooldown active on this ticker');
   }
 };

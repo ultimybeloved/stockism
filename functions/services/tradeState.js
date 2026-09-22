@@ -7,7 +7,7 @@ const db = admin.firestore();
 const {
   SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER,
 } = require('../constants');
-const { pruneAndSumTradeHistory, sumDirectionalImpact, addPendingShares, decrementCohort } = require('../helpers');
+const { pruneAndSumTradeHistory, sumDirectionalImpact, cohortAddUpdate, cohortRemoveUpdate } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 
 // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts
@@ -139,14 +139,9 @@ function buildUserUpdates({
       : executionPrice;
     updates[`costBasis.${ticker}`] = Math.round(newCostBasis * 100) / 100;
 
-    // Dividend cohort: new shares enter pending with a 10-day wait
-    const existingCohort = userData.holdingCohorts?.[ticker] || null;
-    const newCohort = addPendingShares(existingCohort, amount, now);
-    // Dividend Demon: track when user first held this ETF (preserve on add, reset on full sell)
-    if (character?.isETF) {
-      newCohort.firstHeldAt = existingCohort?.firstHeldAt || now;
-    }
-    updates[`holdingCohorts.${ticker}`] = newCohort;
+    // Dividend cohort: new shares enter pending with a 10-day wait. Shared with
+    // every other fill lane (isETF also preserves the Dividend Demon clock).
+    Object.assign(updates, cohortAddUpdate(userData, ticker, amount, now, !!character?.isETF));
   }
 
   if (action === 'sell') {
@@ -167,15 +162,9 @@ function buildUserUpdates({
       updates[`marginLockup.${ticker}`] = admin.firestore.FieldValue.delete();
     }
 
-    // Dividend cohort: consume eligible first, then oldest pending. Delete
+    // Dividend cohort: consume eligible first, then oldest pending. Deletes
     // the field entirely if the position is closed.
-    const existingCohort = userData.holdingCohorts?.[ticker] || null;
-    const newCohort = decrementCohort(existingCohort, amount);
-    if (newCohort) {
-      updates[`holdingCohorts.${ticker}`] = newCohort;
-    } else {
-      updates[`holdingCohorts.${ticker}`] = admin.firestore.FieldValue.delete();
-    }
+    Object.assign(updates, cohortRemoveUpdate(userData, ticker, amount));
   }
 
   if (action === 'short') {

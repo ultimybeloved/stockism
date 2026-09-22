@@ -113,7 +113,9 @@ const TradeActionModal = ({ character, action, price, holdings, shortPosition, u
           },
           buttonStyle: 'outline',
           price: bid,
-          total: bid * (amount || 1) * SHORT_MARGIN_REQUIREMENT,
+          // Collateral is charged on the current mid price, not the impacted
+          // bid — matches computeShort and estimateTradeTotal.
+          total: price * (amount || 1) * SHORT_MARGIN_REQUIREMENT,
           label: 'Margin Required',
           disabled: maxShares === 0
         };
