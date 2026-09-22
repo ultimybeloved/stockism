@@ -1968,6 +1968,11 @@ module.exports = {
   resolveTicker,
   remapAliasedKeys,
   dailyClosesRef,
+  // marketMaker.js has imported this for as long as it has read daily closes,
+  // and it was never exported — so the destructure produced undefined and every
+  // hourly cycle died on "monthIdOf is not a function" before it priced
+  // anything. Found in the logs 2026-09-22; the export check now covers it.
+  monthIdOf,
   buildTickerFlowUpdate,
   buildExtremeUpdates,
   recordDailyCloses,

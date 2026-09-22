@@ -122,6 +122,41 @@ fs.readdirSync(SERVICES_DIR)
 if (constantsProblems === 0) console.log('Constants imports: OK');
 problems += constantsProblems;
 
+// --- 3. helpers.js imports resolve ------------------------------------------
+//
+// The mirror of the constants check, and it exists for the same reason: a name
+// destructured out of helpers.js that helpers.js never exported is `undefined`,
+// and nothing says so until the one code path that calls it runs in production.
+// marketMakerCycle imported `monthIdOf` this way and threw
+// "monthIdOf is not a function" on EVERY hourly run — the stabiliser was dead
+// and the only trace was a log line nobody was reading.
+
+const helperExports = new Set(Object.keys(require(path.join(FUNCTIONS_DIR, 'helpers.js'))));
+let helperProblems = 0;
+
+const scanHelperImports = (dir, label) => {
+  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
+    if (file === 'helpers.js') continue;
+    const raw = fs.readFileSync(path.join(dir, file), 'utf8');
+    for (const m of raw.matchAll(/const\s*\{([^}]+)\}\s*=\s*require\((['"])[^'"]*helpers\2\)/g)) {
+      const missing = m[1].split(',')
+        .map((s) => s.split(':')[0].trim())
+        .filter((n) => n && !helperExports.has(n));
+      if (missing.length) {
+        helperProblems += missing.length;
+        console.log(`${label}${file}: imports from helpers.js that are not exported — ${missing.join(', ')}`);
+      }
+    }
+  }
+};
+
+scanHelperImports(SERVICES_DIR, 'services/');
+scanHelperImports(FUNCTIONS_DIR, '');
+
+if (helperProblems === 0) console.log('Helpers imports: OK');
+else console.log('  -> add the name to module.exports in functions/helpers.js\n');
+problems += helperProblems;
+
 if (problems === 0) {
   console.log('\nAll checks passed.');
 } else {
