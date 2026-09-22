@@ -8,7 +8,7 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker } = require('./helpers');
+const { calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker, recordHeartbeat } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -488,6 +488,7 @@ module.exports = {
         }
 
         console.log('Bot trading round complete');
+        await recordHeartbeat('botTrader');
         return null;
       } catch (error) {
         console.error('Error in botTrader:', error);

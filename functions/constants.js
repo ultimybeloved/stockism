@@ -879,6 +879,15 @@ const WATCHED_SCHEDULED_JOBS = [
   { job: 'checkShortMarginCalls', maxAgeHours: 12, label: 'Short margin-call scanner' },
   { job: 'checkMarginLending', maxAgeHours: 12, label: 'Margin lending scanner' },
   { job: 'checkLimitOrders', maxAgeHours: 12, label: 'Limit order sweep' },
+  // Price and chart movers. These were NOT watched, and it showed: a bad import
+  // killed marketMakerCycle on 2026-09-19 and it threw on every hourly run for
+  // three days before anyone looked at its logs. They all swallow their own
+  // errors and return null, so a heartbeat on the success path is the only
+  // outside signal that they are alive. Budgets clear the 8h Thursday halt.
+  { job: 'marketMakerCycle', maxAgeHours: 12, label: 'Price stabiliser' },
+  { job: 'botTrader', maxAgeHours: 12, label: 'Bot trading round' },
+  { job: 'recordPriceExtremes', maxAgeHours: 12, label: 'All-time high/low sweep' },
+  { job: 'applyNeglectDecay', maxAgeHours: 48, label: 'Neglect decay' },
 ];
 
 module.exports = {

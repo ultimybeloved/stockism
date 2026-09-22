@@ -20,7 +20,7 @@ const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { buildExtremeUpdates } = require('../helpers');
+const { buildExtremeUpdates, recordHeartbeat } = require('../helpers');
 
 exports.recordPriceExtremes = cf().pubsub
   .schedule('20 * * * *')
@@ -45,6 +45,7 @@ exports.recordPriceExtremes = cf().pubsub
 
       await marketRef.update(updates);
       console.log(`recordPriceExtremes: ${moved} marks moved`);
+      await recordHeartbeat('recordPriceExtremes');
       return null;
     } catch (err) {
       console.error('recordPriceExtremes error:', err);

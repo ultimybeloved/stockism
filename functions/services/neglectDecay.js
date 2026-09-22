@@ -31,7 +31,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { SHORT_INTEREST_MAX_AGE_MS, isWeeklyTradingHalt } = require('../constants');
-const { priceHistoryRef, tickerStatsRef } = require('../helpers');
+const { priceHistoryRef, tickerStatsRef, recordHeartbeat } = require('../helpers');
 const { decayTarget } = require('./neglectDecayRules');
 
 /**
@@ -128,6 +128,7 @@ exports.applyNeglectDecay = cf().pubsub
       await batch.commit();
 
       console.log(`applyNeglectDecay: ${moved.length} stocks decayed — ${moved.join(', ')}`);
+      await recordHeartbeat('applyNeglectDecay');
       return null;
     } catch (err) {
       console.error('applyNeglectDecay error:', err);

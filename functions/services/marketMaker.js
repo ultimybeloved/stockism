@@ -15,7 +15,7 @@ const {
 } = require('../constants');
 const {
   calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef,
-  dailyClosesRef, monthIdOf, round2,
+  dailyClosesRef, monthIdOf, round2, recordHeartbeat,
 } = require('../helpers');
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
@@ -215,6 +215,10 @@ exports.marketMakerCycle = cf().pubsub
         console.log('marketMakerCycle: no interventions needed');
       }
 
+      // Only on the success path. This job swallowed its own errors and had no
+      // heartbeat, so when a bad import killed it on 2026-09-19 it threw on every
+      // hourly run for three days and nothing anywhere said so.
+      await recordHeartbeat('marketMakerCycle');
       return null;
     } catch (err) {
       console.error('marketMakerCycle error:', err);
