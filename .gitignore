@@ -40,3 +40,6 @@ location-matrix.txt
 
 # Local backups written by scripts/collapse-review-history.cjs
 review-detail-*.json
+
+# Local backups written before destructive cleanups
+cleanup-backup-*.json
