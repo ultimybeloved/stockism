@@ -145,11 +145,40 @@ async function testArchivePreservesEverything() {
   check('TOTAL points preserved (nothing deleted)', liveCount + archCount === SEEDED_POINTS, `${liveCount}+${archCount}`);
 }
 
+// The archive run reads the live doc, then spends a while writing per-ticker
+// archive docs. Every trade appends to that same live doc the whole time, so a
+// trim that wrote back the array it wanted to KEEP silently discarded anything
+// that landed in between — and those points were not in the archive either,
+// because the archive only received the old ones. Removing the archived points
+// instead commutes with the appends.
+//
+// The interleave is deterministic enough: the archiver's first await is its
+// read of the live doc, so an append issued after that call is already past it.
+async function testArchiveKeepsConcurrentAppends() {
+  console.log('\n6 — a point written DURING an archive run survives it');
+  const now = Date.now();
+  const many = [];
+  for (let i = 0; i < SEEDED_POINTS; i++) many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 30 + (i % 7) });
+  await db.collection('market').doc('priceHistory').update({ RACET: many });
+
+  const midRunPoint = { timestamp: now + 5000, price: 999.99 };
+  const archiving = ok(archivePriceHistory, {}, ADMIN_UID);
+  await db.collection('market').doc('priceHistory')
+    .set({ RACET: admin.firestore.FieldValue.arrayUnion(midRunPoint) }, { merge: true });
+  await archiving;
+
+  const live = (await getHist()).RACET || [];
+  const survived = live.some((p) => p.timestamp === midRunPoint.timestamp && p.price === midRunPoint.price);
+  check('point appended mid-archive is still in the live doc', survived,
+    `live has ${live.length} points, newest ts ${Math.max(...live.map((p) => p.timestamp))}`);
+}
+
 async function main() {
   await seed();
   await testTradeAppends();
   await testIPOJump();
   await testArchivePreservesEverything();
+  await testArchiveKeepsConcurrentAppends();
 
   console.log(failures === 0 ? '\n✅ ALL PRICE-HISTORY SPLIT TESTS PASSED' : `\n❌ ${failures} FAILURES`);
   process.exit(failures === 0 ? 0 : 1);

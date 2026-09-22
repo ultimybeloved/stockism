@@ -14,7 +14,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, CREW_MEMBERS } = require('../constants');
 const { CHARACTERS } = require('../characters');
-const { validateUsernameFormat } = require('../helpers');
+const { validateUsernameFormat, cohortRemoveUpdate } = require('../helpers');
 
 const requireAdmin = (context) => {
   requireAppCheck(context);
@@ -248,6 +248,14 @@ exports.adminSetHolding = cf().https.onCall(async (data, context) => {
     if (costBasis !== undefined && costBasis !== null) {
       update[`costBasis.${ticker}`] = Math.round(costBasis * 100) / 100;
     }
+  }
+
+  // Take the dividend/exit-loyalty lot ledger down with any shares removed,
+  // exactly as a sell would (clearing the position deletes it outright). Adding
+  // shares is deliberately left alone: the next dividend run opens a fresh lot
+  // for them, which is the "no retroactive dividends" rule in dividends.js.
+  if (rounded < previousShares) {
+    Object.assign(update, cohortRemoveUpdate(userData, ticker, previousShares - rounded));
   }
 
   await ref.update(update);

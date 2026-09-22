@@ -108,6 +108,11 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       shorts: {},
       hasOpenShorts: false,
       costBasis: {},
+      // Same reason the locks below are cleared: these describe shares this
+      // wipe just destroyed. A reinstated account would otherwise carry the
+      // old position's dividend/exit-loyalty standing into its rebuild.
+      holdingCohorts: {},
+      lowestWhileHolding: {},
       // Clear the share locks along with the shares they referred to — a lock left
       // pointing at destroyed shares blocks selling anything rebought on that
       // ticker if the account is ever reinstated (reinstateUser only adds cash).

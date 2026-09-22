@@ -58,6 +58,22 @@ describe('leaves a stock alone when', () => {
     expect(decayTarget(args({ stats: { lastTradedAt: NOW - 2 * DAY } }))).toBeNull();
   });
 
+  // Nearly unreachable on its own — a stock that moved 10% in five minutes was
+  // being traded, so it is not neglected — but a character can be dragged
+  // through the breaker by a TRAILING move from a linked one without being
+  // traded itself. Every other automated price mover checks this.
+  it('a circuit breaker has it paused', () => {
+    expect(decayTarget(args({
+      haltedTickers: { TSTA: { resumeAt: NOW + 60_000 } },
+    }))).toBeNull();
+  });
+
+  it('but not when that pause has already expired', () => {
+    expect(decayTarget(args({
+      haltedTickers: { TSTA: { resumeAt: NOW - 60_000 } },
+    }))).not.toBeNull();
+  });
+
   it('it was traded right on the edge of the window', () => {
     expect(decayTarget(args({ stats: { lastTradedAt: NOW - C.NEGLECT_WINDOW_MS + 1000 } }))).toBeNull();
   });

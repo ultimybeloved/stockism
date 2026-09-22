@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
-import { IPO_TOTAL_SHARES } from '../constants';
+import { useActiveIPOs } from './useActiveIPOs';
 
 // All global market subscriptions: prices/market doc, chart history,
 // dividend tier overrides, IPOs, and predictions.
@@ -22,8 +22,10 @@ export function useMarketData() {
   const [dividendTierOverrides, setDividendTierOverrides] = useState({});
   const [siteMessages, setSiteMessages] = useState([]);
   const [launchedTickers, setLaunchedTickers] = useState([]);
-  const [allIPOs, setAllIPOs] = useState([]);   // every IPO on the doc, unfiltered
-  const [ipoClock, setIpoClock] = useState(Date.now()); // drives the phase filter below
+  // IPOs in their hype or buying phase. Own hook: the phase windows turn over
+  // on a clock rather than on a write to the doc, so it needs a ticker of its
+  // own and that is a separate concern from these subscriptions.
+  const activeIPOs = useActiveIPOs();
   const [predictions, setPredictions] = useState([]);
   const [crewStats, setCrewStats] = useState(null); // weekly underdog multipliers + active counts
   // What the admin changed during the last chapter review, computed server-side
@@ -158,57 +160,19 @@ export function useMarketData() {
     return () => { cancelled = true; };
   }, []);
 
-  // Stored review changes. One small read; the tab falls back to deriving them
-  // locally if this is missing or stale.
+  // Two small docs read once per session, not subscribed: reviewChanges only
+  // changes at the weekly review (the tab derives it locally if missing or
+  // stale) and crewStats only on Monday's recompute, so live listeners on
+  // either would be wasted reads.
   useEffect(() => {
     let cancelled = false;
-    getDoc(doc(db, 'market', 'reviewChanges'))
-      .then(snap => {
-        if (cancelled || !snap.exists()) return;
-        setStoredReviewChanges(snap.data());
-      })
-      .catch(err => console.error('Failed to load review changes:', err));
+    const once = (id, set) => getDoc(doc(db, 'market', id))
+      .then(snap => { if (!cancelled && snap.exists()) set(snap.data()); })
+      .catch(err => console.warn(`Failed to load ${id}:`, err?.message));
+    once('reviewChanges', setStoredReviewChanges);
+    once('crewStats', setCrewStats);
     return () => { cancelled = true; };
   }, []);
-
-  // Fetch crew stats once per session — the doc only changes on Monday's
-  // weekly recompute, so a live subscription would be wasted reads.
-  useEffect(() => {
-    getDoc(doc(db, 'market', 'crewStats'))
-      .then(snap => { if (snap.exists()) setCrewStats(snap.data()); })
-      .catch(err => console.warn('Failed to load crew stats:', err?.message));
-  }, []);
-
-  // Listen to IPO data. The raw list is kept as-is and the phase filter is
-  // derived below, because the phases turn over on the CLOCK, not on a write to
-  // the doc. Filtering inside the snapshot froze `now` at whenever the doc last
-  // changed, so an IPO that ended sat on the page until something else wrote to
-  // the doc or the player reloaded.
-  useEffect(() => {
-    const ipoRef = doc(db, 'market', 'ipos');
-
-    const unsubscribe = onSnapshot(ipoRef, (snap) => {
-      setAllIPOs(snap.exists() ? (snap.data().list || []) : []);
-    }, (err) => {
-      console.warn('market/ipos subscription:', err?.message);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Re-evaluate the phase windows on a slow tick. IPO phases run 24h, so a
-  // minute of lag either side is invisible and this costs nothing.
-  useEffect(() => {
-    const id = setInterval(() => setIpoClock(Date.now()), 60000);
-    return () => clearInterval(id);
-  }, []);
-
-  const activeIPOs = useMemo(() => allIPOs.filter(ipo => {
-    const inHypePhase = ipoClock < ipo.ipoStartsAt;
-    const inBuyingPhase = ipoClock >= ipo.ipoStartsAt && ipoClock < ipo.ipoEndsAt
-      && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
-    return inHypePhase || inBuyingPhase;
-  }), [allIPOs, ipoClock]);
 
   // Listen to predictions
   useEffect(() => {

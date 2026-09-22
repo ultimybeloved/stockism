@@ -11,7 +11,7 @@ const {
   ADMIN_PRICE_PROTECTION_MS,
   MIN_PRICE,
 } = require('../constants');
-const { isPriceProtected, neglectFloorPrice } = require('../helpers');
+const { isPriceProtected, isTickerPaused, neglectFloorPrice } = require('../helpers');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -23,9 +23,17 @@ const round2 = (n) => Math.round(n * 100) / 100;
  */
 const decayTarget = ({
   character, price, stats, shortInterest, priceHistory, now, trackingStartedAt,
+  haltedTickers,
 }) => {
   if (character.isETF) return null;
   if (!(price > 0)) return null;
+
+  // Circuit-breaker pause. Nearly inert by construction — a stock that moved
+  // 10% in five minutes was being traded, so it is not neglected — but a
+  // character can be dragged through the breaker by a TRAILING move from a
+  // linked one without being traded itself, and then this is the one automated
+  // mover that would still push it. Every other one already checks.
+  if (isTickerPaused(haltedTickers, character.ticker, now)) return null;
 
   // When was this stock last shown any interest?
   //

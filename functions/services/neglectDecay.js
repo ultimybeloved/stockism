@@ -102,6 +102,7 @@ exports.applyNeglectDecay = cf().pubsub
           priceHistory,
           now,
           trackingStartedAt: stats.neglectTrackingStartedAt,
+          haltedTickers: marketData.haltedTickers,
         });
         if (target === null) continue;
 

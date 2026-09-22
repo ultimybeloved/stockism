@@ -102,12 +102,20 @@ async function doArchivePriceHistory(ticker = null) {
   let archivedCount = 0;
 
   // Archive docs are written per ticker, but every live-doc trim is collected
-  // into ONE final update: fewer round trips (the first post-incident run
-  // touches dozens of tickers and must finish inside the function timeout)
-  // and the live doc shrinks atomically. Archive-before-trim order means a
-  // failure mid-run only leaves points duplicated in both docs — harmless,
-  // the chart merge de-dupes by timestamp.
-  const liveTrims = {};
+  // and applied at the end: fewer round trips (the first post-incident run
+  // touches dozens of tickers and must finish inside the function timeout).
+  // Archive-before-trim order means a failure mid-run only leaves points
+  // duplicated in both docs — harmless, the chart merge de-dupes by timestamp.
+  //
+  // The trim REMOVES the archived points rather than writing back the array we
+  // want to keep. That distinction is the whole ballgame: every trade appends
+  // to this same document with arrayUnion, and the read at the top of this
+  // function is already stale by the time the loop finishes. Writing back an
+  // absolute array silently dropped every price point written while the archive
+  // run was in flight — the points were not in the archive either, because the
+  // archive only received the OLD ones. arrayRemove commutes with the appends,
+  // so a concurrent trade's point survives.
+  const liveRemovals = {};
 
   for (const t of tickersToArchive) {
     const history = priceHistory[t] || [];
@@ -125,14 +133,25 @@ async function doArchivePriceHistory(ticker = null) {
         lastUpdated: FieldValue.serverTimestamp()
       });
 
-      liveTrims[t] = toKeep;
+      liveRemovals[t] = toArchive;
       archivedCount++;
       console.log(`Archived ${toArchive.length} entries for ${t}, keeping ${toKeep.length} recent entries`);
     }
   }
 
   if (archivedCount > 0) {
-    await histRef.update(liveTrims);
+    // One arrayRemove per field per update, so the removals are chunked across
+    // as few updates as possible. A single run usually needs exactly one.
+    const CHUNK = 250;
+    const longest = Math.max(...Object.values(liveRemovals).map((pts) => pts.length));
+    for (let start = 0; start < longest; start += CHUNK) {
+      const update = {};
+      for (const [t, pts] of Object.entries(liveRemovals)) {
+        const slice = pts.slice(start, start + CHUNK);
+        if (slice.length) update[t] = FieldValue.arrayRemove(...slice);
+      }
+      if (Object.keys(update).length) await histRef.update(update);
+    }
   }
 
   return { success: true, archivedTickers: archivedCount, message: `Archived ${archivedCount} tickers` };

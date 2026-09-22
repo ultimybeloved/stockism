@@ -104,6 +104,11 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       shorts: {},
       hasOpenShorts: false,
       costBasis: {},
+      // The dividend/exit-loyalty lot ledger goes with the shares it describes.
+      // Left behind, a rebuilt position inherited the wiped one's loyalty
+      // standing: re-buy a stock you used to hold for months and the very first
+      // sell got the long-hold discount on shares held for seconds.
+      holdingCohorts: {},
       // The shares these locks referred to are destroyed above, so the locks must
       // go with them. Left behind, lockedShares() still counts them and blocks the
       // player from selling shares they buy AFTER the bailout ("50 margin-locked"
