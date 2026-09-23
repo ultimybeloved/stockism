@@ -162,6 +162,14 @@ const RENAME_JOURNAL_DOC = 'tickerRename';
 // path, not a key, and would write to the wrong place in prices.<ticker>.
 const TICKER_PATTERN = /^[A-Z0-9]{2,6}$/;
 
+// Stock splits (stockSplit.js). Same time budget and page sizes as the rename.
+// The journal holds the run in progress; the history holds each stock's total
+// split factor, which the deployed characters.js splitFactor must match.
+const SPLIT_JOURNAL_DOC = 'splitJournal';
+const SPLIT_HISTORY_DOC = 'splitHistory';
+const SPLIT_MIN_RATIO = 2;
+const SPLIT_MAX_RATIO = 100;
+
 // Anti-manipulation: reduced price impact for brand-new accounts.
 // Mirrors src/constants/economy.js — keep both in sync.
 const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;  // ramps over the first 3 days
@@ -953,6 +961,10 @@ module.exports = {
   RENAME_PAGE_SIZE,
   RENAME_JOURNAL_DOC,
   TICKER_PATTERN,
+  SPLIT_JOURNAL_DOC,
+  SPLIT_HISTORY_DOC,
+  SPLIT_MIN_RATIO,
+  SPLIT_MAX_RATIO,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MAX_ACCOUNTS_PER_IP,

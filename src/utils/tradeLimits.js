@@ -2,7 +2,6 @@
 // impact, buying power, and max-shares for each action. Mirrors the backend.
 
 import {
-  BASE_LIQUIDITY,
   MIN_PRICE,
   MIN_EXIT_SHARES,
   MAX_TRADE_SHARES,
@@ -12,6 +11,7 @@ import {
 import {
   calculatePortfolioValue,
   calculateTraderImpactDollars,
+  liquidityFor,
   getBidAskPrices,
   calculateMarginStatus
 } from './calculations';
@@ -50,7 +50,7 @@ export const getTradeCount = (userData, ticker, act) => {
 // would actually fill. calculatePriceImpactDollars stays the market-move number
 // and is what the pre-market indicative open uses.
 export const getDynamicPrices = (character, price, amt, act, userData) => {
-  const liquidity = character.liquidity || BASE_LIQUIDITY;
+  const liquidity = liquidityFor(character.ticker);
   const cumVol = getCumulativeVolume(userData, character.ticker, act);
   const impact = calculateTraderImpactDollars(price, amt, liquidity, cumVol);
 

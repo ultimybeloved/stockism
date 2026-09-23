@@ -542,12 +542,12 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, l
   );
 
 /**
- * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY for
- * every stock unless characters.js gives it its own, which a stock split does
- * (x ratio), so the same dollar trade moves a split stock by the same percent
- * as before the split. Mirror of liquidityFor in src/utils/calculations.js.
+ * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY,
+ * times the stock's splitFactor if it has been split (see characters.js), so
+ * the same dollar trade moves a split stock by the same percent as before the
+ * split. Mirror of liquidityFor in src/utils/calculations.js.
  */
-const liquidityFor = (ticker) => CHARACTER_MAP[ticker]?.liquidity || BASE_LIQUIDITY;
+const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?

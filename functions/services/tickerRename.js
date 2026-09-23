@@ -32,7 +32,6 @@ const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { CREWS } = require('../crews');
 const {
   RENAME_TIME_BUDGET_MS,
-  RENAME_BATCH_SIZE,
   RENAME_PAGE_SIZE,
   RENAME_JOURNAL_DOC,
   TICKER_PATTERN,
@@ -250,66 +249,8 @@ const runPreflight = async ({ old, nw, marketData }) => {
 // ============================================
 // PHASE HELPERS
 // ============================================
-
-const commitInChunks = async (writes) => {
-  for (let i = 0; i < writes.length; i += RENAME_BATCH_SIZE) {
-    const batch = db.batch();
-    for (const w of writes.slice(i, i + RENAME_BATCH_SIZE)) batch.update(w.ref, w.updates);
-    await batch.commit();
-  }
-};
-
-/**
- * Drain a query that stops matching once rewritten.
- *
- * Because the rewrite removes the document from its own result set, this needs
- * no cursor and re-running it after a crash simply finds what is left.
- */
-const drainQuery = async (queryFn, buildUpdates, budget) => {
-  let done = 0;
-  for (;;) {
-    if (budget.expired()) return { done, complete: false };
-    const snap = await queryFn().limit(RENAME_PAGE_SIZE).get();
-    if (snap.empty) return { done, complete: true };
-    const writes = [];
-    for (const doc of snap.docs) {
-      const updates = buildUpdates(doc);
-      if (Object.keys(updates).length) writes.push({ ref: doc.ref, updates });
-    }
-    if (!writes.length) return { done, complete: true };
-    await commitInChunks(writes);
-    done += writes.length;
-  }
-};
-
-/**
- * Walk a whole collection by document id.
- *
- * Used where the rewrite does not change what the query matches, so progress
- * has to be remembered explicitly.
- */
-const walkCollection = async (collection, cursor, buildUpdates, budget) => {
-  let done = 0;
-  let last = cursor || null;
-  for (;;) {
-    if (budget.expired()) return { done, cursor: last, complete: false };
-    let q = db.collection(collection).orderBy(admin.firestore.FieldPath.documentId())
-      .limit(RENAME_PAGE_SIZE);
-    if (last) q = q.startAfter(last);
-    const snap = await q.get();
-    if (snap.empty) return { done, cursor: last, complete: true };
-
-    const writes = [];
-    for (const doc of snap.docs) {
-      const updates = buildUpdates(doc.data(), doc);
-      if (Object.keys(updates).length) writes.push({ ref: doc.ref, updates });
-    }
-    if (writes.length) await commitInChunks(writes);
-    done += writes.length;
-    last = snap.docs[snap.docs.length - 1].id;
-    if (snap.size < RENAME_PAGE_SIZE) return { done, cursor: last, complete: true };
-  }
-};
+// Shared with the stock split; see migrationWalk.js.
+const { drainQuery, walkCollection } = require('./migrationWalk');
 
 // ============================================
 // PHASES

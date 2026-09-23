@@ -406,6 +406,20 @@ export const CHARACTERS = [
   },
 ];
 
+// Stock splits. `splitFactor` on a character means it has been split that many
+// for one, in total (10 = one 10-for-1 split; a later 2-for-1 makes it 20). Its
+// basePrice is divided by it here, once, so the index ratio (price / basePrice)
+// and the neglect floor stay where they were, and liquidityFor multiplies its
+// liquidity by it so a dollar trade moves it the same percent as before.
+// `basePrice` above stays the original figure. The factor is added BEFORE the
+// split is run, with the market halted: see "Splitting a Stock" in CLAUDE.md.
+CHARACTERS.forEach((c) => {
+  if (c.splitFactor > 1) {
+    c.unsplitBasePrice = c.basePrice;
+    c.basePrice = c.basePrice / c.splitFactor;
+  }
+});
+
 // Create a map for quick lookup
 export const CHARACTER_MAP = {};
 CHARACTERS.forEach(c => {

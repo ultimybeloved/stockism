@@ -42,6 +42,7 @@
     "test:crewswitch": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-crew-switch-emulator.cjs\"",
     "test:season": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-season-emulator.cjs\"",
     "test:coord": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-coord-emulator.cjs\"",
+    "test:split": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-split-emulator.cjs\"",
     "lint": "eslint src --ext .js,.jsx",
     "deploy:functions": "node scripts/deploy-functions.cjs",
     "test:rename": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"node scripts/test-rename-ticker-emulator.cjs\""

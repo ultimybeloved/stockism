@@ -179,6 +179,7 @@ export const adminSetHoldingFunction = httpsCallable(functions, 'adminSetHolding
 export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
 // Admin: rename ticker across all data
 export const renameTickerFunction = httpsCallable(functions, 'renameTicker');
+export const splitStockFunction = httpsCallable(functions, 'splitStock');
 export const setMarketHaltFunction = httpsCallable(functions, 'setMarketHalt');
 // Admin: watchlist management
 export const addWatchedUserFunction = httpsCallable(functions, 'addWatchedUser');

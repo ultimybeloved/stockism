@@ -67,11 +67,11 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
  */
 /**
- * A stock's liquidity: BASE_LIQUIDITY unless characters.js gives it its own,
- * which a stock split does (x ratio) so the same dollar trade moves it the same
- * percent as before. Mirror of liquidityFor in functions/helpers.js.
+ * A stock's liquidity: BASE_LIQUIDITY times its splitFactor (see characters.js),
+ * so the same dollar trade moves a split stock the same percent as before.
+ * Mirror of liquidityFor in functions/helpers.js.
  */
-export const liquidityFor = (ticker) => CHARACTER_MAP[ticker]?.liquidity || BASE_LIQUIDITY;
+export const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
 
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
   const rawImpact = currentPrice * BASE_IMPACT * (

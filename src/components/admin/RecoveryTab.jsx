@@ -1,6 +1,7 @@
 import RecoverySpikeRepair from './recovery/RecoverySpikeRepair';
 import RecoveryDiagnose from './recovery/RecoveryDiagnose';
 import RecoveryRenameTicker from './recovery/RecoveryRenameTicker';
+import RecoverySplitStock from './recovery/RecoverySplitStock';
 import RecoveryTradeRollback from './recovery/RecoveryTradeRollback';
 
 const RecoveryTab = ({
@@ -274,6 +275,7 @@ const RecoveryTab = ({
       </div>
 
       <RecoveryRenameTicker {...{ darkMode, textClass, mutedClass, renameOldTicker, setRenameOldTicker, renameNewTicker, setRenameNewTicker, renameResult, setRenameResult, showMessage, renameTickerFunction }} />
+      <RecoverySplitStock {...{ darkMode, textClass, mutedClass, showMessage }} />
 
       <RecoveryTradeRollback {...{ darkMode, textClass, mutedClass, inputClass, loading, tradeFilterTicker, setTradeFilterTicker, sortedCharacters, prices, selectedTickerHistory, setSelectedTickerHistory, getPriceHistoryForTicker, rollbackTimestamp, setRollbackTimestamp, rollbackConfirm, setRollbackConfirm, executeFullRollback }} />
     </div>

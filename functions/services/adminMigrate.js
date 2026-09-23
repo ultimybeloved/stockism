@@ -16,6 +16,7 @@ const {
 } = require('../constants');
 const { appendPriceHistory } = require('../helpers');
 const { runPreflight, countDryRun, runRename, PHASES } = require('./tickerRename');
+const split = require('./stockSplit');
 
 /**
  * Rename a ticker across live Firestore data.
@@ -97,6 +98,50 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
   }
 
   return runRename({ old, nw, mode, uid: context.auth.uid });
+});
+
+/**
+ * Split a stock N-for-1 across live Firestore data. Engine in stockSplit.js.
+ *
+ * Modes: dryRun (checks and counts, writes nothing), execute, resume, abort.
+ * Abort does NOT roll back. The market must already be halted and this never
+ * reopens it. ORDER: halt, add splitFactor to src/characters.js, sync:chars,
+ * deploy functions, then run this — see "Splitting a Stock" in CLAUDE.md.
+ */
+exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+  const mode = data?.mode || 'dryRun';
+  if (!['dryRun', 'execute', 'resume', 'abort'].includes(mode)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Unknown mode');
+  }
+  const ticker = String(data?.ticker || '').trim().toUpperCase();
+  const ratio = Number(data?.ratio);
+
+  if (mode === 'dryRun' || mode === 'execute') {
+    const marketSnap = await db.collection('market').doc('current').get();
+    const { checks, blocked, journal, before } = await split.runPreflight({
+      ticker, ratio, marketData: marketSnap.exists ? marketSnap.data() : {},
+    });
+    if (mode === 'dryRun') {
+      return {
+        dryRun: true, ticker, ratio, checks, blocked,
+        factorBefore: before,
+        priceNow: marketSnap.data()?.prices?.[ticker] ?? null,
+        breakdown: blocked ? null : await split.countDryRun({ ticker }),
+        phases: split.PHASES.map((ph) => ({ name: ph.name, label: ph.label })),
+        notRewritten: ['Feed entries (7-day TTL)', 'Old notifications'],
+        journal: journal || null,
+      };
+    }
+    if (blocked) {
+      const failed = checks.filter((c) => !c.pass).map((c) => c.label).join('; ');
+      throw new functions.https.HttpsError('failed-precondition', `Preflight failed: ${failed}`);
+    }
+  }
+  return split.runSplit({ ticker, ratio, mode, uid: context.auth.uid });
 });
 
 /**
