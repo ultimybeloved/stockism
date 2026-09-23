@@ -27,14 +27,14 @@ export function useCoordProfit(player) {
   });
 
   const checkAmount = () => run(async () => {
-    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: Number(amount), preview: true });
+    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: Number(amount), preview: true, preferTickers: profit.preferTickers });
     setPreview(data);
   });
 
   const remove = () => run(async () => {
     const n = Number(amount);
-    if (!confirm(`Remove $${n.toLocaleString()} from ${player.name}?\n\nCash goes first; the rest is added to their margin balance. They get a notice with the amount. This cannot be undone.`)) return;
-    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: n, memo });
+    if (!confirm(`Remove $${n.toLocaleString()} from ${player.name}?\n\nShares of the stocks they pushed go first (taken, not sold, so the price doesn't move), then other holdings, then cash; margin debt only for anything left. They get a notice with the amount. This cannot be undone.`)) return;
+    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: n, memo, preferTickers: profit.preferTickers });
     setDone(data);
   });
 

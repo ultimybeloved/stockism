@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { pushWindows, windowProfit, afterRemoval } = require('./services/coordProfitMath');
+const { pushWindows, windowProfit, planRemoval } = require('./services/coordProfitMath');
 
 const H = 3600000;
 const T0 = Date.UTC(2026, 8, 17, 4, 0);
@@ -81,17 +81,35 @@ describe('pushWindows', () => {
   });
 });
 
-describe('afterRemoval', () => {
-  it('takes cash first and the rest as margin debt', () => {
-    // Madness today: ~$468 cash, $1.58M gross, $592k owed.
-    const out = afterRemoval({ cash: 468, portfolioValue: 1581450, marginUsed: 591962 }, 400000);
-    expect(out.fromCash).toBe(468);
-    expect(out.toDebt).toBe(399532);
-    expect(out.owedAfter).toBe(991494);
-    expect(out.equityRatioAfter).toBeCloseTo(0.373, 2);
+describe('planRemoval', () => {
+  it('takes shares of the pushed stock, not cash or debt (Madness)', () => {
+    // ~$468 cash, 4,803 $JYNG at 329.01, $592k owed.
+    const u = { cash: 468, holdings: { JYNG: 4803, SHNG: 0.2 }, portfolioValue: 1581450, marginUsed: 591962 };
+    const out = planRemoval(u, 559988, { JYNG: 329.01, SHNG: 2190.92 }, ['SHNG', 'JYNG']);
+    // SHNG comes first but there is only a speck of it; the rest is JYNG.
+    expect(out.shares.map((s) => s.ticker)).toEqual(['SHNG', 'JYNG']);
+    const jyng = out.shares.find((s) => s.ticker === 'JYNG');
+    expect(jyng.shares).toBeCloseTo((559988 - 0.2 * 2190.92) / 329.01, 1);
+    expect(out.fromShares).toBeCloseTo(559988, 0);
+    expect(out.fromCash).toBe(0);
+    expect(out.toDebt).toBe(0);
+    // Debt unchanged, so equity only falls by the value taken.
+    expect(out.owedAfter).toBe(591962);
   });
 
-  it('needs no debt when cash covers it', () => {
-    expect(afterRemoval({ cash: 1000, portfolioValue: 5000, marginUsed: 0 }, 400).toDebt).toBe(0);
+  it('moves on to their largest other holding, then cash, then debt', () => {
+    const u = { cash: 100, holdings: { A: 10, B: 1, C: 5 }, portfolioValue: 1100, marginUsed: 0 };
+    const out = planRemoval(u, 1300, { A: 50, B: 100, C: 100 }, ['A']);
+    // A first (preferred), then C ($500) before B ($100).
+    expect(out.shares.map((s) => [s.ticker, s.shares, s.closes])).toEqual([['A', 10, true], ['C', 5, true], ['B', 1, true]]);
+    expect(out.fromCash).toBe(100);
+    expect(out.toDebt).toBe(100);
+  });
+
+  it('never takes more than the amount', () => {
+    const out = planRemoval({ cash: 0, holdings: { A: 100 }, portfolioValue: 3000 }, 1000, { A: 30 }, ['A']);
+    expect(out.fromShares).toBe(1000);
+    expect(out.shares[0].shares).toBe(33.34);
+    expect(out.shares[0].closes).toBe(false);
   });
 });

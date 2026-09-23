@@ -33,7 +33,8 @@ const CoordProfitPanel = ({ player, textClass, mutedClass, inputClass }) => {
 
       {done ? (
         <p className="text-green-500">
-          Removed {formatCurrency(done.amount)} ({formatCurrency(done.fromCash)} cash, {formatCurrency(done.toDebt)} added to margin).
+          Removed {formatCurrency(done.amount)}: {done.shares.map((x) => `${x.shares.toLocaleString()} $${x.ticker}`).join(', ')}
+          {done.fromCash > 0 && `, ${formatCurrency(done.fromCash)} cash`}{done.toDebt > 0 && `, ${formatCurrency(done.toDebt)} to margin`}.
         </p>
       ) : profit.suggested > 0 && (
         <>
@@ -49,7 +50,9 @@ const CoordProfitPanel = ({ player, textClass, mutedClass, inputClass }) => {
           </div>
           {preview && (
             <p>
-              {formatCurrency(preview.fromCash)} from cash, {formatCurrency(preview.toDebt)} added to margin.
+              Takes {preview.shares.map((x) => `${x.shares.toLocaleString()} $${x.ticker}`).join(', ') || 'no shares'}
+              {preview.fromCash > 0 && `, ${formatCurrency(preview.fromCash)} cash`}
+              {preview.toDebt > 0 && `, ${formatCurrency(preview.toDebt)} added to margin`}.
               Equity after: <span className={preview.equityRatioAfter < preview.marginCallLine ? 'text-red-500 font-semibold' : textClass}>
                 {pct(preview.equityRatioAfter)}
               </span>{preview.equityRatioAfter < preview.marginCallLine && ` (under the ${pct(preview.marginCallLine)} margin-call line; they'll be told to sell)`}.

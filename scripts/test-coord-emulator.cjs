@@ -46,7 +46,13 @@ const trade = (uid, ticker, action, amount, price, impact, at) => db.collection(
 const run = async () => {
   await db.collection('market').doc('current').set({ prices: { SHNG: 200, JYNG: 330, GOO: 50 } });
   const users = {
-    raidA: { cash: 1000, holdings: {}, portfolioValue: 30000, marginUsed: 0, marginEnabled: true },
+    // Holds 30 SHNG ($6,000 at 200) and 10 GOO; a sliver of cohort bookkeeping.
+    raidA: { cash: 1000, holdings: { SHNG: 30, GOO: 10 }, costBasis: { SHNG: 180, GOO: 40 },
+      holdingCohorts: { SHNG: { eligible: 30, pending: [] }, GOO: { eligible: 10, pending: [] } },
+      portfolioValue: 7500, marginUsed: 0, marginEnabled: true },
+    // Holds exactly $1,000 of SHNG, so taking $1,000 closes the position.
+    closer: { cash: 0, holdings: { SHNG: 5 }, costBasis: { SHNG: 150 }, lowestWhileHolding: { SHNG: 140 },
+      holdingCohorts: { SHNG: { eligible: 5, pending: [] } }, portfolioValue: 1000, marginEnabled: true },
     raidB: { cash: 0, holdings: {} },
     raidC: { cash: 0, holdings: {} },
     alone: { cash: 0, holdings: {} },
@@ -107,7 +113,9 @@ const run = async () => {
   const p = await getCoordProfit.run({ uid: 'raidA' }, adminCtx);
   check('raidA: sold 100 at 200, bought back at 150 = $5,000 locked in', p.pushes.length === 1
     && p.pushes[0].lockedIn === 5000 && p.suggested === 5000, p);
-  check('preview: $1,000 from cash, $4,000 to margin', p.preview.fromCash === 1000 && p.preview.toDebt === 4000, p.preview);
+  check('preview: 25 SHNG, no cash, no debt', p.preferTickers[0] === 'SHNG' && p.preview.shares.length === 1
+    && p.preview.shares[0].ticker === 'SHNG' && p.preview.shares[0].shares === 25
+    && p.preview.fromCash === 0 && p.preview.toDebt === 0, p.preview);
 
   let denied = null;
   try { await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000, memo: 'x' }, { auth: { uid: 'raidB' } }); } catch (e) { denied = e.message; }
@@ -117,17 +125,28 @@ const run = async () => {
   try { await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000 }, adminCtx); } catch (e) { noMemo = e.message; }
   check('a memo is required', /memo/i.test(noMemo || ''), noMemo);
 
-  const pre = await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000, preview: true }, adminCtx);
-  check('preview changes nothing', pre.preview === true && (await user('raidA')).cash === 1000, pre);
+  const pre = await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000, preview: true, preferTickers: p.preferTickers }, adminCtx);
+  check('preview changes nothing', pre.preview === true && (await user('raidA')).holdings.SHNG === 30, pre);
+  const priceBefore = (await db.collection('market').doc('current').get()).data().prices.SHNG;
 
-  const done = await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000, memo: 'test raid' }, adminCtx);
+  const done = await adminRemoveCoordProfit.run({ uid: 'raidA', amount: 5000, memo: 'test raid', preferTickers: p.preferTickers }, adminCtx);
   const a = await user('raidA');
-  check('cash taken first, the rest added as margin', a.cash === 0 && a.marginUsed === 4000 && done.toDebt === 4000, { cash: a.cash, marginUsed: a.marginUsed });
+  check('25 SHNG taken; cash, GOO and debt untouched', a.holdings.SHNG === 5 && a.holdings.GOO === 10 && a.cash === 1000
+    && a.marginUsed === 0 && done.toDebt === 0, { holdings: a.holdings, cash: a.cash, marginUsed: a.marginUsed });
+  check('dividend lots shrink with the shares', a.holdingCohorts.SHNG.eligible === 5, a.holdingCohorts);
+  check('stored value drops by what was taken', a.portfolioValue === 2500, a.portfolioValue);
+  check('the price does not move', (await db.collection('market').doc('current').get()).data().prices.SHNG === priceBefore);
   const logs = (await db.collection('adminCashLog').where('userId', '==', 'raidA').get()).docs.map((d) => d.data());
   check('logged with the memo', logs.length === 1 && logs[0].mode === 'remove_coord_profit' && logs[0].memo === 'test raid', logs);
   const notes = (await db.collection('users').doc('raidA').collection('notifications').get()).docs.map((d) => d.data());
-  check('the player is told the amount, not the memo', notes.length === 1 && /\$5,000/.test(notes[0].message)
+  check('the player is told the amount and the shares, not the memo', notes.length === 1 && /\$5,000/.test(notes[0].message)
+    && /25 \$SHNG/.test(notes[0].message)
     && !/test raid/.test(notes[0].message) && notes[0].title === 'Profit removed', notes);
+
+  await adminRemoveCoordProfit.run({ uid: 'closer', amount: 1000, memo: 'close', preferTickers: ['SHNG'] }, adminCtx);
+  const c = await user('closer');
+  check('taking a whole position leaves nothing behind', c.holdings.SHNG === undefined && c.costBasis.SHNG === undefined
+    && c.lowestWhileHolding.SHNG === undefined && c.holdingCohorts.SHNG === undefined, c);
 
   let tooMuch = null;
   try { await adminRemoveCoordProfit.run({ uid: 'small', amount: 200, memo: 'x' }, adminCtx); } catch (e) { tooMuch = e.message; }

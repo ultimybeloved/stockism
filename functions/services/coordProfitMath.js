@@ -63,15 +63,50 @@ const windowProfit = (trades, { start, end }, priceNow) => {
   return { trades: inside.length, lockedIn: round2(lockedIn), gainSince: round2(gainSince) };
 };
 
-/** Where the account would stand after removing `amount`. */
-const afterRemoval = (u, amount) => {
-  const cash = u.cash || 0;
-  const fromCash = Math.min(Math.max(0, cash), amount);
-  const toDebt = amount - fromCash;
-  const gross = Math.max(0, (u.portfolioValue || 0) - fromCash);
+/**
+ * How `amount` would be taken from an account, in this order:
+ *
+ *   1. shares of the stocks the pushes were on (`preferTickers`, in order)
+ *   2. their other holdings, largest first
+ *   3. cash
+ *   4. margin debt, only for whatever is left
+ *
+ * Shares are taken, not sold: nothing goes through the market, so the price
+ * doesn't move and the honest holders of the stock lose nothing. A forced sale
+ * of the same value would dump it on them. Shares are valued at today's price.
+ */
+const planRemoval = (u, amount, prices, preferTickers = []) => {
+  let left = amount;
+  const shares = [];
+  const holdings = u.holdings || {};
+  const others = Object.keys(holdings).filter((t) => !preferTickers.includes(t))
+    .sort((a, b) => holdings[b] * (prices[b] || 0) - holdings[a] * (prices[a] || 0));
+  for (const ticker of [...preferTickers, ...others]) {
+    if (left <= 0.005) break;
+    const held = Number(holdings[ticker]) || 0;
+    const price = Number(prices?.[ticker]) || 0;
+    if (!(held > 0) || !(price > 0)) continue;
+    // Whole cents of a share, rounded up, so the value taken covers what's owed.
+    const want = Math.ceil((left / price) * 100) / 100;
+    const take = Math.min(held, want);
+    const value = round2(Math.min(left, take * price));
+    shares.push({ ticker, shares: take, value, closes: take >= held });
+    left -= value;
+  }
+  const cash = Math.max(0, u.cash || 0);
+  const fromCash = round2(Math.min(cash, Math.max(0, left)));
+  left -= fromCash;
+  const toDebt = round2(Math.max(0, left));
+
+  const fromShares = round2(shares.reduce((s, x) => s + x.value, 0));
+  const gross = Math.max(0, (u.portfolioValue || 0) - fromShares - fromCash);
   const owed = (u.marginUsed || 0) + toDebt;
   const ratio = gross > 0 ? (gross - owed) / gross : 0;
-  return { fromCash: round2(fromCash), toDebt: round2(toDebt), owedAfter: round2(owed), equityRatioAfter: Math.round(ratio * 1000) / 1000 };
+  return {
+    shares, fromShares, fromCash, toDebt,
+    owedAfter: round2(owed),
+    equityRatioAfter: Math.round(ratio * 1000) / 1000,
+  };
 };
 
-module.exports = { pushWindows, windowProfit, afterRemoval, WEEK_MS };
+module.exports = { pushWindows, windowProfit, planRemoval, WEEK_MS };
