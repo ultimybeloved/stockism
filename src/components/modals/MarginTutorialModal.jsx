@@ -173,7 +173,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>COORDINATED SHORTING</p>
-                  <p className={`text-sm ${textClass}`}>When multiple people short the same character at once, it can trigger a short squeeze: a spike in price that simultaneously liquidates everyone. We have seen this happen. The losses are instant and total.</p>
+                  <p className={`text-sm ${textClass}`}>When multiple people short the same character at once, it can trigger a short squeeze: a spike in price that simultaneously liquidates everyone. We have seen this happen. The losses are instant and total. Planning shorts with other players to push a price down is also against the rules.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THE CAP</p>
