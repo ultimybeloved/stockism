@@ -24,6 +24,7 @@ export const CHARACTERS = [
     ticker: "SHNG",
     status: "flashback",
     basePrice: 85,
+    splitFactor: 3, // 3-for-1 on 2026-09-23, see "Splitting a Stock" in CLAUDE.md
     dateAdded: "2026-01-13T00:01:00", generation: "pre",
     // The direct SHNG <-> GAP link was cut on 2026-09-17: they have finally met
     // in the chapter and are about to fight, so one rising should not carry the
@@ -38,6 +39,7 @@ export const CHARACTERS = [
     ticker: "GAP",
     status: "flashback",
     basePrice: 85,
+    splitFactor: 3, // 3-for-1 on 2026-09-23
     dateAdded: "2026-01-13T00:02:00", generation: "pre",
     // See the note on SHNG: the direct GAP <-> SHNG link was cut 2026-09-17.
     // KTAE and JAKE are one-way and were already 0.2, so they are unchanged.
@@ -60,7 +62,7 @@ export const CHARACTERS = [
     ]
   },
   { name: "Sophia Alexander", ticker: "SOPH", basePrice: 80, dateAdded: "2026-01-13T00:06:00", generation: "pre" },
-  { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, dateAdded: "2026-01-13T00:07:00", generation: "1st", altNames: ["Gitae Kim"] },
+  { name: "Kitae Kim", ticker: "KTAE", basePrice: 80, splitFactor: 2 /* 2-for-1 on 2026-09-23 */, dateAdded: "2026-01-13T00:07:00", generation: "1st", altNames: ["Gitae Kim"] },
   { name: "Johan Seong", ticker: "GDOG", basePrice: 80, dateAdded: "2026-01-13T00:08:00", generation: "2nd", altNames: ["Yohan Seong"] },
   { name: "Tom Lee", ticker: "TOM", basePrice: 78, dateAdded: "2026-01-13T00:09:00", generation: "pre" },
   { name: "Shintaro Yamazaki", ticker: "SHRO", basePrice: 75, dateAdded: "2026-01-13T00:10:00", generation: "pre", status: "flashback" },

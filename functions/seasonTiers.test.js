@@ -588,18 +588,19 @@ describe('size divisions', () => {
 });
 
 describe('exitEquityAt', () => {
-  const prices = { GAP: 100, SHNG: 50 };
+  // Unsplit stocks, so liquidity is BASE_LIQUIDITY (a split stock's is higher).
+  const prices = { SOPH: 100, CROC: 50 };
 
   it('sells holdings and covers shorts at the price their own order pushes to', () => {
-    // 100 GAP: impact 100 x 1.2% x sqrt(100/100) = $1.20, so each sells at $98.80.
-    expect(exitEquityAt({ cash: 1000, holdings: { GAP: 100 } }, prices)).toBe(10880);
-    // Cover 10 SHNG at 50 + 50 x 1.2% x sqrt(0.1) = 50.1897: 600 + (60 - 50.1897) x 10.
-    const u = { cash: 0, shorts: { SHNG: { shares: 10, costBasis: 60, margin: 600 } } };
+    // 100 SOPH: impact 100 x 1.2% x sqrt(100/100) = $1.20, so each sells at $98.80.
+    expect(exitEquityAt({ cash: 1000, holdings: { SOPH: 100 } }, prices)).toBe(10880);
+    // Cover 10 CROC at 50 + 50 x 1.2% x sqrt(0.1) = 50.1897: 600 + (60 - 50.1897) x 10.
+    const u = { cash: 0, shorts: { CROC: { shares: 10, costBasis: 60, margin: 600 } } };
     expect(exitEquityAt(u, prices)).toBe(698.1);
   });
 
   it('costs a bigger position more, capped at one order\'s 5% move', () => {
-    const haircut = (shares) => 1 - exitEquityAt({ holdings: { GAP: shares } }, prices) / (100 * shares);
+    const haircut = (shares) => 1 - exitEquityAt({ holdings: { SOPH: shares } }, prices) / (100 * shares);
     expect(haircut(1000)).toBeGreaterThan(haircut(100));
     expect(haircut(100000)).toBeCloseTo(0.05, 5);
   });
@@ -612,8 +613,8 @@ describe('exitEquityAt', () => {
   it('matches the season card on the site', () => {
     const u = {
       cash: 1234.5,
-      holdings: { GAP: 37, SHNG: 2500 },
-      shorts: { GAP: { shares: 12, costBasis: 110, margin: 1320, system: 'v2' } },
+      holdings: { SOPH: 37, CROC: 2500 },
+      shorts: { SOPH: { shares: 12, costBasis: 110, margin: 1320, system: 'v2' } },
       marginUsed: 300,
     };
     expect(calculateExitValue(u, prices)).toBeCloseTo(exitEquityAt(u, prices), 1);
