@@ -4,7 +4,6 @@
 import {
   MIN_PRICE,
   MIN_EXIT_SHARES,
-  MAX_TRADE_SHARES,
   SHORT_MARGIN_REQUIREMENT,
   MAX_TRADES_PER_TICKER_24H
 } from '../constants';
@@ -12,6 +11,7 @@ import {
   calculatePortfolioValue,
   calculateTraderImpactDollars,
   liquidityFor,
+  maxTradeSharesFor,
   getBidAskPrices,
   calculateMarginStatus
 } from './calculations';
@@ -79,10 +79,10 @@ export const getBuyingPower = (userCash, userData, prices, priceHistory, include
 // Max shares available for this action, honoring trade-count caps, locks,
 // buying power (buy), and short collateral limits.
 //
-// MAX_TRADE_SHARES is applied once, here, for every action. Only the short
+// The order cap (maxTradeSharesFor: MAX_TRADE_SHARES x splitFactor) is applied once, here, for every action. Only the short
 // branch used to carry the ceiling, so a large holder pressing Max on a sell or
 // a well-funded buy handed the server an order it rejects out of hand.
-export const getMaxShares = (args) => Math.min(maxSharesForAction(args), MAX_TRADE_SHARES);
+export const getMaxShares = (args) => Math.min(maxSharesForAction(args), maxTradeSharesFor(args.character?.ticker));
 
 const maxSharesForAction = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin = true }) => {
   const ticker = character.ticker;

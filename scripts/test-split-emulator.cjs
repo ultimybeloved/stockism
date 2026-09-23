@@ -203,6 +203,15 @@ const run = async () => {
   const moveAfter = (await market()).prices[T] / 20 - 1;
   check('the same dollar buy moves the price by the same percent', close(moveAfter, moveBefore, 0.0006), { moveBefore, moveAfter });
 
+  // The order cap scales with the split: 12,000 shares is over 10,000 but under 100,000.
+  const capErr = async (ticker) => {
+    try { await executeTrade.run({ ticker, action: 'sell', amount: 12000 }, ctx('buyerAfter')); return null; } catch (e) { return e.message; }
+  };
+  const unsplitErr = await capErr('CROC');
+  const splitErr = await capErr(T);
+  check('an unsplit stock keeps the 10,000-share order cap', /between .* and 10,000/.test(unsplitErr || ''), unsplitErr);
+  check('the split stock\'s cap is 10x (the sell fails for shares, not size)', !!splitErr && !/between .* and/.test(splitErr), splitErr);
+
   console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll split checks passed.');
   process.exit(failures ? 1 : 0);
 };

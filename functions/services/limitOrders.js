@@ -10,9 +10,9 @@ const db = admin.firestore();
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
   isWeeklyTradingHalt, NINETY_DAYS_MS,
-  MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
+  MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
 } = require('../constants');
-const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat } = require('../helpers');
+const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat, maxTradeSharesFor } = require('../helpers');
 const { runLimitOrderCheck } = require('./limitOrderMatching');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
@@ -49,7 +49,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   const isExitOrder = type === 'SELL' || type === 'STOP_LOSS';
   const minShares = isExitOrder ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
   const entryStep = 10 ** TRADE_SHARE_DECIMALS;
-  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > MAX_TRADE_SHARES ||
+  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > maxTradeSharesFor(ticker) ||
       (!isExitOrder && Math.round(shares * entryStep) / entryStep !== shares)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }

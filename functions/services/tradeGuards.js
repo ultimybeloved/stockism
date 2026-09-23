@@ -6,14 +6,14 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTER_MAP } = require('../characters');
-const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../helpers');
+const { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor } = require('../helpers');
 const {
   isWeeklyTradingHalt, MAX_TRADES_PER_TICKER_24H,
   MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, ADMIN_UID,
   TICKER_COOLDOWN_MS, TRADE_COOLDOWN_MS,
   MAX_TRADES_PER_TICKER_HOUR, TRADE_BURST_LIMIT, TRADE_BURST_WINDOW_MS,
   TRADE_RECORD_ACTIONS,
-  MIN_TRADE_SHARES, MIN_EXIT_SHARES, MAX_TRADE_SHARES, TRADE_SHARE_DECIMALS,
+  MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
 } = require('../constants');
 
 // Validate inputs - finite, bounded, sane share size — and reject trades during
@@ -23,14 +23,15 @@ const {
 function validateTradeInput(data) {
   const { ticker, action, amount } = data;
   const isExit = action === 'sell' || action === 'cover';
+  const maxShares = maxTradeSharesFor(ticker);
 
-  if (!ticker || !action || !Number.isFinite(amount) || amount > MAX_TRADE_SHARES ||
+  if (!ticker || !action || !Number.isFinite(amount) || amount > maxShares ||
       amount < (isExit ? MIN_EXIT_SHARES : MIN_TRADE_SHARES)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
       isExit
-        ? `Invalid trade parameters. Shares must be between ${MIN_EXIT_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')}.`
-        : `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
+        ? `Invalid trade parameters. Shares must be between ${MIN_EXIT_SHARES} and ${maxShares.toLocaleString('en-US')}.`
+        : `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${maxShares.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
     );
   }
 
@@ -38,7 +39,7 @@ function validateTradeInput(data) {
   if (!isExit && Math.round(amount * entryStep) / entryStep !== amount) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${MAX_TRADE_SHARES.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
+      `Invalid trade parameters. Shares must be between ${MIN_TRADE_SHARES} and ${maxShares.toLocaleString('en-US')} (max ${TRADE_SHARE_DECIMALS} decimal places).`
     );
   }
 

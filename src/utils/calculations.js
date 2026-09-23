@@ -5,6 +5,7 @@
 import {
   BASE_IMPACT,
   BASE_LIQUIDITY,
+  MAX_TRADE_SHARES,
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
@@ -72,6 +73,9 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * Mirror of liquidityFor in functions/helpers.js.
  */
 export const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+
+/** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/helpers.js. */
+export const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * (CHARACTER_MAP[ticker]?.splitFactor || 1);
 
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
   const rawImpact = currentPrice * BASE_IMPACT * (

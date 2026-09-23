@@ -135,6 +135,7 @@ const cohortRemoveUpdate = (userData, ticker, shares) => {
 const {
   BASE_IMPACT,
   BASE_LIQUIDITY,
+  MAX_TRADE_SHARES,
   MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
   WASH_RULE_COOLDOWN_MS,
@@ -548,6 +549,13 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, l
  * split. Mirror of liquidityFor in src/utils/calculations.js.
  */
 const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+
+/**
+ * The largest single order on a stock: MAX_TRADE_SHARES, times its splitFactor,
+ * so a split never changes how many orders it takes to trade a position.
+ * Mirror of maxTradeSharesFor in src/utils/calculations.js.
+ */
+const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * (CHARACTER_MAP[ticker]?.splitFactor || 1);
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?
@@ -1998,6 +2006,7 @@ module.exports = {
   spreadFor,
   calculateMarginalImpact,
   liquidityFor,
+  maxTradeSharesFor,
   getWeekId,
   buildTradeCreditUpdates,
   applyDueIPOJumps,
