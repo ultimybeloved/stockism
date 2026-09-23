@@ -3,6 +3,7 @@ import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../utils/formatters';
 import { niceStep } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
+import { marketTimes } from '../utils/localTime';
 import { useAppContext } from '../context/AppContext';
 
 const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
@@ -174,7 +175,7 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
             <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
               {marketData?.marketHalted
                 ? `⏸️ Betting paused: ${marketData.haltReason || 'market halted'}`
-                : '⏸️ Betting is closed for chapter review. Reopens at 21:00 UTC.'}
+                : `⏸️ Betting is closed for chapter review. Reopens ${marketTimes().reopen}.`}
             </div>
           ) : hasExistingBet && !prediction.allowAdditionalBets ? (
             <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>

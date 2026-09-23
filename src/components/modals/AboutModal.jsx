@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { marketTimes } from '../../utils/localTime';
 
 const AboutModal = ({ onClose }) => {
   useEscapeKey(onClose);
@@ -129,7 +130,7 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">Why is the market closed on Thursdays?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  The market halts every Thursday from 13:00 to 21:00 UTC while new chapter events get priced in.
+                  The market halts every week ({marketTimes().halt}) while new chapter events get priced in.
                   Nobody can trade during the halt, so early chapter readers don't get an unfair edge.
                 </p>
               </div>
@@ -137,9 +138,9 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">What is the pre-market?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  During the last stretch of the Thursday halt, from 20:30 to 20:55 UTC, you can queue buy and sell
-                  orders. At 20:55 orders lock in. All queued orders execute together in one opening auction, and the
-                  market reopens at 21:00 UTC. It's the way to act on the new chapter without waiting at your screen
+                  During the last stretch of the halt ({marketTimes().preMarket}) you can queue buy and sell
+                  orders. Then orders lock in. All queued orders execute together in one opening auction, and the
+                  market reopens ({marketTimes().reopen}). It's the way to act on the new chapter without waiting at your screen
                   for the exact reopen second.
                 </p>
               </div>

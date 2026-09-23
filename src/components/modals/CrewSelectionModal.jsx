@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CREWS, CREW_MAP, getCrewMultiplier, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY, CREW_SWITCH_EVENT, isFreeSwitchTarget } from '../../crews';
-import { formatCurrency, formatUTCDateTime } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
+import { formatDateTime } from '../../utils/localTime';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
@@ -97,7 +98,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
               🎉 <strong>Free to join {eventCrew.name}</strong>
               <br />
               <span className={`text-xs ${mutedClass}`}>
-                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends {formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}.
+                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends {formatDateTime(CREW_SWITCH_EVENT.endsAt)}.
               </span>
             </p>
           </div>

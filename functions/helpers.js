@@ -171,6 +171,7 @@ const {
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
   CIRCUIT_BREAKER_MAX_PER_DAY,
+  discordTime, msUntilWeekly, PRE_MARKET_START_MINUTE, WEEKLY_HALT_END_MINUTE,
 } = require('./constants');
 
 // ── Exit share sizes ─────────────────────────────────────────────────────────
@@ -1812,8 +1813,8 @@ async function recordHeartbeat(job) {
  */
 async function sendMarketStatusAlert(kind, reason = '') {
   const presets = {
-    closed:    { color: 0xE74C3C, title: '🔴 Market Closed', description: 'Trading is paused for chapter review. Pre-market orders open at 20:30 UTC. Trading resumes at 21:00 UTC.' },
-    premarket: { color: 0xF1C40F, title: '🟡 Pre-Market Queue Open', description: 'You can now place pre-market orders. They fill when trading resumes at 21:00 UTC.' },
+    closed:    { color: 0xE74C3C, title: '🔴 Market Closed', description: `Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).` },
+    premarket: { color: 0xF1C40F, title: '🟡 Pre-Market Queue Open', description: `You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).` },
     open:      { color: 0x2ECC71, title: '🟢 Market Open', description: 'Trading has resumed.' },
     halted:    { color: 0xE74C3C, title: '🔴 Trading Halted', description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.' },
     resumed:   { color: 0x2ECC71, title: '🟢 Trading Resumed', description: 'Trading has resumed.' },

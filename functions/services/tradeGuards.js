@@ -14,6 +14,7 @@ const {
   MAX_TRADES_PER_TICKER_HOUR, TRADE_BURST_LIMIT, TRADE_BURST_WINDOW_MS,
   TRADE_RECORD_ACTIONS,
   MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+  chapterReviewHaltMsg,
 } = require('../constants');
 
 // Validate inputs - finite, bounded, sane share size — and reject trades during
@@ -53,7 +54,7 @@ function validateTradeInput(data) {
   if (isWeeklyTradingHalt()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+      chapterReviewHaltMsg()
     );
   }
 

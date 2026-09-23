@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { CHARACTERS } from '../../characters';
 import { initNewCharacterPricesFunction } from '../../firebase';
-import { formatUTCDateTime, formatTimeRemaining } from '../../utils/formatters';
+import { formatTimeRemaining } from '../../utils/formatters';
+import { formatDateTime, marketTimes } from '../../utils/localTime';
 
 const IpoTab = ({
   darkMode,
@@ -122,12 +123,12 @@ const IpoTab = ({
               />
               <div className="flex gap-2 mt-1">
                 <button type="button" onClick={setIpoStartToNow} className={presetBtnClass}>Now</button>
-                <button type="button" onClick={setIpoStartToNextOpen} className={presetBtnClass}>Next market open (Thu 21:00 UTC)</button>
+                <button type="button" onClick={setIpoStartToNextOpen} className={presetBtnClass}>Next market open ({marketTimes().reopen})</button>
               </div>
               <p className={`text-xs ${mutedClass} mt-1`}>
                 {!startValid ? 'Pick a date and time'
                   : startsImmediately ? 'Buying starts immediately'
-                  : `${formatUTCDateTime(startMs)} (in ${formatTimeRemaining(startMs - Date.now())})`}
+                  : `${formatDateTime(startMs)} (in ${formatTimeRemaining(startMs - Date.now())})`}
               </p>
             </div>
             <div>
@@ -171,7 +172,7 @@ const IpoTab = ({
                 <strong>${ipoTicker}</strong> IPO will:
               </p>
               <ul className={`text-xs ${mutedClass} mt-1 space-y-1`}>
-                <li>• Buying opens: {!startValid ? 'pick a time' : startsImmediately ? 'immediately' : formatUTCDateTime(startMs)}</li>
+                <li>• Buying opens: {!startValid ? 'pick a time' : startsImmediately ? 'immediately' : formatDateTime(startMs)}</li>
                 <li>• IPO buying: {ipoDurationHours}h</li>
                 <li>• {ipoTotalShares} shares at ${CHARACTERS.find(c => c.ticker === ipoTicker)?.basePrice} (max {ipoMaxPerUser}/user)</li>
                 <li>• After IPO: +15% price jump</li>

@@ -5,6 +5,7 @@ import { CHARACTER_MAP } from '../characters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../constants';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
+import { marketTimes } from '../utils/localTime';
 import { reportUnexpected } from '../monitoring';
 
 export function useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey }) {
@@ -20,7 +21,7 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
     if (isWeeklyHalt() || marketData?.marketHalted) {
       showNotification('error', marketData?.marketHalted
         ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
-        : 'Market closed for chapter review. Trading resumes at 21:00 UTC.');
+        : `Market closed for chapter review. Trading resumes ${marketTimes().reopen}.`);
       return false;
     }
     const ipoRef = doc(db, 'market', 'ipos');

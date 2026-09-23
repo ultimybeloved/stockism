@@ -11,6 +11,7 @@ const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
   isWeeklyTradingHalt, NINETY_DAYS_MS,
   MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+  chapterReviewHaltMsg,
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat, maxTradeSharesFor } = require('../helpers');
 const { runLimitOrderCheck } = require('./limitOrderMatching');
@@ -25,7 +26,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   if (isWeeklyTradingHalt()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+      chapterReviewHaltMsg()
     );
   }
 

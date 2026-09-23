@@ -3,6 +3,7 @@
 // The scheduled version runs nightly on its own. This is here for when you want
 // an answer now, and for the dry run, which reports what it would flag without
 // writing alerts or announcing anyone in Discord.
+import { localDailyTime } from '../../../utils/localTime';
 
 const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runScan }) => {
   const buttonClass = `flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
@@ -16,7 +17,7 @@ const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runSca
       <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Find Alt Accounts</h3>
       <p className={`text-xs mb-2 ${mutedClass}`}>
         Looks through the last 30 days of trades for accounts that keep trading from the same
-        connection. This runs by itself every night at 04:00 UTC and posts to Discord when it
+        connection. This runs by itself every night at {localDailyTime(240)} and posts to Discord when it
         finds something. Use these buttons to check right now. Dry run shows what it would
         flag without writing anything.
       </p>

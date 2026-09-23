@@ -1,3 +1,4 @@
+import { localWeeklyTime } from '../../../utils/localTime';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
@@ -62,7 +63,7 @@ const FeatureUsagePanel = ({ darkMode, textClass, mutedClass }) => {
       {state === 'error' && <p className="text-sm text-red-400">Could not load the usage report.</p>}
       {state === 'empty' && (
         <p className={`text-sm ${mutedClass}`}>
-          No report yet. It is written by the weekly market summary every Monday at 00:00 UTC.
+          No report yet. It is written by the weekly market summary every {localWeeklyTime(0, 1)}.
         </p>
       )}
 

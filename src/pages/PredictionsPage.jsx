@@ -6,6 +6,7 @@ import { getTotalInvested } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
 import PredictionCard from '../components/PredictionCard';
 import EventMarketCard from '../components/EventMarketCard';
+import { marketTimes } from '../utils/localTime';
 
 // Dedicated predictions page. Two sections: weekly cash predictions and
 // long-term event-share markets (the AMM-priced ones) — weekly first on
@@ -64,7 +65,7 @@ const PredictionsPage = ({
 
         {isHalted && (
           <div className={`mb-6 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-            🔒 Predictions are closed for chapter review. Trading reopens at 21:00 UTC.
+            🔒 Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
           </div>
         )}
 

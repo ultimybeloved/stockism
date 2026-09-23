@@ -14,7 +14,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const {
   isWeeklyTradingHalt,
-  CHAPTER_REVIEW_HALT_MSG,
+  chapterReviewHaltMsg,
   EVENT_AMM_LIQUIDITY,
   EVENT_MIN_BUYIN,
   ADMIN_UID,
@@ -43,7 +43,6 @@ const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
 // market freezes during the weekly chapter-review halt and any admin halt, so
 // nobody who reads the new chapter early can trade on it before everyone else.
 // Message lives in constants.js — weekly bets and IPO shares say the same thing.
-const HALT_MSG = CHAPTER_REVIEW_HALT_MSG;
 
 /**
  * Buy event shares of one outcome at the current AMM price.
@@ -62,7 +61,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid order.');
   }
   if (isWeeklyTradingHalt()) {
-    throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
+    throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
   }
 
   const userRef = db.collection('users').doc(uid);
@@ -83,7 +82,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
     checkDiscordWall(userData);
     if (marketDoc.exists && marketDoc.data().marketHalted) {
-      throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
+      throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
     }
 
     const list = predDoc.data().list || [];
@@ -172,7 +171,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid order.');
   }
   if (isWeeklyTradingHalt()) {
-    throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
+    throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
   }
 
   const userRef = db.collection('users').doc(uid);
@@ -193,7 +192,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
     checkDiscordWall(userData);
     if (marketDoc.exists && marketDoc.data().marketHalted) {
-      throw new functions.https.HttpsError('failed-precondition', HALT_MSG);
+      throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
     }
 
     const list = predDoc.data().list || [];

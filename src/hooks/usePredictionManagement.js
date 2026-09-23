@@ -3,6 +3,7 @@ import { placeBetFunction, buyEventSharesFunction, sellEventSharesFunction } fro
 import { formatCurrency } from '../utils/formatters';
 import { getTotalInvested } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
+import { marketTimes } from '../utils/localTime';
 import { reportUnexpected } from '../monitoring';
 
 export function usePredictionManagement({ user, userData, predictions, marketData, showNotification, setUserData, setLoadingKey }) {
@@ -14,7 +15,7 @@ export function usePredictionManagement({ user, userData, predictions, marketDat
       return `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`;
     }
     if (isWeeklyHalt()) {
-      return 'Betting is closed for chapter review. It reopens at 21:00 UTC.';
+      return `Betting is closed for chapter review. It reopens ${marketTimes().reopen}.`;
     }
     return null;
   }, [marketData]);

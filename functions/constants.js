@@ -244,9 +244,37 @@ const isWeeklyTradingHalt = () => {
   return utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE;
 };
 
+// ── Telling players WHEN ─────────────────────────────────────────────────────
+// The server doesn't know a player's time zone, so anything it says about time
+// is either a countdown ("in 3h 12m", right everywhere) or, on Discord, a
+// <t:...> tag Discord shows in each reader's own zone. Never a bare "21:00
+// UTC". The site shows the same moments in local time (src/utils/localTime.js).
+
+/** ms until the next Thursday (or `weekday`) at `minuteUTC`. */
+const msUntilWeekly = (minuteUTC, weekday = WEEKLY_HALT_WEEKDAY, now = Date.now()) => {
+  const d = new Date(now);
+  d.setUTCHours(Math.floor(minuteUTC / 60), minuteUTC % 60, 0, 0);
+  while (d.getUTCDay() !== weekday || d.getTime() <= now) d.setUTCDate(d.getUTCDate() + 1);
+  return d.getTime() - now;
+};
+
+/** "3h 12m", "45m", "2d 4h". */
+const formatWait = (ms) => {
+  const mins = Math.max(1, Math.ceil(ms / 60000));
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  const m = mins % 60;
+  if (d) return `${d}d ${h}h`;
+  return h ? `${h}h ${m}m` : `${m}m`;
+};
+
+/** A Discord timestamp tag: each reader sees it in their own zone. Styles: t f F R. */
+const discordTime = (ms, style = 'f') => `<t:${Math.floor(ms / 1000)}:${style}>`;
+
 // Shared by every side-game that closes with the market (event shares, weekly
-// bets, IPO shares). One string so the halt never explains itself two ways.
-const CHAPTER_REVIEW_HALT_MSG = 'Market closed for chapter review. Trading resumes at 21:00 UTC.';
+// bets, IPO shares). One message so the halt never explains itself two ways.
+const chapterReviewHaltMsg = () =>
+  `Market closed for chapter review. Trading resumes in ${formatWait(msUntilWeekly(WEEKLY_HALT_END_MINUTE))}.`;
 
 // ============================================
 // ECONOMY
@@ -988,7 +1016,10 @@ module.exports = {
   PRE_MARKET_MAX_BUY_BUFFER,
   SHORT_CONCENTRATION_CAP,
   isWeeklyTradingHalt,
-  CHAPTER_REVIEW_HALT_MSG,
+  chapterReviewHaltMsg,
+  msUntilWeekly,
+  formatWait,
+  discordTime,
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   BAILOUT_CASH,

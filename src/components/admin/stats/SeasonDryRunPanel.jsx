@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { adminSeasonDryRunReportFunction, triggerSeasonDryRunFunction } from '../../../firebase';
 import { SEASON_TIER_MAP } from '../../../constants/seasons';
+import { localWeeklyTime } from '../../../utils/localTime';
 
 // The season rehearsal. A snapshot is taken every Thursday while no season is
 // running, and this scores those snapshots with the real tier rules, so the
@@ -48,7 +49,7 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
             onClick={() => call('snapshot', () => triggerSeasonDryRunFunction({}))}
             disabled={!!busy}
             className={`${btn} bg-slate-500 hover:bg-slate-600`}
-            title="Normally runs itself every Thursday at 14:05 UTC"
+            title={`Normally runs itself every ${localWeeklyTime(845)}`}
           >
             {busy === 'snapshot' ? 'Taking...' : 'Take snapshot now'}
           </button>

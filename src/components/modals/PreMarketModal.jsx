@@ -9,6 +9,7 @@ import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '..
 import { formatShares, roundShares } from '../../utils/tradeLimits';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { marketTimes } from '../../utils/localTime';
 
 const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 'buy', onClose }) => {
   useEscapeKey(onClose);
@@ -166,7 +167,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
           </div>
         ) : locked ? (
           <div className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}>
-            New orders are closed for this open. The queue reopens next Thursday at 20:30 UTC.
+            New orders are closed for this open. The queue reopens {marketTimes().preMarketOpens}.
           </div>
         ) : (
           <>

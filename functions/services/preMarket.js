@@ -9,6 +9,7 @@ const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
   PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER,
   MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+  formatWait, msUntilWeekly,
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, maxTradeSharesFor } = require('../helpers');
 
@@ -37,7 +38,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   if (!isPreMarketWindow()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Pre-market orders can only be placed between 20:30 and 20:55 UTC on Thursdays.'
+      `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`
     );
   }
 
@@ -207,7 +208,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
     if (utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        'Orders are locked in the final 5 minutes before market open. Your order will execute at 21:00 UTC.'
+        `Orders are locked in the final 5 minutes before market open. Your order will execute when the market opens in ${formatWait(msUntilWeekly(WEEKLY_HALT_END_MINUTE))}.`
       );
     }
   }

@@ -9,6 +9,7 @@ import { estimateTradeTotal, getAccountAgeImpactFactor, liquidityFor } from '../
 import { getCumulativeVolume } from '../utils/tradeLimits';
 import { isCapacityError, isContentionError, isInfraError } from '../utils/errors';
 import { reportError, reportUnexpected } from '../monitoring';
+import { marketTimes } from '../utils/localTime';
 import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
 
 // Trade execution (with contention retry + result toasts) and the
@@ -27,7 +28,7 @@ export function useTradeManagement({
     if (isWeeklyHalt() || marketData?.marketHalted) {
       showNotification('error', marketData?.marketHalted
         ? `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`
-        : 'Market closed for chapter review. Queue a pre-market order from 20:30 UTC, trading resumes at 21:00 UTC.');
+        : `Market closed for chapter review. Queue a pre-market order from ${marketTimes().preMarketTime}, trading resumes ${marketTimes().reopen}.`);
       return;
     }
     if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {

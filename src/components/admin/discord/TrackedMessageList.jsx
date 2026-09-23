@@ -1,4 +1,4 @@
-import { formatUTCDateTime } from '../../../utils/formatters';
+import { formatDateTime } from '../../../utils/localTime';
 
 // Everything the panel can still edit. A message only appears here if it was
 // posted through the panel or imported — the bot's automated posts (daily drop,
@@ -37,7 +37,7 @@ export default function TrackedMessageList({
                 <div className={`text-xs ${mutedClass}`}>
                   {m.channelName ? `#${m.channelName}` : `channel ${m.channelId}`}
                   {' · '}
-                  {m.updatedAt ? `edited ${formatUTCDateTime(m.updatedAt)}` : 'never edited'}
+                  {m.updatedAt ? `edited ${formatDateTime(m.updatedAt)}` : 'never edited'}
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">

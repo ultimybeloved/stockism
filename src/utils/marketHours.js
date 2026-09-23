@@ -1,3 +1,6 @@
+// localTime imports this file's constants too; the two only use each other
+// inside functions, so the circular import is safe.
+import { localDailyTime } from './localTime';
 /**
  * Weekly trading halt utility
  * Every Thursday 13:00–21:00 UTC (chapter review window)
@@ -325,6 +328,7 @@ export const getNextMarketOpen = () => {
   return next;
 };
 
+export const HALT_START_MINUTE = 780; // 13:00 UTC
 export const HALT_END_MINUTE = 1260; // 21:00 UTC
 export const PRE_MARKET_START_MINUTE = 1230; // 20:30 UTC
 export const PRE_MARKET_LOCK_MINUTE = 1255; // 20:55 UTC
@@ -393,7 +397,7 @@ export const getMarketClosedState = (marketData) => {
   if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
   if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
   // Weekly halt: say when orders can go in again, not just that it's closed
-  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: 'Closed · Pre-market 20:30 UTC' };
+  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: `Closed · Pre-market ${localDailyTime(PRE_MARKET_START_MINUTE)}` };
   return { closed: false, preMarket: false, label: 'Trade' };
 };
 

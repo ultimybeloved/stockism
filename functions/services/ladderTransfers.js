@@ -12,6 +12,7 @@ const {
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_WITHDRAW_PROFIT_BRACKETS,
   ADMIN_UID,
+  formatWait,
 } = require('../constants');
 
 // Round up to the cent (house favor). The epsilon guards against FP noise
@@ -146,11 +147,11 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       if (amount > remaining) {
         // soonest relief = when the oldest in-window deposit ages out
         const oldest = recent.length ? Math.min(...recent.map(d => d.ts)) : now;
-        const freesAt = new Date(oldest + LADDER_DEPOSIT_WINDOW_MS).toISOString().slice(11, 16);
+        const freesIn = formatWait(oldest + LADDER_DEPOSIT_WINDOW_MS - now);
         throw new functions.https.HttpsError(
           'failed-precondition',
           remaining <= 0
-            ? `Deposit limit reached: max $${maxPerWindow.toLocaleString()} per 12 hours. More frees up at ${freesAt} UTC.${rampNote}`
+            ? `Deposit limit reached: max $${maxPerWindow.toLocaleString()} per 12 hours. More frees up in ${freesIn}.${rampNote}`
             : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.${rampNote}`
         );
       }

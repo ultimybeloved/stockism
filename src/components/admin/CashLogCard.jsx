@@ -1,4 +1,4 @@
-import { formatUTCDateTime } from '../../utils/formatters';
+import { formatDateTime } from '../../utils/localTime';
 
 const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -79,7 +79,7 @@ export default function CashLogCard({
                   {cashLogEntries.map((e) => (
                     <tr key={e.id} className={`border-b ${rowBorder}`}>
                       <td className={`py-2 pr-3 whitespace-nowrap text-xs ${mutedClass}`}>
-                        {e.at ? formatUTCDateTime(e.at) : 'unknown'}
+                        {e.at ? formatDateTime(e.at) : 'unknown'}
                       </td>
                       <td className={`py-2 pr-3 ${textClass}`}>
                         {e.displayName || <span className={mutedClass}>{e.userId}</span>}

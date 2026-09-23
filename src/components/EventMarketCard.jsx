@@ -4,6 +4,7 @@ import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';
 import { lmsrPrices, lmsrBuyCost, lmsrSellRefund, getTotalInvested, niceStep, maxAffordableShares } from '../utils/calculations';
 import { formatCountdown } from '../utils/marketHours';
+import { marketTimes } from '../utils/localTime';
 import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
 
 // Long-term event-share market card. Each outcome is a share that pays $1 if it
@@ -179,7 +180,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
 
       {!resolved && !notYetOpen && isHalted && (
         <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
-          🔒 Closed for chapter review. Trading reopens at 21:00 UTC.
+          🔒 Closed for chapter review. Trading reopens {marketTimes().reopen}.
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAppContext } from '../context/AppContext';
 import { getThemeClasses } from '../utils/theme';
+import { marketTimes } from '../utils/localTime';
 
 const STEPS = [
   {
@@ -36,7 +37,7 @@ const STEPS = [
     title: "Thursday Halt & Pre-Market",
     emoji: "⏸️",
     description:
-      "Every Thursday the market closes from 13:00 to 21:00 UTC while new chapter events get priced in. From 20:30 to 20:55 UTC you can queue pre-market buy and sell orders. They all execute together the moment the market reopens at 21:00.",
+      `Every week the market closes (${marketTimes().halt}) while new chapter events get priced in. Near the end (${marketTimes().preMarket}) you can queue pre-market buy and sell orders. They all execute together the moment the market reopens.`,
     spotlight: false,
   },
   {

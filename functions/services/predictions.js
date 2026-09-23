@@ -4,7 +4,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const { isWeeklyTradingHalt, CHAPTER_REVIEW_HALT_MSG, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
+const { isWeeklyTradingHalt, chapterReviewHaltMsg, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
 const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory, predictionFlowUpdate } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
@@ -25,7 +25,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
   // checked this; the cash-bet lane never did, so betting stayed open all the
   // way through chapter review.
   if (isWeeklyTradingHalt()) {
-    throw new functions.https.HttpsError('failed-precondition', CHAPTER_REVIEW_HALT_MSG);
+    throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
   }
 
   const userRef = db.collection('users').doc(uid);
@@ -49,7 +49,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     // markets do so a halt landing mid-bet still stops it.
     if (marketDoc.exists && marketDoc.data().marketHalted) {
       throw new functions.https.HttpsError('failed-precondition',
-        marketDoc.data().haltReason || CHAPTER_REVIEW_HALT_MSG);
+        marketDoc.data().haltReason || chapterReviewHaltMsg());
     }
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
@@ -248,7 +248,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
   if (isWeeklyTradingHalt()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Market closed for chapter review. Trading resumes at 21:00 UTC.'
+      chapterReviewHaltMsg()
     );
   }
 

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
+import { marketTimes, localDailyTime } from '../../utils/localTime';
+import { HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../../utils/marketHours';
 
 const STEPS = [
   { id: 1, title: 'What is margin trading?' },
@@ -112,7 +114,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THURSDAY GRACE PERIOD</p>
-                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">21:00 UTC Thursday</span>, short force-covers are paused until <span className="font-semibold">21:30 UTC</span>. This pause only covers shorts. Margin liquidation on your holdings restarts at 21:00.</p>
+                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">{marketTimes().reopen}</span>, short force-covers are paused until <span className="font-semibold">{localDailyTime(HALT_END_MINUTE + GRACE_PERIOD_MINUTES)}</span>. This pause only covers shorts. Margin liquidation on your holdings restarts at 21:00.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>OUTSIDE THE GRACE PERIOD</p>
@@ -191,7 +193,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                   ['Auto-liquidation', '25% equity ratio. Everything you hold is sold at a 5% discount.'],
                   ['Max short exposure', '100% of your portfolio value (1:1 cap)'],
                   ['Liquidation check', 'Every 30 minutes'],
-                  ['Short liquidation pause', '21:00 to 21:30 UTC Thursday, shorts only'],
+                  ['Short liquidation pause', `${marketTimes().reopen} for 30 minutes, shorts only`],
                   ['After liquidation', 'If the sale does not cover your debt, your cash goes negative and you are bankrupt.'],
                 ].map(([label, value]) => (
                   <div key={label} className={`p-3 rounded-sm flex justify-between gap-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>

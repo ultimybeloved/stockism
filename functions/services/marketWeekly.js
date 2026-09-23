@@ -140,7 +140,7 @@ async function runWeeklyMarketSummary() {
           }
         ],
         footer: {
-          text: 'Next report: Monday 00:00 UTC'
+          text: 'Next report: same time next week'
         },
         timestamp: new Date().toISOString()
       };

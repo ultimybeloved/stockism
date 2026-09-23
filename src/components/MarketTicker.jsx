@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { isWeeklyHalt, formatCountdown, isMarketOpenGracePeriod, getWeeklyHaltPhase, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
+import { marketTimes, localDailyTime } from '../utils/localTime';
 import { useAppContext } from '../context/AppContext';
 
 const MarketTicker = () => {
@@ -32,9 +33,9 @@ const MarketTicker = () => {
       if (!p) return;
       const t = formatCountdown(p.msToNext);
       if (p.phase === 'closed') {
-        setHaltBanner({ text: `MARKET CLOSED: Chapter review · Pre-market opens in ${t}, queue orders early for the 21:00 UTC open`, tone: 'red' });
+        setHaltBanner({ text: `MARKET CLOSED: Chapter review · Pre-market opens in ${t}, queue orders early for the ${marketTimes().reopenTime} open`, tone: 'red' });
       } else if (p.phase === 'queue') {
-        setHaltBanner({ text: `PRE-MARKET OPEN: Orders lock in ${t} · Queue buys/sells now, they fill at the 21:00 UTC open`, tone: 'amber' });
+        setHaltBanner({ text: `PRE-MARKET OPEN: Orders lock in ${t} · Queue buys/sells now, they fill at the ${marketTimes().reopenTime} open`, tone: 'amber' });
       } else {
         setHaltBanner({ text: `PRE-MARKET LOCKED: Queued orders are set · Market opens in ${t}`, tone: 'red' });
       }
@@ -67,7 +68,8 @@ const MarketTicker = () => {
   }, [prices, priceHistory]);
 
   // Schedule info
-  const scheduleText = `Weekly halt: Thu 13:00–21:00 UTC · Pre-market orders: Thu 20:30–20:55 UTC`;
+  const times = marketTimes();
+  const scheduleText = `Weekly halt: ${times.halt} · Pre-market orders: ${times.preMarket}`;
 
   const preMarketTone = haltBanner?.tone === 'amber';
 
@@ -87,7 +89,7 @@ const MarketTicker = () => {
       ) : gracePeriod ? (
         <div className="w-full flex items-center justify-center h-full px-2">
           <span className="text-amber-100 text-xs font-bold tracking-wide text-center truncate">
-            Market just opened. Auto-liquidations paused until {Math.floor((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) / 60)}:{String((HALT_END_MINUTE + GRACE_PERIOD_MINUTES) % 60).padStart(2, '0')} UTC
+            Market just opened. Auto-liquidations paused until {localDailyTime(HALT_END_MINUTE + GRACE_PERIOD_MINUTES)}
           </span>
         </div>
       ) : (

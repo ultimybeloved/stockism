@@ -1,5 +1,6 @@
 
 import SeasonPanel from './SeasonPanel';
+import { marketTimes, localDailyTime, localWeeklyTime } from '../../utils/localTime';
 
 const MarketTab = ({
   darkMode,
@@ -88,7 +89,7 @@ const MarketTab = ({
         <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Crew Rankings & Underdog Bonus</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Recomputes each crew's active-player count and reward multiplier from last week's activity.
-          Runs automatically Mondays 01:30 UTC; use this to seed or fix it.
+          Runs automatically {localWeeklyTime(90, 1)}; use this to seed or fix it.
         </p>
         <div className="flex gap-2">
           <button
@@ -113,7 +114,7 @@ const MarketTab = ({
         <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Reports</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Posts a report to Discord: trades, volume, player counts, top movers. The daily one runs
-          automatically at market close, the weekly one Mondays 00:00 UTC. Nothing is saved, so you can
+          automatically at market close, the weekly one {localWeeklyTime(0, 1)}. Nothing is saved, so you can
           post either again any time.
         </p>
         <div className="flex gap-2">
@@ -158,7 +159,7 @@ const MarketTab = ({
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Adjusting one stock also drags every stock linked to it, so a review leaves each chart with
           a run of steps that players read as trading during the halt. This folds them into one
-          point, stamped 20:54 UTC so every stock moves at the same moment. It never changes a price,
+          point, stamped {localDailyTime(1254)} so every stock moves at the same moment. It never changes a price,
           and the real step-by-step history is saved first. Runs automatically at 20:54 on Thursday,
           so you only need this if that run failed. Safe to run again any time.
         </p>
@@ -201,7 +202,7 @@ const MarketTab = ({
       <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Free Stock Drop</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
-          Posts an extra drop to Discord on top of the automatic one at 14:00 UTC. Every linked player
+          Posts an extra drop to Discord on top of the automatic one at {localDailyTime(840)}. Every linked player
           gets another claim, worth about $400 each on average, and it stays claimable for 72 hours.
           Use this for events, not routinely.
         </p>
@@ -249,7 +250,7 @@ const MarketTab = ({
 
       {/* Info */}
       <div className={`p-3 rounded-sm text-xs ${darkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-        Automatic weekly halt (Thu 13:00–21:00 UTC) is always active. This is for emergencies only.
+        Automatic weekly halt ({marketTimes().halt}) is always active. This is for emergencies only.
       </div>
     </div>
   );

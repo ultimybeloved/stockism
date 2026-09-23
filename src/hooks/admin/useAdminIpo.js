@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, ipoAnnouncementAlertFunction } from '../../firebase';
 import { CHARACTERS } from '../../characters';
 import { getNextMarketOpen } from '../../utils/marketHours';
-import { formatUTCDateTime } from '../../utils/formatters';
+import { formatDateTime } from '../../utils/localTime';
 
 import { toLocalInputValue, validateIpoDraft } from './ipoValidation';
 
@@ -112,7 +112,7 @@ export function useAdminIpo({ showMessage, setLoading }) {
         // Don't block IPO creation if Discord fails
       }
 
-      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatUTCDateTime(ipoStartsAt)}`);
+      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatDateTime(ipoStartsAt)}`);
       setIpoTicker('');
       loadIPOs();
     } catch (err) {

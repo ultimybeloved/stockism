@@ -39,6 +39,7 @@ const {
   ADMIN_DISCORD_USER_ID,
   ALT_SCAN_MAX_TRADES,
   COORD_SCAN_WINDOW_DAYS,
+  discordTime,
 } = require('../constants');
 const { sendDiscordDM, reportError } = require('../helpers');
 // Pure clustering lives apart so its thresholds can be tested without a
@@ -187,7 +188,7 @@ async function runCoordScan({ dryRun = false } = {}) {
         ADMIN_DISCORD_USER_ID,
         `📊 **Coordinated pressure** (private — nobody else can see this)\n` +
         high.slice(0, 5).map((c) =>
-          `• **$${c.ticker}** ${c.direction} ${pct(c.combined)} on ${c.day} — `
+          `• **$${c.ticker}** ${c.direction} ${pct(c.combined)}, starting ${discordTime(c.startedAt, 'f')} — `
           + c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')
           + `${c.tight ? ` _(all within ${Math.round(c.spreadMs / 60000)} min)_` : ''}`
           + allInText(c)
