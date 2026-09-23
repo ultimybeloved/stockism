@@ -50,11 +50,16 @@ const OVERSIZED_IMPACT_MULTIPLE = 2;
 
 // ── Wash rule ────────────────────────────────────────────────────────────────
 // You cannot buy back a stock you just pushed down. Real markets have the same
-// idea (the IRS wash-sale rule runs 30 days); here it exists because the round
-// trip was the whole trade on 2026-09-17: Stitch dumped his entire $SHNG
-// position at 04:04, the price fell 23%, and he was buying it back at 04:07.
-// Three minutes. The shorting alongside it LOST him money — this step is where
-// the $440k came from.
+// idea (the IRS wash-sale rule runs 30 days). Here it exists because of the
+// $SHNG raid of 2026-09-17/18: three accounts dumped $SHNG inside 21 seconds,
+// five shorted it inside a minute, and all five bought it back ~25% cheaper
+// the next day. The trade records show the buy-back came ~24h later, not
+// minutes, which is exactly why a 6h window never touched it. 48h would have
+// had them buying back after the price recovered (~1,930 vs ~1,550).
+//
+// Replayed over the month before this changed (8,691 trades): 21 of 702 active
+// traders ever armed it, and 6 of the 7 whose buys the longer window would have
+// blocked were in coordinated clusters.
 //
 // Keyed off price impact rather than share count or dollar value, so it scales
 // with the stock instead of needing a threshold per ticker, and so someone
@@ -62,7 +67,11 @@ const OVERSIZED_IMPACT_MULTIPLE = 2;
 // not cause. Shorts count too: pushing a price down to buy the dip is the same
 // trade whichever way you did the pushing.
 const WASH_RULE_IMPACT_TRIGGER = 0.04;                // 4% of down-impact in 24h arms it
-const WASH_RULE_COOLDOWN_MS = 6 * 60 * 60 * 1000;     // no buying it back for 6h
+const WASH_RULE_COOLDOWN_MS = 48 * 60 * 60 * 1000;    // no buying it back for 48h
+// The other half of the raid: sell hard, then short the crash you just caused.
+// Armed only by a heavy SELL (lastHeavyExit), not a short, so someone running a
+// short is never stopped adding to it by this. Same 48h.
+const SHORT_AFTER_DUMP_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 // ── Circuit breaker ──────────────────────────────────────────────────────────
 // A stock that moves this far this fast pauses for a few minutes. The caps are
@@ -477,10 +486,15 @@ const COORD_MIN_EACH_IMPACT = 0.01;      // ignore an account that barely took p
 // inside 21 minutes, four of them covering within four minutes of each other.
 const COORD_TIGHT_WINDOW_MS = 30 * 60 * 1000;
 const COORD_HIGH_COMBINED_IMPACT = 0.15; // 15%+ combined lands as high severity
-// When the rule against coordinated trading was announced (2026-09-23). Flags
-// from before it don't count toward keeping anyone out of Platinum and Diamond:
-// trading together was explicitly allowed until then, so everyone starts clean.
-const COORD_RULE_ANNOUNCED_AT = Date.UTC(2026, 8, 23, 2, 30);
+// What a push made each participant is measured over this long from the
+// cluster's start: the dump, the short, the cover and the buy-back all land in
+// it, and a later ordinary trade does not.
+const COORD_PROFIT_WINDOW_MS = 48 * 60 * 60 * 1000;
+// "All in, on borrowed money": one stock is at least this share of a player's
+// holdings, and they owe at least this share of their gross value, while
+// buying in an upward cluster. Reported to the admin, never blocked.
+const COORD_ALL_IN_SHARE = 0.6;
+const COORD_ALL_IN_BORROWED = 0.25;
 
 const ALT_SCAN_WINDOW_DAYS = 30;   // how far back through trade records each scan looks
 const ALT_SCAN_MAX_TRADES  = 60000; // safety cap so one scan can't run away with reads
@@ -918,6 +932,7 @@ module.exports = {
   OVERSIZED_IMPACT_MULTIPLE,
   WASH_RULE_IMPACT_TRIGGER,
   WASH_RULE_COOLDOWN_MS,
+  SHORT_AFTER_DUMP_COOLDOWN_MS,
   CIRCUIT_BREAKER_MOVE,
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
@@ -1055,7 +1070,9 @@ module.exports = {
   COORD_MIN_EACH_IMPACT,
   COORD_TIGHT_WINDOW_MS,
   COORD_HIGH_COMBINED_IMPACT,
-  COORD_RULE_ANNOUNCED_AT,
+  COORD_PROFIT_WINDOW_MS,
+  COORD_ALL_IN_SHARE,
+  COORD_ALL_IN_BORROWED,
   ALT_SCAN_WINDOW_DAYS,
   ALT_SCAN_MAX_TRADES,
   ALT_IPV6_PREFIX_GROUPS,

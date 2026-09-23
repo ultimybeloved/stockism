@@ -1,5 +1,6 @@
 import { SEASON_REPEAT_COORD_FLAGS } from '../../../constants/seasons';
 import { useSeasonCoordFlags } from '../../../hooks/admin/useSeasonCoordFlags';
+import CoordProfitPanel from './CoordProfitPanel';
 
 // Players flagged for coordinated trading this season. Repeat cases are marked,
 // but nothing happens to anyone until the admin presses the button.
@@ -8,6 +9,9 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
   if (!active) return null;
 
   const rowClass = darkMode ? 'border-slate-600' : 'border-slate-300';
+  const inputClass = `px-2 py-1 rounded border ${
+    darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
+  }`;
 
   return (
     <div className={`mt-3 pt-3 border-t ${rowClass}`}>
@@ -18,8 +22,7 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
         </button>
       </div>
       <p className={`text-xs ${mutedClass} mb-2`}>
-        Everyone named in a coordinated-pressure alert this season, counted from when the rule was announced
-        (flags before that don&apos;t count). {SEASON_REPEAT_COORD_FLAGS}+ flags
+        Everyone named in a coordinated-pressure alert since the season started. {SEASON_REPEAT_COORD_FLAGS}+ flags
         is marked as a repeat. Excluded players keep Bronze, Silver and Gold but can&apos;t place Platinum or
         Diamond. Only they see it, on their own season card.
       </p>
@@ -33,7 +36,8 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
         {players.map((p) => {
           const repeat = p.flags >= SEASON_REPEAT_COORD_FLAGS;
           return (
-            <li key={p.uid} className={`flex items-center justify-between gap-2 text-xs py-1 border-b ${rowClass}`}>
+            <li key={p.uid} className={`text-xs py-1 border-b ${rowClass}`}>
+              <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <span className={`font-semibold ${textClass}`}>{p.name}</span>{' '}
                 <span className={repeat ? 'text-red-500 font-semibold' : mutedClass}>
@@ -53,6 +57,8 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
               >
                 {p.excluded ? 'Excluded · undo' : 'Exclude from Plat/Diamond'}
               </button>
+              </div>
+              <CoordProfitPanel player={p} {...{ textClass, mutedClass, inputClass }} />
             </li>
           );
         })}

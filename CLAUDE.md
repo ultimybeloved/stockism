@@ -198,7 +198,8 @@ every lane, and each one was missed by at least one lane until 2026-09-22:
 | Dividend / exit-loyalty lot ledger | `cohortAddUpdate` / `cohortRemoveUpdate` (helpers.js) — spread into the user update. Never touch `holdingCohorts` by hand |
 | 45-second hold gate | stamp `lastBuyTime.<ticker>` on anything that adds shares |
 | Circuit-breaker pause | `isTickerPaused(marketData.haltedTickers, ticker)` — this binds automated price movers (bots, market maker, forced covers) too, not just player trades |
-| Wash rule | `washRuleRemainingMs(userData, ticker)` — blocks buys only, never exits |
+| Wash rule | `washRuleRemainingMs(userData, ticker)` — blocks buys only, never exits. 48h since 2026-09-23 |
+| Short after dump | `shortAfterDumpRemainingMs(userData, ticker)` — blocks shorts for 48h after a heavy SELL. Shorts only open through executeTrade, so that is the one lane that checks it |
 | Mission / stat credit | `buildTradeCreditUpdates` + `updateCrewMissionProgress` |
 | Trade record | `recordTrade` with a `source` tag (no tag = placed by hand) |
 
@@ -332,6 +333,9 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/tickerStats.js` | recordPriceExtremes — hourly all-time high/low sweep |
 | `functions/services/season.js` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
 | `functions/services/seasonRecords.js` | **Internal module, not in servicePaths.** The weekly record, board membership, and one player's board entry (incl. size division) |
+| `functions/services/seasonExclusions.js` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
+| `functions/services/coordDetection.js` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.js` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
+| `functions/services/coordReview.js` | Admin: what a flagged push made a player (math in `coordProfitMath.js`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
 | `functions/services/seasonTiers.js` | **Internal module, not in servicePaths.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.js` + `src/utils/seasonWeeks.js`; `functions/seasonTiers.test.js` fails if the rules drift |
 
 ---

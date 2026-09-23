@@ -16,7 +16,7 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { ADMIN_UID, COORD_RULE_ANNOUNCED_AT } = require('../constants');
+const { ADMIN_UID } = require('../constants');
 const { toMs } = require('../helpers');
 
 const seasonRef = () => db.collection('market').doc('season');
@@ -38,15 +38,14 @@ const activeSeason = async () => {
 };
 
 /**
- * Everyone named in a coordinated-pressure alert since the season started (or
- * since the rule was announced, if later),
+ * Everyone named in a coordinated-pressure alert since the season started,
  * most-flagged first, with who they were flagged alongside and whether they're
  * already excluded.
  */
 exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
   const season = await activeSeason();
-  const since = Math.max(season.startedAt || 0, COORD_RULE_ANNOUNCED_AT);
+  const since = season.startedAt || 0;
 
   // Filtered by date here rather than in the query, so it needs no composite
   // index. There are only ever a handful of these alerts a day.

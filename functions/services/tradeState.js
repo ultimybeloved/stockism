@@ -125,6 +125,9 @@ function buildUserUpdates({
   // Enforced in tradeGuards.assertCooldowns.
   if ((action === 'sell' || action === 'short') && downImpactAfter >= WASH_RULE_IMPACT_TRIGGER) {
     updates[`lastHeavySell.${ticker}`] = admin.firestore.Timestamp.now();
+    // A heavy SELL also blocks shorting the stock (shortAfterDumpRemainingMs).
+    // A short doesn't, so an existing short can still be added to.
+    if (action === 'sell') updates[`lastHeavyExit.${ticker}`] = admin.firestore.Timestamp.now();
   }
 
   if (action === 'buy') {

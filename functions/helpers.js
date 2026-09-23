@@ -138,6 +138,7 @@ const {
   MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
   WASH_RULE_COOLDOWN_MS,
+  SHORT_AFTER_DUMP_COOLDOWN_MS,
   FEED_TTL_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
@@ -557,6 +558,24 @@ const washRuleRemainingMs = (userData, ticker, now = Date.now()) => {
   const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
   if (!armedMs) return 0;
   return Math.max(0, WASH_RULE_COOLDOWN_MS - (now - armedMs));
+};
+
+/**
+ * Has this player just dumped this ticker, so they can't short it yet?
+ *
+ * `lastHeavyExit[ticker]` is stamped only by a SELL that took their 24h
+ * down-impact past WASH_RULE_IMPACT_TRIGGER (see tradeState), or by the
+ * coordination scan for everyone in a tight downward cluster. Selling hard and
+ * then shorting the crash you caused was the second half of the $SHNG raid.
+ * Covering is never blocked.
+ *
+ * @returns {number} ms remaining, or 0 when not armed
+ */
+const shortAfterDumpRemainingMs = (userData, ticker, now = Date.now()) => {
+  const armed = userData?.lastHeavyExit?.[ticker];
+  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
+  if (!armedMs) return 0;
+  return Math.max(0, SHORT_AFTER_DUMP_COOLDOWN_MS - (now - armedMs));
 };
 
 /**
@@ -1993,6 +2012,7 @@ module.exports = {
   isPriceProtected,
   isTickerPaused,
   washRuleRemainingMs,
+  shortAfterDumpRemainingMs,
   getReviewWindowChanges,
   getAccountAgeImpactFactor,
   getLadderDepositFactor,

@@ -6,7 +6,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTER_MAP } = require('../characters');
-const { washRuleRemainingMs } = require('../helpers');
+const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../helpers');
 const {
   isWeeklyTradingHalt, MAX_TRADES_PER_TICKER_24H,
   MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, ADMIN_UID,
@@ -169,7 +169,21 @@ function assertCooldowns(userData, ticker, action, now) {
       const hrs = Math.floor(remainingMs / 3600000);
       const mins = Math.ceil((remainingMs % 3600000) / 60000);
       throw new functions.https.HttpsError('failed-precondition',
-        `Wash rule: you pushed $${ticker} down today, so you can't buy it back yet. ` +
+        `Wash rule: you pushed $${ticker} down recently, so you can't buy it back yet. ` +
+        `${hrs > 0 ? `${hrs}h ` : ''}${mins}m remaining.`);
+    }
+  }
+
+  // No shorting a stock you just dumped: the other half of a raid. Armed by a
+  // heavy sell (or a tight downward cluster you were in); see
+  // shortAfterDumpRemainingMs in helpers.js.
+  if (action === 'short') {
+    const remainingMs = shortAfterDumpRemainingMs(userData, ticker, now);
+    if (remainingMs > 0) {
+      const hrs = Math.floor(remainingMs / 3600000);
+      const mins = Math.ceil((remainingMs % 3600000) / 60000);
+      throw new functions.https.HttpsError('failed-precondition',
+        `You sold a lot of $${ticker} recently, so you can't short it yet. ` +
         `${hrs > 0 ? `${hrs}h ` : ''}${mins}m remaining.`);
     }
   }

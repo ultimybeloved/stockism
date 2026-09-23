@@ -260,9 +260,8 @@ const runMarketOpenProcessing = async (trigger) => {
           if (ud.requiresDiscordLink && !ud.discordId) throw new Error('Discord verification required');
           if (ud.isBankrupt || (ud.cash || 0) < 0) throw new Error('Account is bankrupt or in debt');
           // Wash rule, the same gate executeTrade and the limit sweep apply.
-          // Unreachable under the current timings — the 6h window opens no later
-          // than the 13:00 halt and the auction is at 20:56 — and kept anyway so
-          // the rule does not quietly depend on those timings staying put.
+          // Reachable since the window went to 48h: a Wednesday dump is still
+          // armed at Thursday's auction.
           if (order.action === 'buy' && washRuleRemainingMs(ud, order.ticker) > 0) {
             throw new Error('Wash rule cooldown active on this ticker');
           }

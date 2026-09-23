@@ -26,6 +26,7 @@ module.exports = [
   './services/season',
   './services/seasonDryRun',
   './services/seasonExclusions',
+  './services/coordReview',
   './services/snapshot',
   './services/adminRepair',
   './services/adminMigrate',

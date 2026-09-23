@@ -44,7 +44,7 @@ const {
   SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
   SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
   CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
-  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER, OVERSIZED_IMPACT_MULTIPLE,
+  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER, SHORT_AFTER_DUMP_COOLDOWN_MS, OVERSIZED_IMPACT_MULTIPLE,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
 } = require('../functions/constants');
@@ -1403,6 +1403,33 @@ async function testWashRule() {
   const reMs = uRe.lastHeavySell[T].toMillis();
   check('wash: another push restarts the clock',
     reMs > nearlyOver + MIN, `${reMs} vs ${nearlyOver}`);
+
+  // ── Still blocked a day later (the raid waited ~24h to buy back) ─────────
+  await seedMarket({ [T]: 100 });
+  await setUser('wash_day', { cash: 500000, holdings: {}, ...armed(Date.now() - 25 * 60 * MIN) });
+  const eDay = await err({ ticker: T, action: 'buy', amount: 1 }, 'wash_day');
+  check('wash: a buy-back 25h later is still refused', !!eDay && /wash rule/i.test(eDay), eDay || 'no error');
+
+  // ── Short after dump ─────────────────────────────────────────────────────
+  // The heavy sell above also armed the short block; a heavy short did not.
+  check('dump: a heavy sell arms the short block', !!uArm.lastHeavyExit?.[T], JSON.stringify(uArm.lastHeavyExit || null));
+  check('dump: a heavy short does not', !uShort.lastHeavyExit?.[T], JSON.stringify(uShort.lastHeavyExit || null));
+
+  const dumped = (ts = Date.now()) => ({ lastHeavyExit: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) } });
+  await seedMarket({ [T]: 100 });
+  await setUser('dump_short', { cash: 5000000, holdings: {}, shorts: {}, ...dumped() });
+  const eShort = await err({ ticker: T, action: 'short', amount: 10 }, 'dump_short');
+  check('dump: shorting a stock you just dumped is refused', !!eShort && /can't short it yet/i.test(eShort), eShort || 'no error');
+
+  await seedMarket({ [T]: 100, [T2]: 100 });
+  await setUser('dump_other', { cash: 5000000, holdings: {}, shorts: {}, ...dumped() });
+  const rShortOther = await ok({ ticker: T2, action: 'short', amount: 10 }, 'dump_other');
+  check('dump: shorting a different stock is fine', rShortOther.success === true, JSON.stringify(rShortOther.success));
+
+  await seedMarket({ [T]: 100 });
+  await setUser('dump_expired', { cash: 5000000, holdings: {}, shorts: {}, ...dumped(Date.now() - SHORT_AFTER_DUMP_COOLDOWN_MS - MIN) });
+  const rShortLater = await ok({ ticker: T, action: 'short', amount: 10 }, 'dump_expired');
+  check('dump: the short block lifts after 48h', rShortLater.success === true, JSON.stringify(rShortLater.success));
 }
 
 // ════════════════════════════════════════════════════════════════════════════

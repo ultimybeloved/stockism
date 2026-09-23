@@ -166,6 +166,8 @@ export const triggerSeasonCheckpointFunction = httpsCallable(functions, 'trigger
 // Keeping repeat coordinators out of Platinum/Diamond — admin-only
 export const getSeasonCoordFlagsFunction = httpsCallable(functions, 'getSeasonCoordFlags');
 export const setSeasonTopTierExclusionFunction = httpsCallable(functions, 'setSeasonTopTierExclusion');
+export const getCoordProfitFunction = httpsCallable(functions, 'getCoordProfit');
+export const adminRemoveCoordProfitFunction = httpsCallable(functions, 'adminRemoveCoordProfit');
 // Season dry runs — the weekly rehearsal that runs while no season is on
 export const triggerSeasonDryRunFunction = httpsCallable(functions, 'triggerSeasonDryRun');
 export const adminSeasonDryRunReportFunction = httpsCallable(functions, 'adminSeasonDryRunReport');

@@ -18,14 +18,16 @@
 // It reports on IMPACT, never on share count or dollars, so a threshold means
 // the same thing on a $9 stock as on a $2,000 one.
 //
-// IMPORTANT: coordinated trading is NOT against the rules. A finding here is a
-// lead for a human to read, never an accusation and never grounds for automatic
-// action. The names in an alert are players who traded the same way on the same
-// day, which happens innocently all the time — crews hold the same stocks, and
-// good news moves everyone at once.
+// Planning trades together to move a price has been against the rules since
+// 2026-09-23. A finding here is still a lead for a human to read: the names are
+// players who traded the same way on the same day, which also happens
+// innocently (crews hold the same stocks, and good news moves everyone at
+// once). So the only automatic action is mild — the group block in
+// coordEnforcement.js, tight downward clusters only — and anything heavier is
+// the admin's decision.
 //
-// Cost: one scheduled pass reads COORD_SCAN_WINDOW_DAYS of trades and writes one
-// state doc. It adds nothing to the trade path itself.
+// Cost: one hourly pass reads COORD_SCAN_WINDOW_DAYS of trades (~1k docs) and
+// writes one state doc. It adds nothing to the trade path itself.
 
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
@@ -42,6 +44,7 @@ const { sendDiscordDM, reportError } = require('../helpers');
 // Pure clustering lives apart so its thresholds can be tested without a
 // database. Internal module — not in servicePaths.js.
 const { clusterTrades, dayIdOf } = require('./coordClustering');
+const { applyGroupBlocks, markAllIn } = require('./coordEnforcement');
 
 const STATE_REF = () => db.collection('coordDetection').doc('state');
 
@@ -112,6 +115,16 @@ async function runCoordScan({ dryRun = false } = {}) {
     return { scanned: snap.size, candidates: candidates.length, reported: 0, findings: candidates, dryRun: true };
   }
 
+  // Every scan, not just fresh clusters: someone who joins a raid after it was
+  // first reported still gets blocked.
+  const blocked = await applyGroupBlocks(candidates, now);
+  const pricesSnap = await db.collection('market').doc('current').get();
+  await markAllIn(fresh, pricesSnap.exists ? pricesSnap.data().prices : {});
+  const nameOf = (uid) => names[uid] || uid.slice(0, 6);
+  const allInText = (c) => (c.allIn?.length
+    ? ` · all in on borrowed money: ${c.allIn.map((a) => `${nameOf(a.uid)} (${Math.round(a.share * 100)}% of holdings, ${Math.round(a.borrowed * 100)}% borrowed)`).join(', ')}`
+    : '');
+
   // Keep only keys still inside the window, so this doc cannot grow forever.
   const keepAfter = dayIdOf(now - (COORD_SCAN_WINDOW_DAYS + 2) * DAY_MS);
   const nextSeen = {};
@@ -141,7 +154,8 @@ async function runCoordScan({ dryRun = false } = {}) {
       reviewed: false,
       details: `${c.uids.length} accounts pushed $${c.ticker} ${arrow} ${pct(c.combined)} combined on ${c.day}`
         + `${c.tight ? `, all starting within ${Math.round(c.spreadMs / 60000)} min of each other` : ''}`
-        + ` — ${c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')}`,
+        + ` — ${c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')}`
+        + allInText(c),
       ticker: c.ticker,
       day: c.day,
       direction: c.direction,
@@ -151,13 +165,18 @@ async function runCoordScan({ dryRun = false } = {}) {
       tightCluster: c.tight,
       spreadMinutes: Math.round(c.spreadMs / 60000),
       tradeCount: c.trades,
+      allIn: c.allIn || [],
+      // When the first account started, so coordReview can measure what the
+      // push made each of them from that moment.
+      startedAt: c.startedAt,
+      groupBlocked: c.direction === 'down' && c.tight,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
   if (fresh.length) await batch.commit();
 
-  // Private DM only. These name players who have broken no rule, so they must
-  // never reach a public channel.
+  // Private DM only. A cluster is a lead, not a finding, so the names must never
+  // reach a public channel.
   const high = fresh.filter((f) => f.severity === 'high');
   if (high.length && !ADMIN_DISCORD_USER_ID) {
     console.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} coordinated-pressure alert(s) written but not DMed.`);
@@ -171,29 +190,32 @@ async function runCoordScan({ dryRun = false } = {}) {
           `• **$${c.ticker}** ${c.direction} ${pct(c.combined)} on ${c.day} — `
           + c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')
           + `${c.tight ? ` _(all within ${Math.round(c.spreadMs / 60000)} min)_` : ''}`
+          + allInText(c)
+          + `${c.direction === 'down' && c.tight ? ' — **buy-back and shorting blocked 48h for all of them**' : ''}`
         ).join('\n') +
         (high.length > 5 ? `\n...and ${high.length - 5} more` : '') +
-        `\nAdmin panel → Watchlist for detail. Trading together is allowed — this is a lead, not a violation.`
+        `\nAdmin panel → Market → Season to review. A cluster is a lead: check the trades before acting.`
       );
     } catch (err) {
       reportError(err, { where: 'runCoordScan.discordDM' });
     }
   }
 
-  return { scanned: snap.size, candidates: candidates.length, reported: fresh.length, findings: fresh };
+  return { scanned: snap.size, candidates: candidates.length, reported: fresh.length, findings: fresh, blocked: blocked.length };
 }
 
 /**
- * Nightly sweep, 04:30 UTC. Half an hour after the alt scan so the two never
- * read the trades collection at the same moment.
+ * Hourly, at :35. It was nightly until 2026-09-23, which meant a raid was
+ * reported the morning after it was over. Kept off the top of the hour, away
+ * from the 04:00 alt scan and the hourly jobs that run on :00.
  */
 exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' }).pubsub
-  .schedule('30 4 * * *')
+  .schedule('35 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     try {
       const result = await runCoordScan();
-      console.log(`Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new`);
+      console.log(`Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new, ${result.blocked} newly blocked`);
       return result;
     } catch (err) {
       reportError(err, { where: 'scanForCoordination' });

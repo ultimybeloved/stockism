@@ -30,7 +30,7 @@ const db = admin.firestore();
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
 const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason } = require('../functions/services/season');
 const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/services/seasonExclusions');
-const { ADMIN_UID, COORD_RULE_ANNOUNCED_AT } = require('../functions/constants');
+const { ADMIN_UID } = require('../functions/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
 const adminCtx = { auth: { uid: ADMIN_UID } };
@@ -184,14 +184,13 @@ const run = async () => {
     type: 'coordinated_pressure', participantUIDs: uids, participants: uids.map((u) => u.toUpperCase()), ticker, timestamp,
   });
   const seasonStart = (await db.collection('market').doc('season').get()).data().startedAt;
-  // Flags count from the later of the season start and the rule's announcement.
-  const countFrom = Math.max(seasonStart, COORD_RULE_ANNOUNCED_AT);
+  const countFrom = seasonStart;
   await alert(['diverse', 'sitter'], 'GUN', admin.firestore.Timestamp.fromMillis(countFrom + 60000));
   await alert(['diverse', 'sitter'], 'DG', admin.firestore.Timestamp.fromMillis(countFrom + 120000));
   await alert(['diverse', 'margin'], 'OLD', admin.firestore.Timestamp.fromMillis(countFrom - 60000));
   const flags = await getSeasonCoordFlags.run({}, adminCtx);
   const flagged = Object.fromEntries(flags.players.map((p) => [p.uid, p]));
-  check('flags from before the rule or the season do not count', flagged.diverse?.flags === 2 && !flagged.margin
+  check('flags from before the season do not count', flagged.diverse?.flags === 2 && !flagged.margin
     && JSON.stringify(flagged.diverse.tickers) === '["DG","GUN"]', flags.players);
   check('flagged partners listed', flagged.diverse?.partners?.[0]?.name === 'SITTER' && flagged.diverse.partners[0].n === 2, flagged.diverse);
 

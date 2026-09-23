@@ -88,6 +88,9 @@ function clusterTrades(rows) {
       ticker, day, direction, combined, spreadMs, tight,
       uids: players.map(([uid]) => uid),
       impacts: players.map(([, v]) => v.impact),
+      // Each account's last trade in the cell, so a block can run from their
+      // own last push rather than from whenever the scan happened to run.
+      lastMs: players.map(([, v]) => v.lastMs),
       trades: players.reduce((sum, [, v]) => sum + v.trades, 0),
       severity: (combined >= COORD_HIGH_COMBINED_IMPACT || tight) ? 'high' : 'medium',
       startedAt: starts[0],
