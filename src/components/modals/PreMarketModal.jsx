@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db, createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
-import { calculatePriceImpactDollars, getBidAskPrices } from '../../utils/calculations';
+import { calculatePriceImpactDollars, getBidAskPrices, liquidityFor } from '../../utils/calculations';
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../utils/marketHours';
 import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../../constants/economy';
 import { formatShares, roundShares } from '../../utils/tradeLimits';
@@ -56,7 +56,7 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
     const totalSell = allOrders.filter(o => o.action === 'sell').reduce((s, o) => s + o.shares, 0);
     const net = totalBuy - totalSell;
     if (Math.abs(net) < 0.01) return price;
-    const impactDollars = calculatePriceImpactDollars(price, Math.abs(net));
+    const impactDollars = calculatePriceImpactDollars(price, Math.abs(net), liquidityFor(character.ticker));
     return net > 0
       ? Math.min(price + impactDollars, price * 1.05)
       : Math.max(0.01, Math.max(price - impactDollars, price * 0.95));

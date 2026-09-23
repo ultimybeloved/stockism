@@ -66,6 +66,13 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * @param {number} cumulativeVolume - Shares already traded in the rolling window
  * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
  */
+/**
+ * A stock's liquidity: BASE_LIQUIDITY unless characters.js gives it its own,
+ * which a stock split does (x ratio) so the same dollar trade moves it the same
+ * percent as before. Mirror of liquidityFor in functions/helpers.js.
+ */
+export const liquidityFor = (ticker) => CHARACTER_MAP[ticker]?.liquidity || BASE_LIQUIDITY;
+
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
   const rawImpact = currentPrice * BASE_IMPACT * (
     Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
@@ -113,10 +120,10 @@ export const calculateTraderImpactDollars = (currentPrice, shares, liquidity = B
  * so leaving it at 0 quoted a second trade at first-trade prices. The trade
  * form and this preview disagreed by exactly that much, one screen apart.
  */
-export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0, cumulativeVolume = 0 }) => {
+export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0, cumulativeVolume = 0, liquidity = BASE_LIQUIDITY }) => {
   // The preview quotes what the player will actually be charged, so it uses the
   // TRADER impact. calculatePriceImpactDollars stays the market-move number.
-  const priceImpact = calculateTraderImpactDollars(price, amount, BASE_LIQUIDITY, cumulativeVolume) * ageFactor;
+  const priceImpact = calculateTraderImpactDollars(price, amount, liquidity, cumulativeVolume) * ageFactor;
   if (action === 'buy') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);
     return ask * amount;
@@ -251,14 +258,14 @@ export const calculateExitValue = (userData, prices) => {
   const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
     const price = prices[ticker] || 0;
     if (!(shares > 0) || !(price > 0)) return sum;
-    return sum + Math.max(MIN_PRICE, price - calculatePriceImpactDollars(price, shares)) * shares;
+    return sum + Math.max(MIN_PRICE, price - calculatePriceImpactDollars(price, shares, liquidityFor(ticker))) * shares;
   }, 0);
   // Covering buys the shares back, so it's measured at the price that pushes to.
   // Same v2 default as the server's shortsEquity.
   const shortsValue = Object.entries(userData.shorts || {}).reduce((sum, [ticker, pos]) => {
     if (!pos || !(pos.shares > 0)) return sum;
     const price = prices[ticker] || 0;
-    const cover = price + calculatePriceImpactDollars(price, pos.shares);
+    const cover = price + calculatePriceImpactDollars(price, pos.shares, liquidityFor(ticker));
     return sum + ((pos.system || 'v2') === 'v2'
       ? (pos.margin || 0) + ((pos.costBasis || 0) - cover) * pos.shares
       : (pos.margin || 0) - cover * pos.shares);

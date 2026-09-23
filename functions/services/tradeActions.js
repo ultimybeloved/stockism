@@ -12,7 +12,7 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
   MIN_EXIT_SHARES,
 } = require('../constants');
-const { calculateMarginalImpact, traderMarginalImpact, lockedShares, remainingShares, shortsEquity } = require('../helpers');
+const { calculateMarginalImpact, traderMarginalImpact, liquidityFor, lockedShares, remainingShares, shortsEquity } = require('../helpers');
 const { exitLoyaltyDiscount } = require('../characters');
 
 function computeBuy({
@@ -23,8 +23,8 @@ function computeBuy({
   // Two numbers, on purpose. The MARKET move is capped so one order cannot
   // spike a stock; the TRADER pays what moving this much actually costs. They
   // are the same number for any order under the cap — see rawMarginalImpact.
-  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
-  const buyerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const buyerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   const hitMaxImpact = priceImpact >= maxImpact;
 
@@ -136,12 +136,12 @@ function computeSell({
   }
 
   // Calculate marginal price impact (cumulative sell volume-based)
-  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // What this exit actually costs the seller. Deliberately NOT clamped by the
   // daily allowance: if it were, spending the allowance on small sells first
   // would make a huge dump free, which is a better version of the trade the
   // wash rule exists to stop.
-  const rawSellerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const rawSellerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% DOWN allowance: sells always execute (players must be able to
   // exit), but once it is spent the trade stops moving the price. Buys and
@@ -235,10 +235,10 @@ function computeShort({
   }
 
   // Calculate marginal price impact (cumulative volume-based)
-  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // A short entry is priced against its own impact, so a capped one handed big
   // shorts a better entry than easing in would. Same fix as the other lanes.
-  const shorterImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const shorterImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% DOWN allowance, shared with sells.
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
@@ -308,11 +308,11 @@ function computeCover({
   }
 
   // Calculate marginal price impact (cumulative cover volume-based)
-  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // Same split as every other lane: the buy-back is priced against its own
   // cost, not the capped move the chart shows. Not clamped by the allowance,
   // for the same reason as the sell lane.
-  const covererImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume) * ageImpactFactor;
+  const covererImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% UP allowance, shared with buys. Covering a short you opened
   // today draws on a full allowance, so the buy-back pushes the price back up

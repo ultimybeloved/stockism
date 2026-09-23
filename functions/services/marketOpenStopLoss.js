@@ -20,6 +20,7 @@ const {
   MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES,
 } = require('../constants');
 const {
+  liquidityFor,
   writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor,
   pruneAndSumTradeHistory, sumDirectionalImpact, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
   recordTrade, round2, spreadFor, floorExitShares, remainingShares, cohortRemoveUpdate,
@@ -80,7 +81,7 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   // New accounts move less.
   const spentDown = sumDirectionalImpact(tickerTradeHistory[order.ticker], now).down;
   const effectiveImpact = Math.min(
-    calculateMarginalImpact(freshPrice, fillShares, cumVol) * getAccountAgeImpactFactor(userData),
+    calculateMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) * getAccountAgeImpactFactor(userData),
     freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown)
   );
   const impactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;

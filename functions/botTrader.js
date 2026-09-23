@@ -8,7 +8,7 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP } = require('./characters');
-const { calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker, recordHeartbeat } = require('./helpers');
+const { liquidityFor, calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker, recordHeartbeat } = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -368,7 +368,7 @@ module.exports = {
               const totalCost = currentPrice * decision.shares;
               if (botData.cash < totalCost) return; // Not enough cash
 
-              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0);
+              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0, liquidityFor(decision.ticker));
               const newPrice = Math.max(MIN_PRICE, currentPrice + priceImpact);
 
               // Update bot
@@ -429,7 +429,7 @@ module.exports = {
 
               if (currentShares < decision.shares) return; // Not enough shares
 
-              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0);
+              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0, liquidityFor(decision.ticker));
               const newPrice = Math.max(MIN_PRICE, currentPrice - priceImpact);
               const totalRevenue = newPrice * decision.shares;
 

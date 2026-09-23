@@ -11,7 +11,7 @@ const {
   ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS, isWeeklyTradingHalt,
   DROP_CLAIM_WINDOW_MS, DISCORD_EPOCH_MS,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate, cohortAddUpdate } = require('../helpers');
+const { liquidityFor, writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate, cohortAddUpdate } = require('../helpers');
 const { CHARACTER_MAP } = require('../characters');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
 const { rollDailyStock } = require('./dailyDropRoll');
@@ -354,7 +354,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           if (!currentPrice || currentPrice <= 0) continue;
           if (isPriceProtected(liveHistory, pick.ticker, ADMIN_PRICE_PROTECTION_MS)) continue;
 
-          let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / BASE_LIQUIDITY);
+          let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / liquidityFor(pick.ticker));
           const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
           priceImpact = Math.min(priceImpact, maxImpact);
 

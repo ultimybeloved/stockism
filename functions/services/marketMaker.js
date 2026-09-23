@@ -14,6 +14,7 @@ const {
   isWeeklyTradingHalt,
 } = require('../constants');
 const {
+  liquidityFor,
   calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef,
   dailyClosesRef, monthIdOf, round2, recordHeartbeat,
 } = require('../helpers');
@@ -155,7 +156,7 @@ exports.marketMakerCycle = cf().pubsub
         // Negative deviation → price too low → market maker buys (pushes price up)
         const isSell = deviation > 0;
 
-        const impact = calculateMarginalImpact(currentPrice, INTERVENTION_SHARES, 0);
+        const impact = calculateMarginalImpact(currentPrice, INTERVENTION_SHARES, 0, liquidityFor(ticker));
         const clampedImpact = Math.min(
           impact,
           currentPrice * MAX_PRICE_CHANGE_PERCENT

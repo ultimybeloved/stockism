@@ -21,7 +21,7 @@ const {
   SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO,
   ADMIN_PRICE_PROTECTION_MS,
 } = require('../constants');
-const { appendPriceHistory, isPriceProtected } = require('../helpers');
+const { appendPriceHistory, isPriceProtected, liquidityFor } = require('../helpers');
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -81,7 +81,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
     // market. The player covers at the unmoved price, which is
     // cheaper for them than the alternative.
     const pricePinned = isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS);
-    const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / BASE_LIQUIDITY);
+    const priceImpact = freshPrice * BASE_IMPACT * Math.sqrt(freshPosition.shares / liquidityFor(ticker));
     const dampenedImpact = priceImpact * SHORT_MARGIN_DAMPENING_FACTOR;
     const maxImpact = freshPrice * MAX_PRICE_CHANGE_PERCENT;
     const cappedImpact = pricePinned ? 0 : Math.min(dampenedImpact, maxImpact);

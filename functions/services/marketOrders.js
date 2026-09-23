@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } = require('../constants');
-const { writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares, cohortAddUpdate, cohortRemoveUpdate, washRuleRemainingMs } = require('../helpers');
+const { liquidityFor, writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares, cohortAddUpdate, cohortRemoveUpdate, washRuleRemainingMs } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
@@ -173,7 +173,7 @@ const runMarketOpenProcessing = async (trigger) => {
 
       let openingPrice = basePrice;
       if (Math.abs(netDemand) >= 0.01) {
-        const impact = calculateMarginalImpact(basePrice, Math.abs(netDemand), 0);
+        const impact = calculateMarginalImpact(basePrice, Math.abs(netDemand), 0, liquidityFor(ticker));
         openingPrice = netDemand > 0
           ? Math.min(basePrice + impact, basePrice * (1 + MAX_PRICE_CHANGE_PERCENT))
           : Math.max(0.01, Math.max(basePrice - impact, basePrice * (1 - MAX_PRICE_CHANGE_PERCENT)));

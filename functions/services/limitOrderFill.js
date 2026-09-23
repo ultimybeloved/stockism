@@ -12,6 +12,7 @@ const admin = require('firebase-admin');
 const { exitLoyaltyDiscount, CHARACTER_MAP } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
+  liquidityFor,
   calculateMarginalImpact, traderMarginalImpact, getAccountAgeImpactFactor,
   appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
   sumDirectionalImpact, impactDirectionOf, cohortAddUpdate, cohortRemoveUpdate,
@@ -35,14 +36,14 @@ const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVo
   const remaining = Math.max(0, MAX_DAILY_IMPACT - spent);
   const ageFactor = getAccountAgeImpactFactor(userData);
   const effectiveImpact = Math.min(
-    calculateMarginalImpact(freshPrice, fillShares, cumVolume) * ageFactor,
+    calculateMarginalImpact(freshPrice, fillShares, cumVolume, liquidityFor(ticker)) * ageFactor,
     freshPrice * remaining
   );
   // What the trader is charged, as opposed to how far the market moves. Same
   // split executeTrade applies — without it here, an oversized LIMIT order
   // would still get the volume discount that was removed from market orders,
   // which is simply a slower way to do the same trade.
-  const traderImpact = traderMarginalImpact(freshPrice, fillShares, cumVolume) * ageFactor;
+  const traderImpact = traderMarginalImpact(freshPrice, fillShares, cumVolume, liquidityFor(ticker)) * ageFactor;
   return {
     effectiveImpact,
     traderImpact,

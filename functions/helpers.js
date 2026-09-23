@@ -519,27 +519,35 @@ const applyDueIPOJumps = async () => {
  * dumping all 4,125 at once costs 5%, because the per-trade cap truncates it.
  * Selling everything in one go was the cheapest way to do it.
  */
-const rawMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+const rawMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
   currentPrice * BASE_IMPACT * (
-    Math.sqrt((cumulativeSharesBefore + newShares) / BASE_LIQUIDITY) -
-    Math.sqrt(cumulativeSharesBefore / BASE_LIQUIDITY)
+    Math.sqrt((cumulativeSharesBefore + newShares) / liquidity) -
+    Math.sqrt(cumulativeSharesBefore / liquidity)
   );
 
 // What the MARKET moves: the raw cost, capped so a single order can't crater a
 // stock. This is what goes on the chart and what the daily allowance counts.
-const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
   Math.min(
-    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore),
+    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
     currentPrice * MAX_PRICE_CHANGE_PERCENT
   );
 
 // What the TRADER pays: the raw cost, bounded well above the market cap so an
 // oversized order stops being free but can never be charged without limit.
-const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore) =>
+const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
   Math.min(
-    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore),
+    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
     currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE
   );
+
+/**
+ * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY for
+ * every stock unless characters.js gives it its own, which a stock split does
+ * (x ratio), so the same dollar trade moves a split stock by the same percent
+ * as before the split. Mirror of liquidityFor in src/utils/calculations.js.
+ */
+const liquidityFor = (ticker) => CHARACTER_MAP[ticker]?.liquidity || BASE_LIQUIDITY;
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?
@@ -941,13 +949,13 @@ const exitEquityAt = (userData, prices) => {
   const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
     const price = prices?.[ticker] || 0;
     if (!(shares > 0) || !(price > 0)) return sum;
-    return sum + Math.max(MIN_PRICE, price - calculateMarginalImpact(price, shares, 0)) * shares;
+    return sum + Math.max(MIN_PRICE, price - calculateMarginalImpact(price, shares, 0, liquidityFor(ticker))) * shares;
   }, 0);
   // Covering buys the shares back, so the price it's measured at is pushed up.
   const coverPrices = {};
   for (const [ticker, pos] of Object.entries(userData.shorts || {})) {
     const price = prices?.[ticker] || 0;
-    if (pos && pos.shares > 0) coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0);
+    if (pos && pos.shares > 0) coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0, liquidityFor(ticker));
   }
   return round2((userData.cash || 0) + holdingsValue
     + shortsEquity(userData.shorts, coverPrices) - (userData.marginUsed || 0));
@@ -1989,6 +1997,7 @@ module.exports = {
   isRosterTicker,
   spreadFor,
   calculateMarginalImpact,
+  liquidityFor,
   getWeekId,
   buildTradeCreditUpdates,
   applyDueIPOJumps,
