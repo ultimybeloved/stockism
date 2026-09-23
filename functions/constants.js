@@ -681,6 +681,10 @@ const DAILY_DROP_JACKPOT_CHANCE = 0.03;            // 3% of claims are jackpots
 // expiry check regardless, so entries past the window are pruned rather than
 // kept forever.
 const DROP_CLAIM_WINDOW_MS = 72 * 60 * 60 * 1000;
+// How long a feed entry lives. Written onto each entry as a Timestamp so a
+// Firestore TTL policy on feed.expiresAt can act on it — a numeric field is
+// ignored by TTL, which is why nothing was ever deleted.
+const FEED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Discord snowflake epoch (2015-01-01). Message IDs carry their own creation
 // time in the high bits, which is how a drop's age is known without storing it.
 const DISCORD_EPOCH_MS = 1420070400000;
@@ -1077,6 +1081,7 @@ module.exports = {
   SITE_URL,
   DAILY_DROP_JACKPOT_CHANCE,
   DROP_CLAIM_WINDOW_MS,
+  FEED_TTL_MS,
   DISCORD_EPOCH_MS,
   DAILY_DROP_BONUS_TIERS,
   DAILY_DROP_BONUS_SHARE_VALUES,

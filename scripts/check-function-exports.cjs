@@ -96,10 +96,22 @@ const stripNonCode = (src) => src
   .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
   .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
 
-fs.readdirSync(SERVICES_DIR)
-  .filter((f) => f.endsWith('.js'))
-  .forEach((file) => {
-    const raw = fs.readFileSync(path.join(SERVICES_DIR, file), 'utf8');
+// services/ plus the shared modules at the functions root. helpers.js was NOT
+// scanned here until 2026-09-23, so a constant used in it but never imported
+// would only surface as a ReferenceError on whichever path touched it — and in
+// writeFeedEntry that path is inside a try/catch, so feed entries would have
+// stopped appearing with nothing logged anywhere.
+const CONSTANTS_SCAN = [
+  ...fs.readdirSync(SERVICES_DIR).filter((f) => f.endsWith('.js'))
+    .map((f) => [SERVICES_DIR, f, `services/${f}`]),
+  ...fs.readdirSync(FUNCTIONS_DIR).filter((f) => f.endsWith('.js')
+    && !['constants.js', 'index.js'].includes(f) && !f.includes('.test.'))
+    .map((f) => [FUNCTIONS_DIR, f, f]),
+];
+
+CONSTANTS_SCAN
+  .forEach(([dir, file, label]) => {
+    const raw = fs.readFileSync(path.join(dir, file), 'utf8');
     const source = stripNonCode(raw);
     // Collect EVERY destructured require, not just the one from '../constants'.
     // Several names constants.js re-exports actually originate elsewhere (CREWS
@@ -115,7 +127,7 @@ fs.readdirSync(SERVICES_DIR)
     );
     if (missing.length > 0) {
       constantsProblems += missing.length;
-      console.log(`${file}: missing constants import — ${missing.join(', ')}`);
+      console.log(`${label}: missing constants import — ${missing.join(', ')}`);
     }
   });
 

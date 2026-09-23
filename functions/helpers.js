@@ -138,6 +138,7 @@ const {
   MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
   WASH_RULE_COOLDOWN_MS,
+  FEED_TTL_MS,
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   LADDER_RAMP_DAYS,
@@ -1209,7 +1210,17 @@ const writeNotification = async (uid, { type, title, message, data = {} }) => {
 // Writes a feed doc to the global feed collection (fire-and-forget)
 const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker, action, amount, price, achievementId, displayAfter }) => {
   try {
-    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 day TTL
+    // A Firestore TTL policy only acts on a TIMESTAMP field — it silently
+    // ignores a numeric one. This was written as a plain number for as long as
+    // the feed has existed, so even once the policy is switched on it would
+    // have deleted nothing, with no error and no way to tell from the console.
+    // 96.3% of the collection (54,817 docs) was still sitting there on
+    // 2026-09-22, the oldest expired 190 days earlier.
+    //
+    // Nothing reads this field; it exists purely for the TTL policy to act on.
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      Date.now() + FEED_TTL_MS
+    );
     await db.collection('feed').add({
       type,         // 'trade', 'achievement', 'mission_complete'
       userId,
