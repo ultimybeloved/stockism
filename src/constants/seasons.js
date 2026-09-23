@@ -115,3 +115,8 @@ export const nextSeasonTier = (tierId) => {
   const order = tierId ? (SEASON_TIER_MAP[tierId]?.order || 0) : 0;
   return SEASON_TIERS.find(t => t.order === order + 1) || null;
 };
+
+// Coordinated-pressure flags in one season before the admin panel marks a
+// player as a repeat case. Only a prompt: the admin still decides who is kept
+// out of Platinum and Diamond.
+export const SEASON_REPEAT_COORD_FLAGS = 3;

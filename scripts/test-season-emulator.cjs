@@ -29,7 +29,8 @@ const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
 const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason } = require('../functions/services/season');
-const { ADMIN_UID } = require('../functions/constants');
+const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/services/seasonExclusions');
+const { ADMIN_UID, COORD_RULE_ANNOUNCED_AT } = require('../functions/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
 const adminCtx = { auth: { uid: ADMIN_UID } };
@@ -177,6 +178,43 @@ const run = async () => {
   // $1,580.80 made on $9,940 of equity plus $5,000 owed the whole time: +10.6%, not +15.9%.
   check('margin return measured on borrowed money too', close(row('margin').returnPercent, 10.6, 0.1), row('margin'));
   check('margin projected Gold from the finish', row('margin').projectedTier === 'gold', row('margin'));
+
+  console.log('\nD2. Keeping a repeat coordinator out of Platinum and Diamond');
+  const alert = (uids, ticker, timestamp) => db.collection('watchlist_alerts').add({
+    type: 'coordinated_pressure', participantUIDs: uids, participants: uids.map((u) => u.toUpperCase()), ticker, timestamp,
+  });
+  const seasonStart = (await db.collection('market').doc('season').get()).data().startedAt;
+  // Flags count from the later of the season start and the rule's announcement.
+  const countFrom = Math.max(seasonStart, COORD_RULE_ANNOUNCED_AT);
+  await alert(['diverse', 'sitter'], 'GUN', admin.firestore.Timestamp.fromMillis(countFrom + 60000));
+  await alert(['diverse', 'sitter'], 'DG', admin.firestore.Timestamp.fromMillis(countFrom + 120000));
+  await alert(['diverse', 'margin'], 'OLD', admin.firestore.Timestamp.fromMillis(countFrom - 60000));
+  const flags = await getSeasonCoordFlags.run({}, adminCtx);
+  const flagged = Object.fromEntries(flags.players.map((p) => [p.uid, p]));
+  check('flags from before the rule or the season do not count', flagged.diverse?.flags === 2 && !flagged.margin
+    && JSON.stringify(flagged.diverse.tickers) === '["DG","GUN"]', flags.players);
+  check('flagged partners listed', flagged.diverse?.partners?.[0]?.name === 'SITTER' && flagged.diverse.partners[0].n === 2, flagged.diverse);
+
+  let denied = null;
+  try { await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: true }, { auth: { uid: 'sitter' } }); }
+  catch (e) { denied = e.message; }
+  check('only the admin can exclude', /Admin only/.test(denied || ''), denied);
+
+  await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: true }, adminCtx);
+  check('exclusion recorded on the player for this season', (await user('diverse')).seasonTopTierExclusion?.seasonId === 'S1');
+  check('flags list shows them excluded', (await getSeasonCoordFlags.run({}, adminCtx)).players.find((p) => p.uid === 'diverse')?.excluded === true);
+  const exBoard = await getSeasonStandings.run({}, {});
+  const exRow = (uid) => exBoard.entries.find((e) => e.userId === uid);
+  check('excluded player still on the board, but projects no top tier', exRow('diverse')
+    && !['platinum', 'diamond'].includes(exRow('diverse').projectedTier), exRow('diverse'));
+  check('their place goes to someone else in the division', exBoard.entries
+    .filter((e) => e.division === 'rookie' && ['platinum', 'diamond'].includes(e.projectedTier)).length === 2, exBoard.entries);
+  check('the public board never says who was excluded', !/xclu/.test(JSON.stringify(exBoard)));
+
+  await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: false }, adminCtx);
+  const backBoard = await getSeasonStandings.run({}, {});
+  check('undo restores their projected place', backBoard.entries.find((e) => e.userId === 'diverse')?.projectedTier === 'diamond');
+  check('undo clears the mark', !(await user('diverse')).seasonTopTierExclusion);
 
   console.log('\nE. End');
   const end = await adminEndSeason.run({}, adminCtx);

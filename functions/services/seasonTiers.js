@@ -375,12 +375,24 @@ const divisionSlots = (field, rules = DEFAULT_SEASON_RULES) => {
 };
 
 /**
+ * Whether the admin has kept this player out of Platinum and Diamond for this
+ * season, for repeated coordinated trading. Stored on the user doc, which only
+ * the player and the admin can read, so the board never reveals who.
+ */
+const isTopTierExcluded = (userData, seasonId) =>
+  !!seasonId && userData?.seasonTopTierExclusion?.seasonId === seasonId;
+
+/**
  * Hand out Platinum and Diamond, ranked within each size division.
  *
  * `field` is every player on the board, each { uid, excess, activeWeeks,
  * beatShare, peakConcentration, division }. Places are shares of the player's
  * own division, but only a player who beat the market and turned up for the
  * Bronze minimum can take one. Returns Map uid -> 'platinum' | 'diamond'.
+ *
+ * A player the admin has excluded (topTierExcluded) still counts toward the
+ * division's size, so nobody loses a place because of them, but can't take
+ * one: the next player down moves up.
  */
 const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
   const result = new Map();
@@ -395,7 +407,7 @@ const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
   for (const group of groups.values()) {
     const slots = topTierSlots(group.length, rules);
     const platinum = group
-      .filter((p) => p.excess > 0 && (p.activeWeeks || 0) >= rules.bronzeActiveWeeks)
+      .filter((p) => !p.topTierExcluded && p.excess > 0 && (p.activeWeeks || 0) >= rules.bronzeActiveWeeks)
       // Ties broken by uid so the same board always hands out the same places.
       .sort((a, b) => (b.excess - a.excess) || String(a.uid).localeCompare(String(b.uid)))
       .slice(0, slots.platinum);
@@ -479,6 +491,7 @@ module.exports = {
   divisionFor,
   divisionSlots,
   rankTopTiers,
+  isTopTierExcluded,
   seasonTitles,
   lastHaltStart,
 };

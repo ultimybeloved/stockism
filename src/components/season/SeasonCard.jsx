@@ -17,7 +17,7 @@ const SeasonCard = () => {
   const {
     active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
     lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, belowFloor,
-    seasonWeeks, baselineValue, baselineLadder, baselinePinnedAt, baselineIndex, division,
+    seasonWeeks, baselineValue, baselineLadder, baselinePinnedAt, baselineIndex, division, topTierExcluded,
   } = useSeason();
 
   if (!active) return null;
@@ -27,6 +27,7 @@ const SeasonCard = () => {
   // What the next tier asks for, in this player's own numbers where there are any.
   const nextHint = () => {
     if (!nextTier || returnPercent === null) return null;
+    if (topTierExcluded && (nextTier.id === 'platinum' || nextTier.id === 'diamond')) return null;
     switch (nextTier.id) {
       case 'bronze':
         return `Be active in ${bronzeActiveWeeks} weeks of the season. You have ${activeWeeks} so far.`;
@@ -91,6 +92,12 @@ const SeasonCard = () => {
               Platinum and Diamond are ranked against players your size.
             </p>
           )}
+          {topTierExcluded && (
+            <p className="text-xs text-red-400 mt-1">
+              You can&apos;t place Platinum or Diamond this season because your trades were repeatedly
+              flagged as coordinated with other players. Bronze, Silver and Gold still count.
+            </p>
+          )}
 
           {/* The ladder is excluded from anything that counts. Showing what it
               would have been is honest, and quietly discourages chasing it. */}
@@ -120,6 +127,8 @@ const SeasonCard = () => {
             Bronze is banked at Thursday checkpoints and can't be lost. Silver and Gold go by where you
             finish, and Platinum and Diamond are handed out when the season ends. Borrowed money counts as
             money you traded with for as long as you owe it, so margin can't make your return look bigger.
+            Talking about stocks is fine, but repeatedly planning trades with other players to move a price
+            keeps you out of Platinum and Diamond.
             {firstTitled && ` ${firstTitled.name} and up earn a permanent title.`}
           </p>
         </>

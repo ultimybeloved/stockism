@@ -477,6 +477,10 @@ const COORD_MIN_EACH_IMPACT = 0.01;      // ignore an account that barely took p
 // inside 21 minutes, four of them covering within four minutes of each other.
 const COORD_TIGHT_WINDOW_MS = 30 * 60 * 1000;
 const COORD_HIGH_COMBINED_IMPACT = 0.15; // 15%+ combined lands as high severity
+// When the rule against coordinated trading was announced (2026-09-23). Flags
+// from before it don't count toward keeping anyone out of Platinum and Diamond:
+// trading together was explicitly allowed until then, so everyone starts clean.
+const COORD_RULE_ANNOUNCED_AT = Date.UTC(2026, 8, 23, 2, 30);
 
 const ALT_SCAN_WINDOW_DAYS = 30;   // how far back through trade records each scan looks
 const ALT_SCAN_MAX_TRADES  = 60000; // safety cap so one scan can't run away with reads
@@ -1051,6 +1055,7 @@ module.exports = {
   COORD_MIN_EACH_IMPACT,
   COORD_TIGHT_WINDOW_MS,
   COORD_HIGH_COMBINED_IMPACT,
+  COORD_RULE_ANNOUNCED_AT,
   ALT_SCAN_WINDOW_DAYS,
   ALT_SCAN_MAX_TRADES,
   ALT_IPV6_PREFIX_GROUPS,

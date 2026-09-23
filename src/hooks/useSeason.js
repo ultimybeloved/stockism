@@ -109,6 +109,9 @@ export function useSeason() {
     lockedTierMeta: lockedTier ? SEASON_TIER_MAP[lockedTier] : null,
     activeWeeks,
     bronzeActiveWeeks: rules.bronzeActiveWeeks,
+    // Kept out of Platinum and Diamond by the admin for repeated coordinated
+    // trading. Mirror of isTopTierExcluded in functions/services/seasonTiers.js.
+    topTierExcluded: userData?.seasonTopTierExclusion?.seasonId === season.id,
     // Up on the season means Silver if they finish there, so point at Gold next.
     nextTier: nextSeasonTier(
       returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order

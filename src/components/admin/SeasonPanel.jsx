@@ -1,4 +1,5 @@
 import { SEASON_TIERS, seasonLabel, seasonRulesFor, seasonTierRule } from '../../constants/seasons';
+import SeasonCoordFlags from './season/SeasonCoordFlags';
 
 // Start / end a season and see where the current one stands. Lives in the
 // Market tab because ending a season is tied to the chapter cycle.
@@ -68,6 +69,8 @@ const SeasonPanel = ({
             so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out
             Platinum and Diamond.
           </p>
+
+          <SeasonCoordFlags {...{ darkMode, textClass, mutedClass, active }} />
         </>
       ) : (
         <>

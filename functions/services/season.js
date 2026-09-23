@@ -371,7 +371,8 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
 
   const snap = await db.collection('users')
     .select('isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
-      'seasonMargin', 'marginUsed', 'displayName', 'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
+      'seasonMargin', 'marginUsed', 'displayName', 'seasonTopTierExclusion',
+      'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
     .get();
 
   // Everyone is scored off the record the final checkpoint just wrote, so the
@@ -456,6 +457,9 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     try {
       await writeNotification(row.uid, {
         type: 'season_end',
+        // Required: Firestore rejects an undefined field, and the catch below
+        // would swallow that, so without it nobody ever got this notice.
+        title: 'Season over',
         message: `${season.name} is over. You finished #${place[row.division]} in the ${divisionLabel[row.division] || ''} division, ${Math.abs(row.excess)}% ${row.excess >= 0 ? 'ahead of' : 'behind'} the market.`,
       });
     } catch (err) { /* never block the close on a notification */ }
@@ -496,7 +500,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     db.collection('users')
       .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue', 'predictionFlowValue',
         'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
-        'seasonMargin', 'marginUsed', 'displayName', 'crew',
+        'seasonMargin', 'marginUsed', 'displayName', 'crew', 'seasonTopTierExclusion',
         // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
         'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
       .get(),

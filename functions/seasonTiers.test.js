@@ -33,6 +33,7 @@ const {
   seasonTitles,
   lastHaltStart,
   rankTopTiers,
+  isTopTierExcluded,
   averageGranted,
 } = require('./services/seasonTiers');
 const {
@@ -456,6 +457,33 @@ describe('rankTopTiers', () => {
   it('handles an empty board', () => {
     expect(rankTopTiers([]).size).toBe(0);
     expect(rankTopTiers(undefined).size).toBe(0);
+  });
+
+  it('passes an excluded player’s place to the next one down', () => {
+    const out = rankTopTiers([
+      player('a', 80, { topTierExcluded: true }), player('b', 60), player('c', 40), player('d', 30), ...filler,
+    ]);
+    expect(out.has('a')).toBe(false);
+    expect(out.get('b')).toBe('diamond');
+    expect(out.get('c')).toBe('platinum');
+    expect(out.get('d')).toBe('platinum');
+  });
+
+  it('still counts excluded players toward the division size', () => {
+    // 20 on the board, 17 of them excluded: still three Platinum places.
+    const excluded = Array.from({ length: 17 }, (_, i) => player(`x${i}`, 90 + i, { topTierExcluded: true }));
+    const out = rankTopTiers([...excluded, player('a', 3), player('b', 2), player('c', 1)]);
+    expect([...out.keys()].sort()).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('isTopTierExcluded', () => {
+  it('only applies to the season it was set in', () => {
+    const u = { seasonTopTierExclusion: { seasonId: 'P1', at: 1 } };
+    expect(isTopTierExcluded(u, 'P1')).toBe(true);
+    expect(isTopTierExcluded(u, 'P2')).toBe(false);
+    expect(isTopTierExcluded({}, 'P1')).toBe(false);
+    expect(isTopTierExcluded(u, undefined)).toBe(false);
   });
 });
 

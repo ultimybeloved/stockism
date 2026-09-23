@@ -8,7 +8,7 @@ const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
 const { getLastActiveMs, characterExposure } = require('../helpers');
 const {
   baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor, seasonAccountSize, marginDollarDays,
-  grantedDaysSince, sideFlowsSince,
+  grantedDaysSince, sideFlowsSince, isTopTierExcluded,
 } = require('./seasonTiers');
 
 // A season's weekly record is capped. Far longer than any arc, and it stops one
@@ -111,6 +111,8 @@ const boardEntry = (uid, u, season, { value, indexNow, granted, grantedDays, sid
     activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
     beatShare: summary.beatShare,
     peakConcentration: summary.peakConcentration,
+    // Never sent to the public board; rankTopTiers reads it.
+    topTierExcluded: isTopTierExcluded(u, season.id),
   };
 };
 
