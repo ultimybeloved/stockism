@@ -3,6 +3,7 @@ import { ADMIN_UIDS } from '../../constants';
 import UserFinancials from './users/UserFinancials';
 import UserPositions from './users/UserPositions';
 import UserAdminActions from './users/UserAdminActions';
+import UserTradeAs from './users/UserTradeAs';
 
 const UsersTab = ({
   darkMode,
@@ -276,6 +277,7 @@ const UsersTab = ({
 
           <UserFinancials {...{ darkMode, textClass, mutedClass, loading, prices, selectedUser, calculateLivePortfolioValue, handleSyncSingleUser }} />
           <UserPositions {...{ darkMode, textClass, mutedClass, prices, selectedUser }} />
+          <UserTradeAs {...{ mutedClass, inputClass, selectedUser }} />
           <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, freeDiscordId, setFreeDiscordId, handleFreeDiscord, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }} />
         </div>
       )}

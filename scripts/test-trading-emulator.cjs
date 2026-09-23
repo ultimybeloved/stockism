@@ -46,7 +46,7 @@ const {
   CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
   WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER, SHORT_AFTER_DUMP_COOLDOWN_MS, OVERSIZED_IMPACT_MULTIPLE,
   LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
-  BAILOUT_CASH,
+  BAILOUT_CASH, ADMIN_UID,
 } = require('../functions/constants');
 const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/characters');
 
@@ -1529,6 +1529,36 @@ async function testOversizedImpact() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// R. ADMIN TRADING ON A PLAYER'S ACCOUNT
+// ════════════════════════════════════════════════════════════════════════════
+// The admin can place a trade on a player's account; nobody else can.
+async function testAdminActAs() {
+  console.log('\nR. Admin trading as a player');
+  await seedMarket({ [T]: 100 });
+  await setUser('actas_target', { cash: 0, holdings: { [T]: 50 } });
+  await setUser(ADMIN_UID, { cash: 1000, holdings: {} });
+  const adminIp = '203.0.113.77';
+  const r = await executeTrade.run({ ticker: T, action: 'sell', amount: 10, actAsUid: 'actas_target' }, ctx(ADMIN_UID, adminIp));
+  const target = await getUser('actas_target');
+  const adminAfter = await getUser(ADMIN_UID);
+  check('admin: the sale lands on the player', r.success === true && target.holdings[T] === 40 && target.cash > 0, target.holdings);
+  check('admin: the admin account is untouched', adminAfter.cash === 1000 && !adminAfter.holdings?.[T], adminAfter);
+  const recs = (await db.collection('trades').where('uid', '==', 'actas_target').get()).docs.map((d) => d.data());
+  check('admin: recorded on the player, tagged admin, no IP', recs.length === 1 && recs[0].source === 'admin'
+    && (recs[0].ip === 'unknown' || !recs[0].ip), recs);
+  const ipDoc = await db.collection('ipTracking').doc(adminIp.replace(/[.:/]/g, '_')).get();
+  check('admin: the admin IP is never tied to the player', !ipDoc.exists);
+
+  // A player passing actAsUid just trades on their own account.
+  await seedMarket({ [T]: 100 });
+  await setUser('actas_sneak', { cash: 0, holdings: { [T]: 20 } });
+  await setUser('actas_victim', { cash: 0, holdings: { [T]: 20 } });
+  await ok({ ticker: T, action: 'sell', amount: 5, actAsUid: 'actas_victim' }, 'actas_sneak');
+  check('admin: a player cannot trade on someone else', (await getUser('actas_victim')).holdings[T] === 20
+    && (await getUser('actas_sneak')).holdings[T] === 15);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -1553,6 +1583,7 @@ async function main() {
   await testCircuitBreaker();
   await testWashRule();
   await testOversizedImpact();
+  await testAdminActAs();
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);

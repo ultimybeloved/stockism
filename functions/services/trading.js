@@ -22,7 +22,7 @@ const { CHARACTERS } = require('../characters');
 const {
   BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
   MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
-  TRADE_TXN_MAX_ATTEMPTS, CIRCUIT_BREAKER_PAUSE_MS,
+  TRADE_TXN_MAX_ATTEMPTS, CIRCUIT_BREAKER_PAUSE_MS, ADMIN_UID,
 } = require('../constants');
 const {
   checkBanned,
@@ -68,7 +68,15 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     );
   }
 
-  const uid = context.auth.uid;
+  // The admin placing a trade on a player's account (Admin → Users → Trade as
+  // this player). The same path and every rule the player's own trade gets. Two
+  // differences: no IP is recorded, so the admin's connection never links to
+  // the player in alt detection, and the record is tagged source 'admin', so
+  // the coordination scan never counts it as the player's own decision.
+  const actAs = context.auth.uid === ADMIN_UID && typeof data?.actAsUid === 'string' && data.actAsUid
+    ? data.actAsUid : null;
+  const uid = actAs || context.auth.uid;
+  const tradeIp = actAs ? 'unknown' : (context.rawRequest?.ip || 'unknown');
   const { ticker, action, amount } = validateTradeInput(data);
   await assertNoLiveSellOrders(uid, ticker, action);
 
@@ -153,7 +161,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
 
       // IP-level trade history (shared across all accounts on the same IP);
       // transaction read, so it must come before any transaction writes.
-      const ip = context.rawRequest?.ip || 'unknown';
+      const ip = tradeIp;
       const { ipDailyImpact, ipTrackingRef, ipTickerTradeHistory, ipRecentTraders } =
         await readIpTradeData(transaction, ip, ticker, now);
       const ipCumulativeDailyImpact = ipDailyImpact[direction];
@@ -265,7 +273,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       });
 
       // Log trade — no `source`, which is what marks it as manually placed
+      // (except 'admin', when the admin placed it on the player's behalf)
       recordTrade(transaction, {
+        ...(actAs ? { source: 'admin' } : {}),
         uid,
         ticker,
         action,
@@ -346,8 +356,9 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
     // mission progress, watched-IP tracking
     await writeTradeSideEffects({
       uid, ticker, action, amount, result,
-      ip: context.rawRequest?.ip || 'unknown'
+      ip: tradeIp,
     });
+    if (actAs) console.log(`ADMIN TRADE: ${action} ${amount} $${ticker} on ${uid}`);
 
     return result;
 
