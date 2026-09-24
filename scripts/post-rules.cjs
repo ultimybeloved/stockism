@@ -79,6 +79,7 @@ const STAFF = [
 
 // Link buttons sit in a row under the embed. Add more objects for more buttons.
 const BUTTONS = [
+  { label: 'Trade on Stockism', emoji: { name: 'STOCKISM', id: '1466671436843454555' }, url: 'https://stockism.app' },
   { label: 'Chat Leaderboard', emoji: { name: 'document', id: '1552569661592313858' }, url: 'https://arcane.bot/leaderboard/stockism' },
 ];
 
