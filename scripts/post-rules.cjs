@@ -104,7 +104,9 @@ const COLOR = 0xf97316; // site orange
 
 function ruleLines() {
   const lines = RULES.map(([head, detail], i) => `${i + 1}. **${head}**${detail ? ` ${detail}` : ''}`);
-  return [...lines, '', `*${RULES_FOOTER}*`];
+  // Discord trims trailing blank lines, so an invisible character holds the
+  // gap between the footer and the Server Link field.
+  return [...lines, '', `*${RULES_FOOTER}*`, '​'];
 }
 
 function buildEmbed() {
