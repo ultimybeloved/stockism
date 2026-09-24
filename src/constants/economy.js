@@ -39,6 +39,11 @@ export const EVENT_OPEN_DELAY_PRESETS_HOURS = [0, 1, 6, 12, 24];
 // this band (extremes make shares near-worthless or the house loss explode).
 export const EVENT_OPENING_ODDS_MIN_PCT = 1;
 export const EVENT_OPENING_ODDS_MAX_PCT = 99;
+// Weekly prediction house seed: the admin's total is split evenly across the
+// options' pools at creation. The house is just another bettor, so the losing
+// options' seed goes to the winners and the winning option's seed share is never
+// claimed. Max house cost per prediction = the seed. Cap catches typos.
+export const WEEKLY_PREDICTION_SEED_MAX = 100000;
 
 // Economy balancing constants - Realistic Market Model
 export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement

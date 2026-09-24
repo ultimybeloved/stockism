@@ -109,7 +109,10 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
 
       <div className="mb-3">
         <div className={`flex justify-between items-baseline gap-2 text-xs ${mutedClass} mb-2`}>
-          <span>Pool: {formatCurrency(totalPool)}</span>
+          <span>
+            Pool: {formatCurrency(totalPool)}
+            {prediction.seedTotal > 0 && <span className="opacity-70"> (incl. {formatCurrency(prediction.seedTotal)} house seed)</span>}
+          </span>
           {showOdds && <span className="opacity-70">payout on a ${previewBet.toLocaleString('en-US')} bet</span>}
         </div>
         <div className="space-y-2">

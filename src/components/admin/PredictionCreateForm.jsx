@@ -1,4 +1,5 @@
 import EventMarketFields from './EventMarketFields';
+import { WEEKLY_PREDICTION_SEED_MAX } from '../../constants/economy';
 
 // Predictions tab, "Create New Prediction" section: weekly (cash) and long-term
 // (event shares) forms. Extracted from PredictionsTab to keep it under the
@@ -17,6 +18,8 @@ const PredictionCreateForm = ({
   setDaysUntilEnd,
   mayExtend,
   setMayExtend,
+  weeklySeed,
+  setWeeklySeed,
   endDate,
   handleCreatePrediction,
   predictionType,
@@ -113,6 +116,27 @@ const PredictionCreateForm = ({
               <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
                 ⏳ Result may need an extra week to confirm
               </label>
+            </div>
+
+            <div>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>House Seed ($, optional)</label>
+              <input
+                type="number"
+                min="0"
+                max={WEEKLY_PREDICTION_SEED_MAX}
+                value={weeklySeed}
+                onChange={e => setWeeklySeed(e.target.value)}
+                placeholder="0"
+                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+              />
+              <p className={`text-xs ${mutedClass} mt-1`}>
+                {(() => {
+                  const n = options.filter(o => o.trim()).length;
+                  const total = Number(weeklySeed) || 0;
+                  if (total <= 0 || n < 2) return 'Split evenly across the options. Seed on the losing options goes to the winners. Most the house can lose is the seed.';
+                  return `$${(total / n).toLocaleString('en-US', { maximumFractionDigits: 2 })} in each of ${n} options. Most the house can lose is $${total.toLocaleString('en-US')}.`;
+                })()}
+              </p>
             </div>
           </>
         ) : (

@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, broadcastNotificationFunction } from '../../firebase';
 import {
   EVENT_AMM_LIQUIDITY, MS_PER_HOUR,
-  EVENT_OPENING_ODDS_MIN_PCT, EVENT_OPENING_ODDS_MAX_PCT,
+  EVENT_OPENING_ODDS_MIN_PCT, EVENT_OPENING_ODDS_MAX_PCT, WEEKLY_PREDICTION_SEED_MAX,
 } from '../../constants/economy';
 import { lmsrSeedQ } from '../../utils/calculations';
 
@@ -14,6 +14,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
   const [options, setOptions] = useState(['Yes', 'No', '', '', '', '']);
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
   const [mayExtend, setMayExtend] = useState(false);
+  const [weeklySeed, setWeeklySeed] = useState(''); // house seed total, split evenly; blank = none
   
   // Calculate end time at 13:55 UTC (7:55 AM CST) on target day (5 min before chapter release)
   const getEndTime = (days) => {
@@ -71,6 +72,12 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
     const validOptions = options.filter(o => o.trim());
     if (validOptions.length < 2) {
       showMessage('error', 'Please enter at least 2 options');
+      return;
+    }
+
+    const seedTotal = predictionType === 'weekly' ? Number(weeklySeed) || 0 : 0;
+    if (seedTotal < 0 || seedTotal > WEEKLY_PREDICTION_SEED_MAX) {
+      showMessage('error', `Seed must be between $0 and $${WEEKLY_PREDICTION_SEED_MAX.toLocaleString()}.`);
       return;
     }
 
@@ -139,10 +146,12 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
       // Generate unique ID using timestamp
       const newId = `pred_${Date.now()}`;
 
-      // Create pools object
+      // Create pools object. Any house seed goes straight into the pools, so odds,
+      // previews and payouts all treat it as one more bettor with no extra code.
+      const seedPerOption = seedTotal > 0 ? seedTotal / validOptions.length : 0;
       const pools = {};
       validOptions.forEach(opt => {
-        pools[opt.trim()] = 0;
+        pools[opt.trim()] = seedPerOption;
       });
 
       const newPrediction = {
@@ -155,7 +164,8 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
         outcome: null,
         payoutsProcessed: false,
         createdAt: Date.now(),
-        ...(mayExtend && { mayExtend: true })
+        ...(mayExtend && { mayExtend: true }),
+        ...(seedTotal > 0 && { seedTotal, seedPerOption })
       };
 
       await updateDoc(predictionsRef, {
@@ -172,6 +182,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
       setOptions(['Yes', 'No', '', '', '', '']);
       setDaysUntilEnd(7);
       setMayExtend(false);
+      setWeeklySeed('');
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to create prediction');
@@ -181,7 +192,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
 
   return {
     question, setQuestion, options, setOptions, daysUntilEnd, setDaysUntilEnd,
-    mayExtend, setMayExtend, endDate, getEndTime, handleCreatePrediction,
+    mayExtend, setMayExtend, weeklySeed, setWeeklySeed, endDate, getEndTime, handleCreatePrediction,
     predictionType, setPredictionType, seedLiquidity, setSeedLiquidity,
     openDelayHours, setOpenDelayHours, openingOdds, setOpeningOdds,
   };

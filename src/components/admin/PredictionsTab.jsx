@@ -7,7 +7,8 @@ import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
 // no pool — the money staked equals what the LMSR AMM has taken in net, which is
 // cost(q) - cost(seedQ) (seedQ is all-zeros unless the market opened with
 // admin-set odds). marketValue picks the right one per market type.
-const sumPool = (p) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0);
+// Pool shown to the admin is player money only, so any house seed is taken back out.
+const sumPool = (p) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0) - (p.seedTotal || 0);
 const eventStaked = (p) => {
   const outcomes = p.outcomes || [];
   const b = p.b || EVENT_AMM_LIQUIDITY;
@@ -42,6 +43,8 @@ const PredictionsTab = ({
   setDaysUntilEnd,
   mayExtend,
   setMayExtend,
+  weeklySeed,
+  setWeeklySeed,
   endDate,
   getEndTime,
   handleCreatePrediction,
@@ -163,6 +166,8 @@ const PredictionsTab = ({
         setDaysUntilEnd={setDaysUntilEnd}
         mayExtend={mayExtend}
         setMayExtend={setMayExtend}
+        weeklySeed={weeklySeed}
+        setWeeklySeed={setWeeklySeed}
         endDate={endDate}
         handleCreatePrediction={handleCreatePrediction}
         predictionType={predictionType}
