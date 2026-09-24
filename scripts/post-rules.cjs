@@ -54,7 +54,7 @@ const STAFF = [
   `${DEVELOPER} - <@539194416120987648>`,
   `${HEAD_MOD} - <@675125555787595806>`,
   '*Leads the mod team and makes the call when the developer is away.*',
-  `${MODERATOR} - <@1281576039960678461>`,
+  `${MODERATOR} - <@1281576039960678461>, <@740968205950124134>`,
   `${AFFILIATE} - Owners of affiliate servers`,
   "*Full authority in their own server's channels. Everywhere else, they can warn and jail for clear rule breaks. Borderline cases go to the mods.*",
 ].join('\n');
@@ -98,10 +98,6 @@ const RULES = [
 // Unnumbered closing line under the rules.
 const RULES_FOOTER = "Don't trust anyone, they are out to get you.";
 
-// Discord caps a field value at 1024 characters, so the rules spill into
-// untitled follow-on fields when they outgrow one.
-const FIELD_VALUE_LIMIT = 1024;
-
 const COLOR = 0xf97316; // site orange
 
 // ============================================================
@@ -111,29 +107,17 @@ function ruleLines() {
   return [...lines, '', `*${RULES_FOOTER}*`];
 }
 
-function chunkLines(lines, limit) {
-  const chunks = [''];
-  for (const line of lines) {
-    const cur = chunks[chunks.length - 1];
-    const next = cur ? `${cur}\n${line}` : line;
-    if (next.length > limit && cur) chunks.push(line);
-    else chunks[chunks.length - 1] = next;
-  }
-  return chunks;
-}
-
 function buildEmbed() {
-  const description = [INTRO, CUSTOM_ROLES, '', STAFF].join('\n');
-  // Field names render bold on their own. Adding ** here would print the
-  // asterisks literally. '​' is a blank name for continuation fields.
-  const ruleFields = chunkLines(ruleLines(), FIELD_VALUE_LIMIT)
-    .map((value, i) => ({ name: i === 0 ? 'Server Rules:' : '​', value }));
+  // Rules live in the description, not a field. A field caps at 1024
+  // characters, and splitting the rules across two fields leaves a visible gap.
+  const description = [INTRO, CUSTOM_ROLES, '', STAFF, '', '**Server Rules:**', ...ruleLines()].join('\n');
   return {
     title: TITLE,
     description,
     color: COLOR,
     fields: [
-      ...ruleFields,
+      // Field names render bold on their own. Adding ** here would print the
+      // asterisks literally.
       { name: 'Server Link', value: `➥ Permanent Invite - ${INVITE_URL}` },
     ],
   };
