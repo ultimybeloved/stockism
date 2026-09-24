@@ -3,6 +3,7 @@
 // Usage:
 //   node scripts/post-rules.cjs --channel 123456789012345678   # first run
 //   node scripts/post-rules.cjs                                # edit in place
+//   node scripts/post-rules.cjs --preview                      # print the embed, send nothing
 //
 // Sends TWO messages: a bare invite link first, so Discord unfurls it into the
 // server card, then the rules embed under it. Both are sent by the bot, so both
@@ -45,9 +46,17 @@ const PRESIDENT = '<@&1495943413147893831>';
 const ANGEL_INVESTORS = '<@&1472108261040980230>';
 const CUSTOM_ROLES = `Custom role available as a ${PRESIDENT} or ${ANGEL_INVESTORS}`;
 
+const DEVELOPER = '<@&1470614423910482081>';
+const HEAD_MOD = '<@&1552522948240343100>';
+const MODERATOR = '<@&1471635846498353317>';
+const AFFILIATE = '<@&1552522322773147699>';
 const STAFF = [
-  '<@&1470614423910482081> - <@539194416120987648>',
-  '<@&1471635846498353317> - <@1281576039960678461>, <@675125555787595806>',
+  `${DEVELOPER} - <@539194416120987648>`,
+  `${HEAD_MOD} - <@675125555787595806>`,
+  '*Leads the mod team and makes the call when the developer is away.*',
+  `${MODERATOR} - <@1281576039960678461>`,
+  `${AFFILIATE} - Owners of affiliate servers`,
+  "*Full authority in their own server's channels. Everywhere else, they can warn and jail for clear rule breaks. Borderline cases go to the mods.*",
 ].join('\n');
 
 // Link buttons sit in a row under the embed. Add more objects for more buttons.
@@ -70,35 +79,61 @@ const REACTIONS = [
 // uses for role writes.
 const REACTION_SPACING_MS = 300;
 
-// Numbered and italicised at render time, so reordering or dropping a rule
-// renumbers itself. Don't put asterisks in the text here.
+// Each rule is [bold headline, plain detail]. Numbered at render time, so
+// reordering or dropping a rule renumbers itself. Don't put asterisks in here.
 const RULES = [
-  'Follow Discord TOS.',
-  'Keep your login to yourself. Staff will never DM you asking for one.',
-  'No scam links, phishing, or fake Stockism sites.',
-  'No doxxing.',
-  'No slurs aimed at people.',
-  'Sexualizing minors is an instant, permanent ban.',
-  'Keep chat usable. No raids, mass pings, or spam floods.',
-  'One Stockism account per person. Don\'t buy, sell, or share them.',
-  'No ban evasion.',
-  'Don\'t trust anyone, they are out to get you.',
+  ["Follow Discord's [Terms of Service (TOS)](https://discord.com/terms).", ''],
+  ['Protect your account.', 'Keep your login to yourself. Staff will never DM you asking for one. No scam links, phishing, or fake Stockism sites.'],
+  ['One Stockism account per person.', "Don't buy, sell, or share them. No ban evasion."],
+  ['No doxxing.', "Don't post anyone's personal info without their okay. Public figures in their public role are fine. If you have to ask, don't post it."],
+  ['No threats of violence.', "Don't threaten anyone or push others to."],
+  ['No bigotry.', 'No slurs aimed at people. No hate speech.'],
+  ['Criticize arguments, not people.', 'Disagreeing with anyone, staff included, is fine. Insults and dogpiling are not.'],
+  ['No harassment campaigns.', "Don't send people after a member, server, or creator. No brigading, no mass reporting, no bringing drama in from other servers."],
+  ['No NSFW.', 'No porn or adult content. No sexual comments about members. Sexualizing minors is an instant, permanent ban.'],
+  ['Keep chat usable.', "No raids, mass pings, or spam floods. Don't spam-ping staff."],
+  ['Raise concerns in good faith.', "Feedback on the rules or the game is welcome. Say what's wrong and why. Doom posting helps nobody."],
 ];
+
+// Unnumbered closing line under the rules.
+const RULES_FOOTER = "Don't trust anyone, they are out to get you.";
+
+// Discord caps a field value at 1024 characters, so the rules spill into
+// untitled follow-on fields when they outgrow one.
+const FIELD_VALUE_LIMIT = 1024;
 
 const COLOR = 0xf97316; // site orange
 
 // ============================================================
 
+function ruleLines() {
+  const lines = RULES.map(([head, detail], i) => `${i + 1}. **${head}**${detail ? ` ${detail}` : ''}`);
+  return [...lines, '', `*${RULES_FOOTER}*`];
+}
+
+function chunkLines(lines, limit) {
+  const chunks = [''];
+  for (const line of lines) {
+    const cur = chunks[chunks.length - 1];
+    const next = cur ? `${cur}\n${line}` : line;
+    if (next.length > limit && cur) chunks.push(line);
+    else chunks[chunks.length - 1] = next;
+  }
+  return chunks;
+}
+
 function buildEmbed() {
   const description = [INTRO, CUSTOM_ROLES, '', STAFF].join('\n');
+  // Field names render bold on their own. Adding ** here would print the
+  // asterisks literally. '​' is a blank name for continuation fields.
+  const ruleFields = chunkLines(ruleLines(), FIELD_VALUE_LIMIT)
+    .map((value, i) => ({ name: i === 0 ? 'Server Rules:' : '​', value }));
   return {
     title: TITLE,
     description,
     color: COLOR,
     fields: [
-      // Field names render bold on their own. Adding ** here would print the
-      // asterisks literally.
-      { name: 'Server Rules:', value: RULES.map((r, i) => `${i + 1}. *${r}*`).join('\n') },
+      ...ruleFields,
       { name: 'Server Link', value: `➥ Permanent Invite - ${INVITE_URL}` },
     ],
   };
@@ -181,6 +216,10 @@ async function upsert(channelId, savedId, payload, label) {
 async function main() {
   const args = process.argv.slice(2);
   const flagIdx = args.indexOf('--channel');
+  if (args.includes('--preview')) {
+    console.log(JSON.stringify(buildEmbed(), null, 2));
+    return;
+  }
   const state = readState();
   const channelId = flagIdx !== -1 ? args[flagIdx + 1] : state.channelId;
 
