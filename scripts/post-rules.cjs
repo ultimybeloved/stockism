@@ -45,7 +45,10 @@ const EMOJI = {
   headMod: '<:head_mod:1552569647558172733>',
   mod: '<:mod:1552569651261866015>',
   affiliate: '<:affiliate:1552569654818639962>',
-  link: '<:link:1552569657993465867>',
+  yap: '<:yap:1552574969630957578>',
+  soap: '<:soap:1552574974298955827>',
+  slare: '<:slare:1552574978950434826>',
+  link: '<:link:1552574982985490502>',
 };
 
 const TITLE = `${EMOJI.quest} Welcome!`;
@@ -67,9 +70,9 @@ const MODERATOR = '<@&1471635846498353317>';
 const AFFILIATE = '<@&1552522322773147699>';
 const STAFF = [
   `${DEVELOPER} ${EMOJI.dev} - <@539194416120987648>`,
-  `${HEAD_MOD} ${EMOJI.headMod} - <@675125555787595806>`,
+  `${HEAD_MOD} ${EMOJI.headMod} - <@675125555787595806> ${EMOJI.yap}`,
   '*Leads the mod team and makes the call when the developer is away.*',
-  `${MODERATOR} ${EMOJI.mod} - <@1281576039960678461>, <@740968205950124134>`,
+  `${MODERATOR} ${EMOJI.mod} - <@1281576039960678461> ${EMOJI.soap}, <@740968205950124134> ${EMOJI.slare}`,
   `${AFFILIATE} ${EMOJI.affiliate} - Owners of affiliate servers`,
   "*Full authority in their own server's channels. Everywhere else, they can warn and jail for clear rule breaks. Borderline cases go to the mods.*",
 ].join('\n');
