@@ -93,10 +93,8 @@ const RULES = [
   ['No NSFW.', 'No porn or adult content. No sexual comments about members. Sexualizing minors is an instant, permanent ban.'],
   ['Keep chat usable.', "No raids, mass pings, or spam floods. Don't spam-ping staff."],
   ['Raise concerns in good faith.', "Feedback on the rules or the game is welcome. Say what's wrong and why. Doom posting helps nobody."],
+  ["Don't trust anyone, they are out to get you.", 'This is a competitive game. Every other player wants your money. Tips, deals, and "trust me" calls are often traps.'],
 ];
-
-// Unnumbered closing line under the rules.
-const RULES_FOOTER = "Don't trust anyone, they are out to get you.";
 
 const COLOR = 0xf97316; // site orange
 
@@ -104,9 +102,7 @@ const COLOR = 0xf97316; // site orange
 
 function ruleLines() {
   const lines = RULES.map(([head, detail], i) => `${i + 1}. **${head}**${detail ? ` ${detail}` : ''}`);
-  // Discord trims trailing blank lines, so an invisible character holds the
-  // gap between the footer and the Server Link field.
-  return [...lines, '', `*${RULES_FOOTER}*`, '​'];
+  return lines;
 }
 
 function buildEmbed() {
