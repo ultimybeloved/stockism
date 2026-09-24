@@ -33,35 +33,50 @@ const API = 'https://discord.com/api/v10';
 // re-run to update the existing message.
 const INVITE_URL = 'https://discord.com/invite/hpVm8nQMvY';
 
-const TITLE = 'Welcome!';
+// Custom emoji are uploaded to the bot application itself (Developer Portal ->
+// Emojis), so they render anywhere the bot posts and can't vanish with a server.
+// STOCKISM is the exception: it lives in the Stockism server, where this posts.
+const EMOJI = {
+  quest: '<:quest:1552569633255464970>',
+  stockism: '<:STOCKISM:1466671436843454555>',
+  president: '<:president:1552569636795584532>',
+  investor: '<:investor:1552569640369000478>',
+  dev: '<:dev:1552569644047663194>',
+  headMod: '<:head_mod:1552569647558172733>',
+  mod: '<:mod:1552569651261866015>',
+  affiliate: '<:affiliate:1552569654818639962>',
+  link: '<:link:1552569657993465867>',
+};
+
+const TITLE = `${EMOJI.quest} Welcome!`;
 
 const INTRO = [
   'Stockism is a live stock market for Lookism characters.',
-  'Trade at https://stockism.app',
+  `Trade at https://stockism.app ${EMOJI.stockism}`,
 ].join('\n');
 
 // Role mentions render as coloured pills. They never ping from inside an embed,
 // and allowed_mentions is empty on send as a second belt.
 const PRESIDENT = '<@&1495943413147893831>';
 const ANGEL_INVESTORS = '<@&1472108261040980230>';
-const CUSTOM_ROLES = `Custom role available as a ${PRESIDENT} or ${ANGEL_INVESTORS}`;
+const CUSTOM_ROLES = `Custom role available as a ${PRESIDENT} ${EMOJI.president} or ${ANGEL_INVESTORS} ${EMOJI.investor}`;
 
 const DEVELOPER = '<@&1470614423910482081>';
 const HEAD_MOD = '<@&1552522948240343100>';
 const MODERATOR = '<@&1471635846498353317>';
 const AFFILIATE = '<@&1552522322773147699>';
 const STAFF = [
-  `${DEVELOPER} - <@539194416120987648>`,
-  `${HEAD_MOD} - <@675125555787595806>`,
+  `${DEVELOPER} ${EMOJI.dev} - <@539194416120987648>`,
+  `${HEAD_MOD} ${EMOJI.headMod} - <@675125555787595806>`,
   '*Leads the mod team and makes the call when the developer is away.*',
-  `${MODERATOR} - <@1281576039960678461>, <@740968205950124134>`,
-  `${AFFILIATE} - Owners of affiliate servers`,
+  `${MODERATOR} ${EMOJI.mod} - <@1281576039960678461>, <@740968205950124134>`,
+  `${AFFILIATE} ${EMOJI.affiliate} - Owners of affiliate servers`,
   "*Full authority in their own server's channels. Everywhere else, they can warn and jail for clear rule breaks. Borderline cases go to the mods.*",
 ].join('\n');
 
 // Link buttons sit in a row under the embed. Add more objects for more buttons.
 const BUTTONS = [
-  { label: 'Chat Leaderboard', emoji: '📋', url: 'https://arcane.bot/leaderboard/stockism' },
+  { label: 'Chat Leaderboard', emoji: { name: 'document', id: '1552569661592313858' }, url: 'https://arcane.bot/leaderboard/stockism' },
 ];
 
 // Reactions the bot adds to the rules message. Custom emoji use `name:id`.
@@ -116,7 +131,7 @@ function buildEmbed() {
     fields: [
       // Field names render bold on their own. Adding ** here would print the
       // asterisks literally.
-      { name: 'Server Link', value: `➥ Permanent Invite - ${INVITE_URL}` },
+      { name: `${EMOJI.link} Server Link`, value: `➥ Permanent Invite - ${INVITE_URL}` },
     ],
   };
 }
@@ -129,7 +144,8 @@ function buildComponents() {
       type: 2,    // button
       style: 5,   // link button, needs no custom_id and fires no interaction
       label: b.label,
-      emoji: { name: b.emoji },
+      // A plain string is a unicode emoji; custom ones are passed as { name, id }.
+      emoji: typeof b.emoji === 'string' ? { name: b.emoji } : b.emoji,
       url: b.url,
     })),
   }];
