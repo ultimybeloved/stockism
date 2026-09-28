@@ -112,9 +112,11 @@ export function useSeason() {
     // Kept out of Platinum and Diamond by the admin for repeated coordinated
     // trading. Mirror of isTopTierExcluded in functions/services/seasonTiers.js.
     topTierExcluded: userData?.seasonTopTierExclusion?.seasonId === season.id,
-    // Up on the season means Silver if they finish there, so point at Gold next.
+    // The tiers are a ladder, so without Bronze the next step is always Bronze.
+    // With it, being up on the season means Silver if they finish there, so
+    // point at Gold next.
     nextTier: nextSeasonTier(
-      returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order
+      lockedTier && returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order
         ? 'silver' : lockedTier
     ),
   };

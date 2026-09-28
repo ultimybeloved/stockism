@@ -862,6 +862,11 @@ const SEASON_DIAMOND_BEAT_SHARE = 0.75;
 // before every Thursday and buying back after, paying price impact both ways.
 // 16 of 39 measurable active players were over 90% in one character.
 const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
+// A checkpoint only counts toward that limit when at least this share of the
+// player's money is invested. Someone sitting almost all in cash with one small
+// position is not "all in on one character", even though that position is 100%
+// of what they hold.
+const SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED = 0.25;
 // Bronze is earned by turning up, not by performance — see the note in
 // src/constants/seasons.js for why a losing season must still pay something.
 const SEASON_BRONZE_ACTIVE_WEEKS = 2;
@@ -1052,6 +1057,7 @@ module.exports = {
   SEASON_DIAMOND_TOP_SHARE,
   SEASON_DIAMOND_BEAT_SHARE,
   SEASON_DIAMOND_MAX_CONCENTRATION,
+  SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
   SEASON_TITLED_TIERS,

@@ -17,7 +17,7 @@ const db = admin.firestore();
 const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../constants');
 const { netEquityAt, getLastActiveMs, readIndexNow, round2, characterExposure } = require('../helpers');
 const {
-  DEFAULT_SEASON_RULES, checkpointTier, finalTier, rankTopTiers, divisionFor, divisionSlots,
+  DEFAULT_SEASON_RULES, checkpointTier, finalTier, rankTopTiers, divisionFor, divisionSlots, weekConcentration,
 } = require('./seasonTiers');
 
 const dryRuns = () => db.collection('seasonDryRuns');
@@ -71,7 +71,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
         state.set(row.uid, {
           name: row.n, base: row.v, baseGranted: row.g, baseIndex: week.index,
           prev: row, prevIndex: week.index, last: row, lastIndex: week.index,
-          beat: 0, appearances: 1, peak: row.h > 0 ? row.c / row.h : 0,
+          beat: 0, appearances: 1, peak: weekConcentration(row),
         });
         continue;
       }
@@ -79,7 +79,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
       const weekReturn = seen.prev.v > 0 ? ((row.v - grantsThisWeek) - seen.prev.v) / seen.prev.v : 0;
       const weekIndex = seen.prevIndex > 0 ? (week.index - seen.prevIndex) / seen.prevIndex : 0;
       if (weekReturn > weekIndex) seen.beat++;
-      const concentration = row.h > 0 ? row.c / row.h : 0;
+      const concentration = weekConcentration(row);
       if (concentration > seen.peak) seen.peak = concentration;
       seen.name = row.n;
       seen.prev = row;
@@ -121,7 +121,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   const ranked = rankTopTiers(scored, rules);
   const tierCounts = {};
   for (const p of scored) {
-    p.tier = finalTier({ ...p, tier: checkpointTier({ activeWeeks: p.activeWeeks }, rules) }, ranked);
+    p.tier = finalTier({ ...p, tier: checkpointTier({ activeWeeks: p.activeWeeks }, rules) }, ranked, rules);
     if (p.tier) tierCounts[p.tier] = (tierCounts[p.tier] || 0) + 1;
   }
   scored.sort((a, b) => b.excess - a.excess);

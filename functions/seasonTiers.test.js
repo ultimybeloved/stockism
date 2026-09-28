@@ -281,9 +281,14 @@ describe('checkpointTier', () => {
 });
 
 describe('standingTier', () => {
-  it('is Gold for beating the market over the season, even a falling one', () => {
+  it('is Gold for being up AND beating the market over the season', () => {
     expect(standingTier({ returnPercent: 12, marketPercent: 5 })).toBe('gold');
-    expect(standingTier({ returnPercent: -2, marketPercent: -8 })).toBe('gold');
+    expect(standingTier({ returnPercent: 3, marketPercent: -8 })).toBe('gold');
+  });
+
+  it('is not Gold for beating a falling market while down: Gold needs Silver', () => {
+    expect(standingTier({ returnPercent: -2, marketPercent: -8 })).toBeNull();
+    expect(standingTier({ returnPercent: 0, marketPercent: -1 })).toBeNull();
   });
 
   it('is Silver for being up but behind the market, matching it included', () => {
@@ -310,7 +315,18 @@ describe('finalTier', () => {
     // Ahead of the market once mid-season, behind at the end: Bronze only.
     expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: -3, marketPercent: 4 }, ranked)).toBe('bronze');
     expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: 2, marketPercent: 4 }, ranked)).toBe('silver');
-    expect(finalTier({ uid: 'a', tier: null, returnPercent: 9, marketPercent: 4 }, ranked)).toBe('gold');
+    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: 9, marketPercent: 4 }, ranked)).toBe('gold');
+  });
+
+  it('gives nothing above Bronze to a player who never earned Bronze', () => {
+    // The abandoned account whose stocks rose: up and ahead, but never turned up.
+    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 1, returnPercent: 40, marketPercent: 4 }, ranked)).toBeNull();
+    expect(finalTier({ uid: 'p', tier: null, activeWeeks: 0, returnPercent: 50, marketPercent: 4 }, ranked)).toBeNull();
+  });
+
+  it('counts Bronze turnout that has not been banked yet', () => {
+    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: 9, marketPercent: 4 }, ranked)).toBe('gold');
+    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: -9, marketPercent: 4 }, ranked)).toBe('bronze');
   });
 
   it('takes a ranked place over the standing tier', () => {
@@ -395,7 +411,7 @@ describe('topTierSlots', () => {
 
 describe('rankTopTiers', () => {
   const player = (uid, excess, extra = {}) => ({
-    uid, excess, activeWeeks: 4, beatShare: 1, peakConcentration: 0.3, ...extra,
+    uid, excess, returnPercent: excess, marketPercent: 0, activeWeeks: 4, beatShare: 1, peakConcentration: 0.3, ...extra,
   });
   // A board of 20: three Platinum places, one Diamond.
   const filler = Array.from({ length: 16 }, (_, i) => player(`f${i}`, 1 + i / 100));
@@ -559,7 +575,7 @@ describe('size divisions', () => {
 
   it('ranks Platinum and Diamond within each division, not across the board', () => {
     const p = (uid, excess, division) => ({
-      uid, excess, division, activeWeeks: 2, beatShare: 1, peakConcentration: 0.3,
+      uid, excess, returnPercent: excess, marketPercent: 0, division, activeWeeks: 2, beatShare: 1, peakConcentration: 0.3,
     });
     // Rookies swing further: all ten of them beat every Titan.
     const rookies = Array.from({ length: 10 }, (_, i) => p(`r${i}`, 500 - i * 10, 'rookie'));

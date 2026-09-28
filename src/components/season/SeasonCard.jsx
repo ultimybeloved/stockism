@@ -30,7 +30,7 @@ const SeasonCard = () => {
     if (topTierExcluded && (nextTier.id === 'platinum' || nextTier.id === 'diamond')) return null;
     switch (nextTier.id) {
       case 'bronze':
-        return `Be active in ${bronzeActiveWeeks} weeks of the season. You have ${activeWeeks} so far.`;
+        return `Be active in ${bronzeActiveWeeks} weeks of the season. You have ${activeWeeks} so far. Every tier above needs Bronze first.`;
       case 'silver':
         return `Finish the season above where you started. You're at ${fmtPct(returnPercent)}.`;
       case 'gold':

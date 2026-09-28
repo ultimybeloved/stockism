@@ -67,11 +67,20 @@ describe('SeasonProgress', () => {
   it('rules out Diamond once a checkpoint finds one character over the limit', () => {
     render(
       <SeasonProgress season={season} baselineValue={10000} seasonWeeks={[
-        row(1, { v: 20000, x: 1010, c: 300, h: 1000 }),
-        row(2, { v: 21000, x: 1010, c: 1000, h: 1000 }),
+        row(1, { v: 20000, x: 1010, c: 3000, h: 10000 }),
+        row(2, { v: 21000, x: 1010, c: 10000, h: 10000 }),
       ]} />
     );
     expect(screen.getByText(/Diamond is out this season/i)).toBeInTheDocument();
+  });
+
+  it('ignores one small position in a week that was mostly cash', () => {
+    // $1,000 of $20,000 invested, all in one character: not a concentrated bet.
+    render(
+      <SeasonProgress season={season} baselineValue={10000}
+        seasonWeeks={[row(1, { v: 20000, x: 1010, c: 1000, h: 1000 })]} />
+    );
+    expect(screen.queryByText(/Diamond is out/i)).not.toBeInTheDocument();
   });
 
   it('shows the Diamond limit as still open for a spread portfolio', () => {

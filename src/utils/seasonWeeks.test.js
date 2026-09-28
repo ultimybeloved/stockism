@@ -78,9 +78,9 @@ describe('deriveSeasonWeeks', () => {
 
 describe('summariseSeasonWeeks', () => {
   const weeks = [
-    row(1, { v: 11000, x: 1010, c: 900, h: 1000 }),
-    row(2, { v: 10500, x: 1050, c: 500, h: 1000 }),
-    row(3, { v: 12000, x: 1060, c: 800, h: 1000 }),
+    row(1, { v: 11000, x: 1010, c: 9000, h: 10000 }),
+    row(2, { v: 10500, x: 1050, c: 5000, h: 10000 }),
+    row(3, { v: 12000, x: 1060, c: 8000, h: 10000 }),
   ];
   const summary = summariseSeasonWeeks(deriveSeasonWeeks(weeks, ctx));
 
@@ -115,7 +115,7 @@ describe('the $GAP-sitter', () => {
   // index nearly every week, so consistency waves them through. Only the
   // concentration figure separates them, which is why it is recorded.
   const sitter = [1, 2, 3, 4, 5].map((w) =>
-    row(w, { v: 10000 * Math.pow(1.4, w), x: 1000 + w * 8, c: 1000, h: 1000 }));
+    row(w, { v: 10000 * Math.pow(1.4, w), x: 1000 + w * 8, c: 20000, h: 20000 }));
   const derived = deriveSeasonWeeks(sitter, ctx);
   const summary = summariseSeasonWeeks(derived);
 

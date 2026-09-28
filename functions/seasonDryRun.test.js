@@ -77,9 +77,9 @@ describe('scoreDryRuns', () => {
 
   it('keeps the highest concentration any week showed', () => {
     const out = scoreDryRuns([
-      week('w1', 1, 1000, [row('a', 10000, { c: 300, h: 1000 })]),
-      week('w2', 2, 1000, [row('a', 11000, { c: 950, h: 1000 })]),
-      week('w3', 3, 1000, [row('a', 12000, { c: 100, h: 1000 })]),
+      week('w1', 1, 1000, [row('a', 10000, { c: 3000, h: 10000 })]),
+      week('w2', 2, 1000, [row('a', 11000, { c: 9500, h: 10000 })]),
+      week('w3', 3, 1000, [row('a', 12000, { c: 1000, h: 10000 })]),
     ]);
     expect(out.scored[0].peakConcentration).toBe(0.95);
   });
@@ -87,10 +87,10 @@ describe('scoreDryRuns', () => {
   it('applies the real tiers, including the one-character limit on Diamond', () => {
     // Fourteen on the board, so there are two Platinum places and one Diamond.
     // The twelve fillers go nowhere, which is what leaves the places to be won.
-    const fillers = Array.from({ length: 12 }, (_, i) => row(`f${i}`, 10000 + i, { c: 100, h: 1000 }));
-    const rows1 = [row('sitter', 10000, { c: 1000, h: 1000 }), row('spread', 10000, { c: 400, h: 1000 }), ...fillers];
-    const rows2 = [row('sitter', 30000, { c: 1000, h: 1000 }), row('spread', 15000, { c: 400, h: 1000 }), ...fillers];
-    const rows3 = [row('sitter', 40000, { c: 1000, h: 1000 }), row('spread', 20000, { c: 400, h: 1000 }), ...fillers];
+    const fillers = Array.from({ length: 12 }, (_, i) => row(`f${i}`, 10000 + i, { c: 1000, h: 10000 }));
+    const rows1 = [row('sitter', 10000, { c: 10000, h: 10000 }), row('spread', 10000, { c: 4000, h: 10000 }), ...fillers];
+    const rows2 = [row('sitter', 30000, { c: 10000, h: 10000 }), row('spread', 15000, { c: 4000, h: 10000 }), ...fillers];
+    const rows3 = [row('sitter', 40000, { c: 10000, h: 10000 }), row('spread', 20000, { c: 4000, h: 10000 }), ...fillers];
     const out = scoreDryRuns([week('w1', 1, 1000, rows1), week('w2', 2, 1000, rows2), week('w3', 3, 1000, rows3)]);
     const tier = (uid) => out.scored.find((p) => p.uid === uid).tier;
     expect(tier('sitter')).toBe('platinum');

@@ -216,6 +216,12 @@ const run = async () => {
   check('undo clears the mark', !(await user('diverse')).seasonTopTierExclusion);
 
   console.log('\nE. End');
+  // Final scores are read at this moment's prices, so ending is refused unless
+  // the market is halted (the Thursday halt or an admin halt).
+  let refused = false;
+  try { await adminEndSeason.run({}, adminCtx); } catch (e) { refused = e.code === 'failed-precondition'; }
+  check('ending while the market is open is refused', refused);
+  await db.collection('market').doc('current').set({ marketHalted: true }, { merge: true });
   const end = await adminEndSeason.run({}, adminCtx);
   // Bronze: stale, granted, loser, late and the seven fillers.
   check('end hands out Diamond, Platinum, Gold and Bronze', end.tierCounts.diamond === 1 && end.tierCounts.platinum === 1
@@ -254,10 +260,17 @@ const run = async () => {
   // Pinned at the preseason start: CROC 71 and XIAO 50, each sold down 1.2%.
   check('a player already over the floor is not re-pinned', close((await user('diverse')).seasonBaseline.value, 11954.8), (await user('diverse')).seasonBaseline);
 
+  // Tiers are a ladder: nothing above Bronze without Bronze's turnout. This
+  // preseason has only the one checkpoint, so give diverse the earlier week.
+  await db.collection('users').doc('diverse').update({ seasonActiveWeeks: { seasonId: 'P1', weeks: 1, lastWeek: 0 } });
   await adminEndSeason.run({}, adminCtx);
   const preDiverse = await user('diverse');
-  check('preseason hands out one Preseason title', preDiverse.ownedTitles.includes('preseason_1_gold')
-    && preDiverse.titleMeta.preseason_1_gold === 'Preseason Gold' && !preDiverse.ownedTitles.includes('arc_p1_gold'), preDiverse.ownedTitles);
+  const preTier = preDiverse.seasonTier?.tier;
+  const preLabel = preTier ? preTier.charAt(0).toUpperCase() + preTier.slice(1) : '';
+  check('preseason hands out one Preseason title', preTier === 'diamond'
+    && preDiverse.ownedTitles.includes(`preseason_1_${preTier}`)
+    && preDiverse.titleMeta[`preseason_1_${preTier}`] === `Preseason ${preLabel}`
+    && !preDiverse.ownedTitles.some((t) => t.startsWith('arc_p1_')), preDiverse.ownedTitles);
   check('preseason results filed under P1', (await db.collection('seasonResults').doc('P1').get()).exists);
 
   console.log('\nG. Counting the start week');

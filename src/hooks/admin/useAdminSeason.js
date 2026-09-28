@@ -57,8 +57,8 @@ export function useAdminSeason({ showMessage, setLoading }) {
       `End "${season.name}" now?\n\n` +
       'Standings freeze, Platinum and Diamond are handed out, titles go to every tier that ' +
       'pays one, and the results are filed.\n\n' +
-      'Best pressed during the Thursday halt, the week the arc finale lands. Prices are ' +
-      'frozen then, so nobody can spike the closing numbers.\n\nThis cannot be undone.'
+      'Only works while the market is halted (the Thursday halt, or a halt you set), so ' +
+      'nobody can spike the closing numbers. Best done the week the arc finale lands.\n\nThis cannot be undone.'
     )) return;
 
     setLoading(true);

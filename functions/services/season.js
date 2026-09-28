@@ -35,7 +35,7 @@ const {
   lastHaltStart,
 } = require('./seasonTiers');
 const {
-  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, SEASON_MIN_BASELINE,
+  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, SEASON_MIN_BASELINE, isWeeklyTradingHalt,
 } = require('../constants');
 const {
   writeNotification, recordHeartbeat, exitEquityAt, readIndexNow, round2, getLadderWithdrawable,
@@ -363,6 +363,15 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     throw new functions.https.HttpsError('failed-precondition', 'No season is running');
   }
 
+  // Final scores are read at the prices of this moment, so only while they are
+  // frozen: the Thursday halt, or a halt the admin set. Mid-week, anyone could
+  // pump their own stock seconds before the button is pressed.
+  const marketSnap = await db.collection('market').doc('current').get();
+  if (!isWeeklyTradingHalt() && marketSnap.data()?.marketHalted !== true) {
+    throw new functions.https.HttpsError('failed-precondition',
+      'End the season while the market is halted: during the Thursday halt, or halt it first in Admin -> Market.');
+  }
+
   await runSeasonCheckpoint();
 
   const season = (await seasonRef().get()).data();
@@ -404,7 +413,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   let awarded = 0;
 
   for (const { entry, ref, displayName } of scoredPlayers) {
-    const tier = finalTier(entry, ranked);
+    const tier = finalTier(entry, ranked, rules);
     standings.push({
       uid: entry.uid,
       displayName,
@@ -524,7 +533,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     .sort((a, b) => b.excess - a.excess)
     .map((e) => {
       // Where they'd finish if it ended now, when that beats what's banked.
-      const finish = finalTier(e, projected);
+      const finish = finalTier(e, projected, rules);
       return {
         userId: e.uid,
         ...names.get(e.uid),

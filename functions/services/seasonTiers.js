@@ -10,13 +10,17 @@
 //
 //   Bronze    active at SEASON_BRONZE_ACTIVE_WEEKS weekly checkpoints. The
 //             only tier banked at a checkpoint and kept once earned.
-//   Silver    up on the season, free money removed
-//   Gold      ahead of the market over the whole season
+//   Silver    Bronze, and up on the season, free money removed
+//   Gold      Silver, and ahead of the market over the whole season
 //             Both judged on where the player FINISHES. Banking them the first
 //             Thursday they were touched rewarded one lucky week (or one big
 //             borrowed bet) instead of a season (Darth YG, 2026-09-18).
 //
-//   Platinum  the top SEASON_PLATINUM_TOP_SHARE of the player's size division
+// The tiers are a LADDER (Darth YG, 2026-09-28): each needs everything below it.
+// Without that, 112 accounts nobody had touched in weeks would have taken Gold
+// titles off stocks that happened to rise while they were away.
+//
+//   Platinum  Gold, and the top SEASON_PLATINUM_TOP_SHARE of the player's size division
 //             (SEASON_DIVISIONS) against the market, handed out at season end
 //   Diamond   the best of those, at most SEASON_DIAMOND_TOP_SHARE of the division,
 //             who also beat the market in SEASON_DIAMOND_BEAT_SHARE of the
@@ -49,6 +53,7 @@ const {
   SEASON_DIAMOND_TOP_SHARE,
   SEASON_DIAMOND_BEAT_SHARE,
   SEASON_DIAMOND_MAX_CONCENTRATION,
+  SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
   SEASON_TITLED_TIERS,
   SEASON_DIVISIONS,
   WEEKLY_HALT_WEEKDAY,
@@ -63,6 +68,7 @@ const DEFAULT_SEASON_RULES = Object.freeze({
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
+  diamondConcentrationMinInvested: SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
   titledTiers: SEASON_TITLED_TIERS,
   divisions: SEASON_DIVISIONS,
 });
@@ -282,20 +288,30 @@ const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, 
 const checkpointTier = ({ activeWeeks }, rules = DEFAULT_SEASON_RULES) =>
   ((activeWeeks || 0) >= rules.bronzeActiveWeeks ? 'bronze' : null);
 
-/** Silver or Gold from where the player stands on the whole season. */
+/**
+ * Silver or Gold from where the player stands on the whole season. Gold needs
+ * Silver too: beating a falling market while down is not Gold.
+ */
 const standingTier = ({ returnPercent, marketPercent }) => {
-  if (returnPercent > marketPercent) return 'gold';
-  if (returnPercent > 0) return 'silver';
-  return null;
+  if (!(returnPercent > 0)) return null;
+  return returnPercent > marketPercent ? 'gold' : 'silver';
 };
+
+/** Whether this board entry has earned Bronze, the first rung everything needs. */
+const hasBronze = (entry, rules = DEFAULT_SEASON_RULES) =>
+  tierRank(entry.tier) >= tierRank('bronze') || (entry.activeWeeks || 0) >= rules.bronzeActiveWeeks;
 
 /**
  * The tier a player finishes on (or would, if the season ended now): the best
  * of banked Bronze, Silver/Gold from their standing, and a ranked Platinum or
- * Diamond place. `entry` is a boardEntry; `ranked` is rankTopTiers' map.
+ * Diamond place. Nothing at all without Bronze. `entry` is a boardEntry;
+ * `ranked` is rankTopTiers' map (which only ranks players who have Gold).
  */
-const finalTier = (entry, ranked) =>
-  higherTier(higherTier(entry.tier, standingTier(entry)), ranked?.get(entry.uid)) || null;
+const finalTier = (entry, ranked, rules = DEFAULT_SEASON_RULES) => {
+  if (!hasBronze(entry, rules)) return null;
+  const standing = higherTier(higherTier(entry.tier, 'bronze'), standingTier(entry));
+  return higherTier(standing, ranked?.get(entry.uid)) || null;
+};
 
 /**
  * Average owed on margin between two week records, from their dollar-day
@@ -339,14 +355,27 @@ const weeklyRecordSummary = (seasonWeeks, { seasonId, baselineValue, baselineInd
     const weekReturn = weekCapital > 0 ? ((r.v - grantsThisWeek) - prev.v) / weekCapital : 0;
     const weekIndex = prev.x > 0 ? (r.x - prev.x) / prev.x : 0;
     if (weekReturn > weekIndex) beatWeeks++;
-    // Of invested money, not the whole portfolio.
-    const concentration = r.h > 0 ? r.c / r.h : 0;
+    // Of invested money, not the whole portfolio, and only in a week with
+    // enough invested for "all in on one character" to mean anything.
+    const concentration = weekConcentration(r);
     if (concentration > peakConcentration) peakConcentration = concentration;
     prev = r;
   }
 
   const weeks = Math.max(checkpointsRun, rows.length);
   return { weeks, beatWeeks, beatShare: weeks ? beatWeeks / weeks : 0, peakConcentration };
+};
+
+/**
+ * A week's share of invested money in one character, or 0 when too little of
+ * the player's money was invested for it to count (see
+ * SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED). Mirror of the concentration in
+ * deriveSeasonWeeks (src/utils/seasonWeeks.js).
+ */
+const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED) => {
+  if (!(r?.h > 0)) return 0;
+  if (r.v > 0 && r.h < r.v * minInvested) return 0;
+  return r.c / r.h;
 };
 
 /** How many Platinum and Diamond places a board of `n` players has. */
@@ -407,7 +436,8 @@ const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
   for (const group of groups.values()) {
     const slots = topTierSlots(group.length, rules);
     const platinum = group
-      .filter((p) => !p.topTierExcluded && p.excess > 0 && (p.activeWeeks || 0) >= rules.bronzeActiveWeeks)
+      // Gold first: Bronze's turnout, up on the season, and ahead of the market.
+      .filter((p) => !p.topTierExcluded && hasBronze(p, rules) && standingTier(p) === 'gold')
       // Ties broken by uid so the same board always hands out the same places.
       .sort((a, b) => (b.excess - a.excess) || String(a.uid).localeCompare(String(b.uid)))
       .slice(0, slots.platinum);
@@ -485,7 +515,9 @@ module.exports = {
   seasonScore,
   checkpointTier,
   standingTier,
+  hasBronze,
   finalTier,
+  weekConcentration,
   weeklyRecordSummary,
   topTierSlots,
   divisionFor,

@@ -2,6 +2,7 @@
 // rules in functions/services/seasonTiers.js — keep them in sync
 // (functions/seasonTiers.test.js checks the rules match).
 //
+// The tiers are a ladder: each one needs everything the one below it does.
 // Bronze is banked at the Thursday checkpoints and kept once earned. Silver and
 // Gold are judged on where a player finishes the season. Platinum and Diamond
 // are shares of the season board, handed out when the season ends. Arc length is never known in advance (the finale is only
@@ -38,6 +39,11 @@ export const SEASON_DIAMOND_TOP_SHARE = 0.05;
 // no single character above this share of invested money at any checkpoint.
 export const SEASON_DIAMOND_BEAT_SHARE = 0.75;
 export const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
+// A checkpoint only counts toward that limit when at least this share of the
+// player's money is invested. Someone sitting almost all in cash with one small
+// position is not "all in on one character", even though that position is 100%
+// of what they hold. Mirror of functions/constants.js.
+export const SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED = 0.25;
 
 // Tiers that give a permanent title when the season ends. Mirror of
 // SEASON_TITLED_TIERS in functions/constants.js. The rest still show, they just
@@ -60,6 +66,7 @@ export const DEFAULT_SEASON_RULES = Object.freeze({
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
   diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
   diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
+  diamondConcentrationMinInvested: SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
   titledTiers: SEASON_TITLED_TIERS,
   divisions: SEASON_DIVISIONS,
 });
@@ -72,10 +79,10 @@ const asPercent = (share) => `${Math.round(share * 100)}%`;
 /** One plain sentence per tier, for the card, the board and the admin panel. */
 export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
   bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
-  silver: 'Finish the season up. Free stock and bonuses don\'t count.',
-  gold: 'Finish the season ahead of the market.',
-  platinum: `Finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
-  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included).`,
+  silver: 'Earn Bronze and finish the season up. Free stock and bonuses don\'t count.',
+  gold: 'Earn Silver and finish the season ahead of the market.',
+  platinum: `Earn Gold and finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
+  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included) at a checkpoint where at least ${asPercent(rules.diamondConcentrationMinInvested)} of their money was invested.`,
 }[tierId] || '');
 
 /** The size division a baseline value falls in. Mirror of divisionFor in seasonTiers.js. */
@@ -103,11 +110,14 @@ export const seasonLabel = (season) => {
   return n > 1 ? `Preseason ${n}` : 'Preseason';
 };
 
-/** Silver or Gold from where a player stands on the season. Mirror of standingTier in seasonTiers.js. */
+/**
+ * Silver or Gold from where a player stands on the season. Gold needs Silver
+ * too: beating a falling market while down is not Gold. Mirror of standingTier
+ * in seasonTiers.js.
+ */
 export const seasonStandingTier = ({ returnPercent, marketPercent }) => {
-  if (returnPercent > marketPercent) return 'gold';
-  if (returnPercent > 0) return 'silver';
-  return null;
+  if (!(returnPercent > 0)) return null;
+  return returnPercent > marketPercent ? 'gold' : 'silver';
 };
 
 /** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */

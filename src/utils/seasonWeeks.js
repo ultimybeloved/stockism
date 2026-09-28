@@ -14,6 +14,8 @@
 //     records from before the counter existed)
 //   f ladder + prediction flows since the baseline (part of g, counted in full)
 
+import { SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED } from '../constants/seasons';
+
 /** Account size at pinning: value plus ladder cash. Mirror of seasonAccountSize in seasonTiers.js. */
 export const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladder || 0);
 
@@ -107,7 +109,18 @@ export const seasonCapital = (baseline, { granted, margin } = {}) => {
  * Week 1 is measured against a synthetic week 0 built from the season baseline,
  * so the first week is treated exactly like every other one.
  */
-export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baselineLadder = 0, pinnedAt = 0, indexAtStart }) => {
+/**
+ * A week's share of invested money in one character, or 0 when too little of the
+ * player's money was invested for it to count. Mirror of weekConcentration in
+ * functions/services/seasonTiers.js.
+ */
+export const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED) => {
+  if (!(r?.h > 0)) return 0;
+  if (r.v > 0 && r.h < r.v * minInvested) return 0;
+  return r.c / r.h;
+};
+
+export const deriveSeasonWeeks =(seasonWeeks, { seasonId, baselineValue, baselineLadder = 0, pinnedAt = 0, indexAtStart }) => {
   if (!(baselineValue > 0) || !(indexAtStart > 0)) return [];
 
   const rows = (seasonWeeks || [])
@@ -146,7 +159,7 @@ export const deriveSeasonWeeks = (seasonWeeks, { seasonId, baselineValue, baseli
       beat: weekReturn > weekIndex,
       // Of invested money, not of the whole portfolio: someone sitting 90% in
       // cash isn't making a concentrated bet, they're making a small one.
-      concentration: r.h > 0 ? r.c / r.h : 0,
+      concentration: weekConcentration(r),
     });
     prev = r;
   }

@@ -65,8 +65,8 @@ const SeasonPanel = ({
             </button>
           </div>
           <p className={`text-xs ${mutedClass} mt-2`}>
-            End it during the Thursday halt the week a Finale chapter drops. Prices are frozen then,
-            so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out
+            End it during the Thursday halt the week a Finale chapter drops. It only works while the
+            market is halted, so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out
             Platinum and Diamond.
           </p>
 
