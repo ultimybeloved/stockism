@@ -28,7 +28,7 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason } = require('../functions/services/season');
+const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason, triggerSeasonCheckpoint } = require('../functions/services/season');
 const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/services/seasonExclusions');
 const { ADMIN_UID } = require('../functions/constants');
 
@@ -221,6 +221,10 @@ const run = async () => {
   let refused = false;
   try { await adminEndSeason.run({}, adminCtx); } catch (e) { refused = e.code === 'failed-precondition'; }
   check('ending while the market is open is refused', refused);
+  let cpRefused = false;
+  try { await triggerSeasonCheckpoint.run({}, adminCtx); } catch (e) { cpRefused = e.code === 'failed-precondition'; }
+  check('a manual checkpoint while the market is open is refused', cpRefused);
+  check('the public board carries nobody\'s ladder figure', !/returnWithLadder/.test(JSON.stringify(backBoard)));
   await db.collection('market').doc('current').set({ marketHalted: true }, { merge: true });
   const end = await adminEndSeason.run({}, adminCtx);
   // Bronze: stale, granted, loser, late and the seven fillers.

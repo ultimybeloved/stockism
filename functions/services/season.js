@@ -69,6 +69,20 @@ const readLadderCash = async () => {
   return cash;
 };
 
+/**
+ * Refuse unless prices are frozen: the Thursday halt, or a halt the admin set.
+ * Ending a season and running a checkpoint both score everyone at this moment's
+ * prices, so mid-week anyone could pump their own stock seconds before the
+ * button is pressed. The scheduled checkpoint always runs inside the halt.
+ */
+const assertPricesFrozen = async (action) => {
+  if (isWeeklyTradingHalt()) return;
+  const marketSnap = await db.collection('market').doc('current').get();
+  if (marketSnap.data()?.marketHalted === true) return;
+  throw new functions.https.HttpsError('failed-precondition',
+    `${action} while the market is halted: during the Thursday halt, or halt it first in Admin -> Market.`);
+};
+
 /** The first `n` of each division, keeping the input's (ranked) order. */
 const topPerDivision = (rows, n) => {
   const seen = {};
@@ -337,6 +351,7 @@ exports.triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(async
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
+  await assertPricesFrozen('Run the checkpoint');
   return runSeasonCheckpoint();
 });
 
@@ -363,14 +378,7 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     throw new functions.https.HttpsError('failed-precondition', 'No season is running');
   }
 
-  // Final scores are read at the prices of this moment, so only while they are
-  // frozen: the Thursday halt, or a halt the admin set. Mid-week, anyone could
-  // pump their own stock seconds before the button is pressed.
-  const marketSnap = await db.collection('market').doc('current').get();
-  if (!isWeeklyTradingHalt() && marketSnap.data()?.marketHalted !== true) {
-    throw new functions.https.HttpsError('failed-precondition',
-      'End the season while the market is halted: during the Thursday halt, or halt it first in Admin -> Market.');
-  }
+  await assertPricesFrozen('End the season');
 
   await runSeasonCheckpoint();
 
@@ -538,9 +546,8 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
         userId: e.uid,
         ...names.get(e.uid),
         returnPercent: round1(e.returnPercent),
-        // Never ranked on — shown on your own row so you can see what the ladder
-        // would have been worth if it counted.
-        returnWithLadder: round1(e.returnWithLadder),
+        // No returnWithLadder here: it would show every player's ladder results
+        // to anyone. Your own card works yours out on your device (useSeason.js).
         excess: round1(e.excess),
         division: e.division,
         tier: e.tier,

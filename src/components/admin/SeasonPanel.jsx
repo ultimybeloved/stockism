@@ -52,7 +52,7 @@ const SeasonPanel = ({
               onClick={handleRunCheckpoint}
               disabled={loading}
               className="px-3 py-1 text-xs font-semibold rounded bg-slate-500 text-white hover:bg-slate-600 disabled:opacity-50"
-              title="Normally runs itself every Thursday during the halt"
+              title="Normally runs itself every Thursday during the halt. Only works while the market is halted."
             >
               Run checkpoint now
             </button>
