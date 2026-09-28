@@ -137,6 +137,18 @@ describe('computeRarityTiers gap snapping', () => {
   });
 });
 
+describe('computeRarityTiers with stock splits', () => {
+  it('ranks a split stock on its pre-split price, so a split never moves its tier', () => {
+    const pairs = clusterPairs.map(([t, p]) => [t, p]);
+    const before = computeRarityTiers(pairs.map(([ticker]) => ({ ticker })), Object.fromEntries(pairs));
+
+    // T00 (top of the board at 60) goes 3-for-1: its live price is now 20.
+    const characters = pairs.map(([ticker]) => (ticker === 'T00' ? { ticker, splitFactor: 3 } : { ticker }));
+    const prices = { ...Object.fromEntries(pairs), T00: 20 };
+    expect(computeRarityTiers(characters, prices)).toEqual(before);
+  });
+});
+
 describe('rarityClassFor', () => {
   it('maps tiers to class names and empty for none', () => {
     expect(rarityClassFor('epic')).toBe('rarity-epic');

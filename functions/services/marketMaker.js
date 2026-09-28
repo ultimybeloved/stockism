@@ -4,7 +4,7 @@ const { cf } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../characters');
+const { CHARACTERS, splitFactorOf } = require('../characters');
 const {
   BASE_IMPACT,
   BASE_LIQUIDITY,
@@ -21,7 +21,7 @@ const {
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
-// Intervention size: 6 shares per cycle
+// Intervention size: 6 shares per cycle, times the stock's splitFactor
 const INTERVENTION_SHARES = 6;
 // How many daily closes the reference price averages over.
 const LOOKBACK_DAYS = 7;
@@ -156,7 +156,7 @@ exports.marketMakerCycle = cf().pubsub
         // Negative deviation → price too low → market maker buys (pushes price up)
         const isSell = deviation > 0;
 
-        const impact = calculateMarginalImpact(currentPrice, INTERVENTION_SHARES, 0, liquidityFor(ticker));
+        const impact = calculateMarginalImpact(currentPrice, INTERVENTION_SHARES * splitFactorOf(ticker), 0, liquidityFor(ticker));
         const clampedImpact = Math.min(
           impact,
           currentPrice * MAX_PRICE_CHANGE_PERCENT

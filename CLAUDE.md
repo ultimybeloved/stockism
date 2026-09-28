@@ -330,6 +330,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 | `functions/services/tickerRename.js` | **Internal module, not in servicePaths.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
+| `functions/services/tickerRemap.js` | **Internal module, not in servicePaths.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
 | `functions/services/tickerStats.js` | recordPriceExtremes — hourly all-time high/low sweep |
 | `functions/services/season.js` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
 | `functions/services/seasonRecords.js` | **Internal module, not in servicePaths.** The weekly record, board membership, and one player's board entry (incl. size division) |

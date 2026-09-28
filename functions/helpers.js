@@ -17,7 +17,7 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // ============================================
 // Rates, hold gate, and loyalty ladder live in characters.js (synced from
 // src/characters.js) so frontend and backend always agree.
-const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS, CHARACTER_MAP } = require('./characters');
+const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS, CHARACTER_MAP, splitFactorOf } = require('./characters');
 
 // ============================================
 // ROSTER GUARD
@@ -549,14 +549,14 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, l
  * the same dollar trade moves a split stock by the same percent as before the
  * split. Mirror of liquidityFor in src/utils/calculations.js.
  */
-const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
 
 /**
  * The largest single order on a stock: MAX_TRADE_SHARES, times its splitFactor,
  * so a split never changes how many orders it takes to trade a position.
  * Mirror of maxTradeSharesFor in src/utils/calculations.js.
  */
-const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?

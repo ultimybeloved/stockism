@@ -7,7 +7,7 @@ const {
   ADMIN_PRICE_PROTECTION_MS,
   MAX_DAILY_IMPACT,
 } = require('./constants');
-const { CHARACTER_MAP } = require('./characters');
+const { CHARACTER_MAP, splitFactorOf } = require('./characters');
 const { liquidityFor, calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker, recordHeartbeat } = require('./helpers');
 
 /**
@@ -102,7 +102,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
         const cashPct = Math.min(0.6, (0.25 + Math.random() * 0.25) * aggressionMultiplier);
         const maxShares = Math.floor((cash * cashPct) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -122,7 +122,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
         const topRising = risingStocks.slice(0, Math.min(10, risingStocks.length));
         const ticker = topRising[Math.floor(Math.random() * topRising.length)];
         const maxShares = Math.floor((cash * (0.2 + Math.random() * 0.3)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -141,7 +141,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
         const topDips = dips.slice(0, Math.min(10, dips.length));
         const ticker = topDips[Math.floor(Math.random() * topDips.length)];
         const maxShares = Math.floor((cash * (0.3 + Math.random() * 0.3)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -152,14 +152,14 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
         // Rarely trim positions
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
         const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
-        if (shareCount > 10) {
+        if (shareCount > 10 * splitFactorOf(ticker)) {
           return { action: 'SELL', ticker, shares: Math.floor(shareCount * 0.2) };
         }
       } else if (cash > 100) {
         // Buy and hold
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
         const maxShares = Math.floor((cash * (0.15 + Math.random() * 0.15)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(8, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(8 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -169,11 +169,11 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       if (Math.random() > 0.5 && Object.keys(holdings).length > 0) {
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
         const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
-        return { action: 'SELL', ticker, shares: Math.min(5, shareCount) };
+        return { action: 'SELL', ticker, shares: Math.min(5 * splitFactorOf(ticker), shareCount) };
       } else if (cash > 30) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
         const maxShares = Math.floor((cash * 0.1) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(5, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(5 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -187,7 +187,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       } else if (cash > 50) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
         const maxShares = Math.floor((cash * Math.random() * 0.5) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(12, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(12 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -202,7 +202,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       } else if (cash > 80 && Math.random() > 0.7) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
         const maxShares = Math.floor((cash * 0.15) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(6, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(6 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }
@@ -218,7 +218,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       } else if (cash > 70) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
         const maxShares = Math.floor((cash * (0.2 + Math.random() * 0.2)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10, maxShares)) };
+        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10 * splitFactorOf(ticker), maxShares)) };
       }
       break;
     }

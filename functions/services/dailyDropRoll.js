@@ -7,7 +7,7 @@
 // See the DISCORD DAILY DROP block in constants.js for the table design and
 // the payout targets these weights are calibrated to.
 
-const { CHARACTERS, computeRarityTiers, RARITY_ORDER } = require('../characters');
+const { CHARACTERS, computeRarityTiers, RARITY_ORDER, splitFactorOf } = require('../characters');
 const {
   DAILY_DROP_JACKPOT_CHANCE,
   DAILY_DROP_BONUS_TIERS, DAILY_DROP_BONUS_SHARE_VALUES, DAILY_DROP_BONUS_SHARE_WEIGHTS,
@@ -63,16 +63,17 @@ function buildDropPools(prices, launchedTickers) {
   // computeRarityTiers ranks characters only, so ETFs come back untiered. Slot
   // each one into the highest tier whose cheapest member it still outprices —
   // an ETF trades like the characters it tracks, so it belongs in that band.
+  // Pre-split prices throughout, the scale computeRarityTiers ranks on.
   const floors = {};
   for (const c of all) {
     const tier = tiers[c.ticker];
     if (!tier) continue;
-    if (floors[tier] === undefined || prices[c.ticker] < floors[tier]) {
-      floors[tier] = prices[c.ticker];
+    if (floors[tier] === undefined || unsplitPrice(prices, c.ticker) < floors[tier]) {
+      floors[tier] = unsplitPrice(prices, c.ticker);
     }
   }
   const tierOf = (c) => tiers[c.ticker]
-    || TIERS_BY_VALUE.find((t) => floors[t] !== undefined && prices[c.ticker] >= floors[t])
+    || TIERS_BY_VALUE.find((t) => floors[t] !== undefined && unsplitPrice(prices, c.ticker) >= floors[t])
     || RARITY_ORDER[0];
 
   const byTier = {};
@@ -83,7 +84,14 @@ function buildDropPools(prices, launchedTickers) {
   return { byTier, all };
 }
 
-/** Hand out `totalShares` round-robin across `variety` stocks drawn from `pool`. */
+/** A price on the pre-split scale, so split stocks compare like they used to. */
+const unsplitPrice = (prices, ticker) => (prices[ticker] || 0) * splitFactorOf(ticker);
+
+/**
+ * Hand out `totalShares` round-robin across `variety` stocks drawn from `pool`.
+ * Each stock's count is then scaled by its splitFactor, so a split stock pays
+ * the same value it did before the split.
+ */
 function draw(pool, prices, totalShares, variety, group) {
   if (!pool.length || totalShares < 1) return [];
   const count = Math.max(1, Math.min(variety, totalShares, pool.length));
@@ -95,6 +103,7 @@ function draw(pool, prices, totalShares, variety, group) {
     group,
   }));
   for (let i = 0; i < totalShares; i++) picks[i % picks.length].shares += 1;
+  for (const p of picks) p.shares *= splitFactorOf(p.ticker);
   return picks;
 }
 
@@ -123,7 +132,7 @@ function mergePicks(picks) {
 // rather than mislabelling a cheap stock as a legendary.
 function drawLegendaryChance(byTier, prices) {
   if (Math.random() >= DAILY_DROP_LEGENDARY_CHANCE) return [];
-  const tier = [...(byTier.legendary || [])].sort((a, b) => prices[a.ticker] - prices[b.ticker]);
+  const tier = [...(byTier.legendary || [])].sort((a, b) => unsplitPrice(prices, a.ticker) - unsplitPrice(prices, b.ticker));
   if (!tier.length) return [];
   const slice = tier.slice(0, Math.max(1, Math.ceil(tier.length * DAILY_DROP_LEGENDARY_POOL_FRACTION)));
   return draw(slice, prices, DAILY_DROP_LEGENDARY_SHARES, 1, 'legendary');

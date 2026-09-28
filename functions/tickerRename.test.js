@@ -166,6 +166,13 @@ describe('buildUserUpdates', () => {
     }
   });
 
+  it('moves the buy-back and short blocks, so a rename cannot lift them early', () => {
+    for (const map of ['lastHeavySell', 'lastHeavyExit']) {
+      expect(R.USER_TICKER_MAPS).toContain(map);
+    }
+    expect(R.MARKET_TICKER_MAPS).toContain('breakerCounts');
+  });
+
   it('rewrites the watchlist array', () => {
     expect(R.buildUserUpdates({ watchlist: [OTHER, OLD] }, OLD, NEW).watchlist)
       .toEqual([OTHER, NEW]);

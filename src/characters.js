@@ -428,6 +428,14 @@ CHARACTERS.forEach(c => {
   CHARACTER_MAP[c.ticker] = c;
 });
 
+/**
+ * How many for one this stock has been split, in total (1 if never). Anything
+ * sized in SHARES rather than dollars (liquidity, order caps, bot and market
+ * maker orders, drop payouts, rarity rank) scales by it, so a split changes
+ * nothing but the share count and the price per share.
+ */
+export const splitFactorOf = (ticker) => CHARACTER_MAP[ticker]?.splitFactor || 1;
+
 // ============================================
 // MARKET STANDING (rarity tiers)
 // ============================================
@@ -512,13 +520,16 @@ const snapBoundary = (ranked, nominal, prev, upperSize, lowerSize) => {
  * Build a { ticker: tier } map from a price map (live prices on the frontend,
  * the pre-halt snapshot in the dividend payout). ETFs are excluded, so ETF
  * tickers simply won't appear as keys.
+ *
+ * Ranked on the pre-split price (price x splitFactor), so a split never moves a
+ * stock's tier or its dividend rate.
  */
 export const computeRarityTiers = (characters, prices) => {
   const ranked = characters
     .filter((c) => !c.isETF)
     .map((c) => ({
       ticker: c.ticker,
-      price: prices?.[c.ticker] ?? c.basePrice ?? 0,
+      price: (prices?.[c.ticker] ?? c.basePrice ?? 0) * (c.splitFactor || 1),
     }))
     // Highest price first; ticker breaks ties so equal prices never reshuffle.
     .sort((a, b) => b.price - a.price || (a.ticker < b.ticker ? -1 : 1));

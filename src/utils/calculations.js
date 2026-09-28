@@ -26,7 +26,7 @@ import {
   MARGIN_MIN_TRADES,
   MARGIN_MIN_PEAK_PORTFOLIO
 } from '../constants/economy';
-import { CHARACTER_MAP } from '../characters';
+import { CHARACTER_MAP, splitFactorOf } from '../characters';
 
 /**
  * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
@@ -72,10 +72,10 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * so the same dollar trade moves a split stock the same percent as before.
  * Mirror of liquidityFor in functions/helpers.js.
  */
-export const liquidityFor = (ticker) => BASE_LIQUIDITY * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+export const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
 
 /** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/helpers.js. */
-export const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * (CHARACTER_MAP[ticker]?.splitFactor || 1);
+export const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
 
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
   const rawImpact = currentPrice * BASE_IMPACT * (

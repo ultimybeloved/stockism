@@ -17,7 +17,6 @@ const { buildSeasonBaseline } = require('./seasonTiers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
 
-
 // Deletes the orphaned Firebase Auth account left behind when a signup is hard-
 // blocked (disposable email, IP cap, watched IP). The browser creates the auth
 // login before calling createUser, so without this a blocked signup keeps a
@@ -468,7 +467,6 @@ exports.createUser = cf().https.onCall(async (data, context) => {
     );
   }
 });
-
 
 /**
  * Deletes a user account and all associated data.

@@ -49,7 +49,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     // markets do so a halt landing mid-bet still stops it.
     if (marketDoc.exists && marketDoc.data().marketHalted) {
       throw new functions.https.HttpsError('failed-precondition',
-        marketDoc.data().haltReason || chapterReviewHaltMsg());
+        marketDoc.data().haltReason || 'Market is currently halted.');
     }
     const predictionsData = predictionsDoc.data();
     const predictionsList = predictionsData.list || [];
@@ -198,8 +198,12 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
       if (newPredictionWins >= 10 && !achievements.includes('PROPHET')) predictionAchievements.push('PROPHET');
       else if (newPredictionWins >= 3 && !achievements.includes('ORACLE')) predictionAchievements.push('ORACLE');
 
-      // Underdog: win when <20% of the pool backed the winning side
-      if (winningPool > 0 && totalPool > 0 && (winningPool / totalPool) < 0.20 && !achievements.includes('UNDERDOG')) {
+      // Underdog: win when <20% of the pool backed the winning side. Players'
+      // money only: the house seed props up every side equally, so it is left out.
+      const seedPerOption = prediction.seedPerOption || 0;
+      const playerWinningPool = winningPool - seedPerOption * winningOutcomes.length;
+      const playerTotalPool = totalPool - seedPerOption * options.length;
+      if (playerWinningPool > 0 && playerTotalPool > 0 && (playerWinningPool / playerTotalPool) < 0.20 && !achievements.includes('UNDERDOG')) {
         predictionAchievements.push('UNDERDOG');
       }
 
