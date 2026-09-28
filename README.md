@@ -8,7 +8,7 @@ A stock market game built on Lookism characters. Every player trades in the same
 
 ## The Basics
 
-You sign up with $1,000. Linking a Discord account is a one-time verification step that raises your starting cash to $3,000 and unlocks trading. Buying pushes a price up, selling pushes it down, and the market never resets. There are 142 characters and 11 ETFs to trade, most of them crew index funds.
+You sign up with $1,000. Linking a Discord account is a one-time verification step that raises your starting cash to $3,000 and unlocks trading. Buying pushes a price up, selling pushes it down, and the market never resets. There are 158 characters and 11 ETFs to trade, most of them crew index funds.
 
 The goal is the highest portfolio value: cash plus holdings, minus anything you borrowed.
 
@@ -16,13 +16,16 @@ The goal is the highest portfolio value: cash plus holdings, minus anything you 
 
 ## How Prices Move
 
-Prices are driven by five things:
+Prices are driven by six things:
 
 1. **Player trades.** Every trade moves the price using a square root impact model, so a big order costs more per share than a small one. A single trade can move a price at most 5%.
 2. **ETF trailing.** The 11 ETFs track their member characters. Trading a member nudges its ETFs, and trading an ETF nudges its members.
 3. **Bots.** Automated traders run every 30 minutes. Each has a personality (market follower, momentum, contrarian, hodler, day trader, panic seller, and a few others) so quiet hours still have movement.
 4. **Market maker.** Runs hourly. If a price has drifted more than 12% from its 7-day average, it nudges it back with a 6-share trade using the same impact math as a real trade.
 5. **Admin adjustments.** Manual price corrections after chapter events. Once an admin sets a price, bots and the market maker leave that ticker alone for 7 days so they cannot claw the change back.
+6. **Neglect decay.** A stock no player has traded for 14 days drifts down 1% a day until it reaches a hidden floor. Open short interest pauses the decay, so a short seller cannot farm a guaranteed decline.
+
+Stocks can also be **split** (for example 3-for-1): the price divides, every holder's shares multiply, and nobody's money changes.
 
 ---
 
@@ -32,7 +35,7 @@ Prices are driven by five things:
 
 - **Buy and sell** with per-share cost basis tracking and per-lot purchase ages.
 - **Short selling.** Fully collateralized: you post the position value dollar for dollar. Shorts on any one ticker are capped at 50% of your portfolio equity, and your total short value cannot exceed your net worth. Positions are force-covered when equity falls under 25%.
-- **Margin.** The app unlocks it after 10 daily check-ins, 35 trades, and a $7,500 peak portfolio. The server itself only checks for $2,000 cash, so those three requirements are advisory. Your borrow limit is a share of your collateral, scaled by your peak portfolio value (25% under $7,500, up to 75% over $30,000). Holdings count as collateral at the lower of cost basis or market price, so pumping a stock you own does not raise your limit. Interest is 0.5% per day. A margin call fires at 30% equity and forced liquidation at 25%, selling 5% below market.
+- **Margin.** Unlocks after 10 daily check-ins, 35 trades, a $7,500 peak portfolio, and $2,000 in cash. Your borrow limit is a share of your collateral, scaled by your peak portfolio value (25% under $7,500, up to 75% over $30,000). Holdings count as collateral at the lower of cost basis or market price, so pumping a stock you own does not raise your limit. Interest is 0.5% per day. A margin call fires at 30% equity and forced liquidation at 25%, selling 5% below market.
 - **Exit loyalty.** Holding a lot longer makes it cheaper to sell. Sell-side price impact is discounted 10% at 10 days, 25% at 4 weeks, and 40% at 8 weeks. The market still takes the full impact, only your cost is reduced.
 
 ### Order Types
@@ -44,7 +47,7 @@ Prices are driven by five things:
 
 ### Crews
 
-There are 9 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, and Yamazaki Syndicate.
+There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, Kitae Kim Union, and Yamazaki Syndicate.
 
 - Joining is free. Switching costs 5% of your portfolio and locks you out of the crew you left for 30 days.
 - **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission payouts, recalculated every Monday from last week's activity.
@@ -96,6 +99,22 @@ Two formats run side by side:
 
 A double-or-nothing side game. You pick a side and a bet, a random ladder resolves, and you either double your stake or lose it. Deposits from your main account are capped, and withdrawals are taxed: 5% on returning principal, a lifetime-progressive 15/30/45% on profit, plus 15% extra if you withdraw within 12 hours of depositing. A required tutorial spells out that the outcome is random and there is no strategy.
 
+### Seasons
+
+A season runs alongside a story arc and scores how much each player grows their account from the day it starts. Scoring uses live net worth at frozen prices, with free stock, bonuses, and other granted money taken out. A weekly checkpoint runs every Thursday during the halt.
+
+Tiers are a ladder, and each one needs the one before it:
+
+| Tier | How to earn it |
+|---|---|
+| Bronze | Be active in 2 weeks of the season |
+| Silver | Bronze, and finish the season up |
+| Gold | Silver, and finish ahead of the market index |
+| Platinum | Gold, and finish in the top 15% of your size division against the market |
+| Diamond | The best Platinum finishers, up to the top 5% of your division, who beat the market in 75% of weeks and never had more than 60% of their invested money in one character |
+
+Platinum and Diamond are ranked within four size divisions (Rookie under $10k, Trader $10k to $50k, Whale $50k to $200k, Titan $200k and up), so small accounts that can swing further do not crowd out big ones. Gold, Platinum, and Diamond earn a title. A season can only be ended, and a checkpoint only run by hand, while the market is halted.
+
 ### Discord
 
 - **Daily drop.** A claim button posts to Discord every day at 14:00 UTC and stays claimable for 72 hours. Each claim rolls three tables: a guaranteed core pull, a guaranteed bonus of cheap shares, and a 10% shot at one legendary share. 3% of claims are jackpots.
@@ -105,13 +124,13 @@ A double-or-nothing side game. You pick a side and a bet, a random ladder resolv
 
 ### Progression and Social
 
-- **Leaderboards** by total portfolio value, by weekly percentage gain (with a minimum baseline so a $50 account doubling up cannot top it), and by crew.
+- **Leaderboards** by total portfolio value, by weekly percentage gain (with a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board.
 - **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements.
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
 - **43 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $120,000.
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
 - **Price alerts** you set per ticker, checked every 30 minutes.
-- **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, so it is a last resort. Bankruptcy clears itself once you are back above $500.
+- **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, turns off margin, and removes you from your crew, so it is a last resort. Bankruptcy clears itself once you are back above $500.
 - **Guest mode** lets people browse the market without an account.
 - Dark mode, color-blind mode, mobile layout, and installable as a PWA.
 
@@ -153,8 +172,7 @@ Admins can also halt the market manually at any time with a custom reason.
 | Short force-cover | below 25% equity |
 | Short concentration cap | 50% of portfolio equity per ticker |
 | Total short exposure cap | 100% of net worth |
-| Margin unlock (app) | 10 check-ins, 35 trades, $7,500 peak |
-| Margin unlock (server) | $2,000 cash |
+| Margin unlock | 10 check-ins, 35 trades, $7,500 peak, $2,000 cash |
 | Margin borrow limit | 25% to 75% of collateral by peak portfolio |
 | Margin interest | 0.5% per day |
 | Margin call / liquidation | 30% / 25% equity |
@@ -171,6 +189,9 @@ Admins can also halt the market manually at any time with a custom reason.
 | IPO launch jump | 15% |
 | IPO share lockup | 24 hours after the window closes |
 | Limit order expiry | 90 days |
+| Wash rule | 4% down-impact in 24h blocks buying back for 48h |
+| Circuit breaker | 10% move in 5 min pauses the stock 3 min, max 2 a day |
+| Neglect decay | 1% a day after 14 days untraded, to a hidden floor |
 | Event market liquidity (b) | 5,000 |
 | Ladder starting balance | $500 |
 | Weekly halt | Thursday 13:00 to 21:00 UTC |
@@ -182,13 +203,16 @@ Admins can also halt the market manually at any time with a custom reason.
 The economy is fake money, but the leaderboard is not, so a fair amount of the backend exists to stop manipulation and alt farming.
 
 **Price manipulation**
-- Max 5% price move per trade, and max 10% cumulative move per player per ticker per day.
+- Max 5% price move per trade, and max 10% cumulative move per player per ticker per day in each direction (down and up are counted separately).
 - New accounts have their price impact scaled down for their first 3 days, ramping from 10% to full.
 - 3 second cooldown between trades, 45 second minimum hold before a position can be closed.
 - Per ticker: 10 trades per rolling 24 hours, 15 per hour, 3 per 5-minute burst, and a 10 second gap between buys or shorts.
 - After 3 shorts on one ticker, further shorts wait for the oldest to age out of an 8-hour window.
 - Forced short covers are capped at 3 per ticker per scan so a crowded short cannot cascade into a squeeze.
 - Margin-bought shares lock for 36 hours, so borrowed money cannot spike a stock and bail.
+- **Wash rule.** Pushing a stock down 4% or more in 24 hours with sells or shorts blocks buying it back for 48 hours. A heavy sell also blocks shorting that stock for 48 hours. Exits are never blocked.
+- **Circuit breaker.** A stock that moves 10% in 5 minutes pauses for 3 minutes, at most twice a day. This binds bots and the market maker too, and catches groups that each stay inside their own limits.
+- **Coordination scan.** An hourly scan flags groups trading one stock together. Tight downward clusters get the 48-hour buy-back and short block. Admins can review what a flagged push made each player, remove it, and keep repeat offenders out of Platinum and Diamond for the season.
 
 **Alt accounts**
 - Hard cap of 2 accounts per IP, enforced at signup and at trade time inside the same transaction.
@@ -201,7 +225,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 **Cost and blast radius**
 - Every Cloud Function is capped at 10 concurrent instances.
 - A billing killswitch function can disable the project if spend spikes.
-- App Check enforcement is wired into every callable behind a single flag, currently off.
+- App Check is enforced on every callable, so only the real app can call the backend.
 
 ---
 
@@ -218,6 +242,10 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Event market settlement | every 30 min |
 | IPO price jumps | every 30 min |
 | Daily drop post | 14:00 daily |
+| All-time high/low sweep | hourly at :20 |
+| Coordination scan | hourly at :35 |
+| Alt account scan | 04:00 daily |
+| Neglect decay | 21:40 daily |
 | Daily market summary | 21:00 daily |
 | Market backup | every 24h |
 | Archiving and portfolio sync | every 24h |
@@ -225,6 +253,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Pre-halt price save | Thursday 12:55 |
 | Chapter recap | Thursday 20:30 |
 | Opening auction | Thursday 20:56 |
+| Season checkpoint | Thursday 14:00 |
 | Weekly market summary | Monday 00:00 |
 | Weekly leaderboard | Monday 01:00 |
 | Weekly crew rankings | Monday 01:30 |
@@ -235,7 +264,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 ## Tech Stack
 
 - **Frontend:** React 18, Vite 5, Tailwind 3, React Router 7. Hosted on Vercel.
-- **Backend:** Firebase Cloud Functions (1st gen, Node 22), 109 functions across 35 service files.
+- **Backend:** Firebase Cloud Functions (1st gen, Node 22), 153 functions across 50 service files.
 - **Database:** Firestore, with an allowlist-based security rule on user documents.
 - **Auth:** Firebase Auth. Google, Twitter, email/password with verification, and Discord via custom token.
 - **Monitoring:** Sentry on both frontend and backend, loaded lazily on the backend so it costs nothing on a cold start.
@@ -297,6 +326,10 @@ functions/
     │   discordCommands.js, discordRoles.js,
     │   discordAdmin.js, dailyDropRoll.js
     ├── admin*.js                                      Backups, ops, repair, migrate
+    ├── season.js, seasonTiers.js, seasonRecords.js    Seasons and tiers
+    ├── coordDetection.js, coordReview.js              Coordination scan and review
+    ├── tickerRename.js, stockSplit.js                 Rename and split engines
+    ├── neglectDecay.js, tickerStats.js
     ├── watchlist.js, alerts.js, health.js, billing.js
     └── archiving.js, tradeBackfill.js
 ```
@@ -352,6 +385,10 @@ npm run test:ipcap     # per-IP account cap
 npm run test:loyalty
 npm run test:crewroles
 npm run test:discord
+npm run test:season    # season checkpoints, tiers, end of season
+npm run test:coord     # coordination scan
+npm run test:rename    # ticker rename, end to end
+npm run test:split     # stock split, end to end
 ```
 
 `npm run test:trading` is the characterization suite for the most critical path in the codebase. Run it before and after any change to `trading.js` or the margin scanners.
@@ -370,7 +407,7 @@ npm run check:functions   # verifies export purity + constants imports
 firebase deploy --only functions:executeTrade,functions:payDividends
 ```
 
-Deploy only the functions you changed, by name. A full redeploy of all 109 functions hits rate limits and costs build minutes. `npm run deploy:functions` batches a full deploy when one is genuinely needed.
+Deploy only the functions you changed, by name. A full redeploy of all 153 functions hits rate limits and costs build minutes. `npm run deploy:functions` batches a full deploy when one is genuinely needed.
 
 Never run `firebase deploy` without `--only functions`. Vercel owns hosting.
 
@@ -380,7 +417,7 @@ Never run `firebase deploy` without `--only functions`. Vercel owns hosting.
 
 Admin accounts get a panel in the header with tabs for:
 
-- Market: manual price adjustments, halts, base price repair, backups and restores
+- Market: manual price adjustments, halts, base price repair, backups and restores, starting and ending seasons
 - Users: search, ban and reinstate, cash adjustments, cosmetic grants, account deletion
 - Holders: who owns what, per-ticker
 - Trades: recent trade log and backfill tools
@@ -390,7 +427,7 @@ Admin accounts get a panel in the header with tabs for:
 - Dividends: run payouts manually, override tiers
 - Bots: create and manage bot traders
 - Watchlist: IP tracking, signup reports, alt linking
-- Recovery: spike repair, portfolio history reconstruction, ticker rollback
+- Recovery: spike repair, portfolio history reconstruction, ticker rollback, rename ticker, split stock
 - Diagnostics: scheduled job status, orphan cleanup, health checks
 
 ---

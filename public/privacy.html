@@ -69,6 +69,8 @@
     <li><strong>Username</strong> - The name YOU choose (not your Google name)</li>
     <li><strong>Game data</strong> - Your cash balance, stock holdings, and trade history</li>
     <li><strong>Account ID</strong> - A random ID to identify your account</li>
+    <li><strong>Discord ID</strong> - If you link Discord, so one Discord account maps to one player. Never shown to other players</li>
+    <li><strong>IP address</strong> - Used only to stop people making alt accounts. Never shown to other players</li>
   </ul>
 
   <h2>What Firebase Authentication Stores</h2>
@@ -82,21 +84,21 @@
 
   <h2>What We DON'T Store Anywhere</h2>
   <ul>
-    <li><span class="no">Your real name</span> - We never save your Google display name</li>
-    <li><span class="no">Your profile picture</span> - We never save your Google photo</li>
-    <li><span class="no">Your password</span> - Google handles authentication securely</li>
-    <li><span class="no">Your contacts or Google data</span> - We have no access</li>
-    <li><span class="no">Tracking cookies or analytics</span> - We don't use any</li>
+    <li><span class="no">Your real name</span> - We never save the name from your sign-in account</li>
+    <li><span class="no">Your profile picture</span> - We never save your sign-in photo</li>
+    <li><span class="no">Your password</span> - Your sign-in provider handles authentication securely</li>
+    <li><span class="no">Your contacts or account data</span> - We have no access</li>
+    <li><span class="no">Tracking cookies or analytics</span> - We don't use any. When something breaks, an error report goes to our bug tracker so we can fix it</li>
   </ul>
 
-  <h2>About the Google Sign-In Popup</h2>
+  <h2>About the Sign-In Popup</h2>
   <p>
-    When you sign in, Google shows a standard message saying we "could" access your name and
-    profile picture. This is Google's default OAuth screen - it shows the <em>maximum possible</em>
+    When you sign in with Google, X, or Discord, they show a standard message saying we "could" access your name and
+    profile picture. This is their default screen - it shows the <em>maximum possible</em>
     permissions, not what we actually use.
   </p>
   <p>
-    In reality, our code immediately discards this information. We only use Google to verify
+    In reality, our code immediately discards this information. We only use the sign-in to verify
     you're a real person, then we ask you to create a username. That username is the only
     identifier visible to other players.
   </p>
@@ -105,18 +107,22 @@
   <p>
     You can delete your account and all associated data anytime from within the app.
     Click your username to open your Profile, scroll to the bottom, and click "Delete Account".
+    To stop alt-account abuse, a record of your IP address and Discord ID is kept after deletion,
+    which blocks them from making a new account for 30 days.
   </p>
 
   <h2>Third-Party Services</h2>
   <p>Stockism uses the following third-party services:</p>
   <ul>
-    <li><strong>Firebase Authentication</strong> - For secure login (Google, Twitter, Email)</li>
+    <li><strong>Firebase Authentication</strong> - For secure login (Google, X, Discord, Email)</li>
     <li><strong>Firebase Firestore</strong> - For storing game data</li>
-    <li><strong>Firebase Hosting</strong> - For serving the website</li>
+    <li><strong>Vercel</strong> - For serving the website</li>
+    <li><strong>Discord</strong> - For optional Discord login and account linking</li>
+    <li><strong>Sentry</strong> - For error reports when something breaks</li>
     <li><strong>reCAPTCHA</strong> - For bot protection</li>
   </ul>
   <p>
-    These services are provided by Google and are subject to
+    The Firebase and reCAPTCHA services are provided by Google and are subject to
     <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.
   </p>
 
@@ -134,7 +140,7 @@
   </p>
 
   <div class="footer">
-    <p>Last updated: January 2026</p>
+    <p>Last updated: September 2026</p>
     <p>
       Stockism is a free, open-source fan project with no legal entity behind it.
       Not affiliated with Lookism or WEBTOON.

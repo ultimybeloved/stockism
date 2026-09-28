@@ -71,7 +71,7 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-2">Is real money involved?</h3>
                 <p className={mutedClass}>
                   <span className={`font-semibold ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>Absolutely not.</span> Stockism uses entirely fictional currency.
-                  You start with $1,000 of fake money and can earn more through daily check-ins.
+                  You start with $1,000 of fake money, raised to $3,000 when you link Discord, and can earn more through daily check-ins.
                   There is no way to deposit, withdraw, or exchange real money. This is purely for fun!
                 </p>
               </div>
@@ -158,8 +158,8 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">Why can't I sell some of my shares?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Two kinds of temporary locks exist. Shares bought in an IPO are locked until shortly after the IPO
-                  ends, so the guaranteed launch bump can't be flipped instantly. Shares bought with borrowed margin
+                  Two kinds of temporary locks exist. Shares bought in an IPO are locked for 24 hours after the IPO
+                  window closes, so the guaranteed launch bump can't be flipped instantly. Shares bought with borrowed margin
                   money are locked for 36 hours. The trade screen shows how many of your shares are locked and when
                   they free up.
                 </p>
@@ -215,13 +215,13 @@ const AboutModal = ({ onClose }) => {
               <div>
                 <h3 className="font-semibold text-orange-500 mb-1">How do dividends work?</h3>
                 <p className={`text-sm ${mutedClass}`}>
-                  Some stocks pay weekly dividends to long-term holders, just like real life. Shares must be held for
-                  at least 10 days to become eligible. Payouts run every Thursday right before the chapter halt, using
-                  the pre-halt price snapshot. "Blue-chip" stocks pay the most, "Dividend" stocks pay moderately, ETFs
-                  pay a middle rate, and "Growth" stocks don't pay (they're expected to go up in price instead).
-                  Check the Portfolio modal to see each holding's tier and projected weekly income. You can also turn
-                  on DRIP per stock in your portfolio to automatically reinvest each payout into more shares instead
-                  of taking cash.
+                  Every stock pays a weekly dividend to holders. Payouts run every Thursday right before the chapter
+                  halt, using the pre-halt price snapshot. The rate depends on the stock&apos;s rarity: Legendary pays
+                  the most (1% a week) and Common the least (0.3%), with ETFs at a flat 0.7%. Rarity goes by price
+                  rank, so it changes as the market moves. Shares must be held for at least 10 days to earn anything,
+                  and they earn 1.25x at 4 weeks and 1.5x at 8 weeks. Check the Portfolio modal to see each holding&apos;s
+                  tier and projected weekly income. You can also turn on DRIP per stock in your portfolio to
+                  automatically reinvest each payout into more shares instead of taking cash.
                 </p>
               </div>
 
@@ -229,8 +229,28 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-1">How do predictions work?</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool,
-                  and winners split the entire pool proportionally. If everyone picks the same answer
-                  and wins, everyone just gets their money back.
+                  and winners split the entire pool in proportion to their bets. Some bets start with house
+                  money in every side of the pool, which goes to the winners too.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">What are seasons?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  A season runs alongside a story arc and scores how much you grow your account from the day it
+                  starts. Free stock and bonuses don&apos;t count. Tiers are a ladder: Bronze for being active, then
+                  Silver for finishing up, Gold for beating the market, and Platinum and Diamond for the top
+                  finishers in your account-size division. You need each tier before the next one. Open the
+                  Season card for the exact rules and your progress.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-orange-500 mb-1">Why can&apos;t I buy a stock back?</h3>
+                <p className={`text-sm ${mutedClass}`}>
+                  If your sells or shorts push a stock down 4% or more in a day, you can&apos;t buy it back for 48
+                  hours. Selling hard also blocks shorting that stock for 48 hours. This stops players crashing a
+                  stock on purpose and buying the dip. Selling and closing positions are never blocked.
                 </p>
               </div>
 
@@ -239,7 +259,8 @@ const AboutModal = ({ onClose }) => {
                 <p className={`text-sm ${mutedClass}`}>
                   Yes, through bad trades or losing prediction bets. But you can always earn more
                   through the daily check-in bonus. It starts at $300 and climbs each day you check
-                  in, up to $500 a day. Miss a day and it resets. You can never go below $0.
+                  in, up to $500 a day. Miss a day and it resets. If your account is wiped out, you can take
+                  a $1,500 bailout once a day, but it clears every position and removes you from your crew.
                 </p>
               </div>
 
@@ -267,6 +288,8 @@ const AboutModal = ({ onClose }) => {
                   <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Username</span>: The name YOU choose (not your real name)</li>
                   <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Game data</span>: Your cash balance, holdings, and trade history</li>
                   <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Account ID</span>: A random ID to identify your account</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Discord ID</span>: If you link Discord, so one Discord account maps to one player. Never shown to other players</li>
+                  <li>• <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>IP address</span>: Used only to stop people making alt accounts. Never shown to other players</li>
                 </ul>
               </div>
 
@@ -288,7 +311,7 @@ const AboutModal = ({ onClose }) => {
                   <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your profile picture</span>: We never save your sign-in photo</li>
                   <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your password</span>: Your sign-in provider handles authentication securely</li>
                   <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your contacts or account data</span>: We have no access</li>
-                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Tracking cookies or analytics</span>: We don't use any</li>
+                  <li>• <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Tracking cookies or analytics</span>: We don't use any. When something breaks, an error report goes to our bug tracker so we can fix it</li>
                 </ul>
               </div>
 
@@ -309,12 +332,13 @@ const AboutModal = ({ onClose }) => {
                 <h3 className="font-semibold text-orange-500 mb-2">Data deletion:</h3>
                 <p className={`text-sm ${mutedClass}`}>
                   You can delete your account and all associated data anytime from your Profile (click your username → scroll to bottom → Delete Account).
+                  To stop alt-account abuse, a record of your IP address and Discord ID is kept after deletion, which blocks them from making a new account for 30 days.
                 </p>
               </div>
 
               <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <p className={`text-xs ${mutedClass}`}>
-                  Last updated: January 2026. This is a fan project with no legal entity behind it.
+                  Last updated: September 2026. This is a fan project with no legal entity behind it.
                   If you have privacy concerns, please reach out to us directly.
                 </p>
                 <p className={`text-xs ${mutedClass} mt-2`}>
