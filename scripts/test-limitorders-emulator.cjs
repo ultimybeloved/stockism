@@ -23,6 +23,10 @@
 //      - partial fills allowed -> clamped to the unlocked remainder
 //  13. Per-ticker throttle: max 3 executions per ticker per cycle
 //  14. No unexpected PENDING orders remain
+//  18. Network (IP) rules: a third account on a full connection defers, a
+//      connection's shared daily allowance caps the fill's price move, the
+//      fill is written to the connection's history, and placement refuses a
+//      third account's buy
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
@@ -376,6 +380,69 @@ async function main() {
   check(`${eT} trailing impact charged to the filler`,
     etfEntries.length === 1 && etfEntries[0].shares === 0 && etfEntries[0].impact > 0,
     JSON.stringify(etfEntries));
+
+  // ── 18. Network (IP) rules reach queued orders ──────────────────────────
+  // Until 2026-09-28 a limit order never looked at the connection that placed
+  // it, so an alt ring could route buying through orders and skip both the
+  // accounts-per-connection cap and the shared daily allowance.
+  console.log('\nNetwork rules on queued orders...\n');
+  const [T_NETFULL, T_NETCAP, T_NETOK] = usable.slice(7, 10);
+  if (!T_NETOK) throw new Error('Not enough usable tickers for the network scenarios — re-seed the emulator');
+  const netNow = Date.now();
+  const netOrder = async (id, uid, ticker, net) => {
+    await db.collection('users').doc(uid).set({ displayName: uid, cash: 100000, holdings: {} });
+    await db.collection('limitOrders').doc(id).set({
+      userId: uid, ticker, type: 'BUY', shares: 2, limitPrice: round2(prices[ticker] * 1.5),
+      allowPartialFills: false, status: 'PENDING', filledShares: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection('orderOrigins').doc(id).set({ uid, ipKey: net, createdAt: netNow });
+  };
+  // Two other accounts already bought from this connection in the last hour.
+  await db.collection('ipTracking').doc('net_full').set({ recentTraders: { ringA: netNow - 60000, ringB: netNow - 60000 } });
+  await netOrder('lo_s_netfull', 'lo_ring3', T_NETFULL, 'net_full');
+  // The connection has already spent its whole upward allowance on this ticker.
+  await db.collection('ipTracking').doc('net_capped').set({
+    tickerTradeHistory: { [T_NETCAP]: { buy: [{ ts: netNow - 60000, shares: 5, impact: 0.10 }] } },
+  });
+  await netOrder('lo_t_netcap', 'lo_netcap', T_NETCAP, 'net_capped');
+  await netOrder('lo_u_netok', 'lo_netok', T_NETOK, 'net_clean');
+
+  const netBefore = (await marketRef.get()).data().prices;
+  await runLimitOrderCheck();
+  const netAfter = (await marketRef.get()).data().prices;
+  const orderStatus = async (id) => (await db.collection('limitOrders').doc(id).get()).data().status;
+
+  check('third account on a full connection is deferred, not filled',
+    (await orderStatus('lo_s_netfull')) === 'PENDING', await orderStatus('lo_s_netfull'));
+  check('connection at its daily allowance: order still fills',
+    (await orderStatus('lo_t_netcap')) === 'FILLED', await orderStatus('lo_t_netcap'));
+  check('connection at its daily allowance: fill does not move the price',
+    netAfter[T_NETCAP] === netBefore[T_NETCAP], `${netBefore[T_NETCAP]} -> ${netAfter[T_NETCAP]}`);
+  check('order on a clean connection fills and moves the price',
+    (await orderStatus('lo_u_netok')) === 'FILLED' && netAfter[T_NETOK] > netBefore[T_NETOK],
+    `${await orderStatus('lo_u_netok')} ${netBefore[T_NETOK]} -> ${netAfter[T_NETOK]}`);
+  const cleanNet = (await db.collection('ipTracking').doc('net_clean').get()).data() || {};
+  check('the fill is written to the connection\'s shared history',
+    (cleanNet.tickerTradeHistory?.[T_NETOK]?.buy || []).length === 1 && typeof cleanNet.recentTraders?.lo_netok === 'number',
+    JSON.stringify(cleanNet));
+
+  // Placement: a BUY takes one of the connection's slots, a third account is refused.
+  const { claimNetworkForOrder } = require('../functions/services/orderNetwork');
+  const ctxFor = (ip) => ({ rawRequest: { ip } });
+  await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_a', isBuy: true });
+  await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_b', isBuy: true });
+  let placementRefused = null;
+  try {
+    await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_c', isBuy: true });
+  } catch (err) { placementRefused = err.message; }
+  check('third account placing a buy from one connection is refused',
+    /Too many accounts/.test(placementRefused || ''), String(placementRefused));
+  let exitRefused = null;
+  try {
+    await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_c', isBuy: false });
+  } catch (err) { exitRefused = err.message; }
+  check('a sell order from that connection is still allowed', exitRefused === null, String(exitRefused));
 
   console.log(failures === 0 ? '\nALL LIMIT-ORDER E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);

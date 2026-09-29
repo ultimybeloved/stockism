@@ -28,6 +28,7 @@ const {
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 const { computePriceUpdates, buildTrailingEntries } = require('./tradePricing');
 const { pruneHistoryMap, appendTradeEntries } = require('./tradeState');
+const { readOrderNetwork, networkImpactSpent, writeNetworkFill } = require('./orderNetwork');
 
 /**
  * Fill one stop loss inside a transaction. Returns what the post-commit
@@ -49,6 +50,8 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   const freshAlreadyFilled = freshOrderSnap.data().filledShares || 0;
   const userSnap = await transaction.get(userRef);
   const freshMarketSnap = await transaction.get(marketRef);
+  // The connection that placed the stop: its down allowance is shared.
+  const net = await readOrderNetwork(transaction, orderDoc.id);
   if (!userSnap.exists) throw new Error('User not found');
 
   const userData = userSnap.data();
@@ -78,8 +81,12 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   // Daily 10% impact cap (same rule as executeTrade): the stop loss still fills,
   // but stops moving the price once the user's DOWN allowance on this ticker is
   // used up. A stop loss is always a sell, so it only ever spends that side.
-  // New accounts move less.
-  const spentDown = sumDirectionalImpact(tickerTradeHistory[order.ticker], now).down;
+  // New accounts move less. The allowance is shared with every account on the
+  // order's connection, same as executeTrade.
+  const spentDown = Math.max(
+    sumDirectionalImpact(tickerTradeHistory[order.ticker], now).down,
+    networkImpactSpent(net, order.ticker, 'sell', now)
+  );
   const effectiveImpact = Math.min(
     calculateMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) * getAccountAgeImpactFactor(userData),
     freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown)
@@ -97,12 +104,16 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   const trailingEntries = buildTrailingEntries({
     priceUpdates, ticker: order.ticker, prices: freshPrices, action: 'sell', now,
   });
+  const historyEntry = { ts: now, shares: fillShares, impact: impactPercent };
   const updatedHistory = appendTradeEntries(
     pruneHistoryMap(tickerTradeHistory, now),
     order.ticker, 'sell',
-    { ts: now, shares: fillShares, impact: impactPercent },
+    historyEntry,
     trailingEntries
   );
+  writeNetworkFill(transaction, net, {
+    ticker: order.ticker, action: 'sell', entry: historyEntry, trailingEntries, uid: order.userId, now,
+  });
 
   const newHoldings = remainingShares(userShares, fillShares);
   // Mission/stat credit — same fields executeTrade writes (includes the

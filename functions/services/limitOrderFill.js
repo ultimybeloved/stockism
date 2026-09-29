@@ -28,11 +28,13 @@ const round2 = (n) => Math.round(n * 100) / 100;
  * Price impact for this fill, capped by whatever is left of the user's daily
  * allowance on this ticker IN THE DIRECTION THIS FILL PUSHES. Same rule as
  * executeTrade: the fill still executes once the allowance is gone, it just
- * stops moving the price. New accounts move less.
+ * stops moving the price. New accounts move less. `networkSpent` is what every
+ * account on the order's connection has used (orderNetwork.js); the larger of
+ * the two applies, same as executeTrade.
  */
-const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVolume, now }) => {
+const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVolume, now, networkSpent = 0 }) => {
   const history = userData.tickerTradeHistory || {};
-  const spent = sumDirectionalImpact(history[ticker], now)[impactDirectionOf(action)];
+  const spent = Math.max(sumDirectionalImpact(history[ticker], now)[impactDirectionOf(action)], networkSpent);
   const remaining = Math.max(0, MAX_DAILY_IMPACT - spent);
   const ageFactor = getAccountAgeImpactFactor(userData);
   const effectiveImpact = Math.min(
@@ -93,7 +95,8 @@ const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
 
 /**
  * BUY fill. Price goes up, the user pays the ask after impact.
- * Returns { executedPrice, tradeValue }.
+ * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }; the last
+ * two go to the connection's shared history too.
  */
 const applyBuyFill = (transaction, ctx) => {
   const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
@@ -169,14 +172,17 @@ const applyBuyFill = (transaction, ctx) => {
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
   console.log(`Executed BUY: ${fillShares} ${ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
-  return { executedPrice, tradeValue: totalCost };
+  return {
+    executedPrice, tradeValue: totalCost,
+    historyEntry: { ts: now, shares: fillShares, impact: impactPercent }, trailingEntries,
+  };
 };
 
 /**
  * SELL / STOP_LOSS fill. Price goes down and the market takes the FULL impact,
  * but a long-held position is priced against a reduced one (exit loyalty, same
  * rule as tradeActions.computeSell).
- * Returns { executedPrice, tradeValue }.
+ * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }.
  */
 const applySellFill = (transaction, ctx) => {
   const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
@@ -250,7 +256,10 @@ const applySellFill = (transaction, ctx) => {
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
   console.log(`Executed ${order.type}: ${fillShares} ${ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
-  return { executedPrice, tradeValue: totalRevenue };
+  return {
+    executedPrice, tradeValue: totalRevenue,
+    historyEntry: { ts: now, shares: fillShares, impact: impactPercent }, trailingEntries,
+  };
 };
 
 /**

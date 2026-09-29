@@ -200,6 +200,7 @@ every lane, and each one was missed by at least one lane until 2026-09-22:
 | Circuit-breaker pause | `isTickerPaused(marketData.haltedTickers, ticker)` — this binds automated price movers (bots, market maker, forced covers) too, not just player trades |
 | Wash rule | `washRuleRemainingMs(userData, ticker)` — blocks buys only, never exits. 48h since 2026-09-23 |
 | Short after dump | `shortAfterDumpRemainingMs(userData, ticker)` — blocks shorts for 48h after a heavy SELL. Shorts only open through executeTrade, so that is the one lane that checks it |
+| Network (IP) rules | Accounts-per-connection cap and the connection's shared daily allowance. Queued orders capture the connection at placement (`claimNetworkForOrder`, `orderOrigins/{orderId}`) and fills apply it via `orderNetwork.js`. The pre-market auction relies on the placement check alone (its window is inside the cap's one hour) |
 | Mission / stat credit | `buildTradeCreditUpdates` + `updateCrewMissionProgress` |
 | Trade record | `recordTrade` with a `source` tag (no tag = placed by hand) |
 
@@ -328,6 +329,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/market.js` | Daily price snapshots, pre-halt saves, chapter recap (≤470 lines) |
 | `functions/services/marketOrders.js` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
 | `functions/services/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
+| `functions/services/orderNetwork.js` | **Internal module, not in servicePaths.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
 | `functions/services/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 | `functions/services/tickerRename.js` | **Internal module, not in servicePaths.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
 | `functions/services/tickerRemap.js` | **Internal module, not in servicePaths.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |

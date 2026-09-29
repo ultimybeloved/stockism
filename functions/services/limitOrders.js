@@ -15,6 +15,7 @@ const {
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat, maxTradeSharesFor } = require('../helpers');
 const { runLimitOrderCheck } = require('./limitOrderMatching');
+const { claimNetworkForOrder, recordOrderOrigin } = require('./orderNetwork');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -174,6 +175,10 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
       `You already have a pending sell or stop-loss order on ${ticker}. Cancel it first.`);
   }
 
+  // Accounts-per-connection rule, same as executeTrade. Last, so an order that
+  // fails any check above never takes one of the connection's slots.
+  const networkKey = await claimNetworkForOrder({ context, uid, isBuy: type === 'BUY' });
+
   // Create the order
   const expiresAt = Date.now() + NINETY_DAYS_MS; // 90 days
   const orderRef = await db.collection('limitOrders').add({
@@ -189,6 +194,8 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     expiresAt,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   });
+  // Kept off the order doc on purpose: see orderNetwork.js.
+  await recordOrderOrigin(orderRef.id, { uid, key: networkKey });
 
   return { success: true, orderId: orderRef.id };
 });

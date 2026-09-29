@@ -26,11 +26,13 @@ const {
 } = require('./limitOrderGuards');
 const { computeImpact, applyBuyFill, applySellFill, markOrderFilled } = require('./limitOrderFill');
 const { notifyCanceled, notifyExpired, publishFill } = require('./limitOrderEffects');
+const { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } = require('./orderNetwork');
 
 // A failure inside the transaction either kills the order or defers it to the
 // next cycle. These are the ones the user cannot recover from by waiting;
 // everything else (locked shares, price drifted back out of range, a losing
-// race) is a deferral, because the order is still perfectly valid.
+// race, too many accounts trading from the order's connection this hour) is a
+// deferral, because the order is still perfectly valid.
 const CANCEL_ON = [
   'User not found',
   'User is bankrupt',
@@ -57,6 +59,8 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   const freshOrderSnap = await transaction.get(orderRef);
   const userSnap = await transaction.get(userRef);
   const freshMarketSnap = await transaction.get(marketRef);
+  // The connection that placed the order: its shared allowance and account slots.
+  const net = await readOrderNetwork(transaction, orderId);
 
   const totalShares = order.shares;
   const { freshFilled, fillShares: requestedShares } = assertOrderStillActive(freshOrderSnap, totalShares);
@@ -78,6 +82,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   const fillSource = order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit';
   const action = effectiveType.toLowerCase();
   assertWashRule(userData, order.ticker, action, now);
+  assertNetworkSlot(net, order.userId, action, now);
 
   const fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });
 
@@ -86,15 +91,22 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   assertTradeLimit(tradeCount, action, order.ticker);
 
   const { effectiveImpact, traderImpact, impactPercent } =
-    computeImpact({ userData, ticker: order.ticker, action, freshPrice, fillShares, cumVolume, now });
+    computeImpact({
+      userData, ticker: order.ticker, action, freshPrice, fillShares, cumVolume, now,
+      networkSpent: networkImpactSpent(net, order.ticker, action, now),
+    });
 
   const ctx = {
     order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
     effectiveImpact, traderImpact, impactPercent, fillSource,
   };
-  const { executedPrice, tradeValue } = effectiveType === 'BUY'
+  const { executedPrice, tradeValue, historyEntry, trailingEntries } = effectiveType === 'BUY'
     ? applyBuyFill(transaction, ctx)
     : applySellFill(transaction, ctx);
+
+  writeNetworkFill(transaction, net, {
+    ticker: order.ticker, action, entry: historyEntry, trailingEntries, uid: order.userId, now,
+  });
 
   markOrderFilled(transaction, orderRef, {
     freshFilled, fillShares, totalShares, allowPartialFills: order.allowPartialFills, executedPrice,

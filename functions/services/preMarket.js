@@ -12,6 +12,7 @@ const {
   formatWait, msUntilWeekly,
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, maxTradeSharesFor } = require('../helpers');
+const { claimNetworkForOrder } = require('./orderNetwork');
 
 // Placement closes at the lock (20:55), not at market open — the auction
 // settles opening prices at 20:56 while the market is still halted.
@@ -176,6 +177,12 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
       );
     }
   }
+
+  // Accounts-per-connection rule, same as executeTrade. The whole pre-market
+  // window is 25 minutes, inside the rule's one-hour memory, so checking here is
+  // enough: a ring can't queue buys from more accounts than one connection is
+  // allowed to trade from, and push the opening price with them.
+  await claimNetworkForOrder({ context, uid, isBuy: action === 'buy' });
 
   const sessionDate = new Date().toISOString().slice(0, 10);
   const orderId = `${uid}_${sessionDate}_${ticker}_${action}`;
