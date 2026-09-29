@@ -208,7 +208,7 @@ exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
 // below runs doCleanupAlertedThresholds() every 24h, so a manual trigger would
 // only be doing the same job a few hours early.
 
-// Scheduled function: Auto-archive every 6 hours
+// Scheduled function: Auto-archive every 24 hours
 exports.scheduledArchiving = cf().pubsub
   .schedule('every 24 hours')
   .timeZone('America/New_York')
@@ -238,7 +238,7 @@ exports.scheduledArchiving = cf().pubsub
 
 /**
  * Sync All Portfolio Values
- * Runs every 6 hours to recalculate and update all users' portfolio values
+ * Runs every 24 hours to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
 exports.syncAllPortfolios = cf().pubsub

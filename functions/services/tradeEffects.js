@@ -20,7 +20,7 @@ const { trackWatchedIpTrade } = require('./watchlist');
 function buildAchievementCtx({
   action, ticker, amount, totalCost, hitMaxImpact, priceHistory,
   currentPrice, executionPrice, userData, shorts, newHoldings,
-  animalProfitTotal, now,
+  animalProfitTotal, now, recordedHigh = 0,
 }) {
   const achievementCtx = { tradeValue: totalCost };
   if (action === 'buy') {
@@ -65,10 +65,12 @@ function buildAchievementCtx({
         achievementCtx.isDiscountDeacon = true;
       }
     }
-    // Topped Off: sold at all-time high
+    // Topped Off: sold at the all-time high. The live history holds only the
+    // last PRICE_HISTORY_LIVE_MAX points, so on its own it gave a recent high;
+    // the recorded mark (market/current.ath, swept hourly) covers the rest.
     const tickerHistory = priceHistory[ticker] || [];
     if (tickerHistory.length > 0) {
-      const allTimeHigh = Math.max(...tickerHistory.map(h => h.price));
+      const allTimeHigh = Math.max(recordedHigh, ...tickerHistory.map(h => h.price));
       achievementCtx.soldAtAllTimeHigh = executionPrice >= allTimeHigh;
     }
     // Animal Instinct: cumulative animal-character profit — computed (and

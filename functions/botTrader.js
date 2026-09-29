@@ -229,7 +229,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
 module.exports = {
   /**
-   * Bot Trader - Runs every 3 minutes
+   * Bot Trader - Runs every 30 minutes
    * Picks 3-6 random bots to make trades (5-10 on Thursdays)
    */
   botTrader: cf({ timeoutSeconds: 540, memory: '512MB' })

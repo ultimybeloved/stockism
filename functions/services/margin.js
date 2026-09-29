@@ -64,7 +64,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Bankruptcy bailout - reset to $500
+ * Bankruptcy bailout - wipes every position and resets cash to BAILOUT_CASH
  */
 exports.bailout = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);

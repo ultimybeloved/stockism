@@ -53,20 +53,28 @@ const WEEKLY_MISSION_CHECKS = {
     });
     return totalVal > 0 && (crewVal / totalVal) * 100 >= WEEKLY_MISSIONS.CREW_MAXIMALIST.requirement;
   },
-  // Growth is percentage-based so big accounts can't auto-complete on free
-  // cash income and small accounts aren't locked out by flat dollar targets
-  PORTFOLIO_BUILDER: (wp, userData) => {
-    const startValue = wp.startPortfolioValue || 0;
-    if (startValue <= 0) return false;
-    const growthPct = (((userData.portfolioValue || 0) - startValue) / startValue) * 100;
-    return growthPct >= WEEKLY_MISSIONS.PORTFOLIO_BUILDER.requirement;
-  },
-  PORTFOLIO_MOONSHOT: (wp, userData) => {
-    const startValue = wp.startPortfolioValue || 0;
-    if (startValue <= 0) return false;
-    const growthPct = (((userData.portfolioValue || 0) - startValue) / startValue) * 100;
-    return growthPct >= WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT.requirement;
-  }
+  // Growth is percentage-based so small accounts aren't locked out by flat
+  // dollar targets.
+  PORTFOLIO_BUILDER: (wp, userData) =>
+    earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_BUILDER.requirement,
+  PORTFOLIO_MOONSHOT: (wp, userData) =>
+    earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT.requirement,
 };
+
+/**
+ * This week's growth with free money taken out: check-ins, dividends, daily
+ * drop stock, mission rewards, and ladder/prediction flows (grantedValue). Until
+ * 2026-09-28 it counted all of it, so a small account completed both growth
+ * missions on a week of check-ins and drops without trading at all. A week
+ * recorded before startGrantedValue existed deducts nothing rather than guess.
+ * Mirrored in src/utils/missionProgress.js.
+ */
+function earnedGrowthPct(wp, userData) {
+  const startValue = wp.startPortfolioValue || 0;
+  if (startValue <= 0) return -Infinity;
+  const granted = userData.grantedValue || 0;
+  const grantedThisWeek = granted - (wp.startGrantedValue ?? granted);
+  return (((userData.portfolioValue || 0) - grantedThisWeek - startValue) / startValue) * 100;
+}
 
 module.exports = { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS };

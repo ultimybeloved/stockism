@@ -53,7 +53,7 @@ const topUserBackups = async () => {
 
 /**
  * Automated Backup System
- * Runs every 12 hours to backup critical market data
+ * Runs every 24 hours to back up critical market data
  */
 exports.backupMarketData = cf().pubsub
   .schedule('every 24 hours')

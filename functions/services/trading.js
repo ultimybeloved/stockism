@@ -299,7 +299,7 @@ exports.executeTrade = cf().https.onCall(async (data, context) => {
       const achievementCtx = buildAchievementCtx({
         action, ticker, amount, totalCost, hitMaxImpact, priceHistory,
         currentPrice, executionPrice, userData, shorts, newHoldings,
-        animalProfitTotal, now,
+        animalProfitTotal, now, recordedHigh: marketData.ath?.[ticker] || 0,
       });
 
       // Persist the user updates. Single write — transaction.update() snapshots

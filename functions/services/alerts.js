@@ -48,7 +48,7 @@ exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Price Threshold Alert - Runs every 30 minutes
+ * Price Threshold Alert - Runs every 6 hours
  * Alerts when stocks cross significant 24h thresholds (3%, 5%, 10%)
  */
 exports.priceThresholdAlert = cf().pubsub

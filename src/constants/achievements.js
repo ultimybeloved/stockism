@@ -369,7 +369,7 @@ export const ACHIEVEMENTS = {
     name: 'Crowned',
     emoji: '🫅',
     description: 'Become crew head',
-    hint: 'Post the best weekly gain in your crew'
+    hint: 'Have the biggest portfolio among your crew\'s active members'
   },
   DYNASTY: {
     id: 'DYNASTY',

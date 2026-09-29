@@ -8,7 +8,7 @@ const STEPS = [
     title: "Welcome to Stockism!",
     emoji: "📈",
     description:
-      "You start with $1,000 in cash. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.",
+      "You start with $1,000 in cash, raised to $3,000 when you link Discord. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.",
     spotlight: false,
   },
   {
@@ -44,7 +44,7 @@ const STEPS = [
     title: "You're Ready!",
     emoji: "🚀",
     description:
-      "Explore the leaderboard to see top traders, unlock achievements as you play, try the ladder game for quick cash, and make predictions on character prices. Good luck out there!",
+      "Explore the leaderboard to see top traders, unlock achievements as you play, try the ladder game, and bet on what happens next in the story. Good luck out there!",
     spotlight: false,
     isFinal: true,
   },

@@ -121,7 +121,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-3">
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>DEPOSITS</p>
-                  <p className={`text-sm ${textClass}`}>You move money in using the Transfer button. You can deposit up to $10,000 total into the ladder game.</p>
+                  <p className={`text-sm ${textClass}`}>You move money in using the Transfer button. A deposit can&apos;t take your ladder balance past $10,000, or past what you have invested in stocks, and at most $10,000 can go in per 12 hours. New accounts start with lower limits that grow over their first week.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WINNINGS</p>
@@ -129,7 +129,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WITHDRAWALS</p>
-                  <p className={`text-sm ${textClass}`}>You can withdraw any amount back to your main cash at any time using the Transfer button.</p>
+                  <p className={`text-sm ${textClass}`}>You can withdraw back to your main cash at any time using the Transfer button, but withdrawals are taxed: 5% on money you deposited coming back, 15% to 45% on winnings (the rate climbs with the total winnings you have taken out so far), and an extra 15% if you deposited in the last 12 hours. The Transfer screen shows the exact amount before you confirm.</p>
                 </div>
               </div>
             </>

@@ -228,6 +228,11 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
     updateData[`weeklyMissions.${syncWeekId}.startPortfolioValue`] = portfolioValue;
   }
+  // Free money received from here on is taken out of the growth missions
+  // (missionChecks.earnedGrowthPct).
+  if (!weeklyData || weeklyData.startGrantedValue === undefined) {
+    updateData[`weeklyMissions.${syncWeekId}.startGrantedValue`] = userData.grantedValue || 0;
+  }
 
   // Track lowest price while holding for Diamond Hands achievement
   const holdings = userData.holdings || {};

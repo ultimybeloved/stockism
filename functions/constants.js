@@ -103,7 +103,7 @@ const MAX_DAILY_IMPACT = 0.10;
 const MAX_TRADES_PER_TICKER_24H = 10;   // Max buys or sells per ticker per rolling 24h
 
 // How many limit orders on the same ticker one sweep may fill. Anything over
-// the cap waits for the next 2-minute cycle, so a cluster of orders at the same
+// the cap waits for the next 15-minute sweep, so a cluster of orders at the same
 // price can't walk the price in a single run.
 const ORDERS_PER_TICKER_PER_CYCLE = 3;
 

@@ -53,7 +53,10 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   const weeklyMissions = thisWeeksMissions.map(mission => ({
     ...mission,
     reward: Math.round(mission.reward * crewMultiplier),
-    ...getWeeklyMissionProgress(mission, { holdings: userData?.holdings || {}, weeklyProgress, prices, crewMembers, portfolioValue }),
+    ...getWeeklyMissionProgress(mission, {
+      holdings: userData?.holdings || {}, weeklyProgress, prices, crewMembers, portfolioValue,
+      grantedValue: userData?.grantedValue || 0,
+    }),
     claimed: weeklyProgress.claimed?.[mission.id] || false
   }));
 

@@ -56,7 +56,7 @@ export const getDailyMissionProgress = (mission, { holdings, dailyProgress, crew
 };
 
 // Weekly (crew) mission progress from this week's weeklyProgress record.
-export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp, prices, crewMembers, portfolioValue }) => {
+export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp, prices, crewMembers, portfolioValue, grantedValue = 0 }) => {
   switch (mission.checkType) {
     // ============================================
     // TRADING VOLUME
@@ -135,9 +135,12 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
     // PORTFOLIO GROWTH
     // ============================================
     case 'WEEKLY_PORTFOLIO_GROWTH': {
-      // requirement is percent growth from the week's starting value
+      // requirement is percent growth from the week's starting value, with free
+      // money received this week taken out. Mirror of earnedGrowthPct in
+      // functions/services/missionChecks.js.
       const startValue = wp.startPortfolioValue || portfolioValue;
-      const growthPct = startValue > 0 ? ((portfolioValue - startValue) / startValue) * 100 : 0;
+      const grantedThisWeek = grantedValue - (wp.startGrantedValue ?? grantedValue);
+      const growthPct = startValue > 0 ? ((portfolioValue - grantedThisWeek - startValue) / startValue) * 100 : 0;
       return {
         complete: growthPct >= mission.requirement,
         progress: Math.max(0, Math.floor(growthPct)),

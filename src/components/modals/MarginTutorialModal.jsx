@@ -114,7 +114,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THURSDAY GRACE PERIOD</p>
-                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">{marketTimes().reopen}</span>, short force-covers are paused until <span className="font-semibold">{localDailyTime(HALT_END_MINUTE + GRACE_PERIOD_MINUTES)}</span>. This pause only covers shorts. Margin liquidation on your holdings restarts at 21:00.</p>
+                  <p className={`text-sm ${textClass}`}>After the weekly market opens at <span className="font-semibold">{marketTimes().reopen}</span>, short force-covers are paused until <span className="font-semibold">{localDailyTime(HALT_END_MINUTE + GRACE_PERIOD_MINUTES)}</span>. This pause only covers shorts. Margin liquidation on your holdings restarts as soon as the market reopens.</p>
                 </div>
                 <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>OUTSIDE THE GRACE PERIOD</p>
@@ -189,6 +189,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
               <div className="space-y-2">
                 {[
                   ['Margin interest rate', '0.5% per day, added to your debt'],
+                  ['Margin-bought shares', 'Locked from selling for 36 hours'],
                   ['Margin call', '30% equity ratio. You get a warning here.'],
                   ['Auto-liquidation', '25% equity ratio. Everything you hold is sold at a 5% discount.'],
                   ['Max short exposure', '100% of your portfolio value (1:1 cap)'],

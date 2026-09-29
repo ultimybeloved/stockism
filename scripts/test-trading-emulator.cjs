@@ -767,6 +767,19 @@ async function testAchievements() {
   check('TOPPED_OFF on selling at all-time high', (uT.achievements || []).includes('TOPPED_OFF'),
     JSON.stringify(uT.achievements));
 
+  // ...but not at a merely recent high. The live history keeps only the last
+  // few dozen points; a real high that scrolled out of it lives in market.ath.
+  await seedMarket({ [T]: 80 });
+  await db.collection('market').doc('current').update({ [`ath.${T}`]: 200 });
+  await db.collection('market').doc('priceHistory').set({
+    [T]: [{ timestamp: now - DAY, price: 50 }, { timestamp: now - HOUR, price: 60 }],
+  });
+  await setUser('ach_top2', { cash: 0, holdings: { [T]: 2 }, costBasis: { [T]: 40 } });
+  await ok({ ticker: T, action: 'sell', amount: 2 }, 'ach_top2');
+  const uT2 = await getUser('ach_top2');
+  check('no TOPPED_OFF when the recorded all-time high is far above', !(uT2.achievements || []).includes('TOPPED_OFF'),
+    JSON.stringify(uT2.achievements));
+
   // THATS_A_BIG_DEAL: bought a bullish stock within 3% of its 7-day low
   await seedMarket({ [T2]: 55 });
   await db.collection('market').doc('priceHistory').set({
