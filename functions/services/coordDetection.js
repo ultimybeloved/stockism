@@ -41,7 +41,7 @@ const {
   COORD_SCAN_WINDOW_DAYS,
   discordTime,
 } = require('../constants');
-const { sendDiscordDM, reportError } = require('../helpers');
+const { sendDiscordDM, reportError, recordHeartbeat } = require('../helpers');
 // Pure clustering lives apart so its thresholds can be tested without a
 // database. Internal module — not in servicePaths.js.
 const { clusterTrades, dayIdOf } = require('./coordClustering');
@@ -217,6 +217,7 @@ exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' }).pubsub
     try {
       const result = await runCoordScan();
       console.log(`Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new, ${result.blocked} newly blocked`);
+      await recordHeartbeat('scanForCoordination');
       return result;
     } catch (err) {
       reportError(err, { where: 'scanForCoordination' });

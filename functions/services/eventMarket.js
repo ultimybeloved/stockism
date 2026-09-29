@@ -31,6 +31,7 @@ const {
   round2,
   reportError,
   predictionFlowUpdate,
+  recordHeartbeat,
 } = require('../helpers');
 
 // House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
@@ -357,7 +358,9 @@ exports.processEventSettlements = cf().pubsub
   .timeZone('UTC')
   .onRun(async () => {
     try {
-      return await settleResolvedEventMarkets();
+      const result = await settleResolvedEventMarkets();
+      await recordHeartbeat('processEventSettlements');
+      return result;
     } catch (error) {
       reportError(error, { where: 'settleResolvedEventMarkets' });
       return null;

@@ -225,9 +225,10 @@ exports.weeklyLeaderboard = cf().pubsub
 
       await sendDiscordMessage(null, [embed]);
       console.log('Weekly leaderboard sent');
+      await recordHeartbeat('weeklyLeaderboard');
       return null;
     } catch (error) {
-      console.error('Error in weekly leaderboard:', error);
+      reportError(error, { where: 'weeklyLeaderboard' });
       return null;
     }
   });
@@ -510,8 +511,11 @@ exports.weeklyCrewRankings = cf({ timeoutSeconds: 300 }).pubsub
   .onRun(async (context) => {
     try {
       await runWeeklyCrewRankings();
+      await recordHeartbeat('weeklyCrewRankings');
     } catch (error) {
-      console.error('Error in weekly crew rankings:', error);
+      // This sets every crew's mission multiplier and crowns the crew heads, so
+      // a failure leaves last week's numbers in place with nothing looking wrong.
+      reportError(error, { where: 'weeklyCrewRankings' });
     }
     return null;
   });

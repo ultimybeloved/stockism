@@ -929,6 +929,9 @@ const APP_CHECK_ENFORCED = true;
 // Each budget is the job's own interval plus generous slack, so a single missed
 // run from a cold start or a deploy never pages. `job` must match the export
 // name passed to recordHeartbeat().
+// Jobs added to the watch list after the watchdog was installed count from
+// this date, so a weekly job isn't reported missing before its first run.
+const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
 const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -949,6 +952,22 @@ const WATCHED_SCHEDULED_JOBS = [
   // outside signal that they are alive. Budgets clear the 8h Thursday halt.
   { job: 'marketMakerCycle', maxAgeHours: 12, label: 'Price stabiliser' },
   { job: 'botTrader', maxAgeHours: 12, label: 'Bot trading round' },
+  // Added 2026-09-28: every other scheduled job that players or moderation
+  // depend on. All of them caught their own errors and logged to the console,
+  // so a dead one was invisible.
+  { job: 'savePreHaltPrices', maxAgeHours: 8 * 24, label: 'Pre-halt price snapshot (dividends pay off it)', watchedSince: ADDED_2026_09_28 },
+  { job: 'weeklyCrewRankings', maxAgeHours: 8 * 24, label: 'Crew rankings, multipliers and crew heads', watchedSince: ADDED_2026_09_28 },
+  { job: 'weeklyLeaderboard', maxAgeHours: 8 * 24, label: 'Weekly leaderboard post', watchedSince: ADDED_2026_09_28 },
+  { job: 'syncAllPortfolios', maxAgeHours: 48, label: 'Portfolio sync', watchedSince: ADDED_2026_09_28 },
+  { job: 'scheduledArchiving', maxAgeHours: 48, label: 'Chart history archiving', watchedSince: ADDED_2026_09_28 },
+  { job: 'backupMarketData', maxAgeHours: 48, label: 'Daily backup', watchedSince: ADDED_2026_09_28 },
+  { job: 'dailyFreeStock', maxAgeHours: 48, label: 'Daily drop post', watchedSince: ADDED_2026_09_28 },
+  { job: 'scanForAltAccounts', maxAgeHours: 48, label: 'Alt account scan', watchedSince: ADDED_2026_09_28 },
+  { job: 'scanForCoordination', maxAgeHours: 6, label: 'Coordination scan', watchedSince: ADDED_2026_09_28 },
+  { job: 'checkPriceAlerts', maxAgeHours: 6, label: 'Price alerts', watchedSince: ADDED_2026_09_28 },
+  { job: 'processEventSettlements', maxAgeHours: 6, label: 'Event market payouts', watchedSince: ADDED_2026_09_28 },
+  // Skips itself during the Thursday halt, so the budget clears it.
+  { job: 'processIPOPriceJumps', maxAgeHours: 12, label: 'IPO price jumps', watchedSince: ADDED_2026_09_28 },
   { job: 'recordPriceExtremes', maxAgeHours: 12, label: 'All-time high/low sweep' },
   { job: 'applyNeglectDecay', maxAgeHours: 48, label: 'Neglect decay' },
 ];

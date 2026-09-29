@@ -233,9 +233,12 @@ exports.savePreHaltPrices = cf().pubsub
       });
 
       console.log(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);
+      await recordHeartbeat('savePreHaltPrices');
       return null;
     } catch (error) {
-      console.error('Error saving pre-halt snapshot:', error);
+      // Dividends pay three minutes later off this snapshot, so a failure here
+      // means they pay on last week's prices. It has to reach someone.
+      reportError(error, { where: 'savePreHaltPrices' });
       return null;
     }
   });

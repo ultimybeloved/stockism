@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } = require('../constants');
-const { priceHistoryRef, writeNotification } = require('../helpers');
+const { priceHistoryRef, writeNotification, recordHeartbeat, reportError } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 const {
   loyaltyTierFor, LOYALTY_TIER_LABEL,
@@ -215,11 +215,15 @@ exports.scheduledArchiving = cf().pubsub
   .onRun(async (context) => {
     console.log('Running scheduled archiving...');
 
+    // This is what keeps the live chart doc under Firestore's size limit. When
+    // that doc filled up on 2026-07-22, every trade failed, so a dead archiver
+    // is an outage waiting to happen.
     try {
       const archiveResult = await doArchivePriceHistory();
       console.log('Archive result:', archiveResult);
+      if (archiveResult?.success) await recordHeartbeat('scheduledArchiving');
     } catch (error) {
-      console.error('Scheduled archive failed:', error);
+      reportError(error, { where: 'scheduledArchiving' });
     }
 
     try {
@@ -392,10 +396,11 @@ exports.syncAllPortfolios = cf().pubsub
       };
 
       console.log('Portfolio sync complete:', result);
+      await recordHeartbeat('syncAllPortfolios');
       return result;
 
     } catch (error) {
-      console.error('Portfolio sync failed:', error);
+      reportError(error, { where: 'syncAllPortfolios' });
       return { success: false, error: error.message };
     }
   });

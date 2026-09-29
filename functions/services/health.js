@@ -123,11 +123,13 @@ exports.scheduledJobWatchdog = cf().pubsub
     const stale = [];
     const never = [];
 
-    for (const { job, maxAgeHours, label } of WATCHED_SCHEDULED_JOBS) {
+    for (const { job, maxAgeHours, label, watchedSince } of WATCHED_SCHEDULED_JOBS) {
       const last = beats[job];
       if (typeof last !== 'number') {
-        // Give it one full cycle from install before calling it missing.
-        const watchedHours = (now - installedAt) / (60 * 60 * 1000);
+        // Give it one full cycle from install before calling it missing. A job
+        // added to the list later counts from when it was added.
+        const since = Math.max(installedAt, watchedSince || 0);
+        const watchedHours = (now - since) / (60 * 60 * 1000);
         if (watchedHours > maxAgeHours) {
           never.push(`${label} (${job}) — no heartbeat in ${Math.floor(watchedHours)}h of watching`);
         }

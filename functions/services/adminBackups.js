@@ -12,7 +12,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { ADMIN_UID, BACKUP_TOP_USERS } = require('../constants');
-const { priceHistoryRef, remapAliasedKeys } = require('../helpers');
+const { priceHistoryRef, remapAliasedKeys, recordHeartbeat, reportError } = require('../helpers');
 
 /**
  * The top players' portfolios, for the leaderboard backups.
@@ -137,9 +137,10 @@ exports.backupMarketData = cf().pubsub
       }
 
       console.log(`Backup complete. Deleted ${deletedCount} old backups.`);
+      await recordHeartbeat('backupMarketData');
       return null;
     } catch (error) {
-      console.error('Error in backup:', error);
+      reportError(error, { where: 'backupMarketData' });
       return null;
     }
   });

@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, chapterReviewHaltMsg, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } = require('../constants');
-const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory, predictionFlowUpdate } = require('../helpers');
+const { checkBanned, checkDiscordWall, sendDiscordMessage, getTotalInvested, writeNotification, reportError, applyDueIPOJumps, touchLastActive, appendPriceHistory, predictionFlowUpdate, recordHeartbeat } = require('../helpers');
 
 exports.placeBet = cf().https.onCall(async (data, context) => {
     requireAppCheck(context);
@@ -406,7 +406,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Process IPO Price Jumps - Scheduled every 5 minutes
+ * Process IPO Price Jumps - Scheduled every 30 minutes
  * Checks for ended IPOs that haven't had their price jump applied
  */
 exports.processIPOPriceJumps = cf().pubsub
@@ -449,6 +449,7 @@ exports.processIPOPriceJumps = cf().pubsub
         } catch (e) { reportError(e, { where: 'IPO closed alert' }); }
       }
 
+      await recordHeartbeat('processIPOPriceJumps');
       return { processed: discordNotifications.length };
     } catch (error) {
       reportError(error, { where: 'processIPOPriceJumps' });

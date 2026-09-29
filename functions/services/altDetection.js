@@ -33,7 +33,7 @@ const {
   ALT_STATE_TTL_MS,
   ADMIN_DISCORD_USER_ID,
 } = require('../constants');
-const { sendDiscordDM, reportError, networkKey } = require('../helpers');
+const { sendDiscordDM, reportError, networkKey, recordHeartbeat } = require('../helpers');
 
 const STATE_REF = () => db.collection('altDetection').doc('state');
 
@@ -248,6 +248,7 @@ exports.scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' }).pubsub
     try {
       const result = await runAltScan();
       console.log(`Alt scan: ${result.scanned} trades, ${result.candidates} candidates, ${result.reported} new`);
+      await recordHeartbeat('scanForAltAccounts');
       return result;
     } catch (err) {
       reportError(err, { where: 'scanForAltAccounts' });

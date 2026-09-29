@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const { isWeeklyTradingHalt, ADMIN_UID } = require('../constants');
-const { sendDiscordMessage, writeNotification, priceHistoryRef } = require('../helpers');
+const { sendDiscordMessage, writeNotification, priceHistoryRef, recordHeartbeat } = require('../helpers');
 
 // ─── Discord Alert Triggers ──────────────────────────────────────────────────
 
@@ -268,7 +268,7 @@ exports.deletePriceAlert = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Check price alerts - runs on same schedule as limit orders (every 2 min)
+ * Check price alerts - every 30 minutes
  */
 exports.checkPriceAlerts = cf().pubsub
   .schedule('every 30 minutes')
@@ -310,6 +310,7 @@ exports.checkPriceAlerts = cf().pubsub
       }
 
       console.log(`Price alert check: ${triggered} alerts triggered`);
+      await recordHeartbeat('checkPriceAlerts');
       return { triggered };
     } catch (err) {
       console.error('Price alert check failed:', err);
