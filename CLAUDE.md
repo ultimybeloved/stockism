@@ -173,7 +173,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 ### Backend: Where Code Lives
 
 **Service files** (`functions/services/`)
-- Each file owns one domain: trading, users, userProfile, market, marketOrders, marketWeekly, leaderboard, dividends, alerts, discord, discordInteractions, discordAdmin, admin, adminBackups, adminOps, adminUserEdit, adminRepair, adminMigrate, watchlist, ladderGame, limitOrders, missions, predictions, archiving, margin, marginScanners, portfolio, crew
+- Each file owns one domain. `functions/servicePaths.js` is the authoritative list of deployable service files; the Codebase Map below covers them and the internal modules
 - Adding a new Cloud Function: find the right service file and append to it. If none fits, create `functions/services/<newdomain>.js` and add `'./services/<newdomain>'` to the list in `functions/servicePaths.js`
 - Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in `servicePaths.js`
 - Never add Cloud Function logic directly to `functions/index.js`
@@ -295,7 +295,6 @@ Quick reference so you know where to look and where to add things.
 | `functions/servicePaths.js` | The list of service files index.js loads. Add new services here; never internal modules |
 | `functions/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
 | `functions/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
-| `functions/sentry.js` | Sentry error monitoring init — required by index.js at startup |
 | `functions/constants.js` | All backend economy constants — add new ones here |
 | `functions/helpers.js` | Shared utility functions used by multiple services |
 | `functions/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
@@ -303,7 +302,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
 | `functions/services/users.js` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
 | `functions/services/userProfile.js` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
-| `functions/services/market.js` | Price updates, market summaries, halt management |
+| `functions/services/market.js` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 579 lines, near the 600 limit |
 | `functions/services/leaderboard.js` | Rankings, leaderboard computation |
 | `functions/services/dividends.js` | Dividend payouts |
 | `functions/services/alerts.js` | Price alerts |
@@ -326,7 +325,6 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/ladderGame.js` | Ladder game mechanics and leaderboard |
 | `functions/services/watchlist.js` | IP watchlist, fraud detection |
 | `functions/services/archiving.js` | Data archiving and cleanup |
-| `functions/services/market.js` | Daily price snapshots, pre-halt saves, chapter recap (≤470 lines) |
 | `functions/services/marketOrders.js` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
 | `functions/services/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/services/orderNetwork.js` | **Internal module, not in servicePaths.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
@@ -455,7 +453,7 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 **When deploying backend (any change to `functions/`):**
 1. If characters changed: `npm run sync:chars`
 2. `git push` — for frontend
-3. `firebase deploy --only functions` — separate manual step
+3. `npm run check:functions`, then `firebase deploy --only functions:<name>,functions:<name>` — only the functions whose code changed, by name (budget). A shared module change means every function that requires it
 
 **Never run `firebase deploy` without `--only functions`** — this would also deploy Firebase Hosting, which we don't use (Vercel owns hosting).
 
@@ -468,7 +466,7 @@ These are known gaps that were evaluated and deliberately left alone. Don't reop
 - ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/services/trading.js` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (155 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/index.js`.
 - ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.jsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.jsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.jsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.js` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.jsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
-- **End-to-end trade tests**: Would require Firebase Emulator setup. ROI is low unless trade logic is being actively changed.
+- ~~**End-to-end trade tests**~~ **DONE**: the emulator suites (`npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season`, and ~15 more; see package.json) run the real function code against a local Firestore, and CI runs the money-path ones on every push to main (`.github/workflows/ci.yml`).
 - **TypeScript migration**: The codebase is plain JS. Don't start adding `.ts` files — a half-migrated codebase is worse than none.
 
 ---
