@@ -7,10 +7,12 @@ import { getTodayDateString } from '../utils/date';
 import { formatCurrency } from '../utils/formatters';
 import { callableErrorCode } from '../utils/errors';
 import { reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
 
-export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
+export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handleClaimMissionReward = useCallback(
-    async (missionId, reward) => {
+    async (missionId: string, reward: number) => {
       if (!user || !userData) return;
       setLoadingKey('claimMission', true);
       try {
@@ -51,7 +53,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         if (callableErrorCode(err) === 'failed-precondition') {
           showNotification('error', 'Mission not completed yet - progress may need to update');
         } else {
-          showNotification('error', err.message || 'Failed to claim reward');
+          showNotification('error', errorMessage(err) || 'Failed to claim reward');
         }
       } finally {
         setLoadingKey('claimMission', false);
@@ -82,14 +84,14 @@ export function useMissionManagement({ user, userData, showNotification, setUser
       showNotification('success', 'Missions rerolled!');
     } catch (err) {
       reportUnexpected(err, { where: 'handleRerollMissions' });
-      showNotification('error', err.message || 'Failed to reroll missions');
+      showNotification('error', errorMessage(err) || 'Failed to reroll missions');
     } finally {
       setLoadingKey('rerollMissions', false);
     }
   }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
   const handleClaimWeeklyMissionReward = useCallback(
-    async (missionId, reward) => {
+    async (missionId: string, reward: number) => {
       if (!user || !userData) return;
       setLoadingKey('claimWeeklyMission', true);
       try {
@@ -127,7 +129,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         if (callableErrorCode(err) === 'failed-precondition') {
           showNotification('error', 'Mission not completed yet - progress may need to update');
         } else {
-          showNotification('error', err.message || 'Failed to claim reward');
+          showNotification('error', errorMessage(err) || 'Failed to claim reward');
         }
       } finally {
         setLoadingKey('claimWeeklyMission', false);

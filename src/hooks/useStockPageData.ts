@@ -8,6 +8,7 @@ import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPR
 import { TIME_RANGES } from '../components/PriceChart';
 import { usePriceHistory } from './usePriceHistory';
 import { fundsContaining } from '../utils/marketFilters';
+import type { PricePoint } from '../types';
 
 // Everything StockPage derives about one ticker: the position, the price stats
 // for the selected range, dividend estimate, and the crew/ETF it belongs to.
@@ -15,7 +16,7 @@ import { fundsContaining } from '../utils/marketFilters';
 //
 // `timeRange` stays owned by the page (it is UI state); this hook just recomputes
 // the stats when it changes.
-export const useStockPageData = (ticker, timeRange) => {
+export const useStockPageData = (ticker: string, timeRange: string) => {
   const { user, userData, prices, holdings, shorts, costBasis, rarityTiers } = useAppContext();
   const { fullHistory } = usePriceHistory(ticker);
 
@@ -37,7 +38,8 @@ export const useStockPageData = (ticker, timeRange) => {
   };
 
   const priceStats = useMemo(() => {
-    const range = TIME_RANGES.find((r) => r.key === timeRange);
+    // timeRange always comes from TIME_RANGES' own keys.
+    const range = TIME_RANGES.find((r) => r.key === timeRange)!;
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
     const filtered = fullHistory.filter((p) => p.timestamp >= cutoff);
     const ago30d = Date.now() - 30 * 86400000;
@@ -47,9 +49,9 @@ export const useStockPageData = (ticker, timeRange) => {
     const f7d = fullHistory.filter((p) => p.timestamp >= ago7d);
     const f52w = fullHistory.filter((p) => p.timestamp >= ago52w);
 
-    const px = (arr) => arr.map((p) => p.price);
-    const hi = (arr) => (arr.length ? Math.max(...px(arr)) : currentPrice);
-    const lo = (arr) => (arr.length ? Math.min(...px(arr)) : currentPrice);
+    const px = (arr: PricePoint[]) => arr.map((p) => p.price);
+    const hi = (arr: PricePoint[]) => (arr.length ? Math.max(...px(arr)) : currentPrice);
+    const lo = (arr: PricePoint[]) => (arr.length ? Math.min(...px(arr)) : currentPrice);
 
     const first = filtered[0]?.price || currentPrice;
     const change = first > 0 ? ((currentPrice - first) / first) * 100 : 0;

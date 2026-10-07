@@ -5,6 +5,9 @@ import { getTotalInvested } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { marketTimes } from '../utils/localTime';
 import { reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
+import type { LooseDoc } from '../context/AppContext';
 
 export function usePredictionManagement({
   user,
@@ -14,7 +17,7 @@ export function usePredictionManagement({
   showNotification,
   setUserData,
   setLoadingKey,
-}) {
+}: ActionHookDeps & { predictions: LooseDoc[] }) {
   // Every prediction lane closes with the market. Mirrors the server checks in
   // predictions.js and eventMarket.js so a click fails here with a readable
   // message instead of bouncing off a Cloud Function.
@@ -29,7 +32,7 @@ export function usePredictionManagement({
   }, [marketData]);
 
   const handleBet = useCallback(
-    async (predictionId, option, amount) => {
+    async (predictionId: string, option: string, amount: number) => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to place bets!');
         return;
@@ -39,7 +42,8 @@ export function usePredictionManagement({
         showNotification('error', halted);
         return;
       }
-      if (userData.cash < amount) {
+      const cash = userData.cash ?? 0;
+      if (cash < amount) {
         showNotification('error', 'Insufficient funds!');
         return;
       }
@@ -48,9 +52,9 @@ export function usePredictionManagement({
         showNotification('error', 'You must invest in the market before placing bets!');
         return;
       }
-      const betLimit = Math.min(totalInvested, userData.cash);
+      const betLimit = Math.min(totalInvested, cash);
       if (amount > betLimit) {
-        if (totalInvested > userData.cash) {
+        if (totalInvested > cash) {
           showNotification('error', `Insufficient funds! You have ${formatCurrency(userData.cash)}`);
         } else {
           showNotification('error', `Bet limit: ${formatCurrency(totalInvested)} (total you've invested in stocks)`);
@@ -58,7 +62,7 @@ export function usePredictionManagement({
         return;
       }
       const prediction = predictions.find((p) => p.id === predictionId);
-      if (!prediction || prediction.resolved || prediction.endsAt < Date.now()) {
+      if (!prediction || prediction.resolved || (prediction.endsAt as number) < Date.now()) {
         showNotification('error', 'Betting has ended!');
         return;
       }
@@ -73,7 +77,7 @@ export function usePredictionManagement({
         setUserData((prev) => {
           if (!prev) return prev;
           const prevBet = prev.bets?.[predictionId];
-          const newAmount = (prevBet?.amount || 0) + amount;
+          const newAmount = ((prevBet?.amount as number) || 0) + amount;
           return {
             ...prev,
             cash: (prev.cash || 0) - amount,
@@ -83,7 +87,7 @@ export function usePredictionManagement({
         showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
       } catch (error) {
         reportUnexpected(error, { where: 'handleBet', predictionId, option, amount });
-        const msg = error?.message || 'Bet failed';
+        const msg = errorMessage(error) || 'Bet failed';
         showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
       } finally {
         setLoadingKey('placeBet', false);
@@ -95,7 +99,7 @@ export function usePredictionManagement({
   // Long-term event-share markets (AMM-priced). Cash and positions reconcile from
   // the user-doc subscription; we optimistically nudge cash for snappy feedback.
   const handleBuyEventShares = useCallback(
-    async (marketId, outcome, shares) => {
+    async (marketId: string, outcome: string, shares: number) => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to trade!');
         return null;
@@ -114,7 +118,7 @@ export function usePredictionManagement({
         return res?.data || null;
       } catch (error) {
         reportUnexpected(error, { where: 'handleBuyEventShares', marketId, outcome, shares });
-        const msg = error?.message || 'Trade failed';
+        const msg = errorMessage(error) || 'Trade failed';
         showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
         return null;
       } finally {
@@ -125,7 +129,7 @@ export function usePredictionManagement({
   );
 
   const handleSellEventShares = useCallback(
-    async (marketId, outcome, shares) => {
+    async (marketId: string, outcome: string, shares: number) => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to trade!');
         return null;
@@ -144,7 +148,7 @@ export function usePredictionManagement({
         return res?.data || null;
       } catch (error) {
         reportUnexpected(error, { where: 'handleSellEventShares', marketId, outcome, shares });
-        showNotification('error', error?.message || 'Trade failed');
+        showNotification('error', errorMessage(error) || 'Trade failed');
         return null;
       } finally {
         setLoadingKey('eventTrade', false);

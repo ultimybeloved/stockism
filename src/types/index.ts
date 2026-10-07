@@ -3,6 +3,8 @@
 // hooks and components. Fields are added here as files are converted; anything
 // not listed yet is reachable through the index signatures on the doc types.
 
+import type { HoldingCohort } from '../characters';
+
 export type Ticker = string;
 
 /** Anything we store as a time: Firestore Timestamp, epoch ms, or ISO string. */
@@ -68,6 +70,12 @@ export interface SeasonTitle {
   text: string;
 }
 
+/** users/{uid}.dailyMissions[date] / weeklyMissions[weekId]. */
+export interface MissionDayState {
+  claimed?: Record<string, boolean>;
+  [key: string]: unknown;
+}
+
 /** users/{uid}. Only the fields typed code reads so far are listed. */
 export interface UserData {
   displayName?: string;
@@ -89,6 +97,11 @@ export interface UserData {
   watchlist?: Ticker[];
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
+  ownedShopPins?: string[];
+  isCrewHead?: boolean;
+  holdingCohorts?: Record<Ticker, HoldingCohort>;
+  dailyMissions?: Record<string, MissionDayState>;
+  weeklyMissions?: Record<string, MissionDayState & { rerolled?: boolean; rerollSeed?: number }>;
   checkinStreak?: number;
   crewLockouts?: Record<string, number>;
   darkMode?: boolean;

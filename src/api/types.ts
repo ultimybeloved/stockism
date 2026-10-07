@@ -71,6 +71,44 @@ export interface RepayMarginResponse {
   remaining: number;
 }
 
+export interface PurchasePinRequest {
+  action: 'buyPin' | 'buySlot';
+  pinId?: string;
+  slotType?: string;
+}
+
+export interface ClaimMissionRewardRequest {
+  missionId: string;
+  type: 'daily' | 'weekly';
+  reward: number;
+}
+
+export interface ClaimMissionRewardResponse {
+  newTotal: number;
+}
+
+export interface RerollMissionsResponse {
+  rerollSeed: number;
+}
+
+export interface PlaceBetRequest {
+  predictionId: string;
+  option: string;
+  amount: number;
+}
+
+export interface EventSharesRequest {
+  marketId: string;
+  outcome: string;
+  shares: number;
+}
+
+export interface EventSharesResponse {
+  cost?: number;
+  refund?: number;
+  [key: string]: unknown;
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }

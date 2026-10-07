@@ -88,7 +88,7 @@ export const createUserFunction = callable('createUser');
 export const checkUsernameFunction = callable('checkUsername');
 export const deleteAccountFunction = callable<{ confirmUsername: string }>('deleteAccount');
 export const changeDisplayNameFunction = callable('changeDisplayName');
-export const purchaseCosmeticFunction = callable('purchaseCosmetic');
+export const purchaseCosmeticFunction = callable<{ cosmeticId: string }>('purchaseCosmetic');
 export const createBotsFunction = callable('createBots');
 export const fixBasePriceCliffsFunction = callable('fixBasePriceCliffs');
 export const triggerManualBackupFunction = callable('triggerManualBackup');
@@ -124,10 +124,12 @@ export const ipoAnnouncementAlertFunction = callable('ipoAnnouncementAlert');
 // Data archiving functions
 export const archivePriceHistoryFunction = callable('archivePriceHistory');
 // Secure operations
-export const claimMissionRewardFunction = callable('claimMissionReward');
-export const rerollMissionsFunction = callable('rerollMissions');
-export const purchasePinFunction = callable('purchasePin');
-export const placeBetFunction = callable('placeBet');
+export const claimMissionRewardFunction = callable<Api.ClaimMissionRewardRequest, Api.ClaimMissionRewardResponse>(
+  'claimMissionReward',
+);
+export const rerollMissionsFunction = callable<void, Api.RerollMissionsResponse>('rerollMissions');
+export const purchasePinFunction = callable<Api.PurchasePinRequest>('purchasePin');
+export const placeBetFunction = callable<Api.PlaceBetRequest>('placeBet');
 export const claimPredictionPayoutFunction = callable<
   Api.ClaimPredictionPayoutRequest,
   Api.ClaimPredictionPayoutResponse
@@ -137,8 +139,8 @@ export const createPreMarketOrderFunction = callable('createPreMarketOrder');
 export const cancelPreMarketOrderFunction = callable('cancelPreMarketOrder');
 export const buyIPOSharesFunction = callable<Api.BuyIPOSharesRequest>('buyIPOShares');
 // Event prediction markets (long-term, AMM-priced)
-export const buyEventSharesFunction = callable('buyEventShares');
-export const sellEventSharesFunction = callable('sellEventShares');
+export const buyEventSharesFunction = callable<Api.EventSharesRequest, Api.EventSharesResponse>('buyEventShares');
+export const sellEventSharesFunction = callable<Api.EventSharesRequest, Api.EventSharesResponse>('sellEventShares');
 export const triggerEventSettlementsFunction = callable('triggerEventSettlements');
 export const cancelEventMarketFunction = callable('cancelEventMarket');
 export const repayMarginFunction = callable<{ amount: number }, Api.RepayMarginResponse>('repayMargin');
