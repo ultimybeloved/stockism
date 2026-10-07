@@ -1,6 +1,7 @@
 import { formatDateTime } from '../../utils/localTime';
 
-const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (n) =>
+  `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Every manual cash change, newest first. Answers "what have I handed out
 // lately", and with the search box, "how much have I given this one player".
@@ -8,16 +9,26 @@ const money = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractio
 // The memo column is your own internal note. It is never shown to the player:
 // they only ever see the amount.
 export default function CashLogCard({
-  darkMode, textClass, mutedClass, inputClass,
-  cashLogEntries, cashLogVisibleTotals,
-  cashLogSearch, setCashLogSearch,
-  cashLogOnlyGrants, setCashLogOnlyGrants,
-  cashLogLoading, cashLogLoaded, loadCashLog,
+  darkMode,
+  textClass,
+  mutedClass,
+  inputClass,
+  cashLogEntries,
+  cashLogVisibleTotals,
+  cashLogSearch,
+  setCashLogSearch,
+  cashLogOnlyGrants,
+  setCashLogOnlyGrants,
+  cashLogLoading,
+  cashLogLoaded,
+  loadCashLog,
 }) {
   const rowBorder = darkMode ? 'border-slate-700' : 'border-slate-200';
 
   return (
-    <div className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+    <div
+      className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+    >
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
           <h3 className={`font-semibold ${textClass}`}>💸 Cash I Have Handed Out</h3>
@@ -54,11 +65,17 @@ export default function CashLogCard({
           </div>
 
           <div className={`flex flex-wrap gap-4 mb-3 text-sm ${textClass}`}>
-            <span>Given: <strong className="text-green-500">{money(cashLogVisibleTotals.granted)}</strong></span>
+            <span>
+              Given: <strong className="text-green-500">{money(cashLogVisibleTotals.granted)}</strong>
+            </span>
             {!cashLogOnlyGrants && (
-              <span>Taken back: <strong className="text-red-500">{money(cashLogVisibleTotals.takenBack)}</strong></span>
+              <span>
+                Taken back: <strong className="text-red-500">{money(cashLogVisibleTotals.takenBack)}</strong>
+              </span>
             )}
-            <span className={mutedClass}>{cashLogVisibleTotals.count} change{cashLogVisibleTotals.count === 1 ? '' : 's'}</span>
+            <span className={mutedClass}>
+              {cashLogVisibleTotals.count} change{cashLogVisibleTotals.count === 1 ? '' : 's'}
+            </span>
           </div>
 
           {cashLogEntries.length === 0 ? (
@@ -84,11 +101,14 @@ export default function CashLogCard({
                       <td className={`py-2 pr-3 ${textClass}`}>
                         {e.displayName || <span className={mutedClass}>{e.userId}</span>}
                       </td>
-                      <td className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${e.delta > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {e.delta > 0 ? '+' : ''}{money(e.delta)}
+                      <td
+                        className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${e.delta > 0 ? 'text-green-500' : 'text-red-500'}`}
+                      >
+                        {e.delta > 0 ? '+' : ''}
+                        {money(e.delta)}
                       </td>
                       <td className={`py-2 pr-3 text-right whitespace-nowrap ${mutedClass}`}>{money(e.newCash)}</td>
-                      <td className={`py-2 ${mutedClass}`}>{e.memo || "none"}</td>
+                      <td className={`py-2 ${mutedClass}`}>{e.memo || 'none'}</td>
                     </tr>
                   ))}
                 </tbody>

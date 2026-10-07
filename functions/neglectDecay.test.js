@@ -20,8 +20,11 @@ const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_800_000_000_000;
 
 const char = (over = {}) => ({
-  ticker: 'TSTA', name: 'Test', basePrice: 100,
-  dateAdded: new Date(NOW - 365 * DAY).toISOString(), ...over,
+  ticker: 'TSTA',
+  name: 'Test',
+  basePrice: 100,
+  dateAdded: new Date(NOW - 365 * DAY).toISOString(),
+  ...over,
 });
 
 // Neglected by default: last traded well outside the window, nobody short,
@@ -63,15 +66,23 @@ describe('leaves a stock alone when', () => {
   // through the breaker by a TRAILING move from a linked one without being
   // traded itself. Every other automated price mover checks this.
   it('a circuit breaker has it paused', () => {
-    expect(decayTarget(args({
-      haltedTickers: { TSTA: { resumeAt: NOW + 60_000 } },
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          haltedTickers: { TSTA: { resumeAt: NOW + 60_000 } },
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('but not when that pause has already expired', () => {
-    expect(decayTarget(args({
-      haltedTickers: { TSTA: { resumeAt: NOW - 60_000 } },
-    }))).not.toBeNull();
+    expect(
+      decayTarget(
+        args({
+          haltedTickers: { TSTA: { resumeAt: NOW - 60_000 } },
+        }),
+      ),
+    ).not.toBeNull();
   });
 
   it('it was traded right on the edge of the window', () => {
@@ -81,32 +92,48 @@ describe('leaves a stock alone when', () => {
   it('it is brand new and has never traded', () => {
     // dateAdded stands in for a missing lastTradedAt, so a character added
     // yesterday is not decayed on day one.
-    expect(decayTarget(args({
-      character: char({ dateAdded: new Date(NOW - DAY).toISOString() }),
-      stats: undefined,
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          character: char({ dateAdded: new Date(NOW - DAY).toISOString() }),
+          stats: undefined,
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('somebody is short it', () => {
     // The exploit fix: a stock somebody is short is not a neglected stock, so
     // the farm switches off the very thing it was set up to harvest.
-    expect(decayTarget(args({
-      shortInterest: { TSTA: C.NEGLECT_SHORT_INTEREST_THRESHOLD },
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          shortInterest: { TSTA: C.NEGLECT_SHORT_INTEREST_THRESHOLD },
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('short interest sits just under the threshold', () => {
     // A single token share must not be able to freeze a stock's decay.
-    expect(decayTarget(args({
-      shortInterest: { TSTA: C.NEGLECT_SHORT_INTEREST_THRESHOLD - 1 },
-    }))).toBeLessThan(100);
+    expect(
+      decayTarget(
+        args({
+          shortInterest: { TSTA: C.NEGLECT_SHORT_INTEREST_THRESHOLD - 1 },
+        }),
+      ),
+    ).toBeLessThan(100);
   });
 
   it('an admin adjusted its price recently', () => {
     // Automated movers never quietly undo a manual decision.
-    expect(decayTarget(args({
-      priceHistory: { TSTA: [{ timestamp: NOW - DAY, price: 100, source: 'admin_adjust' }] },
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          priceHistory: { TSTA: [{ timestamp: NOW - DAY, price: 100, source: 'admin_adjust' }] },
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('it is a fund', () => {
@@ -125,33 +152,49 @@ describe('the tracking-start floor', () => {
   // this floor, every stock that had not traded since would be judged on
   // dateAdded and decayed on day one, including ones that traded last week.
   it('does not decay a long-standing stock we have only just started watching', () => {
-    expect(decayTarget(args({
-      stats: undefined,
-      trackingStartedAt: NOW - 2 * DAY,
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          stats: undefined,
+          trackingStartedAt: NOW - 2 * DAY,
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('starts decaying once we have watched it for the full window', () => {
-    expect(decayTarget(args({
-      stats: undefined,
-      trackingStartedAt: NOW - (C.NEGLECT_WINDOW_MS + DAY),
-    }))).toBeLessThan(100);
+    expect(
+      decayTarget(
+        args({
+          stats: undefined,
+          trackingStartedAt: NOW - (C.NEGLECT_WINDOW_MS + DAY),
+        }),
+      ),
+    ).toBeLessThan(100);
   });
 
   it('still respects a real recorded trade over the tracking floor', () => {
-    expect(decayTarget(args({
-      stats: { lastTradedAt: NOW - DAY },
-      trackingStartedAt: NOW - 500 * DAY,
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          stats: { lastTradedAt: NOW - DAY },
+          trackingStartedAt: NOW - 500 * DAY,
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('uses the later of dateAdded and tracking start', () => {
     // A character added after tracking began is judged from when it was added.
-    expect(decayTarget(args({
-      character: char({ dateAdded: new Date(NOW - DAY).toISOString() }),
-      stats: undefined,
-      trackingStartedAt: NOW - 500 * DAY,
-    }))).toBeNull();
+    expect(
+      decayTarget(
+        args({
+          character: char({ dateAdded: new Date(NOW - DAY).toISOString() }),
+          stats: undefined,
+          trackingStartedAt: NOW - 500 * DAY,
+        }),
+      ),
+    ).toBeNull();
   });
 });
 

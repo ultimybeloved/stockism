@@ -21,11 +21,11 @@ export const START_TIME_PAST_TOLERANCE_MS = 5 * 60 * 1000;
 export const validateIpoDraft = ({ ipoTicker, ipoStartAtInput, activeIPOs, now }) => {
   if (!ipoTicker) return { error: 'Please select a character' };
 
-  const character = CHARACTERS.find(c => c.ticker === ipoTicker);
+  const character = CHARACTERS.find((c) => c.ticker === ipoTicker);
   if (!character) return { error: 'Character not found' };
 
   // One live IPO per ticker.
-  if (activeIPOs.some(ipo => ipo.ticker === ipoTicker && !ipo.priceJumped)) {
+  if (activeIPOs.some((ipo) => ipo.ticker === ipoTicker && !ipo.priceJumped)) {
     return { error: 'An IPO already exists for this character' };
   }
 

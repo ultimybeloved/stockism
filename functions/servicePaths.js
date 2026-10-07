@@ -9,7 +9,7 @@
 // listing one here would put its helpers on the deployed function surface.
 
 module.exports = [
-'./services/trading',
+  './services/trading',
   './services/users',
   './services/userProfile',
   './services/leaderboard',

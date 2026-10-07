@@ -3,7 +3,14 @@ import { useSeason } from '../../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
-import { SEASON_TIERS, seasonTierRule, seasonLabel, tierGivesTitle, divisionRange, SEASON_MIN_BASELINE } from '../../constants/seasons';
+import {
+  SEASON_TIERS,
+  seasonTierRule,
+  seasonLabel,
+  tierGivesTitle,
+  divisionRange,
+  SEASON_MIN_BASELINE,
+} from '../../constants/seasons';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -15,9 +22,25 @@ const SeasonCard = () => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const {
-    active, season, weeks, rules, inSeason, returnPercent, returnWithLadder,
-    lockedTierMeta, activeWeeks, bronzeActiveWeeks, nextTier, belowFloor,
-    seasonWeeks, baselineValue, baselineLadder, baselinePinnedAt, baselineIndex, division, topTierExcluded,
+    active,
+    season,
+    weeks,
+    rules,
+    inSeason,
+    returnPercent,
+    returnWithLadder,
+    lockedTierMeta,
+    activeWeeks,
+    bronzeActiveWeeks,
+    nextTier,
+    belowFloor,
+    seasonWeeks,
+    baselineValue,
+    baselineLadder,
+    baselinePinnedAt,
+    baselineIndex,
+    division,
+    topTierExcluded,
   } = useSeason();
 
   if (!active) return null;
@@ -34,27 +57,27 @@ const SeasonCard = () => {
       case 'silver':
         return `Finish the season above where you started. You're at ${fmtPct(returnPercent)}.`;
       case 'gold':
-        return 'You\'re up, which is Silver if you finish there. For Gold, finish the season ahead of the market. The chart above shows where you stood at the last checkpoint.';
+        return "You're up, which is Silver if you finish there. For Gold, finish the season ahead of the market. The chart above shows where you stood at the last checkpoint.";
       default:
         return `${seasonTierRule(nextTier.id, rules)} Decided when the season ends. The season board shows where you'd land right now.`;
     }
   };
   const hint = nextHint();
   // The lowest tier that pays a title. Everything above it does too.
-  const firstTitled = SEASON_TIERS.find(t => tierGivesTitle(t.id, rules));
+  const firstTitled = SEASON_TIERS.find((t) => tierGivesTitle(t.id, rules));
 
   return (
-    <div className={`p-4 rounded-sm border mb-4 ${
-      darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'
-    }`}>
+    <div
+      className={`p-4 rounded-sm border mb-4 ${
+        darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className={`font-semibold ${textClass}`}>
             🏅 {seasonLabel(season)} · {season.name}
           </h3>
-          <p className={`text-xs ${mutedClass}`}>
-            Week {weeks} · ends when the arc finale drops
-          </p>
+          <p className={`text-xs ${mutedClass}`}>Week {weeks} · ends when the arc finale drops</p>
           {season.preseason && (
             <p className={`text-xs ${mutedClass} mt-1`}>
               A trial run before Season 1.
@@ -88,14 +111,14 @@ const SeasonCard = () => {
           </div>
           {division && (
             <p className={`text-xs ${mutedClass} mt-1`}>
-              <span className={`font-semibold ${textClass}`}>{division.label} division</span> ({divisionRange(division)} at the start).
-              Platinum and Diamond are ranked against players your size.
+              <span className={`font-semibold ${textClass}`}>{division.label} division</span> ({divisionRange(division)}{' '}
+              at the start). Platinum and Diamond are ranked against players your size.
             </p>
           )}
           {topTierExcluded && (
             <p className="text-xs text-red-400 mt-1">
-              You can&apos;t place Platinum or Diamond this season because your trades were repeatedly
-              flagged as coordinated with other players. Bronze, Silver and Gold still count.
+              You can&apos;t place Platinum or Diamond this season because your trades were repeatedly flagged as
+              coordinated with other players. Bronze, Silver and Gold still count.
             </p>
           )}
 
@@ -103,8 +126,8 @@ const SeasonCard = () => {
               would have been is honest, and quietly discourages chasing it. */}
           {returnWithLadder !== null && Math.abs(returnWithLadder - returnPercent) >= 0.1 && (
             <p className={`text-xs ${mutedClass} mt-1`}>
-              With ladder winnings it would be {fmtPct(returnWithLadder)}. The ladder is a casino,
-              so it doesn't count toward your season.
+              With ladder winnings it would be {fmtPct(returnWithLadder)}. The ladder is a casino, so it doesn't count
+              toward your season.
             </p>
           )}
 
@@ -119,22 +142,28 @@ const SeasonCard = () => {
 
           {hint && (
             <p className={`text-sm ${textClass} mt-2`}>
-              Next up <span className="font-semibold" style={{ color: nextTier.color }}>{nextTier.name}</span>. {hint}
+              Next up{' '}
+              <span className="font-semibold" style={{ color: nextTier.color }}>
+                {nextTier.name}
+              </span>
+              . {hint}
             </p>
           )}
 
           <p className={`text-xs ${mutedClass} mt-2`}>
-            Bronze is banked at Thursday checkpoints and can't be lost. Silver and Gold go by where you
-            finish, and Platinum and Diamond are handed out when the season ends. Borrowed money counts as
-            money you traded with for as long as you owe it, so margin can't make your return look bigger.
-            Talking about stocks is fine, but repeatedly planning trades with other players to move a price
-            keeps you out of Platinum and Diamond.
+            Bronze is banked at Thursday checkpoints and can't be lost. Silver and Gold go by where you finish, and
+            Platinum and Diamond are handed out when the season ends. Borrowed money counts as money you traded with for
+            as long as you owe it, so margin can't make your return look bigger. Talking about stocks is fine, but
+            repeatedly planning trades with other players to move a price keeps you out of Platinum and Diamond.
             {firstTitled && ` ${firstTitled.name} and up earn a permanent title.`}
           </p>
         </>
       )}
 
-      <Link to="/leaderboard?board=season" className="inline-block mt-3 text-xs font-semibold text-orange-500 hover:underline">
+      <Link
+        to="/leaderboard?board=season"
+        className="inline-block mt-3 text-xs font-semibold text-orange-500 hover:underline"
+      >
         See the season board →
       </Link>
     </div>

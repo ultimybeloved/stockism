@@ -14,12 +14,23 @@ const { isTargetedHarassment, containsProfanity } = require('./helpers');
 // The 17 accounts removed on 2026-08-21. Every one of them was accepted by the
 // signup filter at the time. None of them may ever be accepted again.
 const PURGED = [
-  'N1CumBucketCallmebot', 'StitchRvpesCallmebot', 'CallmebotLicksStitch',
-  'CallmebotisAbottom', 'StchFingersCallmebot', 'CallmebotisAdog',
-  'CallmebotSucksStitch', 'SubmissiveCallmebot', 'HeFingersCallmebot',
-  'RatsuvaPegsCallmebot', 'CallmebotRvpedSlare', 'StitchsDogCallmebot',
-  'StitchPegsCallmebot', 'StitchOwnsCallmebot', 'GaySonOrThotEliJang',
-  'StitchSlaveCallmebot', 'StitchsGaySon',
+  'N1CumBucketCallmebot',
+  'StitchRvpesCallmebot',
+  'CallmebotLicksStitch',
+  'CallmebotisAbottom',
+  'StchFingersCallmebot',
+  'CallmebotisAdog',
+  'CallmebotSucksStitch',
+  'SubmissiveCallmebot',
+  'HeFingersCallmebot',
+  'RatsuvaPegsCallmebot',
+  'CallmebotRvpedSlare',
+  'StitchsDogCallmebot',
+  'StitchPegsCallmebot',
+  'StitchOwnsCallmebot',
+  'GaySonOrThotEliJang',
+  'StitchSlaveCallmebot',
+  'StitchsGaySon',
 ];
 
 const blocked = (name) => isTargetedHarassment(name) || containsProfanity(name);
@@ -32,18 +43,33 @@ describe('username harassment filter', () => {
   // The whole reason this is a two-part rule. "Stitch" is the #1 player AND an
   // ordinary English word; blocking every name containing it would be absurd.
   const innocent = [
-    'CrossStitch', 'StitchInTime', 'Stitch2', 'StitchFan', 'stitcher',
-    'StitchAndSew', 'LiloAndStitch', 'MadnessCombat', 'VersusMode',
-    'AyinLover', 'GunGlazerFan', 'Documentary', 'Cucumber', 'Vase',
-    'Sniveler', 'PetShop', 'DogWalker', 'TopDog', 'SlaveToTheRhythm',
+    'CrossStitch',
+    'StitchInTime',
+    'Stitch2',
+    'StitchFan',
+    'stitcher',
+    'StitchAndSew',
+    'LiloAndStitch',
+    'MadnessCombat',
+    'VersusMode',
+    'AyinLover',
+    'GunGlazerFan',
+    'Documentary',
+    'Cucumber',
+    'Vase',
+    'Sniveler',
+    'PetShop',
+    'DogWalker',
+    'TopDog',
+    'SlaveToTheRhythm',
   ];
   it.each(innocent)('allows the ordinary name %s', (name) => {
     expect(isTargetedHarassment(name)).toBe(false);
   });
 
   it('needs both halves, never one alone', () => {
-    expect(isTargetedHarassment('Callmebot2')).toBe(false);   // name, no insult
-    expect(isTargetedHarassment('SlaveDriver')).toBe(false);  // insult, no name
+    expect(isTargetedHarassment('Callmebot2')).toBe(false); // name, no insult
+    expect(isTargetedHarassment('SlaveDriver')).toBe(false); // insult, no name
     expect(isTargetedHarassment('CallmebotSlave')).toBe(true); // both
   });
 

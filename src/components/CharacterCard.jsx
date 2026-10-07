@@ -13,7 +13,24 @@ import PreMarketModal from './modals/PreMarketModal';
 import { useAppContext } from '../context/AppContext';
 import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
 
-const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, onTrade, onViewChart, userCash = 0, limitOrderRequest, onClearLimitOrderRequest, isWatchlisted, onToggleWatchlist, tradeAnimation, haltInfo, onSetAlert, reviewChange }) => {
+const CharacterCard = ({
+  character,
+  price,
+  sentiment,
+  holdings,
+  shortPosition,
+  onTrade,
+  onViewChart,
+  userCash = 0,
+  limitOrderRequest,
+  onClearLimitOrderRequest,
+  isWatchlisted,
+  onToggleWatchlist,
+  tradeAnimation,
+  haltInfo,
+  onSetAlert,
+  reviewChange,
+}) => {
   const { darkMode, user, userData, priceHistory, marketData, rarityTiers } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
@@ -42,13 +59,18 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const marketState = getMarketClosedState(marketData);
   const marketClosed = marketState.closed; // weekly review or admin halt (market-wide, not per-ticker)
 
-
   // Halt countdown timer
   useEffect(() => {
-    if (!isHalted) { setHaltCountdown(''); return; }
+    if (!isHalted) {
+      setHaltCountdown('');
+      return;
+    }
     const tick = () => {
       const remaining = haltInfo.resumeAt - Date.now();
-      if (remaining <= 0) { setHaltCountdown(''); return; }
+      if (remaining <= 0) {
+        setHaltCountdown('');
+        return;
+      }
       const mins = Math.floor(remaining / 60000);
       const secs = Math.floor((remaining % 60000) / 1000);
       setHaltCountdown(`${mins}:${secs.toString().padStart(2, '0')}`);
@@ -81,12 +103,18 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
     const negativeColorLight = colorBlindMode ? 'text-purple-400' : 'text-red-400';
 
     switch (sentiment) {
-      case 'Strong Buy': return positiveColor;
-      case 'Bullish': return positiveColorLight;
-      case 'Neutral': return 'text-amber-500';
-      case 'Bearish': return negativeColorLight;
-      case 'Strong Sell': return negativeColor;
-      default: return mutedClass;
+      case 'Strong Buy':
+        return positiveColor;
+      case 'Bullish':
+        return positiveColorLight;
+      case 'Neutral':
+        return 'text-amber-500';
+      case 'Bearish':
+        return negativeColorLight;
+      case 'Strong Sell':
+        return negativeColor;
+      default:
+        return mutedClass;
     }
   };
 
@@ -94,8 +122,8 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const chart24hData = useMemo(() => {
     const data = priceHistory[character.ticker] || [];
     const now = Date.now();
-    const dayAgo = now - (24 * 60 * 60 * 1000);
-    const filtered = data.filter(p => p.timestamp >= dayAgo);
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+    const filtered = data.filter((p) => p.timestamp >= dayAgo);
 
     // If we have enough data, use it
     if (filtered.length >= 2) {
@@ -117,7 +145,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
 
     return [
       { timestamp: dayAgo, price: price24hAgo },
-      { timestamp: now, price: price }
+      { timestamp: now, price: price },
     ];
   }, [priceHistory, character.ticker, character.basePrice, price]);
 
@@ -125,8 +153,8 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const chart7dData = useMemo(() => {
     const data = priceHistory[character.ticker] || [];
     const now = Date.now();
-    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    const filtered = data.filter(p => p.timestamp >= weekAgo);
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const filtered = data.filter((p) => p.timestamp >= weekAgo);
 
     if (filtered.length >= 2) {
       return filtered;
@@ -146,14 +174,15 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
 
     return [
       { timestamp: weekAgo, price: price7dAgo },
-      { timestamp: now, price: price }
+      { timestamp: now, price: price },
     ];
   }, [priceHistory, character.ticker, character.basePrice, price]);
 
   // Calculate 24h percentage change
   const chart24hFirstPrice = chart24hData[0]?.price || price;
   const chart24hLastPrice = chart24hData[chart24hData.length - 1]?.price || price;
-  const chart24hChange = chart24hFirstPrice > 0 ? ((chart24hLastPrice - chart24hFirstPrice) / chart24hFirstPrice) * 100 : 0;
+  const chart24hChange =
+    chart24hFirstPrice > 0 ? ((chart24hLastPrice - chart24hFirstPrice) / chart24hFirstPrice) * 100 : 0;
 
   // Calculate 7d percentage change
   const chart7dFirstPrice = chart7dData[0]?.price || price;
@@ -177,26 +206,31 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
   const frameClass = rarityClassFor(rarityTier) || raisedClass;
   // Legendary frames tick every few seconds; offset each card by ticker so
   // multiple legendaries on screen never tick together.
-  const rarityStyle = rarityTier === 'legendary'
-    ? { '--rarity-stagger': getRarityStagger(character.ticker) }
-    : undefined;
+  const rarityStyle =
+    rarityTier === 'legendary' ? { '--rarity-stagger': getRarityStagger(character.ticker) } : undefined;
 
   return (
     <>
-      <div style={rarityStyle} className={`${cardClass} border rounded-sm ${SPACING.cardPad} transition-all relative ${frameClass} ${
-        tradeAnimation
-          ? tradeAnimation.big
-            ? 'animate-trade-gold'
-            : (tradeAnimation.action === 'buy' || tradeAnimation.action === 'cover')
-              ? 'animate-trade-buy'
-              : 'animate-trade-sell'
-          : ''
-      }`}>
+      <div
+        style={rarityStyle}
+        className={`${cardClass} border rounded-sm ${SPACING.cardPad} transition-all relative ${frameClass} ${
+          tradeAnimation
+            ? tradeAnimation.big
+              ? 'animate-trade-gold'
+              : tradeAnimation.action === 'buy' || tradeAnimation.action === 'cover'
+                ? 'animate-trade-buy'
+                : 'animate-trade-sell'
+            : ''
+        }`}
+      >
         {onToggleWatchlist && user && (
           <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
             {onSetAlert && (
               <button
-                onClick={(e) => { e.stopPropagation(); onSetAlert(character.ticker); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetAlert(character.ticker);
+                }}
                 className={`text-sm leading-none transition-colors ${mutedClass} hover:text-orange-500 opacity-40 hover:opacity-100`}
                 title="Set price alert"
               >
@@ -204,7 +238,10 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); onToggleWatchlist(character.ticker); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatchlist(character.ticker);
+              }}
               className={`text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
               title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
             >
@@ -237,13 +274,19 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
             </div>
             <div className="text-right">
               <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
-              <p className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : (colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
+              <p
+                className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
+              >
                 {isUp ? '▲' : '▼'} {formatChange(chartChange)}
               </p>
             </div>
           </div>
           <div className="mb-2">
-            <SimpleLineChart data={miniChartData} darkMode={darkMode} colorBlindMode={userData?.colorBlindMode || false} />
+            <SimpleLineChart
+              data={miniChartData}
+              darkMode={darkMode}
+              colorBlindMode={userData?.colorBlindMode || false}
+            />
           </div>
         </div>
 
@@ -252,7 +295,7 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
             <span className={`text-xs ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
             <Link
               to={`/stock/${character.ticker}`}
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               className={`text-[10px] ${mutedClass} hover:text-orange-500`}
             >
               Details ↗
@@ -260,31 +303,39 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
           </div>
           <div className="flex gap-2">
             {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
-            <ShortRiskTag shortPosition={shortPosition} ticker={character.ticker} price={price} colorBlindMode={colorBlindMode} />
+            <ShortRiskTag
+              shortPosition={shortPosition}
+              ticker={character.ticker}
+              price={price}
+              colorBlindMode={colorBlindMode}
+            />
           </div>
         </div>
 
         {!showTradeMenu ? (
           <button
-            onClick={(e) => { e.stopPropagation(); if (!isHalted && !marketClosed) setShowTradeMenu(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isHalted && !marketClosed) setShowTradeMenu(true);
+            }}
             disabled={isHalted || marketClosed}
             className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
-              isHalted || marketClosed
-                ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed'
-                : ghostBtnClass
+              isHalted || marketClosed ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed' : ghostBtnClass
             }`}
           >
             {isHalted ? 'Trading Halted' : marketState.label}
           </button>
         ) : (
-          <div className="space-y-2" onClick={e => e.stopPropagation()}>
+          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
                   setShowTradeMenu(false);
-                  if (isPreMarketWindow()) { setPreMarketAction('buy'); setShowPreMarket(true); }
-                  else setTradeAction('buy');
+                  if (isPreMarketWindow()) {
+                    setPreMarketAction('buy');
+                    setShowPreMarket(true);
+                  } else setTradeAction('buy');
                 }}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(true).bg} ${getBuySellColors(true).bgHover} text-white`}
               >
@@ -293,8 +344,10 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
               <button
                 onClick={() => {
                   setShowTradeMenu(false);
-                  if (isPreMarketWindow()) { setPreMarketAction('sell'); setShowPreMarket(true); }
-                  else setTradeAction('sell');
+                  if (isPreMarketWindow()) {
+                    setPreMarketAction('sell');
+                    setShowPreMarket(true);
+                  } else setTradeAction('sell');
                 }}
                 disabled={holdings === 0}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(false).bg} ${getBuySellColors(false).bgHover} text-white disabled:opacity-50`}
@@ -302,13 +355,19 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
                 Sell
               </button>
               <button
-                onClick={() => { setTradeAction('short'); setShowTradeMenu(false); }}
+                onClick={() => {
+                  setTradeAction('short');
+                  setShowTradeMenu(false);
+                }}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 ${darkMode ? 'text-orange-400 hover:bg-orange-900/30' : 'text-orange-500 hover:bg-orange-50'}`}
               >
                 Short
               </button>
               <button
-                onClick={() => { setTradeAction('cover'); setShowTradeMenu(false); }}
+                onClick={() => {
+                  setTradeAction('cover');
+                  setShowTradeMenu(false);
+                }}
                 disabled={!shorted}
                 className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-blue-500 ${darkMode ? 'text-blue-400 hover:bg-blue-900/30' : 'text-blue-600 hover:bg-blue-50'} disabled:opacity-50`}
               >
@@ -335,7 +394,10 @@ const CharacterCard = ({ character, price, sentiment, holdings, shortPosition, o
           shortPosition={shortPosition}
           userCash={userCash}
           onTrade={onTrade}
-          onClose={() => { setTradeAction(null); setShouldOpenAsLimit(false); }}
+          onClose={() => {
+            setTradeAction(null);
+            setShouldOpenAsLimit(false);
+          }}
           defaultToLimitOrder={shouldOpenAsLimit}
           haltInfo={haltInfo}
         />

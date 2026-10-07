@@ -31,13 +31,11 @@ describe('all-time high/low marks', () => {
   });
 
   it('moves only the high when a price breaks upward', () => {
-    expect(buildExtremeUpdates({ [A]: 90 }, { [A]: 80 }, { [A]: 40 }))
-      .toEqual({ [`ath.${A}`]: 90 });
+    expect(buildExtremeUpdates({ [A]: 90 }, { [A]: 80 }, { [A]: 40 })).toEqual({ [`ath.${A}`]: 90 });
   });
 
   it('moves only the low when a price breaks downward', () => {
-    expect(buildExtremeUpdates({ [A]: 30 }, { [A]: 80 }, { [A]: 40 }))
-      .toEqual({ [`atl.${A}`]: 30 });
+    expect(buildExtremeUpdates({ [A]: 30 }, { [A]: 80 }, { [A]: 40 })).toEqual({ [`atl.${A}`]: 30 });
   });
 
   it('writes nothing while a price stays inside its band', () => {
@@ -65,11 +63,7 @@ describe('all-time high/low marks', () => {
   });
 
   it('handles several tickers in one sweep', () => {
-    const out = buildExtremeUpdates(
-      { [A]: 100, [B]: 5 },
-      { [A]: 80, [B]: 90 },
-      { [A]: 40, [B]: 50 }
-    );
+    const out = buildExtremeUpdates({ [A]: 100, [B]: 5 }, { [A]: 80, [B]: 90 }, { [A]: 40, [B]: 50 });
     expect(out).toEqual({ [`ath.${A}`]: 100, [`atl.${B}`]: 5 });
   });
 });

@@ -32,7 +32,9 @@ const PredictionCreateForm = ({
   setOpeningOdds,
 }) => {
   return (
-    <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+    <div
+      className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+    >
       <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
       <div className="space-y-3">
         <div>
@@ -59,7 +61,7 @@ const PredictionCreateForm = ({
           <input
             type="text"
             value={question}
-            onChange={e => setQuestion(e.target.value)}
+            onChange={(e) => setQuestion(e.target.value)}
             placeholder=""
             className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
           />
@@ -73,7 +75,7 @@ const PredictionCreateForm = ({
                 key={idx}
                 type="text"
                 value={opt}
-                onChange={e => {
+                onChange={(e) => {
                   const newOpts = [...options];
                   newOpts[idx] = e.target.value;
                   setOptions(newOpts);
@@ -88,20 +90,30 @@ const PredictionCreateForm = ({
         {predictionType !== 'event' ? (
           <>
             <div>
-              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Days Until Betting Ends</label>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>
+                Days Until Betting Ends
+              </label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
                   min="1"
                   max="14"
                   value={daysUntilEnd}
-                  onChange={e => setDaysUntilEnd(parseInt(e.target.value))}
+                  onChange={(e) => setDaysUntilEnd(parseInt(e.target.value))}
                   className="flex-1"
                 />
                 <span className={`text-lg font-semibold ${textClass} w-20`}>{daysUntilEnd} days</span>
               </div>
               <p className={`text-xs ${mutedClass} mt-1`}>
-                Ends: {endDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+                Ends:{' '}
+                {endDate.toLocaleString('en-US', {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZoneName: 'short',
+                })}
               </p>
             </div>
 
@@ -110,7 +122,7 @@ const PredictionCreateForm = ({
                 type="checkbox"
                 id="mayExtend"
                 checked={mayExtend}
-                onChange={e => setMayExtend(e.target.checked)}
+                onChange={(e) => setMayExtend(e.target.checked)}
                 className="w-4 h-4 cursor-pointer"
               />
               <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
@@ -119,21 +131,24 @@ const PredictionCreateForm = ({
             </div>
 
             <div>
-              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>House Seed ($, optional)</label>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>
+                House Seed ($, optional)
+              </label>
               <input
                 type="number"
                 min="0"
                 max={WEEKLY_PREDICTION_SEED_MAX}
                 value={weeklySeed}
-                onChange={e => setWeeklySeed(e.target.value)}
+                onChange={(e) => setWeeklySeed(e.target.value)}
                 placeholder="0"
                 className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
               />
               <p className={`text-xs ${mutedClass} mt-1`}>
                 {(() => {
-                  const n = options.filter(o => o.trim()).length;
+                  const n = options.filter((o) => o.trim()).length;
                   const total = Number(weeklySeed) || 0;
-                  if (total <= 0 || n < 2) return 'Split evenly across the options. Seed on the losing options goes to the winners. Most the house can lose is the seed.';
+                  if (total <= 0 || n < 2)
+                    return 'Split evenly across the options. Seed on the losing options goes to the winners. Most the house can lose is the seed.';
                   return `$${(total / n).toLocaleString('en-US', { maximumFractionDigits: 2 })} in each of ${n} options. Most the house can lose is $${total.toLocaleString('en-US')}.`;
                 })()}
               </p>
@@ -159,7 +174,7 @@ const PredictionCreateForm = ({
           disabled={loading}
           className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
-          {loading ? 'Creating...' : (predictionType === 'event' ? '➕ Create Long-Term Market' : '➕ Create Prediction')}
+          {loading ? 'Creating...' : predictionType === 'event' ? '➕ Create Long-Term Market' : '➕ Create Prediction'}
         </button>
       </div>
     </div>

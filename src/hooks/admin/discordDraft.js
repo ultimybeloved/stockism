@@ -6,11 +6,15 @@
 export const DEFAULT_EMBED_COLOR = '#f97316';
 
 export const emptyEmbed = () => ({
-  title: '', description: '', color: DEFAULT_EMBED_COLOR, imageUrl: '', footer: '',
+  title: '',
+  description: '',
+  color: DEFAULT_EMBED_COLOR,
+  imageUrl: '',
+  footer: '',
 });
 
 export const emptyDraft = () => ({
-  id: null,            // set once the message exists, which flips send -> edit
+  id: null, // set once the message exists, which flips send -> edit
   channelId: '',
   label: '',
   content: '',
@@ -22,7 +26,10 @@ export const emptyDraft = () => ({
 
 // A saved message stores the embed colour as a number; the colour input needs
 // '#rrggbb'.
-const toHex = (n) => `#${Math.max(0, Math.min(0xffffff, n | 0)).toString(16).padStart(6, '0')}`;
+const toHex = (n) =>
+  `#${Math.max(0, Math.min(0xffffff, n | 0))
+    .toString(16)
+    .padStart(6, '0')}`;
 
 /** Turn a tracked message from the server back into an editable draft. */
 export function draftFromMessage(msg) {

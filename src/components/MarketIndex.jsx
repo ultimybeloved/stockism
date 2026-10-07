@@ -31,18 +31,23 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
         let ref = null;
         for (let i = hist.length - 1; i >= 0; i--) {
-          if (hist[i].t <= cutoff) { ref = hist[i]; break; }
+          if (hist[i].t <= cutoff) {
+            ref = hist[i];
+            break;
+          }
         }
         if (!ref) ref = hist[0];
         if (!cancelled) setIndex30dAgo(ref.v);
-      } catch { /* leave null — 30d line just hides, index falls back to the average */ }
+      } catch {
+        /* leave null — 30d line just hides, index falls back to the average */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const currentIndex = useMemo(
-    () => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]
-  );
+  const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]);
 
   // 24h sparkline data
   const { change24h, changePct24h, sparklineData } = useMemo(() => {
@@ -57,7 +62,7 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
   // Expanded chart data
   const chartData = useMemo(() => {
     if (!expanded) return [];
-    const range = TIME_RANGES.find(r => r.key === timeRange);
+    const range = TIME_RANGES.find((r) => r.key === timeRange);
     return buildIndexSeries(priceHistory, currentIndex, range.hours, divisor);
   }, [expanded, timeRange, priceHistory, currentIndex, divisor]);
 
@@ -65,7 +70,8 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
   const upColor = colorBlindMode ? 'text-teal-400' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-400' : 'text-red-500';
   const changeColor = isUp ? upColor : downColor;
-  const change30dPct = (index30dAgo != null && index30dAgo > 0) ? ((currentIndex - index30dAgo) / index30dAgo) * 100 : null;
+  const change30dPct =
+    index30dAgo != null && index30dAgo > 0 ? ((currentIndex - index30dAgo) / index30dAgo) * 100 : null;
   const thirtyIsUp = (change30dPct ?? 0) >= 0;
   const thirtyColor = thirtyIsUp ? upColor : downColor;
 
@@ -78,7 +84,9 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className={`text-xs font-semibold tracking-wider mb-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <div
+              className={`text-xs font-semibold tracking-wider mb-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
+            >
               STOCKISM MARKET INDEX
             </div>
             <div className="flex items-baseline gap-2 flex-wrap">
@@ -86,7 +94,9 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
                 {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className={`text-sm font-semibold ${changeColor}`}>
-                {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}{change24h.toFixed(2)} ({isUp ? '+' : ''}{changePct24h.toFixed(2)}%) 24h
+                {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
+                {change24h.toFixed(2)} ({isUp ? '+' : ''}
+                {changePct24h.toFixed(2)}%) 24h
               </span>
             </div>
             {change30dPct != null && (
@@ -111,30 +121,44 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
 
       {/* Expanded chart modal — portaled to body so the sticky sidebar's
           stacking context can't layer it under the market column */}
-      {expanded && createPortal(<IndexChartModal
-        chartData={chartData}
-        currentIndex={currentIndex}
-        timeRange={timeRange}
-        setTimeRange={setTimeRange}
-        hoveredPoint={hoveredPoint}
-        setHoveredPoint={setHoveredPoint}
-        darkMode={darkMode}
-        colorBlindMode={colorBlindMode}
-        onClose={() => { setExpanded(false); setHoveredPoint(null); }}
-      />, document.body)}
+      {expanded &&
+        createPortal(
+          <IndexChartModal
+            chartData={chartData}
+            currentIndex={currentIndex}
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
+            hoveredPoint={hoveredPoint}
+            setHoveredPoint={setHoveredPoint}
+            darkMode={darkMode}
+            colorBlindMode={colorBlindMode}
+            onClose={() => {
+              setExpanded(false);
+              setHoveredPoint(null);
+            }}
+          />,
+          document.body,
+        )}
     </>
   );
 };
 
 const IndexChartModal = ({
-  chartData, currentIndex, timeRange, setTimeRange,
-  hoveredPoint, setHoveredPoint, darkMode, colorBlindMode, onClose
+  chartData,
+  currentIndex,
+  timeRange,
+  setTimeRange,
+  hoveredPoint,
+  setHoveredPoint,
+  darkMode,
+  colorBlindMode,
+  onClose,
 }) => {
   const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   if (chartData.length < 2) return null;
 
-  const indexValues = chartData.map(d => d.price);
+  const indexValues = chartData.map((d) => d.price);
   const minVal = Math.min(...indexValues);
   const maxVal = Math.max(...indexValues);
   const valRange = maxVal - minVal || 1;
@@ -144,12 +168,14 @@ const IndexChartModal = ({
   const periodChange = firstVal > 0 ? ((lastVal - firstVal) / firstVal) * 100 : 0;
   const isUp = lastVal >= firstVal;
 
-  const strokeColor = colorBlindMode
-    ? (isUp ? '#14b8a6' : '#a855f7')
-    : (isUp ? '#22c55e' : '#ef4444');
+  const strokeColor = colorBlindMode ? (isUp ? '#14b8a6' : '#a855f7') : isUp ? '#22c55e' : '#ef4444';
   const fillColor = colorBlindMode
-    ? (isUp ? 'rgba(20, 184, 166, 0.1)' : 'rgba(168, 85, 247, 0.1)')
-    : (isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)');
+    ? isUp
+      ? 'rgba(20, 184, 166, 0.1)'
+      : 'rgba(168, 85, 247, 0.1)'
+    : isUp
+      ? 'rgba(34, 197, 94, 0.1)'
+      : 'rgba(239, 68, 68, 0.1)';
 
   const svgWidth = 600;
   const svgHeight = 300;
@@ -165,19 +191,21 @@ const IndexChartModal = ({
   const getX = (ts) => paddingX + ((ts - firstTs) / timeSpan) * chartWidth;
   const getY = (val) => paddingY + chartHeight - ((val - minVal) / valRange) * chartHeight;
 
-  const pathData = chartData.map((d, i) => {
-    const x = getX(d.timestamp);
-    const y = getY(d.price);
-    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
+  const pathData = chartData
+    .map((d, i) => {
+      const x = getX(d.timestamp);
+      const y = getY(d.price);
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    })
+    .join(' ');
 
   const areaPath = `${pathData} L ${getX(lastTs)} ${paddingY + chartHeight} L ${paddingX} ${paddingY + chartHeight} Z`;
 
-  const rangeLabel = TIME_RANGES.find(t => t.key === timeRange)?.label;
+  const rangeLabel = TIME_RANGES.find((t) => t.key === timeRange)?.label;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-3xl overflow-hidden`} onClick={e => e.stopPropagation()}>
+      <div className={`${modalShellClass} max-w-3xl overflow-hidden`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">
@@ -187,19 +215,26 @@ const IndexChartModal = ({
                 <span className={`text-2xl font-bold ${textClass}`}>
                   {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : (isUp ? 'text-green-500' : 'text-red-500')}`}>
-                  {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}{periodChange.toFixed(2)}% ({rangeLabel})
+                <span
+                  className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : isUp ? 'text-green-500' : 'text-red-500'}`}
+                >
+                  {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
+                  {periodChange.toFixed(2)}% ({rangeLabel})
                 </span>
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>&times;</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              &times;
+            </button>
           </div>
         </div>
 
         {/* Time Range Selector */}
-        <div className={`px-4 py-2 border-b ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}>
+        <div
+          className={`px-4 py-2 border-b ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}
+        >
           <div className="flex gap-1">
-            {TIME_RANGES.map(range => (
+            {TIME_RANGES.map((range) => (
               <button
                 key={range.key}
                 onClick={() => setTimeRange(range.key)}
@@ -227,10 +262,21 @@ const IndexChartModal = ({
                 const val = maxVal - ratio * valRange;
                 return (
                   <g key={i}>
-                    <line x1={paddingX} y1={y} x2={svgWidth - paddingX} y2={y}
-                      stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
-                    <text x={paddingX - 8} y={y + 4} textAnchor="end"
-                      fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="10">
+                    <line
+                      x1={paddingX}
+                      y1={y}
+                      x2={svgWidth - paddingX}
+                      y2={y}
+                      stroke={darkMode ? '#334155' : '#e2e8f0'}
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={paddingX - 8}
+                      y={y + 4}
+                      textAnchor="end"
+                      fill={darkMode ? '#64748b' : '#94a3b8'}
+                      fontSize="10"
+                    >
                       {val.toFixed(0)}
                     </text>
                   </g>
@@ -240,10 +286,23 @@ const IndexChartModal = ({
               {/* Base line at 1000 */}
               {minVal < 1000 && maxVal > 1000 && (
                 <>
-                  <line x1={paddingX} y1={getY(1000)} x2={svgWidth - paddingX} y2={getY(1000)}
-                    stroke={darkMode ? '#f59e0b' : '#d97706'} strokeWidth="1" strokeDasharray="4" opacity="0.5" />
-                  <text x={svgWidth - paddingX + 4} y={getY(1000) + 4}
-                    fill={darkMode ? '#f59e0b' : '#d97706'} fontSize="9" opacity="0.7">
+                  <line
+                    x1={paddingX}
+                    y1={getY(1000)}
+                    x2={svgWidth - paddingX}
+                    y2={getY(1000)}
+                    stroke={darkMode ? '#f59e0b' : '#d97706'}
+                    strokeWidth="1"
+                    strokeDasharray="4"
+                    opacity="0.5"
+                  />
+                  <text
+                    x={svgWidth - paddingX + 4}
+                    y={getY(1000) + 4}
+                    fill={darkMode ? '#f59e0b' : '#d97706'}
+                    fontSize="9"
+                    opacity="0.7"
+                  >
                     BASE
                   </text>
                 </>
@@ -253,18 +312,42 @@ const IndexChartModal = ({
               <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
 
               {/* Endpoint dots */}
-              <circle cx={getX(firstTs)} cy={getY(firstVal)} r={4}
-                fill={darkMode ? '#1e293b' : '#f8fafc'} stroke={strokeColor} strokeWidth={2} />
-              <circle cx={getX(lastTs)} cy={getY(lastVal)} r={4}
-                fill={darkMode ? '#1e293b' : '#f8fafc'} stroke={strokeColor} strokeWidth={2} />
+              <circle
+                cx={getX(firstTs)}
+                cy={getY(firstVal)}
+                r={4}
+                fill={darkMode ? '#1e293b' : '#f8fafc'}
+                stroke={strokeColor}
+                strokeWidth={2}
+              />
+              <circle
+                cx={getX(lastTs)}
+                cy={getY(lastVal)}
+                r={4}
+                fill={darkMode ? '#1e293b' : '#f8fafc'}
+                stroke={strokeColor}
+                strokeWidth={2}
+              />
 
               {/* Hover indicator */}
               {hoveredPoint && (
                 <>
-                  <line x1={hoveredPoint.x} y1={paddingY} x2={hoveredPoint.x} y2={paddingY + chartHeight}
-                    stroke={darkMode ? '#475569' : '#cbd5e1'} strokeDasharray="4" />
-                  <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={6}
-                    fill={strokeColor} stroke={darkMode ? '#1e293b' : '#fff'} strokeWidth={2} />
+                  <line
+                    x1={hoveredPoint.x}
+                    y1={paddingY}
+                    x2={hoveredPoint.x}
+                    y2={paddingY + chartHeight}
+                    stroke={darkMode ? '#475569' : '#cbd5e1'}
+                    strokeDasharray="4"
+                  />
+                  <circle
+                    cx={hoveredPoint.x}
+                    cy={hoveredPoint.y}
+                    r={6}
+                    fill={strokeColor}
+                    stroke={darkMode ? '#1e293b' : '#fff'}
+                    strokeWidth={2}
+                  />
                 </>
               )}
             </svg>
@@ -299,8 +382,12 @@ const IndexChartModal = ({
                     x: mouseX,
                     y: getY(interpolated),
                     fullDate: new Date(closerPoint.timestamp).toLocaleDateString('en-US', {
-                      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
                   });
                 } else {
                   setHoveredPoint(null);
@@ -318,7 +405,7 @@ const IndexChartModal = ({
                 style={{
                   left: `${(hoveredPoint.x / svgWidth) * 100}%`,
                   top: `${(hoveredPoint.y / svgHeight) * 100}%`,
-                  transform: 'translate(-50%, -130%)'
+                  transform: 'translate(-50%, -130%)',
                 }}
               >
                 <div className="font-bold text-orange-400">
@@ -335,19 +422,27 @@ const IndexChartModal = ({
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Open</div>
-              <div className={`font-semibold ${textClass}`}>{firstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className={`font-semibold ${textClass}`}>
+                {firstVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>High</div>
-              <div className={`font-semibold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{maxVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                {maxVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Low</div>
-              <div className={`font-semibold ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>{minVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className={`font-semibold ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
+                {minVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
             </div>
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Current</div>
-              <div className={`font-semibold ${textClass}`}>{currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className={`font-semibold ${textClass}`}>
+                {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
             </div>
           </div>
         </div>

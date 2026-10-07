@@ -1,4 +1,3 @@
-
 const BotsTab = ({
   darkMode,
   textClass,
@@ -30,12 +29,14 @@ const BotsTab = ({
 
       {/* Bot List */}
       {bots.length > 0 && (
-        <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div
+          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+        >
           <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Active Bots ({bots.length})</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {bots.map(bot => {
+            {bots.map((bot) => {
               const holdingsValue = Object.entries(bot.holdings || {}).reduce((sum, [ticker, shares]) => {
-                const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
                 return sum + (prices[ticker] || 0) * shareCount;
               }, 0);
 
@@ -49,23 +50,17 @@ const BotsTab = ({
                           {bot.botPersonality}
                         </span>
                         {bot.botCrew && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-600 text-white">
-                            {bot.botCrew}
-                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-blue-600 text-white">{bot.botCrew}</span>
                         )}
                       </div>
                       <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
                         <div>
                           <span className={mutedClass}>Cash:</span>
-                          <span className={`ml-1 font-semibold text-green-500`}>
-                            ${bot.cash?.toFixed(2) || '0.00'}
-                          </span>
+                          <span className={`ml-1 font-semibold text-green-500`}>${bot.cash?.toFixed(2) || '0.00'}</span>
                         </div>
                         <div>
                           <span className={mutedClass}>Holdings:</span>
-                          <span className={`ml-1 font-semibold ${textClass}`}>
-                            ${holdingsValue.toFixed(2)}
-                          </span>
+                          <span className={`ml-1 font-semibold ${textClass}`}>${holdingsValue.toFixed(2)}</span>
                         </div>
                         <div>
                           <span className={mutedClass}>Portfolio:</span>
@@ -75,9 +70,7 @@ const BotsTab = ({
                         </div>
                         <div>
                           <span className={mutedClass}>Trades:</span>
-                          <span className={`ml-1 font-semibold ${textClass}`}>
-                            {bot.totalTrades || 0}
-                          </span>
+                          <span className={`ml-1 font-semibold ${textClass}`}>{bot.totalTrades || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -95,11 +88,7 @@ const BotsTab = ({
         </div>
       )}
 
-      {bots.length === 0 && !botsLoading && (
-        <p className={`text-center ${mutedClass} py-8`}>
-          No bots found.
-        </p>
-      )}
+      {bots.length === 0 && !botsLoading && <p className={`text-center ${mutedClass} py-8`}>No bots found.</p>}
     </div>
   );
 };

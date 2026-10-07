@@ -31,47 +31,46 @@ const HoldersTab = ({
           type="text"
           placeholder="Filter by name or ticker..."
           value={holdersTicker}
-          onChange={e => setHoldersTicker(e.target.value)}
+          onChange={(e) => setHoldersTicker(e.target.value)}
           className={`w-full px-3 py-2 border rounded-sm ${inputClass} mb-3`}
         />
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-96 overflow-y-auto p-2">
-          {CHARACTERS
-            .filter(c => {
-              const searchTerm = holdersTicker.toLowerCase();
-              return !searchTerm ||
-                     c.name.toLowerCase().includes(searchTerm) ||
-                     c.ticker.toLowerCase().includes(searchTerm);
-            })
-            .map(c => {
-              const currentPrice = prices[c.ticker] || c.basePrice;
-              return (
-                <button
-                  key={c.ticker}
-                  onClick={() => {
-                    setHoldersTicker(c.ticker);
-                    loadHolders(c.ticker);
-                  }}
-                  className={`p-3 rounded-sm text-left transition-all ${
-                    darkMode
-                      ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
-                      : 'bg-white hover:bg-blue-50 border border-slate-200'
-                  }`}
-                >
-                  <div className={`text-xs font-semibold ${mutedClass} mb-1`}>${c.ticker}</div>
-                  <div className={`text-sm font-semibold ${textClass} truncate`}>{c.name}</div>
-                  <div className={`text-xs text-green-500 mt-1`}>${currentPrice.toFixed(2)}</div>
-                </button>
-              );
-            })}
+          {CHARACTERS.filter((c) => {
+            const searchTerm = holdersTicker.toLowerCase();
+            return (
+              !searchTerm || c.name.toLowerCase().includes(searchTerm) || c.ticker.toLowerCase().includes(searchTerm)
+            );
+          }).map((c) => {
+            const currentPrice = prices[c.ticker] || c.basePrice;
+            return (
+              <button
+                key={c.ticker}
+                onClick={() => {
+                  setHoldersTicker(c.ticker);
+                  loadHolders(c.ticker);
+                }}
+                className={`p-3 rounded-sm text-left transition-all ${
+                  darkMode
+                    ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
+                    : 'bg-white hover:bg-blue-50 border border-slate-200'
+                }`}
+              >
+                <div className={`text-xs font-semibold ${mutedClass} mb-1`}>${c.ticker}</div>
+                <div className={`text-sm font-semibold ${textClass} truncate`}>{c.name}</div>
+                <div className={`text-xs text-green-500 mt-1`}>${currentPrice.toFixed(2)}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {holdersTicker && CHARACTERS.find(c => c.ticker === holdersTicker) && (
+      {holdersTicker && CHARACTERS.find((c) => c.ticker === holdersTicker) && (
         <div>
           <div className="flex justify-between items-center mb-2">
             <h3 className={`font-semibold ${textClass}`}>
-              ${holdersTicker} - {CHARACTERS.find(c => c.ticker === holdersTicker)?.name} ({holdersData.length} holders
+              ${holdersTicker} - {CHARACTERS.find((c) => c.ticker === holdersTicker)?.name} ({holdersData.length}{' '}
+              holders
               {shortsData.length > 0 && <span className="text-red-400">, {shortsData.length} short</span>})
             </h3>
             <div className="flex gap-2">
@@ -107,32 +106,31 @@ const HoldersTab = ({
               {holdersData.length === 0 ? (
                 <p className={`text-center py-3 text-sm ${mutedClass}`}>No long holders</p>
               ) : (
-              <div className="space-y-1 max-h-80 overflow-y-auto">
-                {holdersData.map((holder, idx) => (
-                  <div
-                    key={holder.userId}
-                    className={`p-2 rounded-sm flex justify-between items-center ${
-                      darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'
-                    } ${idx === 0 ? 'border-2 border-yellow-500' : ''}`}
-                  >
-                    <div>
-                      <span className={`font-semibold ${textClass}`}>
-                        {idx === 0 && '👑 '}{holder.displayName}
-                      </span>
-                      {holder.costBasis && (
-                        <span className={`text-xs ${mutedClass} ml-2`}>
-                          (avg: ${holder.costBasis.toFixed(2)})
+                <div className="space-y-1 max-h-80 overflow-y-auto">
+                  {holdersData.map((holder, idx) => (
+                    <div
+                      key={holder.userId}
+                      className={`p-2 rounded-sm flex justify-between items-center ${
+                        darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'
+                      } ${idx === 0 ? 'border-2 border-yellow-500' : ''}`}
+                    >
+                      <div>
+                        <span className={`font-semibold ${textClass}`}>
+                          {idx === 0 && '👑 '}
+                          {holder.displayName}
                         </span>
-                      )}
+                        {holder.costBasis && (
+                          <span className={`text-xs ${mutedClass} ml-2`}>(avg: ${holder.costBasis.toFixed(2)})</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className={`font-bold ${textClass}`}>{holder.shares}</span>
+                        <span className={`text-xs ${mutedClass} ml-1`}>shares</span>
+                        <p className={`text-xs text-green-500`}>${holder.value.toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`font-bold ${textClass}`}>{holder.shares}</span>
-                      <span className={`text-xs ${mutedClass} ml-1`}>shares</span>
-                      <p className={`text-xs text-green-500`}>${holder.value.toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
               )}
 
               <ShortsList {...{ darkMode, textClass, mutedClass, shortsData }} />

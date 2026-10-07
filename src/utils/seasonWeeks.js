@@ -43,17 +43,17 @@ const averageOwed = (dollarDays, fromMs, toMs, fallback = 0) => {
 };
 
 /** What the player has owed on average since they were pinned. */
-export const seasonAverageMargin = (userData, seasonId, now = Date.now()) => averageOwed(
-  marginDollarDays(userData, seasonId, now),
-  userData?.seasonBaseline?.pinnedAt || now,
-  now,
-  marginTally(userData, seasonId).amount || 0,
-);
+export const seasonAverageMargin = (userData, seasonId, now = Date.now()) =>
+  averageOwed(
+    marginDollarDays(userData, seasonId, now),
+    userData?.seasonBaseline?.pinnedAt || now,
+    now,
+    marginTally(userData, seasonId).amount || 0,
+  );
 
 /** Average owed between two week records. Older records count as nothing owed. */
-export const weekMargin = (r, prev) => (r.d === undefined || !(prev?.t > 0)
-  ? 0
-  : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t));
+export const weekMargin = (r, prev) =>
+  r.d === undefined || !(prev?.t > 0) ? 0 : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
 
 /** Amount x day it landed: what the server adds to grantedDays for a booking. */
 export const grantedDaysFor = (amount, now = Date.now()) => amount * (now / DAY_MS);
@@ -99,8 +99,7 @@ export const weekGranted = (r, prev) => {
  */
 export const seasonCapital = (baseline, { granted, margin } = {}) => {
   const ladder = baseline?.ladder || 0;
-  return (baseline?.value || 0) + ladder + Math.max(0, margin || 0)
-    + Math.max(0, (granted || 0) - ladder);
+  return (baseline?.value || 0) + ladder + Math.max(0, margin || 0) + Math.max(0, (granted || 0) - ladder);
 };
 
 /**
@@ -120,12 +119,13 @@ export const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_
   return r.c / r.h;
 };
 
-export const deriveSeasonWeeks =(seasonWeeks, { seasonId, baselineValue, baselineLadder = 0, pinnedAt = 0, indexAtStart }) => {
+export const deriveSeasonWeeks = (
+  seasonWeeks,
+  { seasonId, baselineValue, baselineLadder = 0, pinnedAt = 0, indexAtStart },
+) => {
   if (!(baselineValue > 0) || !(indexAtStart > 0)) return [];
 
-  const rows = (seasonWeeks || [])
-    .filter((r) => r && r.s === seasonId && r.w > 0)
-    .sort((a, b) => a.w - b.w);
+  const rows = (seasonWeeks || []).filter((r) => r && r.s === seasonId && r.w > 0).sort((a, b) => a.w - b.w);
   if (!rows.length) return [];
 
   const derived = [];
@@ -140,9 +140,7 @@ export const deriveSeasonWeeks =(seasonWeeks, { seasonId, baselineValue, baselin
     // weeklyRecordSummary in seasonTiers.js.
     const grantsThisWeek = (r.g || 0) - (prev.g || 0);
     const weekCapital = prev.v + Math.max(0, weekGranted(r, prev)) + weekMargin(r, prev);
-    const weekReturn = weekCapital > 0
-      ? (((r.v - grantsThisWeek) - prev.v) / weekCapital) * 100
-      : 0;
+    const weekReturn = weekCapital > 0 ? ((r.v - grantsThisWeek - prev.v) / weekCapital) * 100 : 0;
     const weekIndex = prev.x > 0 ? ((r.x - prev.x) / prev.x) * 100 : 0;
     const sinceStart = r.d === undefined ? 0 : averageOwed(r.d, pinnedAt, r.t);
     const capital = seasonCapital(baseline, {
@@ -206,13 +204,16 @@ export const buildSeasonSeries = (derived, { width = 300, height = 90, pad = 4 }
   const all = [...you, ...market];
   const min = Math.min(...all);
   const max = Math.max(...all);
-  const span = (max - min) || 1;
+  const span = max - min || 1;
 
-  const toPoints = (values) => values.map((v, i) => {
-    const x = pad + (i / Math.max(1, values.length - 1)) * (width - pad * 2);
-    const y = height - pad - ((v - min) / span) * (height - pad * 2);
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(' ');
+  const toPoints = (values) =>
+    values
+      .map((v, i) => {
+        const x = pad + (i / Math.max(1, values.length - 1)) * (width - pad * 2);
+        const y = height - pad - ((v - min) / span) * (height - pad * 2);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(' ');
 
   // Where 0% sits, so the chart can show the line you're actually being measured
   // against when both series are above or below it.

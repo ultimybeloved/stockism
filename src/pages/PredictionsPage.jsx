@@ -27,26 +27,31 @@ const PredictionsPage = ({
 
   // Opening the page is what clears the nav badge.
   const { markSeen } = useNewPredictions();
-  useEffect(() => { markSeen(); }, [markSeen]);
+  useEffect(() => {
+    markSeen();
+  }, [markSeen]);
 
   const isHalted = isWeeklyHalt() || !!marketData?.marketHalted;
 
   // Coming-soon (announced, not yet open) first, then open, resolved last.
-  const rank = (m) => (m.resolved ? 2 : (m.opensAt && Date.now() < m.opensAt ? 0 : 1));
+  const rank = (m) => (m.resolved ? 2 : m.opensAt && Date.now() < m.opensAt ? 0 : 1);
   const byStatus = (arr) => [...arr].sort((a, b) => rank(a) - rank(b));
 
-  const eventMarkets = byStatus(predictions.filter(p => p.type === 'event' && !p.cancelled && !p.hidden));
+  const eventMarkets = byStatus(predictions.filter((p) => p.type === 'event' && !p.cancelled && !p.hidden));
   const weekly = byStatus(
-    predictions.filter(p =>
-      p.type !== 'event' && !p.hidden && !p.cancelled &&
-      (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000)
-    )
+    predictions.filter(
+      (p) =>
+        p.type !== 'event' &&
+        !p.hidden &&
+        !p.cancelled &&
+        (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000),
+    ),
   );
 
   const getUserBet = (id) => userData?.bets?.[id];
   const betLimit = Math.min(
     getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts),
-    userData?.cash || 0
+    userData?.cash || 0,
   );
   const eventPositions = userData?.eventPositions || {};
 
@@ -64,7 +69,9 @@ const PredictionsPage = ({
         <p className={`text-sm mb-6 ${mutedClass}`}>Bet on what happens next in the series.</p>
 
         {isHalted && (
-          <div className={`mb-6 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+          <div
+            className={`mb-6 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}
+          >
             🔒 Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
           </div>
         )}
@@ -81,7 +88,7 @@ const PredictionsPage = ({
               <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
             ) : (
               <div className={cardGrid}>
-                {weekly.map(p => (
+                {weekly.map((p) => (
                   <PredictionCard
                     key={p.id}
                     prediction={p}
@@ -102,13 +109,14 @@ const PredictionsPage = ({
           <section className={weeklyWide ? '' : 'lg:col-span-2'}>
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Long-Term Markets</h2>
             <p className={`text-xs mb-3 ${mutedClass}`}>
-              Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series confirms it.
+              Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series
+              confirms it.
             </p>
             {eventMarkets.length === 0 ? (
               <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
             ) : (
               <div className={cardGrid}>
-                {eventMarkets.map(m => (
+                {eventMarkets.map((m) => (
                   <EventMarketCard
                     key={m.id}
                     market={m}

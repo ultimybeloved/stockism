@@ -20,7 +20,7 @@ const valueFrom = (sum, count, divisor) => {
   return count > 0 ? INDEX_BASE_VALUE * (sum / count) : INDEX_BASE_VALUE;
 };
 
-export const nonETFCharacters = CHARACTERS.filter(c => !c.isETF);
+export const nonETFCharacters = CHARACTERS.filter((c) => !c.isETF);
 
 export const TIME_RANGES = [
   { key: '1d', label: 'Today', hours: 24 },
@@ -84,11 +84,15 @@ export const buildIndexSeries = (priceHistory, currentIndex, hours, divisor) => 
 
   // Determine interval based on time range for ~100-150 points
   let interval;
-  if (hours <= 24) interval = 30 * 60 * 1000;        // 30 min
-  else if (hours <= 168) interval = 2 * 60 * 60 * 1000;   // 2 hours
-  else if (hours <= 720) interval = 8 * 60 * 60 * 1000;   // 8 hours
-  else if (hours <= 2160) interval = 24 * 60 * 60 * 1000; // 1 day
-  else interval = 24 * 60 * 60 * 1000;                     // 1 day
+  if (hours <= 24)
+    interval = 30 * 60 * 1000; // 30 min
+  else if (hours <= 168)
+    interval = 2 * 60 * 60 * 1000; // 2 hours
+  else if (hours <= 720)
+    interval = 8 * 60 * 60 * 1000; // 8 hours
+  else if (hours <= 2160)
+    interval = 24 * 60 * 60 * 1000; // 1 day
+  else interval = 24 * 60 * 60 * 1000; // 1 day
 
   // For "all time", find earliest data point
   let start = cutoff || now - 30 * 24 * 60 * 60 * 1000; // default 30 days back

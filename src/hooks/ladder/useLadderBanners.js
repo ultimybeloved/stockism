@@ -60,8 +60,16 @@ export function useLadderBanners({ trackTimeout }) {
   };
 
   return {
-    showResultBanner, resultText, resultOutcome, resultWin, resultBannerFading,
-    showInitBanner, setShowInitBanner, initBannerFading, setInitBannerFading,
-    dismissBanner, presentResult,
+    showResultBanner,
+    resultText,
+    resultOutcome,
+    resultWin,
+    resultBannerFading,
+    showInitBanner,
+    setShowInitBanner,
+    initBannerFading,
+    setInitBannerFading,
+    dismissBanner,
+    presentResult,
   };
 }

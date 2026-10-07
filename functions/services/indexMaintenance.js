@@ -30,17 +30,17 @@ const { INDEX_BASE_VALUE } = require('../constants');
  * computable even for a character that has since left the roster entirely and
  * is no longer in CHARACTER_MAP.
  */
-const indexConstituents = () => CHARACTERS
-  .filter((c) => !c.isETF && c.basePrice > 0)
-  .map((c) => ({ t: c.ticker, b: c.basePrice }));
+const indexConstituents = () =>
+  CHARACTERS.filter((c) => !c.isETF && c.basePrice > 0).map((c) => ({ t: c.ticker, b: c.basePrice }));
 
 /** A missing price reads as "at base" (ratio 1), same fallback the chart uses. */
-const sumRatios = (prices, constituents) => (constituents || []).reduce((sum, entry) => {
-  const base = entry?.b;
-  if (!(base > 0)) return sum;
-  const price = prices?.[entry.t];
-  return sum + ((price != null ? price : base) / base);
-}, 0);
+const sumRatios = (prices, constituents) =>
+  (constituents || []).reduce((sum, entry) => {
+    const base = entry?.b;
+    if (!(base > 0)) return sum;
+    const price = prices?.[entry.t];
+    return sum + (price != null ? price : base) / base;
+  }, 0);
 
 const sameConstituents = (a, b) => {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
@@ -90,9 +90,8 @@ const reconcileDivisor = ({ prices, constituents, stored, lastIndexValue }) => {
   };
 };
 
-const computeIndexValue = (prices, constituents, divisor) => (divisor > 0
-  ? sumRatios(prices, constituents) / divisor
-  : INDEX_BASE_VALUE);
+const computeIndexValue = (prices, constituents, divisor) =>
+  divisor > 0 ? sumRatios(prices, constituents) / divisor : INDEX_BASE_VALUE;
 
 /**
  * The index at `prices`, using the constituent list and divisor the daily job
@@ -100,12 +99,9 @@ const computeIndexValue = (prices, constituents, divisor) => (divisor > 0
  * roster and the count-based divisor stand in.
  */
 const indexFromStored = (prices, stored) => {
-  const constituents = (Array.isArray(stored?.constituents) && stored.constituents.length)
-    ? stored.constituents
-    : indexConstituents();
-  const divisor = stored?.divisor > 0
-    ? stored.divisor
-    : (constituents.length || 1) / INDEX_BASE_VALUE;
+  const constituents =
+    Array.isArray(stored?.constituents) && stored.constituents.length ? stored.constituents : indexConstituents();
+  const divisor = stored?.divisor > 0 ? stored.divisor : (constituents.length || 1) / INDEX_BASE_VALUE;
   return computeIndexValue(prices, constituents, divisor);
 };
 

@@ -16,7 +16,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -26,9 +29,18 @@ const CONCURRENT_MS = 10 * 1000;
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 
 function networkKey(ip) {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
@@ -42,10 +54,15 @@ function networkKey(ip) {
 async function main() {
   const target = process.argv[2];
   const days = Number(process.argv[3]) || 180;
-  if (!target) { console.error('Usage: node scripts/who-is.cjs <displayName|uid> [days]'); process.exit(1); }
+  if (!target) {
+    console.error('Usage: node scripts/who-is.cjs <displayName|uid> [days]');
+    process.exit(1);
+  }
 
-  const users = await db.collection('users')
-    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt').get();
+  const users = await db
+    .collection('users')
+    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt')
+    .get();
   const U = new Map();
   let uid = null;
   users.forEach((d) => {
@@ -53,7 +70,10 @@ async function main() {
     if ((d.data().displayName || '').toLowerCase() === target.toLowerCase()) uid = d.id;
   });
   if (!uid && U.has(target)) uid = target;
-  if (!uid) { console.error(`No account named "${target}".`); process.exit(1); }
+  if (!uid) {
+    console.error(`No account named "${target}".`);
+    process.exit(1);
+  }
 
   const mkt = await db.collection('market').doc('current').get();
   const prices = (mkt.data() || {}).prices || {};
@@ -65,11 +85,14 @@ async function main() {
   const nm = (u) => U.get(u)?.displayName || u.slice(0, 10);
 
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const snap = await db.collection('trades')
-    .where('timestamp', '>', cutoff).select('uid', 'ip', 'ticker', 'timestamp').get();
+  const snap = await db
+    .collection('trades')
+    .where('timestamp', '>', cutoff)
+    .select('uid', 'ip', 'ticker', 'timestamp')
+    .get();
 
   const accountsByNetwork = new Map();
-  const events = new Map();  // uid -> [{ts, net, ticker}]
+  const events = new Map(); // uid -> [{ts, net, ticker}]
   snap.forEach((d) => {
     const t = d.data();
     if (!t.uid) return;
@@ -90,7 +113,9 @@ async function main() {
 
   const me = U.get(uid);
   console.log(`\n${me.displayName}  ${money(valueOf(me))}`);
-  console.log(`  joined ${day(toMs(me.createdAt))}  ${me.crew || 'no crew'}  ${me.discordId ? 'Discord linked' : 'NO Discord'}`);
+  console.log(
+    `  joined ${day(toMs(me.createdAt))}  ${me.crew || 'no crew'}  ${me.discordId ? 'Discord linked' : 'NO Discord'}`,
+  );
   console.log(`  ${mine.length} trades from ${myNets.size} connections over ${days} days`);
   console.log(`  main connection carries ${netCount(uid, myHome)} of them\n`);
 
@@ -113,7 +138,8 @@ async function main() {
 
     // Fastest alternation on a connection they both used.
     const merged = [...mine.map((e) => ({ ...e, who: 'me' })), ...theirs.map((e) => ({ ...e, who: 'them' }))]
-      .filter((e) => c.shared.includes(e.net)).sort((a, b) => a.ts - b.ts);
+      .filter((e) => c.shared.includes(e.net))
+      .sort((a, b) => a.ts - b.ts);
     let fastest = Infinity;
     for (let i = 1; i < merged.length; i++) {
       if (merged[i].who !== merged[i - 1].who) fastest = Math.min(fastest, merged[i].ts - merged[i - 1].ts);
@@ -132,23 +158,36 @@ async function main() {
     else sameHands = `possible — never within ${Math.round(fastest / 60000)} min`;
 
     rows.push({
-      other, name: nm(other), value: valueOf(u), created: toMs(u.createdAt),
-      discord: !!u.discordId, crew: u.crew, banned: !!u.isBanned,
-      shared: c.shared.length, exclusive: c.exclusive, onMyHome: c.onMyHome,
-      theirTrades: theirs.length, coTrades, fastest, sameHands,
+      other,
+      name: nm(other),
+      value: valueOf(u),
+      created: toMs(u.createdAt),
+      discord: !!u.discordId,
+      crew: u.crew,
+      banned: !!u.isBanned,
+      shared: c.shared.length,
+      exclusive: c.exclusive,
+      onMyHome: c.onMyHome,
+      theirTrades: theirs.length,
+      coTrades,
+      fastest,
+      sameHands,
       concurrent: fastest < CONCURRENT_MS,
     });
   }
 
-  rows.sort((a, b) => (a.concurrent - b.concurrent)
-    || b.exclusive - a.exclusive || b.shared - a.shared);
+  rows.sort((a, b) => a.concurrent - b.concurrent || b.exclusive - a.exclusive || b.shared - a.shared);
 
   console.log('ACCOUNTS THAT SHARED A CONNECTION\n');
   for (const r of rows) {
-    console.log(`  ${r.name}  ${money(r.value)}  joined ${day(r.created)}  ${r.crew || 'no crew'}  `
-      + `${r.discord ? 'Discord' : 'NO Discord'}${r.banned ? '  [BANNED]' : ''}`);
-    console.log(`     connections shared ${r.shared}${r.exclusive ? `, ${r.exclusive} private to just the two of you` : ''}`
-      + `${r.onMyHome ? ', including their main one' : ''}`);
+    console.log(
+      `  ${r.name}  ${money(r.value)}  joined ${day(r.created)}  ${r.crew || 'no crew'}  ` +
+        `${r.discord ? 'Discord' : 'NO Discord'}${r.banned ? '  [BANNED]' : ''}`,
+    );
+    console.log(
+      `     connections shared ${r.shared}${r.exclusive ? `, ${r.exclusive} private to just the two of you` : ''}` +
+        `${r.onMyHome ? ', including their main one' : ''}`,
+    );
     console.log(`     co-traded ${r.coTrades} times   |   same person? ${r.sameHands}`);
     console.log('');
   }
@@ -165,4 +204,9 @@ async function main() {
   console.log('');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

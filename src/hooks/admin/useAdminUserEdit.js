@@ -39,10 +39,13 @@ export function useAdminUserEdit({ showMessage, setLoading, setSelectedUser }) {
 
   const handleSetCrew = async (userId, displayName, crewId, crewName) => {
     const label = crewId ? `move ${displayName} to ${crewName}` : `remove ${displayName} from their crew`;
-    if (!confirm(`Really ${label}?\n\nNo switch penalty, no rejoin lockout. They lose crew head status if they have it.`)) return;
+    if (
+      !confirm(`Really ${label}?\n\nNo switch penalty, no rejoin lockout. They lose crew head status if they have it.`)
+    )
+      return;
     const data = await run(
       () => adminSetCrewFunction({ userId, crewId: crewId || null }),
-      (d) => d.unchanged ? `${displayName} is already there` : `${displayName} → ${crewName || 'no crew'}`
+      (d) => (d.unchanged ? `${displayName} is already there` : `${displayName} → ${crewName || 'no crew'}`),
     );
     if (data) await refreshSelectedUser(userId);
   };
@@ -54,7 +57,8 @@ export function useAdminUserEdit({ showMessage, setLoading, setSelectedUser }) {
     }
     const data = await run(
       () => adminGrantAchievementFunction({ userId, achievementId }),
-      (d) => d.alreadyEarned ? `${displayName} already has ${achievementName}` : `Gave ${achievementName} to ${displayName}`
+      (d) =>
+        d.alreadyEarned ? `${displayName} already has ${achievementName}` : `Gave ${achievementName} to ${displayName}`,
     );
     if (data) await refreshSelectedUser(userId);
   };
@@ -62,10 +66,16 @@ export function useAdminUserEdit({ showMessage, setLoading, setSelectedUser }) {
   const handleSetMargin = async (userId, displayName, enabled, clearDebt) => {
     const bits = [enabled ? 'enable margin' : 'disable margin'];
     if (clearDebt) bits.push('wipe what they owe');
-    if (!confirm(`${bits.join(' and ')} for ${displayName}?${clearDebt ? '\n\nForgiven debt is not repaid from their cash.' : ''}`)) return;
+    if (
+      !confirm(
+        `${bits.join(' and ')} for ${displayName}?${clearDebt ? '\n\nForgiven debt is not repaid from their cash.' : ''}`,
+      )
+    )
+      return;
     const data = await run(
       () => adminSetMarginFunction({ userId, enabled, clearDebt }),
-      (d) => `Margin ${d.marginEnabled ? 'on' : 'off'} for ${displayName}${d.clearedDebt ? ` (cleared $${d.previousMarginUsed.toFixed(2)})` : ''}`
+      (d) =>
+        `Margin ${d.marginEnabled ? 'on' : 'off'} for ${displayName}${d.clearedDebt ? ` (cleared $${d.previousMarginUsed.toFixed(2)})` : ''}`,
     );
     if (data) await refreshSelectedUser(userId);
   };
@@ -86,15 +96,18 @@ export function useAdminUserEdit({ showMessage, setLoading, setSelectedUser }) {
       showMessage('error', 'Cost basis must be 0 or more');
       return;
     }
-    if (!confirm(
-      shares === 0
-        ? `Remove ${displayName}'s entire ${ticker} position?`
-        : `Set ${displayName}'s ${ticker} to ${shares} shares${basis !== null ? ` at $${basis} cost basis` : ''}?`
-    )) return;
+    if (
+      !confirm(
+        shares === 0
+          ? `Remove ${displayName}'s entire ${ticker} position?`
+          : `Set ${displayName}'s ${ticker} to ${shares} shares${basis !== null ? ` at $${basis} cost basis` : ''}?`,
+      )
+    )
+      return;
 
     const data = await run(
       () => adminSetHoldingFunction({ userId, ticker, shares, costBasis: basis }),
-      (d) => `${ticker}: ${d.previousShares} → ${d.shares} shares. Hit Sync to refresh their portfolio value.`
+      (d) => `${ticker}: ${d.previousShares} → ${d.shares} shares. Hit Sync to refresh their portfolio value.`,
     );
     if (data) {
       setEditTicker('');
@@ -105,7 +118,15 @@ export function useAdminUserEdit({ showMessage, setLoading, setSelectedUser }) {
   };
 
   return {
-    handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding,
-    editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis,
+    handleSetCrew,
+    handleGrantAchievement,
+    handleSetMargin,
+    handleSetHolding,
+    editTicker,
+    setEditTicker,
+    editShares,
+    setEditShares,
+    editCostBasis,
+    setEditCostBasis,
   };
 }

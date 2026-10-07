@@ -56,76 +56,84 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
         </div>
       </div>
       <p className={`text-xs ${mutedClass}`}>
-        A snapshot of every active player is taken each Thursday while no season is running. This
-        scores those snapshots with the real tier rules, so you can see where tiers would land
-        before starting season 1. It never touches a player's account and hands out nothing.
+        A snapshot of every active player is taken each Thursday while no season is running. This scores those snapshots
+        with the real tier rules, so you can see where tiers would land before starting season 1. It never touches a
+        player's account and hands out nothing.
       </p>
 
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
 
-      {report && (report.weeks < 1 ? (
-        <p className={`text-sm ${mutedClass} mt-3`}>
-          {report.reports === 1
-            ? 'One snapshot so far. The next one gives the first scored week.'
-            : 'No snapshots yet. Take one now, or wait for Thursday.'}
-        </p>
-      ) : (
-        <>
-          <p className={`text-xs ${mutedClass} mt-3`}>
-            {report.weeks} scored {report.weeks === 1 ? 'week' : 'weeks'} from {report.from} to {report.to} ·{' '}
-            {report.players} players · market {pct(report.marketPercent)} ·{' '}
-            Platinum/Diamond places by division:{' '}
-            {(report.divisions || []).map((d) => `${d.label} ${d.players} players, ${d.platinum}/${d.diamond}`).join(' · ')}
-            {report.belowFloor > 0 && ` · ${report.belowFloor} under the $1,000 floor`}
+      {report &&
+        (report.weeks < 1 ? (
+          <p className={`text-sm ${mutedClass} mt-3`}>
+            {report.reports === 1
+              ? 'One snapshot so far. The next one gives the first scored week.'
+              : 'No snapshots yet. Take one now, or wait for Thursday.'}
           </p>
+        ) : (
+          <>
+            <p className={`text-xs ${mutedClass} mt-3`}>
+              {report.weeks} scored {report.weeks === 1 ? 'week' : 'weeks'} from {report.from} to {report.to} ·{' '}
+              {report.players} players · market {pct(report.marketPercent)} · Platinum/Diamond places by division:{' '}
+              {(report.divisions || [])
+                .map((d) => `${d.label} ${d.players} players, ${d.platinum}/${d.diamond}`)
+                .join(' · ')}
+              {report.belowFloor > 0 && ` · ${report.belowFloor} under the $1,000 floor`}
+            </p>
 
-          <div className="flex gap-3 flex-wrap mt-2">
-            {['diamond', 'platinum', 'gold', 'silver', 'bronze'].map((id) => (
-              <span key={id} className="text-xs font-semibold" style={{ color: SEASON_TIER_MAP[id].color }}>
-                {SEASON_TIER_MAP[id].name} {report.tierCounts[id] || 0}
-              </span>
-            ))}
-          </div>
+            <div className="flex gap-3 flex-wrap mt-2">
+              {['diamond', 'platinum', 'gold', 'silver', 'bronze'].map((id) => (
+                <span key={id} className="text-xs font-semibold" style={{ color: SEASON_TIER_MAP[id].color }}>
+                  {SEASON_TIER_MAP[id].name} {report.tierCounts[id] || 0}
+                </span>
+              ))}
+            </div>
 
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className={mutedClass}>
-                  <th className="px-2 py-1 text-left font-semibold">Player</th>
-                  <th className="px-2 py-1 text-left font-semibold">Division</th>
-                  <th className="px-2 py-1 text-right font-semibold">Return</th>
-                  <th className="px-2 py-1 text-right font-semibold">vs market</th>
-                  <th className="px-2 py-1 text-right font-semibold">Weeks beaten</th>
-                  <th className="px-2 py-1 text-right font-semibold">Biggest holding</th>
-                  <th className="px-2 py-1 text-right font-semibold">Would get</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.scored.map((p) => (
-                  <tr key={p.uid}>
-                    <td className={`px-2 py-1 text-left ${textClass}`}>{p.name}</td>
-                    <td className={`px-2 py-1 text-left ${mutedClass}`}>
-                      {(report.divisions || []).find((d) => d.id === p.division)?.label || ''}
-                    </td>
-                    <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>{pct(p.returnPercent)}</td>
-                    <td className={`px-2 py-1 text-right tabular-nums ${p.excess >= 0 ? 'text-teal-400' : 'text-red-400'}`}>
-                      {pct(p.excess)}
-                    </td>
-                    <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>{p.beatWeeks} of {p.weeks}</td>
-                    <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>
-                      {Math.round(p.peakConcentration * 100)}%
-                    </td>
-                    <td className="px-2 py-1 text-right font-semibold"
-                      style={{ color: p.tier ? SEASON_TIER_MAP[p.tier].color : undefined }}>
-                      {p.tier ? SEASON_TIER_MAP[p.tier].name : '-'}
-                    </td>
+            <div className="overflow-x-auto mt-3">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={mutedClass}>
+                    <th className="px-2 py-1 text-left font-semibold">Player</th>
+                    <th className="px-2 py-1 text-left font-semibold">Division</th>
+                    <th className="px-2 py-1 text-right font-semibold">Return</th>
+                    <th className="px-2 py-1 text-right font-semibold">vs market</th>
+                    <th className="px-2 py-1 text-right font-semibold">Weeks beaten</th>
+                    <th className="px-2 py-1 text-right font-semibold">Biggest holding</th>
+                    <th className="px-2 py-1 text-right font-semibold">Would get</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ))}
+                </thead>
+                <tbody>
+                  {report.scored.map((p) => (
+                    <tr key={p.uid}>
+                      <td className={`px-2 py-1 text-left ${textClass}`}>{p.name}</td>
+                      <td className={`px-2 py-1 text-left ${mutedClass}`}>
+                        {(report.divisions || []).find((d) => d.id === p.division)?.label || ''}
+                      </td>
+                      <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>{pct(p.returnPercent)}</td>
+                      <td
+                        className={`px-2 py-1 text-right tabular-nums ${p.excess >= 0 ? 'text-teal-400' : 'text-red-400'}`}
+                      >
+                        {pct(p.excess)}
+                      </td>
+                      <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>
+                        {p.beatWeeks} of {p.weeks}
+                      </td>
+                      <td className={`px-2 py-1 text-right tabular-nums ${textClass}`}>
+                        {Math.round(p.peakConcentration * 100)}%
+                      </td>
+                      <td
+                        className="px-2 py-1 text-right font-semibold"
+                        style={{ color: p.tier ? SEASON_TIER_MAP[p.tier].color : undefined }}
+                      >
+                        {p.tier ? SEASON_TIER_MAP[p.tier].name : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ))}
     </div>
   );
 };

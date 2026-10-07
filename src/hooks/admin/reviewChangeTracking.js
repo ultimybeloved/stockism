@@ -36,8 +36,8 @@ const blank = (openPrice) => ({
 export const loadReviewChanges = async () => {
   const { end } = getMostRecentHaltWindow();
   const snap = await getDoc(reviewChangesRef());
-  const stored = snap.exists() ? (snap.data() || {}) : {};
-  return stored.windowEnd === end ? (stored.changes || {}) : {};
+  const stored = snap.exists() ? snap.data() || {} : {};
+  return stored.windowEnd === end ? stored.changes || {} : {};
 };
 
 /**
@@ -52,7 +52,7 @@ export const recordReviewMoves = async ({ direct, trailing = [], at = Date.now()
   if (at < start || at > end) return false;
 
   const snap = await getDoc(reviewChangesRef());
-  const stored = snap.exists() ? (snap.data() || {}) : {};
+  const stored = snap.exists() ? snap.data() || {} : {};
   // A doc from a previous review is last week's news — start the window clean.
   const changes = stored.windowEnd === end ? { ...(stored.changes || {}) } : {};
 
@@ -72,9 +72,7 @@ export const recordReviewMoves = async ({ direct, trailing = [], at = Date.now()
     if (key === 'trailingChange' && root) {
       entry.drivers = [...new Set([...(entry.drivers || []), root])];
     }
-    entry.percentChange = entry.oldPrice > 0
-      ? ((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100
-      : 0;
+    entry.percentChange = entry.oldPrice > 0 ? ((entry.newPrice - entry.oldPrice) / entry.oldPrice) * 100 : 0;
     changes[move.ticker] = entry;
   };
 

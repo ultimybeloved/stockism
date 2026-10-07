@@ -5,8 +5,7 @@ import { CHARACTER_MAP } from '../../characters';
 // $JIN, $SHNG and $GAP are mutually linked, which is what made the old
 // depth-first walk order-dependent. Coefficients are read from the roster rather
 // than hardcoded so re-weighting them does not break these tests.
-const linkTo = (from, to) =>
-  CHARACTER_MAP[from].trailingFactors.find((t) => t.ticker === to).coefficient;
+const linkTo = (from, to) => CHARACTER_MAP[from].trailingFactors.find((t) => t.ticker === to).coefficient;
 
 describe('buildTrailingCascade', () => {
   const prices = { JIN: 100, GAP: 100, SHNG: 100, VIN: 100, KTAE: 100, JAKE: 100 };

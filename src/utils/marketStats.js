@@ -32,7 +32,7 @@ export const getSentiment = (ticker, prices, priceHistory) => {
 
   const dailyChange = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
   const weeklyChange = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
-  const weightedChange = (dailyChange * 0.6) + (weeklyChange * 0.4);
+  const weightedChange = dailyChange * 0.6 + weeklyChange * 0.4;
 
   if (weightedChange > 3) return 'Strong Buy';
   if (weightedChange > 1) return 'Bullish';

@@ -3,7 +3,6 @@
 // Reusable SVG donut chart with legend
 // ============================================
 
-
 /**
  * Donut chart component
  * @param {Object} props
@@ -88,9 +87,7 @@ const DonutChart = ({ data = [], size = 200, darkMode = false }) => {
               className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: seg.color }}
             />
-            <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>
-              {seg.label}
-            </span>
+            <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>{seg.label}</span>
             <span className={darkMode ? 'text-zinc-500' : 'text-zinc-400'}>
               ${seg.value.toFixed(0)} ({(seg.pct * 100).toFixed(1)}%)
             </span>

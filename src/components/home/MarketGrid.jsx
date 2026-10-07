@@ -26,7 +26,8 @@ const MarketGrid = ({
   reviewChanges,
   reviewSections,
   searchQuery,
-  currentPage, setCurrentPage,
+  currentPage,
+  setCurrentPage,
   totalPages,
   showAll,
 }) => {
@@ -118,7 +119,9 @@ const MarketGrid = ({
               </div>
             ))}
         </>
-      ) : cardGrid(displayedCharacters)}
+      ) : (
+        cardGrid(displayedCharacters)
+      )}
 
       {/* Empty state for the grid */}
       {displayedCharacters.length === 0 && (
@@ -135,13 +138,21 @@ const MarketGrid = ({
       {!showAll && !reviewSections && totalPages > 1 && (
         <div className={`${cardClass} border rounded-sm p-4 mt-4`}>
           <div className="flex justify-center items-center gap-4">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+            >
               Previous
             </button>
-            <span className={`text-sm ${mutedClass}`}>Page {currentPage} of {totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+            <span className={`text-sm ${mutedClass}`}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+            >
               Next
             </button>
           </div>

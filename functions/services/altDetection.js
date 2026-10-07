@@ -55,7 +55,8 @@ async function runAltScan({ dryRun = false } = {}) {
 
   // Newest-first: an inequality query defaults to ASCENDING on that field, so
   // the limit was trimming the recent end of the window rather than the far end.
-  const snap = await db.collection('trades')
+  const snap = await db
+    .collection('trades')
     .where('timestamp', '>', cutoff)
     .orderBy('timestamp', 'desc')
     .select('uid', 'ip')
@@ -104,9 +105,7 @@ async function runAltScan({ dryRun = false } = {}) {
   for (const [key, p] of pairs) {
     if (p.crowdedOnly) continue;
     const solid = p.networks.filter((n) => n.accounts <= ALT_CROWDED_NETWORK_LIMIT);
-    const severity = (solid.length >= ALT_SHARED_NETWORKS_HIGH || p.exclusive > 0)
-      ? 'high'
-      : 'medium';
+    const severity = solid.length >= ALT_SHARED_NETWORKS_HIGH || p.exclusive > 0 ? 'high' : 'medium';
     findings.push({
       key,
       uids: p.uids,
@@ -117,8 +116,7 @@ async function runAltScan({ dryRun = false } = {}) {
     });
   }
 
-  findings.sort((a, b) =>
-    (b.severity === 'high') - (a.severity === 'high') || b.sharedNetworks - a.sharedNetworks);
+  findings.sort((a, b) => (b.severity === 'high') - (a.severity === 'high') || b.sharedNetworks - a.sharedNetworks);
 
   if (!findings.length) {
     return { scanned: snap.size, candidates: 0, reported: 0, findings: [] };
@@ -127,19 +125,20 @@ async function runAltScan({ dryRun = false } = {}) {
   // Enrich with account detail. Only the accounts that actually surfaced get
   // read, so this stays proportional to findings rather than to the player base.
   const uidsNeeded = [...new Set(findings.flatMap((f) => f.uids))];
-  const userDocs = await db.getAll(
-    ...uidsNeeded.map((uid) => db.collection('users').doc(uid)),
-    { fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'portfolioValue', 'holdings'] }
-  );
+  const userDocs = await db.getAll(...uidsNeeded.map((uid) => db.collection('users').doc(uid)), {
+    fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'portfolioValue', 'holdings'],
+  });
   const users = new Map();
-  userDocs.forEach((d) => { if (d.exists) users.set(d.id, d.data()); });
+  userDocs.forEach((d) => {
+    if (d.exists) users.set(d.id, d.data());
+  });
 
   const enriched = [];
   for (const f of findings) {
     const [a, b] = f.uids.map((uid) => users.get(uid));
     if (!a || !b) continue;
-    if (a.isBot || b.isBot) continue;          // bots share the server's address
-    if (a.isBanned && b.isBanned) continue;    // already dealt with
+    if (a.isBot || b.isBot) continue; // bots share the server's address
+    if (a.isBanned && b.isBanned) continue; // already dealt with
 
     const holdingsA = Object.keys(a.holdings || {}).filter((t) => a.holdings[t] > 0);
     const holdingsB = new Set(Object.keys(b.holdings || {}).filter((t) => b.holdings[t] > 0));
@@ -166,7 +165,7 @@ async function runAltScan({ dryRun = false } = {}) {
 
   const fresh = enriched.filter((f) => {
     const last = seen[safeKey(f.key)];
-    return !last || (now - last) > ALT_REALERT_MS;
+    return !last || now - last > ALT_REALERT_MS;
   });
 
   const nextSeen = {};
@@ -175,12 +174,15 @@ async function runAltScan({ dryRun = false } = {}) {
   }
   for (const f of fresh) nextSeen[safeKey(f.key)] = now;
 
-  await STATE_REF().set({
-    pairs: nextSeen,
-    lastScanAt: now,
-    lastScanTrades: snap.size,
-    lastScanCandidates: enriched.length,
-  }, { merge: true });
+  await STATE_REF().set(
+    {
+      pairs: nextSeen,
+      lastScanAt: now,
+      lastScanTrades: snap.size,
+      lastScanCandidates: enriched.length,
+    },
+    { merge: true },
+  );
 
   // One alert doc per pair. These render in the admin Watchlist tab alongside
   // the manual-watchlist alerts, and drive the badge on the admin button.
@@ -193,10 +195,11 @@ async function runAltScan({ dryRun = false } = {}) {
       relatedUID: f.uids[1],
       action: 'flagged',
       reviewed: false,
-      details: `"${f.names[0]}" and "${f.names[1]}" traded from ${f.sharedNetworks} shared network(s)`
-        + `${f.exclusiveNetworks ? `, ${f.exclusiveNetworks} used by nobody else` : ''}`
-        + `${f.sameCrew ? ', same crew' : ''}`
-        + `${f.sharedTickers.length ? `, both holding ${f.sharedTickers.join('/')}` : ''}`,
+      details:
+        `"${f.names[0]}" and "${f.names[1]}" traded from ${f.sharedNetworks} shared network(s)` +
+        `${f.exclusiveNetworks ? `, ${f.exclusiveNetworks} used by nobody else` : ''}` +
+        `${f.sameCrew ? ', same crew' : ''}` +
+        `${f.sharedTickers.length ? `, both holding ${f.sharedTickers.join('/')}` : ''}`,
       names: f.names,
       networks: f.networks,
       sharedTickers: f.sharedTickers,
@@ -219,14 +222,18 @@ async function runAltScan({ dryRun = false } = {}) {
       await sendDiscordDM(
         ADMIN_DISCORD_USER_ID,
         `🕵️ **Possible alt accounts** (private — nobody else can see this)\n` +
-        high.slice(0, 5).map((f) =>
-          `• **${f.names[0]}** + **${f.names[1]}** — ${f.sharedNetworks} shared network(s)`
-          + `${f.exclusiveNetworks ? ` (${f.exclusiveNetworks} exclusive)` : ''}`
-          + `${f.sameCrew ? ', same crew' : ''}`
-          + `${f.sharedTickers.length ? `, both in ${f.sharedTickers.join('/')}` : ''}`
-        ).join('\n') +
-        (high.length > 5 ? `\n...and ${high.length - 5} more` : '') +
-        `\nAdmin panel → Watchlist for detail. Shared connection is a lead, not proof.`
+          high
+            .slice(0, 5)
+            .map(
+              (f) =>
+                `• **${f.names[0]}** + **${f.names[1]}** — ${f.sharedNetworks} shared network(s)` +
+                `${f.exclusiveNetworks ? ` (${f.exclusiveNetworks} exclusive)` : ''}` +
+                `${f.sameCrew ? ', same crew' : ''}` +
+                `${f.sharedTickers.length ? `, both in ${f.sharedTickers.join('/')}` : ''}`,
+            )
+            .join('\n') +
+          (high.length > 5 ? `\n...and ${high.length - 5} more` : '') +
+          `\nAdmin panel → Watchlist for detail. Shared connection is a lead, not proof.`,
       );
     } catch (err) {
       // The alerts are already written; a failed ping must not lose the scan.
@@ -241,8 +248,8 @@ async function runAltScan({ dryRun = false } = {}) {
  * Nightly sweep. 04:00 UTC — outside the Thursday halt window and away from the
  * market-open jobs, so it never competes with anything that has to be on time.
  */
-exports.scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' }).pubsub
-  .schedule('0 4 * * *')
+exports.scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' })
+  .pubsub.schedule('0 4 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     try {

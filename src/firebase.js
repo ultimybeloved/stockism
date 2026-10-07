@@ -11,7 +11,7 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Fail loudly if required build-time settings are missing, so a misconfigured Vercel
@@ -22,7 +22,9 @@ const REQUIRED_ENV = {
   VITE_FIREBASE_PROJECT_ID: firebaseConfig.projectId,
   VITE_FIREBASE_APP_ID: firebaseConfig.appId,
 };
-const missingEnv = Object.entries(REQUIRED_ENV).filter(([, v]) => !v).map(([k]) => k);
+const missingEnv = Object.entries(REQUIRED_ENV)
+  .filter(([, v]) => !v)
+  .map(([k]) => k);
 if (missingEnv.length > 0) {
   throw new Error(`Missing required env vars: ${missingEnv.join(', ')}. Set them in the Vercel project settings.`);
 }
@@ -47,11 +49,13 @@ if (!USE_EMULATOR) {
   }
 
   if (!import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
-    throw new Error('Missing VITE_RECAPTCHA_SITE_KEY — App Check cannot initialize. Set it in the Vercel project settings.');
+    throw new Error(
+      'Missing VITE_RECAPTCHA_SITE_KEY — App Check cannot initialize. Set it in the Vercel project settings.',
+    );
   }
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
-    isTokenAutoRefreshEnabled: true
+    isTokenAutoRefreshEnabled: true,
   });
 }
 

@@ -27,7 +27,10 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   useEffect(() => {
     const tick = () => {
       const ms = getPreMarketTimeRemaining();
-      if (ms <= 0) { onClose(); return; }
+      if (ms <= 0) {
+        onClose();
+        return;
+      }
       setCountdown(formatCountdown(ms));
     };
     tick();
@@ -43,18 +46,16 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
       collection(db, 'preMarketOrders'),
       where('ticker', '==', character.ticker),
       where('status', '==', 'PENDING'),
-      where('createdAt', '>=', Timestamp.fromDate(preMarketStart))
+      where('createdAt', '>=', Timestamp.fromDate(preMarketStart)),
     );
-    const unsub = onSnapshot(q, snap =>
-      setAllOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    const unsub = onSnapshot(q, (snap) => setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
     return unsub;
   }, [character.ticker]);
 
   // Compute indicative opening price from all currently queued orders
   const getIndicativePrice = () => {
-    const totalBuy = allOrders.filter(o => o.action === 'buy').reduce((s, o) => s + o.shares, 0);
-    const totalSell = allOrders.filter(o => o.action === 'sell').reduce((s, o) => s + o.shares, 0);
+    const totalBuy = allOrders.filter((o) => o.action === 'buy').reduce((s, o) => s + o.shares, 0);
+    const totalSell = allOrders.filter((o) => o.action === 'sell').reduce((s, o) => s + o.shares, 0);
     const net = totalBuy - totalSell;
     if (Math.abs(net) < 0.01) return price;
     const impactDollars = calculatePriceImpactDollars(price, Math.abs(net), liquidityFor(character.ticker));
@@ -66,13 +67,16 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   const indicativePrice = getIndicativePrice();
   const { bid, ask } = getBidAskPrices(indicativePrice, character.isETF);
   const locked = isPreMarketLockout();
-  const myOrders = allOrders.filter(o => o.userId === user?.uid);
-  const myActionOrder = myOrders.find(o => o.action === action);
+  const myOrders = allOrders.filter((o) => o.userId === user?.uid);
+  const myActionOrder = myOrders.find((o) => o.action === action);
   // Buys leave headroom for the opening price to move up (impact cap + spread),
   // so a max order can't become unaffordable at the opening ask.
-  const maxShares = action === 'buy'
-    ? (price > 0 ? Math.floor(userCash / (price * PRE_MARKET_MAX_BUY_BUFFER) * 100) / 100 : 0)
-    : (holdings || 0);
+  const maxShares =
+    action === 'buy'
+      ? price > 0
+        ? Math.floor((userCash / (price * PRE_MARKET_MAX_BUY_BUFFER)) * 100) / 100
+        : 0
+      : holdings || 0;
   // Sells go to six decimals and can be smaller than a hundredth of a share.
   // Holdings pick up fractional remainders from dividends and partial fills, and
   // clamping the box to 0.01 made a dust position impossible to queue: the order
@@ -109,24 +113,32 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} p-4 max-w-md`} onClick={e => e.stopPropagation()}>
-
+      <div className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-start mb-3">
           <div>
             <h3 className={`text-lg font-bold ${textClass}`}>Pre-Market Queue</h3>
-            <p className={`text-sm ${mutedClass}`}>{character.name} (${character.ticker})</p>
+            <p className={`text-sm ${mutedClass}`}>
+              {character.name} (${character.ticker})
+            </p>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>✕</button>
+          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>
+            ✕
+          </button>
         </div>
 
-        <div className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}>
-          All queued orders execute at the same opening price. Submitting early gives no advantage.
-          Buys fill as many shares as your cash allows at that price.
+        <div
+          className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}
+        >
+          All queued orders execute at the same opening price. Submitting early gives no advantage. Buys fill as many
+          shares as your cash allows at that price.
           <span className="block mt-1 font-semibold">
-            {locked ? 'Orders locked. Market opens in ' : 'Market opens in '}{countdown}
+            {locked ? 'Orders locked. Market opens in ' : 'Market opens in '}
+            {countdown}
           </span>
           {locked && (
-            <span className="block mt-0.5 text-yellow-400 font-semibold">The queue is closed. Queued orders will execute before the open.</span>
+            <span className="block mt-0.5 text-yellow-400 font-semibold">
+              The queue is closed. Queued orders will execute before the open.
+            </span>
           )}
         </div>
 
@@ -137,13 +149,17 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
           </div>
           <div className="flex justify-between text-sm mt-1">
             <span className={mutedClass}>Indicative open price</span>
-            <span className={`font-bold ${indicativePrice > price ? 'text-green-400' : indicativePrice < price ? 'text-red-400' : textClass}`}>
+            <span
+              className={`font-bold ${indicativePrice > price ? 'text-green-400' : indicativePrice < price ? 'text-red-400' : textClass}`}
+            >
               {formatCurrency(indicativePrice)}
             </span>
           </div>
           <div className="flex justify-between text-xs mt-1">
             <span className={mutedClass}>Indicative bid / ask</span>
-            <span className={mutedClass}>{formatCurrency(bid)} / {formatCurrency(ask)}</span>
+            <span className={mutedClass}>
+              {formatCurrency(bid)} / {formatCurrency(ask)}
+            </span>
           </div>
           <p className={`text-xs mt-1 ${mutedClass}`}>
             Based on {allOrders.length} queued order{allOrders.length !== 1 ? 's' : ''} (updates live)
@@ -151,22 +167,30 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
         </div>
 
         <div className="flex gap-2 mb-3">
-          <button onClick={() => setAction('buy')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'buy' ? 'bg-green-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}>
+          <button
+            onClick={() => setAction('buy')}
+            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'buy' ? 'bg-green-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}
+          >
             Buy
           </button>
-          <button onClick={() => setAction('sell')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'sell' ? 'bg-red-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}>
+          <button
+            onClick={() => setAction('sell')}
+            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'sell' ? 'bg-red-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}
+          >
             Sell
           </button>
         </div>
 
         {myActionOrder ? (
-          <div className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}>
+          <div
+            className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}
+          >
             You already have a {action} order queued ({myActionOrder.shares} shares). Cancel it below to replace it.
           </div>
         ) : locked ? (
-          <div className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}>
+          <div
+            className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}
+          >
             New orders are closed for this open. The queue reopens {marketTimes().preMarketOpens}.
           </div>
         ) : (
@@ -177,27 +201,50 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
                 <span className={`text-xs ${mutedClass}`}>Max: {formatShares(maxShares)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShares(s => Math.max(minShares, snap(s - 1)))}
-                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>−</button>
-                <input type="number" min={minShares} max={maxShares} step={isSell ? 'any' : '1'} value={shares}
-                  onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setShares(clampShares(n)); }}
+                <button
+                  onClick={() => setShares((s) => Math.max(minShares, snap(s - 1)))}
+                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={minShares}
+                  max={maxShares}
+                  step={isSell ? 'any' : '1'}
+                  value={shares}
+                  onChange={(e) => {
+                    const n = parseFloat(e.target.value);
+                    if (!isNaN(n)) setShares(clampShares(n));
+                  }}
                   className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
                 />
-                <button onClick={() => setShares(s => Math.min(maxShares, snap(s + 1)))}
-                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>+</button>
-                <button onClick={() => setShares(maxShares)} disabled={maxShares === 0}
-                  className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'} disabled:opacity-50`}>
+                <button
+                  onClick={() => setShares((s) => Math.min(maxShares, snap(s + 1)))}
+                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => setShares(maxShares)}
+                  disabled={maxShares === 0}
+                  className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'} disabled:opacity-50`}
+                >
                   Max
                 </button>
               </div>
               {maxShares === 0 && (
-                <p className="text-xs text-red-500 mt-1">{action === 'sell' ? 'No shares owned' : 'Insufficient funds'}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {action === 'sell' ? 'No shares owned' : 'Insufficient funds'}
+                </p>
               )}
             </div>
 
-            <button onClick={handleSubmit}
+            <button
+              onClick={handleSubmit}
               disabled={submitting || shares <= 0 || shares > maxShares || maxShares === 0}
-              className={`w-full py-3 text-sm font-semibold rounded-sm mb-3 ${action === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white disabled:opacity-50`}>
+              className={`w-full py-3 text-sm font-semibold rounded-sm mb-3 ${action === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white disabled:opacity-50`}
+            >
               {submitting ? 'Queuing...' : `Queue ${action === 'buy' ? 'Buy' : 'Sell'} for Market Open`}
             </button>
           </>
@@ -206,19 +253,22 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
         {myOrders.length > 0 && (
           <div className={`border-t pt-3 mb-3 ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
             <p className={`text-xs font-semibold mb-2 ${mutedClass}`}>Your queued orders</p>
-            {myOrders.map(o => (
+            {myOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between py-1.5 text-sm">
                 <span className={textClass}>
                   <span className={o.action === 'buy' ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
                     {o.action.toUpperCase()}
-                  </span>
-                  {' '}{o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.
+                  </span>{' '}
+                  {o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.
                 </span>
                 {locked ? (
                   <span className={`text-xs px-2 py-1 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Locked</span>
                 ) : (
-                  <button onClick={() => handleCancel(o.id)} disabled={cancelling === o.id}
-                    className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'} disabled:opacity-50`}>
+                  <button
+                    onClick={() => handleCancel(o.id)}
+                    disabled={cancelling === o.id}
+                    className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'} disabled:opacity-50`}
+                  >
                     {cancelling === o.id ? '…' : 'Cancel'}
                   </button>
                 )}
@@ -227,7 +277,9 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
           </div>
         )}
 
-        <button onClick={onClose} className={`w-full py-2 text-sm ${mutedClass} hover:text-orange-500`}>Close</button>
+        <button onClick={onClose} className={`w-full py-2 text-sm ${mutedClass} hover:text-orange-500`}>
+          Close
+        </button>
       </div>
     </div>
   );

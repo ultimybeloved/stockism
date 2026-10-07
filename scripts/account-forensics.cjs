@@ -20,7 +20,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -49,18 +52,31 @@ const FIXES = [
 ];
 
 const m = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
-const toMs = (t) => (!t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0);
+const toMs = (t) =>
+  !t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0;
 const dayStr = (ms) => new Date(ms).toISOString().slice(0, 10);
-const weekOf = (ms) => { const d = new Date(ms); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); return d.toISOString().slice(0, 10); };
+const weekOf = (ms) => {
+  const d = new Date(ms);
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+};
 
 async function main() {
   const target = process.argv[2];
-  if (!target) { console.error('Usage: node scripts/account-forensics.cjs <displayName>'); process.exit(1); }
+  if (!target) {
+    console.error('Usage: node scripts/account-forensics.cjs <displayName>');
+    process.exit(1);
+  }
 
   const users = await db.collection('users').select('displayName').get();
   let uid = null;
-  users.forEach((d) => { if ((d.data().displayName || '').toLowerCase() === target.toLowerCase()) uid = d.id; });
-  if (!uid) { console.error(`No account named "${target}".`); process.exit(1); }
+  users.forEach((d) => {
+    if ((d.data().displayName || '').toLowerCase() === target.toLowerCase()) uid = d.id;
+  });
+  if (!uid) {
+    console.error(`No account named "${target}".`);
+    process.exit(1);
+  }
 
   const [histSnap, tradeSnap, ladderSnap] = await Promise.all([
     db.collection('users').doc(uid).collection('portfolioHistory').get(),
@@ -69,19 +85,30 @@ async function main() {
   ]);
 
   const hist = [];
-  histSnap.forEach((d) => { const h = d.data(); if (h.timestamp) hist.push({ ts: toMs(h.timestamp) || h.timestamp, v: h.value || 0 }); });
+  histSnap.forEach((d) => {
+    const h = d.data();
+    if (h.timestamp) hist.push({ ts: toMs(h.timestamp) || h.timestamp, v: h.value || 0 });
+  });
   hist.sort((a, b) => a.ts - b.ts);
 
   const trades = [];
-  tradeSnap.forEach((d) => { const t = d.data(); trades.push({ ...t, ts: toMs(t.timestamp) }); });
+  tradeSnap.forEach((d) => {
+    const t = d.data();
+    trades.push({ ...t, ts: toMs(t.timestamp) });
+  });
   trades.sort((a, b) => a.ts - b.ts);
 
   console.log(`\n${target}`);
   console.log(`  ${hist.length} history points, ${trades.length} trades`);
-  if (hist.length) console.log(`  ${dayStr(hist[0].ts)} ${m(hist[0].v)}  ->  ${dayStr(hist[hist.length - 1].ts)} ${m(hist[hist.length - 1].v)}`);
+  if (hist.length)
+    console.log(
+      `  ${dayStr(hist[0].ts)} ${m(hist[0].v)}  ->  ${dayStr(hist[hist.length - 1].ts)} ${m(hist[hist.length - 1].v)}`,
+    );
   if (ladderSnap.exists) {
     const L = ladderSnap.data();
-    console.log(`  ladder: ${L.gamesPlayed || 0} games, won ${m(L.totalWon)} lost ${m(L.totalLost)}, net ${m((L.totalWon || 0) - (L.totalLost || 0))}`);
+    console.log(
+      `  ladder: ${L.gamesPlayed || 0} games, won ${m(L.totalWon)} lost ${m(L.totalLost)}, net ${m((L.totalWon || 0) - (L.totalLost || 0))}`,
+    );
   }
 
   // Weekly buckets: last value of each week, plus trade activity.
@@ -90,7 +117,10 @@ async function main() {
     const w = weekOf(h.ts);
     if (!weeks.has(w)) weeks.set(w, { end: 0, endTs: 0, trades: 0, volume: 0, tickers: new Map(), pnl: 0 });
     const b = weeks.get(w);
-    if (h.ts >= b.endTs) { b.end = h.v; b.endTs = h.ts; }
+    if (h.ts >= b.endTs) {
+      b.end = h.v;
+      b.endTs = h.ts;
+    }
   }
   for (const t of trades) {
     const w = weekOf(t.ts);
@@ -108,14 +138,27 @@ async function main() {
   for (const [w, b] of ordered) {
     const gain = prev === null ? b.end : b.end - prev;
     if (b.end > 0) prev = b.end;
-    rows.push({ week: w, end: b.end, gain, trades: b.trades, volume: b.volume, pnl: b.pnl,
-      top: [...b.tickers.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3).map((e) => e[0]) });
+    rows.push({
+      week: w,
+      end: b.end,
+      gain,
+      trades: b.trades,
+      volume: b.volume,
+      pnl: b.pnl,
+      top: [...b.tickers.entries()]
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, 3)
+        .map((e) => e[0]),
+    });
   }
 
   // A week is a standout if its gain is more than three times the median
   // positive week. Median rather than mean so one huge week does not hide the
   // rest behind its own size.
-  const positives = rows.filter((r) => r.gain > 0).map((r) => r.gain).sort((a, b) => a - b);
+  const positives = rows
+    .filter((r) => r.gain > 0)
+    .map((r) => r.gain)
+    .sort((a, b) => a - b);
   const median = positives.length ? positives[Math.floor(positives.length / 2)] : 0;
   const threshold = median * 3;
 
@@ -123,8 +166,10 @@ async function main() {
   console.log('  WEEK        END VALUE        CHANGE   TRADES     VOLUME   TOP TICKERS');
   for (const r of rows) {
     const flag = r.gain > threshold && r.gain > 0;
-    console.log(`  ${r.week}  ${m(r.end).padStart(12)}  ${m(r.gain).padStart(12)}  ${String(r.trades).padStart(6)}  `
-      + `${m(r.volume).padStart(11)}   ${r.top.join(', ').padEnd(20)}${flag ? '  <== STANDOUT' : ''}`);
+    console.log(
+      `  ${r.week}  ${m(r.end).padStart(12)}  ${m(r.gain).padStart(12)}  ${String(r.trades).padStart(6)}  ` +
+        `${m(r.volume).padStart(11)}   ${r.top.join(', ').padEnd(20)}${flag ? '  <== STANDOUT' : ''}`,
+    );
     // Any fix that shipped during this week.
     const wStart = new Date(r.week).getTime();
     const wEnd = wStart + 7 * 86400000;
@@ -138,7 +183,9 @@ async function main() {
   const standouts = rows.filter((r) => r.gain > threshold && r.gain > 0);
   if (!standouts.length) console.log('    none — growth was steady, no single week carried it');
   for (const r of standouts) {
-    console.log(`    ${r.week}  gained ${m(r.gain)} on ${r.trades} trades (${m(r.volume)} volume)  ${r.top.join(', ')}`);
+    console.log(
+      `    ${r.week}  gained ${m(r.gain)} on ${r.trades} trades (${m(r.volume)} volume)  ${r.top.join(', ')}`,
+    );
     const wStart = new Date(r.week).getTime();
     const near = FIXES.filter(([d]) => {
       const fx = new Date(d).getTime();
@@ -150,4 +197,9 @@ async function main() {
   console.log('');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

@@ -6,7 +6,7 @@ import {
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
   MARGIN_CALL_THRESHOLD,
-  MARGIN_INTEREST_RATE
+  MARGIN_INTEREST_RATE,
 } from '../../constants';
 
 // Shows how a buy that dips into borrowed money changes the user's margin.
@@ -18,10 +18,7 @@ const MarginImpactPreview = ({ cost, userCash }) => {
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   if (!marginStatus.enabled) return null;
 
-  const borrowed = Math.min(
-    Math.max(0, cost - userCash),
-    marginStatus.availableMargin
-  );
+  const borrowed = Math.min(Math.max(0, cost - userCash), marginStatus.availableMargin);
   if (borrowed < 0.01) return null;
 
   const { grossValue, marginUsed, maxBorrowable, equityRatio } = marginStatus;
@@ -29,20 +26,17 @@ const MarginImpactPreview = ({ cost, userCash }) => {
   // Mirrors the backend buy: cash drops by (cost - borrowed) and holdings rise
   // by cost, so gross value rises by exactly the borrowed amount.
   const grossAfter = grossValue + borrowed;
-  const equityAfter = grossAfter > 0
-    ? (grossAfter - (marginUsed + borrowed)) / grossAfter
-    : 0;
-  const limitPct = maxBorrowable > 0
-    ? Math.min(100, ((marginUsed + borrowed) / maxBorrowable) * 100)
-    : 100;
+  const equityAfter = grossAfter > 0 ? (grossAfter - (marginUsed + borrowed)) / grossAfter : 0;
+  const limitPct = maxBorrowable > 0 ? Math.min(100, ((marginUsed + borrowed) / maxBorrowable) * 100) : 100;
 
   const pct = (ratio) => `${Math.round(ratio * 100)}%`;
 
-  const afterColor = equityAfter <= MARGIN_DANGER_THRESHOLD
-    ? 'text-red-500'
-    : equityAfter <= MARGIN_WARNING_THRESHOLD
-      ? 'text-yellow-500'
-      : textClass;
+  const afterColor =
+    equityAfter <= MARGIN_DANGER_THRESHOLD
+      ? 'text-red-500'
+      : equityAfter <= MARGIN_WARNING_THRESHOLD
+        ? 'text-yellow-500'
+        : textClass;
 
   const mutedClass = darkMode ? 'text-zinc-400' : 'text-slate-500';
 
@@ -54,7 +48,9 @@ const MarginImpactPreview = ({ cost, userCash }) => {
       </div>
       <div className={`flex justify-between text-xs ${mutedClass} mb-1`}>
         <span>Margin limit used</span>
-        <span>{Math.round(limitPct)}% of {formatCurrency(maxBorrowable)}</span>
+        <span>
+          {Math.round(limitPct)}% of {formatCurrency(maxBorrowable)}
+        </span>
       </div>
       <div className="flex justify-between text-xs">
         <span className={mutedClass}>Equity ratio after this buy</span>
@@ -65,7 +61,8 @@ const MarginImpactPreview = ({ cost, userCash }) => {
         </span>
       </div>
       <p className={`text-xs ${mutedClass} mt-1`}>
-        Borrowed cash accrues {(MARGIN_INTEREST_RATE * 100).toFixed(1)}% interest daily. A margin call hits if your equity ratio falls to {Math.round(MARGIN_CALL_THRESHOLD * 100)}%.
+        Borrowed cash accrues {(MARGIN_INTEREST_RATE * 100).toFixed(1)}% interest daily. A margin call hits if your
+        equity ratio falls to {Math.round(MARGIN_CALL_THRESHOLD * 100)}%.
       </p>
     </div>
   );

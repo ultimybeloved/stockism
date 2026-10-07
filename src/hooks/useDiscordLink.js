@@ -35,12 +35,15 @@ export function useDiscordLink() {
     const warning = walled
       ? '\n\nYour account needs a linked Discord to trade, so you will be locked out of trading until you link one again.'
       : '';
-    if (!window.confirm(
-      'Disconnect your Discord?\n\n' +
-      'You can link it back to THIS account any time. Putting it on a different account has to wait a week, ' +
-      'so if you have two accounts and want your Discord on the other one, ask an admin instead of unlinking here.' +
-      warning
-    )) return false;
+    if (
+      !window.confirm(
+        'Disconnect your Discord?\n\n' +
+          'You can link it back to THIS account any time. Putting it on a different account has to wait a week, ' +
+          'so if you have two accounts and want your Discord on the other one, ask an admin instead of unlinking here.' +
+          warning,
+      )
+    )
+      return false;
 
     setLinking(true);
     setError(null);

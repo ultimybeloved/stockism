@@ -2,10 +2,20 @@ import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS } from '../characters';
 import { ITEMS_PER_PAGE } from '../constants';
-import { getReviewChanges, getMostRecentHaltWindow, mergeReviewChanges, buildReviewSections, REVIEW_MAX_AGE_MS } from '../utils/marketHours';
+import {
+  getReviewChanges,
+  getMostRecentHaltWindow,
+  mergeReviewChanges,
+  buildReviewSections,
+  REVIEW_MAX_AGE_MS,
+} from '../utils/marketHours';
 import { get24hChange } from '../utils/marketStats';
 import {
-  DEFAULT_FILTERS, buildCrewMembership, matchesFilters, sortCharacters, REVIEW_SORTS,
+  DEFAULT_FILTERS,
+  buildCrewMembership,
+  matchesFilters,
+  sortCharacters,
+  REVIEW_SORTS,
 } from '../utils/marketFilters';
 
 export { REVIEW_SORTS };
@@ -34,7 +44,14 @@ const writeFilters = (filters) => {
   return next;
 };
 
-export function useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers, storedReviewChanges }) {
+export function useMarketBrowser({
+  userData,
+  prices,
+  priceHistory,
+  launchedTickers,
+  ipoRestrictedTickers,
+  storedReviewChanges,
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState('price-high');
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,21 +61,30 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
 
   // Every filter change resets to page one: staying on page 7 of a list that
   // just shrank to two pages shows an empty grid.
-  const setFilter = useCallback((key, value) => {
-    setCurrentPage(1);
-    setSearchParams((prev) => {
-      const next = writeFilters({ ...readFilters(prev), [key]: value });
-      return next;
-    }, { replace: true });
-  }, [setSearchParams]);
+  const setFilter = useCallback(
+    (key, value) => {
+      setCurrentPage(1);
+      setSearchParams(
+        (prev) => {
+          const next = writeFilters({ ...readFilters(prev), [key]: value });
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const clearFilters = useCallback(() => {
     setCurrentPage(1);
-    setSearchParams((prev) => {
-      // Search is a separate act from filtering, so Clear All leaves it alone.
-      const q = prev.get('q');
-      return q ? { q } : {};
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        // Search is a separate act from filtering, so Clear All leaves it alone.
+        const q = prev.get('q');
+        return q ? { q } : {};
+      },
+      { replace: true },
+    );
   }, [setSearchParams]);
 
   // What the admin changed in the last chapter review.
@@ -68,18 +94,14 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
   const reviewChanges = useMemo(() => {
     const derived = getReviewChanges(priceHistory, CHARACTERS);
     const { end } = getMostRecentHaltWindow();
-    const storedIsCurrent = storedReviewChanges?.windowEnd === end
-      && Date.now() - end <= REVIEW_MAX_AGE_MS;
+    const storedIsCurrent = storedReviewChanges?.windowEnd === end && Date.now() - end <= REVIEW_MAX_AGE_MS;
     if (!storedIsCurrent) return derived;
     return mergeReviewChanges(derived, storedReviewChanges.changes);
   }, [priceHistory, storedReviewChanges]);
 
   const crewMembership = useMemo(buildCrewMembership, []);
 
-  const change24h = useCallback(
-    (ticker) => get24hChange(ticker, prices, priceHistory),
-    [prices, priceHistory]
-  );
+  const change24h = useCallback((ticker) => get24hChange(ticker, prices, priceHistory), [prices, priceHistory]);
 
   const filteredCharacters = useMemo(() => {
     const ctx = {
@@ -92,21 +114,38 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
     const matched = CHARACTERS.filter((c) => matchesFilters(c, filters, ctx));
 
     const priceChanges = {};
-    CHARACTERS.forEach((c) => { priceChanges[c.ticker] = change24h(c.ticker); });
+    CHARACTERS.forEach((c) => {
+      priceChanges[c.ticker] = change24h(c.ticker);
+    });
 
     return sortCharacters(matched, sortBy, {
-      prices, priceHistory, priceChanges, reviewChanges, tab: filters.tab,
+      prices,
+      priceHistory,
+      priceChanges,
+      reviewChanges,
+      tab: filters.tab,
     });
-  }, [filters, sortBy, prices, priceHistory, change24h, ipoRestrictedTickers,
-    launchedTickers, userData?.watchlist, crewMembership, reviewChanges]);
+  }, [
+    filters,
+    sortBy,
+    prices,
+    priceHistory,
+    change24h,
+    ipoRestrictedTickers,
+    launchedTickers,
+    userData?.watchlist,
+    crewMembership,
+    reviewChanges,
+  ]);
 
   // Floor at 1 so an empty result set shows "1/1", not "1/0".
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE));
   // The Review tab is grouped into sections and is a bounded list anyway, so it
   // always shows everything. Paging it would split a section across pages.
-  const displayedCharacters = (showAll || filters.tab === 'review')
-    ? filteredCharacters
-    : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const displayedCharacters =
+    showAll || filters.tab === 'review'
+      ? filteredCharacters
+      : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Review tab only. Null everywhere else, which is how the grid knows to stay flat.
   const reviewSections = useMemo(
@@ -115,10 +154,15 @@ export function useMarketBrowser({ userData, prices, priceHistory, launchedTicke
   );
 
   return {
-    filters, setFilter, clearFilters,
-    sortBy, setSortBy,
-    currentPage, setCurrentPage,
-    showAll, setShowAll,
+    filters,
+    setFilter,
+    clearFilters,
+    sortBy,
+    setSortBy,
+    currentPage,
+    setCurrentPage,
+    showAll,
+    setShowAll,
     reviewChanges,
     totalPages,
     displayedCharacters,

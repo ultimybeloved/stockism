@@ -37,19 +37,19 @@ export const useStockPageData = (ticker, timeRange) => {
   };
 
   const priceStats = useMemo(() => {
-    const range = TIME_RANGES.find(r => r.key === timeRange);
+    const range = TIME_RANGES.find((r) => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
-    const filtered = fullHistory.filter(p => p.timestamp >= cutoff);
+    const filtered = fullHistory.filter((p) => p.timestamp >= cutoff);
     const ago30d = Date.now() - 30 * 86400000;
     const ago7d = Date.now() - 7 * 86400000;
     const ago52w = Date.now() - 365 * 86400000;
-    const f30d = fullHistory.filter(p => p.timestamp >= ago30d);
-    const f7d = fullHistory.filter(p => p.timestamp >= ago7d);
-    const f52w = fullHistory.filter(p => p.timestamp >= ago52w);
+    const f30d = fullHistory.filter((p) => p.timestamp >= ago30d);
+    const f7d = fullHistory.filter((p) => p.timestamp >= ago7d);
+    const f52w = fullHistory.filter((p) => p.timestamp >= ago52w);
 
-    const px = (arr) => arr.map(p => p.price);
-    const hi = (arr) => arr.length ? Math.max(...px(arr)) : currentPrice;
-    const lo = (arr) => arr.length ? Math.min(...px(arr)) : currentPrice;
+    const px = (arr) => arr.map((p) => p.price);
+    const hi = (arr) => (arr.length ? Math.max(...px(arr)) : currentPrice);
+    const lo = (arr) => (arr.length ? Math.min(...px(arr)) : currentPrice);
 
     const first = filtered[0]?.price || currentPrice;
     const change = first > 0 ? ((currentPrice - first) / first) * 100 : 0;
@@ -59,10 +59,16 @@ export const useStockPageData = (ticker, timeRange) => {
     const change30d = price30dAgo > 0 ? ((currentPrice - price30dAgo) / price30dAgo) * 100 : 0;
 
     return {
-      first, change, change7d, change30d,
-      high: hi(filtered), low: lo(filtered),
-      high30d: hi(f30d), low30d: lo(f30d),
-      high52w: hi(f52w), low52w: lo(f52w),
+      first,
+      change,
+      change7d,
+      change30d,
+      high: hi(filtered),
+      low: lo(filtered),
+      high30d: hi(f30d),
+      low30d: lo(f30d),
+      high52w: hi(f52w),
+      low52w: lo(f52w),
     };
   }, [fullHistory, timeRange, currentPrice]);
 
@@ -80,14 +86,30 @@ export const useStockPageData = (ticker, timeRange) => {
 
   // Every crew, not the first: a character can belong to more than one (TOM is
   // in both Fist Gang and WTJC), and showing one of them silently hid the rest.
-  const crews = !character?.isETF ? Object.values(CREWS).filter(c => c.members.includes(ticker)) : [];
+  const crews = !character?.isETF ? Object.values(CREWS).filter((c) => c.members.includes(ticker)) : [];
   const memberOfETFs = fundsContaining(CHARACTERS, ticker, character?.isETF);
 
   return {
-    character, fullHistory, currentPrice, positionShares, shortPosition, avgCost,
-    spread, bidPrice, askPrice, drip, handleToggleDrip, priceStats,
-    dividendTier, dividendRate, weeklyDividend,
-    positionValue, positionCost, positionPL, positionPLPct,
-    crews, memberOfETFs,
+    character,
+    fullHistory,
+    currentPrice,
+    positionShares,
+    shortPosition,
+    avgCost,
+    spread,
+    bidPrice,
+    askPrice,
+    drip,
+    handleToggleDrip,
+    priceStats,
+    dividendTier,
+    dividendRate,
+    weeklyDividend,
+    positionValue,
+    positionCost,
+    positionPL,
+    positionPLPct,
+    crews,
+    memberOfETFs,
   };
 };

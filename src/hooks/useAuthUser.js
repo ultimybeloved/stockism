@@ -55,7 +55,7 @@ export function useAuthUser({ setDarkMode, showNotification }) {
       Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email } : null);
       if (firebaseUser) {
         // Check if email is verified (only for email/password providers)
-        const isEmailProvider = firebaseUser.providerData.some(p => p.providerId === 'password');
+        const isEmailProvider = firebaseUser.providerData.some((p) => p.providerId === 'password');
         if (isEmailProvider && !firebaseUser.emailVerified) {
           // Email not verified - block access
           setNeedsEmailVerification(true);

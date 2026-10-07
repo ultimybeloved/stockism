@@ -16,9 +16,9 @@ export function useAdminCosmetics({ showMessage, setLoading, setSelectedUser }) 
     try {
       await adminGrantCosmeticFunction({ userId, cosmeticId });
       showMessage('success', `Gave "${cosmetic.name}" to ${displayName}`);
-      setSelectedUser(prev => prev
-        ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] }
-        : prev);
+      setSelectedUser((prev) =>
+        prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev,
+      );
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -28,14 +28,15 @@ export function useAdminCosmetics({ showMessage, setLoading, setSelectedUser }) 
 
   const handleRevokeCosmetic = async (userId, displayName, cosmeticId) => {
     const cosmetic = COSMETIC_MAP[cosmeticId];
-    if (!confirm(`Take "${cosmetic?.name || cosmeticId}" away from ${displayName}? It will also be unequipped.`)) return;
+    if (!confirm(`Take "${cosmetic?.name || cosmeticId}" away from ${displayName}? It will also be unequipped.`))
+      return;
     setLoading(true);
     try {
       await adminGrantCosmeticFunction({ userId, cosmeticId, revoke: true });
       showMessage('success', `Removed "${cosmetic?.name || cosmeticId}" from ${displayName}`);
-      setSelectedUser(prev => prev
-        ? { ...prev, ownedCosmetics: (prev.ownedCosmetics || []).filter(id => id !== cosmeticId) }
-        : prev);
+      setSelectedUser((prev) =>
+        prev ? { ...prev, ownedCosmetics: (prev.ownedCosmetics || []).filter((id) => id !== cosmeticId) } : prev,
+      );
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);

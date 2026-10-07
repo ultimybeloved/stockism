@@ -6,7 +6,13 @@ import { CHARACTER_MAP } from '../../characters';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
-import { SOURCE_LABELS, formatTimestamp, getTimestampDate, getTradeProfit, exportTradesToCSV } from '../../utils/tradeHistory';
+import {
+  SOURCE_LABELS,
+  formatTimestamp,
+  getTimestampDate,
+  getTradeProfit,
+  exportTradesToCSV,
+} from '../../utils/tradeHistory';
 
 const PAGE_SIZE = 30;
 
@@ -24,53 +30,59 @@ const TradeHistoryModal = ({ onClose }) => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } = getThemeClasses(darkMode);
-  const inputClass = darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-slate-900';
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } =
+    getThemeClasses(darkMode);
+  const inputClass = darkMode
+    ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
+    : 'bg-white border-amber-300 text-slate-900';
 
-  const fetchTrades = useCallback(async (afterDoc = null) => {
-    if (!user) return;
-    try {
-      const constraints = [
-        collection(db, 'trades'),
-        where('uid', '==', user.uid),
-        orderBy('timestamp', 'desc'),
-        limit(PAGE_SIZE)
-      ];
-
-      if (afterDoc) {
-        let q = query(
+  const fetchTrades = useCallback(
+    async (afterDoc = null) => {
+      if (!user) return;
+      try {
+        const constraints = [
           collection(db, 'trades'),
           where('uid', '==', user.uid),
           orderBy('timestamp', 'desc'),
-          startAfter(afterDoc),
-          limit(PAGE_SIZE)
-        );
+          limit(PAGE_SIZE),
+        ];
+
+        if (afterDoc) {
+          let q = query(
+            collection(db, 'trades'),
+            where('uid', '==', user.uid),
+            orderBy('timestamp', 'desc'),
+            startAfter(afterDoc),
+            limit(PAGE_SIZE),
+          );
+          const snap = await getDocs(q);
+          const newTrades = snap.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            _doc: doc,
+          }));
+          setHasMore(newTrades.length === PAGE_SIZE);
+          setLastDoc(snap.docs[snap.docs.length - 1] || null);
+          return newTrades;
+        }
+
+        let q = query(...constraints);
         const snap = await getDocs(q);
-        const newTrades = snap.docs.map(doc => ({
+        const newTrades = snap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          _doc: doc
+          _doc: doc,
         }));
         setHasMore(newTrades.length === PAGE_SIZE);
         setLastDoc(snap.docs[snap.docs.length - 1] || null);
         return newTrades;
+      } catch (err) {
+        console.error('Failed to fetch trades:', err);
+        return [];
       }
-
-      let q = query(...constraints);
-      const snap = await getDocs(q);
-      const newTrades = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        _doc: doc
-      }));
-      setHasMore(newTrades.length === PAGE_SIZE);
-      setLastDoc(snap.docs[snap.docs.length - 1] || null);
-      return newTrades;
-    } catch (err) {
-      console.error('Failed to fetch trades:', err);
-      return [];
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
   useEffect(() => {
     (async () => {
@@ -85,7 +97,7 @@ const TradeHistoryModal = ({ onClose }) => {
     if (!hasMore || loadingMore) return;
     setLoadingMore(true);
     const more = await fetchTrades(lastDoc);
-    setTrades(prev => [...prev, ...(more || [])]);
+    setTrades((prev) => [...prev, ...(more || [])]);
     setLoadingMore(false);
   };
 
@@ -110,18 +122,18 @@ const TradeHistoryModal = ({ onClose }) => {
     let result = trades;
 
     if (filterAction !== 'all') {
-      result = result.filter(t => t.action === filterAction);
+      result = result.filter((t) => t.action === filterAction);
     }
 
     if (searchTicker.trim()) {
       const search = searchTicker.trim().toUpperCase();
-      result = result.filter(t => t.ticker && t.ticker.toUpperCase().includes(search));
+      result = result.filter((t) => t.ticker && t.ticker.toUpperCase().includes(search));
     }
 
     if (dateFrom) {
       const fromDate = new Date(dateFrom);
       fromDate.setHours(0, 0, 0, 0);
-      result = result.filter(t => {
+      result = result.filter((t) => {
         const d = getTimestampDate(t.timestamp);
         return d && d >= fromDate;
       });
@@ -130,7 +142,7 @@ const TradeHistoryModal = ({ onClose }) => {
     if (dateTo) {
       const toDate = new Date(dateTo);
       toDate.setHours(23, 59, 59, 999);
-      result = result.filter(t => {
+      result = result.filter((t) => {
         const d = getTimestampDate(t.timestamp);
         return d && d <= toDate;
       });
@@ -154,18 +166,24 @@ const TradeHistoryModal = ({ onClose }) => {
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-lg overflow-hidden max-h-[85vh] flex flex-col`}
-        onClick={e => e.stopPropagation()}>
-
+      <div
+        className={`${modalShellClass} max-w-lg overflow-hidden max-h-[85vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>Trade History</h2>
             <div className="flex items-center gap-2">
-              <button onClick={handleExport} title="Export CSV"
-                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}>
+              <button
+                onClick={handleExport}
+                title="Export CSV"
+                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}
+              >
                 CSV
               </button>
-              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>&times;</button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+                &times;
+              </button>
             </div>
           </div>
 
@@ -175,30 +193,37 @@ const TradeHistoryModal = ({ onClose }) => {
               type="text"
               placeholder="Search ticker..."
               value={searchTicker}
-              onChange={e => setSearchTicker(e.target.value)}
+              onChange={(e) => setSearchTicker(e.target.value)}
               className={`flex-1 px-2 py-1 text-xs rounded-sm border ${inputClass}`}
             />
             <input
               type="date"
               value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
+              onChange={(e) => setDateFrom(e.target.value)}
               className={`w-28 px-1 py-1 text-xs rounded-sm border ${inputClass}`}
             />
             <input
               type="date"
               value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
+              onChange={(e) => setDateTo(e.target.value)}
               className={`w-28 px-1 py-1 text-xs rounded-sm border ${inputClass}`}
             />
           </div>
 
           {/* Action filter buttons */}
           <div className="flex gap-1 mt-2">
-            {['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map(action => (
-              <button key={action} onClick={() => setFilterAction(action)}
+            {['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map((action) => (
+              <button
+                key={action}
+                onClick={() => setFilterAction(action)}
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${
-                  filterAction === action ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'
-                }`}>
+                  filterAction === action
+                    ? 'bg-orange-600 text-white'
+                    : darkMode
+                      ? 'text-zinc-400 hover:bg-zinc-800'
+                      : 'text-zinc-600 hover:bg-slate-200'
+                }`}
+              >
                 {action.charAt(0).toUpperCase() + action.slice(1)}
               </button>
             ))}
@@ -206,12 +231,19 @@ const TradeHistoryModal = ({ onClose }) => {
 
           {/* Running P&L */}
           {filtered.length > 0 && totalPL !== 0 && (
-            <div className={`mt-2 text-sm font-semibold ${
-              totalPL >= 0
-                ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
-                : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
-            }`}>
-              Total P&L: {totalPL >= 0 ? '+' : ''}{formatCurrency(totalPL)}
+            <div
+              className={`mt-2 text-sm font-semibold ${
+                totalPL >= 0
+                  ? colorBlindMode
+                    ? 'text-teal-500'
+                    : 'text-green-500'
+                  : colorBlindMode
+                    ? 'text-purple-500'
+                    : 'text-red-500'
+              }`}
+            >
+              Total P&L: {totalPL >= 0 ? '+' : ''}
+              {formatCurrency(totalPL)}
             </div>
           )}
         </div>
@@ -223,7 +255,7 @@ const TradeHistoryModal = ({ onClose }) => {
             <p className={`text-center py-8 ${mutedClass}`}>No trades found</p>
           ) : (
             <div className="space-y-2">
-              {filtered.map(trade => {
+              {filtered.map((trade) => {
                 // Dividend payouts are a different shape — render separately
                 if (trade.action === 'dividend') {
                   const breakdown = trade.breakdown || {};
@@ -232,7 +264,10 @@ const TradeHistoryModal = ({ onClose }) => {
                   const dripEntries = Object.entries(reinvested).sort((a, b) => b[1].value - a[1].value);
                   const totalCount = cashEntries.length + dripEntries.length;
                   return (
-                    <div key={trade.id} className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg('dividend') : ''}`}>
+                    <div
+                      key={trade.id}
+                      className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg('dividend') : ''}`}
+                    >
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
@@ -245,26 +280,33 @@ const TradeHistoryModal = ({ onClose }) => {
                         </div>
                         <div className="text-right">
                           {(trade.totalAmount || 0) > 0 && (
-                            <p className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                            <p
+                              className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}
+                            >
                               +{formatCurrency(trade.totalAmount || 0)} cash
                             </p>
                           )}
                           {dripEntries.length > 0 && (
-                            <p className="font-semibold text-sm text-sky-500">
-                              {dripEntries.length} DRIP reinvested
-                            </p>
+                            <p className="font-semibold text-sm text-sky-500">{dripEntries.length} DRIP reinvested</p>
                           )}
                         </div>
                       </div>
                       {cashEntries.length > 0 && (
                         <p className={`text-xs ${mutedClass} mt-1`}>
-                          {cashEntries.slice(0, 4).map(([t, amt]) => `$${t} ${formatCurrency(amt)}`).join(' • ')}
+                          {cashEntries
+                            .slice(0, 4)
+                            .map(([t, amt]) => `$${t} ${formatCurrency(amt)}`)
+                            .join(' • ')}
                           {cashEntries.length > 4 ? ` • +${cashEntries.length - 4} more` : ''}
                         </p>
                       )}
                       {dripEntries.length > 0 && (
                         <p className="text-xs text-sky-500 mt-1">
-                          ↻ {dripEntries.slice(0, 4).map(([t, d]) => `$${t} +${d.shares}sh`).join(' • ')}
+                          ↻{' '}
+                          {dripEntries
+                            .slice(0, 4)
+                            .map(([t, d]) => `$${t} +${d.shares}sh`)
+                            .join(' • ')}
                           {dripEntries.length > 4 ? ` • +${dripEntries.length - 4} more` : ''}
                         </p>
                       )}
@@ -276,12 +318,17 @@ const TradeHistoryModal = ({ onClose }) => {
                 const char = CHARACTER_MAP[trade.ticker];
                 const pl = getTradeProfit(trade);
                 return (
-                  <div key={trade.id} className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg(trade.action) : ''}`}>
+                  <div
+                    key={trade.id}
+                    className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg(trade.action) : ''}`}
+                  >
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-orange-500 font-mono text-sm font-semibold">${trade.ticker}</span>
-                          <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>{trade.action}</span>
+                          <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>
+                            {trade.action}
+                          </span>
                           {SOURCE_LABELS[trade.source] && (
                             <span className={`text-xs ${mutedClass}`}>{SOURCE_LABELS[trade.source]}</span>
                           )}
@@ -289,15 +336,26 @@ const TradeHistoryModal = ({ onClose }) => {
                         {char && <p className={`text-xs ${mutedClass}`}>{char.name}</p>}
                       </div>
                       <div className="text-right">
-                        <p className={`font-semibold text-sm ${textClass}`}>{formatCurrency(Math.abs(trade.totalValue || trade.price * trade.amount))}</p>
-                        <p className={`text-xs ${mutedClass}`}>{trade.amount} @ {formatCurrency(trade.price)}</p>
+                        <p className={`font-semibold text-sm ${textClass}`}>
+                          {formatCurrency(Math.abs(trade.totalValue || trade.price * trade.amount))}
+                        </p>
+                        <p className={`text-xs ${mutedClass}`}>
+                          {trade.amount} @ {formatCurrency(trade.price)}
+                        </p>
                         {pl && (
-                          <p className={`text-xs font-semibold ${
-                            pl.amount >= 0
-                              ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
-                              : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
-                          }`}>
-                            {pl.amount >= 0 ? '+' : ''}{formatCurrency(pl.amount)}
+                          <p
+                            className={`text-xs font-semibold ${
+                              pl.amount >= 0
+                                ? colorBlindMode
+                                  ? 'text-teal-500'
+                                  : 'text-green-500'
+                                : colorBlindMode
+                                  ? 'text-purple-500'
+                                  : 'text-red-500'
+                            }`}
+                          >
+                            {pl.amount >= 0 ? '+' : ''}
+                            {formatCurrency(pl.amount)}
                           </p>
                         )}
                       </div>
@@ -307,8 +365,11 @@ const TradeHistoryModal = ({ onClose }) => {
                 );
               })}
               {hasMore && (
-                <button onClick={loadMore} disabled={loadingMore}
-                  className={`w-full py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className={`w-full py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+                >
                   {loadingMore ? 'Loading...' : 'Load More'}
                 </button>
               )}

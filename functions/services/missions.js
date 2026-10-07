@@ -8,14 +8,23 @@ const db = admin.firestore();
 
 const { CHECKIN_STREAK_REWARDS } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../crews');
-const { writeNotification, writeFeedEntry, checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate, reportError, getLadderChips } = require('../helpers');
+const {
+  writeNotification,
+  writeFeedEntry,
+  checkBanned,
+  checkDiscordWall,
+  touchLastActive,
+  grantedValueUpdate,
+  reportError,
+  getLadderChips,
+} = require('../helpers');
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
 const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('./missionChecks');
 
 exports.claimMissionReward = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -37,14 +46,14 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
     const [userDoc, marketDoc, crewStatsDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(marketRef),
-      transaction.get(crewStatsRef)
+      transaction.get(crewStatsRef),
     ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data();
     checkBanned(userData);
     checkDiscordWall(userData);
-    const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
+    const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
 
     // Get today's date and week ID
     const now = new Date();
@@ -70,9 +79,10 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Must be in a crew.');
     }
     const rerollSeed = userData.weeklyMissions?.[weekId]?.rerollSeed || 0;
-    const assignedMissions = type === 'daily'
-      ? getDailyMissions(today, userData.crew, rerollSeed)
-      : getCrewWeeklyMissions(userData.crew, weekId, rerollSeed);
+    const assignedMissions =
+      type === 'daily'
+        ? getDailyMissions(today, userData.crew, rerollSeed)
+        : getCrewWeeklyMissions(userData.crew, weekId, rerollSeed);
     const assignedMission = assignedMissions.find((m) => m.id === missionId);
     if (!assignedMission) {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
@@ -136,7 +146,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
       userId: uid,
       displayName: userData.displayName || 'Anonymous',
       crew: userData.crew || null,
-      message: `completed a ${type} mission (+$${reward})`
+      message: `completed a ${type} mission (+$${reward})`,
     });
 
     return { success: true, reward, newTotal };
@@ -148,7 +158,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
  * Costs $50, once per week, locked if any rewards claimed
  */
 exports.rerollMissions = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -206,7 +216,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
     const updates = {
       cash: cash - 50,
       [`weeklyMissions.${weekId}.rerolled`]: true,
-      [`weeklyMissions.${weekId}.rerollSeed`]: rerollSeed
+      [`weeklyMissions.${weekId}.rerollSeed`]: rerollSeed,
     };
 
     transaction.update(userRef, updates);
@@ -218,7 +228,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
  * Purchase a pin or extra pin slot from the shop
  */
 exports.purchasePin = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -251,7 +261,10 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
       }
       const bestStreak = Math.max(userData.maxCheckinStreak || 0, userData.checkinStreak || 0);
       if (pinInfo.requiredCheckinStreak && bestStreak < pinInfo.requiredCheckinStreak) {
-        throw new functions.https.HttpsError('failed-precondition', `Requires ${pinInfo.requiredCheckinStreak}-day check-in streak.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Requires ${pinInfo.requiredCheckinStreak}-day check-in streak.`,
+        );
       }
       const owned = userData.ownedShopPins || [];
       if (owned.includes(pinId)) {
@@ -259,10 +272,9 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
       }
       transaction.update(userRef, {
         ownedShopPins: admin.firestore.FieldValue.arrayUnion(pinId),
-        cash: (userData.cash || 0) - validCost
+        cash: (userData.cash || 0) - validCost,
       });
       return { success: true, cost: validCost };
-
     } else if (action === 'buySlot') {
       // Slot costs: achievement = $5000, shop = $7500
       const slotCosts = { achievement: 5000, shop: 7500 };
@@ -277,10 +289,9 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
       }
       transaction.update(userRef, {
         [field]: true,
-        cash: (userData.cash || 0) - validCost
+        cash: (userData.cash || 0) - validCost,
       });
       return { success: true, cost: validCost };
-
     } else {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
     }
@@ -294,7 +305,7 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
 // Daily check-in reward. Lives here rather than users.js because the streak it
 // pays out on is the same daily-reward loop as the missions above.
 exports.dailyCheckin = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -371,7 +382,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
         totalCheckins: (userData.totalCheckins || 0) + 1,
         // Mission tracking (server-side)
         [`dailyMissions.${today}.checkedIn`]: true,
-        [`weeklyMissions.${checkinWeekId}.checkinDays.${today}`]: true
+        [`weeklyMissions.${checkinWeekId}.checkinDays.${today}`]: true,
       };
 
       // Ladder game: $500 start for new players, top up to $100 if below for existing
@@ -400,7 +411,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
           currentStreak: 0,
           bestStreak: 0,
           lastPlayed: null,
-          createdAt: FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp(),
         });
       } else {
         // Existing player — top up to $100 if below. The topped-up amount is also
@@ -414,7 +425,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
           transaction.update(ladderRef, {
             balance: 100,
             nonWithdrawable: getLadderChips(ladderDoc.data()) + ladderTopUpAmount,
-            chipsMigrated: true
+            chipsMigrated: true,
           });
         }
       }
@@ -426,7 +437,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
         timestamp: Date.now(),
         bonus: checkinReward,
         cashBefore: userData.cash || 0,
-        cashAfter: (userData.cash || 0) + checkinReward
+        cashAfter: (userData.cash || 0) + checkinReward,
       };
       updates.transactionLog = [...existingLog, checkinEntry].slice(-100);
 
@@ -437,7 +448,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
         reward: checkinReward,
         newStreak,
         ladderTopUpAmount,
-        totalCheckins: updates.totalCheckins
+        totalCheckins: updates.totalCheckins,
       };
     });
   } catch (error) {

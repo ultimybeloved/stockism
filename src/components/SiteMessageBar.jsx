@@ -26,16 +26,23 @@ const SiteMessageBar = () => {
 
   // Tone comes from the most severe message on screen, so one alert is not
   // softened by sitting next to two notices.
-  const tone = active.some((m) => m.tone === 'alert') ? 'alert'
-    : active.some((m) => m.tone === 'warn') ? 'warn' : 'info';
+  const tone = active.some((m) => m.tone === 'alert')
+    ? 'alert'
+    : active.some((m) => m.tone === 'warn')
+      ? 'warn'
+      : 'info';
   const toneClass = TONES[tone][darkMode ? 'dark' : 'light'];
 
   const body = active.map((m, i) => (
     <span key={m.id || i} className="inline-flex items-center">
       {i > 0 && <span className="mx-4 opacity-40">•</span>}
-      {m.link
-        ? <a href={m.link} className="underline hover:opacity-80" target="_blank" rel="noopener noreferrer">{m.text}</a>
-        : <span>{m.text}</span>}
+      {m.link ? (
+        <a href={m.link} className="underline hover:opacity-80" target="_blank" rel="noopener noreferrer">
+          {m.text}
+        </a>
+      ) : (
+        <span>{m.text}</span>
+      )}
     </span>
   ));
 
@@ -44,11 +51,7 @@ const SiteMessageBar = () => {
   const scrolls = active.length > 1 || active[0].text.length > 90;
 
   if (!scrolls) {
-    return (
-      <div className={`w-full text-xs font-medium px-3 py-1.5 text-center ${toneClass}`}>
-        {body}
-      </div>
-    );
+    return <div className={`w-full text-xs font-medium px-3 py-1.5 text-center ${toneClass}`}>{body}</div>;
   }
 
   return (
@@ -64,7 +67,9 @@ const SiteMessageBar = () => {
       >
         {/* Duplicated so the loop has no visible seam, same trick as MarketTicker. */}
         <span className="px-6 flex items-center">{body}</span>
-        <span className="px-6 flex items-center" aria-hidden="true">{body}</span>
+        <span className="px-6 flex items-center" aria-hidden="true">
+          {body}
+        </span>
       </div>
     </div>
   );

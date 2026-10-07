@@ -20,11 +20,11 @@ export function useAdminDividends({ showMessage }) {
     try {
       const ref = doc(db, 'dividendConfig', 'tierOverrides');
       const snap = await getDoc(ref);
-      setDividendOverrides(snap.exists() ? (snap.data().tiers || {}) : {});
+      setDividendOverrides(snap.exists() ? snap.data().tiers || {} : {});
 
       const runsSnap = await getDocs(collection(db, 'dividendConfig', 'runs', 'log'));
       const runs = runsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
           const ta = a.ranAt?.toMillis ? a.ranAt.toMillis() : 0;
           const tb = b.ranAt?.toMillis ? b.ranAt.toMillis() : 0;
@@ -63,7 +63,10 @@ export function useAdminDividends({ showMessage }) {
     try {
       const result = await runDividendPayoutNowFunction();
       setDividendRunResult(result.data);
-      showMessage('success', `Paid ${result.data.usersPaid}/${result.data.usersConsidered} users $${(result.data.totalPaid || 0).toFixed(2)} total.`);
+      showMessage(
+        'success',
+        `Paid ${result.data.usersPaid}/${result.data.usersConsidered} users $${(result.data.totalPaid || 0).toFixed(2)} total.`,
+      );
       await loadDividendConfig();
     } catch (err) {
       showMessage('error', 'Payout failed: ' + (err.message || 'Unknown error'));
@@ -73,8 +76,15 @@ export function useAdminDividends({ showMessage }) {
   };
 
   return {
-    dividendOverrides, dividendConfigLoaded, dividendSearch, setDividendSearch,
-    dividendRunResult, dividendActionLoading, dividendLastRuns,
-    loadDividendConfig, saveDividendTier, handleRunDividends,
+    dividendOverrides,
+    dividendConfigLoaded,
+    dividendSearch,
+    setDividendSearch,
+    dividendRunResult,
+    dividendActionLoading,
+    dividendLastRuns,
+    loadDividendConfig,
+    saveDividendTier,
+    handleRunDividends,
   };
 }

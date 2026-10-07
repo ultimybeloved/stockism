@@ -21,7 +21,7 @@ const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../functions/co
 const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../functions/crews');
 
 const EVENT_CREW = CREW_SWITCH_EVENT?.crewId;
-const PAID_CREW = 'YAMAZAKI';   // no event running on this one
+const PAID_CREW = 'YAMAZAKI'; // no event running on this one
 const FROM_CREW = 'WORKERS';
 const TICKER = 'GUN';
 
@@ -34,19 +34,26 @@ const check = (label, cond, detail = '') => {
 const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
 const call = (data, uid) => switchCrew.run(data, ctx(uid));
 const err = async (data, uid) => {
-  try { await call(data, uid); return null; }
-  catch (e) { return e.message || String(e); }
+  try {
+    await call(data, uid);
+    return null;
+  } catch (e) {
+    return e.message || String(e);
+  }
 };
 
 const seedUser = async (uid, extra = {}) => {
-  await db.collection('users').doc(uid).set({
-    displayName: uid,
-    cash: 1000,
-    holdings: { [TICKER]: 100 },
-    portfolioValue: 9500,
-    crew: FROM_CREW,
-    ...extra,
-  });
+  await db
+    .collection('users')
+    .doc(uid)
+    .set({
+      displayName: uid,
+      cash: 1000,
+      holdings: { [TICKER]: 100 },
+      portfolioValue: 9500,
+      crew: FROM_CREW,
+      ...extra,
+    });
 };
 const readUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
 
@@ -56,7 +63,10 @@ async function main() {
     console.log(`\n⚠️  The free-switch window for ${EVENT_CREW} has expired. Free-switch checks skipped.`);
   }
 
-  await db.collection('market').doc('current').set({ prices: { [TICKER]: 85 } }, { merge: true });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { [TICKER]: 85 } }, { merge: true });
 
   // ── 1. Free switch into the event crew ─────────────────────────────────
   if (isFreeSwitchTarget(EVENT_CREW)) {
@@ -70,8 +80,11 @@ async function main() {
     check('cash untouched', u.cash === 1000, `cash=${u.cash}`);
     check('shares untouched', u.holdings[TICKER] === 100, `shares=${u.holdings[TICKER]}`);
     check('portfolio value untouched', u.portfolioValue === 9500, `pv=${u.portfolioValue}`);
-    check('no lockout stamped on the old crew',
-      !(u.crewLockouts || {})[FROM_CREW], JSON.stringify(u.crewLockouts || {}));
+    check(
+      'no lockout stamped on the old crew',
+      !(u.crewLockouts || {})[FROM_CREW],
+      JSON.stringify(u.crewLockouts || {}),
+    );
     check('cooldown still recorded', typeof u.lastCrewChange === 'number', String(u.lastCrewChange));
   }
 
@@ -88,8 +101,7 @@ async function main() {
   check(`shares cut to ${expectedShares}`, paid.holdings[TICKER] === expectedShares, `shares=${paid.holdings[TICKER]}`);
   check('something was actually taken', paidRes.totalTaken > 0, String(paidRes.totalTaken));
   const lock = (paid.crewLockouts || {})[FROM_CREW] || 0;
-  check('30-day lockout stamped on the old crew',
-    lock > Date.now() + CREW_REJOIN_LOCKOUT_MS - 60000, `lock=${lock}`);
+  check('30-day lockout stamped on the old crew', lock > Date.now() + CREW_REJOIN_LOCKOUT_MS - 60000, `lock=${lock}`);
 
   // ── 3. Switching to your own crew is rejected ───────────────────────────
   console.log('\n3 — switching to the crew you are already in');
@@ -97,10 +109,16 @@ async function main() {
   const sameErr = await err({ crewId: EVENT_CREW }, 'cs_same');
   check('rejected with a clear reason', !!sameErr && /already in this crew/i.test(sameErr), sameErr || 'no error');
   const same = await readUser('cs_same');
-  check('nothing was taken on the rejected call', same.cash === 1000 && same.holdings[TICKER] === 100,
-    `cash=${same.cash} shares=${same.holdings[TICKER]}`);
-  check('no lockout stamped on their own crew',
-    !(same.crewLockouts || {})[EVENT_CREW], JSON.stringify(same.crewLockouts || {}));
+  check(
+    'nothing was taken on the rejected call',
+    same.cash === 1000 && same.holdings[TICKER] === 100,
+    `cash=${same.cash} shares=${same.holdings[TICKER]}`,
+  );
+  check(
+    'no lockout stamped on their own crew',
+    !(same.crewLockouts || {})[EVENT_CREW],
+    JSON.stringify(same.crewLockouts || {}),
+  );
 
   // ── 4. The window is what gates it, not the crew alone ──────────────────
   console.log('\n4 — window boundary');
@@ -113,4 +131,7 @@ async function main() {
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Test crashed:', err); process.exit(1); });
+main().catch((err) => {
+  console.error('Test crashed:', err);
+  process.exit(1);
+});

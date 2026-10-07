@@ -5,12 +5,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const {
-  CHARACTERS,
-  computeRarityTiers,
-  getDividendRate,
-  dividendWeightedShares,
-} = require('../characters');
+const { CHARACTERS, computeRarityTiers, getDividendRate, dividendWeightedShares } = require('../characters');
 const { ADMIN_UID } = require('../constants');
 const {
   DIVIDEND_HOLD_MS,
@@ -40,7 +35,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
   // Read tier overrides so admin can change a stock's tier without a code deploy.
   const overridesDoc = await db.collection('dividendConfig').doc('tierOverrides').get();
-  const tierOverrides = overridesDoc.exists ? (overridesDoc.data().tiers || {}) : {};
+  const tierOverrides = overridesDoc.exists ? overridesDoc.data().tiers || {} : {};
 
   // Base yield follows market standing: rank the roster on the same frozen
   // snapshot the payout prices come from.
@@ -89,8 +84,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
       // Self-heal: if cohort sum doesn't match holdings, trust holdings.
       // Compare rounded to 4 dp — share math is floating point, and epsilon
       // noise would otherwise spawn a phantom pending bucket every run.
-      const cohortSum = (graduated.eligible || 0)
-        + graduated.pending.reduce((s, p) => s + (p.shares || 0), 0);
+      const cohortSum = (graduated.eligible || 0) + graduated.pending.reduce((s, p) => s + (p.shares || 0), 0);
       const missing = Math.round((shares - cohortSum) * 10000) / 10000;
       if (missing !== 0) {
         // Difference is likely the backfill not yet run, or an admin edit.
@@ -106,8 +100,13 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
           over -= take;
           while (over > 0 && graduated.pending.length > 0) {
             const h = graduated.pending[0];
-            if (h.shares <= over) { over -= h.shares; graduated.pending.shift(); }
-            else { h.shares -= over; over = 0; }
+            if (h.shares <= over) {
+              over -= h.shares;
+              graduated.pending.shift();
+            } else {
+              h.shares -= over;
+              over = 0;
+            }
           }
         }
       }
@@ -217,7 +216,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         title: `Dividends paid`,
         message: notifParts.join(' + ') + ` across ${cashCount + dripCount} holding(s).`,
         data: { total: totalRounded, breakdown: payoutsByTicker, reinvestedBreakdown, source },
-      }).catch(err => reportError(err, { where: 'payDividends.notification', uid: userDoc.id }));
+      }).catch((err) => reportError(err, { where: 'payDividends.notification', uid: userDoc.id }));
     }
 
     batch.update(userDoc.ref, updates);
@@ -230,20 +229,26 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
   }
 
   const durationMs = Date.now() - startedAt;
-  await db.collection('dividendConfig').doc('runs').collection('log').add({
-    ranAt: admin.firestore.FieldValue.serverTimestamp(),
-    source,
-    durationMs,
-    usersConsidered: stats.usersConsidered,
-    usersPaid: stats.usersPaid,
-    totalPaid: Math.round(stats.totalPaid * 100) / 100,
-    totalReinvested: Math.round(stats.totalReinvested * 100) / 100,
-    tickerTotals: Object.fromEntries(
-      Object.entries(stats.tickerTotals).map(([t, v]) => [t, Math.round(v * 100) / 100])
-    ),
-  });
+  await db
+    .collection('dividendConfig')
+    .doc('runs')
+    .collection('log')
+    .add({
+      ranAt: admin.firestore.FieldValue.serverTimestamp(),
+      source,
+      durationMs,
+      usersConsidered: stats.usersConsidered,
+      usersPaid: stats.usersPaid,
+      totalPaid: Math.round(stats.totalPaid * 100) / 100,
+      totalReinvested: Math.round(stats.totalReinvested * 100) / 100,
+      tickerTotals: Object.fromEntries(
+        Object.entries(stats.tickerTotals).map(([t, v]) => [t, Math.round(v * 100) / 100]),
+      ),
+    });
 
-  console.log(`Dividend payout (${source}) complete: ${stats.usersPaid}/${stats.usersConsidered} paid, $${stats.totalPaid.toFixed(2)} total, ${durationMs}ms`);
+  console.log(
+    `Dividend payout (${source}) complete: ${stats.usersPaid}/${stats.usersConsidered} paid, $${stats.totalPaid.toFixed(2)} total, ${durationMs}ms`,
+  );
   return stats;
 }
 
@@ -257,8 +262,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
  * 10-day holding period.
  */
 exports.payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
-  .pubsub
-  .schedule('58 12 * * 4')
+  .pubsub.schedule('58 12 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     try {
@@ -277,14 +281,13 @@ exports.payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
  * Admin-only manual trigger for dividend payouts. Useful for testing, or to
  * re-run if the scheduled function failed.
  */
-exports.runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' })
-  .https.onCall(async (data, context) => {
-    requireAppCheck(context);
-    if (!context.auth || context.auth.uid !== ADMIN_UID) {
-      throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-    }
-    return runDividendPayout({ source: 'manual-admin' });
-  });
+exports.runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+  return runDividendPayout({ source: 'manual-admin' });
+});
 
 /**
  * One-time backfill: initialize `holdingCohorts` for every existing user.
@@ -292,53 +295,52 @@ exports.runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' })
  * Safe to re-run — users who already have a non-empty `holdingCohorts` are
  * skipped unless `force: true` is passed.
  */
-exports.backfillHoldingCohorts = cf({ timeoutSeconds: 540, memory: '512MB' })
-  .https.onCall(async (data, context) => {
-    requireAppCheck(context);
-    if (!context.auth || context.auth.uid !== ADMIN_UID) {
-      throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+exports.backfillHoldingCohorts = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(async (data, context) => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  const force = Boolean(data && data.force);
+
+  const usersSnap = await db.collection('users').get();
+  const stats = { scanned: 0, updated: 0, skipped: 0 };
+
+  const BATCH_SIZE = 400;
+  let batch = db.batch();
+  let pending = 0;
+
+  for (const userDoc of usersSnap.docs) {
+    stats.scanned += 1;
+    const d = userDoc.data() || {};
+    const existing = d.holdingCohorts || {};
+    const hasExisting = Object.keys(existing).length > 0;
+
+    if (hasExisting && !force) {
+      stats.skipped += 1;
+      continue;
     }
 
-    const force = Boolean(data && data.force);
-
-    const usersSnap = await db.collection('users').get();
-    const stats = { scanned: 0, updated: 0, skipped: 0 };
-
-    const BATCH_SIZE = 400;
-    let batch = db.batch();
-    let pending = 0;
-
-    for (const userDoc of usersSnap.docs) {
-      stats.scanned += 1;
-      const d = userDoc.data() || {};
-      const existing = d.holdingCohorts || {};
-      const hasExisting = Object.keys(existing).length > 0;
-
-      if (hasExisting && !force) {
-        stats.skipped += 1;
-        continue;
-      }
-
-      const holdings = d.holdings || {};
-      const cohorts = {};
-      for (const [ticker, shares] of Object.entries(holdings)) {
-        if (!shares || shares <= 0) continue;
-        cohorts[ticker] = { eligible: shares, pending: [] };
-      }
-
-      batch.update(userDoc.ref, { holdingCohorts: cohorts });
-      pending += 1;
-      stats.updated += 1;
-
-      if (pending >= BATCH_SIZE) {
-        await batch.commit();
-        batch = db.batch();
-        pending = 0;
-      }
+    const holdings = d.holdings || {};
+    const cohorts = {};
+    for (const [ticker, shares] of Object.entries(holdings)) {
+      if (!shares || shares <= 0) continue;
+      cohorts[ticker] = { eligible: shares, pending: [] };
     }
 
-    if (pending > 0) await batch.commit();
+    batch.update(userDoc.ref, { holdingCohorts: cohorts });
+    pending += 1;
+    stats.updated += 1;
 
-    console.log(`Backfill complete: ${stats.updated} updated, ${stats.skipped} skipped, ${stats.scanned} scanned`);
-    return stats;
-  });
+    if (pending >= BATCH_SIZE) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+
+  if (pending > 0) await batch.commit();
+
+  console.log(`Backfill complete: ${stats.updated} updated, ${stats.skipped} skipped, ${stats.scanned} scanned`);
+  return stats;
+});

@@ -32,17 +32,25 @@ describe('filterHoldings', () => {
 
 describe('sortHoldings', () => {
   it('sorts by value desc/asc', () => {
-    expect(sortHoldings(items, 'value', 'desc').map(i => i.ticker)).toEqual(['KTAE', 'GUN', 'DG']);
-    expect(sortHoldings(items, 'value', 'asc').map(i => i.ticker)).toEqual(['DG', 'GUN', 'KTAE']);
+    expect(sortHoldings(items, 'value', 'desc').map((i) => i.ticker)).toEqual(['KTAE', 'GUN', 'DG']);
+    expect(sortHoldings(items, 'value', 'asc').map((i) => i.ticker)).toEqual(['DG', 'GUN', 'KTAE']);
   });
 
   it('sorts by shares', () => {
-    expect(sortHoldings(items, 'shares', 'desc').map(i => i.ticker)).toEqual(['GUN', 'KTAE', 'DG']);
+    expect(sortHoldings(items, 'shares', 'desc').map((i) => i.ticker)).toEqual(['GUN', 'KTAE', 'DG']);
   });
 
   it('sorts alphabetically by character name', () => {
-    expect(sortHoldings(items, 'name', 'asc').map(i => i.character.name)).toEqual(['Gun Park', 'James Lee', 'Kitae Kim']);
-    expect(sortHoldings(items, 'name', 'desc').map(i => i.character.name)).toEqual(['Kitae Kim', 'James Lee', 'Gun Park']);
+    expect(sortHoldings(items, 'name', 'asc').map((i) => i.character.name)).toEqual([
+      'Gun Park',
+      'James Lee',
+      'Kitae Kim',
+    ]);
+    expect(sortHoldings(items, 'name', 'desc').map((i) => i.character.name)).toEqual([
+      'Kitae Kim',
+      'James Lee',
+      'Gun Park',
+    ]);
   });
 
   it('does not mutate the input array', () => {

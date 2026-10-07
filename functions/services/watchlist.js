@@ -9,7 +9,7 @@ const { ADMIN_UID, THIRTY_DAYS_MS } = require('../constants');
 const { normalizeEmail, clusterBy } = require('../signupCluster');
 
 exports.addWatchedUser = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -36,28 +36,31 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
       knownIPs[rawIp] = {
         firstSeen: Date.now(),
         lastSeen: Date.now(),
-        accounts: [userId]
+        accounts: [userId],
       };
 
       // Create reverse lookup
       await db.collection('watchedIPs').doc(rawIp).set({
         watchedUserId: userId,
         maxAccountsPerIP: maxAccounts,
-        addedAt: admin.firestore.FieldValue.serverTimestamp()
+        addedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
   }
 
-  await db.collection('watchedUsers').doc(userId).set({
-    displayName,
-    reason: reason || '',
-    maxAccountsPerIP: maxAccounts,
-    linkedAccounts: [],
-    knownIPs,
-    addedAt: admin.firestore.FieldValue.serverTimestamp(),
-    addedBy: context.auth.uid,
-    isActive: true
-  });
+  await db
+    .collection('watchedUsers')
+    .doc(userId)
+    .set({
+      displayName,
+      reason: reason || '',
+      maxAccountsPerIP: maxAccounts,
+      linkedAccounts: [],
+      knownIPs,
+      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+      addedBy: context.auth.uid,
+      isActive: true,
+    });
 
   await db.collection('watchlist_alerts').add({
     type: 'user_added',
@@ -66,7 +69,7 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'flagged',
     details: `Added "${displayName}" to watchlist. Reason: ${reason || 'None'}. Found ${Object.keys(knownIPs).length} known IPs.`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
@@ -76,7 +79,7 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
  * Remove (deactivate) a user from the watchlist
  */
 exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -107,7 +110,7 @@ exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'flagged',
     details: `Removed "${watchedDoc.data().displayName}" from watchlist`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -117,7 +120,7 @@ exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
  * Manually link an alt account to a watched user
  */
 exports.linkAltAccount = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -136,7 +139,7 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
   const altName = altDoc.exists ? altDoc.data().displayName : 'Unknown';
 
   // Check if already linked
-  const alreadyLinked = (watchedDoc.data().linkedAccounts || []).some(a => a.uid === altAccountId);
+  const alreadyLinked = (watchedDoc.data().linkedAccounts || []).some((a) => a.uid === altAccountId);
   if (alreadyLinked) {
     throw new functions.https.HttpsError('already-exists', 'This account is already linked.');
   }
@@ -146,12 +149,15 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
     displayName: altName,
     linkedVia: 'manual',
     ip: null,
-    linkedAt: Date.now()
+    linkedAt: Date.now(),
   };
 
-  await db.collection('watchedUsers').doc(watchedUserId).update({
-    linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked)
-  });
+  await db
+    .collection('watchedUsers')
+    .doc(watchedUserId)
+    .update({
+      linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+    });
 
   await db.collection('watchlist_alerts').add({
     type: 'account_linked',
@@ -160,7 +166,7 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'linked',
     details: `Manually linked "${altName}" as alt of "${watchedDoc.data().displayName}"`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true, altName };
@@ -170,7 +176,7 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
  * Add an IP address to a watched user
  */
 exports.addWatchedIP = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -189,20 +195,26 @@ exports.addWatchedIP = cf().https.onCall(async (data, context) => {
   const watchedData = watchedDoc.data();
 
   // Add to watched user's knownIPs
-  await db.collection('watchedUsers').doc(userId).update({
-    [`knownIPs.${sanitizedIp}`]: {
-      firstSeen: Date.now(),
-      lastSeen: Date.now(),
-      accounts: [userId]
-    }
-  });
+  await db
+    .collection('watchedUsers')
+    .doc(userId)
+    .update({
+      [`knownIPs.${sanitizedIp}`]: {
+        firstSeen: Date.now(),
+        lastSeen: Date.now(),
+        accounts: [userId],
+      },
+    });
 
   // Create reverse lookup
-  await db.collection('watchedIPs').doc(sanitizedIp).set({
-    watchedUserId: userId,
-    maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
-    addedAt: admin.firestore.FieldValue.serverTimestamp()
-  });
+  await db
+    .collection('watchedIPs')
+    .doc(sanitizedIp)
+    .set({
+      watchedUserId: userId,
+      maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
+      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
   await db.collection('watchlist_alerts').add({
     type: 'ip_added',
@@ -211,7 +223,7 @@ exports.addWatchedIP = cf().https.onCall(async (data, context) => {
     ip,
     action: 'flagged',
     details: `Manually added IP ${ip} to "${watchedData.displayName}"`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp()
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -221,7 +233,7 @@ exports.addWatchedIP = cf().https.onCall(async (data, context) => {
  * Get all active watched users (admin panel)
  */
 exports.getWatchlist = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -239,20 +251,17 @@ exports.getWatchlist = cf().https.onCall(async (data, context) => {
       linkedAccounts: d.linkedAccounts || [],
       knownIPs: d.knownIPs || {},
       addedAt: d.addedAt,
-      isActive: d.isActive
+      isActive: d.isActive,
     });
   }
 
   // Fetch recent alerts
-  const alertsSnap = await db.collection('watchlist_alerts')
-    .orderBy('timestamp', 'desc')
-    .limit(50)
-    .get();
+  const alertsSnap = await db.collection('watchlist_alerts').orderBy('timestamp', 'desc').limit(50).get();
 
-  const alerts = alertsSnap.docs.map(doc => ({
+  const alerts = alertsSnap.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-    timestamp: doc.data().timestamp?.toMillis?.() || doc.data().timestamp
+    timestamp: doc.data().timestamp?.toMillis?.() || doc.data().timestamp,
   }));
 
   return { watchedUsers, alerts };
@@ -269,7 +278,7 @@ exports.getWatchlist = cf().https.onCall(async (data, context) => {
  * dot/plus aliases collapse to one underlying account. Writes nothing.
  */
 exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -279,10 +288,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
 
   // Newest signups first; the window is applied in code. createdAt is a
   // serverTimestamp set at creation, so the single-field index is automatic.
-  const snap = await db.collection('users')
-    .orderBy('createdAt', 'desc')
-    .limit(500)
-    .get();
+  const snap = await db.collection('users').orderBy('createdAt', 'desc').limit(500).get();
 
   const recent = [];
   for (const doc of snap.docs) {
@@ -297,7 +303,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
   // Deleted auth users come back in notFound and are simply left without email.
   const authByUid = new Map();
   for (let i = 0; i < recent.length; i += 100) {
-    const chunk = recent.slice(i, i + 100).map(r => ({ uid: r.uid }));
+    const chunk = recent.slice(i, i + 100).map((r) => ({ uid: r.uid }));
     try {
       const res = await admin.auth().getUsers(chunk);
       for (const u of res.users) authByUid.set(u.uid, u);
@@ -309,11 +315,9 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
   const accounts = recent.map(({ uid, data: d, createdMs }) => {
     const authRec = authByUid.get(uid);
     const email = (authRec && authRec.email) || null;
-    const emailDomain = email && email.includes('@')
-      ? email.slice(email.lastIndexOf('@') + 1).toLowerCase()
-      : null;
-    const provider = (authRec && authRec.providerData && authRec.providerData[0] &&
-      authRec.providerData[0].providerId) || 'unknown';
+    const emailDomain = email && email.includes('@') ? email.slice(email.lastIndexOf('@') + 1).toLowerCase() : null;
+    const provider =
+      (authRec && authRec.providerData && authRec.providerData[0] && authRec.providerData[0].providerId) || 'unknown';
     return {
       uid,
       displayName: d.displayName || '(no name)',
@@ -327,7 +331,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
       createdAt: createdMs,
       requiresDiscordLink: !!d.requiresDiscordLink,
       hasDiscord: !!d.discordId,
-      isBanned: !!d.isBanned
+      isBanned: !!d.isBanned,
     };
   });
 
@@ -336,9 +340,9 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
     generatedAt: Date.now(),
     totalSignups: accounts.length,
     accounts,
-    clustersByIp: clusterBy(accounts, a => a.signupIp),
-    clustersByDomain: clusterBy(accounts, a => a.emailDomain),
-    clustersByGmail: clusterBy(accounts, a => a.normalizedEmail)
+    clustersByIp: clusterBy(accounts, (a) => a.signupIp),
+    clustersByDomain: clusterBy(accounts, (a) => a.emailDomain),
+    clustersByGmail: clusterBy(accounts, (a) => a.normalizedEmail),
   };
 });
 
@@ -353,7 +357,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
  * Writes nothing.
  */
 exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -381,9 +385,7 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
 
   // 2. Blocked/flagged alert counts, last 30 days
   const cutoff = new Date(Date.now() - THIRTY_DAYS_MS);
-  const alertsSnap = await db.collection('watchlist_alerts')
-    .where('timestamp', '>=', cutoff)
-    .get();
+  const alertsSnap = await db.collection('watchlist_alerts').where('timestamp', '>=', cutoff).get();
   const alertsByType = {};
   for (const doc of alertsSnap.docs) {
     const t = doc.data().type || 'other';
@@ -391,9 +393,7 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
   }
 
   // 3. signupIp coverage + Discord-wall status (light projection scan)
-  const usersSnap = await db.collection('users')
-    .select('signupIp', 'requiresDiscordLink', 'discordId', 'isBot')
-    .get();
+  const usersSnap = await db.collection('users').select('signupIp', 'requiresDiscordLink', 'discordId', 'isBot').get();
   let realUsers = 0;
   let missingIp = 0;
   let walledPending = 0;
@@ -419,7 +419,11 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
       multiAccountIPs: multiAccountIPs.slice(0, 20),
     },
     alertsLast30d: { total: alertsSnap.size, byType: alertsByType },
-    signupIpCoverage: { realUsers, missingIp, coveragePercent: realUsers > 0 ? Math.round((1 - missingIp / realUsers) * 100) : 0 },
+    signupIpCoverage: {
+      realUsers,
+      missingIp,
+      coveragePercent: realUsers > 0 ? Math.round((1 - missingIp / realUsers) * 100) : 0,
+    },
     discordWall: { pending: walledPending, lifted: walledLifted },
   };
 });
@@ -427,7 +431,6 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
 // ============================================
 // PRICE ALERTS
 // ============================================
-
 
 // ============================================
 // Auto circuit breakers removed — organic price surges are expected behavior.
@@ -453,22 +456,25 @@ const trackWatchedIpTrade = async (uid, displayName, ip) => {
     if (!watchedUserDoc.exists || !watchedUserDoc.data().isActive) return;
 
     const watchedData = watchedUserDoc.data();
-    const knownUIDs = (watchedData.linkedAccounts || []).map(a => a.uid);
+    const knownUIDs = (watchedData.linkedAccounts || []).map((a) => a.uid);
     knownUIDs.push(watchedUserId);
 
     if (!knownUIDs.includes(uid)) {
       // Unknown account trading from a watched IP — auto-link it
-      await db.collection('watchedUsers').doc(watchedUserId).update({
-        linkedAccounts: admin.firestore.FieldValue.arrayUnion({
-          uid,
-          displayName: displayName || uid,
-          linkedVia: 'ip',
-          ip,
-          linkedAt: Date.now()
-        }),
-        [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
-        [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
-      });
+      await db
+        .collection('watchedUsers')
+        .doc(watchedUserId)
+        .update({
+          linkedAccounts: admin.firestore.FieldValue.arrayUnion({
+            uid,
+            displayName: displayName || uid,
+            linkedVia: 'ip',
+            ip,
+            linkedAt: Date.now(),
+          }),
+          [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+          [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+        });
       await db.collection('watchlist_alerts').add({
         type: 'account_linked',
         watchedUID: watchedUserId,
@@ -476,7 +482,7 @@ const trackWatchedIpTrade = async (uid, displayName, ip) => {
         ip,
         action: 'linked',
         details: `Auto-linked "${displayName || uid}" — traded from watched IP`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
       return;
     }
@@ -484,9 +490,12 @@ const trackWatchedIpTrade = async (uid, displayName, ip) => {
     // Known watched account — track IP freshness, flag genuinely new IPs
     const knownIPs = watchedData.knownIPs || {};
     if (!knownIPs[sanitizedIp]) {
-      await db.collection('watchedUsers').doc(watchedUserId).update({
-        [`knownIPs.${sanitizedIp}`]: { firstSeen: Date.now(), lastSeen: Date.now(), accounts: [uid] }
-      });
+      await db
+        .collection('watchedUsers')
+        .doc(watchedUserId)
+        .update({
+          [`knownIPs.${sanitizedIp}`]: { firstSeen: Date.now(), lastSeen: Date.now(), accounts: [uid] },
+        });
       await db.collection('watchlist_alerts').add({
         type: 'new_ip_detected',
         watchedUID: watchedUserId,
@@ -494,13 +503,16 @@ const trackWatchedIpTrade = async (uid, displayName, ip) => {
         ip,
         action: 'flagged',
         details: `Known watched account "${displayName || uid}" seen on new IP`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      await db.collection('watchedUsers').doc(watchedUserId).update({
-        [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
-        [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
-      });
+      await db
+        .collection('watchedUsers')
+        .doc(watchedUserId)
+        .update({
+          [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
+          [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+        });
     }
   } catch (err) {
     console.error('trackWatchedIpTrade error:', err.message);

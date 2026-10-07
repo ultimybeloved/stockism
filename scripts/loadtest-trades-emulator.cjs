@@ -41,9 +41,14 @@ const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: `198.51.${Math.floor(++
 
 const seedMarket = async () => {
   const prices = {};
-  TICKERS.forEach((t, i) => { prices[t] = 80 + i; });
+  TICKERS.forEach((t, i) => {
+    prices[t] = 80 + i;
+  });
   await db.collection('market').doc('current').set({
-    prices, launchedTickers: [], marketHalted: false, haltedTickers: {},
+    prices,
+    launchedTickers: [],
+    marketHalted: false,
+    haltedTickers: {},
   });
   await db.collection('market').doc('priceHistory').set({});
 };
@@ -57,7 +62,10 @@ const makeUsers = async (label, n) => {
     const uid = `load_${label}_${i}`;
     uids.push(uid);
     batch.set(db.collection('users').doc(uid), { displayName: uid, cash: 500000 });
-    if ((i + 1) % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    if ((i + 1) % 400 === 0) {
+      await batch.commit();
+      batch = db.batch();
+    }
   }
   await batch.commit();
   return uids;
@@ -90,7 +98,10 @@ async function burst(n, sameTicker) {
 
   const out = { n, elapsed, success: 0, contention: 0, throttled: 0, other: 0, samples: [] };
   for (const r of results) {
-    if (r.status === 'fulfilled') { out.success++; continue; }
+    if (r.status === 'fulfilled') {
+      out.success++;
+      continue;
+    }
     const kind = classify(r.reason);
     out[kind]++;
     if (out.samples.length < 2 && kind === 'other') {
@@ -148,8 +159,10 @@ const header = () => {
     console.log('  is safe — it means this harness cannot reproduce the limit. Judge the risk');
     console.log('  from the shared-document design, and confirm against real traffic.');
   } else {
-    console.log(`  Contention appears under load. Worst observed success rate at N>=10: ` +
-      `${Math.min(...worst.map((r) => Math.round((r.success / r.n) * 100)))}%.`);
+    console.log(
+      `  Contention appears under load. Worst observed success rate at N>=10: ` +
+        `${Math.min(...worst.map((r) => Math.round((r.success / r.n) * 100)))}%.`,
+    );
     if (diffContention) {
       console.log('  Unrelated tickers collide too, which confirms market/current is the');
       console.log('  bottleneck rather than any single stock.');
@@ -157,4 +170,7 @@ const header = () => {
   }
 
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

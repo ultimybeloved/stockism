@@ -37,8 +37,7 @@ const isRosterTicker = (ticker) => ROSTER_TICKERS.has(ticker);
 
 // Bid/ask spread for a ticker. ETFs trade tighter than individual characters.
 // Was defined separately in marketOrders and limitOrderFill.
-const spreadFor = (ticker) =>
-  (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
+const spreadFor = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
 // Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
@@ -48,9 +47,10 @@ const spreadFor = (ticker) =>
 // Cohorts may carry extra fields (e.g. firstHeldAt for the Dividend Demon
 // achievement) — every helper must preserve them, not rebuild bare objects.
 const addPendingShares = (cohort, shares, now) => {
-  const c = cohort && typeof cohort === 'object'
-    ? { ...cohort, eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
-    : { eligible: 0, pending: [] };
+  const c =
+    cohort && typeof cohort === 'object'
+      ? { ...cohort, eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
+      : { eligible: 0, pending: [] };
   c.pending.push({ shares, availableAt: now + DIVIDEND_HOLD_MS });
   return c;
 };
@@ -90,9 +90,9 @@ const graduateCohort = (cohort, now) => {
   if (!cohort) return { eligible: 0, pending: [] };
   let eligible = cohort.eligible || 0;
   const stillPending = [];
-  for (const p of (cohort.pending || [])) {
+  for (const p of cohort.pending || []) {
     const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
-    if (now - acquiredAt >= DIVIDEND_MATURE_MS) eligible += (p.shares || 0);
+    if (now - acquiredAt >= DIVIDEND_MATURE_MS) eligible += p.shares || 0;
     else stillPending.push(p);
   }
   return { ...cohort, eligible, pending: stillPending };
@@ -171,7 +171,10 @@ const {
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
   CIRCUIT_BREAKER_MAX_PER_DAY,
-  discordTime, msUntilWeekly, PRE_MARKET_START_MINUTE, WEEKLY_HALT_END_MINUTE,
+  discordTime,
+  msUntilWeekly,
+  PRE_MARKET_START_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
 } = require('./constants');
 
 // ── Exit share sizes ─────────────────────────────────────────────────────────
@@ -193,8 +196,7 @@ const EXIT_SHARE_STEP = 10 ** EXIT_SHARE_DECIMALS;
 // grid exists to prevent. A ten-thousandth of a step is far below any real share
 // quantity (one step is a whole unit here) and comfortably above the noise.
 const EXIT_SHARE_EPSILON = 1e-4;
-const floorExitShares = (n) =>
-  Math.floor((n || 0) * EXIT_SHARE_STEP + EXIT_SHARE_EPSILON) / EXIT_SHARE_STEP;
+const floorExitShares = (n) => Math.floor((n || 0) * EXIT_SHARE_STEP + EXIT_SHARE_EPSILON) / EXIT_SHARE_STEP;
 
 // What is left of a position after selling `sold` of it. Anything under the
 // minimum sellable size is dropped rather than parked as a speck the player can
@@ -220,7 +222,16 @@ const getWeekId = (now = new Date()) => {
 // basis (executeTrade feeds it to the achievement context).
 // `marketPrice` is the pre-impact market price (underdog check), while
 // `executionPrice` is what the user actually paid/received per share.
-const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue, executionPrice, marketPrice, now = Date.now() }) => {
+const buildTradeCreditUpdates = ({
+  userData,
+  ticker,
+  action,
+  shares,
+  totalValue,
+  executionPrice,
+  marketPrice,
+  now = Date.now(),
+}) => {
   const todayDate = new Date(now).toISOString().split('T')[0];
   const weekId = getWeekId(new Date(now));
   const updates = {
@@ -230,7 +241,7 @@ const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue,
     [`weeklyMissions.${weekId}.tradeValue`]: admin.firestore.FieldValue.increment(totalValue),
     [`weeklyMissions.${weekId}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
     [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
-    [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true
+    [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true,
   };
   let animalProfitTotal = null;
 
@@ -255,9 +266,8 @@ const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue,
     // Lowest price while holding (for Diamond Hands achievement)
     const currentHoldings = userData.holdings?.[ticker] || 0;
     const currentLowest = userData.lowestWhileHolding?.[ticker];
-    const newLowest = currentHoldings === 0
-      ? executionPrice
-      : Math.min(currentLowest || executionPrice, executionPrice);
+    const newLowest =
+      currentHoldings === 0 ? executionPrice : Math.min(currentLowest || executionPrice, executionPrice);
     updates[`lowestWhileHolding.${ticker}`] = round2(newLowest);
   }
 
@@ -272,8 +282,8 @@ const buildTradeCreditUpdates = ({ userData, ticker, action, shares, totalValue,
         const pbt = userData.profitByTicker || {};
         const newTickerProfit = (pbt[ticker] || 0) + profitThisSell;
         updates[`profitByTicker.${ticker}`] = newTickerProfit;
-        animalProfitTotal = newTickerProfit +
-          [...ANIMAL_TICKERS].filter(t => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
+        animalProfitTotal =
+          newTickerProfit + [...ANIMAL_TICKERS].filter((t) => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
       }
     }
   }
@@ -352,8 +362,7 @@ const remapAliasedKeys = (obj, aliases) => {
 // { closes: { 'YYYY-MM-DD': { [ticker]: price } } }. Chunked by month from the
 // start on purpose: the live price-history doc hit Firestore's 40k index-entry
 // limit once and took trading down with it.
-const dailyClosesRef = (monthId) => db.collection('market').doc('current')
-  .collection('daily_closes').doc(monthId);
+const dailyClosesRef = (monthId) => db.collection('market').doc('current').collection('daily_closes').doc(monthId);
 
 const monthIdOf = (ms) => new Date(ms).toISOString().slice(0, 7);
 const dayIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -366,7 +375,7 @@ const dayIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
  * alone cannot tell a real rally from three players trading with each other.
  */
 const buildTickerFlowUpdate = ({ ticker, action, amount, totalValue, now }) => {
-  const direction = (action === 'buy' || action === 'cover') ? 1 : -1;
+  const direction = action === 'buy' || action === 'cover' ? 1 : -1;
   return {
     [ticker]: {
       trades: admin.firestore.FieldValue.increment(1),
@@ -404,10 +413,14 @@ const buildExtremeUpdates = (prices, ath = {}, atl = {}) => {
  * on or off for a stock. This rides the margin scanner, which already loads
  * every open short position every 30 minutes, so it costs no extra reads.
  */
-const writeShortInterest = async (totals, now = Date.now()) => tickerStatsRef().set({
-  shortInterest: totals,
-  shortInterestAt: now,
-}, { merge: true });
+const writeShortInterest = async (totals, now = Date.now()) =>
+  tickerStatsRef().set(
+    {
+      shortInterest: totals,
+      shortInterestAt: now,
+    },
+    { merge: true },
+  );
 
 /**
  * The price a neglected stock stops falling at, as a fraction of its basePrice.
@@ -434,10 +447,8 @@ const neglectFloorFraction = (ticker, tradeCount = 0) => {
 };
 
 /** The floor as an actual price. Never below MIN_PRICE. */
-const neglectFloorPrice = (character, tradeCount = 0) => Math.max(
-  MIN_PRICE,
-  round2((character?.basePrice || 0) * neglectFloorFraction(character?.ticker || '', tradeCount)),
-);
+const neglectFloorPrice = (character, tradeCount = 0) =>
+  Math.max(MIN_PRICE, round2((character?.basePrice || 0) * neglectFloorFraction(character?.ticker || '', tradeCount)));
 
 /**
  * Write one day's closing prices. Idempotent: a re-run for the same day
@@ -450,11 +461,14 @@ const recordDailyCloses = async (prices, now = Date.now()) => {
     closes[ticker] = price;
   }
   if (!Object.keys(closes).length) return 0;
-  await dailyClosesRef(monthIdOf(now)).set({
-    month: monthIdOf(now),
-    closes: { [dayIdOf(now)]: closes },
-    updatedAt: now,
-  }, { merge: true });
+  await dailyClosesRef(monthIdOf(now)).set(
+    {
+      month: monthIdOf(now),
+      closes: { [dayIdOf(now)]: closes },
+      updatedAt: now,
+    },
+    { merge: true },
+  );
   return Object.keys(closes).length;
 };
 
@@ -476,7 +490,7 @@ const applyDueIPOJumps = async () => {
 
     for (let i = 0; i < ipos.length; i++) {
       const ipo = ipos[i];
-      const soldOut = (ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0);
+      const soldOut = ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0;
       if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
         const newPrice = round2(ipo.basePrice * (1 + IPO_PRICE_JUMP));
         marketUpdates[`prices.${ipo.ticker}`] = newPrice;
@@ -489,7 +503,7 @@ const applyDueIPOJumps = async () => {
           ticker: ipo.ticker,
           newPrice,
           sharesSold: ipoTotalShares - (ipo.sharesRemaining || 0),
-          ipoTotalShares
+          ipoTotalShares,
         });
       }
     }
@@ -497,7 +511,7 @@ const applyDueIPOJumps = async () => {
     if (tickersToLaunch.length > 0) {
       transaction.update(marketRef, {
         ...marketUpdates,
-        launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch)
+        launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch),
       });
       appendPriceHistory(transaction, historyPoints);
       transaction.update(ipoRef, { list: updatedList });
@@ -522,17 +536,16 @@ const applyDueIPOJumps = async () => {
  * Selling everything in one go was the cheapest way to do it.
  */
 const rawMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
-  currentPrice * BASE_IMPACT * (
-    Math.sqrt((cumulativeSharesBefore + newShares) / liquidity) -
-    Math.sqrt(cumulativeSharesBefore / liquidity)
-  );
+  currentPrice *
+  BASE_IMPACT *
+  (Math.sqrt((cumulativeSharesBefore + newShares) / liquidity) - Math.sqrt(cumulativeSharesBefore / liquidity));
 
 // What the MARKET moves: the raw cost, capped so a single order can't crater a
 // stock. This is what goes on the chart and what the daily allowance counts.
 const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
   Math.min(
     rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
-    currentPrice * MAX_PRICE_CHANGE_PERCENT
+    currentPrice * MAX_PRICE_CHANGE_PERCENT,
   );
 
 // What the TRADER pays: the raw cost, bounded well above the market cap so an
@@ -540,7 +553,7 @@ const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore
 const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
   Math.min(
     rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
-    currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE
+    currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE,
   );
 
 /**
@@ -673,7 +686,10 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     const moves = [];
     for (const entry of history) {
       if (!entry || typeof entry.price !== 'number') continue;
-      if (entry.timestamp < start) { openPrice = entry.price; continue; }
+      if (entry.timestamp < start) {
+        openPrice = entry.price;
+        continue;
+      }
       if (entry.timestamp > end) break;
       moves.push(entry);
     }
@@ -690,7 +706,10 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
       // A collapsed point is the review's whole move rolled into one, so the
       // detail it was built from is gone and the split cannot be rebuilt from
       // it. Leave the stock out rather than reporting the lot as hand-set.
-      if (entry.collapsed) { collapsed = true; break; }
+      if (entry.collapsed) {
+        collapsed = true;
+        break;
+      }
       if (from > 0) {
         if (entry.source === 'admin_adjust') directFactor *= entry.price / from;
         else if (entry.source === 'trailing') {
@@ -705,11 +724,11 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     if (collapsed) continue;
     if (directFactor === 1 && trailingFactor === 1) continue;
 
-  // The total is the two halves compounded, NOT open-to-close. Something other
-  // than the review can move a price inside the window — 50 untagged points
-  // turned up in the 2026-08-20 halt with no trade behind them — and letting
-  // that leak into the headline made it disagree with its own breakdown.
-  // This reports what the REVIEW did, which is the question the tab answers.
+    // The total is the two halves compounded, NOT open-to-close. Something other
+    // than the review can move a price inside the window — 50 untagged points
+    // turned up in the 2026-08-20 halt with no trade behind them — and letting
+    // that leak into the headline made it disagree with its own breakdown.
+    // This reports what the REVIEW did, which is the question the tab answers.
     const reviewFactor = directFactor * trailingFactor;
     changes[ticker] = {
       oldPrice: openPrice,
@@ -730,13 +749,18 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
 const getAccountAgeImpactFactor = (userData) => {
   if (!userData || !userData.createdAt) return 1;
   const createdAt = userData.createdAt;
-  const createdMs = typeof createdAt.toMillis === 'function'
-    ? createdAt.toMillis()
-    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  const createdMs =
+    typeof createdAt.toMillis === 'function'
+      ? createdAt.toMillis()
+      : typeof createdAt === 'number'
+        ? createdAt
+        : Date.parse(createdAt);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
-  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
+  return (
+    NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS)
+  );
 };
 
 // Account age in days, or null when the account has no usable createdAt.
@@ -745,9 +769,12 @@ const getAccountAgeImpactFactor = (userData) => {
 const getAccountAgeDays = (userData) => {
   if (!userData || !userData.createdAt) return null;
   const createdAt = userData.createdAt;
-  const createdMs = typeof createdAt.toMillis === 'function'
-    ? createdAt.toMillis()
-    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  const createdMs =
+    typeof createdAt.toMillis === 'function'
+      ? createdAt.toMillis()
+      : typeof createdAt === 'number'
+        ? createdAt
+        : Date.parse(createdAt);
   if (!createdMs || isNaN(createdMs)) return null;
   return (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
 };
@@ -785,16 +812,14 @@ const getLadderChips = (ladderData) => {
 };
 
 // What the player can actually move back to their main cash right now.
-const getLadderWithdrawable = (ladderData) =>
-  Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
+const getLadderWithdrawable = (ladderData) => Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
 
 // When the ladder caps reach full for this user, as an ISO date, or null if
 // they are already there. Used to tell them when the limit lifts.
 const getLadderRampEndDate = (userData) => {
   const ageDays = getAccountAgeDays(userData);
   if (ageDays === null || ageDays >= LADDER_RAMP_DAYS) return null;
-  return new Date(Date.now() + (LADDER_RAMP_DAYS - ageDays) * TWENTY_FOUR_HOURS_MS)
-    .toISOString().slice(0, 10);
+  return new Date(Date.now() + (LADDER_RAMP_DAYS - ageDays) * TWENTY_FOUR_HOURS_MS).toISOString().slice(0, 10);
 };
 
 // ── Granted value ────────────────────────────────────────────────────────────
@@ -835,8 +860,9 @@ const grantedValueUpdate = (amount, now = Date.now()) => {
  * Days, not ms: amount x ms passes 2^53 after a few thousand dollars and loses
  * cents. Average held since pinning = (granted x nowDays - sum) / days elapsed.
  */
-const grantedDaysUpdate = (signedAmount, now = Date.now()) =>
-  ({ grantedDays: FieldValue.increment(signedAmount * (now / TWENTY_FOUR_HOURS_MS)) });
+const grantedDaysUpdate = (signedAmount, now = Date.now()) => ({
+  grantedDays: FieldValue.increment(signedAmount * (now / TWENTY_FOUR_HOURS_MS)),
+});
 
 /**
  * Same counter, but SIGNED — for money crossing the portfolio boundary into or
@@ -873,8 +899,7 @@ const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue') => {
  * odds read as a +1000% season. Own counter, so the ladder shadow stat stays
  * ladder-only.
  */
-const predictionFlowUpdate = (signedAmount) =>
-  grantedFlowUpdate(signedAmount, 'predictionFlowValue');
+const predictionFlowUpdate = (signedAmount) => grantedFlowUpdate(signedAmount, 'predictionFlowValue');
 
 /**
  * Cumulative granted value as it stood at `ts`, from the daily samples
@@ -900,7 +925,7 @@ const grantedTotalAt = (userData, ts) => {
     if (!oldest || s.ts < oldest.ts) oldest = s;
   }
   const sample = atOrBefore || oldest;
-  return sample ? (sample.total || 0) : null;
+  return sample ? sample.total || 0 : null;
 };
 
 /**
@@ -933,10 +958,12 @@ const grantedSince = (userData, windowMs) => {
 const netEquityAt = (userData, prices) => {
   if (!userData) return 0;
   const holdingsValue = Object.entries(userData.holdings || {}).reduce(
-    (sum, [ticker, shares]) => sum + (shares > 0 ? (prices?.[ticker] || 0) * shares : 0), 0
+    (sum, [ticker, shares]) => sum + (shares > 0 ? (prices?.[ticker] || 0) * shares : 0),
+    0,
   );
-  return round2((userData.cash || 0) + holdingsValue
-    + shortsEquity(userData.shorts, prices) - (userData.marginUsed || 0));
+  return round2(
+    (userData.cash || 0) + holdingsValue + shortsEquity(userData.shorts, prices) - (userData.marginUsed || 0),
+  );
 };
 
 /**
@@ -964,10 +991,12 @@ const exitEquityAt = (userData, prices) => {
   const coverPrices = {};
   for (const [ticker, pos] of Object.entries(userData.shorts || {})) {
     const price = prices?.[ticker] || 0;
-    if (pos && pos.shares > 0) coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0, liquidityFor(ticker));
+    if (pos && pos.shares > 0)
+      coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0, liquidityFor(ticker));
   }
-  return round2((userData.cash || 0) + holdingsValue
-    + shortsEquity(userData.shorts, coverPrices) - (userData.marginUsed || 0));
+  return round2(
+    (userData.cash || 0) + holdingsValue + shortsEquity(userData.shorts, coverPrices) - (userData.marginUsed || 0),
+  );
 };
 
 const { indexFromStored } = require('./services/indexMaintenance');
@@ -984,7 +1013,7 @@ const readIndexNow = async () => {
     db.collection('market').doc('current').get(),
     db.collection('market').doc('indexHistory').get(),
   ]);
-  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+  const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
   return { prices, value: indexFromStored(prices, idxSnap.exists ? idxSnap.data() : null) };
 };
 
@@ -999,7 +1028,7 @@ const readIndexNow = async () => {
  */
 const netReturnPercent = (current, baseline, granted) => {
   if (!baseline || baseline <= 0) return 0;
-  return (((current - (granted || 0)) - baseline) / baseline) * 100;
+  return ((current - (granted || 0) - baseline) / baseline) * 100;
 };
 
 /**
@@ -1020,9 +1049,12 @@ const shortsEquity = (shorts, prices) =>
   Object.entries(shorts || {}).reduce((sum, [ticker, pos]) => {
     if (!pos || !(pos.shares > 0)) return sum;
     const price = prices?.[ticker] || 0;
-    return sum + ((pos.system || 'v2') === 'v2'
-      ? (pos.margin || 0) + ((pos.costBasis || 0) - price) * pos.shares
-      : (pos.margin || 0) - price * pos.shares);
+    return (
+      sum +
+      ((pos.system || 'v2') === 'v2'
+        ? (pos.margin || 0) + ((pos.costBasis || 0) - price) * pos.shares
+        : (pos.margin || 0) - price * pos.shares)
+    );
   }, 0);
 
 /**
@@ -1039,12 +1071,17 @@ const shortsEquity = (shorts, prices) =>
  */
 const characterExposure = (userData, prices) => {
   const byCharacter = {};
-  const add = (ticker, value) => { byCharacter[ticker] = (byCharacter[ticker] || 0) + value; };
+  const add = (ticker, value) => {
+    byCharacter[ticker] = (byCharacter[ticker] || 0) + value;
+  };
   const spread = (ticker, value) => {
-    const factors = CHARACTER_MAP[ticker]?.isETF ? (CHARACTER_MAP[ticker].trailingFactors || []) : [];
+    const factors = CHARACTER_MAP[ticker]?.isETF ? CHARACTER_MAP[ticker].trailingFactors || [] : [];
     const weight = factors.reduce((s, f) => s + (f.coefficient || 0), 0);
-    if (!(weight > 0)) { add(ticker, value); return; }
-    for (const f of factors) add(f.ticker, value * (f.coefficient || 0) / weight);
+    if (!(weight > 0)) {
+      add(ticker, value);
+      return;
+    }
+    for (const f of factors) add(f.ticker, (value * (f.coefficient || 0)) / weight);
   };
   for (const [ticker, shares] of Object.entries(userData?.holdings || {})) {
     if (shares > 0) spread(ticker, (prices?.[ticker] || 0) * shares);
@@ -1066,10 +1103,12 @@ const getTotalInvested = (userData) => {
   const holdings = userData.holdings || {};
   const costBasis = userData.costBasis || {};
   const holdingsValue = Object.entries(holdings).reduce(
-    (sum, [ticker, shares]) => sum + ((costBasis[ticker] || 0) * (shares || 0)), 0
+    (sum, [ticker, shares]) => sum + (costBasis[ticker] || 0) * (shares || 0),
+    0,
   );
   const shortMargin = Object.values(userData.shorts || {}).reduce(
-    (sum, s) => sum + (s && s.shares > 0 ? (s.margin || 0) : 0), 0
+    (sum, s) => sum + (s && s.shares > 0 ? s.margin || 0 : 0),
+    0,
   );
   return holdingsValue + shortMargin;
 };
@@ -1105,7 +1144,7 @@ const lmsrSellRefund = (q, b, idx, shares) => {
 // Prune entries older than 24h, return summary
 const pruneAndSumTradeHistory = (entries, now) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
-  const recent = (entries || []).filter(e => e.ts > cutoff);
+  const recent = (entries || []).filter((e) => e.ts > cutoff);
   const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
   const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
   // count = real trades only. Synthetic ETF trailing entries (shares: 0) feed the
@@ -1154,7 +1193,10 @@ const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts,
   // appended in order and the recent end is the short end.
   let reference = null;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].timestamp < windowStart) { reference = history[i].price; break; }
+    if (history[i].timestamp < windowStart) {
+      reference = history[i].price;
+      break;
+    }
   }
   if (!(reference > 0)) return null; // nothing older than the window yet
 
@@ -1171,9 +1213,10 @@ const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts,
     haltedAt: now,
     resumeAt: now + CIRCUIT_BREAKER_PAUSE_MS,
     movePercent: Math.round(move * 10000) / 100,
-    reason: move < 0
-      ? `Price fell ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`
-      : `Price rose ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`,
+    reason:
+      move < 0
+        ? `Price fell ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`
+        : `Price rose ${pct.toFixed(1)}% in under ${Math.round(CIRCUIT_BREAKER_WINDOW_MS / 60000)} minutes.`,
   };
 };
 
@@ -1218,7 +1261,7 @@ const remainingImpactFor = ({ action, userActions, ipActions, now, cap }) => {
   const direction = impactDirectionOf(action);
   const spent = Math.max(
     sumDirectionalImpact(userActions, now)[direction],
-    sumDirectionalImpact(ipActions, now)[direction]
+    sumDirectionalImpact(ipActions, now)[direction],
   );
   return Math.max(0, cap - spent);
 };
@@ -1231,12 +1274,12 @@ const remainingImpactFor = ({ action, userActions, ipActions, now, cap }) => {
 const writeNotification = async (uid, { type, title, message, data = {} }) => {
   try {
     await db.collection('users').doc(uid).collection('notifications').add({
-      type,       // 'trade', 'alert', 'achievement', 'margin', 'system'
+      type, // 'trade', 'alert', 'achievement', 'margin', 'system'
       title,
       message,
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      data        // { ticker?, price?, orderId?, achievementId? }
+      data, // { ticker?, price?, orderId?, achievementId? }
     });
   } catch (err) {
     console.error(`Failed to write notification for ${uid}:`, err.message);
@@ -1244,7 +1287,19 @@ const writeNotification = async (uid, { type, title, message, data = {} }) => {
 };
 
 // Writes a feed doc to the global feed collection (fire-and-forget)
-const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker, action, amount, price, achievementId, displayAfter }) => {
+const writeFeedEntry = async ({
+  type,
+  userId,
+  displayName,
+  crew,
+  message,
+  ticker,
+  action,
+  amount,
+  price,
+  achievementId,
+  displayAfter,
+}) => {
   try {
     // A Firestore TTL policy only acts on a TIMESTAMP field — it silently
     // ignores a numeric one. This was written as a plain number for as long as
@@ -1254,11 +1309,9 @@ const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker
     // 2026-09-22, the oldest expired 190 days earlier.
     //
     // Nothing reads this field; it exists purely for the TTL policy to act on.
-    const expiresAt = admin.firestore.Timestamp.fromMillis(
-      Date.now() + FEED_TTL_MS
-    );
+    const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + FEED_TTL_MS);
     await db.collection('feed').add({
-      type,         // 'trade', 'achievement', 'mission_complete'
+      type, // 'trade', 'achievement', 'mission_complete'
       userId,
       displayName,
       crew: crew || null,
@@ -1270,7 +1323,7 @@ const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker
       message,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,
-      displayAfter: displayAfter || null
+      displayAfter: displayAfter || null,
     });
   } catch (err) {
     console.error('Failed to write feed entry:', err.message);
@@ -1279,40 +1332,119 @@ const writeFeedEntry = async ({ type, userId, displayName, crew, message, ticker
 
 // Banned usernames (impersonation prevention)
 const BANNED_NAMES = [
-  'admin', 'administrator', 'mod', 'moderator', 'support', 'staff',
-  'official', 'system', 'root', 'owner', 'founder', 'manager',
+  'admin',
+  'administrator',
+  'mod',
+  'moderator',
+  'support',
+  'staff',
+  'official',
+  'system',
+  'root',
+  'owner',
+  'founder',
+  'manager',
   // 'yg' blocks any name containing those letters adjacently (admin
   // impersonation); underscores are stripped before matching, so y_g
   // is caught too. Subsumes the old 'darthyg' / 'darth_yg' entries.
-  'stockism', 'yg', 'darth', 'null', 'undefined',
-  'ricky'
+  'stockism',
+  'yg',
+  'darth',
+  'null',
+  'undefined',
+  'ricky',
 ];
 
 // Profanity filter
 const PROFANITY_LIST = [
   // Profanity
-  'fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', 'cock', 'pussy', 'bastard',
-  'whore', 'slut', 'piss', 'crap', 'fag', 'retard', 'nigger', 'nigga', 'chink',
+  'fuck',
+  'shit',
+  'ass',
+  'bitch',
+  'damn',
+  'cunt',
+  'dick',
+  'cock',
+  'pussy',
+  'bastard',
+  'whore',
+  'slut',
+  'piss',
+  'crap',
+  'fag',
+  'retard',
+  'nigger',
+  'nigga',
+  'chink',
   // Variations/leetspeak
-  'f4ck', 'fuk', 'fck', 'sh1t', 'b1tch', 'azz', 'a55', 'd1ck', 'c0ck', 'cnt',
-  'fag0t', 'r3tard', 'n1gger', 'n1gga',
+  'f4ck',
+  'fuk',
+  'fck',
+  'sh1t',
+  'b1tch',
+  'azz',
+  'a55',
+  'd1ck',
+  'c0ck',
+  'cnt',
+  'fag0t',
+  'r3tard',
+  'n1gger',
+  'n1gga',
   // Slurs
-  'kike', 'spic', 'beaner', 'wetback', 'gook', 'towelhead', 'sandnigger',
+  'kike',
+  'spic',
+  'beaner',
+  'wetback',
+  'gook',
+  'towelhead',
+  'sandnigger',
   // Sexual/inappropriate
-  'sex', 'porn', 'xxx', 'rape', 'molest', 'pedo', 'anal', 'vagina', 'penis',
-  'testicle', 'semen', 'cumshot', 'jizz', 'blowjob', 'handjob',
+  'sex',
+  'porn',
+  'xxx',
+  'rape',
+  'molest',
+  'pedo',
+  'anal',
+  'vagina',
+  'penis',
+  'testicle',
+  'semen',
+  'cumshot',
+  'jizz',
+  'blowjob',
+  'handjob',
   // 'rvpe' spellings beat 'rape' because normalizeProfanity has no v->a rule,
   // and it must not get one: v->a would turn "Vase" into "aase" and read it as
   // a slur. These literals cost nothing and collide with no English word.
-  'rvpe', 'rvped', 'rvpes', 'rvpist',
+  'rvpe',
+  'rvped',
+  'rvpes',
+  'rvpist',
   // Bare 'cum' is deliberately NOT here — it is a substring of "document" and
   // "cucumber". It lives in HARASSMENT_WORDS instead, where it only bites when
   // a real player's name is attached. These compounds are unambiguous.
-  'cumbucket', 'cumdump', 'cumslut', 'cumrag',
+  'cumbucket',
+  'cumdump',
+  'cumslut',
+  'cumrag',
   // Hate/offensive
-  'nazi', 'hitler', 'kill', 'murder', 'terrorist', 'jihad', 'isis',
+  'nazi',
+  'hitler',
+  'kill',
+  'murder',
+  'terrorist',
+  'jihad',
+  'isis',
   // Common substitutions
-  'fvck', 'phuck', 'biatch', 'bytch', 'azhole', 'assh0le'
+  'fvck',
+  'phuck',
+  'biatch',
+  'bytch',
+  'azhole',
+  'assh0le',
 ];
 
 // Players prominent enough that people build throwaway accounts out of their
@@ -1328,24 +1460,85 @@ const PROFANITY_LIST = [
 // prints a reminder listing any top-25 player missing from here.
 const PROTECTED_PLAYER_NAMES = [
   // Repeatedly targeted (the 2026-08-21 purge was 17 accounts aimed at these).
-  'stitch', 'callmebot', 'slare', 'shibal', 'elijang',
+  'stitch',
+  'callmebot',
+  'slare',
+  'shibal',
+  'elijang',
   // Top of the leaderboard and crew heads.
-  'amado901', 'toartauki', 'ayin', 'yapryong', 'definethereal',
-  'gunglazer', 'royalshrub', 'madness', 'yakhob', 'zalfer',
-  'whitecyxres', 'gapnegshing', 'danielpark', 'versus', 'sadakosasaki',
-  'jinsakai', 'sifilo', 'sandygnow', 'shadows3511p',
-  '2orain', 'unkb', 'sniv',
+  'amado901',
+  'toartauki',
+  'ayin',
+  'yapryong',
+  'definethereal',
+  'gunglazer',
+  'royalshrub',
+  'madness',
+  'yakhob',
+  'zalfer',
+  'whitecyxres',
+  'gapnegshing',
+  'danielpark',
+  'versus',
+  'sadakosasaki',
+  'jinsakai',
+  'sifilo',
+  'sandygnow',
+  'shadows3511p',
+  '2orain',
+  'unkb',
+  'sniv',
 ];
 
 // Words that are an attack when welded to somebody's name, but perfectly
 // ordinary otherwise. None of these block a name by themselves.
 const HARASSMENT_WORDS = [
-  'slave', 'slaves', 'peg', 'pegs', 'pegged', 'pegging', 'submissive',
-  'bottom', 'dog', 'dogs', 'bitch', 'simp', 'servant', 'worship',
-  'owns', 'owned', 'suck', 'sucks', 'lick', 'licks', 'finger', 'fingers',
-  'smells', 'stinks', 'ugly', 'trash', 'loser', 'eater', 'toy', 'pet',
-  'kisser', 'cuck', 'whore', 'slut', 'gay', 'fag', 'thot', 'hoe',
-  'rape', 'rapes', 'raped', 'rvpe', 'rvpes', 'rvped', 'cum', 'kys',
+  'slave',
+  'slaves',
+  'peg',
+  'pegs',
+  'pegged',
+  'pegging',
+  'submissive',
+  'bottom',
+  'dog',
+  'dogs',
+  'bitch',
+  'simp',
+  'servant',
+  'worship',
+  'owns',
+  'owned',
+  'suck',
+  'sucks',
+  'lick',
+  'licks',
+  'finger',
+  'fingers',
+  'smells',
+  'stinks',
+  'ugly',
+  'trash',
+  'loser',
+  'eater',
+  'toy',
+  'pet',
+  'kisser',
+  'cuck',
+  'whore',
+  'slut',
+  'gay',
+  'fag',
+  'thot',
+  'hoe',
+  'rape',
+  'rapes',
+  'raped',
+  'rvpe',
+  'rvpes',
+  'rvped',
+  'cum',
+  'kys',
 ];
 
 // Shortest protected name we will look for inside a longer one. Below this the
@@ -1359,10 +1552,17 @@ const MIN_PROTECTED_NAME_LENGTH = 4;
  * @returns {string[]} - Normalized forms, deduped
  */
 function nameForms(name) {
-  const plain = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const plain = String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
   const deleet = plain
-    .replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a')
-    .replace(/5/g, 's').replace(/7/g, 't').replace(/8/g, 'b');
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/8/g, 'b');
   return plain === deleet ? [plain] : [plain, deleet];
 }
 
@@ -1397,7 +1597,8 @@ function isTargetedHarassment(username) {
  * @returns {string} - Normalized text
  */
 function normalizeProfanity(text) {
-  return text.toLowerCase()
+  return text
+    .toLowerCase()
     .replace(/0/g, 'o')
     .replace(/1/g, 'i')
     .replace(/3/g, 'e')
@@ -1486,7 +1687,10 @@ function validateUsernameFormat(name) {
     throw new functions.https.HttpsError('invalid-argument', 'Username must be 20 characters or less.');
   }
   if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-    throw new functions.https.HttpsError('invalid-argument', 'Username can only contain letters, numbers, and underscores.');
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Username can only contain letters, numbers, and underscores.',
+    );
   }
   if (!/[a-zA-Z]/.test(name)) {
     throw new functions.https.HttpsError('invalid-argument', 'Username must include at least one letter.');
@@ -1495,7 +1699,10 @@ function validateUsernameFormat(name) {
     throw new functions.https.HttpsError('invalid-argument', 'Username must include at least 3 letters or numbers.');
   }
   if ((name.match(/_/g) || []).length > 2 || name.includes('__') || name.startsWith('_') || name.endsWith('_')) {
-    throw new functions.https.HttpsError('invalid-argument', 'Username can have at most 2 underscores, not repeated or at the start or end.');
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Username can have at most 2 underscores, not repeated or at the start or end.',
+    );
   }
 }
 
@@ -1519,7 +1726,7 @@ function checkDiscordWall(userData) {
   if (userData?.requiresDiscordLink && !userData?.discordId) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Link your Discord account to continue. This is a one-time verification step.'
+      'Link your Discord account to continue. This is a one-time verification step.',
     );
   }
 }
@@ -1626,7 +1833,7 @@ async function bindDiscordToUid(discordId, uid, discordUsername) {
     tx.set(ref, {
       uid,
       discordUsername: discordUsername || null,
-      boundAt: Date.now()
+      boundAt: Date.now(),
     });
     return uid;
   });
@@ -1716,16 +1923,12 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
       payload.components = components;
     }
 
-    await axios.post(
-      `https://discord.com/api/v10/channels/${channelId}/messages`,
-      payload,
-      {
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    await axios.post(`https://discord.com/api/v10/channels/${channelId}/messages`, payload, {
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
     console.log(`Discord message sent successfully to channel ${channelId} (${channelType})`);
   } catch (error) {
     reportError(error, { where: 'sendDiscordMessage', channelId, channelType, response: error.response?.data });
@@ -1762,7 +1965,10 @@ async function sendDiscordDM(userId, content, embeds = null) {
 
   if (open.status !== 200 || !open.data?.id) {
     reportError(new Error('Could not open Discord DM channel'), {
-      where: 'sendDiscordDM.openChannel', userId, status: open.status, response: open.data,
+      where: 'sendDiscordDM.openChannel',
+      userId,
+      status: open.status,
+      response: open.data,
     });
     return false;
   }
@@ -1775,7 +1981,10 @@ async function sendDiscordDM(userId, content, embeds = null) {
   if (sent.status < 200 || sent.status >= 300) {
     // 403 here almost always means the recipient blocks DMs from server members.
     reportError(new Error('Discord DM rejected'), {
-      where: 'sendDiscordDM.send', userId, status: sent.status, response: sent.data,
+      where: 'sendDiscordDM.send',
+      userId,
+      status: sent.status,
+      response: sent.data,
     });
     return false;
   }
@@ -1813,23 +2022,37 @@ async function recordHeartbeat(job) {
  */
 async function sendMarketStatusAlert(kind, reason = '') {
   const presets = {
-    closed:    { color: 0xE74C3C, title: '🔴 Market Closed', description: `Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).` },
-    premarket: { color: 0xF1C40F, title: '🟡 Pre-Market Queue Open', description: `You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).` },
-    open:      { color: 0x2ECC71, title: '🟢 Market Open', description: 'Trading has resumed.' },
-    halted:    { color: 0xE74C3C, title: '🔴 Trading Halted', description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.' },
-    resumed:   { color: 0x2ECC71, title: '🟢 Trading Resumed', description: 'Trading has resumed.' },
+    closed: {
+      color: 0xe74c3c,
+      title: '🔴 Market Closed',
+      description: `Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+    },
+    premarket: {
+      color: 0xf1c40f,
+      title: '🟡 Pre-Market Queue Open',
+      description: `You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+    },
+    open: { color: 0x2ecc71, title: '🟢 Market Open', description: 'Trading has resumed.' },
+    halted: {
+      color: 0xe74c3c,
+      title: '🔴 Trading Halted',
+      description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.',
+    },
+    resumed: { color: 0x2ecc71, title: '🟢 Trading Resumed', description: 'Trading has resumed.' },
   };
   const preset = presets[kind];
   if (!preset) {
     console.error(`sendMarketStatusAlert: unknown kind "${kind}"`);
     return;
   }
-  await sendDiscordMessage(null, [{
-    color: preset.color,
-    title: preset.title,
-    description: preset.description,
-    timestamp: new Date().toISOString()
-  }]);
+  await sendDiscordMessage(null, [
+    {
+      color: preset.color,
+      title: preset.title,
+      description: preset.description,
+      timestamp: new Date().toISOString(),
+    },
+  ]);
 }
 
 // Coerce any of our timestamp shapes (Firestore Timestamp, epoch ms number,
@@ -1839,7 +2062,10 @@ function toMs(ts) {
   if (typeof ts === 'number') return ts;
   if (typeof ts.toMillis === 'function') return ts.toMillis();
   if (typeof ts.seconds === 'number') return ts.seconds * 1000;
-  if (typeof ts === 'string') { const p = Date.parse(ts); return isNaN(p) ? 0 : p; }
+  if (typeof ts === 'string') {
+    const p = Date.parse(ts);
+    return isNaN(p) ? 0 : p;
+  }
   return 0;
 }
 
@@ -1858,7 +2084,7 @@ function getLastActiveMs(userData) {
     toMs(userData.lastSynced),
     toMs(userData.lastActive),
     toMs(userData.lastTradeTime),
-    toMs(userData.lastCheckin)
+    toMs(userData.lastCheckin),
   );
 }
 
@@ -1872,10 +2098,23 @@ function getLastActiveMs(userData) {
 // `source` marks a fill that the player didn't place by hand ('limit',
 // 'stop_loss', 'premarket'). Trades placed through executeTrade leave it unset,
 // and that absence is what the velocity guards use to tell the two apart.
-function recordTrade(transaction, {
-  uid, ticker, action, amount, price, priceImpact = 0, totalValue,
-  cashBefore = null, cashAfter = null, source = null, ip = null, orderId = null,
-}) {
+function recordTrade(
+  transaction,
+  {
+    uid,
+    ticker,
+    action,
+    amount,
+    price,
+    priceImpact = 0,
+    totalValue,
+    cashBefore = null,
+    cashAfter = null,
+    source = null,
+    ip = null,
+    orderId = null,
+  },
+) {
   const record = {
     uid,
     ticker,
@@ -1901,11 +2140,9 @@ function recordTrade(transaction, {
   // are excluded for the same reason sumMarketActivity excludes them: nobody
   // chose to trade this stock.
   if (TRADE_RECORD_ACTIONS.has(action)) {
-    transaction.set(
-      tickerStatsRef(),
-      buildTickerFlowUpdate({ ticker, action, amount, totalValue, now: Date.now() }),
-      { merge: true }
-    );
+    transaction.set(tickerStatsRef(), buildTickerFlowUpdate({ ticker, action, amount, totalValue, now: Date.now() }), {
+      merge: true,
+    });
   }
 }
 
@@ -1957,7 +2194,10 @@ function touchLastActive(uid, feature) {
   if (!uid) return;
   const update = { lastActive: Date.now() };
   if (feature) update[`lastUsed.${feature}`] = Date.now();
-  db.collection('users').doc(uid).update(update).catch(() => {});
+  db.collection('users')
+    .doc(uid)
+    .update(update)
+    .catch(() => {});
 }
 
 // Shares currently locked from selling, combining the IPO and margin lockups.
@@ -1982,8 +2222,8 @@ const countRankAbove = async (value, crew) => {
 const lockedShares = (userData, ticker, now = Date.now()) => {
   const ipo = userData?.ipoLockup?.[ticker];
   const margin = userData?.marginLockup?.[ticker];
-  const ipoN = ipo && now < (ipo.until || 0) ? (ipo.shares || 0) : 0;
-  const marginN = margin && now < (margin.until || 0) ? (margin.shares || 0) : 0;
+  const ipoN = ipo && now < (ipo.until || 0) ? ipo.shares || 0 : 0;
+  const marginN = margin && now < (margin.until || 0) ? margin.shares || 0 : 0;
   return { ipo: ipoN, margin: marginN, total: ipoN + marginN };
 };
 

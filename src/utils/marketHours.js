@@ -107,7 +107,10 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null, ro
   const moves = [];
   for (const entry of history) {
     if (!entry || typeof entry.price !== 'number') continue;
-    if (entry.timestamp < start) { openPrice = entry.price; continue; }
+    if (entry.timestamp < start) {
+      openPrice = entry.price;
+      continue;
+    }
     if (entry.timestamp > end) break;
     moves.push(entry);
   }
@@ -244,10 +247,11 @@ export const buildReviewSections = (characters, changes = {}) => {
   // a fund adjustment also ripples on through its members into stocks outside
   // the fund, and calling those fund trailers would be wrong. $KTAE is not in
   // the Fist Gang fund, it only caught a second-order push through $GAP.
-  const movedWithItsFund = (ticker, drivers = []) => drivers.some((driver) => {
-    const fund = CHARACTER_MAP[driver];
-    return fund?.isETF === true && (fund.constituents || []).includes(ticker);
-  });
+  const movedWithItsFund = (ticker, drivers = []) =>
+    drivers.some((driver) => {
+      const fund = CHARACTER_MAP[driver];
+      return fund?.isETF === true && (fund.constituents || []).includes(ticker);
+    });
 
   const adjusted = [];
   const funds = [];
@@ -397,7 +401,8 @@ export const getMarketClosedState = (marketData) => {
   if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
   if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
   // Weekly halt: say when orders can go in again, not just that it's closed
-  if (isWeeklyHalt()) return { closed: true, preMarket: false, label: `Closed · Pre-market ${localDailyTime(PRE_MARKET_START_MINUTE)}` };
+  if (isWeeklyHalt())
+    return { closed: true, preMarket: false, label: `Closed · Pre-market ${localDailyTime(PRE_MARKET_START_MINUTE)}` };
   return { closed: false, preMarket: false, label: 'Trade' };
 };
 

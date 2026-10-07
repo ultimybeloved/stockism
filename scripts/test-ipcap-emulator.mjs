@@ -45,15 +45,22 @@ async function attemptSignup(ip, uid) {
   }
 }
 
-let pass = 0, fail = 0;
-const check = (label, cond) => { if (cond) { console.log(`  PASS  ${label}`); pass++; } else { console.log(`  FAIL  ${label}`); fail++; } };
+let pass = 0,
+  fail = 0;
+const check = (label, cond) => {
+  if (cond) {
+    console.log(`  PASS  ${label}`);
+    pass++;
+  } else {
+    console.log(`  FAIL  ${label}`);
+    fail++;
+  }
+};
 
 async function main() {
   // Case 1: 6 simultaneous signups from one IP — exactly MAX should commit.
   const ip1 = '203_0_113_7';
-  const results = await Promise.all(
-    Array.from({ length: 6 }, (_, i) => attemptSignup(ip1, `burst_${i}`))
-  );
+  const results = await Promise.all(Array.from({ length: 6 }, (_, i) => attemptSignup(ip1, `burst_${i}`)));
   const committed = results.filter(Boolean).length;
   check(`burst of 6 → exactly ${MAX_ACCOUNTS_PER_IP} committed (got ${committed})`, committed === MAX_ACCOUNTS_PER_IP);
 
@@ -73,4 +80,7 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Test harness error:', err); process.exit(2); });
+main().catch((err) => {
+  console.error('Test harness error:', err);
+  process.exit(2);
+});

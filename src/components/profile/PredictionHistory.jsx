@@ -23,15 +23,17 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
     return myShare * totalPool;
   };
 
-  const activeBets = userBetHistory.filter(b => b.prediction && !b.prediction.resolved);
-  const pastBets = userBetHistory.filter(b => b.prediction?.resolved || b.paid !== undefined);
+  const activeBets = userBetHistory.filter((b) => b.prediction && !b.prediction.resolved);
+  const pastBets = userBetHistory.filter((b) => b.prediction?.resolved || b.paid !== undefined);
 
   // Long-term event-share positions
   const eventPositions = userData?.eventPositions || {};
-  const eventEntries = Object.entries(eventPositions).map(([marketId, pos]) => {
-    const market = predictions?.find(p => p.id === marketId && p.type === 'event');
-    return { marketId, ...pos, market };
-  }).filter(e => e.market && e.shares && Object.values(e.shares).some(s => s > 0))
+  const eventEntries = Object.entries(eventPositions)
+    .map(([marketId, pos]) => {
+      const market = predictions?.find((p) => p.id === marketId && p.type === 'event');
+      return { marketId, ...pos, market };
+    })
+    .filter((e) => e.market && e.shares && Object.values(e.shares).some((s) => s > 0))
     .sort((a, b) => (a.market?.resolved ? 1 : 0) - (b.market?.resolved ? 1 : 0));
 
   return (
@@ -45,19 +47,22 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
               const { marketId, market, shares, payout } = entry;
               const outcomes = market.outcomes || [];
               const b = market.b || EVENT_AMM_LIQUIDITY;
-              const q = (Array.isArray(market.q) && market.q.length === outcomes.length) ? market.q : outcomes.map(() => 0);
+              const q =
+                Array.isArray(market.q) && market.q.length === outcomes.length ? market.q : outcomes.map(() => 0);
               const prices = lmsrPrices(q, b);
-              const liveValue = outcomes.reduce((s, o, i) => s + ((shares[o] || 0) * prices[i]), 0);
-              const owned = outcomes.map((o) => ({ o, qty: shares[o] || 0 })).filter(x => x.qty > 0);
+              const liveValue = outcomes.reduce((s, o, i) => s + (shares[o] || 0) * prices[i], 0);
+              const owned = outcomes.map((o) => ({ o, qty: shares[o] || 0 })).filter((x) => x.qty > 0);
               const resolved = market.resolved;
               const won = resolved && payout > 0;
               return (
                 <div key={marketId} className={`p-3 rounded-sm border ${borderClass}`}>
                   <p className={`text-sm font-semibold ${textClass}`}>{market.question}</p>
                   <div className="flex justify-between items-center mt-1">
-                    <span className={`text-xs ${mutedClass}`}>{owned.map(x => `${x.qty} ${x.o}`).join(', ')}</span>
+                    <span className={`text-xs ${mutedClass}`}>{owned.map((x) => `${x.qty} ${x.o}`).join(', ')}</span>
                     {resolved ? (
-                      <span className={`text-xs font-semibold ${won ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400')}`}>
+                      <span
+                        className={`text-xs font-semibold ${won ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}`}
+                      >
                         {won ? `Won ${formatCurrency(payout)}` : 'Expired'}
                       </span>
                     ) : (
@@ -76,7 +81,7 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
         <div>
           <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Active Bets</h3>
           <div className="space-y-2">
-            {activeBets.map(bet => {
+            {activeBets.map((bet) => {
               const potentialPayout = calculatePotentialPayout(bet);
               return (
                 <div key={bet.predictionId} className={`p-3 rounded-sm border ${borderClass}`}>
@@ -91,13 +96,13 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
                     {potentialPayout !== null && (
                       <div className="text-right">
                         <p className={`text-xs ${mutedClass}`}>Potential payout</p>
-                        <p className={`font-semibold ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(potentialPayout)}</p>
+                        <p className={`font-semibold ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                          {formatCurrency(potentialPayout)}
+                        </p>
                       </div>
                     )}
                   </div>
-                  {!bet.paid && (
-                    <p className={`text-xs ${mutedClass} mt-1`}>⏳ Awaiting results...</p>
-                  )}
+                  {!bet.paid && <p className={`text-xs ${mutedClass} mt-1`}>⏳ Awaiting results...</p>}
                 </div>
               );
             })}
@@ -112,16 +117,24 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
           <p className={`text-sm ${mutedClass}`}>No past predictions yet.</p>
         ) : (
           <div className="space-y-2">
-            {pastBets.map(bet => {
+            {pastBets.map((bet) => {
               const won = bet.prediction?.outcome === bet.option;
               const paidOut = bet.paid === true;
               const colorBlindMode = userData?.colorBlindMode || false;
               const winBorderBg = colorBlindMode
-                ? (darkMode ? 'border-teal-700 bg-teal-900/20' : 'border-teal-300 bg-teal-50')
-                : (darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-300 bg-green-50');
+                ? darkMode
+                  ? 'border-teal-700 bg-teal-900/20'
+                  : 'border-teal-300 bg-teal-50'
+                : darkMode
+                  ? 'border-green-700 bg-green-900/20'
+                  : 'border-green-300 bg-green-50';
               const loseBorderBg = colorBlindMode
-                ? (darkMode ? 'border-purple-700/50 bg-purple-900/10' : 'border-purple-200 bg-purple-50')
-                : (darkMode ? 'border-red-700/50 bg-red-900/10' : 'border-red-200 bg-red-50');
+                ? darkMode
+                  ? 'border-purple-700/50 bg-purple-900/10'
+                  : 'border-purple-200 bg-purple-50'
+                : darkMode
+                  ? 'border-red-700/50 bg-red-900/10'
+                  : 'border-red-200 bg-red-50';
               const winText = colorBlindMode ? 'text-teal-500' : 'text-green-500';
               const loseText = colorBlindMode ? 'text-purple-400' : 'text-red-400';
 
@@ -135,7 +148,11 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
                       <p className={`text-xs ${mutedClass} mt-1`}>
                         Your answer: <span className={`font-semibold ${won ? winText : loseText}`}>"{bet.option}"</span>
                         {(bet.prediction?.outcome || bet.outcome) && (
-                          <span> • Correct answer: <span className="text-orange-500">"{bet.prediction?.outcome || bet.outcome}"</span></span>
+                          <span>
+                            {' '}
+                            • Correct answer:{' '}
+                            <span className="text-orange-500">"{bet.prediction?.outcome || bet.outcome}"</span>
+                          </span>
                         )}
                       </p>
                     </div>

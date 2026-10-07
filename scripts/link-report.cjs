@@ -20,7 +20,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -34,11 +37,26 @@ const DISCORD_EPOCH = 1420070400000n;
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const pctS = (n) => (n * 100).toFixed(0) + '%';
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '-');
-const discordMade = (id) => { try { return Number((BigInt(id) >> 22n) + DISCORD_EPOCH); } catch { return 0; } };
+const discordMade = (id) => {
+  try {
+    return Number((BigInt(id) >> 22n) + DISCORD_EPOCH);
+  } catch {
+    return 0;
+  }
+};
 
 function networkKey(ip) {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
@@ -48,16 +66,21 @@ function networkKey(ip) {
   if (g.length < ALT_IPV6_PREFIX_GROUPS) return a;
   return g.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
 }
-const isVpn = (n) => /^104\.2[0-9]\./.test(n || '') || /^2a09:bac/.test(n || '')
-  || /^172\.6[4-9]\./.test(n || '') || /^162\.15[89]\./.test(n || '');
+const isVpn = (n) =>
+  /^104\.2[0-9]\./.test(n || '') ||
+  /^2a09:bac/.test(n || '') ||
+  /^172\.6[4-9]\./.test(n || '') ||
+  /^162\.15[89]\./.test(n || '');
 
 async function main() {
   const topN = Number(process.argv[2]) || 20;
   const days = Number(process.argv[3]) || 180;
   const extra = process.argv.slice(4);
 
-  const users = await db.collection('users')
-    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt').get();
+  const users = await db
+    .collection('users')
+    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt')
+    .get();
   const U = new Map();
   const byName = new Map();
   users.forEach((d) => {
@@ -84,7 +107,10 @@ async function main() {
     const t = d.data();
     const n = networkKey(t.ip);
     if (!t.uid || !n) return;
-    if (isVpn(n)) { vpnSkipped++; return; }
+    if (isVpn(n)) {
+      vpnSkipped++;
+      return;
+    }
     if (!netsOf.has(t.uid)) netsOf.set(t.uid, new Map());
     netsOf.get(t.uid).set(n, (netsOf.get(t.uid).get(n) || 0) + 1);
     if (!usersOn.has(n)) usersOn.set(n, new Set());
@@ -100,7 +126,10 @@ async function main() {
   const targets = ranked.slice(0, topN).map((r) => r.id);
   for (const e of extra) {
     const id = byName.get(e.toLowerCase());
-    if (!id) { console.error(`  (unknown account "${e}")`); continue; }
+    if (!id) {
+      console.error(`  (unknown account "${e}")`);
+      continue;
+    }
     if (!targets.includes(id)) targets.push(id);
   }
 
@@ -124,11 +153,16 @@ async function main() {
 
     out.push('='.repeat(94));
     out.push(`${me.displayName}   ${money(valueOf(me))}   ${me.crew || 'no crew'}   joined ${day(joined)}`);
-    out.push(`  ${myTotal} trades across ${mine.size} connections   |   `
-      + `${me.discordId ? `Discord made ${day(made)} (${gap}d before signup)` : 'NO DISCORD'}`);
+    out.push(
+      `  ${myTotal} trades across ${mine.size} connections   |   ` +
+        `${me.discordId ? `Discord made ${day(made)} (${gap}d before signup)` : 'NO DISCORD'}`,
+    );
     out.push('='.repeat(94));
 
-    if (!myTotal) { out.push('  no trades in window — nothing to link\n'); continue; }
+    if (!myTotal) {
+      out.push('  no trades in window — nothing to link\n');
+      continue;
+    }
 
     const rows = [];
     for (const [other, theirNets] of netsOf) {
@@ -142,8 +176,10 @@ async function main() {
       const oMade = ou.discordId ? discordMade(ou.discordId) : 0;
       const oJoined = toMs(ou.createdAt);
       rows.push({
-        name: nm(other), value: valueOf(ou),
-        theirTotal, theirShare: theirTotal ? theirOnShared / theirTotal : 0,
+        name: nm(other),
+        value: valueOf(ou),
+        theirTotal,
+        theirShare: theirTotal ? theirOnShared / theirTotal : 0,
         myShare: myTotal ? myOnShared / myTotal : 0,
         shared: shared.length,
         priv: shared.filter((n) => usersOn.get(n).size === 2).length,
@@ -152,15 +188,20 @@ async function main() {
         banned: !!ou.isBanned,
       });
     }
-    if (!rows.length) { out.push('  no other account has ever traded from these connections\n'); continue; }
+    if (!rows.length) {
+      out.push('  no other account has ever traded from these connections\n');
+      continue;
+    }
     rows.sort((a, b) => b.theirShare - a.theirShare);
 
     out.push('  LINKED ACCOUNT            VALUE     THEIR TRADES  LIVES HERE  YOU THERE  SHARED  PRIV  DISCORD MADE');
     for (const r of rows) {
-      out.push(`  ${r.name.padEnd(24)} ${money(r.value).padStart(10)}  ${String(r.theirTotal).padStart(12)}  `
-        + `${pctS(r.theirShare).padStart(10)}  ${pctS(r.myShare).padStart(9)}  ${String(r.shared).padStart(6)}  `
-        + `${String(r.priv).padStart(4)}  ${r.discord}${r.freshDiscord ? '  <- made for this' : ''}`
-        + `${r.banned ? '  [BANNED]' : ''}`);
+      out.push(
+        `  ${r.name.padEnd(24)} ${money(r.value).padStart(10)}  ${String(r.theirTotal).padStart(12)}  ` +
+          `${pctS(r.theirShare).padStart(10)}  ${pctS(r.myShare).padStart(9)}  ${String(r.shared).padStart(6)}  ` +
+          `${String(r.priv).padStart(4)}  ${r.discord}${r.freshDiscord ? '  <- made for this' : ''}` +
+          `${r.banned ? '  [BANNED]' : ''}`,
+      );
     }
 
     const belongs = rows.filter((r) => r.theirShare >= BELONGS_THRESHOLD);
@@ -169,8 +210,10 @@ async function main() {
     if (solid.length) {
       out.push(`\n  LIKELY ${me.displayName.toUpperCase()}'S:`);
       for (const r of solid) {
-        out.push(`    ${r.name}  ${money(r.value)}  — ${pctS(r.theirShare)} of their ${r.theirTotal} trades here`
-          + `${r.discord === 'NONE' ? ', no Discord' : r.freshDiscord ? ', Discord made for it' : ''}`);
+        out.push(
+          `    ${r.name}  ${money(r.value)}  — ${pctS(r.theirShare)} of their ${r.theirTotal} trades here` +
+            `${r.discord === 'NONE' ? ', no Discord' : r.freshDiscord ? ', Discord made for it' : ''}`,
+        );
         allBelongs.push({ owner: me.displayName, ...r });
       }
     }
@@ -186,8 +229,10 @@ async function main() {
   out.push('='.repeat(94));
   allBelongs.sort((a, b) => b.value - a.value);
   for (const b of allBelongs) {
-    out.push(`  ${b.name.padEnd(24)} ${money(b.value).padStart(10)}  ->  ${b.owner.padEnd(20)}`
-      + `  ${pctS(b.theirShare)} of ${b.theirTotal} trades`);
+    out.push(
+      `  ${b.name.padEnd(24)} ${money(b.value).padStart(10)}  ->  ${b.owner.padEnd(20)}` +
+        `  ${pctS(b.theirShare)} of ${b.theirTotal} trades`,
+    );
   }
   out.push(`\n  ${allBelongs.length} accounts total.`);
   out.push('\nA high percentage means the account only ever plays from that location.');
@@ -199,4 +244,9 @@ async function main() {
   fs.writeFileSync(path.join(__dirname, '..', 'link-report.txt'), text, 'utf8');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

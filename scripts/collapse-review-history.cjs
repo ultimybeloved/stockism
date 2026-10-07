@@ -24,7 +24,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -84,8 +87,9 @@ function haltWindow() {
       if (!Array.isArray(points)) continue;
       const sorted = points.slice().sort((a, b) => a.timestamp - b.timestamp);
 
-      const reviewPts = sorted.filter((p) =>
-        p && p.timestamp >= start && p.timestamp <= end && REVIEW_SOURCES.has(p.source) && !p.collapsed);
+      const reviewPts = sorted.filter(
+        (p) => p && p.timestamp >= start && p.timestamp <= end && REVIEW_SOURCES.has(p.source) && !p.collapsed,
+      );
       if (reviewPts.length < 2) continue; // already a single move, nothing to tidy
 
       const last = reviewPts[reviewPts.length - 1];
@@ -115,8 +119,10 @@ function haltWindow() {
       detail[ticker] = reviewPts;
       removed += reviewPts.length - 1;
       const pct = (((last.price - reviewPts[0].price) / reviewPts[0].price) * 100).toFixed(2);
-      lines.push(`  ${ticker.padEnd(6)} ${String(reviewPts.length).padStart(2)} points -> 1   `
-        + `$${reviewPts[0].price} .. $${last.price}  (net ${pct >= 0 ? '+' : ''}${pct}% across the run)`);
+      lines.push(
+        `  ${ticker.padEnd(6)} ${String(reviewPts.length).padStart(2)} points -> 1   ` +
+          `$${reviewPts[0].price} .. $${last.price}  (net ${pct >= 0 ? '+' : ''}${pct}% across the run)`,
+      );
     }
 
     return { updates, detail, lines, removed };
@@ -144,13 +150,19 @@ function haltWindow() {
     if (Object.keys(result.updates).length === 0) return;
 
     tx.set(db.collection('market').doc('reviewDetail'), {
-      windowStart: start, windowEnd: end, savedAt: Date.now(), detail: result.detail,
+      windowStart: start,
+      windowEnd: end,
+      savedAt: Date.now(),
+      detail: result.detail,
     });
     tx.set(histRef, result.updates, { merge: true });
   });
 
   result.lines.forEach((l) => console.log(l));
-  if (result.lines.length === 0) { console.log('Nothing to do.'); process.exit(0); }
+  if (result.lines.length === 0) {
+    console.log('Nothing to do.');
+    process.exit(0);
+  }
 
   const backup = path.join(__dirname, '..', `review-detail-${new Date(end).toISOString().slice(0, 10)}.json`);
   fs.writeFileSync(backup, JSON.stringify({ windowStart: start, windowEnd: end, detail: result.detail }, null, 2));
@@ -159,4 +171,9 @@ function haltWindow() {
   console.log(`${result.lines.length} stocks tidied, ${result.removed} intermediate points folded away.`);
   console.log('Detail stashed at market/reviewDetail');
   console.log(`Local backup: ${backup}`);
-})().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+})()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

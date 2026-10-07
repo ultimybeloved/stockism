@@ -53,7 +53,7 @@ const finalizeReview = async ({ haltStart, haltEnd }) => {
   // The pre-halt snapshot is usually deleted by the recap before this runs; it
   // is only a fallback for a stock with no surviving pre-window point anyway.
   const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
-  const fallbackPrices = snapshotSnap.exists ? (snapshotSnap.data().prices || {}) : {};
+  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data().prices || {} : {};
 
   const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
   const { tidied, folded } = await collapseReviewWindow({ haltStart, haltEnd });
@@ -63,14 +63,16 @@ const finalizeReview = async ({ haltStart, haltEnd }) => {
 /**
  * Thursday 20:54 UTC, six minutes before the market reopens.
  */
-exports.collapseReviewHistory = cf({ timeoutSeconds: 300 }).pubsub
-  .schedule('54 20 * * 4')
+exports.collapseReviewHistory = cf({ timeoutSeconds: 300 })
+  .pubsub.schedule('54 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     try {
       const result = await finalizeReview(haltWindowFor(new Date()));
-      console.log(`collapseReviewHistory: ${result.tickerCount} tickers recorded, `
-        + `${result.tidied} tidied, ${result.folded} points folded`);
+      console.log(
+        `collapseReviewHistory: ${result.tickerCount} tickers recorded, ` +
+          `${result.tidied} tidied, ${result.folded} points folded`,
+      );
     } catch (err) {
       // A failure here leaves the chart untidy but costs nothing else: prices
       // are untouched either way, and the admin trigger can re-run it.

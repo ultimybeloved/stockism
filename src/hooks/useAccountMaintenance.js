@@ -75,11 +75,13 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
     const oneDayMs = 24 * 60 * 60 * 1000;
 
     if (now - lastInterestCharge >= oneDayMs) {
-      chargeMarginInterestFunction({}).then(result => {
-        if (result.data.charged > 0) {
-          console.log(`Margin interest charged: ${formatCurrency(result.data.charged)}`);
-        }
-      }).catch(err => reportUnexpected(err, { where: 'chargeMarginInterest' }));
+      chargeMarginInterestFunction({})
+        .then((result) => {
+          if (result.data.charged > 0) {
+            console.log(`Margin interest charged: ${formatCurrency(result.data.charged)}`);
+          }
+        })
+        .catch((err) => reportUnexpected(err, { where: 'chargeMarginInterest' }));
     }
     // Deliberately narrow deps: re-check only when the margin fields change,
     // not on every userData write (holdings, missions, etc. update constantly).
@@ -96,9 +98,15 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
     const showBankruptcyReminder = () => {
       const debtAmount = Math.abs(cash);
       if (userData.isBankrupt) {
-        showNotification('warning', `💸 You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`);
+        showNotification(
+          'warning',
+          `💸 You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`,
+        );
       } else {
-        showNotification('warning', `💸 You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`);
+        showNotification(
+          'warning',
+          `💸 You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`,
+        );
       }
     };
 

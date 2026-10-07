@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  DEFAULT_FILTERS, matchesFilters, sortCharacters,
-  activeFilterCount, buildCrewMembership,
+  DEFAULT_FILTERS,
+  matchesFilters,
+  sortCharacters,
+  activeFilterCount,
+  buildCrewMembership,
 } from './marketFilters';
 import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';
 
@@ -64,7 +67,9 @@ describe('generation filter', () => {
 
   it('finds characters with no generation under Unassigned', () => {
     expect(matchesFilters(char(), f({ generation: GENERATION_FILTER_UNASSIGNED }), ctx())).toBe(true);
-    expect(matchesFilters(char({ generation: 'pre' }), f({ generation: GENERATION_FILTER_UNASSIGNED }), ctx())).toBe(false);
+    expect(matchesFilters(char({ generation: 'pre' }), f({ generation: GENERATION_FILTER_UNASSIGNED }), ctx())).toBe(
+      false,
+    );
   });
 
   it('hides funds under any generation choice, since they have none', () => {
@@ -185,10 +190,14 @@ describe('sorting', () => {
   });
 
   it('honours the review sort inside the review tab', () => {
-    const out = sortCharacters(list(), 'review-change', sctx({
-      tab: 'review',
-      reviewChanges: { AAA: { percentChange: 1 }, BBB: { percentChange: -9 }, CCC: { percentChange: 4 } },
-    }));
+    const out = sortCharacters(
+      list(),
+      'review-change',
+      sctx({
+        tab: 'review',
+        reviewChanges: { AAA: { percentChange: 1 }, BBB: { percentChange: -9 }, CCC: { percentChange: 4 } },
+      }),
+    );
     // Ranked by size of move regardless of direction.
     expect(tickers(out)).toEqual(['BBB', 'CCC', 'AAA']);
   });

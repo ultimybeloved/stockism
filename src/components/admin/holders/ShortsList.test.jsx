@@ -37,7 +37,12 @@ describe('ShortsList', () => {
   });
 
   it('lists each short with its size and P&L', () => {
-    render(<ShortsList {...theme} shortsData={[short(), short({ userId: 'u2', displayName: 'Bear', shares: 4, pnl: -50 })]} />);
+    render(
+      <ShortsList
+        {...theme}
+        shortsData={[short(), short({ userId: 'u2', displayName: 'Bear', shares: 4, pnl: -50 })]}
+      />,
+    );
     expect(screen.getByText(/Short Positions \(2\)/)).toBeInTheDocument();
     expect(screen.getByText(/Shorty/)).toBeInTheDocument();
     expect(screen.getByText('+$100.00')).toBeInTheDocument();
@@ -68,7 +73,10 @@ describe('ShortsList', () => {
 });
 
 describe('PositionSummary', () => {
-  const holders = [{ userId: 'a', shares: 100, value: 9000 }, { userId: 'b', shares: 50, value: 4500 }];
+  const holders = [
+    { userId: 'a', shares: 100, value: 9000 },
+    { userId: 'b', shares: 50, value: 4500 },
+  ];
 
   it('totals the long side', () => {
     const { container } = render(<PositionSummary {...theme} holdersData={holders} shortsData={[]} />);

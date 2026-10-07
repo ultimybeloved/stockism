@@ -21,13 +21,25 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const {
   isWeeklyTradingHalt,
-  WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  WEEKLY_HALT_END_MINUTE,
+  MARKET_OPEN_GRACE_PERIOD_MINUTES,
   SHORT_MARGIN_CALL_THRESHOLD,
-  LONG_MARGIN_CALL_THRESHOLD, LONG_MARGIN_LIQUIDATION_THRESHOLD,
+  LONG_MARGIN_CALL_THRESHOLD,
+  LONG_MARGIN_LIQUIDATION_THRESHOLD,
   MARGIN_LIQUIDATION_SLIPPAGE,
-  FORCED_COVERS_PER_TICKER_PER_CYCLE, FIRESTORE_BATCH_SIZE,
+  FORCED_COVERS_PER_TICKER_PER_CYCLE,
+  FIRESTORE_BATCH_SIZE,
 } = require('../constants');
-const { writeNotification, sendDiscordMessage, reportError, recordHeartbeat, shortsEquity, writeShortInterest, isTickerPaused, priceHistoryRef } = require('../helpers');
+const {
+  writeNotification,
+  sendDiscordMessage,
+  reportError,
+  recordHeartbeat,
+  shortsEquity,
+  writeShortInterest,
+  isTickerPaused,
+  priceHistoryRef,
+} = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 // The per-position cover mechanics. Internal module, not in servicePaths.js.
 const { forceCoverShort, depositedMargin } = require('./marginForceCover');
@@ -35,12 +47,12 @@ const { forceCoverShort, depositedMargin } = require('./marginForceCover');
 // Formatting for the player-facing notifications below. The thresholds are
 // interpolated rather than typed out so the message can never drift from the
 // number the scanner actually enforces.
-const money = (n) => `$${(Number(n) || 0).toLocaleString('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})}`;
+const money = (n) =>
+  `$${(Number(n) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 const pct = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
-
 
 /**
  * Server-side short margin call checker
@@ -48,8 +60,8 @@ const pct = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
  * If equity ratio drops below 25%, force-covers the position
  * Uses 50% dampened price impact to prevent cascading short squeezes
  */
-exports.checkShortMarginCalls = cf().pubsub
-  .schedule('every 30 minutes')
+exports.checkShortMarginCalls = cf()
+  .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {
@@ -61,7 +73,9 @@ exports.checkShortMarginCalls = cf().pubsub
     if (now.getUTCDay() === 4) {
       const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
       if (utcMins >= WEEKLY_HALT_END_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES) {
-        console.log(`Market open grace period active — skipping margin calls until ${WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES} UTC min`);
+        console.log(
+          `Market open grace period active — skipping margin calls until ${WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES} UTC min`,
+        );
         return null;
       }
     }
@@ -86,7 +100,7 @@ exports.checkShortMarginCalls = cf().pubsub
       const prices = marketData.prices || {};
       // One read per scan, for the admin-price-protection check below.
       const phSnap = await priceHistoryRef().get();
-      const priceHistory = phSnap.exists ? (phSnap.data() || {}) : {};
+      const priceHistory = phSnap.exists ? phSnap.data() || {} : {};
 
       // Users are found via the hasOpenShorts flag (maintained by executeTrade,
       // the force-cover below, bailout, and the admin ban rollback) instead of
@@ -99,11 +113,15 @@ exports.checkShortMarginCalls = cf().pubsub
         let batch = db.batch();
         let pending = 0;
         const flush = async () => {
-          if (pending > 0) { await batch.commit(); batch = db.batch(); pending = 0; }
+          if (pending > 0) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
         };
         for (const doc of allUsers.docs) {
           const shorts = doc.data().shorts || {};
-          const has = Object.values(shorts).some(p => p && p.shares > 0);
+          const has = Object.values(shorts).some((p) => p && p.shares > 0);
           if (has) {
             shortHolderDocs.push(doc);
             batch.update(doc.ref, { hasOpenShorts: true });
@@ -116,11 +134,11 @@ exports.checkShortMarginCalls = cf().pubsub
         }
         await flush();
         await marketRef.update({ shortsFlagBackfilledAt: Date.now() });
-        console.log(`Backfilled hasOpenShorts flags: ${shortHolderDocs.length} short holders of ${allUsers.size} users`);
+        console.log(
+          `Backfilled hasOpenShorts flags: ${shortHolderDocs.length} short holders of ${allUsers.size} users`,
+        );
       } else {
-        const flaggedSnap = await db.collection('users')
-          .where('hasOpenShorts', '==', true)
-          .get();
+        const flaggedSnap = await db.collection('users').where('hasOpenShorts', '==', true).get();
         shortHolderDocs = flaggedSnap.docs;
       }
 
@@ -136,9 +154,7 @@ exports.checkShortMarginCalls = cf().pubsub
       for (const userDoc of shortHolderDocs) {
         const userData = userDoc.data();
         const shorts = userData.shorts || {};
-        const shortEntries = Object.entries(shorts).filter(
-          ([, pos]) => pos && pos.shares > 0
-        );
+        const shortEntries = Object.entries(shorts).filter(([, pos]) => pos && pos.shares > 0);
 
         if (shortEntries.length === 0) {
           // Stale flag (shorts already cleared) — self-heal so this user
@@ -188,7 +204,10 @@ exports.checkShortMarginCalls = cf().pubsub
               // the position is fine, and a skipped position must not be counted,
               // charged against the per-ticker cap, or announced to the user.
               const didCover = await forceCoverShort({
-                uid: userDoc.id, ticker, marketRef, priceHistory,
+                uid: userDoc.id,
+                ticker,
+                marketRef,
+                priceHistory,
               });
 
               if (didCover) {
@@ -200,7 +219,7 @@ exports.checkShortMarginCalls = cf().pubsub
                   type: 'margin',
                   title: 'Margin Call - Position Liquidated',
                   message: `Your short on $${ticker} (${didCover} shares) was force-covered due to low equity.`,
-                  data: { ticker }
+                  data: { ticker },
                 });
               }
             } catch (error) {
@@ -218,10 +237,11 @@ exports.checkShortMarginCalls = cf().pubsub
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled, ${Object.keys(shortInterest).length} tickers with open shorts in ${elapsed}s`);
+      console.log(
+        `Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled, ${Object.keys(shortInterest).length} tickers with open shorts in ${elapsed}s`,
+      );
       await recordHeartbeat('checkShortMarginCalls');
       return { checked: checkedCount, liquidated: liquidatedCount, throttled: throttledCount, elapsed };
-
     } catch (error) {
       reportError(error, { where: 'checkShortMarginCalls' });
       return null;
@@ -232,8 +252,8 @@ exports.checkShortMarginCalls = cf().pubsub
  * Check Margin Lending - Scheduled every 30 minutes
  * Monitors users with margin debt and auto-liquidates if equity drops too low
  */
-exports.checkMarginLending = cf().pubsub
-  .schedule('every 30 minutes')
+exports.checkMarginLending = cf()
+  .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async (context) => {
     if (isWeeklyTradingHalt()) {
@@ -261,9 +281,7 @@ exports.checkMarginLending = cf().pubsub
       const prices = marketSnapData.prices || {};
 
       // Query users with margin enabled
-      const usersSnap = await db.collection('users')
-        .where('marginEnabled', '==', true)
-        .get();
+      const usersSnap = await db.collection('users').where('marginEnabled', '==', true).get();
 
       let liquidatedCount = 0;
       let marginCallCount = 0;
@@ -328,13 +346,13 @@ exports.checkMarginLending = cf().pubsub
               Object.entries(freshHoldings).forEach(([ticker, shares]) => {
                 if (shares > 0) freshHoldingsValue += (freshPrices[ticker] || 0) * shares;
               });
-              const freshGross = (freshData.cash || 0) + freshHoldingsValue
-                + shortsEquity(freshData.shorts, freshPrices);
-              const freshRatio = freshGross > 0
-                ? (freshGross - freshMarginUsed) / freshGross
-                : 0;
+              const freshGross =
+                (freshData.cash || 0) + freshHoldingsValue + shortsEquity(freshData.shorts, freshPrices);
+              const freshRatio = freshGross > 0 ? (freshGross - freshMarginUsed) / freshGross : 0;
               if (freshRatio > LONG_MARGIN_LIQUIDATION_THRESHOLD) {
-                console.log(`Skipping ${userDoc.id}: recovered to ${(freshRatio * 100).toFixed(1)}% equity before liquidation ran`);
+                console.log(
+                  `Skipping ${userDoc.id}: recovered to ${(freshRatio * 100).toFixed(1)}% equity before liquidation ran`,
+                );
                 return null;
               }
 
@@ -391,10 +409,12 @@ exports.checkMarginLending = cf().pubsub
                 cashBefore: freshCash,
                 cashAfter: finalCash,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                automated: true
+                automated: true,
               });
 
-              console.log(`Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`);
+              console.log(
+                `Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`,
+              );
               // The numbers travel back out so the player can be told what
               // happened to their account. Notifications cannot be written
               // inside a transaction, so they are sent by the caller.
@@ -423,19 +443,21 @@ exports.checkMarginLending = cf().pubsub
 
               // Send Discord alert
               try {
-                await sendDiscordMessage(null, [{
-                  title: '💥 Margin Liquidation',
-                  description: 'A trader was just **LIQUIDATED** by the margin system',
-                  color: 0xFF0000,
-                  timestamp: new Date().toISOString()
-                }]);
-              } catch (e) { reportError(e, { where: 'margin liquidation alert' }); }
+                await sendDiscordMessage(null, [
+                  {
+                    title: '💥 Margin Liquidation',
+                    description: 'A trader was just **LIQUIDATED** by the margin system',
+                    color: 0xff0000,
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
+              } catch (e) {
+                reportError(e, { where: 'margin liquidation alert' });
+              }
             }
-
           } catch (error) {
             console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
           }
-
         } else if (equityRatio <= LONG_MARGIN_CALL_THRESHOLD) {
           // MARGIN CALL. A warning only: nothing is sold in this band, and
           // liquidation is driven purely by the 25% test above. There used to be
@@ -449,7 +471,7 @@ exports.checkMarginLending = cf().pubsub
           // below, so crossing the line again warns again.
           if (!userData.marginCallAt) {
             await db.collection('users').doc(userDoc.id).update({
-              marginCallAt: now
+              marginCallAt: now,
             });
             marginCallCount++;
             await writeNotification(userDoc.id, {
@@ -459,20 +481,20 @@ exports.checkMarginLending = cf().pubsub
               data: { equityRatio, marginUsed },
             });
           }
-
         } else if (userData.marginCallAt) {
           // Recovered from margin call
           await db.collection('users').doc(userDoc.id).update({
-            marginCallAt: null
+            marginCallAt: null,
           });
         }
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`Margin lending check: ${checkedCount} checked, ${liquidatedCount} liquidated, ${marginCallCount} new margin calls in ${elapsed}s`);
+      console.log(
+        `Margin lending check: ${checkedCount} checked, ${liquidatedCount} liquidated, ${marginCallCount} new margin calls in ${elapsed}s`,
+      );
       await recordHeartbeat('checkMarginLending');
       return { checked: checkedCount, liquidated: liquidatedCount, marginCalls: marginCallCount };
-
     } catch (error) {
       reportError(error, { where: 'checkMarginLending' });
       return null;

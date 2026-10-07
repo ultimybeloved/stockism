@@ -11,7 +11,7 @@ import AppModals from './components/AppModals';
 import DiscordWallModal from './components/modals/DiscordWallModal';
 
 // Lazy-loaded — only downloaded when the user actually opens them
-const StockPage         = lazy(() => import('./pages/StockPage'));
+const StockPage = lazy(() => import('./pages/StockPage'));
 
 // Import other components
 import { useModalManager } from './hooks/useModalManager';
@@ -35,12 +35,12 @@ import Layout from './components/layout/Layout';
 
 // Pages are lazy-loaded for route-based code splitting
 import HomePage from './pages/HomePage';
-const LeaderboardPage  = lazy(() => import('./pages/LeaderboardPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AchievementsPage = lazy(() => import('./pages/AchievementsPage'));
-const LadderPage       = lazy(() => import('./pages/LadderPage'));
-const ProfilePage      = lazy(() => import('./pages/ProfilePage'));
+const LadderPage = lazy(() => import('./pages/LadderPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage'));
-const PredictionsPage  = lazy(() => import('./pages/PredictionsPage'));
+const PredictionsPage = lazy(() => import('./pages/PredictionsPage'));
 
 // Import AppContext
 import { AppProvider } from './context/AppContext';
@@ -51,7 +51,6 @@ import { ADMIN_UIDS, UNVERIFIED_STARTING_CASH } from './constants';
 import { calculatePortfolioValue } from './utils/calculations';
 import { getWeekStart } from './utils/date';
 import { newThisWeek } from './utils/marketFilters';
-
 
 // ============================================
 // MAIN APP
@@ -91,9 +90,7 @@ function DiscordLinkRedirect({ user, darkMode, bgClass, setShowLoginModal }) {
 
   return (
     <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
-      <p className={linkError ? 'text-red-400 text-sm' : mutedClass}>
-        {linkError || 'Redirecting to Discord...'}
-      </p>
+      <p className={linkError ? 'text-red-400 text-sm' : mutedClass}>{linkError || 'Redirecting to Discord...'}</p>
     </div>
   );
 }
@@ -114,26 +111,42 @@ export default function App() {
 
   const [actionLoading, setActionLoading] = useState({});
   const setLoadingKey = useCallback((key, value) => {
-    setActionLoading(prev => ({ ...prev, [key]: value }));
+    setActionLoading((prev) => ({ ...prev, [key]: value }));
   }, []);
   // Modal state managed by hook
   const {
-    showLoginModal, setShowLoginModal,
-    showPortfolio, setShowPortfolio,
-    showTradeHistory, setShowTradeHistory,
-    showAbout, setShowAbout,
-    showLending, setShowLending,
-    showBailout, setShowBailout,
-    showCrewSelection, setShowCrewSelection,
-    showPinShop, setShowPinShop,
-    showDailyMissions, setShowDailyMissions,
-    showAdmin, setShowAdmin,
-    showNotificationPanel, setShowNotificationPanel,
-    showPriceAlertModal, setShowPriceAlertModal,
-    tradeConfirmation, setTradeConfirmation,
-    limitOrderRequest, setLimitOrderRequest,
-    betConfirmation, setBetConfirmation,
-    selectedCharacter, setSelectedCharacter,
+    showLoginModal,
+    setShowLoginModal,
+    showPortfolio,
+    setShowPortfolio,
+    showTradeHistory,
+    setShowTradeHistory,
+    showAbout,
+    setShowAbout,
+    showLending,
+    setShowLending,
+    showBailout,
+    setShowBailout,
+    showCrewSelection,
+    setShowCrewSelection,
+    showPinShop,
+    setShowPinShop,
+    showDailyMissions,
+    setShowDailyMissions,
+    showAdmin,
+    setShowAdmin,
+    showNotificationPanel,
+    setShowNotificationPanel,
+    showPriceAlertModal,
+    setShowPriceAlertModal,
+    tradeConfirmation,
+    setTradeConfirmation,
+    limitOrderRequest,
+    setLimitOrderRequest,
+    betConfirmation,
+    setBetConfirmation,
+    selectedCharacter,
+    setSelectedCharacter,
   } = useModalManager();
 
   const [tradeAnimation, setTradeAnimation] = useState(null); // { ticker, action, timestamp }
@@ -152,31 +165,48 @@ export default function App() {
   // Helper to show toast notification
   const showNotification = useCallback((type, message, image = null) => {
     const id = Date.now() + Math.random();
-    setNotifications(prev => [...prev, { id, type, message, image }].slice(-5)); // Max 5 toasts
+    setNotifications((prev) => [...prev, { id, type, message, image }].slice(-5)); // Max 5 toasts
   }, []);
 
   // Helper to dismiss notification
   const dismissNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
   // Auth state + user doc subscription (and auth-adjacent URL flows)
-  const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName } = useAuthUser({ setDarkMode, showNotification });
+  const { user, userData, setUserData, needsUsername, needsEmailVerification, loading, adoptUserDoc, suggestedName } =
+    useAuthUser({ setDarkMode, showNotification });
 
   // Global market subscriptions: prices, chart history, IPOs, predictions
-  const { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages, marketStatus } = useMarketData();
+  const {
+    prices,
+    priceHistory,
+    marketData,
+    dividendTierOverrides,
+    launchedTickers,
+    activeIPOs,
+    predictions,
+    crewStats,
+    storedReviewChanges,
+    siteMessages,
+    marketStatus,
+  } = useMarketData();
 
   // Bell notifications + price alerts (subscriptions and handlers)
   const {
-    userNotifications, priceAlerts,
-    handleMarkNotificationRead, handleMarkAllNotificationsRead,
-    handleClearAllNotifications, handleDeleteNotification,
-    handleCreatePriceAlert, handleDeletePriceAlert,
+    userNotifications,
+    priceAlerts,
+    handleMarkNotificationRead,
+    handleMarkAllNotificationsRead,
+    handleClearAllNotifications,
+    handleDeleteNotification,
+    handleCreatePriceAlert,
+    handleDeletePriceAlert,
   } = useUserAlerts({ user, showNotification });
 
   // Handler to toggle dark mode and persist to localStorage + Firestore
   const handleToggleDarkMode = useCallback(() => {
-    setDarkMode(prev => {
+    setDarkMode((prev) => {
       const newValue = !prev;
       // Save to localStorage immediately
       localStorage.setItem('stockism_darkMode', newValue);
@@ -184,7 +214,7 @@ export default function App() {
       // Save to Firestore for signed-in users
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        updateDoc(userDocRef, { darkMode: newValue }).catch(err => {
+        updateDoc(userDocRef, { darkMode: newValue }).catch((err) => {
           console.error('Failed to save dark mode preference:', err);
         });
       }
@@ -196,59 +226,120 @@ export default function App() {
   // Compute new characters for header notification
   const newCharactersWithData = useMemo(() => {
     const weekStart = getWeekStart();
-    return newThisWeek(CHARACTERS, launchedTickers, weekStart).map(char => {
+    return newThisWeek(CHARACTERS, launchedTickers, weekStart).map((char) => {
       const currentPrice = prices[char.ticker] || char.basePrice;
       const history = priceHistory[char.ticker] || [];
       const weekStartTime = weekStart.getTime();
-      const startPrice = history.find(h => h.timestamp >= weekStartTime)?.price || history[0]?.price || currentPrice;
+      const startPrice = history.find((h) => h.timestamp >= weekStartTime)?.price || history[0]?.price || currentPrice;
       const weeklyChange = startPrice > 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
       return { ...char, currentPrice, weeklyChange };
     });
   }, [prices, priceHistory, launchedTickers]);
 
   // Color blind mode helpers - returns accessible colors
-  const getColorBlindColors = useCallback((isPositive) => {
-    const colorBlindMode = userData?.colorBlindMode || false;
+  const getColorBlindColors = useCallback(
+    (isPositive) => {
+      const colorBlindMode = userData?.colorBlindMode || false;
 
-    if (colorBlindMode) {
-      // Color blind friendly: teal (positive) / purple (negative)
-      return {
-        text: isPositive ? 'text-teal-500' : 'text-purple-500',
-        bg: isPositive ? 'bg-teal-600' : 'bg-purple-600',
-        bgHover: isPositive ? 'hover:bg-teal-700' : 'hover:bg-purple-700',
-        border: isPositive ? 'border-teal-500' : 'border-purple-500'
-      };
-    } else {
-      // Standard: green (positive) / red (negative)
-      return {
-        text: isPositive ? 'text-green-500' : 'text-red-500',
-        bg: isPositive ? 'bg-green-600' : 'bg-red-600',
-        bgHover: isPositive ? 'hover:bg-green-700' : 'hover:bg-red-700',
-        border: isPositive ? 'border-green-500' : 'border-red-500'
-      };
-    }
-  }, [userData]);
+      if (colorBlindMode) {
+        // Color blind friendly: teal (positive) / purple (negative)
+        return {
+          text: isPositive ? 'text-teal-500' : 'text-purple-500',
+          bg: isPositive ? 'bg-teal-600' : 'bg-purple-600',
+          bgHover: isPositive ? 'hover:bg-teal-700' : 'hover:bg-purple-700',
+          border: isPositive ? 'border-teal-500' : 'border-purple-500',
+        };
+      } else {
+        // Standard: green (positive) / red (negative)
+        return {
+          text: isPositive ? 'text-green-500' : 'text-red-500',
+          bg: isPositive ? 'bg-green-600' : 'bg-red-600',
+          bgHover: isPositive ? 'hover:bg-green-700' : 'hover:bg-red-700',
+          border: isPositive ? 'border-green-500' : 'border-red-500',
+        };
+      }
+    },
+    [userData],
+  );
 
   // Business-logic hooks — called here, after showNotification + all state are defined  // Business-logic hooks — called here, after showNotification + all state are defined
   // These receive state directly because App.jsx IS the context provider (can't consume its own context)
-  const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey });
-  const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending });
-  const { handleCrewSelect, handleCrewLeave } = useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey });
-  const { handleBet, handleBuyEventShares, handleSellEventShares } = usePredictionManagement({ user, userData, predictions, marketData, showNotification, setUserData, setLoadingKey });
-  const { handleBuyIPO } = useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey });
-  const { handleDailyCheckin, handleBailout } = useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey });
-  const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({ user, userData, showNotification, setUserData, setLoadingKey });
+  const { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward } = useMissionManagement({
+    user,
+    userData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
+  const { handleEnableMargin, handleDisableMargin, handleRepayMargin } = useMarginManagement({
+    user,
+    userData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+    setShowLending,
+  });
+  const { handleCrewSelect, handleCrewLeave } = useCrewManagement({
+    user,
+    userData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
+  const { handleBet, handleBuyEventShares, handleSellEventShares } = usePredictionManagement({
+    user,
+    userData,
+    predictions,
+    marketData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
+  const { handleBuyIPO } = useIPOManagement({
+    user,
+    userData,
+    marketData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
+  const { handleDailyCheckin, handleBailout } = useDailyOperations({
+    user,
+    userData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
+  const { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic } = usePinShop({
+    user,
+    userData,
+    showNotification,
+    setUserData,
+    setLoadingKey,
+  });
 
   // Trade execution + confirmation requests
   const { handleTrade, requestTrade } = useTradeManagement({
-    user, userData, prices, marketData, activeIPOs, launchedTickers,
-    showNotification, setLoadingKey, setTradeConfirmation, setTradeAnimation,
+    user,
+    userData,
+    prices,
+    marketData,
+    activeIPOs,
+    launchedTickers,
+    showNotification,
+    setLoadingKey,
+    setTradeConfirmation,
+    setTradeAnimation,
   });
 
   // One-shot user actions (watchlist, DRIP, deletion, tutorial/onboarding flags)
   const {
-    toggleWatchlist, handleLimitOrderRequest, handleHidePrediction,
-    handleToggleDrip, handleDeleteAccount, handleMarginTutorialComplete,
+    toggleWatchlist,
+    handleLimitOrderRequest,
+    handleHidePrediction,
+    handleToggleDrip,
+    handleDeleteAccount,
+    handleMarginTutorialComplete,
     handleOnboardingComplete,
   } = useUserActions({ user, userData, showNotification, setLimitOrderRequest, setShowPortfolio });
 
@@ -256,7 +347,14 @@ export default function App() {
   useAccountMaintenance({ user, userData, prices, predictions, showNotification });
 
   // Guest data
-  const guestData = { cash: UNVERIFIED_STARTING_CASH, holdings: {}, shorts: {}, costBasis: {}, bets: {}, portfolioValue: UNVERIFIED_STARTING_CASH };
+  const guestData = {
+    cash: UNVERIFIED_STARTING_CASH,
+    holdings: {},
+    shorts: {},
+    costBasis: {},
+    bets: {},
+    portfolioValue: UNVERIFIED_STARTING_CASH,
+  };
   const activeUserData = userData || guestData;
   const isGuest = !user;
 
@@ -268,8 +366,8 @@ export default function App() {
   const ipoRestrictedTickers = useMemo(() => {
     const now = Date.now();
     return activeIPOs
-      .filter(ipo => !ipo.priceJumped && now < ipo.ipoEndsAt) // In hype or buying phase
-      .map(ipo => ipo.ticker);
+      .filter((ipo) => !ipo.priceJumped && now < ipo.ipoEndsAt) // In hype or buying phase
+      .map((ipo) => ipo.ticker);
   }, [activeIPOs]);
 
   // Styling - Orange/Yellow theme inspired by logo
@@ -280,27 +378,47 @@ export default function App() {
   const rarityTiers = useMemo(() => computeRarityTiers(CHARACTERS, prices), [prices]);
 
   // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
-  const contextValue = useMemo(() => ({
-    darkMode,
-    user,
-    userData,
-    prices,
-    priceHistory,
-    predictions,
-    holdings: userData?.holdings || {},
-    shorts: userData?.shorts || {},
-    costBasis: userData?.costBasis || {},
-    marketData,
-    getColorBlindColors,
-    showNotification,
-    activeIPOs,
-    ipoRestrictedTickers,
-    launchedTickers,
-    rarityTiers,
-    crewStats,
-    storedReviewChanges,
-    siteMessages
-  }), [darkMode, user, userData, prices, priceHistory, predictions, marketData, getColorBlindColors, showNotification, activeIPOs, ipoRestrictedTickers, launchedTickers, rarityTiers, crewStats, storedReviewChanges, siteMessages]);
+  const contextValue = useMemo(
+    () => ({
+      darkMode,
+      user,
+      userData,
+      prices,
+      priceHistory,
+      predictions,
+      holdings: userData?.holdings || {},
+      shorts: userData?.shorts || {},
+      costBasis: userData?.costBasis || {},
+      marketData,
+      getColorBlindColors,
+      showNotification,
+      activeIPOs,
+      ipoRestrictedTickers,
+      launchedTickers,
+      rarityTiers,
+      crewStats,
+      storedReviewChanges,
+      siteMessages,
+    }),
+    [
+      darkMode,
+      user,
+      userData,
+      prices,
+      priceHistory,
+      predictions,
+      marketData,
+      getColorBlindColors,
+      showNotification,
+      activeIPOs,
+      ipoRestrictedTickers,
+      launchedTickers,
+      rarityTiers,
+      crewStats,
+      storedReviewChanges,
+      siteMessages,
+    ],
+  );
 
   if (loading) {
     return (
@@ -324,16 +442,21 @@ export default function App() {
         <div className="text-center max-w-sm">
           <p className={`text-lg ${textClass} mb-2`}>Live market data is unavailable</p>
           <p className={`text-sm ${mutedClass} mb-4`}>
-            Prices could not be loaded, so none are shown rather than showing
-            numbers that are not real. Try again in a moment.
+            Prices could not be loaded, so none are shown rather than showing numbers that are not real. Try again in a
+            moment.
           </p>
-          <button onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
+          >
             Reload
           </button>
           <p className={`text-xs ${mutedClass} mt-4`}>
             A plain snapshot of the current market is always available at{' '}
-            <a href="/snapshot" className="text-orange-500 underline">/snapshot</a>.
+            <a href="/snapshot" className="text-orange-500 underline">
+              /snapshot
+            </a>
+            .
           </p>
         </div>
       </div>
@@ -348,73 +471,118 @@ export default function App() {
         onShowAdminPanel={() => setShowAdmin(true)}
         isGuest={isGuest}
         onShowLogin={() => setShowLoginModal(true)}
-        notificationCount={userNotifications.filter(n => !n.read).length}
-        onToggleNotifications={() => setShowNotificationPanel(prev => !prev)}
+        notificationCount={userNotifications.filter((n) => !n.read).length}
+        onToggleNotifications={() => setShowNotificationPanel((prev) => !prev)}
         newCharacters={newCharactersWithData}
       >
-          {showInAppBanner && (
-            <div className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
-              darkMode ? 'bg-amber-900/30 border-amber-700 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-800'
-            }`}>
-              <span>For the best experience, open this page in your browser. Trading may not work in this app.</span>
-              <button onClick={() => setShowInAppBanner(false)} className="shrink-0 font-bold text-lg leading-none opacity-60 hover:opacity-100">&times;</button>
+        {showInAppBanner && (
+          <div
+            className={`mx-4 mt-3 p-3 rounded-sm border text-sm flex items-center justify-between gap-2 ${
+              darkMode
+                ? 'bg-amber-900/30 border-amber-700 text-amber-200'
+                : 'bg-amber-50 border-amber-300 text-amber-800'
+            }`}
+          >
+            <span>For the best experience, open this page in your browser. Trading may not work in this app.</span>
+            <button
+              onClick={() => setShowInAppBanner(false)}
+              className="shrink-0 font-bold text-lg leading-none opacity-60 hover:opacity-100"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          )}
-          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>}>
+          }
+        >
           <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={
-              <HomePage
-                isGuest={isGuest}
-                activeUserData={activeUserData}
-                portfolioValue={portfolioValue}
-                actionLoading={actionLoading}
-                onCheckin={handleDailyCheckin}
-                onBuyIPO={handleBuyIPO}
-                onTrade={requestTrade}
-                onViewChart={handleViewChart}
-                onToggleWatchlist={toggleWatchlist}
-                tradeAnimation={tradeAnimation}
-                limitOrderRequest={limitOrderRequest}
-                onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
-                onSetAlert={(ticker) => setShowPriceAlertModal(ticker)}
-                onShowMissions={() => setShowDailyMissions(true)}
-                onShowPinShop={() => setShowPinShop(true)}
-                onShowCrews={() => setShowCrewSelection(true)}
-                onShowMargin={() => setShowLending(true)}
-                onShowAbout={() => setShowAbout(true)}
-                onShowLogin={() => setShowLoginModal(true)}
-                onShowPortfolio={() => setShowPortfolio(true)}
-                onShowBailout={() => setShowBailout(true)}
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <HomePage
+                    isGuest={isGuest}
+                    activeUserData={activeUserData}
+                    portfolioValue={portfolioValue}
+                    actionLoading={actionLoading}
+                    onCheckin={handleDailyCheckin}
+                    onBuyIPO={handleBuyIPO}
+                    onTrade={requestTrade}
+                    onViewChart={handleViewChart}
+                    onToggleWatchlist={toggleWatchlist}
+                    tradeAnimation={tradeAnimation}
+                    limitOrderRequest={limitOrderRequest}
+                    onClearLimitOrderRequest={() => setLimitOrderRequest(null)}
+                    onSetAlert={(ticker) => setShowPriceAlertModal(ticker)}
+                    onShowMissions={() => setShowDailyMissions(true)}
+                    onShowPinShop={() => setShowPinShop(true)}
+                    onShowCrews={() => setShowCrewSelection(true)}
+                    onShowMargin={() => setShowLending(true)}
+                    onShowAbout={() => setShowAbout(true)}
+                    onShowLogin={() => setShowLoginModal(true)}
+                    onShowPortfolio={() => setShowPortfolio(true)}
+                    onShowBailout={() => setShowBailout(true)}
+                  />
+                }
               />
-            } />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/achievements" element={<AchievementsPage onPinAction={isGuest ? undefined : handlePinAction} />} />
-            <Route path="/ladder" element={<LadderPage />} />
-            <Route path="/predictions" element={
-              <PredictionsPage
-                predictions={predictions}
-                isGuest={isGuest}
-                isAdmin={user && ADMIN_UIDS.includes(user.uid)}
-                onBet={handleBet}
-                onRequestBet={(predictionId, option, amount, question) => setBetConfirmation({ predictionId, option, amount, question })}
-                onHidePrediction={handleHidePrediction}
-                onBuyEventShares={handleBuyEventShares}
-                onSellEventShares={handleSellEventShares}
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route
+                path="/achievements"
+                element={<AchievementsPage onPinAction={isGuest ? undefined : handlePinAction} />}
               />
-            } />
-            <Route path="/profile" element={<ProfilePage onOpenCrewSelection={() => setShowCrewSelection(true)} onDeleteAccount={handleDeleteAccount} onOpenCustomization={() => setShowPinShop(true)} />} />
-            <Route path="/link-discord" element={<DiscordLinkRedirect user={user} darkMode={darkMode} bgClass={bgClass} setShowLoginModal={setShowLoginModal} />} />
-            <Route path="/u/:username" element={<PublicProfilePage />} />
-            <Route path="/stock/:ticker" element={<StockPage onTrade={requestTrade} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              <Route path="/ladder" element={<LadderPage />} />
+              <Route
+                path="/predictions"
+                element={
+                  <PredictionsPage
+                    predictions={predictions}
+                    isGuest={isGuest}
+                    isAdmin={user && ADMIN_UIDS.includes(user.uid)}
+                    onBet={handleBet}
+                    onRequestBet={(predictionId, option, amount, question) =>
+                      setBetConfirmation({ predictionId, option, amount, question })
+                    }
+                    onHidePrediction={handleHidePrediction}
+                    onBuyEventShares={handleBuyEventShares}
+                    onSellEventShares={handleSellEventShares}
+                  />
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProfilePage
+                    onOpenCrewSelection={() => setShowCrewSelection(true)}
+                    onDeleteAccount={handleDeleteAccount}
+                    onOpenCustomization={() => setShowPinShop(true)}
+                  />
+                }
+              />
+              <Route
+                path="/link-discord"
+                element={
+                  <DiscordLinkRedirect
+                    user={user}
+                    darkMode={darkMode}
+                    bgClass={bgClass}
+                    setShowLoginModal={setShowLoginModal}
+                  />
+                }
+              />
+              <Route path="/u/:username" element={<PublicProfilePage />} />
+              <Route path="/stock/:ticker" element={<StockPage onTrade={requestTrade} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </ErrorBoundary>
-          </Suspense>
+        </Suspense>
 
-          {/* Global Modals - rendered outside Routes */}
-          {/* Suspense: lazy modals show nothing while their chunk loads (acceptable — they need a user action first) */}
-          <Suspense fallback={null}>
+        {/* Global Modals - rendered outside Routes */}
+        {/* Suspense: lazy modals show nothing while their chunk loads (acceptable — they need a user action first) */}
+        <Suspense fallback={null}>
           <AppModals
             actionLoading={actionLoading}
             activeUserData={activeUserData}
@@ -487,8 +655,7 @@ export default function App() {
             tradeConfirmation={tradeConfirmation}
             userNotifications={userNotifications}
           />
-
-          </Suspense>
+        </Suspense>
       </Layout>
     </AppProvider>
   );

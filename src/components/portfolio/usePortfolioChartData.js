@@ -10,18 +10,20 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
       const now = Date.now();
       return [
         { timestamp: now - 60000, value: currentValue, date: 'Now', fullDate: 'Now' },
-        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
+        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' },
       ];
     }
 
-    let data = portfolioHistory
-      .map(point => ({
-        ...point,
-        date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        }),
-      }));
+    let data = portfolioHistory.map((point) => ({
+      ...point,
+      date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    }));
 
     // Sample down to ~20 points for cleaner interaction
     const maxPoints = 20;
@@ -42,11 +44,8 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
     // chart reflects where the portfolio is right now, not the last history write.
     const now = Date.now();
     const lastPoint = data[data.length - 1];
-    if (!lastPoint || (now - lastPoint.timestamp) > 60000) {
-      data = [
-        ...data,
-        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
-      ];
+    if (!lastPoint || now - lastPoint.timestamp > 60000) {
+      data = [...data, { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }];
     }
 
     // If still only 1 point, duplicate it so the chart draws a flat line
@@ -61,7 +60,7 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
     if (data.length === 0) {
       data = [
         { timestamp: now - 60000, value: currentValue, date: 'Now', fullDate: 'Now' },
-        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' }
+        { timestamp: now, value: currentValue, date: 'Now', fullDate: 'Now' },
       ];
     }
 
@@ -70,7 +69,7 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
   }, [portfolioHistory, currentValue]);
 
   const hasChartData = chartData.length >= 2; // Will always be true now
-  const chartValues = hasChartData ? chartData.map(d => d.value) : [currentValue];
+  const chartValues = hasChartData ? chartData.map((d) => d.value) : [currentValue];
   const minValue = Math.min(...chartValues);
   const maxValue = Math.max(...chartValues);
   const valueRange = maxValue - minValue || 1;

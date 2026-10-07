@@ -8,7 +8,7 @@ export const aggregateMarketStats = (snapshot, prices) => {
   const now = Date.now();
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
   const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-  
+
   let totalUsers = 0;
   let activeUsers24h = 0;
   let activeUsers7d = 0;
@@ -19,7 +19,7 @@ export const aggregateMarketStats = (snapshot, prices) => {
   let usersWithMargin = 0;
   let totalBetsPlaced = 0;
   let totalTradesAllTime = 0;
-  
+
   // 24h activity tracking
   let trades24h = 0;
   let volume24h = 0; // Total cash moved in trades
@@ -29,7 +29,7 @@ export const aggregateMarketStats = (snapshot, prices) => {
   let checkins24h = 0;
   let bets24h = 0;
   const tickerVolume24h = {}; // Volume per ticker
-  
+
   // Holdings by character. Two tallies on purpose: holdingsByTicker counts
   // every account (bot shares are real and belong in market cap), while the
   // player maps below skip bots so the "most held" board reflects what players
@@ -37,30 +37,30 @@ export const aggregateMarketStats = (snapshot, prices) => {
   const holdingsByTicker = {};
   const playerSharesByTicker = {};
   const playerHoldersByTicker = {};
-  CHARACTERS.forEach(c => {
+  CHARACTERS.forEach((c) => {
     holdingsByTicker[c.ticker] = 0;
     playerSharesByTicker[c.ticker] = 0;
     playerHoldersByTicker[c.ticker] = 0;
   });
-  
+
   // Crew membership counts
   const crewCounts = {};
-  
-  snapshot.forEach(doc => {
+
+  snapshot.forEach((doc) => {
     const data = doc.data();
     totalUsers++;
-    
+
     // Activity tracking — same definition the Discord summary uses.
     // Bots are excluded: they get a lastActive stamp when they are created,
     // which would otherwise count them as active players for two weeks.
     const lastActiveMs = data.isBot ? 0 : getLastActiveMs(data);
     if (lastActiveMs > oneDayAgo) activeUsers24h++;
     if (lastActiveMs > oneWeekAgo) activeUsers7d++;
-    
+
     // Cash and portfolio
     totalCashInSystem += data.cash || 0;
     totalPortfolioValue += data.portfolioValue || 0;
-    
+
     // Holdings
     const holdings = data.holdings || {};
     Object.entries(holdings).forEach(([ticker, shares]) => {
@@ -75,20 +75,20 @@ export const aggregateMarketStats = (snapshot, prices) => {
         }
       }
     });
-    
+
     // Margin
     if (data.marginEnabled) {
       usersWithMargin++;
       totalMarginUsed += data.marginUsed || 0;
     }
-    
+
     // Bets
     const bets = data.bets || {};
     totalBetsPlaced += Object.keys(bets).length;
-    
+
     // Trades
     totalTradesAllTime += data.totalTrades || 0;
-    
+
     // Crew
     if (data.crew) {
       crewCounts[data.crew] = (crewCounts[data.crew] || 0) + 1;
@@ -104,7 +104,7 @@ export const aggregateMarketStats = (snapshot, prices) => {
 
     // 24h transaction log analysis
     const transactionLog = data.transactionLog || [];
-    transactionLog.forEach(tx => {
+    transactionLog.forEach((tx) => {
       if (tx.timestamp > oneDayAgo) {
         if (tx.type === 'BUY') {
           trades24h++;
@@ -133,15 +133,15 @@ export const aggregateMarketStats = (snapshot, prices) => {
       }
     });
   });
-  
+
   // Calculate total market cap (all shares * current prices)
   let totalMarketCap = 0;
-  CHARACTERS.forEach(c => {
+  CHARACTERS.forEach((c) => {
     const price = prices[c.ticker] || c.basePrice;
     const sharesHeld = holdingsByTicker[c.ticker] || 0;
     totalMarketCap += price * sharesHeld;
   });
-  
+
   // Top 5 most held characters, players only. Ranked by share count, with the
   // number of holders alongside: "most held" can mean either, and the two give
   // different answers (one whale outweighs fifty small positions).
@@ -149,23 +149,23 @@ export const aggregateMarketStats = (snapshot, prices) => {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([ticker, shares]) => ({ ticker, shares, holders: playerHoldersByTicker[ticker] }));
-  
+
   // Top gainers/losers (comparing to base price)
-  const priceChanges = CHARACTERS.map(c => {
+  const priceChanges = CHARACTERS.map((c) => {
     const current = prices[c.ticker] || c.basePrice;
     const change = ((current - c.basePrice) / c.basePrice) * 100;
     return { ticker: c.ticker, name: c.name, price: current, basePrice: c.basePrice, change };
   }).sort((a, b) => b.change - a.change);
-  
+
   const topGainers = priceChanges.slice(0, 5);
   const topLosers = priceChanges.slice(-5).reverse();
-  
+
   // Top traded tickers in 24h
   const topTraded24h = Object.entries(tickerVolume24h)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([ticker, volume]) => ({ ticker, volume }));
-  
+
   return {
     totalUsers,
     activeUsers24h,
@@ -191,6 +191,6 @@ export const aggregateMarketStats = (snapshot, prices) => {
     checkins24h,
     bets24h,
     topTraded24h,
-    lastUpdated: now
+    lastUpdated: now,
   };
 };

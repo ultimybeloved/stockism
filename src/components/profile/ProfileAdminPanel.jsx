@@ -19,7 +19,9 @@ const ProfileAdminPanel = ({ data }) => {
 
   const weeklyColor = data.weeklyGain >= 0 ? 'text-green-500' : 'text-red-500';
   const activeShorts = Object.entries(data.shorts || {}).filter(([, p]) => p && p.shares > 0);
-  const activeHoldings = Object.entries(data.holdings || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const activeHoldings = Object.entries(data.holdings || {})
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   return (
     <div className={`border-2 border-orange-500 rounded-sm p-4 ${darkMode ? 'bg-zinc-900' : 'bg-orange-50'} space-y-4`}>
@@ -27,7 +29,9 @@ const ProfileAdminPanel = ({ data }) => {
         <h2 className="text-orange-500 font-bold text-sm uppercase tracking-widest">Admin View</h2>
         {(data.isBanned || data.isBot) && (
           <div className="flex gap-1.5">
-            {data.isBanned && <span className="text-xs px-2 py-0.5 rounded bg-red-500 text-white font-bold">Banned</span>}
+            {data.isBanned && (
+              <span className="text-xs px-2 py-0.5 rounded bg-red-500 text-white font-bold">Banned</span>
+            )}
             {data.isBot && <span className="text-xs px-2 py-0.5 rounded bg-zinc-500 text-white font-bold">Bot</span>}
           </div>
         )}
@@ -61,8 +65,12 @@ const ProfileAdminPanel = ({ data }) => {
         <div>
           <p className={`text-xs ${mutedClass}`}>7-day gain</p>
           <p className={`font-bold ${weeklyColor}`}>
-            {data.weeklyGain >= 0 ? '+' : ''}{formatCurrency(data.weeklyGain)}
-            <span className="text-xs ml-1">({data.weeklyGain >= 0 ? '+' : ''}{data.weeklyGainPercent}%)</span>
+            {data.weeklyGain >= 0 ? '+' : ''}
+            {formatCurrency(data.weeklyGain)}
+            <span className="text-xs ml-1">
+              ({data.weeklyGain >= 0 ? '+' : ''}
+              {data.weeklyGainPercent}%)
+            </span>
           </p>
         </div>
       </div>
@@ -73,7 +81,10 @@ const ProfileAdminPanel = ({ data }) => {
           <p className={`text-xs ${mutedClass} mb-1.5`}>Holdings ({activeHoldings.length})</p>
           <div className="flex flex-wrap gap-1.5">
             {activeHoldings.map(([ticker, shares]) => (
-              <span key={ticker} className={`text-xs px-2 py-0.5 rounded font-mono ${darkMode ? 'bg-zinc-800 text-zinc-200' : 'bg-white text-zinc-700'} border ${darkMode ? 'border-zinc-700' : 'border-zinc-200'}`}>
+              <span
+                key={ticker}
+                className={`text-xs px-2 py-0.5 rounded font-mono ${darkMode ? 'bg-zinc-800 text-zinc-200' : 'bg-white text-zinc-700'} border ${darkMode ? 'border-zinc-700' : 'border-zinc-200'}`}
+              >
                 ${ticker} <span className="font-bold">{shares}</span>
               </span>
             ))}
@@ -87,7 +98,10 @@ const ProfileAdminPanel = ({ data }) => {
           <p className={`text-xs ${mutedClass} mb-1.5`}>Short positions ({activeShorts.length})</p>
           <div className="space-y-1">
             {activeShorts.map(([ticker, pos]) => (
-              <div key={ticker} className={`text-xs px-2 py-1.5 rounded font-mono flex flex-wrap gap-x-3 gap-y-0.5 ${darkMode ? 'bg-zinc-800' : 'bg-red-50 border border-red-100'}`}>
+              <div
+                key={ticker}
+                className={`text-xs px-2 py-1.5 rounded font-mono flex flex-wrap gap-x-3 gap-y-0.5 ${darkMode ? 'bg-zinc-800' : 'bg-red-50 border border-red-100'}`}
+              >
                 <span className="text-red-500 font-bold">${ticker}</span>
                 <span className={textClass}>{pos.shares} shares</span>
                 <span className={mutedClass}>basis {formatCurrency(pos.costBasis)}</span>

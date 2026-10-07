@@ -1,4 +1,3 @@
-
 // Read-only alt-ring report. Pulls recent signups (joined to their Firebase Auth
 // email + signup IP server-side) and shows them grouped by shared signup IP,
 // email domain, and normalized gmail identity, so a VPN + temp-mail burst stands
@@ -44,7 +43,10 @@ const RecentSignups = ({
             Ban
           </button>
         )}
-        <button onClick={() => onWatch(m.uid, m.displayName)} className="text-orange-400 hover:text-orange-300 font-semibold">
+        <button
+          onClick={() => onWatch(m.uid, m.displayName)}
+          className="text-orange-400 hover:text-orange-300 font-semibold"
+        >
           Watch
         </button>
       </span>
@@ -54,7 +56,7 @@ const RecentSignups = ({
   const ClusterGroup = ({ title, label, clusters }) => (
     <div className="mb-3">
       <div className={`text-xs font-bold mb-1 ${textClass}`}>{title}</div>
-      {(!clusters || clusters.length === 0) ? (
+      {!clusters || clusters.length === 0 ? (
         <div className={`text-xs ${mutedClass}`}>No clusters of 2+ in this window.</div>
       ) : (
         <div className="space-y-2">
@@ -67,7 +69,9 @@ const RecentSignups = ({
                 <span className={`text-[10px] ${mutedClass}`}>{label}</span>
               </div>
               <div className="space-y-1">
-                {c.members.map((m) => <MemberRow key={m.uid} m={m} />)}
+                {c.members.map((m) => (
+                  <MemberRow key={m.uid} m={m} />
+                ))}
               </div>
             </div>
           ))}
@@ -80,8 +84,8 @@ const RecentSignups = ({
     <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
       <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Recent Signups / Alt Ring</h3>
       <p className={`text-xs mb-2 ${mutedClass}`}>
-        Groups recent signups by shared signup IP, email domain, and gmail identity (dot/+ aliases
-        collapse to one account). A VPN + temp-mail ring shows up as clusters here. Read-only.
+        Groups recent signups by shared signup IP, email domain, and gmail identity (dot/+ aliases collapse to one
+        account). A VPN + temp-mail ring shows up as clusters here. Read-only.
       </p>
 
       <div className="flex gap-2 items-center mb-3">
@@ -112,14 +116,27 @@ const RecentSignups = ({
             {signupReport.clustersByIp.length} IP, {signupReport.clustersByDomain.length} domain,{' '}
             {signupReport.clustersByGmail.length} gmail cluster(s)
           </div>
-          <ClusterGroup title="Shared signup IP" label="same exit IP (VPN reuse)" clusters={signupReport.clustersByIp} />
-          <ClusterGroup title="Shared email domain" label="same provider (temp-mail)" clusters={signupReport.clustersByDomain} />
-          <ClusterGroup title="Same gmail identity" label="dot/+ aliases of one inbox" clusters={signupReport.clustersByGmail} />
+          <ClusterGroup
+            title="Shared signup IP"
+            label="same exit IP (VPN reuse)"
+            clusters={signupReport.clustersByIp}
+          />
+          <ClusterGroup
+            title="Shared email domain"
+            label="same provider (temp-mail)"
+            clusters={signupReport.clustersByDomain}
+          />
+          <ClusterGroup
+            title="Same gmail identity"
+            label="dot/+ aliases of one inbox"
+            clusters={signupReport.clustersByGmail}
+          />
           {signupReport.clustersByIp.length === 0 &&
             signupReport.clustersByDomain.length === 0 &&
             signupReport.clustersByGmail.length === 0 && (
               <div className={`text-xs ${mutedClass}`}>
-                No clusters found. The ring may be rotating both IPs and email providers — widen the window or check timing.
+                No clusters found. The ring may be rotating both IPs and email providers — widen the window or check
+                timing.
               </div>
             )}
         </>

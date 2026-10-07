@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import {
-  db, listBackupsFunction, restoreBackupFunction,
-  triggerManualBackupFunction, reconstructPortfolioHistoryFunction,
+  db,
+  listBackupsFunction,
+  restoreBackupFunction,
+  triggerManualBackupFunction,
+  reconstructPortfolioHistoryFunction,
 } from '../../firebase';
 
 // Recovery tab: backup list/restore, manual backup, portfolio-history
@@ -21,7 +24,6 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
   const [newUserId, setNewUserId] = useState('');
   const [transferring, setTransferring] = useState(false);
 
-
   // List available backups
   const handleListBackups = async () => {
     setLoadingBackups(true);
@@ -38,7 +40,11 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
 
   // Restore from backup
   const handleRestoreBackup = async (backupName) => {
-    if (!window.confirm(`⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be synced to match the latest history point.`)) {
+    if (
+      !window.confirm(
+        `⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be synced to match the latest history point.`,
+      )
+    ) {
       return;
     }
 
@@ -144,7 +150,11 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
       const newData = newUserSnap.data();
 
       // Confirm the transfer
-      if (!confirm(`⚠️ TRANSFER USER DATA ⚠️\n\nCopy ALL data from old user to new user?\n\nOLD USER: ${oldData.displayName || 'Unknown'}\nPortfolio: $${(oldData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${oldData.totalCheckins || 0}\n\nNEW USER: ${newData.displayName || 'Unknown'}\nPortfolio: $${(newData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${newData.totalCheckins || 0}\n\nThe NEW user's data will be COMPLETELY OVERWRITTEN with the OLD user's data.\n\nContinue?`)) {
+      if (
+        !confirm(
+          `⚠️ TRANSFER USER DATA ⚠️\n\nCopy ALL data from old user to new user?\n\nOLD USER: ${oldData.displayName || 'Unknown'}\nPortfolio: $${(oldData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${oldData.totalCheckins || 0}\n\nNEW USER: ${newData.displayName || 'Unknown'}\nPortfolio: $${(newData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${newData.totalCheckins || 0}\n\nThe NEW user's data will be COMPLETELY OVERWRITTEN with the OLD user's data.\n\nContinue?`,
+        )
+      ) {
         setTransferring(false);
         return;
       }
@@ -158,7 +168,11 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
       showMessage('success', `Successfully transferred data from ${oldData.displayName} to new account!`);
 
       // Ask if they want to delete the old account
-      if (confirm(`Transfer complete!\n\nDo you want to DELETE the old user account?\n\nOld User: ${oldData.displayName}\nID: ${oldUserId}\n\nThis cannot be undone!`)) {
+      if (
+        confirm(
+          `Transfer complete!\n\nDo you want to DELETE the old user account?\n\nOld User: ${oldData.displayName}\nID: ${oldUserId}\n\nThis cannot be undone!`,
+        )
+      ) {
         await deleteDoc(oldUserRef);
         showMessage('success', `Old user account deleted.`);
       }
@@ -173,9 +187,22 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
   };
 
   return {
-    loadingBackups, backups, handleListBackups, restoringBackup, handleRestoreBackup,
-    handleManualBackup, reconstructingHistory, reconstructionResult,
-    reconstructUid, setReconstructUid, handleReconstructPortfolioHistory,
-    oldUserId, setOldUserId, newUserId, setNewUserId, transferring, handleTransferUserData,
+    loadingBackups,
+    backups,
+    handleListBackups,
+    restoringBackup,
+    handleRestoreBackup,
+    handleManualBackup,
+    reconstructingHistory,
+    reconstructionResult,
+    reconstructUid,
+    setReconstructUid,
+    handleReconstructPortfolioHistory,
+    oldUserId,
+    setOldUserId,
+    newUserId,
+    setNewUserId,
+    transferring,
+    handleTransferUserData,
   };
 }

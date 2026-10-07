@@ -33,11 +33,11 @@ describe('exitDiscountForAgeMs', () => {
   });
 
   it('steps up at 10, 28 and 56 days', () => {
-    expect(exitDiscountForAgeMs(DIVIDEND_HOLD_DAYS * DAY)).toBe(0.10);
-    expect(exitDiscountForAgeMs(27.9 * DAY)).toBe(0.10);
+    expect(exitDiscountForAgeMs(DIVIDEND_HOLD_DAYS * DAY)).toBe(0.1);
+    expect(exitDiscountForAgeMs(27.9 * DAY)).toBe(0.1);
     expect(exitDiscountForAgeMs(28 * DAY)).toBe(0.25);
     expect(exitDiscountForAgeMs(55.9 * DAY)).toBe(0.25);
-    expect(exitDiscountForAgeMs(56 * DAY)).toBe(0.40);
+    expect(exitDiscountForAgeMs(56 * DAY)).toBe(0.4);
   });
 
   it('never exceeds the cap, however long it is held', () => {
@@ -60,9 +60,9 @@ describe('exitLoyaltyDiscount', () => {
 
   it('rates a single pending lot by its own age', () => {
     expect(exitLoyaltyDiscount(cohort(0, [lot(100, 5)]), 100, NOW)).toBe(0);
-    expect(exitLoyaltyDiscount(cohort(0, [lot(100, 15)]), 100, NOW)).toBe(0.10);
+    expect(exitLoyaltyDiscount(cohort(0, [lot(100, 15)]), 100, NOW)).toBe(0.1);
     expect(exitLoyaltyDiscount(cohort(0, [lot(100, 30)]), 100, NOW)).toBe(0.25);
-    expect(exitLoyaltyDiscount(cohort(0, [lot(100, 60)]), 100, NOW)).toBe(0.40);
+    expect(exitLoyaltyDiscount(cohort(0, [lot(100, 60)]), 100, NOW)).toBe(0.4);
   });
 
   it('ages the eligible bucket from the ladder epoch, not from zero', () => {
@@ -71,7 +71,7 @@ describe('exitLoyaltyDiscount', () => {
     expect(exitLoyaltyDiscount(cohort(100), 100, justAfterEpoch)).toBe(0);
 
     const wellAfter = LEGACY_ACQUIRED_AT + 60 * DAY;
-    expect(exitLoyaltyDiscount(cohort(100), 100, wellAfter)).toBe(0.40);
+    expect(exitLoyaltyDiscount(cohort(100), 100, wellAfter)).toBe(0.4);
   });
 
   it('weights a mixed position by how many shares are actually old', () => {
@@ -83,7 +83,7 @@ describe('exitLoyaltyDiscount', () => {
   it('consumes oldest first, matching decrementCohort', () => {
     // Selling only 100 of the same position takes the mature shares first.
     const mixed = cohort(0, [lot(100, 60), lot(900, 1)]);
-    expect(exitLoyaltyDiscount(mixed, 100, NOW)).toBe(0.40);
+    expect(exitLoyaltyDiscount(mixed, 100, NOW)).toBe(0.4);
 
     // Eligible is consumed ahead of every pending lot.
     const withEligible = { eligible: 50, pending: [lot(50, 60)] };
@@ -99,7 +99,7 @@ describe('exitLoyaltyDiscount', () => {
     // Cohort knows about 100 mature shares but the user is selling 200. The
     // unaccounted 100 are treated as brand new.
     const partial = cohort(0, [lot(100, 60)]);
-    expect(exitLoyaltyDiscount(partial, 200, NOW)).toBeCloseTo(0.20, 10);
+    expect(exitLoyaltyDiscount(partial, 200, NOW)).toBeCloseTo(0.2, 10);
   });
 
   it('never returns more than the cap', () => {
@@ -109,7 +109,7 @@ describe('exitLoyaltyDiscount', () => {
 
   it('ignores empty pending buckets', () => {
     const withEmpties = cohort(0, [{ shares: 0, availableAt: NOW }, lot(100, 60)]);
-    expect(exitLoyaltyDiscount(withEmpties, 100, NOW)).toBe(0.40);
+    expect(exitLoyaltyDiscount(withEmpties, 100, NOW)).toBe(0.4);
   });
 });
 
@@ -162,7 +162,7 @@ describe('dividendWeightedShares still matches the pre-refactor walk', () => {
       return 0;
     };
     let w = (c.eligible || 0) * mult(now - LEGACY_ACQUIRED_AT);
-    for (const p of (c.pending || [])) {
+    for (const p of c.pending || []) {
       w += (p.shares || 0) * mult(now - ((p.availableAt || 0) - DIVIDEND_HOLD_MS));
     }
     return w;

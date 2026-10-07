@@ -8,12 +8,12 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import * as readline from 'readline';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA7h7BCmgIUkJHLENTRjCj6i43BV6ly5DA",
-  authDomain: "stockism-abb28.firebaseapp.com",
-  projectId: "stockism-abb28",
-  storageBucket: "stockism-abb28.firebasestorage.app",
-  messagingSenderId: "765989843498",
-  appId: "1:765989843498:web:332d3470293741bb9fc953"
+  apiKey: 'AIzaSyA7h7BCmgIUkJHLENTRjCj6i43BV6ly5DA',
+  authDomain: 'stockism-abb28.firebaseapp.com',
+  projectId: 'stockism-abb28',
+  storageBucket: 'stockism-abb28.firebasestorage.app',
+  messagingSenderId: '765989843498',
+  appId: '1:765989843498:web:332d3470293741bb9fc953',
 };
 
 const app = initializeApp(firebaseConfig);
@@ -22,11 +22,11 @@ const functions = getFunctions(app);
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function question(query) {
-  return new Promise(resolve => rl.question(query, resolve));
+  return new Promise((resolve) => rl.question(query, resolve));
 }
 
 async function fixBasePriceCliffs() {
@@ -52,7 +52,7 @@ async function fixBasePriceCliffs() {
 
     if (result.data.fixed && result.data.fixed.length > 0) {
       console.log('\nFixed tickers:');
-      result.data.fixed.forEach(fix => {
+      result.data.fixed.forEach((fix) => {
         console.log(`  ${fix.ticker}:`);
         console.log(`    First: $${fix.firstPrice.toFixed(2)} (${fix.firstTimestamp})`);
         console.log(`    Second: $${fix.secondPrice.toFixed(2)}`);

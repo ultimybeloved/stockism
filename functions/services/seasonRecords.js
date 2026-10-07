@@ -7,8 +7,16 @@
 const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../constants');
 const { getLastActiveMs, characterExposure } = require('../helpers');
 const {
-  baselineIndexFor, seasonScore, weeklyRecordSummary, divisionFor, rulesFor, seasonAccountSize, marginDollarDays,
-  grantedDaysSince, sideFlowsSince, isTopTierExcluded,
+  baselineIndexFor,
+  seasonScore,
+  weeklyRecordSummary,
+  divisionFor,
+  rulesFor,
+  seasonAccountSize,
+  marginDollarDays,
+  grantedDaysSince,
+  sideFlowsSince,
+  isTopTierExcluded,
 } = require('./seasonTiers');
 
 // A season's weekly record is capped. Far longer than any arc, and it stops one
@@ -56,17 +64,16 @@ const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Da
 
 /** Append this week's record, dropping any left over from an earlier season. */
 const appendWeekRecord = (existing, record) => {
-  const kept = (Array.isArray(existing) ? existing : [])
-    .filter((e) => e && e.s === record.s && e.w !== record.w);
+  const kept = (Array.isArray(existing) ? existing : []).filter((e) => e && e.s === record.s && e.w !== record.w);
   return [...kept, record].slice(-SEASON_WEEK_RECORD_CAP);
 };
 
-const latestWeekRecord = (seasonWeeks, seasonId) => (Array.isArray(seasonWeeks) ? seasonWeeks : [])
-  .filter((r) => r && r.s === seasonId)
-  .reduce((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
+const latestWeekRecord = (seasonWeeks, seasonId) =>
+  (Array.isArray(seasonWeeks) ? seasonWeeks : [])
+    .filter((r) => r && r.s === seasonId)
+    .reduce((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
 
-const weeksElapsed = (startedAt) =>
-  Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
+const weeksElapsed = (startedAt) => Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
 
 /**
  * Whether a player belongs on the season standings board.
@@ -82,8 +89,7 @@ const weeksElapsed = (startedAt) =>
  * definition the rest of the app uses.
  */
 const isSeasonParticipant = (userData, season, now = Date.now()) => {
-  const activeWeeks = (userData?.seasonActiveWeeks?.seasonId === season?.id)
-    ? (userData.seasonActiveWeeks.weeks || 0) : 0;
+  const activeWeeks = userData?.seasonActiveWeeks?.seasonId === season?.id ? userData.seasonActiveWeeks.weeks || 0 : 0;
   if (activeWeeks > 0) return true;
   return getLastActiveMs(userData) >= now - ACTIVE_USER_WINDOW_MS;
 };
@@ -96,19 +102,23 @@ const isSeasonParticipant = (userData, season, now = Date.now()) => {
 const boardEntry = (uid, u, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at }) => {
   const score = seasonScore(u, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at });
   if (!score) return null;
-  const summary = weeklyRecordSummary(u.seasonWeeks, {
-    seasonId: season.id,
-    baselineValue: u.seasonBaseline.value,
-    baselineIndex: baselineIndexFor(u.seasonBaseline, season),
-    pinnedAt: u.seasonBaseline.pinnedAt,
-  }, (season.checkpointWeeks || []).length);
+  const summary = weeklyRecordSummary(
+    u.seasonWeeks,
+    {
+      seasonId: season.id,
+      baselineValue: u.seasonBaseline.value,
+      baselineIndex: baselineIndexFor(u.seasonBaseline, season),
+      pinnedAt: u.seasonBaseline.pinnedAt,
+    },
+    (season.checkpointWeeks || []).length,
+  );
   return {
     uid,
     ...score,
     // Set by the pinned baseline, so a good month never moves anyone up a division.
     division: divisionFor(seasonAccountSize(u.seasonBaseline), rulesFor(season)),
-    tier: (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null,
-    activeWeeks: (u.seasonActiveWeeks?.seasonId === season.id) ? (u.seasonActiveWeeks.weeks || 0) : 0,
+    tier: u.seasonTier?.seasonId === season.id ? u.seasonTier.tier : null,
+    activeWeeks: u.seasonActiveWeeks?.seasonId === season.id ? u.seasonActiveWeeks.weeks || 0 : 0,
     beatShare: summary.beatShare,
     peakConcentration: summary.peakConcentration,
     // Never sent to the public board; rankTopTiers reads it.

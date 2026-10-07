@@ -42,8 +42,8 @@ describe('getCosmeticStyles', () => {
 
   it('filters unowned cosmetics when an owned list is provided', () => {
     const r = getCosmeticStyles({ nameColor: 'name_gold', rowBackdrop: 'backdrop_royal' }, ['backdrop_royal']);
-    expect(r.nameColor).toBeUndefined();       // name_gold not owned — stripped
-    expect(r.backdropColor).toBe('#7C3AED');   // backdrop_royal owned — kept
+    expect(r.nameColor).toBeUndefined(); // name_gold not owned — stripped
+    expect(r.backdropColor).toBe('#7C3AED'); // backdrop_royal owned — kept
   });
 
   it('applies everything when no owned list is provided (pre-filtered server payloads)', () => {

@@ -54,7 +54,7 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
       let now = Date.now();
 
       {
-        const histData = histSnap.exists() ? (histSnap.data() || {}) : {};
+        const histData = histSnap.exists() ? histSnap.data() || {} : {};
         let currentHistory = histData[character.ticker] || [];
 
         if (currentHistory.length === 0 && currentPrice) {
@@ -74,15 +74,18 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
 
         // Build market updates with trailing effects
         const marketUpdates = {
-          [`prices.${character.ticker}`]: targetPrice
+          [`prices.${character.ticker}`]: targetPrice,
         };
         const historyUpdates = {
-          [character.ticker]: updatedHistory
+          [character.ticker]: updatedHistory,
         };
 
         // Ripple the adjustment out through the linked stocks.
         const trailingMoves = buildTrailingCascade({
-          ticker: character.ticker, oldPrice: currentPrice, newPrice: targetPrice, prices,
+          ticker: character.ticker,
+          oldPrice: currentPrice,
+          newPrice: targetPrice,
+          prices,
         });
         for (const move of trailingMoves) {
           marketUpdates[`prices.${move.ticker}`] = move.to;
@@ -108,17 +111,17 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
         }
       }
 
-      const changePercent = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
+      const changePercent = (((targetPrice - currentPrice) / currentPrice) * 100).toFixed(1);
       const direction = targetPrice > currentPrice ? '📈' : '📉';
 
-      showMessage('success', `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`);
-
-
+      showMessage(
+        'success',
+        `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${changePercent > 0 ? '+' : ''}${changePercent}%)`,
+      );
 
       // Reset modal
       setPriceAdjustPercent('');
       setSelectedPriceCharacter(null);
-
     } catch (err) {
       console.error('Price adjustment error:', err);
       showMessage('error', 'Failed to adjust price: ' + err.message);
@@ -145,10 +148,20 @@ export function useAdminMarketTools({ setMessage, showMessage, setLoading, price
   };
 
   return {
-    marketHaltStatus, marketHaltReason, haltReasonInput, setHaltReasonInput, updateMarketHalt,
-    showPriceModal, setShowPriceModal: openPriceModal, priceModalSearch, setPriceModalSearch,
+    marketHaltStatus,
+    marketHaltReason,
+    haltReasonInput,
+    setHaltReasonInput,
+    updateMarketHalt,
+    showPriceModal,
+    setShowPriceModal: openPriceModal,
+    priceModalSearch,
+    setPriceModalSearch,
     reviewSoFar,
-    selectedPriceCharacter, setSelectedPriceCharacter,
-    priceAdjustPercent, setPriceAdjustPercent, handleModalPriceAdjustment,
+    selectedPriceCharacter,
+    setSelectedPriceCharacter,
+    priceAdjustPercent,
+    setPriceAdjustPercent,
+    handleModalPriceAdjustment,
   };
 }

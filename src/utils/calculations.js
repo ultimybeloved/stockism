@@ -24,7 +24,7 @@ import {
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MARGIN_MIN_CHECKINS,
   MARGIN_MIN_TRADES,
-  MARGIN_MIN_PEAK_PORTFOLIO
+  MARGIN_MIN_PEAK_PORTFOLIO,
 } from '../constants/economy';
 import { CHARACTER_MAP, splitFactorOf } from '../characters';
 
@@ -54,7 +54,7 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
   return {
     bid: Math.max(MIN_PRICE, midPrice - halfSpread),
     ask: midPrice + halfSpread,
-    spread: halfSpread * 2
+    spread: halfSpread * 2,
   };
 };
 
@@ -78,9 +78,10 @@ export const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
 export const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
 
 export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
-  const rawImpact = currentPrice * BASE_IMPACT * (
-    Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
-  );
+  const rawImpact =
+    currentPrice *
+    BASE_IMPACT *
+    (Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity));
   // Match the backend (calculateMarginalImpact): a single trade moves the price by at
   // most MAX_PRICE_CHANGE_PERCENT, so the preview can't overstate large trades.
   return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
@@ -96,10 +97,16 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
  * number. Mirrors traderMarginalImpact in functions/helpers.js — if you change
  * one, change both, and re-run `npm test` plus `npm run test:trading`.
  */
-export const calculateTraderImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
-  const rawImpact = currentPrice * BASE_IMPACT * (
-    Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity)
-  );
+export const calculateTraderImpactDollars = (
+  currentPrice,
+  shares,
+  liquidity = BASE_LIQUIDITY,
+  cumulativeVolume = 0,
+) => {
+  const rawImpact =
+    currentPrice *
+    BASE_IMPACT *
+    (Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity));
   return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE);
 };
 
@@ -124,7 +131,17 @@ export const calculateTraderImpactDollars = (currentPrice, shares, liquidity = B
  * so leaving it at 0 quoted a second trade at first-trade prices. The trade
  * form and this preview disagreed by exactly that much, one screen apart.
  */
-export const estimateTradeTotal = ({ action, price, amount, isETF, ageFactor = 1, shortPosition, exitDiscount = 0, cumulativeVolume = 0, liquidity = BASE_LIQUIDITY }) => {
+export const estimateTradeTotal = ({
+  action,
+  price,
+  amount,
+  isETF,
+  ageFactor = 1,
+  shortPosition,
+  exitDiscount = 0,
+  cumulativeVolume = 0,
+  liquidity = BASE_LIQUIDITY,
+}) => {
   // The preview quotes what the player will actually be charged, so it uses the
   // TRADER impact. calculatePriceImpactDollars stays the market-move number.
   const priceImpact = calculateTraderImpactDollars(price, amount, liquidity, cumulativeVolume) * ageFactor;
@@ -177,9 +194,7 @@ export const getShortMargin = (position) => {
   if (stored > 0) return stored;
   const shares = Number(position?.shares) || 0;
   const entryPrice = Number(position?.costBasis || position?.entryPrice) || 0;
-  const ratio = (position?.system || 'v2') === 'v2'
-    ? SHORT_MARGIN_REQUIREMENT
-    : LEGACY_SHORT_MARGIN_RATIO;
+  const ratio = (position?.system || 'v2') === 'v2' ? SHORT_MARGIN_REQUIREMENT : LEGACY_SHORT_MARGIN_RATIO;
   return entryPrice * shares * ratio;
 };
 
@@ -240,7 +255,7 @@ export const calculatePortfolioValue = (userData, prices) => {
       value = collateral + (entryPrice - currentPrice) * shares;
     } else {
       // Legacy: margin collateral - cost to buy back shares
-      value = collateral - (currentPrice * shares);
+      value = collateral - currentPrice * shares;
     }
     return sum + (isNaN(value) ? 0 : value);
   }, 0);
@@ -270,9 +285,12 @@ export const calculateExitValue = (userData, prices) => {
     if (!pos || !(pos.shares > 0)) return sum;
     const price = prices[ticker] || 0;
     const cover = price + calculatePriceImpactDollars(price, pos.shares, liquidityFor(ticker));
-    return sum + ((pos.system || 'v2') === 'v2'
-      ? (pos.margin || 0) + ((pos.costBasis || 0) - cover) * pos.shares
-      : (pos.margin || 0) - cover * pos.shares);
+    return (
+      sum +
+      ((pos.system || 'v2') === 'v2'
+        ? (pos.margin || 0) + ((pos.costBasis || 0) - cover) * pos.shares
+        : (pos.margin || 0) - cover * pos.shares)
+    );
   }, 0);
   return (userData.cash || 0) + holdingsValue + shortsValue - (userData.marginUsed || 0);
 };
@@ -286,7 +304,7 @@ export const calculateExitValue = (userData, prices) => {
 export const getMarginTierMultiplier = (peakPortfolioValue) => {
   const peak = peakPortfolioValue || 0;
   if (peak >= 30000) return 0.75;
-  if (peak >= 15000) return 0.50;
+  if (peak >= 15000) return 0.5;
   if (peak >= 7500) return 0.35;
   return 0.25;
 };
@@ -311,7 +329,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
       portfolioValue: 0,
       totalMaintenanceRequired: 0,
       equityRatio: 1,
-      status: 'disabled'
+      status: 'disabled',
     };
   }
 
@@ -378,7 +396,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
     totalMaintenanceRequired: Math.round(totalMaintenanceRequired * 100) / 100,
     equityRatio: Math.round(equityRatio * 1000) / 1000,
     status,
-    marginCallAt: userData.marginCallAt || null
+    marginCallAt: userData.marginCallAt || null,
   };
 };
 
@@ -399,7 +417,7 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
   const labels = [
     `${MARGIN_MIN_CHECKINS}+ daily check-ins`,
     `${MARGIN_MIN_TRADES}+ total trades`,
-    `$${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()}+ peak portfolio`
+    `$${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()}+ peak portfolio`,
   ];
   const thresholds = [MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO];
 
@@ -407,8 +425,11 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
     return {
       eligible: true,
       requirements: labels.map((label, i) => ({
-        met: true, label, current: '∞', required: thresholds[i]
-      }))
+        met: true,
+        label,
+        current: '∞',
+        required: thresholds[i],
+      })),
     };
   }
 
@@ -418,12 +439,15 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
 
   const currents = [totalCheckins, totalTrades, peakPortfolio];
   const requirements = labels.map((label, i) => ({
-    met: currents[i] >= thresholds[i], label, current: currents[i], required: thresholds[i]
+    met: currents[i] >= thresholds[i],
+    label,
+    current: currents[i],
+    required: thresholds[i],
   }));
 
   return {
-    eligible: requirements.every(r => r.met),
-    requirements
+    eligible: requirements.every((r) => r.met),
+    requirements,
   };
 };
 
@@ -433,11 +457,10 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
  */
 export const getTotalInvested = (holdings = {}, costBasis = {}, shorts = {}) => {
   const holdingsValue = Object.entries(holdings || {}).reduce(
-    (sum, [ticker, shares]) => sum + ((costBasis?.[ticker] || 0) * (shares || 0)), 0
+    (sum, [ticker, shares]) => sum + (costBasis?.[ticker] || 0) * (shares || 0),
+    0,
   );
-  const shortMargin = Object.values(shorts || {}).reduce(
-    (sum, s) => sum + (s && s.shares > 0 ? (s.margin || 0) : 0), 0
-  );
+  const shortMargin = Object.values(shorts || {}).reduce((sum, s) => sum + (s && s.shares > 0 ? s.margin || 0 : 0), 0);
   return holdingsValue + shortMargin;
 };
 
@@ -512,11 +535,16 @@ export const maxAffordableShares = (q, b, idx, budget) => {
  */
 export const getAccountAgeImpactFactor = (userData) => {
   if (!userData?.createdAt) return 1;
-  const createdMs = typeof userData.createdAt?.toMillis === 'function'
-    ? userData.createdAt.toMillis()
-    : typeof userData.createdAt === 'number' ? userData.createdAt : Date.parse(userData.createdAt);
+  const createdMs =
+    typeof userData.createdAt?.toMillis === 'function'
+      ? userData.createdAt.toMillis()
+      : typeof userData.createdAt === 'number'
+        ? userData.createdAt
+        : Date.parse(userData.createdAt);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
-  return NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS);
+  return (
+    NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS)
+  );
 };

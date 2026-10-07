@@ -74,7 +74,8 @@ async function runCoordScan({ dryRun = false } = {}) {
   // this scan would have stopped seeing recent activity entirely, which is the
   // only activity it exists to find. Newest-first means the cap costs us the
   // far end of the window instead of the near one.
-  const snap = await db.collection('trades')
+  const snap = await db
+    .collection('trades')
     .where('timestamp', '>', cutoff)
     .orderBy('timestamp', 'desc')
     .select('uid', 'ticker', 'action', 'priceImpact', 'source', 'timestamp')
@@ -85,8 +86,12 @@ async function runCoordScan({ dryRun = false } = {}) {
   snap.forEach((doc) => {
     const t = doc.data();
     rows.push({
-      uid: t.uid, ticker: t.ticker, action: t.action,
-      priceImpact: t.priceImpact, source: t.source, ts: toMs(t.timestamp),
+      uid: t.uid,
+      ticker: t.ticker,
+      action: t.action,
+      priceImpact: t.priceImpact,
+      source: t.source,
+      ts: toMs(t.timestamp),
     });
   });
 
@@ -95,15 +100,19 @@ async function runCoordScan({ dryRun = false } = {}) {
   // Resolve names only for what survived, so a quiet scan costs no user reads.
   const uids = [...new Set(candidates.flatMap((c) => c.uids))];
   const names = {};
-  await Promise.all(uids.map(async (uid) => {
-    try {
-      const d = await db.collection('users').doc(uid).get();
-      names[uid] = d.exists ? (d.data().displayName || uid.slice(0, 6)) : uid.slice(0, 6);
-    } catch {
-      names[uid] = uid.slice(0, 6);
-    }
-  }));
-  candidates.forEach((c) => { c.names = c.uids.map((u) => names[u]); });
+  await Promise.all(
+    uids.map(async (uid) => {
+      try {
+        const d = await db.collection('users').doc(uid).get();
+        names[uid] = d.exists ? d.data().displayName || uid.slice(0, 6) : uid.slice(0, 6);
+      } catch {
+        names[uid] = uid.slice(0, 6);
+      }
+    }),
+  );
+  candidates.forEach((c) => {
+    c.names = c.uids.map((u) => names[u]);
+  });
 
   // Don't re-alert a cluster already reported. Keyed by ticker+day+direction,
   // which is stable: a later trade on the same day raises the combined number
@@ -122,9 +131,10 @@ async function runCoordScan({ dryRun = false } = {}) {
   const pricesSnap = await db.collection('market').doc('current').get();
   await markAllIn(fresh, pricesSnap.exists ? pricesSnap.data().prices : {});
   const nameOf = (uid) => names[uid] || uid.slice(0, 6);
-  const allInText = (c) => (c.allIn?.length
-    ? ` · all in on borrowed money: ${c.allIn.map((a) => `${nameOf(a.uid)} (${Math.round(a.share * 100)}% of holdings, ${Math.round(a.borrowed * 100)}% borrowed)`).join(', ')}`
-    : '');
+  const allInText = (c) =>
+    c.allIn?.length
+      ? ` · all in on borrowed money: ${c.allIn.map((a) => `${nameOf(a.uid)} (${Math.round(a.share * 100)}% of holdings, ${Math.round(a.borrowed * 100)}% borrowed)`).join(', ')}`
+      : '';
 
   // Keep only keys still inside the window, so this doc cannot grow forever.
   const keepAfter = dayIdOf(now - (COORD_SCAN_WINDOW_DAYS + 2) * DAY_MS);
@@ -134,12 +144,15 @@ async function runCoordScan({ dryRun = false } = {}) {
   }
   for (const c of fresh) nextSeen[`${c.ticker}|${c.day}|${c.direction}`] = now;
 
-  await STATE_REF().set({
-    seen: nextSeen,
-    lastScanAt: now,
-    lastScanTrades: snap.size,
-    lastScanCandidates: candidates.length,
-  }, { merge: true });
+  await STATE_REF().set(
+    {
+      seen: nextSeen,
+      lastScanAt: now,
+      lastScanTrades: snap.size,
+      lastScanCandidates: candidates.length,
+    },
+    { merge: true },
+  );
 
   // One alert per cluster, into the same queue the alt alerts use, so the admin
   // Watchlist tab and its badge pick these up with no new UI.
@@ -153,10 +166,11 @@ async function runCoordScan({ dryRun = false } = {}) {
       relatedUID: c.uids[1] || null,
       action: 'flagged',
       reviewed: false,
-      details: `${c.uids.length} accounts pushed $${c.ticker} ${arrow} ${pct(c.combined)} combined on ${c.day}`
-        + `${c.tight ? `, all starting within ${Math.round(c.spreadMs / 60000)} min of each other` : ''}`
-        + ` — ${c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')}`
-        + allInText(c),
+      details:
+        `${c.uids.length} accounts pushed $${c.ticker} ${arrow} ${pct(c.combined)} combined on ${c.day}` +
+        `${c.tight ? `, all starting within ${Math.round(c.spreadMs / 60000)} min of each other` : ''}` +
+        ` — ${c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')}` +
+        allInText(c),
       ticker: c.ticker,
       day: c.day,
       direction: c.direction,
@@ -187,22 +201,32 @@ async function runCoordScan({ dryRun = false } = {}) {
       await sendDiscordDM(
         ADMIN_DISCORD_USER_ID,
         `📊 **Coordinated pressure** (private — nobody else can see this)\n` +
-        high.slice(0, 5).map((c) =>
-          `• **$${c.ticker}** ${c.direction} ${pct(c.combined)}, starting ${discordTime(c.startedAt, 'f')} — `
-          + c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')
-          + `${c.tight ? ` _(all within ${Math.round(c.spreadMs / 60000)} min)_` : ''}`
-          + allInText(c)
-          + `${c.direction === 'down' && c.tight ? ' — **buy-back and shorting blocked 48h for all of them**' : ''}`
-        ).join('\n') +
-        (high.length > 5 ? `\n...and ${high.length - 5} more` : '') +
-        `\nAdmin panel → Market → Season to review. A cluster is a lead: check the trades before acting.`
+          high
+            .slice(0, 5)
+            .map(
+              (c) =>
+                `• **$${c.ticker}** ${c.direction} ${pct(c.combined)}, starting ${discordTime(c.startedAt, 'f')} — ` +
+                c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ') +
+                `${c.tight ? ` _(all within ${Math.round(c.spreadMs / 60000)} min)_` : ''}` +
+                allInText(c) +
+                `${c.direction === 'down' && c.tight ? ' — **buy-back and shorting blocked 48h for all of them**' : ''}`,
+            )
+            .join('\n') +
+          (high.length > 5 ? `\n...and ${high.length - 5} more` : '') +
+          `\nAdmin panel → Market → Season to review. A cluster is a lead: check the trades before acting.`,
       );
     } catch (err) {
       reportError(err, { where: 'runCoordScan.discordDM' });
     }
   }
 
-  return { scanned: snap.size, candidates: candidates.length, reported: fresh.length, findings: fresh, blocked: blocked.length };
+  return {
+    scanned: snap.size,
+    candidates: candidates.length,
+    reported: fresh.length,
+    findings: fresh,
+    blocked: blocked.length,
+  };
 }
 
 /**
@@ -210,13 +234,15 @@ async function runCoordScan({ dryRun = false } = {}) {
  * reported the morning after it was over. Kept off the top of the hour, away
  * from the 04:00 alt scan and the hourly jobs that run on :00.
  */
-exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' }).pubsub
-  .schedule('35 * * * *')
+exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' })
+  .pubsub.schedule('35 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     try {
       const result = await runCoordScan();
-      console.log(`Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new, ${result.blocked} newly blocked`);
+      console.log(
+        `Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new, ${result.blocked} newly blocked`,
+      );
       await recordHeartbeat('scanForCoordination');
       return result;
     } catch (err) {

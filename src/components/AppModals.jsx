@@ -14,16 +14,16 @@ import TradeConfirmModal from './modals/TradeConfirmModal';
 import BetConfirmModal from './modals/BetConfirmModal';
 import BailoutModal from './modals/BailoutModal';
 
-const AdminPanel         = lazy(() => import('../AdminPanel'));
-const AboutModal         = lazy(() => import('./modals/AboutModal'));
+const AdminPanel = lazy(() => import('../AdminPanel'));
+const AboutModal = lazy(() => import('./modals/AboutModal'));
 const CrewSelectionModal = lazy(() => import('./modals/CrewSelectionModal'));
-const PinShopModal       = lazy(() => import('./modals/PinShopModal'));
+const PinShopModal = lazy(() => import('./modals/PinShopModal'));
 const DailyMissionsModal = lazy(() => import('./modals/DailyMissionsModal'));
-const MarginModal        = lazy(() => import('./modals/MarginModal'));
+const MarginModal = lazy(() => import('./modals/MarginModal'));
 const MarginTutorialModal = lazy(() => import('./modals/MarginTutorialModal'));
-const ChartModal         = lazy(() => import('./modals/ChartModal'));
-const PortfolioModal     = lazy(() => import('./modals/PortfolioModal'));
-const TradeHistoryModal  = lazy(() => import('./modals/TradeHistoryModal'));
+const ChartModal = lazy(() => import('./modals/ChartModal'));
+const PortfolioModal = lazy(() => import('./modals/PortfolioModal'));
+const TradeHistoryModal = lazy(() => import('./modals/TradeHistoryModal'));
 
 // The whole modal stack, lifted out of App.jsx to hold it under the 500-line
 // limit. App.jsx still owns the modal STATE (useModalManager) and the handlers;
@@ -117,10 +117,7 @@ const AppModals = ({
       )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {showLending && !isGuest && !userData?.marginTutorialCompleted && (
-        <MarginTutorialModal
-          onClose={() => setShowLending(false)}
-          onComplete={handleMarginTutorialComplete}
-        />
+        <MarginTutorialModal onClose={() => setShowLending(false)} onComplete={handleMarginTutorialComplete} />
       )}
       {showLending && !isGuest && userData?.marginTutorialCompleted && (
         <MarginModal
@@ -144,91 +141,87 @@ const AppModals = ({
       )}
       {showCrewSelection && (
         <CrewSelectionModal
-      onClose={() => setShowCrewSelection(false)}
-      onSelect={handleCrewSelect}
-      onLeave={handleCrewLeave}
-      isGuest={isGuest}
-      leaveLoading={actionLoading.leaveCrew}
-      selectLoading={actionLoading.selectCrew}
+          onClose={() => setShowCrewSelection(false)}
+          onSelect={handleCrewSelect}
+          onLeave={handleCrewLeave}
+          isGuest={isGuest}
+          leaveLoading={actionLoading.leaveCrew}
+          selectLoading={actionLoading.selectCrew}
         />
       )}
       {showPinShop && !isGuest && (
         <PinShopModal
-      onClose={() => setShowPinShop(false)}
-      onPurchase={handlePinAction}
-      onPurchaseCosmetic={handlePurchaseCosmetic}
-      onEquipCosmetic={handleEquipCosmetic}
-      portfolioValue={portfolioValue}
-      purchaseLoading={actionLoading.pinAction}
+          onClose={() => setShowPinShop(false)}
+          onPurchase={handlePinAction}
+          onPurchaseCosmetic={handlePurchaseCosmetic}
+          onEquipCosmetic={handleEquipCosmetic}
+          portfolioValue={portfolioValue}
+          purchaseLoading={actionLoading.pinAction}
         />
       )}
       {showDailyMissions && (
         <DailyMissionsModal
-      onClose={() => setShowDailyMissions(false)}
-      onClaimReward={handleClaimMissionReward}
-      onClaimWeeklyReward={handleClaimWeeklyMissionReward}
-      onOpenCrewSelection={() => setShowCrewSelection(true)}
-      portfolioValue={portfolioValue}
-      isGuest={isGuest}
-      claimLoading={actionLoading.claimMission}
-      claimWeeklyLoading={actionLoading.claimWeeklyMission}
-      onRerollMissions={handleRerollMissions}
-      rerollLoading={actionLoading.rerollMissions}
+          onClose={() => setShowDailyMissions(false)}
+          onClaimReward={handleClaimMissionReward}
+          onClaimWeeklyReward={handleClaimWeeklyMissionReward}
+          onOpenCrewSelection={() => setShowCrewSelection(true)}
+          portfolioValue={portfolioValue}
+          isGuest={isGuest}
+          claimLoading={actionLoading.claimMission}
+          claimWeeklyLoading={actionLoading.claimWeeklyMission}
+          onRerollMissions={handleRerollMissions}
+          rerollLoading={actionLoading.rerollMissions}
         />
       )}
       {showBailout && !isGuest && userData?.isBankrupt && (
         <BailoutModal
-      onCancel={() => setShowBailout(false)}
-      onConfirm={async () => {
-        await handleBailout();
-        setShowBailout(false);
-      }}
-      loading={actionLoading.bailout}
+          onCancel={() => setShowBailout(false)}
+          onConfirm={async () => {
+            await handleBailout();
+            setShowBailout(false);
+          }}
+          loading={actionLoading.bailout}
         />
       )}
       {showAdmin && (
         <AdminPanel
-      user={user}
-      predictions={predictions}
-      prices={prices}
-      darkMode={darkMode}
-      marketData={marketData}
-      onClose={() => setShowAdmin(false)}
+          user={user}
+          predictions={predictions}
+          prices={prices}
+          darkMode={darkMode}
+          marketData={marketData}
+          onClose={() => setShowAdmin(false)}
         />
       )}
 
       {/* Notification Panel */}
       {showNotificationPanel && user && (
         <NotificationPanel
-      darkMode={darkMode}
-      notifications={userNotifications}
-      onClose={() => setShowNotificationPanel(false)}
-      onMarkRead={handleMarkNotificationRead}
-      onMarkAllRead={handleMarkAllNotificationsRead}
-      onClearAll={handleClearAllNotifications}
-      onDelete={handleDeleteNotification}
+          darkMode={darkMode}
+          notifications={userNotifications}
+          onClose={() => setShowNotificationPanel(false)}
+          onMarkRead={handleMarkNotificationRead}
+          onMarkAllRead={handleMarkAllNotificationsRead}
+          onClearAll={handleClearAllNotifications}
+          onDelete={handleDeleteNotification}
         />
       )}
 
       {/* Onboarding Tutorial */}
-      {user && userData && !userData.onboardingComplete && (
-        <OnboardingTutorial
-      onComplete={handleOnboardingComplete}
-        />
-      )}
+      {user && userData && !userData.onboardingComplete && <OnboardingTutorial onComplete={handleOnboardingComplete} />}
 
       {/* Price Alert Modal */}
       {showPriceAlertModal && (
         <PriceAlertModal
-      ticker={showPriceAlertModal}
-      currentPrice={prices[showPriceAlertModal] || 0}
-      characterName={CHARACTER_MAP[showPriceAlertModal]?.name || showPriceAlertModal}
-      darkMode={darkMode}
-      onClose={() => setShowPriceAlertModal(null)}
-      user={user}
-      existingAlerts={priceAlerts.filter(a => a.ticker === showPriceAlertModal)}
-      onCreateAlert={handleCreatePriceAlert}
-      onDeleteAlert={handleDeletePriceAlert}
+          ticker={showPriceAlertModal}
+          currentPrice={prices[showPriceAlertModal] || 0}
+          characterName={CHARACTER_MAP[showPriceAlertModal]?.name || showPriceAlertModal}
+          darkMode={darkMode}
+          onClose={() => setShowPriceAlertModal(null)}
+          user={user}
+          existingAlerts={priceAlerts.filter((a) => a.ticker === showPriceAlertModal)}
+          onCreateAlert={handleCreatePriceAlert}
+          onDeleteAlert={handleDeletePriceAlert}
         />
       )}
 
@@ -236,63 +229,61 @@ const AppModals = ({
       <InstallPrompt darkMode={darkMode} />
 
       {/* Toast Notifications */}
-      <ToastContainer
-        notifications={notifications}
-        onDismiss={dismissNotification}
-        darkMode={darkMode}
-      />
+      <ToastContainer notifications={notifications} onDismiss={dismissNotification} darkMode={darkMode} />
 
       {showPortfolio && !isGuest && (
         <PortfolioModal
-      currentValue={portfolioValue}
-      onClose={() => setShowPortfolio(false)}
-      onTrade={requestTrade}
-      onLimitSell={handleLimitOrderRequest}
-      onOpenTradeHistory={() => { setShowPortfolio(false); setShowTradeHistory(true); }}
-      ipoPurchases={userData?.ipoPurchases || {}}
-      holdingCohorts={activeUserData.holdingCohorts || {}}
-      dividendTierOverrides={dividendTierOverrides}
-      drip={userData?.drip || {}}
-      onToggleDrip={handleToggleDrip}
+          currentValue={portfolioValue}
+          onClose={() => setShowPortfolio(false)}
+          onTrade={requestTrade}
+          onLimitSell={handleLimitOrderRequest}
+          onOpenTradeHistory={() => {
+            setShowPortfolio(false);
+            setShowTradeHistory(true);
+          }}
+          ipoPurchases={userData?.ipoPurchases || {}}
+          holdingCohorts={activeUserData.holdingCohorts || {}}
+          dividendTierOverrides={dividendTierOverrides}
+          drip={userData?.drip || {}}
+          onToggleDrip={handleToggleDrip}
         />
       )}
-      {showTradeHistory && !isGuest && (
-        <TradeHistoryModal
-      onClose={() => setShowTradeHistory(false)}
-        />
-      )}
+      {showTradeHistory && !isGuest && <TradeHistoryModal onClose={() => setShowTradeHistory(false)} />}
       {selectedCharacter && (
         <ChartModal
-      character={selectedCharacter.character || selectedCharacter}
-      currentPrice={prices[(selectedCharacter.character || selectedCharacter).ticker] || (selectedCharacter.character || selectedCharacter).basePrice}
-      onClose={() => setSelectedCharacter(null)}
-      defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
+          character={selectedCharacter.character || selectedCharacter}
+          currentPrice={
+            prices[(selectedCharacter.character || selectedCharacter).ticker] ||
+            (selectedCharacter.character || selectedCharacter).basePrice
+          }
+          onClose={() => setSelectedCharacter(null)}
+          defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
         />
       )}
 
       {/* Trade Confirmation Modal */}
       {tradeConfirmation && (
         <TradeConfirmModal
-      confirmation={tradeConfirmation}
-      onCancel={() => setTradeConfirmation(null)}
-      onConfirm={async () => {
-        await handleTrade(tradeConfirmation.ticker, tradeConfirmation.action, tradeConfirmation.amount);
-        setTradeConfirmation(null);
-      }}
-      loading={actionLoading.trade}
+          confirmation={tradeConfirmation}
+          onCancel={() => setTradeConfirmation(null)}
+          onConfirm={async () => {
+            await handleTrade(tradeConfirmation.ticker, tradeConfirmation.action, tradeConfirmation.amount);
+            setTradeConfirmation(null);
+          }}
+          loading={actionLoading.trade}
         />
       )}
 
       {/* Bet Confirmation Modal */}
       {betConfirmation && (
         <BetConfirmModal
-      confirmation={betConfirmation}
-      onCancel={() => setBetConfirmation(null)}
-      onConfirm={async () => {
-        await handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
-        setBetConfirmation(null);
-      }}
-      loading={actionLoading.placeBet}
+          confirmation={betConfirmation}
+          onCancel={() => setBetConfirmation(null)}
+          onConfirm={async () => {
+            await handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
+            setBetConfirmation(null);
+          }}
+          loading={actionLoading.placeBet}
         />
       )}
     </>

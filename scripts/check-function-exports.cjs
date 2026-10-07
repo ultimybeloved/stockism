@@ -39,8 +39,7 @@ problems += require('./check-env.cjs').checkEnv();
 
 // A real Cloud Function carries __trigger/__endpoint from the firebase-functions
 // builder. Anything else in index.js is a leaked helper or constant.
-const isCloudFunction = (v) =>
-  typeof v === 'function' && v.__trigger !== undefined && v.__endpoint !== undefined;
+const isCloudFunction = (v) => typeof v === 'function' && v.__trigger !== undefined && v.__endpoint !== undefined;
 
 const exports_ = require(path.join(FUNCTIONS_DIR, 'index.js'));
 const leaked = Object.keys(exports_).filter((k) => !isCloudFunction(exports_[k]));
@@ -61,13 +60,13 @@ if (leaked.length > 0) {
 // other way would not be found. That is fail-open (it falls back to loading
 // everything, costing startup time but never breaking), but it silently loses
 // the cold-start win — so flag it here instead of letting it rot.
-const scanFinds = (name) => fs.readdirSync(SERVICES_DIR)
-  .filter((f) => f.endsWith('.js'))
-  .some((f) => new RegExp(`^exports\\.${name}\\s*=`, 'm')
-    .test(fs.readFileSync(path.join(SERVICES_DIR, f), 'utf8')));
+const scanFinds = (name) =>
+  fs
+    .readdirSync(SERVICES_DIR)
+    .filter((f) => f.endsWith('.js'))
+    .some((f) => new RegExp(`^exports\\.${name}\\s*=`, 'm').test(fs.readFileSync(path.join(SERVICES_DIR, f), 'utf8')));
 
-const unscannable = Object.keys(exports_)
-  .filter((name) => name !== 'botTrader' && !scanFinds(name));
+const unscannable = Object.keys(exports_).filter((name) => name !== 'botTrader' && !scanFinds(name));
 
 if (unscannable.length > 0) {
   problems += unscannable.length;
@@ -89,12 +88,13 @@ let constantsProblems = 0;
 // Comments routinely mention constants by name to explain behaviour ("the slot
 // frees up after DISCORD_RELINK_COOLDOWN_MS"). Scanning raw source flags those
 // as missing imports, so strip comments and strings before looking for real use.
-const stripNonCode = (src) => src
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/\/\/[^\n]*/g, '')
-  .replace(/`(?:\\.|[^`\\])*`/g, '``')
-  .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
-  .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
+const stripNonCode = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
 
 // services/ plus the shared modules at the functions root. helpers.js was NOT
 // scanned here until 2026-09-23, so a constant used in it but never imported
@@ -102,34 +102,35 @@ const stripNonCode = (src) => src
 // writeFeedEntry that path is inside a try/catch, so feed entries would have
 // stopped appearing with nothing logged anywhere.
 const CONSTANTS_SCAN = [
-  ...fs.readdirSync(SERVICES_DIR).filter((f) => f.endsWith('.js'))
+  ...fs
+    .readdirSync(SERVICES_DIR)
+    .filter((f) => f.endsWith('.js'))
     .map((f) => [SERVICES_DIR, f, `services/${f}`]),
-  ...fs.readdirSync(FUNCTIONS_DIR).filter((f) => f.endsWith('.js')
-    && !['constants.js', 'index.js'].includes(f) && !f.includes('.test.'))
+  ...fs
+    .readdirSync(FUNCTIONS_DIR)
+    .filter((f) => f.endsWith('.js') && !['constants.js', 'index.js'].includes(f) && !f.includes('.test.'))
     .map((f) => [FUNCTIONS_DIR, f, f]),
 ];
 
-CONSTANTS_SCAN
-  .forEach(([dir, file, label]) => {
-    const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-    const source = stripNonCode(raw);
-    // Collect EVERY destructured require, not just the one from '../constants'.
-    // Several names constants.js re-exports actually originate elsewhere (CREWS
-    // and the crew mission values come from crews.js), so a file importing one
-    // from its real source is correct and must not be reported as missing.
-    const imported = [...raw.matchAll(/\{([^}]+)\}\s*=\s*require\(/g)]
-      .map((m) => m[1])
-      .join(',');
-    const missing = constantNames.filter((name) =>
-      !imported.includes(name)
-      && new RegExp(`\\b${name}\\b`).test(source)
-      && !new RegExp(`const ${name}\\b`).test(source)
-    );
-    if (missing.length > 0) {
-      constantsProblems += missing.length;
-      console.log(`${label}: missing constants import — ${missing.join(', ')}`);
-    }
-  });
+CONSTANTS_SCAN.forEach(([dir, file, label]) => {
+  const raw = fs.readFileSync(path.join(dir, file), 'utf8');
+  const source = stripNonCode(raw);
+  // Collect EVERY destructured require, not just the one from '../constants'.
+  // Several names constants.js re-exports actually originate elsewhere (CREWS
+  // and the crew mission values come from crews.js), so a file importing one
+  // from its real source is correct and must not be reported as missing.
+  const imported = [...raw.matchAll(/\{([^}]+)\}\s*=\s*require\(/g)].map((m) => m[1]).join(',');
+  const missing = constantNames.filter(
+    (name) =>
+      !imported.includes(name) &&
+      new RegExp(`\\b${name}\\b`).test(source) &&
+      !new RegExp(`const ${name}\\b`).test(source),
+  );
+  if (missing.length > 0) {
+    constantsProblems += missing.length;
+    console.log(`${label}: missing constants import — ${missing.join(', ')}`);
+  }
+});
 
 if (constantsProblems === 0) console.log('Constants imports: OK');
 problems += constantsProblems;
@@ -151,7 +152,8 @@ const scanHelperImports = (dir, label) => {
     if (file === 'helpers.js') continue;
     const raw = fs.readFileSync(path.join(dir, file), 'utf8');
     for (const m of raw.matchAll(/const\s*\{([^}]+)\}\s*=\s*require\((['"])[^'"]*helpers\2\)/g)) {
-      const missing = m[1].split(',')
+      const missing = m[1]
+        .split(',')
         .map((s) => s.split(':')[0].trim())
         .filter((n) => n && !helperExports.has(n));
       if (missing.length) {

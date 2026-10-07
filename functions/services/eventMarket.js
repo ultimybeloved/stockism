@@ -49,7 +49,7 @@ const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
  * Buy event shares of one outcome at the current AMM price.
  */
 exports.buyEventShares = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -102,9 +102,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     if (oi === -1) throw new functions.https.HttpsError('invalid-argument', 'Unknown outcome.');
 
     const b = market.b || EVENT_AMM_LIQUIDITY;
-    const q = (Array.isArray(market.q) && market.q.length === outcomes.length)
-      ? market.q.slice()
-      : outcomes.map(() => 0);
+    const q = Array.isArray(market.q) && market.q.length === outcomes.length ? market.q.slice() : outcomes.map(() => 0);
 
     const cost = ceilCent(lmsrBuyCost(q, b, oi, qty));
     if (cost < EVENT_MIN_BUYIN) {
@@ -124,12 +122,15 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     }
     const activeEventCost = Object.values(userData.eventPositions || {}).reduce(
       // Max(0, …) guards any pre-clamp negative basis from older sells.
-      (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0), 0
+      (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
+      0,
     );
     if (activeEventCost + cost > totalInvested) {
       const room = Math.max(0, round2(totalInvested - activeEventCost));
-      throw new functions.https.HttpsError('failed-precondition',
-        `Long-term markets are capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`);
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Long-term markets are capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
+      );
     }
 
     q[oi] = Math.round((q[oi] + qty) * 100) / 100;
@@ -159,7 +160,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
  * Sell event shares of one outcome back to the AMM at the current price.
  */
 exports.sellEventShares = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -215,9 +216,7 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     }
 
     const b = market.b || EVENT_AMM_LIQUIDITY;
-    const q = (Array.isArray(market.q) && market.q.length === outcomes.length)
-      ? market.q.slice()
-      : outcomes.map(() => 0);
+    const q = Array.isArray(market.q) && market.q.length === outcomes.length ? market.q.slice() : outcomes.map(() => 0);
 
     const refund = floorCent(lmsrSellRefund(q, b, oi, qty));
     q[oi] = Math.max(0, Math.round((q[oi] - qty) * 100) / 100);
@@ -331,9 +330,7 @@ async function settleResolvedEventMarkets() {
     // unless the market was created with admin-set opening odds.
     const b = market.b || EVENT_AMM_LIQUIDITY;
     const q = Array.isArray(market.q) ? market.q : [];
-    const seedQ = (Array.isArray(market.seedQ) && market.seedQ.length === q.length)
-      ? market.seedQ
-      : q.map(() => 0);
+    const seedQ = Array.isArray(market.seedQ) && market.seedQ.length === q.length ? market.seedQ : q.map(() => 0);
     const collected = q.length ? round2(lmsrCost(q, b) - lmsrCost(seedQ, b)) : 0;
     const houseCost = round2(totalPaid - collected);
 
@@ -353,8 +350,8 @@ async function settleResolvedEventMarkets() {
   return { settled: marketsSettled };
 }
 
-exports.processEventSettlements = cf().pubsub
-  .schedule('every 30 minutes')
+exports.processEventSettlements = cf()
+  .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
     try {
@@ -371,7 +368,7 @@ exports.processEventSettlements = cf().pubsub
  * Admin: settle resolved markets immediately instead of waiting for the cron.
  */
 exports.triggerEventSettlements = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }
@@ -386,7 +383,7 @@ exports.triggerEventSettlements = cf().https.onCall(async (data, context) => {
  * it). Safe to retry: positions already marked settled are skipped.
  */
 exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }

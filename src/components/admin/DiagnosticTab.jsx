@@ -1,4 +1,3 @@
-
 import DropAuditPanel from './diagnostic/DropAuditPanel';
 
 const DiagnosticTab = ({
@@ -33,8 +32,7 @@ const DiagnosticTab = ({
   handleRecoveryExecute,
 }) => {
   return (
-    <div className="space-y-4 overflow-x-hidden" onClick={e => e.stopPropagation()}>
-
+    <div className="space-y-4 overflow-x-hidden" onClick={(e) => e.stopPropagation()}>
       <DropAuditPanel
         darkMode={darkMode}
         textClass={textClass}
@@ -48,7 +46,9 @@ const DiagnosticTab = ({
       />
 
       {/* Controls */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+      <div
+        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+      >
         <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
         <div className="flex gap-2 items-end flex-wrap">
           <div>
@@ -56,7 +56,7 @@ const DiagnosticTab = ({
             <input
               type="text"
               value={diagTicker}
-              onChange={e => setDiagTicker(e.target.value.toUpperCase())}
+              onChange={(e) => setDiagTicker(e.target.value.toUpperCase())}
               className={`w-24 px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
             />
           </div>
@@ -65,7 +65,7 @@ const DiagnosticTab = ({
             <input
               type="date"
               value={diagStartDate}
-              onChange={e => setDiagStartDate(e.target.value)}
+              onChange={(e) => setDiagStartDate(e.target.value)}
               className={`px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
             />
           </div>
@@ -86,13 +86,29 @@ const DiagnosticTab = ({
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Price Then', value: `$${diagResult.summary.priceAtStart.toFixed(2)}`, color: 'text-blue-400' },
-              { label: 'Price Now', value: `$${diagResult.summary.currentPrice.toFixed(2)}`, color: diagResult.summary.priceInflation > 0 ? 'text-red-400' : 'text-green-400', sub: `${diagResult.summary.priceInflation > 0 ? '+' : ''}${diagResult.summary.priceInflation}%` },
+              {
+                label: 'Price Now',
+                value: `$${diagResult.summary.currentPrice.toFixed(2)}`,
+                color: diagResult.summary.priceInflation > 0 ? 'text-red-400' : 'text-green-400',
+                sub: `${diagResult.summary.priceInflation > 0 ? '+' : ''}${diagResult.summary.priceInflation}%`,
+              },
               { label: 'Total Users', value: diagResult.summary.totalUsers, color: 'text-purple-400' },
               { label: 'Total Trades', value: diagResult.summary.totalTrades, color: 'text-yellow-400' },
-              { label: 'Cash Out (sells)', value: `$${diagResult.summary.totalCashOut.toFixed(2)}`, color: 'text-red-400' },
-              { label: 'Into Other Stocks', value: `$${diagResult.summary.cashIntoOtherStocks.toFixed(2)}`, color: 'text-orange-400' },
+              {
+                label: 'Cash Out (sells)',
+                value: `$${diagResult.summary.totalCashOut.toFixed(2)}`,
+                color: 'text-red-400',
+              },
+              {
+                label: 'Into Other Stocks',
+                value: `$${diagResult.summary.cashIntoOtherStocks.toFixed(2)}`,
+                color: 'text-orange-400',
+              },
             ].map((card, i) => (
-              <div key={i} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+              <div
+                key={i}
+                className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+              >
                 <div className={`text-xs ${mutedClass}`}>{card.label}</div>
                 <div className={`text-base font-bold ${card.color}`}>
                   {card.value}
@@ -104,10 +120,14 @@ const DiagnosticTab = ({
 
           {/* Ripple Effects */}
           {diagResult.rippleByTicker && diagResult.rippleByTicker.length > 0 && (
-            <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-              <h4 className={`font-semibold text-sm mb-1 ${textClass}`}>💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went</h4>
+            <div
+              className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+            >
+              <h4 className={`font-semibold text-sm mb-1 ${textClass}`}>
+                💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went
+              </h4>
               <div className="space-y-1 max-h-24 overflow-y-auto">
-                {diagResult.rippleByTicker.map(r => (
+                {diagResult.rippleByTicker.map((r) => (
                   <div key={r.ticker} className="flex justify-between items-center text-xs">
                     <span className={`font-semibold ${textClass}`}>{r.ticker}</span>
                     <span className="text-orange-400 font-semibold">${r.amount.toFixed(2)}</span>
@@ -118,12 +138,14 @@ const DiagnosticTab = ({
           )}
 
           {/* Per-user breakdown */}
-          <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <div className="flex justify-between items-center mb-1">
               <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
               <select
                 value={diagUserSort}
-                onChange={e => setDiagUserSort(e.target.value)}
+                onChange={(e) => setDiagUserSort(e.target.value)}
                 className={`text-xs px-2 py-1 border rounded-sm ${inputClass}`}
               >
                 <option value="net">Sort: Net Cash Flow</option>
@@ -133,36 +155,61 @@ const DiagnosticTab = ({
             </div>
             <div className="space-y-2 max-h-[160px] overflow-y-auto">
               {[...diagResult.users]
-                .filter(u => !u.isBot && u.totalTrades > 0)
+                .filter((u) => !u.isBot && u.totalTrades > 0)
                 .sort((a, b) => {
                   if (diagUserSort === 'bought') return b.cashSpent - a.cashSpent;
                   if (diagUserSort === 'sold') return b.cashReceived - a.cashReceived;
                   return b.netCashFlow - a.netCashFlow;
                 })
-                .map(u => {
+                .map((u) => {
                   const isManipulator = u.netCashFlow > 100;
                   const isProfiteer = u.netCashFlow > 0 && u.netCashFlow <= 100;
                   const ripple = diagResult.userRipples?.[u.uid];
                   return (
-                    <div key={u.uid} className={`p-2.5 rounded-sm ${
-                      isManipulator ? (darkMode ? 'bg-red-900/30 border border-red-800/50' : 'bg-red-50 border border-red-200') :
-                      isProfiteer ? (darkMode ? 'bg-yellow-900/20 border border-yellow-800/50' : 'bg-yellow-50 border border-yellow-200') :
-                      (darkMode ? 'bg-slate-700/50' : 'bg-slate-50')
-                    }`}>
+                    <div
+                      key={u.uid}
+                      className={`p-2.5 rounded-sm ${
+                        isManipulator
+                          ? darkMode
+                            ? 'bg-red-900/30 border border-red-800/50'
+                            : 'bg-red-50 border border-red-200'
+                          : isProfiteer
+                            ? darkMode
+                              ? 'bg-yellow-900/20 border border-yellow-800/50'
+                              : 'bg-yellow-50 border border-yellow-200'
+                            : darkMode
+                              ? 'bg-slate-700/50'
+                              : 'bg-slate-50'
+                      }`}
+                    >
                       <div className="flex items-center justify-between">
                         <span className={`font-semibold text-sm ${textClass}`}>
                           {u.displayName}
                           {isManipulator && <span className="ml-1.5 text-xs text-red-400">⚠️ Big Profiteer</span>}
                         </span>
-                        <span className={`font-bold text-sm ${u.netCashFlow > 0 ? 'text-green-400' : u.netCashFlow < 0 ? 'text-red-400' : mutedClass}`}>
+                        <span
+                          className={`font-bold text-sm ${u.netCashFlow > 0 ? 'text-green-400' : u.netCashFlow < 0 ? 'text-red-400' : mutedClass}`}
+                        >
                           {u.netCashFlow >= 0 ? '+' : ''}${u.netCashFlow.toFixed(2)}
                         </span>
                       </div>
                       <div className={`text-xs mt-1 ${mutedClass} grid grid-cols-1 sm:grid-cols-2 gap-x-4`}>
-                        <span>Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})</span>
-                        <span>Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})</span>
-                        {u.sharesShorted > 0 && <span>Shorted: {u.sharesShorted} shares (${u.cashFromShorts.toFixed(2)})</span>}
-                        {u.sharesCovered > 0 && <span>Covered: {u.sharesCovered} shares (${u.cashToCover.toFixed(2)})</span>}
+                        <span>
+                          Bought: {u.sharesBought} shares (${u.cashSpent.toFixed(2)})
+                        </span>
+                        <span>
+                          Sold: {u.sharesSold} shares (${u.cashReceived.toFixed(2)})
+                        </span>
+                        {u.sharesShorted > 0 && (
+                          <span>
+                            Shorted: {u.sharesShorted} shares (${u.cashFromShorts.toFixed(2)})
+                          </span>
+                        )}
+                        {u.sharesCovered > 0 && (
+                          <span>
+                            Covered: {u.sharesCovered} shares (${u.cashToCover.toFixed(2)})
+                          </span>
+                        )}
                         <span>Current: {u.currentHoldings} shares</span>
                         <span>Gifted (drops): ~{u.giftedShares} shares</span>
                         <span>Cash: ${u.currentCash.toFixed(2)}</span>
@@ -171,8 +218,11 @@ const DiagnosticTab = ({
                       {ripple && (
                         <div className="mt-1.5 pt-1.5 border-t border-orange-500/30">
                           <div className="text-xs text-orange-400 break-words">
-                            💸 Spent ${ripple.spentOnOtherStocks.toFixed(2)} of ${ripple.shroProfit.toFixed(2)} profit on:
-                            {' '}{Object.entries(ripple.breakdown).map(([t, amt]) => `${t} ($${amt.toFixed(2)})`).join(', ')}
+                            💸 Spent ${ripple.spentOnOtherStocks.toFixed(2)} of ${ripple.shroProfit.toFixed(2)} profit
+                            on:{' '}
+                            {Object.entries(ripple.breakdown)
+                              .map(([t, amt]) => `${t} ($${amt.toFixed(2)})`)
+                              .join(', ')}
                           </div>
                         </div>
                       )}
@@ -183,7 +233,9 @@ const DiagnosticTab = ({
           </div>
 
           {/* Recovery Tool */}
-          <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
             <div className="flex gap-2 items-end mb-3">
               <div>
@@ -191,7 +243,7 @@ const DiagnosticTab = ({
                 <input
                   type="date"
                   value={recoveryRollbackDate}
-                  onChange={e => setRecoveryRollbackDate(e.target.value)}
+                  onChange={(e) => setRecoveryRollbackDate(e.target.value)}
                   className={`block px-2 py-1 text-sm border rounded-sm ${inputClass}`}
                 />
               </div>
@@ -225,7 +277,8 @@ const DiagnosticTab = ({
                   <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
                     <div className={`text-xs font-semibold ${textClass} mb-1`}>Price History Rewrite</div>
                     <div className={`text-sm ${textClass}`}>
-                      Removing {recoveryPreview.historyRewrite.removedEntries} bad entries, keeping {recoveryPreview.historyRewrite.keptEntries} + adding flat line
+                      Removing {recoveryPreview.historyRewrite.removedEntries} bad entries, keeping{' '}
+                      {recoveryPreview.historyRewrite.keptEntries} + adding flat line
                     </div>
                   </div>
                 )}
@@ -234,14 +287,20 @@ const DiagnosticTab = ({
                 {recoveryPreview.clawbacks.length > 0 && (
                   <div>
                     <div className={`text-xs font-semibold ${textClass} mb-1`}>
-                      Clawbacks ({recoveryPreview.clawbacks.length} users — ${recoveryPreview.totalClawedBack.toFixed(2)} total)
+                      Clawbacks ({recoveryPreview.clawbacks.length} users — $
+                      {recoveryPreview.totalClawedBack.toFixed(2)} total)
                       {recoveryPreview.totalUnrecoverable > 0 && (
-                        <span className="text-red-400 ml-2">${recoveryPreview.totalUnrecoverable.toFixed(2)} unrecoverable</span>
+                        <span className="text-red-400 ml-2">
+                          ${recoveryPreview.totalUnrecoverable.toFixed(2)} unrecoverable
+                        </span>
                       )}
                     </div>
                     <div className="max-h-48 overflow-y-auto space-y-1">
-                      {recoveryPreview.clawbacks.map(cb => (
-                        <div key={cb.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? (darkMode ? 'bg-red-900/20' : 'bg-red-50') : (darkMode ? 'bg-slate-700/30' : 'bg-slate-50')}`}>
+                      {recoveryPreview.clawbacks.map((cb) => (
+                        <div
+                          key={cb.uid}
+                          className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? (darkMode ? 'bg-red-900/20' : 'bg-red-50') : darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}
+                        >
                           <span className={textClass}>{cb.displayName}</span>
                           <div className="text-right">
                             <span className={mutedClass}>${cb.previousCash.toFixed(2)}</span>
@@ -259,11 +318,18 @@ const DiagnosticTab = ({
                 {/* Holders Affected */}
                 {recoveryPreview.holdersAffected.length > 0 && (
                   <div>
-                    <div className={`text-xs font-semibold ${textClass} mb-1`}>Holders Affected (value drop from price reset)</div>
+                    <div className={`text-xs font-semibold ${textClass} mb-1`}>
+                      Holders Affected (value drop from price reset)
+                    </div>
                     <div className="max-h-32 overflow-y-auto space-y-1">
-                      {recoveryPreview.holdersAffected.map(h => (
-                        <div key={h.uid} className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
-                          <span className={textClass}>{h.displayName} ({h.holdings} shares)</span>
+                      {recoveryPreview.holdersAffected.map((h) => (
+                        <div
+                          key={h.uid}
+                          className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}
+                        >
+                          <span className={textClass}>
+                            {h.displayName} ({h.holdings} shares)
+                          </span>
                           <span className="text-red-400">-${h.valueDrop.toFixed(2)}</span>
                         </div>
                       ))}

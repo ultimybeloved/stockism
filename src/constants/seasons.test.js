@@ -9,7 +9,9 @@ describe('seasonRulesFor', () => {
 
   it('prefers the rules a season was started with', () => {
     expect(seasonRulesFor({ rules: { platinumTopShare: 0.2 } }).platinumTopShare).toBe(0.2);
-    expect(seasonRulesFor({ rules: { platinumTopShare: 0.2 } }).diamondTopShare).toBe(DEFAULT_SEASON_RULES.diamondTopShare);
+    expect(seasonRulesFor({ rules: { platinumTopShare: 0.2 } }).diamondTopShare).toBe(
+      DEFAULT_SEASON_RULES.diamondTopShare,
+    );
   });
 });
 
@@ -23,7 +25,7 @@ describe('seasonTierRule', () => {
     expect(seasonTierRule('bronze')).toContain('2 weeks');
   });
 
-  it('follows the season\'s own rules', () => {
+  it("follows the season's own rules", () => {
     expect(seasonTierRule('platinum', seasonRulesFor({ rules: { platinumTopShare: 0.1 } }))).toContain('top 10%');
   });
 

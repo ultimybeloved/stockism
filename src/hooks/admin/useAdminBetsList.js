@@ -14,15 +14,15 @@ export function useAdminBetsList({ showMessage }) {
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       const bets = [];
-      
-      snapshot.forEach(docSnap => {
+
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const userId = docSnap.id;
         const userName = data.displayName || 'Unknown';
         const userBets = data.bets || {};
-        
+
         Object.entries(userBets).forEach(([predictionId, bet]) => {
           bets.push({
             userId,
@@ -33,14 +33,14 @@ export function useAdminBetsList({ showMessage }) {
             placedAt: bet.placedAt || 0,
             question: bet.question || 'Unknown',
             paid: bet.paid || false,
-            payout: bet.payout || 0
+            payout: bet.payout || 0,
           });
         });
       });
-      
+
       // Sort by most recent first
       bets.sort((a, b) => b.placedAt - a.placedAt);
-      
+
       setAllBets(bets);
       showMessage('success', `Found ${bets.length} total bets`);
     } catch (err) {

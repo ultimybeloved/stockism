@@ -24,11 +24,11 @@ const PredictionExtendForm = ({
           <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
           <select
             value={extendPredictionId}
-            onChange={e => setExtendPredictionId(e.target.value)}
+            onChange={(e) => setExtendPredictionId(e.target.value)}
             className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
           >
             <option value="">-- Choose prediction --</option>
-            {predictions.map(p => {
+            {predictions.map((p) => {
               const isClosed = p.endsAt < Date.now();
               const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
               return (
@@ -50,13 +50,21 @@ const PredictionExtendForm = ({
                   min="1"
                   max="14"
                   value={extendDays}
-                  onChange={e => setExtendDays(parseInt(e.target.value))}
+                  onChange={(e) => setExtendDays(parseInt(e.target.value))}
                   className="flex-1"
                 />
                 <span className={`text-lg font-semibold ${textClass} w-20`}>{extendDays} days</span>
               </div>
               <p className={`text-xs ${mutedClass} mt-1`}>
-                New deadline: {new Date(getEndTime(extendDays)).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+                New deadline:{' '}
+                {new Date(getEndTime(extendDays)).toLocaleString('en-US', {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZoneName: 'short',
+                })}
               </p>
             </div>
 
@@ -65,7 +73,7 @@ const PredictionExtendForm = ({
                 type="checkbox"
                 id="allowAdditionalBets"
                 checked={allowAdditionalBets}
-                onChange={e => setAllowAdditionalBets(e.target.checked)}
+                onChange={(e) => setAllowAdditionalBets(e.target.checked)}
                 className="w-4 h-4 cursor-pointer"
               />
               <label htmlFor="allowAdditionalBets" className={`text-sm cursor-pointer ${textClass}`}>

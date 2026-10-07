@@ -27,10 +27,13 @@ async function burst(n, maxAttempts) {
   await ref().set({ count: 0 });
 
   const calls = Array.from({ length: n }, () =>
-    db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref());
-      tx.update(ref(), { count: (snap.data().count || 0) + 1 });
-    }, { maxAttempts })
+    db.runTransaction(
+      async (tx) => {
+        const snap = await tx.get(ref());
+        tx.update(ref(), { count: (snap.data().count || 0) + 1 });
+      },
+      { maxAttempts },
+    ),
   );
 
   const started = Date.now();
@@ -42,19 +45,22 @@ async function burst(n, maxAttempts) {
   return { n, success, committed, elapsed };
 }
 
-const row = (r) => [
-  String(r.n).padStart(3),
-  String(r.success).padStart(7),
-  `${String(Math.round((r.success / r.n) * 100)).padStart(3)}%`,
-  String(r.committed).padStart(9),
-  `${String(r.elapsed).padStart(6)}ms`,
-].join(' │ ');
+const row = (r) =>
+  [
+    String(r.n).padStart(3),
+    String(r.success).padStart(7),
+    `${String(Math.round((r.success / r.n) * 100)).padStart(3)}%`,
+    String(r.committed).padStart(9),
+    `${String(r.elapsed).padStart(6)}ms`,
+  ].join(' │ ');
 
 (async () => {
   console.log('Raw Firestore transaction contention, one document (LOCAL EMULATOR)\n');
 
   for (const maxAttempts of [1, 5]) {
-    console.log(`maxAttempts: ${maxAttempts}${maxAttempts === 1 ? '   (what executeTrade uses today)' : '   (library default behaviour)'}`);
+    console.log(
+      `maxAttempts: ${maxAttempts}${maxAttempts === 1 ? '   (what executeTrade uses today)' : '   (library default behaviour)'}`,
+    );
     console.log('    N │ success │ rate │ committed │   time');
     console.log('  ────┼─────────┼──────┼───────────┼─────────');
     for (const n of LEVELS) console.log(`  ${row(await burst(n, maxAttempts))}`);
@@ -69,4 +75,7 @@ const row = (r) => [
   console.log('  neither column predicts production.');
 
   process.exit(0);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

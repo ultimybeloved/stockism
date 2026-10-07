@@ -26,7 +26,10 @@ export function useSeason() {
     const unsub = onSnapshot(
       doc(db, 'market', 'season'),
       (snap) => setSeason(snap.exists() ? snap.data() : null),
-      (err) => { console.error('Season subscription failed:', err); setSeason(null); }
+      (err) => {
+        console.error('Season subscription failed:', err);
+        setSeason(null);
+      },
     );
     return unsub;
   }, []);
@@ -50,7 +53,7 @@ export function useSeason() {
 
   // The market reading this player is measured from. Someone who joined
   // mid-season is compared with the market from when they joined.
-  const baselineIndex = baseline?.index > 0 ? baseline.index : (season.indexAtStart || 0);
+  const baselineIndex = baseline?.index > 0 ? baseline.index : season.indexAtStart || 0;
 
   // Signed on purpose — a ladder deposit books a negative flow, so clamping to
   // zero would read as a trading loss. Mirrors seasonScore on the server.
@@ -59,21 +62,26 @@ export function useSeason() {
   if (inSeason) {
     // What the account would sell for at live prices, the figure the server
     // scores (exitEquityAt). The stored portfolioValue lags until the next sync.
-    const current = prices && Object.keys(prices).length
-      ? calculateExitValue(userData, prices)
-      : (userData.portfolioValue || 0) - (userData.marginUsed || 0);
+    const current =
+      prices && Object.keys(prices).length
+        ? calculateExitValue(userData, prices)
+        : (userData.portfolioValue || 0) - (userData.marginUsed || 0);
     const granted = (userData.grantedValue || 0) - (baseline.granted || 0);
     const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
     // Measured against the money traded with, margin owed on average included.
     // Grants count toward the base only for the time held; ladder and prediction
     // flows in full. Mirrors seasonScore.
-    const grantedDays = baseline.grantedDays === undefined
-      ? undefined : (userData.grantedDays || 0) - baseline.grantedDays;
+    const grantedDays =
+      baseline.grantedDays === undefined ? undefined : (userData.grantedDays || 0) - baseline.grantedDays;
     const now = Date.now();
     const capital = seasonCapital(baseline, {
-      granted: moneyIn(granted, grantedDays,
+      granted: moneyIn(
+        granted,
+        grantedDays,
         ladderNet + (userData.predictionFlowValue || 0) - (baseline.predictionFlow || 0),
-        baseline.pinnedAt || 0, now),
+        baseline.pinnedAt || 0,
+        now,
+      ),
       margin: seasonAverageMargin(userData, season.id, now),
     });
     returnPercent = ((current - granted - baseline.value) / capital) * 100;
@@ -81,10 +89,8 @@ export function useSeason() {
     returnWithLadder = ((current - (granted - ladderNet) - baseline.value) / capital) * 100;
   }
 
-  const lockedTier = (userData?.seasonTier?.seasonId === season.id)
-    ? userData.seasonTier.tier : null;
-  const activeWeeks = (userData?.seasonActiveWeeks?.seasonId === season.id)
-    ? (userData.seasonActiveWeeks.weeks || 0) : 0;
+  const lockedTier = userData?.seasonTier?.seasonId === season.id ? userData.seasonTier.tier : null;
+  const activeWeeks = userData?.seasonActiveWeeks?.seasonId === season.id ? userData.seasonActiveWeeks.weeks || 0 : 0;
 
   return {
     season,
@@ -117,7 +123,8 @@ export function useSeason() {
     // point at Gold next.
     nextTier: nextSeasonTier(
       lockedTier && returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order
-        ? 'silver' : lockedTier
+        ? 'silver'
+        : lockedTier,
     ),
   };
 }

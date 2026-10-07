@@ -64,13 +64,14 @@ const publishFill = async (order, orderId, { fillShares, executedPrice, tradeVal
     updateCrewMissionProgress(crew, order.userId, action, fillShares, order.ticker, tradeValue);
   }
 
-  const message = order.type === 'STOP_LOSS'
-    ? `sold ${fillShares} $${order.ticker} via stop loss`
-    : order.type === 'BUY'
-      ? `bought ${fillShares} $${order.ticker} via limit order`
-      : order.type === 'COVER'
-        ? `covered ${fillShares} $${order.ticker} via limit order`
-        : `sold ${fillShares} $${order.ticker} via limit order`;
+  const message =
+    order.type === 'STOP_LOSS'
+      ? `sold ${fillShares} $${order.ticker} via stop loss`
+      : order.type === 'BUY'
+        ? `bought ${fillShares} $${order.ticker} via limit order`
+        : order.type === 'COVER'
+          ? `covered ${fillShares} $${order.ticker} via limit order`
+          : `sold ${fillShares} $${order.ticker} via limit order`;
 
   writeFeedEntry({
     type: 'trade',

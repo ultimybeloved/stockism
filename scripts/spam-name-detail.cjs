@@ -13,17 +13,30 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
 const UIDS = require('./spam-name-targets.cjs');
 
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : 'never');
-const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n) =>
+  '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 async function main() {
   const mk = await db.collection('market').doc('current').get();
@@ -33,7 +46,10 @@ async function main() {
 
   for (const uid of UIDS) {
     const doc = await db.collection('users').doc(uid).get();
-    if (!doc.exists) { console.log('  ' + uid + '  ALREADY GONE\n'); continue; }
+    if (!doc.exists) {
+      console.log('  ' + uid + '  ALREADY GONE\n');
+      continue;
+    }
     const u = doc.data();
 
     const [first, recent, notif, hist, limits, pre] = await Promise.all([
@@ -42,8 +58,20 @@ async function main() {
       // always a scheduled dividend, which makes a long-abandoned account look
       // active; only a real buy/sell counts as somebody logging in.
       db.collection('trades').where('uid', '==', uid).orderBy('timestamp', 'desc').limit(30).get(),
-      db.collection('users').doc(uid).collection('notifications').count().get().catch(() => null),
-      db.collection('users').doc(uid).collection('portfolioHistory').count().get().catch(() => null),
+      db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .count()
+        .get()
+        .catch(() => null),
+      db
+        .collection('users')
+        .doc(uid)
+        .collection('portfolioHistory')
+        .count()
+        .get()
+        .catch(() => null),
       db.collection('limitOrders').where('uid', '==', uid).where('status', '==', 'OPEN').get(),
       db.collection('preMarketOrders').where('uid', '==', uid).where('status', '==', 'QUEUED').get(),
     ]);
@@ -57,18 +85,37 @@ async function main() {
     const lastAnyT = recent.empty ? 0 : toMs(recent.docs[0].data().timestamp);
     const payoutOnly = lastAnyT && lastAnyT !== lastT;
 
-    const holds = Object.entries(u.holdings || {}).filter(([, s]) => s > 0)
+    const holds = Object.entries(u.holdings || {})
+      .filter(([, s]) => s > 0)
       .map(([t, s]) => t + ' ' + s + ' (' + money((prices[t] || 0) * s) + ')');
 
     console.log('  ' + (u.displayName || '?'));
-    console.log('     trades ' + (u.totalTrades || 0)
-      + '   first ' + day(firstT) + '   LAST REAL TRADE ' + day(lastT)
-      + (payoutOnly ? '   (nothing since but scheduled payouts, newest ' + day(lastAnyT) + ')' : ''));
-    console.log('     cash ' + money(u.cash) + '   margin ' + money(u.marginUsed || 0)
-      + '   crew ' + (u.crew || 'none') + (u.isBanned ? '   [BANNED]' : ''));
+    console.log(
+      '     trades ' +
+        (u.totalTrades || 0) +
+        '   first ' +
+        day(firstT) +
+        '   LAST REAL TRADE ' +
+        day(lastT) +
+        (payoutOnly ? '   (nothing since but scheduled payouts, newest ' + day(lastAnyT) + ')' : ''),
+    );
+    console.log(
+      '     cash ' +
+        money(u.cash) +
+        '   margin ' +
+        money(u.marginUsed || 0) +
+        '   crew ' +
+        (u.crew || 'none') +
+        (u.isBanned ? '   [BANNED]' : ''),
+    );
     if (holds.length) console.log('     holdings: ' + holds.join(', '));
-    console.log('     subcollections: ' + (notif ? notif.data().count : '?') + ' notifications, '
-      + (hist ? hist.data().count : '?') + ' portfolioHistory');
+    console.log(
+      '     subcollections: ' +
+        (notif ? notif.data().count : '?') +
+        ' notifications, ' +
+        (hist ? hist.data().count : '?') +
+        ' portfolioHistory',
+    );
     if (!limits.empty || !pre.empty) {
       console.log('     OPEN ORDERS: ' + limits.size + ' limit, ' + pre.size + ' pre-market');
     }
@@ -76,7 +123,10 @@ async function main() {
   }
 
   // Anything that caches a member count would go stale on a raw doc delete.
-  const stats = await db.collection('crewStats').get().catch(() => null);
+  const stats = await db
+    .collection('crewStats')
+    .get()
+    .catch(() => null);
   if (stats && !stats.empty) {
     console.log('='.repeat(78));
     console.log('\ncrewStats docs exist (' + stats.size + '). Fields on the first one:');
@@ -86,4 +136,9 @@ async function main() {
   }
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

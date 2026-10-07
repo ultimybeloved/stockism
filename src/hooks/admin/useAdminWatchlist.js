@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import {
-  getWatchlistFunction, getRecentSignupReportFunction, banUserFunction,
-  addWatchedUserFunction, removeWatchedUserFunction, linkAltAccountFunction,
-  addWatchedIPFunction, auditUsernamesFunction, getIpTrackingHealthFunction,
+  getWatchlistFunction,
+  getRecentSignupReportFunction,
+  banUserFunction,
+  addWatchedUserFunction,
+  removeWatchedUserFunction,
+  linkAltAccountFunction,
+  addWatchedIPFunction,
+  auditUsernamesFunction,
+  getIpTrackingHealthFunction,
 } from '../../firebase';
 
 // Watchlist tab: IP/alt-account watchlist, signup reports, username audits.
 export function useAdminWatchlist({ showMessage, setLoading }) {
-
   // Watchlist state
   const [watchedUsers, setWatchedUsers] = useState([]);
   const [watchlistAlerts, setWatchlistAlerts] = useState([]);
@@ -94,7 +99,10 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
     try {
       const result = await auditUsernamesFunction({});
       const r = result.data;
-      showMessage('success', `${r.reservationsWritten} reserved, ${r.usersUpdated} fixed, ${r.conflicts.length} duplicate(s) flagged.`);
+      showMessage(
+        'success',
+        `${r.reservationsWritten} reserved, ${r.usersUpdated} fixed, ${r.conflicts.length} duplicate(s) flagged.`,
+      );
       await loadWatchlist();
     } catch (err) {
       showMessage('error', 'Username audit failed: ' + (err.message || 'Unknown error'));
@@ -110,9 +118,12 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
       const result = await addWatchedUserFunction({
         userId: watchAddUserId.trim(),
         reason: watchAddReason.trim(),
-        maxAccountsPerIP: watchAddMaxAccounts
+        maxAccountsPerIP: watchAddMaxAccounts,
       });
-      showMessage('success', `Added "${result.data.displayName}" to watchlist. Found ${result.data.knownIPCount} known IPs.`);
+      showMessage(
+        'success',
+        `Added "${result.data.displayName}" to watchlist. Found ${result.data.knownIPCount} known IPs.`,
+      );
       setWatchAddUserId('');
       setWatchAddReason('');
       setWatchAddMaxAccounts(1);
@@ -142,7 +153,7 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
     try {
       const result = await linkAltAccountFunction({
         watchedUserId,
-        altAccountId: watchLinkAltId.trim()
+        altAccountId: watchLinkAltId.trim(),
       });
       showMessage('success', `Linked "${result.data.altName}" as alt.`);
       setWatchLinkAltId('');
@@ -170,15 +181,36 @@ export function useAdminWatchlist({ showMessage, setLoading }) {
   };
 
   return {
-    watchAddUserId, setWatchAddUserId, watchAddReason, setWatchAddReason,
-    watchAddMaxAccounts, setWatchAddMaxAccounts, handleAddWatchedUser,
-    handleAuditUsernames, signupReport, signupHours, setSignupHours,
-    loadRecentSignups, handleBanFromReport, handleWatchFromReport,
-    watchedUsers, watchlistLoaded, handleRemoveWatchedUser,
-    watchLinkTarget, setWatchLinkTarget, watchLinkAltId, setWatchLinkAltId,
-    handleLinkAlt, watchAddIPTarget, setWatchAddIPTarget,
-    watchAddIPValue, setWatchAddIPValue, handleAddWatchedIP,
-    watchlistAlerts, loadWatchlist,
-    ipHealth, loadIpHealth,
+    watchAddUserId,
+    setWatchAddUserId,
+    watchAddReason,
+    setWatchAddReason,
+    watchAddMaxAccounts,
+    setWatchAddMaxAccounts,
+    handleAddWatchedUser,
+    handleAuditUsernames,
+    signupReport,
+    signupHours,
+    setSignupHours,
+    loadRecentSignups,
+    handleBanFromReport,
+    handleWatchFromReport,
+    watchedUsers,
+    watchlistLoaded,
+    handleRemoveWatchedUser,
+    watchLinkTarget,
+    setWatchLinkTarget,
+    watchLinkAltId,
+    setWatchLinkAltId,
+    handleLinkAlt,
+    watchAddIPTarget,
+    setWatchAddIPTarget,
+    watchAddIPValue,
+    setWatchAddIPValue,
+    handleAddWatchedIP,
+    watchlistAlerts,
+    loadWatchlist,
+    ipHealth,
+    loadIpHealth,
   };
 }

@@ -11,13 +11,8 @@ const BetConfirmModal = ({ confirmation, onConfirm, onCancel, loading }) => {
 
   return (
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
-      <div
-        className={`${modalShellClass} max-w-sm p-5`}
-        onClick={e => e.stopPropagation()}
-      >
-        <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>
-          Confirm Bet
-        </h3>
+      <div className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
+        <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Confirm Bet</h3>
         <div className={`space-y-2 mb-5 ${darkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
           <div className="mb-3">
             <span className={`text-sm ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Question:</span>

@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  callableErrorCode, isCapacityError, isContentionError, isInfraError,
-  isExpectedRejection,
-} from './errors';
+import { callableErrorCode, isCapacityError, isContentionError, isInfraError, isExpectedRejection } from './errors';
 
 describe('callableErrorCode', () => {
   it('strips the functions/ prefix', () => {

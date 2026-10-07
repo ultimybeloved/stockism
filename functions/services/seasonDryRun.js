@@ -17,7 +17,13 @@ const db = admin.firestore();
 const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../constants');
 const { netEquityAt, getLastActiveMs, readIndexNow, round2, characterExposure } = require('../helpers');
 const {
-  DEFAULT_SEASON_RULES, checkpointTier, finalTier, rankTopTiers, divisionFor, divisionSlots, weekConcentration,
+  DEFAULT_SEASON_RULES,
+  checkpointTier,
+  finalTier,
+  rankTopTiers,
+  divisionFor,
+  divisionSlots,
+  weekConcentration,
 } = require('./seasonTiers');
 
 const dryRuns = () => db.collection('seasonDryRuns');
@@ -69,14 +75,22 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
       if (!seen) {
         // The week they first appear is their starting line, not a scored week.
         state.set(row.uid, {
-          name: row.n, base: row.v, baseGranted: row.g, baseIndex: week.index,
-          prev: row, prevIndex: week.index, last: row, lastIndex: week.index,
-          beat: 0, appearances: 1, peak: weekConcentration(row),
+          name: row.n,
+          base: row.v,
+          baseGranted: row.g,
+          baseIndex: week.index,
+          prev: row,
+          prevIndex: week.index,
+          last: row,
+          lastIndex: week.index,
+          beat: 0,
+          appearances: 1,
+          peak: weekConcentration(row),
         });
         continue;
       }
       const grantsThisWeek = row.g - seen.prev.g;
-      const weekReturn = seen.prev.v > 0 ? ((row.v - grantsThisWeek) - seen.prev.v) / seen.prev.v : 0;
+      const weekReturn = seen.prev.v > 0 ? (row.v - grantsThisWeek - seen.prev.v) / seen.prev.v : 0;
       const weekIndex = seen.prevIndex > 0 ? (week.index - seen.prevIndex) / seen.prevIndex : 0;
       if (weekReturn > weekIndex) seen.beat++;
       const concentration = weekConcentration(row);
@@ -96,10 +110,13 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   const scored = [];
   let belowFloor = 0;
   for (const [uid, s] of state) {
-    if (s.base < SEASON_MIN_BASELINE) { belowFloor++; continue; }
+    if (s.base < SEASON_MIN_BASELINE) {
+      belowFloor++;
+      continue;
+    }
     if (s.appearances < 2) continue;
     const granted = s.last.g - s.baseGranted;
-    const returnPercent = ((s.last.v - granted) - s.base) / s.base * 100;
+    const returnPercent = ((s.last.v - granted - s.base) / s.base) * 100;
     const marketPercent = s.baseIndex > 0 ? ((s.lastIndex - s.baseIndex) / s.baseIndex) * 100 : 0;
     scored.push({
       uid,
@@ -131,9 +148,10 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
     reports: ordered.length,
     from: ordered[0].weekId,
     to: ordered[ordered.length - 1].weekId,
-    marketPercent: ordered[0].index > 0
-      ? Math.round(((ordered[ordered.length - 1].index - ordered[0].index) / ordered[0].index) * 1000) / 10
-      : 0,
+    marketPercent:
+      ordered[0].index > 0
+        ? Math.round(((ordered[ordered.length - 1].index - ordered[0].index) / ordered[0].index) * 1000) / 10
+        : 0,
     scored,
     tierCounts,
     divisions: divisionSlots(scored, rules),
@@ -151,9 +169,22 @@ const runSeasonDryRun = async () => {
   const now = Date.now();
   const [{ prices, value: indexValue }, snap] = await Promise.all([
     readIndexNow(),
-    db.collection('users')
-      .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'isBot', 'isBanned',
-        'displayName', 'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
+    db
+      .collection('users')
+      .select(
+        'cash',
+        'holdings',
+        'shorts',
+        'marginUsed',
+        'grantedValue',
+        'isBot',
+        'isBanned',
+        'displayName',
+        'lastSynced',
+        'lastActive',
+        'lastTradeTime',
+        'lastCheckin',
+      )
       .get(),
   ]);
 
@@ -167,9 +198,15 @@ const runSeasonDryRun = async () => {
   });
 
   const weekId = weekIdOf(now);
-  await dryRuns().doc(weekId).set({
-    weekId, ranAt: now, index: round2(indexValue), players: rows.length, rows,
-  });
+  await dryRuns()
+    .doc(weekId)
+    .set({
+      weekId,
+      ranAt: now,
+      index: round2(indexValue),
+      players: rows.length,
+      rows,
+    });
 
   console.log(`SEASON DRY RUN ${weekId}: ${rows.length} players, index ${indexValue.toFixed(2)}`);
   return { ran: true, weekId, players: rows.length, index: round2(indexValue) };
@@ -182,8 +219,8 @@ exports.runSeasonDryRun = runSeasonDryRun;
 // Thursday 14:05 UTC, five minutes after the real checkpoint's slot and inside
 // the halt, so prices are frozen and the rehearsal lines up with what a real
 // checkpoint would have seen.
-exports.seasonDryRun = cf({ timeoutSeconds: 540 }).pubsub
-  .schedule('5 14 * * 4')
+exports.seasonDryRun = cf({ timeoutSeconds: 540 })
+  .pubsub.schedule('5 14 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     await runSeasonDryRun();

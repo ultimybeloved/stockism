@@ -47,9 +47,7 @@ export const PreflightTable = ({ checks, textClass, mutedClass, darkMode }) => {
             <span className="shrink-0">{c.pass ? '✅' : '❌'}</span>
             <div className="min-w-0">
               <p className={c.pass ? textClass : 'text-red-400 font-semibold'}>{c.label}</p>
-              {(!c.pass || c.detail) && (
-                <p className={`${mutedClass} mt-0.5 break-words`}>{c.detail}</p>
-              )}
+              {(!c.pass || c.detail) && <p className={`${mutedClass} mt-0.5 break-words`}>{c.detail}</p>}
             </div>
           </div>
         ))}
@@ -62,7 +60,9 @@ export const DryRunBreakdown = ({ result, textClass, mutedClass, darkMode }) => 
   if (!result?.breakdown) return null;
   const total = Object.values(result.breakdown).reduce((s, n) => s + (n || 0), 0);
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300'}`}>
+    <div
+      className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300'}`}
+    >
       <p className="text-sm font-semibold mb-2 text-blue-400">🔍 Dry run preview</p>
       <p className={`text-xs mb-2 ${textClass}`}>
         <strong>${result.oldTicker}</strong> → <strong>${result.newTicker}</strong>
@@ -71,17 +71,19 @@ export const DryRunBreakdown = ({ result, textClass, mutedClass, darkMode }) => 
       <p className={`text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Rewritten</p>
       <div className={`text-xs ${mutedClass} space-y-0.5 mb-2`}>
         {BREAKDOWN_ROWS.map(([key, label]) => (
-          <p key={key}>{label}: {result.breakdown[key] ?? 0}</p>
+          <p key={key}>
+            {label}: {result.breakdown[key] ?? 0}
+          </p>
         ))}
         <p className={`font-semibold ${textClass} pt-1`}>{total} documents in total</p>
       </div>
 
       {/* The old copy claimed this touched ALL Firestore data. It never did. */}
-      <p className={`text-xs font-semibold uppercase mb-1 ${mutedClass}`}>
-        Left as history, resolved by alias
-      </p>
+      <p className={`text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Left as history, resolved by alias</p>
       <ul className={`text-xs ${mutedClass} space-y-0.5 list-disc pl-4`}>
-        {(result.notRewritten || []).map((n) => <li key={n}>{n}</li>)}
+        {(result.notRewritten || []).map((n) => (
+          <li key={n}>{n}</li>
+        ))}
       </ul>
     </div>
   );
@@ -93,27 +95,28 @@ export const PhaseProgress = ({ journal, textClass, mutedClass, darkMode }) => {
   const complete = entries.filter(([, p]) => p.status === 'complete').length;
 
   return (
-    <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}>
+    <div
+      className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}
+    >
       <div className="flex justify-between items-baseline mb-2">
         <p className={`text-sm font-semibold ${textClass}`}>
           ${journal.old} → ${journal.new}
         </p>
-        <p className={`text-xs ${mutedClass}`}>{complete} of {entries.length} phases</p>
+        <p className={`text-xs ${mutedClass}`}>
+          {complete} of {entries.length} phases
+        </p>
       </div>
       <div className="space-y-0.5">
         {entries.map(([name, p]) => (
           <div key={name} className="flex justify-between gap-2 text-xs">
             <span className={p.status === 'complete' ? mutedClass : textClass}>
-              {p.status === 'complete' ? '✅' : p.status === 'paused' ? '⏸️' : '⬜'}{' '}
-              {PHASE_LABELS[name] || name}
+              {p.status === 'complete' ? '✅' : p.status === 'paused' ? '⏸️' : '⬜'} {PHASE_LABELS[name] || name}
             </span>
             <span className={`${mutedClass} shrink-0 tabular-nums`}>{p.done || 0}</span>
           </div>
         ))}
       </div>
-      {journal.lastError && (
-        <p className="text-xs text-red-400 mt-2 break-words">{journal.lastError}</p>
-      )}
+      {journal.lastError && <p className="text-xs text-red-400 mt-2 break-words">{journal.lastError}</p>}
     </div>
   );
 };

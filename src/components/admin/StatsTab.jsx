@@ -25,9 +25,7 @@ const StatsTab = ({
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
         <div className="flex justify-between items-center">
-          <p className={`text-sm ${mutedClass}`}>
-            📈 Market overview and platform statistics
-          </p>
+          <p className={`text-sm ${mutedClass}`}>📈 Market overview and platform statistics</p>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleCleanupBasePrices}
@@ -85,7 +83,9 @@ const StatsTab = ({
       ) : (
         <>
           {/* User Stats */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h3 className={`font-semibold mb-3 ${textClass}`}>👥 Users</h3>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
@@ -104,20 +104,40 @@ const StatsTab = ({
           </div>
 
           {/* Financial Stats */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h3 className={`font-semibold mb-3 ${textClass}`}>💰 Financials</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className={mutedClass}>Total Cash in System:</span>
-                <span className="font-bold text-green-500">${marketStats.totalCashInSystem.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                <span className="font-bold text-green-500">
+                  $
+                  {marketStats.totalCashInSystem.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className={mutedClass}>Total Portfolio Value:</span>
-                <span className={`font-bold ${textClass}`}>${marketStats.totalPortfolioValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                <span className={`font-bold ${textClass}`}>
+                  $
+                  {marketStats.totalPortfolioValue.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className={mutedClass}>Total Market Cap:</span>
-                <span className="font-bold text-cyan-500">${marketStats.totalMarketCap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                <span className="font-bold text-cyan-500">
+                  $
+                  {marketStats.totalMarketCap.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className={mutedClass}>Total Shares Held:</span>
@@ -125,7 +145,13 @@ const StatsTab = ({
               </div>
               <div className="flex justify-between">
                 <span className={mutedClass}>Margin Used:</span>
-                <span className="font-bold text-amber-500">${marketStats.totalMarginUsed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                <span className="font-bold text-amber-500">
+                  $
+                  {marketStats.totalMarginUsed.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className={mutedClass}>Users with Margin:</span>
@@ -135,7 +161,9 @@ const StatsTab = ({
           </div>
 
           {/* Activity Stats */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Activity</h3>
 
             {/* 24h Activity */}
@@ -147,7 +175,13 @@ const StatsTab = ({
                   <p className={`text-xs ${mutedClass}`}>Trades</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xl font-bold text-green-500">${(marketStats.volume24h || 0).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                  <p className="text-xl font-bold text-green-500">
+                    $
+                    {(marketStats.volume24h || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}
+                  </p>
                   <p className={`text-xs ${mutedClass}`}>Volume</p>
                 </div>
                 <div className="text-center">
@@ -183,7 +217,9 @@ const StatsTab = ({
                   {marketStats.topTraded24h.map((item) => (
                     <div key={item.ticker} className="flex justify-between text-sm">
                       <span className={textClass}>${item.ticker}</span>
-                      <span className="font-bold text-cyan-500">${item.volume.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                      <span className="font-bold text-cyan-500">
+                        ${item.volume.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -207,20 +243,25 @@ const StatsTab = ({
           </div>
 
           {/* Top Held Characters */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h3 className={`font-semibold ${textClass}`}>🏆 Most Held Characters</h3>
             <p className={`text-xs mb-3 ${mutedClass}`}>Real players only, bots excluded</p>
             <div className="space-y-2">
               {marketStats.topHeld.map((item, i) => {
-                const char = CHARACTERS.find(c => c.ticker === item.ticker);
+                const char = CHARACTERS.find((c) => c.ticker === item.ticker);
                 return (
                   <div key={item.ticker} className="flex justify-between items-center">
                     <span className={textClass}>
-                      <span className={mutedClass}>{i + 1}.</span> {char?.name || item.ticker} <span className={mutedClass}>(${item.ticker})</span>
+                      <span className={mutedClass}>{i + 1}.</span> {char?.name || item.ticker}{' '}
+                      <span className={mutedClass}>(${item.ticker})</span>
                     </span>
                     <span className="text-right">
                       <span className="font-bold text-cyan-500">{item.shares.toLocaleString()} shares</span>
-                      <span className={`block text-xs ${mutedClass}`}>held by {item.holders.toLocaleString()} {item.holders === 1 ? 'player' : 'players'}</span>
+                      <span className={`block text-xs ${mutedClass}`}>
+                        held by {item.holders.toLocaleString()} {item.holders === 1 ? 'player' : 'players'}
+                      </span>
                     </span>
                   </div>
                 );
@@ -231,7 +272,9 @@ const StatsTab = ({
           {/* Price Movers */}
           <div className="grid grid-cols-2 gap-4">
             {/* Top Gainers */}
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+            <div
+              className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+            >
               <h3 className={`font-semibold mb-3 text-green-500`}>📈 Top Gainers</h3>
               <div className="space-y-1">
                 {marketStats.topGainers.map((item) => (
@@ -244,7 +287,9 @@ const StatsTab = ({
             </div>
 
             {/* Top Losers */}
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+            <div
+              className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+            >
               <h3 className={`font-semibold mb-3 text-red-500`}>📉 Top Losers</h3>
               <div className="space-y-1">
                 {marketStats.topLosers.map((item) => (
@@ -258,15 +303,19 @@ const StatsTab = ({
           </div>
 
           {/* Crew Membership */}
-          <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div
+            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+          >
             <h3 className={`font-semibold mb-3 ${textClass}`}>🏴 Crew Membership</h3>
             <div className="grid grid-cols-3 gap-2">
-              {Object.entries(marketStats.crewCounts).sort((a, b) => b[1] - a[1]).map(([crewId, count]) => (
-                <div key={crewId} className="flex justify-between text-sm">
-                  <span className={textClass}>{crewId}</span>
-                  <span className="font-bold text-purple-500">{count}</span>
-                </div>
-              ))}
+              {Object.entries(marketStats.crewCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([crewId, count]) => (
+                  <div key={crewId} className="flex justify-between text-sm">
+                    <span className={textClass}>{crewId}</span>
+                    <span className="font-bold text-purple-500">{count}</span>
+                  </div>
+                ))}
             </div>
             {Object.keys(marketStats.crewCounts).length === 0 && (
               <p className={`text-sm ${mutedClass}`}>No crew memberships yet</p>
@@ -280,11 +329,13 @@ const StatsTab = ({
       )}
 
       {/* Orphan Cleanup Section */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+      <div
+        className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}
+      >
         <h3 className={`font-semibold mb-3 text-red-500`}>🧹 Orphaned Account Cleanup</h3>
         <p className={`text-xs ${mutedClass} mb-3`}>
-          Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash).
-          These are likely bot accounts or users who were deleted from Firebase Auth.
+          Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash). These are
+          likely bot accounts or users who were deleted from Firebase Auth.
         </p>
 
         <button
@@ -296,17 +347,13 @@ const StatsTab = ({
         </button>
 
         {orphanScanComplete && (
-          <span className={`text-sm ${mutedClass}`}>
-            Found {orphanedUsers.length} suspicious accounts
-          </span>
+          <span className={`text-sm ${mutedClass}`}>Found {orphanedUsers.length} suspicious accounts</span>
         )}
 
         {orphanedUsers.length > 0 && (
           <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
-              <span className={`text-sm font-semibold ${textClass}`}>
-                {orphanedUsers.length} Orphaned Accounts
-              </span>
+              <span className={`text-sm font-semibold ${textClass}`}>{orphanedUsers.length} Orphaned Accounts</span>
               <button
                 onClick={deleteAllOrphanedUsers}
                 disabled={loading}
@@ -317,7 +364,7 @@ const StatsTab = ({
             </div>
 
             <div className="max-h-60 overflow-y-auto space-y-1">
-              {orphanedUsers.slice(0, 100).map(u => (
+              {orphanedUsers.slice(0, 100).map((u) => (
                 <div
                   key={u.id}
                   className={`p-2 rounded-sm flex justify-between items-center text-sm ${

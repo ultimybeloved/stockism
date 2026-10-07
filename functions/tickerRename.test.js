@@ -20,8 +20,7 @@ const NEW = 'GUNX';
 // one that fails.
 const OTHER = 'JIN';
 
-const isDelete = (v) => v && typeof v === 'object'
-  && String(v.constructor?.name || '').includes('DeleteTransform');
+const isDelete = (v) => v && typeof v === 'object' && String(v.constructor?.name || '').includes('DeleteTransform');
 
 describe('mapMoveUpdates', () => {
   it('writes nothing when the old key is absent', () => {
@@ -46,7 +45,12 @@ describe('mapMoveUpdates', () => {
   });
 
   it('carries nested structures across whole', () => {
-    const cohorts = { [OLD]: [{ shares: 3, at: 1 }, { shares: 2, at: 2 }] };
+    const cohorts = {
+      [OLD]: [
+        { shares: 3, at: 1 },
+        { shares: 2, at: 2 },
+      ],
+    };
     const out = R.mapMoveUpdates('holdingCohorts', cohorts, OLD, NEW);
     expect(out[`holdingCohorts.${NEW}`]).toEqual(cohorts[OLD]);
   });
@@ -76,9 +80,15 @@ describe('remapObjectArray', () => {
   });
 
   it('rewrites only matching entries and leaves the rest identical', () => {
-    const input = [{ ticker: OTHER, n: 1 }, { ticker: OLD, n: 2 }];
+    const input = [
+      { ticker: OTHER, n: 1 },
+      { ticker: OLD, n: 2 },
+    ];
     const out = R.remapObjectArray(input, 'ticker', OLD, NEW);
-    expect(out).toEqual([{ ticker: OTHER, n: 1 }, { ticker: NEW, n: 2 }]);
+    expect(out).toEqual([
+      { ticker: OTHER, n: 1 },
+      { ticker: NEW, n: 2 },
+    ]);
     expect(out[0]).toBe(input[0]); // untouched entries are not cloned
   });
 
@@ -88,8 +98,7 @@ describe('remapObjectArray', () => {
   });
 
   it('survives a null entry in the array', () => {
-    expect(R.remapObjectArray([null, { ticker: OLD }], 'ticker', OLD, NEW))
-      .toEqual([null, { ticker: NEW }]);
+    expect(R.remapObjectArray([null, { ticker: OLD }], 'ticker', OLD, NEW)).toEqual([null, { ticker: NEW }]);
   });
 });
 
@@ -104,8 +113,7 @@ describe('remapMessage', () => {
   });
 
   it('rewrites every occurrence in one string', () => {
-    expect(R.remapMessage(`$${OLD} up, $${OLD} down`, OLD, NEW))
-      .toBe(`$${NEW} up, $${NEW} down`);
+    expect(R.remapMessage(`$${OLD} up, $${OLD} down`, OLD, NEW)).toBe(`$${NEW} up, $${NEW} down`);
   });
 
   it('leaves a mention of another ticker alone', () => {
@@ -134,8 +142,7 @@ describe('collapseAliasChain', () => {
   });
 
   it('leaves unrelated aliases alone', () => {
-    expect(R.collapseAliasChain({ DOTS: 'CROW' }, OLD, NEW))
-      .toEqual({ DOTS: 'CROW', [OLD]: NEW });
+    expect(R.collapseAliasChain({ DOTS: 'CROW' }, OLD, NEW)).toEqual({ DOTS: 'CROW', [OLD]: NEW });
   });
 });
 
@@ -174,8 +181,7 @@ describe('buildUserUpdates', () => {
   });
 
   it('rewrites the watchlist array', () => {
-    expect(R.buildUserUpdates({ watchlist: [OTHER, OLD] }, OLD, NEW).watchlist)
-      .toEqual([OTHER, NEW]);
+    expect(R.buildUserUpdates({ watchlist: [OTHER, OLD] }, OLD, NEW).watchlist).toEqual([OTHER, NEW]);
   });
 
   it('rewrites the ticker inside the transaction log', () => {

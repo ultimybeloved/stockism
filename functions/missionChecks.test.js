@@ -10,10 +10,15 @@ const { WEEKLY_MISSION_CHECKS } = require('./services/missionChecks');
 
 const builder = WEEKLY_MISSION_CHECKS.PORTFOLIO_BUILDER;
 const moonshot = WEEKLY_MISSION_CHECKS.PORTFOLIO_MOONSHOT;
-const frontend = (wp, userData) => getWeeklyMissionProgress(WEEKLY_MISSIONS.PORTFOLIO_BUILDER, {
-  holdings: {}, weeklyProgress: wp, prices: {}, crewMembers: [],
-  portfolioValue: userData.portfolioValue, grantedValue: userData.grantedValue,
-});
+const frontend = (wp, userData) =>
+  getWeeklyMissionProgress(WEEKLY_MISSIONS.PORTFOLIO_BUILDER, {
+    holdings: {},
+    weeklyProgress: wp,
+    prices: {},
+    crewMembers: [],
+    portfolioValue: userData.portfolioValue,
+    grantedValue: userData.grantedValue,
+  });
 
 describe('weekly growth missions', () => {
   it('a week of free money alone completes neither', () => {

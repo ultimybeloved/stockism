@@ -5,7 +5,10 @@ module.exports = {
   rules: { 'no-undef': 'error', 'no-unused-vars': 'off' },
   // File-size limits from CLAUDE.md, enforced.
   overrides: [
-    { files: ['services/**/*.js'], rules: { 'max-lines': ['error', 600] } },
-    { files: ['index.js'], rules: { 'max-lines': ['error', 15] } },
+    {
+      files: ['services/**/*.js'],
+      rules: { 'max-lines': ['error', { max: 600, skipBlankLines: true, skipComments: true }] },
+    },
+    { files: ['index.js'], rules: { 'max-lines': ['error', { max: 15, skipBlankLines: true, skipComments: true }] } },
   ],
 };

@@ -6,9 +6,7 @@ const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }) => {
 
   return (
     <div className="mt-4">
-      <h4 className="text-xs font-semibold uppercase text-red-400 mb-2">
-        Short Positions ({shortsData.length})
-      </h4>
+      <h4 className="text-xs font-semibold uppercase text-red-400 mb-2">Short Positions ({shortsData.length})</h4>
       <div className="space-y-1 max-h-80 overflow-y-auto">
         {shortsData.map((s, idx) => (
           <div
@@ -20,7 +18,8 @@ const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }) => {
             <div className="flex justify-between items-start">
               <div>
                 <span className={`font-semibold ${textClass}`}>
-                  {idx === 0 && '🩳 '}{s.displayName}
+                  {idx === 0 && '🩳 '}
+                  {s.displayName}
                 </span>
                 {s.isCritical ? (
                   <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-red-600 text-white">LIQUIDATING</span>

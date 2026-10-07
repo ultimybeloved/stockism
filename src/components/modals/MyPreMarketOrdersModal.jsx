@@ -17,7 +17,8 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
     const preMarketStart = new Date();
     preMarketStart.setUTCHours(20, 30, 0, 0);
     const ts = Timestamp.fromDate(preMarketStart);
-    let buys = [], sells = [];
+    let buys = [],
+      sells = [];
     const merge = () => setOrders([...buys, ...sells]);
 
     const qBuy = query(
@@ -25,18 +26,27 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
       where('userId', '==', user.uid),
       where('action', '==', 'buy'),
       where('status', '==', 'PENDING'),
-      where('createdAt', '>=', ts)
+      where('createdAt', '>=', ts),
     );
     const qSell = query(
       collection(db, 'preMarketOrders'),
       where('userId', '==', user.uid),
       where('action', '==', 'sell'),
       where('status', '==', 'PENDING'),
-      where('createdAt', '>=', ts)
+      where('createdAt', '>=', ts),
     );
-    const unsubBuy = onSnapshot(qBuy, snap => { buys = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); });
-    const unsubSell = onSnapshot(qSell, snap => { sells = snap.docs.map(d => ({ id: d.id, ...d.data() })); merge(); });
-    return () => { unsubBuy(); unsubSell(); };
+    const unsubBuy = onSnapshot(qBuy, (snap) => {
+      buys = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      merge();
+    });
+    const unsubSell = onSnapshot(qSell, (snap) => {
+      sells = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      merge();
+    });
+    return () => {
+      unsubBuy();
+      unsubSell();
+    };
   }, [user]);
 
   const handleCancel = async (orderId) => {
@@ -51,18 +61,17 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
     }
   };
 
-  const buys = orders.filter(o => o.action === 'buy');
-  const sells = orders.filter(o => o.action === 'sell');
+  const buys = orders.filter((o) => o.action === 'buy');
+  const sells = orders.filter((o) => o.action === 'sell');
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div
-        className={`${modalShellClass} relative max-w-md`}
-        onClick={e => e.stopPropagation()}
-      >
+      <div className={`${modalShellClass} relative max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-4 py-3 border-b ${borderClass}`}>
           <h2 className={`font-bold text-base ${textClass}`}>My Pre-Market Orders</h2>
-          <button onClick={onClose} className={`text-lg leading-none ${mutedClass} hover:opacity-70`}>✕</button>
+          <button onClick={onClose} className={`text-lg leading-none ${mutedClass} hover:opacity-70`}>
+            ✕
+          </button>
         </div>
 
         <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -74,8 +83,16 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
                 <div>
                   <p className={`text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Buys</p>
                   <div className="space-y-2">
-                    {buys.map(o => (
-                      <OrderRow key={o.id} order={o} onCancel={handleCancel} cancelling={cancelling} darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+                    {buys.map((o) => (
+                      <OrderRow
+                        key={o.id}
+                        order={o}
+                        onCancel={handleCancel}
+                        cancelling={cancelling}
+                        darkMode={darkMode}
+                        textClass={textClass}
+                        mutedClass={mutedClass}
+                      />
                     ))}
                   </div>
                 </div>
@@ -84,8 +101,16 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
                 <div>
                   <p className={`text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Sells</p>
                   <div className="space-y-2">
-                    {sells.map(o => (
-                      <OrderRow key={o.id} order={o} onCancel={handleCancel} cancelling={cancelling} darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+                    {sells.map((o) => (
+                      <OrderRow
+                        key={o.id}
+                        order={o}
+                        onCancel={handleCancel}
+                        cancelling={cancelling}
+                        darkMode={darkMode}
+                        textClass={textClass}
+                        mutedClass={mutedClass}
+                      />
                     ))}
                   </div>
                 </div>
@@ -99,7 +124,9 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
 };
 
 const OrderRow = ({ order, onCancel, cancelling, darkMode, textClass, mutedClass }) => (
-  <div className={`flex items-center justify-between px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+  <div
+    className={`flex items-center justify-between px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}
+  >
     <div>
       <span className={`font-bold text-sm ${textClass}`}>${order.ticker}</span>
       <span className={`text-xs ml-2 ${order.action === 'buy' ? 'text-green-500' : 'text-red-400'}`}>

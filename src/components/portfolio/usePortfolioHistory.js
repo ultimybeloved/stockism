@@ -6,9 +6,9 @@ import { TIME_RANGES } from './shared';
 const getRangeCutoff = (range) => {
   if (!range || (!range.days && !range.months && !range.years)) return 0;
   const d = new Date();
-  if (range.years)  d.setFullYear(d.getFullYear() - range.years);
+  if (range.years) d.setFullYear(d.getFullYear() - range.years);
   if (range.months) d.setMonth(d.getMonth() - range.months);
-  if (range.days)   d.setDate(d.getDate() - range.days);
+  if (range.days) d.setDate(d.getDate() - range.days);
   return d.getTime();
 };
 
@@ -27,29 +27,30 @@ export function usePortfolioHistory(user, rangeKey) {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const range = TIME_RANGES.find(r => r.key === rangeKey);
+        const range = TIME_RANGES.find((r) => r.key === rangeKey);
         const cutoff = getRangeCutoff(range);
 
         const mainQ = query(
           collection(db, 'users', user.uid, 'portfolioHistory'),
           where('timestamp', '>=', cutoff),
-          orderBy('timestamp')
+          orderBy('timestamp'),
         );
 
         // Last known point before the window, so the chart starts at the
         // cutoff date rather than at the first trade inside the window.
         // Skip for "All" (cutoff = 0) since there's no "before" to anchor from.
-        const anchorQ = cutoff > 0
-          ? query(
-              collection(db, 'users', user.uid, 'portfolioHistory'),
-              where('timestamp', '<', cutoff),
-              orderBy('timestamp', 'desc'),
-              limit(1)
-            )
-          : null;
+        const anchorQ =
+          cutoff > 0
+            ? query(
+                collection(db, 'users', user.uid, 'portfolioHistory'),
+                where('timestamp', '<', cutoff),
+                orderBy('timestamp', 'desc'),
+                limit(1),
+              )
+            : null;
 
         const mainSnap = await getDocs(mainQ);
-        let points = mainSnap.docs.map(d => d.data());
+        let points = mainSnap.docs.map((d) => d.data());
 
         if (anchorQ && points.length > 0) {
           let anchorValue = points[0].value; // fallback: first in-window value
@@ -58,7 +59,9 @@ export function usePortfolioHistory(user, rangeKey) {
             if (!anchorSnap.empty) {
               anchorValue = anchorSnap.docs[0].data().value;
             }
-          } catch (_) { /* use fallback */ }
+          } catch (_) {
+            /* use fallback */
+          }
           points = [{ timestamp: cutoff, value: anchorValue }, ...points];
         }
 
@@ -70,7 +73,9 @@ export function usePortfolioHistory(user, rangeKey) {
       }
     };
     fetchHistory();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, rangeKey]);
 
   return { history, loading };

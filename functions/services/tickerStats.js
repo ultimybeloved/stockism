@@ -22,8 +22,8 @@ const db = admin.firestore();
 
 const { buildExtremeUpdates, recordHeartbeat } = require('../helpers');
 
-exports.recordPriceExtremes = cf().pubsub
-  .schedule('20 * * * *')
+exports.recordPriceExtremes = cf()
+  .pubsub.schedule('20 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     try {

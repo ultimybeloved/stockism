@@ -58,42 +58,56 @@ const UID = 'drop_halt_uid';
 // Discord snowflake for "now", so the 72-hour expiry check passes.
 const freshMessageId = () => String(BigInt(Date.now() - 1420070400000) << 22n);
 
-const callClaim = (messageId) => new Promise((resolve) => {
-  const body = {
-    type: 3,
-    application_id: 'app-id',
-    token: `tok-${Math.random()}`,
-    data: { custom_id: 'claim_daily_stock' },
-    member: { user: { id: DISCORD_ID } },
-    message: { id: messageId },
-  };
-  const rawBody = Buffer.from(JSON.stringify(body));
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const signature = crypto
-    .sign(null, Buffer.concat([Buffer.from(timestamp), rawBody]), privateKey)
-    .toString('hex');
+const callClaim = (messageId) =>
+  new Promise((resolve) => {
+    const body = {
+      type: 3,
+      application_id: 'app-id',
+      token: `tok-${Math.random()}`,
+      data: { custom_id: 'claim_daily_stock' },
+      member: { user: { id: DISCORD_ID } },
+      message: { id: messageId },
+    };
+    const rawBody = Buffer.from(JSON.stringify(body));
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = crypto.sign(null, Buffer.concat([Buffer.from(timestamp), rawBody]), privateKey).toString('hex');
 
-  let settled = false;
-  const res = {
-    statusCode: 200,
-    status(code) { this.statusCode = code; return this; },
-    send() { return this; },
-    json() { return this; },
-  };
-  const req = {
-    method: 'POST',
-    rawBody,
-    body,
-    headers: { 'x-signature-ed25519': signature, 'x-signature-timestamp': timestamp },
-  };
+    let settled = false;
+    const res = {
+      statusCode: 200,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      send() {
+        return this;
+      },
+      json() {
+        return this;
+      },
+    };
+    const req = {
+      method: 'POST',
+      rawBody,
+      body,
+      headers: { 'x-signature-ed25519': signature, 'x-signature-timestamp': timestamp },
+    };
 
-  // The handler answers Discord immediately and keeps working, so wait on the
-  // returned promise rather than on the response.
-  const done = () => { if (!settled) { settled = true; resolve(); } };
-  Promise.resolve(discordInteractions.run ? discordInteractions.run(req, res) : discordInteractions(req, res))
-    .then(done)
-    .catch((err) => { console.log('    (handler finished with:', err.message + ')'); done(); });
-});
+    // The handler answers Discord immediately and keeps working, so wait on the
+    // returned promise rather than on the response.
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    Promise.resolve(discordInteractions.run ? discordInteractions.run(req, res) : discordInteractions(req, res))
+      .then(done)
+      .catch((err) => {
+        console.log('    (handler finished with:', err.message + ')');
+        done();
+      });
+  });
 
 const marketRef = db.collection('market').doc('current');
 const histRef = db.collection('market').doc('priceHistory');
@@ -110,7 +124,9 @@ const readState = async () => {
   // Dividend/exit-loyalty lots across every ticker, and the claim ledger that
   // is pruned to the 72-hour window.
   const lotShares = Object.values(user.holdingCohorts || {}).reduce(
-    (a, c) => a + (c.eligible || 0) + (c.pending || []).reduce((s, p) => s + (p.shares || 0), 0), 0);
+    (a, c) => a + (c.eligible || 0) + (c.pending || []).reduce((s, p) => s + (p.shares || 0), 0),
+    0,
+  );
   const claimed = (user.claimedDailyStockMessages || []).length;
   return { prices, dropPoints, shares, lotShares, claimed };
 };
@@ -121,14 +137,17 @@ async function seed() {
   for (const c of CHARACTERS) if (!c.ipoRequired) prices[c.ticker] = c.basePrice;
   await marketRef.set({ prices, launchedTickers: [], marketHalted: false });
   await histRef.set({});
-  await db.collection('users').doc(UID).set({
-    discordId: DISCORD_ID,
-    displayName: 'Drop Halt Tester',
-    cash: 10000,
-    holdings: {},
-    claimedDailyStockMessages: [],
-    createdAt: admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86400000),
-  });
+  await db
+    .collection('users')
+    .doc(UID)
+    .set({
+      discordId: DISCORD_ID,
+      displayName: 'Drop Halt Tester',
+      cash: 10000,
+      holdings: {},
+      claimedDailyStockMessages: [],
+      createdAt: admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86400000),
+    });
 }
 
 async function claimUnder(label, { weekly = false, manual = false }) {
@@ -138,8 +157,7 @@ async function claimUnder(label, { weekly = false, manual = false }) {
   await callClaim(freshMessageId());
   const after = await readState();
 
-  const moved = Object.keys(after.prices)
-    .filter((t) => after.prices[t] !== before.prices[t]);
+  const moved = Object.keys(after.prices).filter((t) => after.prices[t] !== before.prices[t]);
   return {
     label,
     moved,
@@ -159,34 +177,34 @@ async function main() {
   // A drop is the sixth way to acquire shares, and it was not opening dividend
   // lots for them — so the next dividend run found them unaccounted and opened
   // a FRESH lot, restarting the holder's 10-day clock from that run.
-  check('drop shares opened matching dividend lots',
+  check(
+    'drop shares opened matching dividend lots',
     Math.abs(open.lotGranted - open.granted) < 1e-6,
-    `granted ${open.granted} shares but ${open.lotGranted} in lots`);
+    `granted ${open.granted} shares but ${open.lotGranted} in lots`,
+  );
   check('prices moved', open.moved.length > 0, `moved ${open.moved.length} tickers`);
-  check('the points are tagged daily_drop', open.newDropPoints > 0,
-    `${open.newDropPoints} tagged points`);
-  check('one point per moved ticker', open.newDropPoints === open.moved.length,
-    `${open.newDropPoints} points vs ${open.moved.length} moved`);
+  check('the points are tagged daily_drop', open.newDropPoints > 0, `${open.newDropPoints} tagged points`);
+  check(
+    'one point per moved ticker',
+    open.newDropPoints === open.moved.length,
+    `${open.newDropPoints} points vs ${open.moved.length} moved`,
+  );
 
   console.log('\n--- Weekly chapter-review halt ---');
   const weekly = await claimUnder('weekly halt', { weekly: true });
-  check('shares are STILL granted (a drop is a gift)', weekly.granted > 0,
-    `granted ${weekly.granted}`);
+  check('shares are STILL granted (a drop is a gift)', weekly.granted > 0, `granted ${weekly.granted}`);
   check('NO price moved', weekly.moved.length === 0, `moved: ${weekly.moved.join(', ')}`);
-  check('no price-history points written', weekly.newDropPoints === 0,
-    `${weekly.newDropPoints} points`);
+  check('no price-history points written', weekly.newDropPoints === 0, `${weekly.newDropPoints} points`);
 
   console.log('\n--- Manual admin halt ---');
   const manual = await claimUnder('manual halt', { manual: true });
   check('shares are still granted', manual.granted > 0, `granted ${manual.granted}`);
   check('NO price moved', manual.moved.length === 0, `moved: ${manual.moved.join(', ')}`);
-  check('no price-history points written', manual.newDropPoints === 0,
-    `${manual.newDropPoints} points`);
+  check('no price-history points written', manual.newDropPoints === 0, `${manual.newDropPoints} points`);
 
   console.log('\n--- Back to open, to prove the gate released ---');
   const reopened = await claimUnder('reopened', {});
-  check('prices move again once the halt lifts', reopened.moved.length > 0,
-    `moved ${reopened.moved.length} tickers`);
+  check('prices move again once the halt lifts', reopened.moved.length > 0, `moved ${reopened.moved.length} tickers`);
 
   console.log('\n--- The claim ledger stays bounded ---');
   // claimedDailyStockMessages only exists to stop a drop being claimed twice,
@@ -194,18 +212,21 @@ async function main() {
   // anyway. It used to arrayUnion forever, so it grew by one entry per claim
   // for the life of the account. Anything past the window is now pruned.
   const ancient = String(BigInt(Date.now() - 1420070400000 - 40 * 86400000) << 22n);
-  await db.collection('users').doc(UID).update({ claimedDailyStockMessages: [ancient] });
+  await db
+    .collection('users')
+    .doc(UID)
+    .update({ claimedDailyStockMessages: [ancient] });
   const recent = freshMessageId();
   await callClaim(recent);
-  const ledger = ((await db.collection('users').doc(UID).get()).data() || {})
-    .claimedDailyStockMessages || [];
-  check('a 40-day-old claim entry is pruned', !ledger.includes(ancient),
-    `ledger: ${ledger.length} entries`);
-  check('the claim just made is still recorded', ledger.includes(recent),
-    `ledger: ${ledger.length} entries`);
+  const ledger = ((await db.collection('users').doc(UID).get()).data() || {}).claimedDailyStockMessages || [];
+  check('a 40-day-old claim entry is pruned', !ledger.includes(ancient), `ledger: ${ledger.length} entries`);
+  check('the claim just made is still recorded', ledger.includes(recent), `ledger: ${ledger.length} entries`);
 
   console.log(failures === 0 ? '\nALL DROP-HALT E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Test crashed:', err); process.exit(1); });
+main().catch((err) => {
+  console.error('Test crashed:', err);
+  process.exit(1);
+});

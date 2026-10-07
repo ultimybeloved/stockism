@@ -33,8 +33,8 @@ export const useUserRowPosition = (deps = []) => {
       },
       {
         root: container,
-        threshold: [0, 0.1]
-      }
+        threshold: [0, 0.1],
+      },
     );
 
     observer.observe(userRow);

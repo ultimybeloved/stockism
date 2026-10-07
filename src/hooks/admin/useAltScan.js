@@ -21,7 +21,7 @@ export function useAltScan(showNotification, onAfterScan) {
         dryRun
           ? `Dry run: ${candidates} suspicious pair(s) across ${scanned} trades. Nothing written.`
           : `Scanned ${scanned} trades, ${candidates} suspicious pair(s), ${reported} new alert(s).`,
-        candidates > 0 ? 'warning' : 'success'
+        candidates > 0 ? 'warning' : 'success',
       );
       if (!dryRun && onAfterScan) await onAfterScan();
     } catch (err) {

@@ -31,25 +31,25 @@ const ToastNotification = ({ notification, onDismiss, darkMode }) => {
         return {
           bg: darkMode ? 'bg-red-900/90 border-red-700' : 'bg-red-100 border-red-400',
           text: darkMode ? 'text-red-100' : 'text-red-800',
-          icon: '❌'
+          icon: '❌',
         };
       case 'info':
         return {
           bg: darkMode ? 'bg-blue-900/90 border-blue-700' : 'bg-blue-100 border-blue-400',
           text: darkMode ? 'text-blue-100' : 'text-blue-800',
-          icon: 'ℹ️'
+          icon: 'ℹ️',
         };
       case 'achievement':
         return {
           bg: darkMode ? 'bg-amber-900/90 border-amber-500' : 'bg-amber-100 border-amber-400',
           text: darkMode ? 'text-amber-100' : 'text-amber-800',
-          icon: '🏆'
+          icon: '🏆',
         };
       default: // success
         return {
           bg: darkMode ? 'bg-green-900/90 border-green-700' : 'bg-green-100 border-green-400',
           text: darkMode ? 'text-green-100' : 'text-green-800',
-          icon: '✓'
+          icon: '✓',
         };
     }
   };

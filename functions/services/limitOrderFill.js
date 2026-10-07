@@ -13,9 +13,18 @@ const { exitLoyaltyDiscount, CHARACTER_MAP } = require('../characters');
 const { MAX_DAILY_IMPACT } = require('../constants');
 const {
   liquidityFor,
-  calculateMarginalImpact, traderMarginalImpact, getAccountAgeImpactFactor,
-  appendPriceHistory, buildTradeCreditUpdates, recordTrade, spreadFor, remainingShares,
-  sumDirectionalImpact, impactDirectionOf, cohortAddUpdate, cohortRemoveUpdate,
+  calculateMarginalImpact,
+  traderMarginalImpact,
+  getAccountAgeImpactFactor,
+  appendPriceHistory,
+  buildTradeCreditUpdates,
+  recordTrade,
+  spreadFor,
+  remainingShares,
+  sumDirectionalImpact,
+  impactDirectionOf,
+  cohortAddUpdate,
+  cohortRemoveUpdate,
 } = require('../helpers');
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
@@ -39,7 +48,7 @@ const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVo
   const ageFactor = getAccountAgeImpactFactor(userData);
   const effectiveImpact = Math.min(
     calculateMarginalImpact(freshPrice, fillShares, cumVolume, liquidityFor(ticker)) * ageFactor,
-    freshPrice * remaining
+    freshPrice * remaining,
   );
   // What the trader is charged, as opposed to how far the market moves. Same
   // split executeTrade applies — without it here, an oversized LIMIT order
@@ -59,9 +68,9 @@ const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVo
  * no price change means nothing to propagate.
  */
 const propagate = ({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices }) =>
-  (effectiveImpact > 0
+  effectiveImpact > 0
     ? computePriceUpdates({ ticker, currentPrice: freshPrice, newPrice: newMarketPrice, prices: freshPrices })
-    : {});
+    : {};
 
 /**
  * User trade history with this fill appended, plus a synthetic zero-share entry
@@ -72,9 +81,10 @@ const propagate = ({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshP
 const buildHistory = ({ userData, ticker, action, fillShares, impactPercent, trailingEntries, now }) =>
   appendTradeEntries(
     pruneHistoryMap(userData.tickerTradeHistory || {}, now),
-    ticker, action,
+    ticker,
+    action,
     { ts: now, shares: fillShares, impact: impactPercent },
-    trailingEntries
+    trailingEntries,
   );
 
 /** Write every moved price and its chart point. Dotted paths, so a concurrent
@@ -99,8 +109,21 @@ const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
  * two go to the connection's shared history too.
  */
 const applyBuyFill = (transaction, ctx) => {
-  const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, traderImpact, impactPercent, fillSource } = ctx;
+  const {
+    order,
+    orderId,
+    userRef,
+    marketRef,
+    userData,
+    freshPrice,
+    freshPrices,
+    fillShares,
+    now,
+    effectiveImpact,
+    traderImpact,
+    impactPercent,
+    fillSource,
+  } = ctx;
   const ticker = order.ticker;
 
   const newMarketPrice = round2(freshPrice + effectiveImpact);
@@ -121,21 +144,36 @@ const applyBuyFill = (transaction, ctx) => {
   const currentHoldings = userData.holdings?.[ticker] || 0;
   const currentCostBasis = userData.costBasis?.[ticker] || 0;
   const newHoldings = currentHoldings + fillShares;
-  const newCostBasis = currentHoldings > 0
-    ? (newHoldings > 0 ? ((currentCostBasis * currentHoldings) + (askPrice * fillShares)) / newHoldings : askPrice)
-    : askPrice;
+  const newCostBasis =
+    currentHoldings > 0
+      ? newHoldings > 0
+        ? (currentCostBasis * currentHoldings + askPrice * fillShares) / newHoldings
+        : askPrice
+      : askPrice;
 
   const priceUpdates = propagate({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices });
   const trailingEntries = buildTrailingEntries({ priceUpdates, ticker, prices: freshPrices, action: 'buy', now });
   const updatedHistory = buildHistory({
-    userData, ticker, action: 'buy', fillShares, impactPercent, trailingEntries, now,
+    userData,
+    ticker,
+    action: 'buy',
+    fillShares,
+    impactPercent,
+    trailingEntries,
+    now,
   });
 
   // Mission/stat credit — same fields executeTrade writes, so limit fills count
   // toward missions like regular trades.
   const { updates: creditUpdates } = buildTradeCreditUpdates({
-    userData, ticker, action: 'buy', shares: fillShares,
-    totalValue: totalCost, executionPrice: executedPrice, marketPrice: freshPrice, now,
+    userData,
+    ticker,
+    action: 'buy',
+    shares: fillShares,
+    totalValue: totalCost,
+    executionPrice: executedPrice,
+    marketPrice: freshPrice,
+    now,
   });
 
   transaction.update(userRef, {
@@ -171,10 +209,14 @@ const applyBuyFill = (transaction, ctx) => {
 
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
-  console.log(`Executed BUY: ${fillShares} ${ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
+  console.log(
+    `Executed BUY: ${fillShares} ${ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`,
+  );
   return {
-    executedPrice, tradeValue: totalCost,
-    historyEntry: { ts: now, shares: fillShares, impact: impactPercent }, trailingEntries,
+    executedPrice,
+    tradeValue: totalCost,
+    historyEntry: { ts: now, shares: fillShares, impact: impactPercent },
+    trailingEntries,
   };
 };
 
@@ -185,8 +227,21 @@ const applyBuyFill = (transaction, ctx) => {
  * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }.
  */
 const applySellFill = (transaction, ctx) => {
-  const { order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, traderImpact, impactPercent, fillSource } = ctx;
+  const {
+    order,
+    orderId,
+    userRef,
+    marketRef,
+    userData,
+    freshPrice,
+    freshPrices,
+    fillShares,
+    now,
+    effectiveImpact,
+    traderImpact,
+    impactPercent,
+    fillSource,
+  } = ctx;
   const ticker = order.ticker;
 
   const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
@@ -214,12 +269,24 @@ const applySellFill = (transaction, ctx) => {
   const priceUpdates = propagate({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices });
   const trailingEntries = buildTrailingEntries({ priceUpdates, ticker, prices: freshPrices, action: 'sell', now });
   const updatedHistory = buildHistory({
-    userData, ticker, action: 'sell', fillShares, impactPercent, trailingEntries, now,
+    userData,
+    ticker,
+    action: 'sell',
+    fillShares,
+    impactPercent,
+    trailingEntries,
+    now,
   });
 
   const { updates: creditUpdates } = buildTradeCreditUpdates({
-    userData, ticker, action: 'sell', shares: fillShares,
-    totalValue: totalRevenue, executionPrice: executedPrice, marketPrice: freshPrice, now,
+    userData,
+    ticker,
+    action: 'sell',
+    shares: fillShares,
+    totalValue: totalRevenue,
+    executionPrice: executedPrice,
+    marketPrice: freshPrice,
+    now,
   });
 
   const updates = {
@@ -255,10 +322,14 @@ const applySellFill = (transaction, ctx) => {
 
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
-  console.log(`Executed ${order.type}: ${fillShares} ${ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`);
+  console.log(
+    `Executed ${order.type}: ${fillShares} ${ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`,
+  );
   return {
-    executedPrice, tradeValue: totalRevenue,
-    historyEntry: { ts: now, shares: fillShares, impact: impactPercent }, trailingEntries,
+    executedPrice,
+    tradeValue: totalRevenue,
+    historyEntry: { ts: now, shares: fillShares, impact: impactPercent },
+    trailingEntries,
   };
 };
 
@@ -266,7 +337,11 @@ const applySellFill = (transaction, ctx) => {
  * Mark the order filled. Runs in the same transaction as the balance change, so
  * a crash here can't leave it PENDING and double-fill it on the next cycle.
  */
-const markOrderFilled = (transaction, orderRef, { freshFilled, fillShares, totalShares, allowPartialFills, executedPrice }) => {
+const markOrderFilled = (
+  transaction,
+  orderRef,
+  { freshFilled, fillShares, totalShares, allowPartialFills, executedPrice },
+) => {
   const newFilledTotal = freshFilled + fillShares;
   const isPartialFill = allowPartialFills && newFilledTotal < totalShares;
   transaction.update(orderRef, {

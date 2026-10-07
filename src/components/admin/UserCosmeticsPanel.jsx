@@ -26,13 +26,13 @@ const UserCosmeticsPanel = ({
       <div className="flex gap-2 mb-3">
         <select
           value={pickedCosmetic}
-          onChange={e => setPickedCosmetic(e.target.value)}
+          onChange={(e) => setPickedCosmetic(e.target.value)}
           className={`flex-1 px-2 py-1 text-sm border rounded ${inputClass}`}
         >
           <option value="">Pick a cosmetic to give...</option>
-          {COSMETIC_TYPES.map(type => (
+          {COSMETIC_TYPES.map((type) => (
             <optgroup key={type} label={COSMETIC_TYPE_LABELS[type]}>
-              {COSMETICS.filter(c => c.type === type).map(c => (
+              {COSMETICS.filter((c) => c.type === type).map((c) => (
                 <option key={c.id} value={c.id} disabled={owned.includes(c.id)}>
                   {c.name} (${c.price.toLocaleString()}){owned.includes(c.id) ? ' — owned' : ''}
                 </option>
@@ -57,7 +57,7 @@ const UserCosmeticsPanel = ({
         <p className={`text-xs ${mutedClass}`}>No cosmetics owned.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {owned.map(id => {
+          {owned.map((id) => {
             const c = COSMETIC_MAP[id];
             const isEquipped = c && active[c.type] === id;
             return (
@@ -74,11 +74,15 @@ const UserCosmeticsPanel = ({
                 <span className={textClass}>{c?.name || id}</span>
                 {isEquipped && <span className="text-teal-500 font-semibold">on</span>}
                 <button
-                  onClick={() => handleRevokeCosmetic(selectedUser.id, selectedUser.displayName || selectedUser.username, id)}
+                  onClick={() =>
+                    handleRevokeCosmetic(selectedUser.id, selectedUser.displayName || selectedUser.username, id)
+                  }
                   disabled={loading}
                   title="Take this cosmetic away"
                   className={`${mutedClass} hover:text-red-500 disabled:opacity-50`}
-                >×</button>
+                >
+                  ×
+                </button>
               </span>
             );
           })}

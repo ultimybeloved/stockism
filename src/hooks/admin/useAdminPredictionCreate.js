@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, broadcastNotificationFunction } from '../../firebase';
 import {
-  EVENT_AMM_LIQUIDITY, MS_PER_HOUR,
-  EVENT_OPENING_ODDS_MIN_PCT, EVENT_OPENING_ODDS_MAX_PCT, WEEKLY_PREDICTION_SEED_MAX,
+  EVENT_AMM_LIQUIDITY,
+  MS_PER_HOUR,
+  EVENT_OPENING_ODDS_MIN_PCT,
+  EVENT_OPENING_ODDS_MAX_PCT,
+  WEEKLY_PREDICTION_SEED_MAX,
 } from '../../constants/economy';
 import { lmsrSeedQ } from '../../utils/calculations';
 
@@ -15,7 +18,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
   const [mayExtend, setMayExtend] = useState(false);
   const [weeklySeed, setWeeklySeed] = useState(''); // house seed total, split evenly; blank = none
-  
+
   // Calculate end time at 13:55 UTC (7:55 AM CST) on target day (5 min before chapter release)
   const getEndTime = (days) => {
     const now = new Date();
@@ -24,7 +27,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
     target.setUTCHours(13, 55, 0, 0);
     return target.getTime();
   };
-  
+
   const endDate = new Date(getEndTime(daysUntilEnd));
 
   const [predictionType, setPredictionType] = useState('weekly'); // 'weekly' (cash) | 'event' (long-term AMM)
@@ -42,7 +45,9 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
     }
     const pcts = pairs.map((p) => Number(p.pct));
     if (pcts.some((n) => !Number.isFinite(n) || n < EVENT_OPENING_ODDS_MIN_PCT || n > EVENT_OPENING_ODDS_MAX_PCT)) {
-      return { error: `Each opening % must be between ${EVENT_OPENING_ODDS_MIN_PCT} and ${EVENT_OPENING_ODDS_MAX_PCT}.` };
+      return {
+        error: `Each opening % must be between ${EVENT_OPENING_ODDS_MIN_PCT} and ${EVENT_OPENING_ODDS_MAX_PCT}.`,
+      };
     }
     const sum = pcts.reduce((a, c) => a + c, 0);
     if (Math.abs(sum - 100) > 0.01) {
@@ -69,7 +74,7 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
       return;
     }
 
-    const validOptions = options.filter(o => o.trim());
+    const validOptions = options.filter((o) => o.trim());
     if (validOptions.length < 2) {
       showMessage('error', 'Please enter at least 2 options');
       return;
@@ -99,10 +104,10 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const currentList = snap.exists() ? snap.data().list || [] : [];
 
       if (predictionType === 'event') {
-        const cleanOptions = validOptions.map(o => o.trim());
+        const cleanOptions = validOptions.map((o) => o.trim());
         const b = Number(seedLiquidity) || EVENT_AMM_LIQUIDITY;
         const delay = Number(openDelayHours) || 0;
         const opensAt = delay > 0 ? Date.now() + Math.round(delay * MS_PER_HOUR) : null;
@@ -125,15 +130,18 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
           ...(opensAt && { opensAt }), // announced-but-locked until this time
         };
         await updateDoc(predictionsRef, { list: [...currentList, eventMarket] });
-        showMessage('success', opensAt
-          ? `Created long-term market: "${question.trim()}" — opens ${new Date(opensAt).toLocaleString()}`
-          : `Created long-term market: "${question.trim()}"`);
+        showMessage(
+          'success',
+          opensAt
+            ? `Created long-term market: "${question.trim()}" — opens ${new Date(opensAt).toLocaleString()}`
+            : `Created long-term market: "${question.trim()}"`,
+        );
         await announcePrediction(
           '🔮 New long-term market!',
           opensAt
             ? `"${question.trim()}" opens ${new Date(opensAt).toLocaleString()}. Buy outcome shares on the Predictions page.`
             : `"${question.trim()}" is live now. Buy outcome shares on the Predictions page.`,
-          eventMarket.id
+          eventMarket.id,
         );
         setQuestion('');
         setOptions(['Yes', 'No', '', '', '', '']);
@@ -150,14 +158,14 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
       // previews and payouts all treat it as one more bettor with no extra code.
       const seedPerOption = seedTotal > 0 ? seedTotal / validOptions.length : 0;
       const pools = {};
-      validOptions.forEach(opt => {
+      validOptions.forEach((opt) => {
         pools[opt.trim()] = seedPerOption;
       });
 
       const newPrediction = {
         id: newId,
         question: question.trim(),
-        options: validOptions.map(o => o.trim()),
+        options: validOptions.map((o) => o.trim()),
         pools,
         endsAt: getEndTime(daysUntilEnd),
         resolved: false,
@@ -165,18 +173,18 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
         payoutsProcessed: false,
         createdAt: Date.now(),
         ...(mayExtend && { mayExtend: true }),
-        ...(seedTotal > 0 && { seedTotal, seedPerOption })
+        ...(seedTotal > 0 && { seedTotal, seedPerOption }),
       };
 
       await updateDoc(predictionsRef, {
-        list: [...currentList, newPrediction]
+        list: [...currentList, newPrediction],
       });
 
       showMessage('success', `Created prediction: "${question.trim()}"`);
       await announcePrediction(
         '🔮 New weekly prediction!',
         `"${question.trim()}" is live. Place your bet on the Predictions page.`,
-        newId
+        newId,
       );
       setQuestion('');
       setOptions(['Yes', 'No', '', '', '', '']);
@@ -191,9 +199,26 @@ export function useAdminPredictionCreate({ showMessage, setLoading }) {
   };
 
   return {
-    question, setQuestion, options, setOptions, daysUntilEnd, setDaysUntilEnd,
-    mayExtend, setMayExtend, weeklySeed, setWeeklySeed, endDate, getEndTime, handleCreatePrediction,
-    predictionType, setPredictionType, seedLiquidity, setSeedLiquidity,
-    openDelayHours, setOpenDelayHours, openingOdds, setOpeningOdds,
+    question,
+    setQuestion,
+    options,
+    setOptions,
+    daysUntilEnd,
+    setDaysUntilEnd,
+    mayExtend,
+    setMayExtend,
+    weeklySeed,
+    setWeeklySeed,
+    endDate,
+    getEndTime,
+    handleCreatePrediction,
+    predictionType,
+    setPredictionType,
+    seedLiquidity,
+    setSeedLiquidity,
+    openDelayHours,
+    setOpenDelayHours,
+    openingOdds,
+    setOpeningOdds,
   };
 }

@@ -30,7 +30,7 @@ exports.adminListCashLog = cf().https.onCall(async (data, context) => {
   const requested = Number(data?.limit);
   const limit = Math.min(
     ADMIN_CASH_LOG_PAGE_MAX,
-    Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : ADMIN_CASH_LOG_PAGE_MAX
+    Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : ADMIN_CASH_LOG_PAGE_MAX,
   );
 
   const snap = await db.collection('adminCashLog').orderBy('at', 'desc').limit(limit).get();
@@ -48,7 +48,7 @@ exports.adminListCashLog = cf().https.onCall(async (data, context) => {
       delta: d.delta ?? null,
       memo: d.memo || null,
       // Timestamps predate serverTimestamp on some early rows, so tolerate both.
-      at: d.at?.toMillis ? d.at.toMillis() : (typeof d.at === 'number' ? d.at : null),
+      at: d.at?.toMillis ? d.at.toMillis() : typeof d.at === 'number' ? d.at : null,
     };
   });
 

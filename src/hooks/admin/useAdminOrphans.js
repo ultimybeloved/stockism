@@ -15,30 +15,30 @@ export function useAdminOrphans({ showMessage, setLoading }) {
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       const suspicious = [];
 
-      snapshot.forEach(docSnap => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const id = docSnap.id;
-        
+
         // Skip admin accounts
         if (ADMIN_UIDS.includes(id)) return;
-        
+
         // Criteria for likely orphaned/bot accounts:
         // 1. No trades ever AND no checkins AND created more than a day ago
         // 2. Still has exactly starting cash ($1000) and no holdings
         // 3. No activity in over a week
-        
+
         const totalTrades = data.totalTrades || 0;
         const totalCheckins = data.totalCheckins || 0;
         const cash = data.cash || 0;
         const holdings = data.holdings || {};
-        const holdingsCount = Object.values(holdings).filter(s => s > 0).length;
+        const holdingsCount = Object.values(holdings).filter((s) => s > 0).length;
         const lastActive = data.lastTradeTime || data.lastCheckin || data.createdAt || 0;
         const createdAt = data.createdAt || 0;
         const portfolioValue = data.portfolioValue || 0;
-        
+
         // Flag as suspicious if:
         // - Zero activity (no trades, no checkins) AND default cash AND no holdings
         const isInactive = totalTrades === 0 && totalCheckins === 0 && holdingsCount === 0;
@@ -55,14 +55,14 @@ export function useAdminOrphans({ showMessage, setLoading }) {
             holdingsCount,
             createdAt,
             lastActive,
-            reason: 'Zero activity + default cash'
+            reason: 'Zero activity + default cash',
           });
         }
       });
-      
+
       // Sort by creation date (oldest first)
       suspicious.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-      
+
       setOrphanedUsers(suspicious);
       setOrphanScanComplete(true);
       showMessage('success', `Found ${suspicious.length} likely orphaned/bot accounts`);
@@ -76,10 +76,10 @@ export function useAdminOrphans({ showMessage, setLoading }) {
   // Delete a single orphaned user
   const deleteOrphanedUser = async (userId) => {
     if (!window.confirm(`Delete user ${userId}? This cannot be undone.`)) return;
-    
+
     try {
       await deleteDoc(doc(db, 'users', userId));
-      setOrphanedUsers(prev => prev.filter(u => u.id !== userId));
+      setOrphanedUsers((prev) => prev.filter((u) => u.id !== userId));
       showMessage('success', `Deleted user ${userId}`);
     } catch (err) {
       console.error('Failed to delete user:', err);
@@ -90,8 +90,9 @@ export function useAdminOrphans({ showMessage, setLoading }) {
   // Delete all orphaned users
   const deleteAllOrphanedUsers = async () => {
     if (!window.confirm(`Delete ALL ${orphanedUsers.length} orphaned users? This cannot be undone!`)) return;
-    if (!window.confirm(`Are you REALLY sure? This will permanently delete ${orphanedUsers.length} user documents.`)) return;
-    
+    if (!window.confirm(`Are you REALLY sure? This will permanently delete ${orphanedUsers.length} user documents.`))
+      return;
+
     setLoading(true);
     try {
       let deleted = 0;
@@ -109,7 +110,10 @@ export function useAdminOrphans({ showMessage, setLoading }) {
   };
 
   return {
-    orphanScanComplete, orphanedUsers, scanForOrphanedUsers,
-    deleteOrphanedUser, deleteAllOrphanedUsers,
+    orphanScanComplete,
+    orphanedUsers,
+    scanForOrphanedUsers,
+    deleteOrphanedUser,
+    deleteAllOrphanedUsers,
   };
 }

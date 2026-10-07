@@ -8,7 +8,16 @@ const {
   MAX_DAILY_IMPACT,
 } = require('./constants');
 const { CHARACTER_MAP, splitFactorOf } = require('./characters');
-const { liquidityFor, calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef, appendPriceHistory, isRosterTicker, recordHeartbeat } = require('./helpers');
+const {
+  liquidityFor,
+  calculateMarginalImpact,
+  isPriceProtected,
+  isTickerPaused,
+  priceHistoryRef,
+  appendPriceHistory,
+  isRosterTicker,
+  recordHeartbeat,
+} = require('./helpers');
 
 /**
  * Get price trend (% change over last N data points)
@@ -18,7 +27,7 @@ function getPriceTrend(priceHistory, ticker, lookbackMinutes = 60) {
   if (history.length < 2) return 0;
 
   const now = Date.now();
-  const cutoff = now - (lookbackMinutes * 60 * 1000);
+  const cutoff = now - lookbackMinutes * 60 * 1000;
 
   // Find price at cutoff
   let oldPrice = history[0].price;
@@ -48,14 +57,14 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
   let tickerPool = allTickers;
   if (bot.botCrew) {
     const { CREW_MEMBERS } = require('./constants');
-    tickerPool = (CREW_MEMBERS[bot.botCrew] || allTickers).filter(t => allTickers.includes(t));
+    tickerPool = (CREW_MEMBERS[bot.botCrew] || allTickers).filter((t) => allTickers.includes(t));
   }
 
   if (tickerPool.length === 0) return { action: 'HOLD' };
 
   // Calculate trends for all tickers
   const trends = {};
-  tickerPool.forEach(ticker => {
+  tickerPool.forEach((ticker) => {
     trends[ticker] = getPriceTrend(priceHistory, ticker);
   });
 
@@ -65,13 +74,17 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       // Mix of amplifying trends and random market activity
       const shortTermTrends = {};
       const lookbackMinutes = isThursday ? 360 : 720;
-      tickerPool.forEach(ticker => {
+      tickerPool.forEach((ticker) => {
         shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, lookbackMinutes);
       });
 
-      const risingStocks = tickerPool.filter(t => shortTermTrends[t] > 0.1).sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
-      const movingStocks = tickerPool.filter(t => Math.abs(shortTermTrends[t]) > 0.05); // Any movement
-      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.1);
+      const risingStocks = tickerPool
+        .filter((t) => shortTermTrends[t] > 0.1)
+        .sort((a, b) => shortTermTrends[b] - shortTermTrends[a]);
+      const movingStocks = tickerPool.filter((t) => Math.abs(shortTermTrends[t]) > 0.05); // Any movement
+      const fallingHoldings = Object.keys(holdings).filter(
+        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t] < -0.1,
+      );
 
       const aggressionMultiplier = isThursday ? 1.5 : 1.0;
       const behaviorRoll = Math.random();
@@ -79,7 +92,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       // SELL logic - sell falling positions
       if (fallingHoldings.length > 0 && Math.random() > 0.3) {
         const ticker = fallingHoldings[Math.floor(Math.random() * fallingHoldings.length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         const sellPct = Math.min(0.9, (0.4 + Math.random() * 0.3) * aggressionMultiplier);
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * sellPct) };
       }
@@ -109,13 +122,15 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
     case 'momentum': {
       // Buy rising stocks, sell falling ones
-      const risingStocks = tickerPool.filter(t => trends[t] > 1).sort((a, b) => trends[b] - trends[a]);
-      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -1);
+      const risingStocks = tickerPool.filter((t) => trends[t] > 1).sort((a, b) => trends[b] - trends[a]);
+      const fallingHoldings = Object.keys(holdings).filter(
+        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -1,
+      );
 
       if (fallingHoldings.length > 0 && Math.random() > 0.3) {
         // Sell falling
         const ticker = fallingHoldings[Math.floor(Math.random() * fallingHoldings.length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.3 + Math.random() * 0.4)) };
       } else if (risingStocks.length > 0 && cash > 50) {
         // Buy rising - pick from top 10 to spread across multiple gainers
@@ -129,12 +144,14 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
     case 'contrarian': {
       // Buy dips, sell peaks
-      const dips = tickerPool.filter(t => trends[t] < -1.5).sort((a, b) => trends[a] - trends[b]);
-      const peakHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] > 1.5);
+      const dips = tickerPool.filter((t) => trends[t] < -1.5).sort((a, b) => trends[a] - trends[b]);
+      const peakHoldings = Object.keys(holdings).filter(
+        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] > 1.5,
+      );
 
       if (peakHoldings.length > 0 && Math.random() > 0.4) {
         const ticker = peakHoldings[Math.floor(Math.random() * peakHoldings.length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.4 + Math.random() * 0.4)) };
       } else if (dips.length > 0 && cash > 50) {
         // Buy dips - pick from top 10 dipping stocks
@@ -151,7 +168,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       if (Math.random() > 0.9 && Object.keys(holdings).length > 0) {
         // Rarely trim positions
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         if (shareCount > 10 * splitFactorOf(ticker)) {
           return { action: 'SELL', ticker, shares: Math.floor(shareCount * 0.2) };
         }
@@ -168,7 +185,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       // Quick small trades
       if (Math.random() > 0.5 && Object.keys(holdings).length > 0) {
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.min(5 * splitFactorOf(ticker), shareCount) };
       } else if (cash > 30) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
@@ -182,7 +199,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       // Completely random
       if (Math.random() > 0.6 && Object.keys(holdings).length > 0) {
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * Math.random()) };
       } else if (cash > 50) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
@@ -194,10 +211,12 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
 
     case 'panic': {
       // Sells on any dip
-      const fallingHoldings = Object.keys(holdings).filter(t => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -1);
+      const fallingHoldings = Object.keys(holdings).filter(
+        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t] < -1,
+      );
       if (fallingHoldings.length > 0) {
         const ticker = fallingHoldings[0];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.5 + Math.random() * 0.4)) };
       } else if (cash > 80 && Math.random() > 0.7) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
@@ -213,7 +232,7 @@ function makeBotDecision(bot, marketData, allTickers, isThursday = false) {
       // Balanced approach
       if (Math.random() > 0.55 && Object.keys(holdings).length > 0) {
         const ticker = Object.keys(holdings)[Math.floor(Math.random() * Object.keys(holdings).length)];
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : (holdings[ticker]?.shares || 0);
+        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
         return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.3 + Math.random() * 0.3)) };
       } else if (cash > 70) {
         const ticker = tickerPool[Math.floor(Math.random() * tickerPool.length)];
@@ -233,8 +252,7 @@ module.exports = {
    * Picks 3-6 random bots to make trades (5-10 on Thursdays)
    */
   botTrader: cf({ timeoutSeconds: 540, memory: '512MB' })
-    .pubsub
-    .schedule('every 30 minutes')
+    .pubsub.schedule('every 30 minutes')
     .onRun(async (context) => {
       try {
         // Weekly trading halt: Thursday 13:00–21:00 UTC
@@ -249,7 +267,7 @@ module.exports = {
 
         // Random delay before starting (0-90 seconds) to avoid predictable timing
         const startDelay = Math.floor(Math.random() * 90000);
-        await new Promise(resolve => setTimeout(resolve, startDelay));
+        await new Promise((resolve) => setTimeout(resolve, startDelay));
 
         const db = admin.firestore();
         const marketRef = db.collection('market').doc('current');
@@ -257,7 +275,7 @@ module.exports = {
 
         // Get all bots
         const usersSnap = await usersRef.where('isBot', '==', true).get();
-        const bots = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const bots = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
         if (bots.length === 0) {
           console.log('No bots found');
@@ -282,11 +300,11 @@ module.exports = {
         // Chart history lives in its own doc now. Attach it so the decision
         // helpers (trends, admin price protection) read it as before.
         const historySnap = await priceHistoryRef().get();
-        marketData.priceHistory = historySnap.exists ? (historySnap.data() || {}) : {};
+        marketData.priceHistory = historySnap.exists ? historySnap.data() || {} : {};
 
         const prices = marketData.prices || {};
         const launchedTickers = marketData.launchedTickers || [];
-        const allTickers = Object.keys(prices).filter(t => {
+        const allTickers = Object.keys(prices).filter((t) => {
           if (!isRosterTicker(t)) return false; // stale price from an old rename
           const meta = CHARACTER_MAP[t];
           return !meta?.ipoRequired || launchedTickers.includes(t);
@@ -296,9 +314,7 @@ module.exports = {
         // ceiling (MAX_DAILY_IMPACT) humans get. Stops bots from cratering or
         // pumping any single stock. Resets each UTC day.
         const today = new Date().toISOString().slice(0, 10);
-        const botImpactToday = marketData.botImpactDate === today
-          ? { ...(marketData.botImpact || {}) }
-          : {};
+        const botImpactToday = marketData.botImpactDate === today ? { ...(marketData.botImpact || {}) } : {};
         if (marketData.botImpactDate !== today) {
           await marketRef.update({ botImpact: {}, botImpactDate: today });
         }
@@ -308,13 +324,15 @@ module.exports = {
 
         // Fewer bots per round, more spread out
         const numBotsToTrade = isThursday
-          ? Math.floor(Math.random() * 3) + 3  // 3-5 bots on Thursday
+          ? Math.floor(Math.random() * 3) + 3 // 3-5 bots on Thursday
           : Math.floor(Math.random() * 3) + 1; // 1-3 bots normally
 
         const shuffled = bots.sort(() => 0.5 - Math.random());
         const tradingBots = shuffled.slice(0, numBotsToTrade);
 
-        console.log(`${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''} (delayed ${Math.floor(startDelay/1000)}s)`);
+        console.log(
+          `${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''} (delayed ${Math.floor(startDelay / 1000)}s)`,
+        );
 
         // Execute trades for each bot with random delays between them
         for (const bot of tradingBots) {
@@ -346,7 +364,9 @@ module.exports = {
             continue;
           }
 
-          console.log(`${bot.displayName} (${bot.botPersonality}): ${decision.action} ${decision.shares} ${decision.ticker}`);
+          console.log(
+            `${bot.displayName} (${bot.botPersonality}): ${decision.action} ${decision.shares} ${decision.ticker}`,
+          );
 
           // Execute trade in transaction
           let appliedFrac = 0;
@@ -368,14 +388,20 @@ module.exports = {
               const totalCost = currentPrice * decision.shares;
               if (botData.cash < totalCost) return; // Not enough cash
 
-              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0, liquidityFor(decision.ticker));
+              const priceImpact = calculateMarginalImpact(
+                currentPrice,
+                decision.shares,
+                0,
+                liquidityFor(decision.ticker),
+              );
               const newPrice = Math.max(MIN_PRICE, currentPrice + priceImpact);
 
               // Update bot
               const newHoldings = { ...(botData.holdings || {}) };
-              const currentShares = typeof newHoldings[decision.ticker] === 'number'
-                ? newHoldings[decision.ticker]
-                : (newHoldings[decision.ticker]?.shares || 0);
+              const currentShares =
+                typeof newHoldings[decision.ticker] === 'number'
+                  ? newHoldings[decision.ticker]
+                  : newHoldings[decision.ticker]?.shares || 0;
               newHoldings[decision.ticker] = currentShares + decision.shares;
 
               const newCostBasis = { ...(botData.costBasis || {}) };
@@ -384,7 +410,7 @@ module.exports = {
 
               const newCash = botData.cash - totalCost;
               const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
-                const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
                 return sum + (freshPrices[ticker] || 0) * shareCount;
               }, 0);
 
@@ -398,7 +424,7 @@ module.exports = {
                 cashBefore: botData.cash,
                 cashAfter: newCash,
                 portfolioAfter: newCash + holdingsValue,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               transaction.update(botRef, {
@@ -407,7 +433,7 @@ module.exports = {
                 costBasis: newCostBasis,
                 portfolioValue: newCash + holdingsValue,
                 totalTrades: (botData.totalTrades || 0) + 1,
-                transactionLog: txLog.slice(-100) // Keep last 100
+                transactionLog: txLog.slice(-100), // Keep last 100
               });
 
               // Update market price — field-path write on just this ticker so a
@@ -416,20 +442,25 @@ module.exports = {
               transaction.update(marketRef, {
                 [`prices.${decision.ticker}`]: newPrice,
                 [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
-                botImpactDate: today
+                botImpactDate: today,
               });
               appendPriceHistory(transaction, {
-                [decision.ticker]: { timestamp: Date.now(), price: newPrice }
+                [decision.ticker]: { timestamp: Date.now(), price: newPrice },
               });
-
             } else if (decision.action === 'SELL') {
-              const currentShares = typeof botData.holdings[decision.ticker] === 'number'
-                ? botData.holdings[decision.ticker]
-                : (botData.holdings[decision.ticker]?.shares || 0);
+              const currentShares =
+                typeof botData.holdings[decision.ticker] === 'number'
+                  ? botData.holdings[decision.ticker]
+                  : botData.holdings[decision.ticker]?.shares || 0;
 
               if (currentShares < decision.shares) return; // Not enough shares
 
-              const priceImpact = calculateMarginalImpact(currentPrice, decision.shares, 0, liquidityFor(decision.ticker));
+              const priceImpact = calculateMarginalImpact(
+                currentPrice,
+                decision.shares,
+                0,
+                liquidityFor(decision.ticker),
+              );
               const newPrice = Math.max(MIN_PRICE, currentPrice - priceImpact);
               const totalRevenue = newPrice * decision.shares;
 
@@ -439,7 +470,7 @@ module.exports = {
 
               const newCash = botData.cash + totalRevenue;
               const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
-                const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+                const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
                 return sum + (freshPrices[ticker] || 0) * shareCount;
               }, 0);
 
@@ -453,7 +484,7 @@ module.exports = {
                 cashBefore: botData.cash,
                 cashAfter: newCash,
                 portfolioAfter: newCash + holdingsValue,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
 
               transaction.update(botRef, {
@@ -461,7 +492,7 @@ module.exports = {
                 holdings: newHoldings,
                 portfolioValue: newCash + holdingsValue,
                 totalTrades: (botData.totalTrades || 0) + 1,
-                transactionLog: txLog.slice(-100)
+                transactionLog: txLog.slice(-100),
               });
 
               // Update market price — field-path write on just this ticker so a
@@ -470,10 +501,10 @@ module.exports = {
               transaction.update(marketRef, {
                 [`prices.${decision.ticker}`]: newPrice,
                 [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
-                botImpactDate: today
+                botImpactDate: today,
               });
               appendPriceHistory(transaction, {
-                [decision.ticker]: { timestamp: Date.now(), price: newPrice }
+                [decision.ticker]: { timestamp: Date.now(), price: newPrice },
               });
             }
           });
@@ -484,7 +515,7 @@ module.exports = {
 
           // Random delay between bot trades (5-45 seconds) to avoid simultaneous trades
           const tradeDelay = Math.floor(Math.random() * 40000) + 5000;
-          await new Promise(resolve => setTimeout(resolve, tradeDelay));
+          await new Promise((resolve) => setTimeout(resolve, tradeDelay));
         }
 
         console.log('Bot trading round complete');
@@ -494,5 +525,5 @@ module.exports = {
         console.error('Error in botTrader:', error);
         return null;
       }
-    })
+    }),
 };

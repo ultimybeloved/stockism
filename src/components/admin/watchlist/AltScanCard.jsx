@@ -7,19 +7,16 @@ import { localDailyTime } from '../../../utils/localTime';
 
 const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runScan }) => {
   const buttonClass = `flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
-    darkMode
-      ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+    darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
   }`;
 
   return (
     <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-indigo-50'}`}>
       <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Find Alt Accounts</h3>
       <p className={`text-xs mb-2 ${mutedClass}`}>
-        Looks through the last 30 days of trades for accounts that keep trading from the same
-        connection. This runs by itself every night at {localDailyTime(240)} and posts to Discord when it
-        finds something. Use these buttons to check right now. Dry run shows what it would
-        flag without writing anything.
+        Looks through the last 30 days of trades for accounts that keep trading from the same connection. This runs by
+        itself every night at {localDailyTime(240)} and posts to Discord when it finds something. Use these buttons to
+        check right now. Dry run shows what it would flag without writing anything.
       </p>
       <div className="flex gap-2">
         <button onClick={() => runScan(true)} disabled={scanning} className={buttonClass}>
@@ -29,9 +26,7 @@ const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runSca
           onClick={() => runScan(false)}
           disabled={scanning}
           className={`flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
-            darkMode
-              ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-              : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+            darkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
           }`}
         >
           {scanning ? 'Scanning...' : 'Scan Now'}

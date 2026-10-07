@@ -74,58 +74,76 @@ const TICKER_A = CHARACTERS[0].ticker;
 const NAME_A = CHARACTERS[0].name;
 
 async function seed() {
-  await db.collection('market').doc('current').set({
-    prices: { [TICKER_A]: 120.5, [CHARACTERS[1].ticker]: 40 },
-    launchedTickers: [],
-    marketHalted: false,
-  });
-  await db.collection('market').doc('preHaltSnapshot').set({
-    prices: { [TICKER_A]: 100 },
-  });
-  await db.collection('leaderboard').doc('global').set({
-    generatedAt: Date.now(),
-    entries: [
-      { userId: 'u1', displayName: 'Alpha', portfolioValue: 50000 },
-      { userId: 'u2', displayName: 'Beta', portfolioValue: 42000 },
-      { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
-    ],
-  });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({
+      prices: { [TICKER_A]: 120.5, [CHARACTERS[1].ticker]: 40 },
+      launchedTickers: [],
+      marketHalted: false,
+    });
+  await db
+    .collection('market')
+    .doc('preHaltSnapshot')
+    .set({
+      prices: { [TICKER_A]: 100 },
+    });
+  await db
+    .collection('leaderboard')
+    .doc('global')
+    .set({
+      generatedAt: Date.now(),
+      entries: [
+        { userId: 'u1', displayName: 'Alpha', portfolioValue: 50000 },
+        { userId: 'u2', displayName: 'Beta', portfolioValue: 42000 },
+        { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
+      ],
+    });
   const crew = Object.keys(require('../functions/constants').CREW_MEMBERS)[0];
-  await db.collection('users').doc('u1').set({
-    discordId: 'discord-linked-1',
-    displayName: 'Alpha',
-    cash: 5000,
-    portfolioValue: 50000,
-    crew,
-    holdings: { [TICKER_A]: 100, [CHARACTERS[1].ticker]: 50 },
-    achievements: ['DISCORD_LINKED'],
-    isPublic: true,
-    isBot: false,
-  });
+  await db
+    .collection('users')
+    .doc('u1')
+    .set({
+      discordId: 'discord-linked-1',
+      displayName: 'Alpha',
+      cash: 5000,
+      portfolioValue: 50000,
+      crew,
+      holdings: { [TICKER_A]: 100, [CHARACTERS[1].ticker]: 50 },
+      achievements: ['DISCORD_LINKED'],
+      isPublic: true,
+      isBot: false,
+    });
   // Second linked account so privacy checks get a caller that has not already
   // spent its per-user cooldown earlier in this run.
-  await db.collection('users').doc('u2').set({
-    discordId: 'discord-linked-2',
-    displayName: 'Beta',
-    cash: 777,
-    portfolioValue: 42000,
-    crew,
-    holdings: { [TICKER_A]: 10 },
-    achievements: ['DISCORD_LINKED'],
-    isPublic: false,
-    isBot: false,
-  });
-  await db.collection('users').doc('u3').set({
-    discordId: 'discord-linked-3',
-    displayName: 'Gamma',
-    cash: 1234,
-    portfolioValue: 31000,
-    crew,
-    holdings: { [TICKER_A]: 5 },
-    achievements: [],
-    isPublic: false,
-    isBot: false,
-  });
+  await db
+    .collection('users')
+    .doc('u2')
+    .set({
+      discordId: 'discord-linked-2',
+      displayName: 'Beta',
+      cash: 777,
+      portfolioValue: 42000,
+      crew,
+      holdings: { [TICKER_A]: 10 },
+      achievements: ['DISCORD_LINKED'],
+      isPublic: false,
+      isBot: false,
+    });
+  await db
+    .collection('users')
+    .doc('u3')
+    .set({
+      discordId: 'discord-linked-3',
+      displayName: 'Gamma',
+      cash: 1234,
+      portfolioValue: 31000,
+      crew,
+      holdings: { [TICKER_A]: 5 },
+      achievements: [],
+      isPublic: false,
+      isBot: false,
+    });
 }
 
 async function run() {
@@ -134,9 +152,7 @@ async function run() {
 
   console.log('\n--- Linked user ---');
   for (const name of ['leaderboard', 'profile', 'price', 'portfolio', 'missions', 'buy']) {
-    const options = (name === 'price' || name === 'buy')
-      ? [{ name: 'stock', value: TICKER_A }]
-      : [];
+    const options = name === 'price' || name === 'buy' ? [{ name: 'stock', value: TICKER_A }] : [];
     let payload;
     try {
       payload = await handleSlashCommand(interaction(name, options, `discord-linked-1`));
@@ -155,8 +171,10 @@ async function run() {
     const problem = validPayload(payload);
     check(`/${name} valid payload for stranger`, problem === null, problem);
     const text = JSON.stringify(payload);
-    check(`/${name} pitches signup rather than erroring`,
-      /not on Stockism|No account found|Create an account/i.test(text));
+    check(
+      `/${name} pitches signup rather than erroring`,
+      /not on Stockism|No account found|Create an account/i.test(text),
+    );
     check(`/${name} offers a link back to the site`, /stockism\.app/.test(text));
   }
 
@@ -165,13 +183,19 @@ async function run() {
   check('/price resolves a full character name', JSON.stringify(byName).includes(TICKER_A));
 
   const bogus = await handleSlashCommand(interaction('price', [{ name: 'stock', value: 'zzzz-not-real' }], 'u-bogus'));
-  check('/price handles an unknown stock gracefully', validPayload(bogus) === null && /Not found/i.test(JSON.stringify(bogus)));
+  check(
+    '/price handles an unknown stock gracefully',
+    validPayload(bogus) === null && /Not found/i.test(JSON.stringify(bogus)),
+  );
 
   console.log('\n--- Price change is computed from the chapter snapshot ---');
   const priced = await handleSlashCommand(interaction('price', [{ name: 'stock', value: TICKER_A }], 'u-price'));
   // Seeded 100 -> 120.50 = +20.50%
-  check('/price shows the correct move since chapter open', /\+20\.50%/.test(JSON.stringify(priced)),
-    JSON.stringify(priced.embeds[0].fields));
+  check(
+    '/price shows the correct move since chapter open',
+    /\+20\.50%/.test(JSON.stringify(priced)),
+    JSON.stringify(priced.embeds[0].fields),
+  );
 
   console.log('\n--- /profile privacy ---');
   // Seeded cash is 5000. Everything /profile shows is already public on the
@@ -183,12 +207,17 @@ async function run() {
   check('/profile still shows net worth', /Net worth/.test(profText));
   check('/profile still shows rank', /Rank/.test(profText));
   check('/profile still shows achievements', /Achievements/.test(profText));
-  check('/profile has no dead link button', !prof.components || prof.components.length === 0,
-    JSON.stringify(prof.components));
+  check(
+    '/profile has no dead link button',
+    !prof.components || prof.components.length === 0,
+    JSON.stringify(prof.components),
+  );
 
   // Viewing someone else must not expose their cash either.
   const otherProf = await handleSlashCommand({
-    type: 2, application_id: 'a', token: 't',
+    type: 2,
+    application_id: 'a',
+    token: 't',
     data: { name: 'profile', options: [{ name: 'user', value: 'discord-linked-1' }] },
     member: { user: { id: 'someone-else' } },
   });
@@ -200,8 +229,11 @@ async function run() {
   // /portfolio must not claim a "net worth" - that number lives on /profile and
   // comes from a different (stored, daily-synced) source. Two commands reporting
   // two different net worths for one player is the bug this guards.
-  check('/portfolio does not report a competing net worth',
-    !/Net worth/i.test(JSON.stringify(ownPortfolio)), JSON.stringify(ownPortfolio));
+  check(
+    '/portfolio does not report a competing net worth',
+    !/Net worth/i.test(JSON.stringify(ownPortfolio)),
+    JSON.stringify(ownPortfolio),
+  );
 
   console.log('\n--- Net worth agrees with rank and leaderboard ---');
   // u2 is seeded with a stored portfolioValue of 42000 that deliberately does
@@ -210,28 +242,23 @@ async function run() {
   // Recomputing live produced a net worth on a different scale from its own rank.
   // Reuses the /profile reply fetched in the privacy block above - calling again
   // would hit the per-user cooldown and return "Slow down" instead of a profile.
-  check('/profile reports the same net worth the leaderboard ranks on',
-    /42,000\.00/.test(profText), profText);
+  check('/profile reports the same net worth the leaderboard ranks on', /42,000\.00/.test(profText), profText);
 
   console.log('\n--- Crew shows a readable name, not the raw id ---');
-  check('/profile does not show a raw crew id',
-    !/[A-Z]{2,}_[A-Z]{2,}/.test(profText), profText);
+  check('/profile does not show a raw crew id', !/[A-Z]{2,}_[A-Z]{2,}/.test(profText), profText);
 
   console.log('\n--- Markdown injection via echoed input ---');
   const inject = await handleSlashCommand(
-    interaction('price', [{ name: 'stock', value: '[click me](https://evil.example)' }], 'u-inject')
+    interaction('price', [{ name: 'stock', value: '[click me](https://evil.example)' }], 'u-inject'),
   );
   // Check the real description string, not its JSON encoding — JSON doubles
   // every backslash, which makes escaped output look unescaped.
   const injectDesc = inject.embeds[0].description;
-  check('/price does not render an injected markdown link',
-    !injectDesc.includes(']('), injectDesc);
+  check('/price does not render an injected markdown link', !injectDesc.includes(']('), injectDesc);
   check('/price escapes the injected brackets', injectDesc.includes('\\['), injectDesc);
 
   const longInput = 'x'.repeat(5000);
-  const longReply = await handleSlashCommand(
-    interaction('buy', [{ name: 'stock', value: longInput }], 'u-long')
-  );
+  const longReply = await handleSlashCommand(interaction('buy', [{ name: 'stock', value: longInput }], 'u-long'));
   check('/buy truncates an oversized input', validPayload(longReply) === null);
 
   console.log('\n--- Privacy ---');
@@ -255,8 +282,7 @@ async function run() {
   await handleSlashCommand(interaction('portfolio', [], 'discord-linked-1'));
   await handleSlashCommand(interaction('buy', [{ name: 'stock', value: TICKER_A }], 'discord-linked-2'));
   const userAfter = (await db.collection('users').doc('u1').get()).data();
-  check('commands do not mutate the user doc',
-    JSON.stringify(userBefore) === JSON.stringify(userAfter));
+  check('commands do not mutate the user doc', JSON.stringify(userBefore) === JSON.stringify(userAfter));
   const marketAfter = (await db.collection('market').doc('current').get()).data();
   check('commands do not move prices', marketAfter.prices[TICKER_A] === 120.5);
 

@@ -3,9 +3,14 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { CREW_MEMBERS, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS, TWENTY_FOUR_HOURS_MS, isFreeSwitchTarget } = require('../constants');
+const {
+  CREW_MEMBERS,
+  CREW_SWITCH_PENALTY,
+  CREW_REJOIN_LOCKOUT_MS,
+  TWENTY_FOUR_HOURS_MS,
+  isFreeSwitchTarget,
+} = require('../constants');
 const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require('../helpers');
-
 
 /**
  * Switch Crew - Callable function
@@ -13,7 +18,7 @@ const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require(
  * (CREW_SWITCH_PENALTY, currently 5%)
  */
 exports.switchCrew = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -61,17 +66,23 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
       // 30-day rejoin lockout, set when leaving a crew. Replaced the old
       // permanent exile (crewHistory), which trapped players in dead crews.
       // The event crew is open to everyone while the window is running.
-      const lockedUntil = freeSwitch ? 0 : ((userData.crewLockouts || {})[crewId] || 0);
+      const lockedUntil = freeSwitch ? 0 : (userData.crewLockouts || {})[crewId] || 0;
       if (lockedUntil > Date.now()) {
         const daysLeft = Math.ceil((lockedUntil - Date.now()) / TWENTY_FOUR_HOURS_MS);
-        throw new functions.https.HttpsError('failed-precondition', `You recently left this crew. You can rejoin in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `You recently left this crew. You can rejoin in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+        );
       }
 
       // Check 24-hour cooldown
       const lastChange = userData.lastCrewChange || 0;
       const hoursSinceChange = (Date.now() - lastChange) / (1000 * 60 * 60);
       if (hoursSinceChange < 24) {
-        throw new functions.https.HttpsError('failed-precondition', `Crew change cooldown. Try again in ${Math.ceil(24 - hoursSinceChange)}h.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Crew change cooldown. Try again in ${Math.ceil(24 - hoursSinceChange)}h.`,
+        );
       }
 
       const now = Date.now();
@@ -103,7 +114,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
         updateData[`crewLockouts.${userData.crew}`] = now + CREW_REJOIN_LOCKOUT_MS;
         const marketRef = db.collection('market').doc('current');
         const marketDoc = await transaction.get(marketRef);
-        const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
+        const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
         const penaltyRate = CREW_SWITCH_PENALTY;
 
         const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
@@ -137,31 +148,23 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
     });
 
     return result;
-
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
     if (error.code === 10 || error.message?.includes('contention') || error.message?.includes('ABORTED')) {
-      throw new functions.https.HttpsError(
-        'aborted',
-        'Crew change was busy. Please try again.'
-      );
+      throw new functions.https.HttpsError('aborted', 'Crew change was busy. Please try again.');
     }
     reportError(error, { where: 'switchCrew', uid });
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to join crew. Please try again.'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to join crew. Please try again.');
   }
 });
-
 
 /**
  * Leave crew with the portfolio penalty (CREW_SWITCH_PENALTY, currently 5%)
  */
 exports.leaveCrew = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -172,10 +175,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
   const marketRef = db.collection('market').doc('current');
 
   return db.runTransaction(async (transaction) => {
-    const [userDoc, marketDoc] = await Promise.all([
-      transaction.get(userRef),
-      transaction.get(marketRef)
-    ]);
+    const [userDoc, marketDoc] = await Promise.all([transaction.get(userRef), transaction.get(marketRef)]);
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
@@ -189,7 +189,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Cannot leave crew while in debt.');
     }
 
-    const prices = marketDoc.exists ? (marketDoc.data().prices || {}) : {};
+    const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
     const penaltyRate = CREW_SWITCH_PENALTY;
 
     // Cash penalty
@@ -208,7 +208,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
       }
     });
 
-    const totalTaken = ((userData.cash || 0) - newCash) + holdingsValueTaken;
+    const totalTaken = (userData.cash || 0) - newCash + holdingsValueTaken;
     const newPortfolioValue = (userData.portfolioValue || 0) - totalTaken;
 
     transaction.update(userRef, {
@@ -221,7 +221,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
       portfolioValue: Math.max(0, newPortfolioValue),
       lastCrewChange: Date.now(),
       // Lock the crew being left for 30 days.
-      [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS
+      [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS,
     });
 
     return { success: true, totalTaken, crewLeft: userData.crew };

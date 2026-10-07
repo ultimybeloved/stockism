@@ -3,7 +3,15 @@ import { db } from '../../firebase';
 
 // Users tab: per-user and bulk portfolio value recalculation. Operates on the
 // list state owned by useAdminUserList, passed in as deps.
-export function useAdminPortfolioSync({ showMessage, setLoading, prices, selectedUser, setSelectedUser, calculateLivePortfolioValue, handleLoadAllUsers }) {
+export function useAdminPortfolioSync({
+  showMessage,
+  setLoading,
+  prices,
+  selectedUser,
+  setSelectedUser,
+  calculateLivePortfolioValue,
+  handleLoadAllUsers,
+}) {
   // Sync portfolio value for a single user
   const handleSyncSingleUser = async (userId) => {
     if (!prices || Object.keys(prices).length === 0) {
@@ -31,7 +39,7 @@ export function useAdminPortfolioSync({ showMessage, setLoading, prices, selecte
 
       await updateDoc(userRef, {
         portfolioValue: newPortfolioValue,
-        lastSyncedAt: new Date()
+        lastSyncedAt: new Date(),
       });
 
       showMessage('success', `Synced ${userData.displayName}'s portfolio`);
@@ -72,7 +80,7 @@ export function useAdminPortfolioSync({ showMessage, setLoading, prices, selecte
         if (Math.abs(newPortfolioValue - (userData.portfolioValue || 0)) > 0.01) {
           await updateDoc(doc(db, 'users', userDoc.id), {
             portfolioValue: newPortfolioValue,
-            lastSyncedAt: new Date()
+            lastSyncedAt: new Date(),
           });
           updated++;
         }
@@ -87,7 +95,6 @@ export function useAdminPortfolioSync({ showMessage, setLoading, prices, selecte
     }
     setLoading(false);
   };
-
 
   return { handleSyncSingleUser, handleRecalculatePortfolios };
 }

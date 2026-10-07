@@ -13,16 +13,14 @@ import { COSMETIC_MAP } from '../constants/cosmetics';
 // Callers with the full user doc (own profile header) pass the owned list so
 // an unowned equip never renders, even for the owner.
 export const getCosmeticStyles = (activeCosmetics = {}, ownedCosmetics = null) => {
-  let ac = (activeCosmetics && typeof activeCosmetics === 'object') ? activeCosmetics : {};
+  let ac = activeCosmetics && typeof activeCosmetics === 'object' ? activeCosmetics : {};
   if (Array.isArray(ownedCosmetics)) {
-    ac = Object.fromEntries(
-      Object.entries(ac).filter(([, id]) => id == null || ownedCosmetics.includes(id))
-    );
+    ac = Object.fromEntries(Object.entries(ac).filter(([, id]) => id == null || ownedCosmetics.includes(id)));
   }
-  const nameC  = ac.nameColor   ? COSMETIC_MAP[ac.nameColor]   : null;
-  const glowC  = ac.rowGlow     ? COSMETIC_MAP[ac.rowGlow]     : null;
-  const backC  = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
-  const frameC = ac.rowFrame    ? COSMETIC_MAP[ac.rowFrame]    : null;
+  const nameC = ac.nameColor ? COSMETIC_MAP[ac.nameColor] : null;
+  const glowC = ac.rowGlow ? COSMETIC_MAP[ac.rowGlow] : null;
+  const backC = ac.rowBackdrop ? COSMETIC_MAP[ac.rowBackdrop] : null;
+  const frameC = ac.rowFrame ? COSMETIC_MAP[ac.rowFrame] : null;
 
   return {
     // Static name color (animated name effects render via nameClass instead).

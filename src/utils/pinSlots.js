@@ -16,6 +16,6 @@ export const getMaxShopSlots = (userData) => 1 + (userData?.extraShopSlot ? 1 : 
 // Toggle an id in a displayed-pins list, respecting the slot cap: removing
 // always works, adding is a no-op when the list is full.
 export const toggleDisplayedPin = (displayed, id, maxSlots) => {
-  if (displayed.includes(id)) return displayed.filter(p => p !== id);
+  if (displayed.includes(id)) return displayed.filter((p) => p !== id);
   return displayed.length < maxSlots ? [...displayed, id] : displayed;
 };

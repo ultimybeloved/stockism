@@ -4,9 +4,11 @@ import { marketTimes, formatDateTime, localWeeklyRange } from './localTime';
 // Node reads process.env.TZ on each Date operation, so each test can be a
 // player somewhere else. en-US output is what the test machine renders.
 const ORIGINAL_TZ = process.env.TZ;
-afterEach(() => { process.env.TZ = ORIGINAL_TZ; });
+afterEach(() => {
+  process.env.TZ = ORIGINAL_TZ;
+});
 
-describe('market times in the viewer\'s zone', () => {
+describe("market times in the viewer's zone", () => {
   it('Chicago: the Thursday halt is a daytime window', () => {
     process.env.TZ = 'America/Chicago';
     const t = marketTimes();
@@ -21,7 +23,7 @@ describe('market times in the viewer\'s zone', () => {
     expect(marketTimes().reopen).toMatch(/^Fri 6:00\sAM GMT\+9$/);
   });
 
-  it('UTC viewers see the game\'s own clock', () => {
+  it("UTC viewers see the game's own clock", () => {
     process.env.TZ = 'UTC';
     expect(marketTimes().halt).toMatch(/^Thu 1:00\sPM–9:00\sPM UTC$/);
   });

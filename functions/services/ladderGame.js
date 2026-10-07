@@ -18,7 +18,7 @@ const {
 // ./ladderTransfers.js.
 
 exports.playLadderGame = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -50,25 +50,27 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       const [userDoc, globalDoc, mainUserDoc] = await Promise.all([
         transaction.get(userRef),
         transaction.get(globalRef),
-        transaction.get(mainUserRef)
+        transaction.get(mainUserRef),
       ]);
 
       // Get or create ladder game user
-      let userData = userDoc.exists ? userDoc.data() : {
-        balance: LADDER_GAME_INITIAL_BALANCE,
-        nonWithdrawable: LADDER_GAME_INITIAL_BALANCE,
-        chipsMigrated: true,
-        totalDeposited: 0,
-        totalWon: 0,
-        totalLost: 0,
-        gamesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        highBetGames: 0,
-        lastPlayed: null
-      };
+      let userData = userDoc.exists
+        ? userDoc.data()
+        : {
+            balance: LADDER_GAME_INITIAL_BALANCE,
+            nonWithdrawable: LADDER_GAME_INITIAL_BALANCE,
+            chipsMigrated: true,
+            totalDeposited: 0,
+            totalWon: 0,
+            totalLost: 0,
+            gamesPlayed: 0,
+            wins: 0,
+            losses: 0,
+            currentStreak: 0,
+            bestStreak: 0,
+            highBetGames: 0,
+            lastPlayed: null,
+          };
 
       const mainUser = mainUserDoc.data();
       checkBanned(mainUser);
@@ -86,7 +88,10 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
         const lastPlayedMs = userData.lastPlayed.toMillis ? userData.lastPlayed.toMillis() : userData.lastPlayed;
         const timeSince = now.toMillis() - lastPlayedMs;
         if (timeSince < 3000) {
-          throw new functions.https.HttpsError('failed-precondition', `Cooldown: ${Math.ceil((3000 - timeSince) / 1000)}s remaining`);
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Cooldown: ${Math.ceil((3000 - timeSince) / 1000)}s remaining`,
+          );
         }
       }
 
@@ -94,9 +99,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
       const numRungs = Math.random() < 0.5 ? 2 : 3;
       const rungs = numRungs === 2 ? [3, 7] : [2, 5, 8];
       const pathsCross = numRungs % 2 === 1;
-      const result = (startSide === 'left')
-        ? (pathsCross ? 'even' : 'odd')
-        : (pathsCross ? 'odd' : 'even');
+      const result = startSide === 'left' ? (pathsCross ? 'even' : 'odd') : pathsCross ? 'odd' : 'even';
 
       const won = bet === result;
       const payout = won ? amount * 2 : 0;
@@ -157,27 +160,33 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
         won,
         payout,
         oddPct,
-        evenPct
+        evenPct,
       };
 
       const updatedHistory = [gameRecord, ...recentHistory].slice(0, 5);
-      transaction.set(globalRef, {
-        history: updatedHistory,
-        totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1
-      }, { merge: true });
-
+      transaction.set(
+        globalRef,
+        {
+          history: updatedHistory,
+          totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1,
+        },
+        { merge: true },
+      );
 
       // Check ladder game achievements
       const currentAchievements = mainUser?.achievements || [];
       const ladderNewAchievements = [];
       const netProfit = userData.totalWon - userData.totalLost;
-      if (netProfit >= LADDER_ACHIEVEMENT_PROFIT && !currentAchievements.includes('COMPULSIVE_GAMBLER')) ladderNewAchievements.push('COMPULSIVE_GAMBLER');
-      if ((userData.highBetGames || 0) >= LADDER_ACHIEVEMENT_HIGH_BETS && !currentAchievements.includes('ADDICTED')) ladderNewAchievements.push('ADDICTED');
-      if ((userData.balance || 0) <= 0 && !currentAchievements.includes('JIHOISM')) ladderNewAchievements.push('JIHOISM');
+      if (netProfit >= LADDER_ACHIEVEMENT_PROFIT && !currentAchievements.includes('COMPULSIVE_GAMBLER'))
+        ladderNewAchievements.push('COMPULSIVE_GAMBLER');
+      if ((userData.highBetGames || 0) >= LADDER_ACHIEVEMENT_HIGH_BETS && !currentAchievements.includes('ADDICTED'))
+        ladderNewAchievements.push('ADDICTED');
+      if ((userData.balance || 0) <= 0 && !currentAchievements.includes('JIHOISM'))
+        ladderNewAchievements.push('JIHOISM');
 
       if (ladderNewAchievements.length > 0) {
         const achUpdate = {
-          achievements: admin.firestore.FieldValue.arrayUnion(...ladderNewAchievements)
+          achievements: admin.firestore.FieldValue.arrayUnion(...ladderNewAchievements),
         };
         for (const achId of ladderNewAchievements) {
           achUpdate[`achievementDates.${achId}`] = Date.now();
@@ -193,22 +202,22 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
         newBalance: userData.balance,
         currentStreak: userData.currentStreak,
         newAchievements: ladderNewAchievements,
-        checkCasinoChampion: !currentAchievements.includes('CASINO_CHAMPION')
+        checkCasinoChampion: !currentAchievements.includes('CASINO_CHAMPION'),
       };
     });
 
     // Check Casino Champion after transaction (requires additional query)
     if (gameResult.checkCasinoChampion) {
       try {
-        const topSnap = await db.collection('ladderGameUsers')
-          .orderBy('balance', 'desc')
-          .limit(1)
-          .get();
+        const topSnap = await db.collection('ladderGameUsers').orderBy('balance', 'desc').limit(1).get();
         if (!topSnap.empty && topSnap.docs[0].id === uid) {
-          await db.collection('users').doc(uid).update({
-            achievements: admin.firestore.FieldValue.arrayUnion('CASINO_CHAMPION'),
-            'achievementDates.CASINO_CHAMPION': Date.now()
-          });
+          await db
+            .collection('users')
+            .doc(uid)
+            .update({
+              achievements: admin.firestore.FieldValue.arrayUnion('CASINO_CHAMPION'),
+              'achievementDates.CASINO_CHAMPION': Date.now(),
+            });
           gameResult.newAchievements.push('CASINO_CHAMPION');
         }
       } catch (err) {
@@ -228,7 +237,7 @@ exports.playLadderGame = cf().https.onCall(async (data, context) => {
 });
 
 exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   try {
     // Over-fetch, then drop the entries that should not hold a slot and trim.
     // A ladder doc is keyed by uid and outlives the account: deletions only
@@ -236,18 +245,21 @@ exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
     // sit on this board — a deleted account as "Anonymous" with a real balance,
     // a banned one under its own name — while the main leaderboard has always
     // excluded bots and bans. Same rule here.
-    const ladderUsersSnap = await db.collection('ladderGameUsers')
+    const ladderUsersSnap = await db
+      .collection('ladderGameUsers')
       .orderBy('balance', 'desc')
       .limit(LADDER_LEADERBOARD_SIZE * LADDER_LEADERBOARD_OVERFETCH)
       .get();
 
-    const userIds = ladderUsersSnap.docs.map(doc => doc.id);
+    const userIds = ladderUsersSnap.docs.map((doc) => doc.id);
     const leaderboard = [];
 
-    const userRefs = userIds.map(id => db.collection('users').doc(id));
+    const userRefs = userIds.map((id) => db.collection('users').doc(id));
     const userDocs = userRefs.length > 0 ? await db.getAll(...userRefs) : [];
     const userMap = {};
-    userDocs.forEach(doc => { if (doc.exists) userMap[doc.id] = doc.data(); });
+    userDocs.forEach((doc) => {
+      if (doc.exists) userMap[doc.id] = doc.data();
+    });
 
     for (const doc of ladderUsersSnap.docs) {
       if (leaderboard.length >= LADDER_LEADERBOARD_SIZE) break;
@@ -261,9 +273,7 @@ exports.getLadderLeaderboard = cf().https.onCall(async (data, context) => {
         balance: ladderData.balance || 0,
         gamesPlayed: ladderData.gamesPlayed || 0,
         wins: ladderData.wins || 0,
-        winRate: ladderData.gamesPlayed > 0
-          ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100)
-          : 0
+        winRate: ladderData.gamesPlayed > 0 ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100) : 0,
       });
     }
 

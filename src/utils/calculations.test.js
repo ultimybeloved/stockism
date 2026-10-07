@@ -17,11 +17,7 @@ import {
   niceStep,
   maxAffordableShares,
 } from './calculations';
-import {
-  MAX_PRICE_CHANGE_PERCENT,
-  BASE_LIQUIDITY,
-  OVERSIZED_IMPACT_MULTIPLE,
-} from '../constants/economy';
+import { MAX_PRICE_CHANGE_PERCENT, BASE_LIQUIDITY, OVERSIZED_IMPACT_MULTIPLE } from '../constants/economy';
 
 // ─── getBidAskPrices ──────────────────────────────────────────────────────────
 
@@ -68,8 +64,8 @@ describe('calculatePortfolioValue', () => {
       cash: 0,
       holdings: {},
       shorts: {
-        JAKE: { shares: 10, costBasis: 100, margin: 500, system: 'v2' }
-      }
+        JAKE: { shares: 10, costBasis: 100, margin: 500, system: 'v2' },
+      },
     };
     const prices = { JAKE: 80 };
     // margin + (entryPrice - currentPrice) * shares = 500 + (100-80)*10 = 700
@@ -81,8 +77,8 @@ describe('calculatePortfolioValue', () => {
       cash: 0,
       holdings: {},
       shorts: {
-        JAKE: { shares: 10, costBasis: 80, margin: 500, system: 'v2' }
-      }
+        JAKE: { shares: 10, costBasis: 80, margin: 500, system: 'v2' },
+      },
     };
     const prices = { JAKE: 100 };
     // 500 + (80-100)*10 = 300
@@ -137,7 +133,7 @@ describe('calculateMarginStatus', () => {
       marginEnabled: true,
       cash: 4000,
       holdings: {},
-      marginUsed: 1000,   // Bronze tier: 0.25 * 4000 = 1000 max → 0 available
+      marginUsed: 1000, // Bronze tier: 0.25 * 4000 = 1000 max → 0 available
       peakPortfolioValue: 0,
     };
     const status = calculateMarginStatus(user, {});
@@ -234,7 +230,12 @@ describe('getShortLiquidationPrice', () => {
 
 describe('getCurrentPrice', () => {
   it('prefers the latest price-history entry', () => {
-    const history = { JAKE: [{ price: 10, ts: 1 }, { price: 12, ts: 2 }] };
+    const history = {
+      JAKE: [
+        { price: 10, ts: 1 },
+        { price: 12, ts: 2 },
+      ],
+    };
     expect(getCurrentPrice('JAKE', history, {})).toBe(12);
   });
 
@@ -253,7 +254,7 @@ describe('getMarginTierMultiplier / getMarginTierName', () => {
   it('maps peak portfolio value to the right multiplier', () => {
     expect(getMarginTierMultiplier(0)).toBe(0.25);
     expect(getMarginTierMultiplier(8000)).toBe(0.35);
-    expect(getMarginTierMultiplier(20000)).toBe(0.50);
+    expect(getMarginTierMultiplier(20000)).toBe(0.5);
     expect(getMarginTierMultiplier(50000)).toBe(0.75);
   });
 
@@ -325,8 +326,8 @@ describe('LMSR event-market pricing', () => {
   it('lmsrSeedQ opens the market at the requested odds', () => {
     const seed = lmsrSeedQ([10, 90], b);
     const p = lmsrPrices(seed, b);
-    expect(p[0]).toBeCloseTo(0.10, 3);
-    expect(p[1]).toBeCloseTo(0.90, 3);
+    expect(p[0]).toBeCloseTo(0.1, 3);
+    expect(p[1]).toBeCloseTo(0.9, 3);
   });
 
   it('lmsrSeedQ returns all zeros for even odds', () => {
@@ -355,7 +356,8 @@ describe('niceStep', () => {
 
 describe('maxAffordableShares', () => {
   it('returns the largest whole share count within budget', () => {
-    const q = [0, 0]; const b = 100;
+    const q = [0, 0];
+    const b = 100;
     const n = maxAffordableShares(q, b, 0, 50);
     expect(n).toBeGreaterThan(0);
     expect(lmsrBuyCost(q, b, 0, n)).toBeLessThanOrEqual(50);
@@ -374,15 +376,13 @@ describe('maxAffordableShares', () => {
 describe('calculateTraderImpactDollars', () => {
   it('matches the market impact for any order under the cap', () => {
     for (const shares of [1, 10, 100, 500]) {
-      expect(calculateTraderImpactDollars(100, shares))
-        .toBeCloseTo(calculatePriceImpactDollars(100, shares), 10);
+      expect(calculateTraderImpactDollars(100, shares)).toBeCloseTo(calculatePriceImpactDollars(100, shares), 10);
     }
   });
 
   it('charges more than the market moves on an oversized order', () => {
     // 2000 shares at $100 is ~5.37% raw, over the 5% market cap.
-    expect(calculateTraderImpactDollars(100, 2000))
-      .toBeGreaterThan(calculatePriceImpactDollars(100, 2000));
+    expect(calculateTraderImpactDollars(100, 2000)).toBeGreaterThan(calculatePriceImpactDollars(100, 2000));
   });
 
   it('is bounded at OVERSIZED_IMPACT_MULTIPLE x the market cap', () => {
@@ -393,9 +393,10 @@ describe('calculateTraderImpactDollars', () => {
 
   it('removes the volume discount: one dump costs at least what pieces cost', () => {
     const atOnce = calculateTraderImpactDollars(100, 1200);
-    const split = calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 0)
-      + calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 400)
-      + calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 800);
+    const split =
+      calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 0) +
+      calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 400) +
+      calculateTraderImpactDollars(100, 400, BASE_LIQUIDITY, 800);
     expect(atOnce).toBeGreaterThanOrEqual(split - 1e-9);
   });
 });

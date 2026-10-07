@@ -23,7 +23,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -39,8 +42,11 @@ function networkKey(ip) {
   if (g.length < ALT_IPV6_PREFIX_GROUPS) return a;
   return g.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
 }
-const isVpn = (n) => /^104\.2[0-9]\./.test(n || '') || /^2a09:bac/.test(n || '')
-  || /^172\.6[4-9]\./.test(n || '') || /^162\.15[89]\./.test(n || '');
+const isVpn = (n) =>
+  /^104\.2[0-9]\./.test(n || '') ||
+  /^2a09:bac/.test(n || '') ||
+  /^172\.6[4-9]\./.test(n || '') ||
+  /^162\.15[89]\./.test(n || '');
 
 async function main() {
   const args = process.argv.slice(2);
@@ -57,8 +63,12 @@ async function main() {
   users.forEach((d) => byName.set((d.data().displayName || '').toLowerCase(), d.id));
   const idOf = (n) => byName.get((n || '').toLowerCase());
 
-  const A = idOf(aName); const B = idOf(bName);
-  if (!A || !B) { console.error('Could not resolve both anchor accounts.'); process.exit(1); }
+  const A = idOf(aName);
+  const B = idOf(bName);
+  if (!A || !B) {
+    console.error('Could not resolve both anchor accounts.');
+    process.exit(1);
+  }
 
   const snap = await db.collection('trades').select('uid', 'ip').get();
   const netsOf = new Map();
@@ -86,11 +96,16 @@ async function main() {
   console.log(`${bName} does ${pctS(tradesOn(B, both), tradesOn(B, [...nb]))} of its own trading on the shared set.\n`);
 
   console.log('WHERE EACH ACCOUNT ACTUALLY TRADED\n');
-  console.log(`  ACCOUNT              TOTAL   ONLY-${aName.toUpperCase().slice(0, 8).padEnd(8)}  ONLY-${bName.toUpperCase().slice(0, 8).padEnd(8)}  SHARED    ELSEWHERE   VERDICT`);
+  console.log(
+    `  ACCOUNT              TOTAL   ONLY-${aName.toUpperCase().slice(0, 8).padEnd(8)}  ONLY-${bName.toUpperCase().slice(0, 8).padEnd(8)}  SHARED    ELSEWHERE   VERDICT`,
+  );
 
   for (const s of subjects) {
     const id = idOf(s);
-    if (!id) { console.log(`  ${s}: unknown account`); continue; }
+    if (!id) {
+      console.log(`  ${s}: unknown account`);
+      continue;
+    }
     const mine = netsOf.get(id) || new Map();
     const total = [...mine.values()].reduce((x, y) => x + y, 0);
     const inA = tradesOn(id, onlyA);
@@ -104,12 +119,19 @@ async function main() {
     else if (inB > inA * 3) verdict = `leans ${bName}`;
     else verdict = 'CANNOT TELL — present on both exclusively';
 
-    console.log(`  ${s.padEnd(20)} ${String(total).padStart(5)}   ${(inA + ' (' + pctS(inA, total) + ')').padEnd(14)}  `
-      + `${(inB + ' (' + pctS(inB, total) + ')').padEnd(14)}  ${(inBoth + ' (' + pctS(inBoth, total) + ')').padEnd(9)} `
-      + `${(elsewhere + ' (' + pctS(elsewhere, total) + ')').padEnd(11)} ${verdict}`);
+    console.log(
+      `  ${s.padEnd(20)} ${String(total).padStart(5)}   ${(inA + ' (' + pctS(inA, total) + ')').padEnd(14)}  ` +
+        `${(inB + ' (' + pctS(inB, total) + ')').padEnd(14)}  ${(inBoth + ' (' + pctS(inBoth, total) + ')').padEnd(9)} ` +
+        `${(elsewhere + ' (' + pctS(elsewhere, total) + ')').padEnd(11)} ${verdict}`,
+    );
   }
   console.log('\nOnly the two exclusive columns can attribute anything. Trades in the shared');
   console.log('column are compatible with either owner and must not be counted for both.\n');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

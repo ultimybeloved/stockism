@@ -4,9 +4,7 @@
 // Internal module — required by trading.js, not exported through index.js.
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const {
-  SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER,
-} = require('../constants');
+const { SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER } = require('../constants');
 const { pruneAndSumTradeHistory, sumDirectionalImpact, cohortAddUpdate, cohortRemoveUpdate } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 
@@ -66,9 +64,22 @@ function appendTradeEntries(historyMap, ticker, action, newTradeEntry, trailingE
 
 // Build the merge payload for the ipTracking doc: pruned+appended trade
 // history, plus the rolling 1h recent-traders map for the per-IP account cap.
-function buildIpTrackingUpdate({ ipTickerTradeHistory, ipRecentTraders, ticker, action, newTradeEntry, trailingEntries, uid, now }) {
+function buildIpTrackingUpdate({
+  ipTickerTradeHistory,
+  ipRecentTraders,
+  ticker,
+  action,
+  newTradeEntry,
+  trailingEntries,
+  uid,
+  now,
+}) {
   const updatedIpHistory = appendTradeEntries(
-    pruneHistoryMap(ipTickerTradeHistory, now), ticker, action, newTradeEntry, trailingEntries
+    pruneHistoryMap(ipTickerTradeHistory, now),
+    ticker,
+    action,
+    newTradeEntry,
+    trailingEntries,
   );
 
   // Record this account as a recent trader from the IP (rolling 1h) for the
@@ -88,10 +99,26 @@ function buildIpTrackingUpdate({ ipTickerTradeHistory, ipRecentTraders, ticker, 
 // positions, throttle stamps, cost basis, dividend cohorts, lockup cleanup,
 // short history, and the rolling transaction log.
 function buildUserUpdates({
-  ticker, action, amount, now, userData, character,
-  cash, holdings, shorts, newCash, newHoldings, newShorts, newMarginUsed,
-  marginLockUpdate, updatedTickerTradeHistory, creditUpdates,
-  executionPrice, totalCost, currentPrice, downImpactAfter = 0,
+  ticker,
+  action,
+  amount,
+  now,
+  userData,
+  character,
+  cash,
+  holdings,
+  shorts,
+  newCash,
+  newHoldings,
+  newShorts,
+  newMarginUsed,
+  marginLockUpdate,
+  updatedTickerTradeHistory,
+  creditUpdates,
+  executionPrice,
+  totalCost,
+  currentPrice,
+  downImpactAfter = 0,
 }) {
   const updates = {
     cash: newCash,
@@ -104,7 +131,7 @@ function buildUserUpdates({
     ...(marginLockUpdate ? { [`marginLockup.${ticker}`]: marginLockUpdate } : {}),
     tickerTradeHistory: updatedTickerTradeHistory,
     lastTradeTime: admin.firestore.Timestamp.now(),
-    ...creditUpdates
+    ...creditUpdates,
   };
 
   // Seasons measure return against margin owed, averaged over time, so any
@@ -137,9 +164,12 @@ function buildUserUpdates({
     const currentHoldings = holdings[ticker] || 0;
     const currentCostBasis = userData.costBasis?.[ticker] || 0;
     const totalHoldings = newHoldings[ticker] || 0;
-    const newCostBasis = currentHoldings > 0
-      ? (totalHoldings > 0 ? ((currentCostBasis * currentHoldings) + (executionPrice * amount)) / totalHoldings : executionPrice)
-      : executionPrice;
+    const newCostBasis =
+      currentHoldings > 0
+        ? totalHoldings > 0
+          ? (currentCostBasis * currentHoldings + executionPrice * amount) / totalHoldings
+          : executionPrice
+        : executionPrice;
     updates[`costBasis.${ticker}`] = Math.round(newCostBasis * 100) / 100;
 
     // Dividend cohort: new shares enter pending with a 10-day wait. Shared with
@@ -172,7 +202,7 @@ function buildUserUpdates({
 
   if (action === 'short') {
     const shortHistory = userData.shortHistory || {};
-    const tickerHistory = (shortHistory[ticker] || []).filter(ts => now - ts < SHORT_COOLDOWN_WINDOW_MS);
+    const tickerHistory = (shortHistory[ticker] || []).filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
     tickerHistory.push(now);
     updates.shortHistory = { ...shortHistory, [ticker]: tickerHistory };
   }

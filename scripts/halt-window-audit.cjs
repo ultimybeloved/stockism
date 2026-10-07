@@ -23,7 +23,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -32,7 +35,8 @@ const HALT_START_MIN = 780;
 const HALT_END_MIN = 1260;
 
 const m = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
-const toMs = (t) => (!t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0);
+const toMs = (t) =>
+  !t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0;
 
 function haltInfo(ms) {
   const d = new Date(ms);
@@ -70,10 +74,13 @@ async function main() {
     const day = byDate.get(info.date);
     if (!day.has(t.uid)) day.set(t.uid, { n: 0, value: 0 });
     const e = day.get(t.uid);
-    e.n++; e.value += Number(t.totalValue) || 0;
+    e.n++;
+    e.value += Number(t.totalValue) || 0;
     if (!byUser.has(t.uid)) byUser.set(t.uid, { n: 0, value: 0, dates: new Set() });
     const b = byUser.get(t.uid);
-    b.n++; b.value += Number(t.totalValue) || 0; b.dates.add(info.date);
+    b.n++;
+    b.value += Number(t.totalValue) || 0;
+    b.dates.add(info.date);
   });
 
   console.log(`\n${total} player-initiated trades inside the Thursday halt window.\n`);
@@ -84,9 +91,14 @@ async function main() {
     const rows = [...day.entries()].sort((a, b) => b[1].value - a[1].value);
     const trades = rows.reduce((s, r) => s + r[1].n, 0);
     const value = rows.reduce((s, r) => s + r[1].value, 0);
-    const who = rows.slice(0, 4).map(([u, e]) => `${nm(u)} (${e.n})`).join(', ');
-    console.log(`  ${date}  ${String(rows.length).padStart(8)}  ${String(trades).padStart(6)}  ${m(value).padStart(11)}   ${who}`
-      + (rows.length > 4 ? ` +${rows.length - 4} more` : ''));
+    const who = rows
+      .slice(0, 4)
+      .map(([u, e]) => `${nm(u)} (${e.n})`)
+      .join(', ');
+    console.log(
+      `  ${date}  ${String(rows.length).padStart(8)}  ${String(trades).padStart(6)}  ${m(value).padStart(11)}   ${who}` +
+        (rows.length > 4 ? ` +${rows.length - 4} more` : ''),
+    );
   }
 
   console.log('\nBY ACCOUNT — who did it most');
@@ -98,4 +110,9 @@ async function main() {
   console.log('');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

@@ -4,14 +4,23 @@ import SeasonCoordFlags from './season/SeasonCoordFlags';
 // Start / end a season and see where the current one stands. Lives in the
 // Market tab because ending a season is tied to the chapter cycle.
 const SeasonPanel = ({
-  darkMode, textClass, mutedClass, loading,
-  season, seasonName, setSeasonName, preseason, setPreseason, countThisWeek, setCountThisWeek,
-  handleStartSeason, handleEndSeason, handleRunCheckpoint,
+  darkMode,
+  textClass,
+  mutedClass,
+  loading,
+  season,
+  seasonName,
+  setSeasonName,
+  preseason,
+  setPreseason,
+  countThisWeek,
+  setCountThisWeek,
+  handleStartSeason,
+  handleEndSeason,
+  handleRunCheckpoint,
 }) => {
   const active = season?.status === 'active';
-  const weeks = active
-    ? Math.max(1, Math.ceil((Date.now() - season.startedAt) / (7 * 24 * 60 * 60 * 1000)))
-    : 0;
+  const weeks = active ? Math.max(1, Math.ceil((Date.now() - season.startedAt) / (7 * 24 * 60 * 60 * 1000))) : 0;
 
   const inputClass = `px-2 py-1 text-sm rounded border ${
     darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
@@ -24,7 +33,9 @@ const SeasonPanel = ({
     <ul className="space-y-1 mb-3">
       {SEASON_TIERS.map((t) => (
         <li key={t.id} className={`text-xs ${mutedClass}`}>
-          <span className="font-semibold" style={{ color: t.color }}>{t.name}</span>{' '}
+          <span className="font-semibold" style={{ color: t.color }}>
+            {t.name}
+          </span>{' '}
           {seasonTierRule(t.id, rules)}
         </li>
       ))}
@@ -41,7 +52,8 @@ const SeasonPanel = ({
             {seasonLabel(season)} · <span className="font-semibold">{season.name}</span>
           </p>
           <p className={`text-xs ${mutedClass} mb-2`}>
-            Week {weeks} · {season.playersPinned} baselines pinned · {(season.checkpointWeeks || []).length} checkpoints run
+            Week {weeks} · {season.playersPinned} baselines pinned · {(season.checkpointWeeks || []).length} checkpoints
+            run
             {season.lastCheckpointAt && ` · last checkpoint ${new Date(season.lastCheckpointAt).toLocaleDateString()}`}
           </p>
 
@@ -65,9 +77,9 @@ const SeasonPanel = ({
             </button>
           </div>
           <p className={`text-xs ${mutedClass} mt-2`}>
-            End it during the Thursday halt the week a Finale chapter drops. It only works while the
-            market is halted, so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out
-            Platinum and Diamond.
+            End it during the Thursday halt the week a Finale chapter drops. It only works while the market is halted,
+            so the closing standings can't be sniped. Ending runs a final checkpoint, then hands out Platinum and
+            Diamond.
           </p>
 
           <SeasonCoordFlags {...{ darkMode, textClass, mutedClass, active }} />
@@ -98,28 +110,37 @@ const SeasonPanel = ({
             </button>
           </div>
           <label className={`flex items-start gap-2 text-xs ${mutedClass} mb-3`}>
-            <input type="checkbox" checked={preseason} onChange={(e) => setPreseason(e.target.checked)} className="mt-0.5" />
+            <input
+              type="checkbox"
+              checked={preseason}
+              onChange={(e) => setPreseason(e.target.checked)}
+              className="mt-0.5"
+            />
             <span>
-              Preseason (trial run). Doesn't use up a season number, so the next real one is
-              still {seasonLabel({ number: (season?.number || 0) + 1 })}. Tiers earn a single
-              "Preseason Gold" style title instead of the season and arc titles.
+              Preseason (trial run). Doesn't use up a season number, so the next real one is still{' '}
+              {seasonLabel({ number: (season?.number || 0) + 1 })}. Tiers earn a single "Preseason Gold" style title
+              instead of the season and arc titles.
             </span>
           </label>
           <label className={`flex items-start gap-2 text-xs ${mutedClass} mb-3`}>
-            <input type="checkbox" checked={countThisWeek} onChange={(e) => setCountThisWeek(e.target.checked)} className="mt-0.5" />
+            <input
+              type="checkbox"
+              checked={countThisWeek}
+              onChange={(e) => setCountThisWeek(e.target.checked)}
+              className="mt-0.5"
+            />
             <span>
-              Count this week as week 1. Use this when starting after Thursday&apos;s checkpoint has
-              already run. Everyone active in the last 7 days gets this week toward Bronze, and next
-              Thursday&apos;s checkpoint is week 2.
+              Count this week as week 1. Use this when starting after Thursday&apos;s checkpoint has already run.
+              Everyone active in the last 7 days gets this week toward Bronze, and next Thursday&apos;s checkpoint is
+              week 2.
             </span>
           </label>
 
           <p className={`text-xs ${mutedClass} mb-1`}>A new season starts with these rules:</p>
           {rulesList}
           <p className={`text-xs ${mutedClass}`}>
-            Bronze is banked at each Thursday checkpoint. Silver and Gold go by where a player finishes.
-            Platinum and Diamond are shares of the season board, handed out when you end the season, so
-            there are no targets to set.
+            Bronze is banked at each Thursday checkpoint. Silver and Gold go by where a player finishes. Platinum and
+            Diamond are shares of the season board, handed out when you end the season, so there are no targets to set.
           </p>
         </>
       )}

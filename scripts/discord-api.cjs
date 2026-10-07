@@ -21,11 +21,15 @@ const API = 'https://discord.com/api/v10';
 function readEnv(key) {
   if (process.env[key]) return process.env[key];
   if (!fs.existsSync(ENV_PATH)) return '';
-  const line = fs.readFileSync(ENV_PATH, 'utf8')
+  const line = fs
+    .readFileSync(ENV_PATH, 'utf8')
     .split(/\r?\n/)
     .find((l) => l.trim().startsWith(`${key}=`));
   if (!line) return '';
-  return line.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
+  return line
+    .slice(line.indexOf('=') + 1)
+    .trim()
+    .replace(/^["']|["']$/g, '');
 }
 
 function readBotToken() {

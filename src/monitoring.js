@@ -28,13 +28,14 @@ export function reportError(err, context = {}) {
   const tag = context.where ? `[${context.where}] ` : '';
   try {
     console.error(`${tag}${err?.message || err}`, context);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   try {
-    Sentry.captureException(
-      err instanceof Error ? err : new Error(String(err)),
-      { extra: context }
-    );
-  } catch { /* never let error reporting itself throw */ }
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)), { extra: context });
+  } catch {
+    /* never let error reporting itself throw */
+  }
 }
 
 /**
@@ -51,7 +52,9 @@ export function reportUnexpected(err, context = {}) {
     const tag = context.where ? `[${context.where}] ` : '';
     try {
       console.error(`${tag}${err?.message || err}`);
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     return;
   }
   reportError(err, context);

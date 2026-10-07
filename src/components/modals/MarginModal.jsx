@@ -2,15 +2,22 @@ import { useState } from 'react';
 import { MARGIN_INTEREST_RATE } from '../../constants';
 import MarginStatusBars from './margin/MarginStatusBars';
 import { formatCurrency } from '../../utils/formatters';
-import {
-  checkMarginEligibility,
-  calculateMarginStatus,
-} from '../../utils/calculations';
+import { checkMarginEligibility, calculateMarginStatus } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
-const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, isAdmin, enableLoading, disableLoading, repayLoading, onReviewTutorial }) => {
+const MarginModal = ({
+  onClose,
+  onEnableMargin,
+  onDisableMargin,
+  onRepayMargin,
+  isAdmin,
+  enableLoading,
+  disableLoading,
+  repayLoading,
+  onReviewTutorial,
+}) => {
   useEscapeKey(onClose);
   const { darkMode, userData, prices, priceHistory } = useAppContext();
   const [repayAmount, setRepayAmount] = useState(0);
@@ -25,40 +32,70 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'safe': return colorBlindMode ? 'text-teal-500' : 'text-green-500';
-      case 'warning': return 'text-amber-500';
-      case 'danger': return 'text-orange-500';
-      case 'margin_call': return colorBlindMode ? 'text-purple-500' : 'text-red-500';
-      case 'liquidation': return colorBlindMode ? 'text-purple-500' : 'text-red-500';
-      default: return mutedClass;
+      case 'safe':
+        return colorBlindMode ? 'text-teal-500' : 'text-green-500';
+      case 'warning':
+        return 'text-amber-500';
+      case 'danger':
+        return 'text-orange-500';
+      case 'margin_call':
+        return colorBlindMode ? 'text-purple-500' : 'text-red-500';
+      case 'liquidation':
+        return colorBlindMode ? 'text-purple-500' : 'text-red-500';
+      default:
+        return mutedClass;
     }
   };
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'safe': return '✓ Safe';
-      case 'warning': return '⚠️ Warning';
-      case 'danger': return '🔴 Danger Zone';
-      case 'margin_call': return '🚨 Margin Call';
-      case 'liquidation': return '💀 Liquidation Imminent';
-      default: return 'Disabled';
+      case 'safe':
+        return '✓ Safe';
+      case 'warning':
+        return '⚠️ Warning';
+      case 'danger':
+        return '🔴 Danger Zone';
+      case 'margin_call':
+        return '🚨 Margin Call';
+      case 'liquidation':
+        return '💀 Liquidation Imminent';
+      default:
+        return 'Disabled';
     }
   };
 
   const getStatusBg = (status) => {
     switch (status) {
-      case 'safe': return colorBlindMode
-        ? (darkMode ? 'bg-teal-900/20 border-teal-800' : 'bg-teal-50 border-teal-200')
-        : (darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200');
-      case 'warning': return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
-      case 'danger': return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
-      case 'margin_call': return colorBlindMode
-        ? (darkMode ? 'bg-purple-900/30 border-purple-700' : 'bg-purple-50 border-purple-200')
-        : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200');
-      case 'liquidation': return colorBlindMode
-        ? (darkMode ? 'bg-purple-900/30 border-purple-700' : 'bg-purple-50 border-purple-200')
-        : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200');
-      default: return darkMode ? 'bg-zinc-800/50' : 'bg-slate-100';
+      case 'safe':
+        return colorBlindMode
+          ? darkMode
+            ? 'bg-teal-900/20 border-teal-800'
+            : 'bg-teal-50 border-teal-200'
+          : darkMode
+            ? 'bg-green-900/20 border-green-800'
+            : 'bg-green-50 border-green-200';
+      case 'warning':
+        return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
+      case 'danger':
+        return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
+      case 'margin_call':
+        return colorBlindMode
+          ? darkMode
+            ? 'bg-purple-900/30 border-purple-700'
+            : 'bg-purple-50 border-purple-200'
+          : darkMode
+            ? 'bg-red-900/30 border-red-700'
+            : 'bg-red-50 border-red-200';
+      case 'liquidation':
+        return colorBlindMode
+          ? darkMode
+            ? 'bg-purple-900/30 border-purple-700'
+            : 'bg-purple-50 border-purple-200'
+          : darkMode
+            ? 'bg-red-900/30 border-red-700'
+            : 'bg-red-50 border-red-200';
+      default:
+        return darkMode ? 'bg-zinc-800/50' : 'bg-slate-100';
     }
   };
 
@@ -66,14 +103,16 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
         className={`${modalShellClass} max-w-md overflow-hidden max-h-[85vh] flex flex-col`}
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className={`p-4 border-b ${cardEdgeClass} flex justify-between items-center`}>
           <div>
             <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
             <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
+          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+            ×
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -84,10 +123,17 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
                 {eligibility.requirements.map((req, i) => (
-                  <div key={i} className={`text-sm flex items-center gap-2 ${req.met ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : mutedClass}`}>
+                  <div
+                    key={i}
+                    className={`text-sm flex items-center gap-2 ${req.met ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : mutedClass}`}
+                  >
                     <span>{req.met ? '✓' : '○'}</span>
                     <span>{req.label}</span>
-                    {!req.met && <span className="text-xs">({req.current}/{req.required})</span>}
+                    {!req.met && (
+                      <span className="text-xs">
+                        ({req.current}/{req.required})
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -95,8 +141,12 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
           ) : !marginStatus.enabled ? (
             // Eligible but not enabled
             <div className="space-y-4">
-              <div className={`p-4 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-teal-900/20 border border-teal-800' : 'bg-teal-50 border border-teal-200') : (darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200')}`}>
-                <h3 className={`font-semibold mb-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>✓ Eligible for Margin</h3>
+              <div
+                className={`p-4 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-teal-900/20 border border-teal-800' : 'bg-teal-50 border border-teal-200') : darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}
+              >
+                <h3 className={`font-semibold mb-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                  ✓ Eligible for Margin
+                </h3>
                 <p className={`text-sm ${mutedClass}`}>
                   You qualify for margin trading! Enable it to access additional buying power.
                 </p>
@@ -105,25 +155,50 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
               <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
                 <h4 className={`font-semibold mb-2 ${textClass}`}>How Margin Works</h4>
                 <p className={`text-xs ${mutedClass} mb-2`}>
-                  Margin is <span className="text-orange-500 font-semibold">borrowing power</span> - like a credit card for stocks.
+                  Margin is <span className="text-orange-500 font-semibold">borrowing power</span> - like a credit card
+                  for stocks.
                 </p>
                 <ul className={`text-xs ${mutedClass} space-y-1`}>
-                  <li>• Borrow up to <span className="text-orange-500">25-75%</span> of your cash based on tier</li>
-                  <li>• <span className="text-amber-500">Tiers:</span> Bronze (0.25x), Silver (0.35x), Gold (0.50x), Platinum (0.75x)</li>
-                  <li>• Tier based on <span className="text-orange-500">peak portfolio achievement</span> (&lt;$7.5k, $7.5k-$15k, $15k-$30k, $30k+)</li>
-                  <li>• Only used when your <span className="text-orange-500">cash runs out</span> during a purchase</li>
-                  <li>• <span className="text-amber-500">0.5% daily interest</span> is added to your debt, not taken from your cash</li>
-                  <li>• Sale proceeds <span className="text-orange-500">become cash</span> directly</li>
-                  <li>• Keep equity <span className="text-orange-500">above 30%</span> or face margin call</li>
-                  <li>• <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if equity drops to or below 25%</li>
+                  <li>
+                    • Borrow up to <span className="text-orange-500">25-75%</span> of your cash based on tier
+                  </li>
+                  <li>
+                    • <span className="text-amber-500">Tiers:</span> Bronze (0.25x), Silver (0.35x), Gold (0.50x),
+                    Platinum (0.75x)
+                  </li>
+                  <li>
+                    • Tier based on <span className="text-orange-500">peak portfolio achievement</span> (&lt;$7.5k,
+                    $7.5k-$15k, $15k-$30k, $30k+)
+                  </li>
+                  <li>
+                    • Only used when your <span className="text-orange-500">cash runs out</span> during a purchase
+                  </li>
+                  <li>
+                    • <span className="text-amber-500">0.5% daily interest</span> is added to your debt, not taken from
+                    your cash
+                  </li>
+                  <li>
+                    • Sale proceeds <span className="text-orange-500">become cash</span> directly
+                  </li>
+                  <li>
+                    • Keep equity <span className="text-orange-500">above 30%</span> or face margin call
+                  </li>
+                  <li>
+                    • <span className={colorBlindMode ? 'text-purple-500' : 'text-red-500'}>Auto-liquidation</span> if
+                    equity drops to or below 25%
+                  </li>
                 </ul>
               </div>
 
-              <div className={`p-3 rounded-sm border ${colorBlindMode ? (darkMode ? 'bg-purple-900/10 border-purple-800' : 'bg-purple-50 border-purple-200') : (darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200')}`}>
-                <h4 className={`font-semibold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>⚠️ Risk Warning</h4>
+              <div
+                className={`p-3 rounded-sm border ${colorBlindMode ? (darkMode ? 'bg-purple-900/10 border-purple-800' : 'bg-purple-50 border-purple-200') : darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200'}`}
+              >
+                <h4 className={`font-semibold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
+                  ⚠️ Risk Warning
+                </h4>
                 <p className={`text-xs ${mutedClass}`}>
-                  Margin trading amplifies both gains AND losses. You can lose more than your initial investment.
-                  If your portfolio drops significantly, your positions may be automatically liquidated.
+                  Margin trading amplifies both gains AND losses. You can lose more than your initial investment. If
+                  your portfolio drops significantly, your positions may be automatically liquidated.
                 </p>
               </div>
 
@@ -145,7 +220,10 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                       Cancel
                     </button>
                     <button
-                      onClick={() => { onEnableMargin(); setShowConfirmEnable(false); }}
+                      onClick={() => {
+                        onEnableMargin();
+                        setShowConfirmEnable(false);
+                      }}
                       disabled={enableLoading}
                       className="flex-1 py-2 font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
                     >
@@ -167,10 +245,7 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   </span>
                 </div>
 
-                <MarginStatusBars
-                  marginStatus={marginStatus}
-                  statusColorClass={getStatusColor(marginStatus.status)}
-                />
+                <MarginStatusBars marginStatus={marginStatus} statusColorClass={getStatusColor(marginStatus.status)} />
 
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
@@ -185,7 +260,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   </div>
                   <div>
                     <span className={mutedClass}>Available Margin:</span>
-                    <p className={`font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(marginStatus.availableMargin)}</p>
+                    <p className={`font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                      {formatCurrency(marginStatus.availableMargin)}
+                    </p>
                   </div>
                   <div>
                     <span className={mutedClass}>Maintenance Req:</span>
@@ -195,22 +272,31 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
               </div>
 
               {/* How It Works Info */}
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
+              <div
+                className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}
+              >
                 <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
-                  Margin is borrowing power. It's only used when your <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase.
-                  Your limit is <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> of your invested value: cash, plus what you've put into your stocks (counted at what you paid, capped at current value), minus debt. Right now that base is <span className="text-orange-500 font-semibold">{formatCurrency(marginStatus.borrowBase)}</span>.
-                  Unrealized gains don't count, so pumping a stock you hold won't raise your limit. Selling stocks turns proceeds <span className="text-orange-500 font-semibold">into cash</span> directly.
+                  Margin is borrowing power. It's only used when your{' '}
+                  <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase. Your limit is{' '}
+                  <span className="text-orange-500 font-semibold">{marginStatus.tierName}</span> of your invested value:
+                  cash, plus what you've put into your stocks (counted at what you paid, capped at current value), minus
+                  debt. Right now that base is{' '}
+                  <span className="text-orange-500 font-semibold">{formatCurrency(marginStatus.borrowBase)}</span>.
+                  Unrealized gains don't count, so pumping a stock you hold won't raise your limit. Selling stocks turns
+                  proceeds <span className="text-orange-500 font-semibold">into cash</span> directly.
                 </p>
               </div>
 
               {/* Margin Call Warning */}
               {marginStatus.status === 'margin_call' && (
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border border-orange-500`}>
+                <div
+                  className={`p-3 rounded-sm ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border border-orange-500`}
+                >
                   <h4 className="font-bold text-orange-500 mb-1">🚨 Margin Call!</h4>
                   <p className={`text-xs ${mutedClass}`}>
-                    Deposit funds or sell positions to bring your equity above 30%.
-                    Auto-liquidation occurs at 25% equity.
+                    Deposit funds or sell positions to bring your equity above 30%. Auto-liquidation occurs at 25%
+                    equity.
                   </p>
                   <p className="text-xs text-orange-400 mt-1">
                     There is no deadline. Nothing is sold while you stay above 25%.
@@ -219,8 +305,12 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
               )}
 
               {marginStatus.status === 'liquidation' && (
-                <div className={`p-3 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-purple-900/30' : 'bg-purple-50') : (darkMode ? 'bg-red-900/30' : 'bg-red-50')} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}>
-                  <h4 className={`font-bold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>💀 Liquidation Imminent!</h4>
+                <div
+                  className={`p-3 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-purple-900/30' : 'bg-purple-50') : darkMode ? 'bg-red-900/30' : 'bg-red-50'} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}
+                >
+                  <h4 className={`font-bold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
+                    💀 Liquidation Imminent!
+                  </h4>
                   <p className={`text-xs ${mutedClass}`}>
                     Your positions will be automatically sold to cover margin debt. Act immediately!
                   </p>
@@ -252,11 +342,12 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                       Max
                     </button>
                   </div>
-                  <p className={`text-xs ${mutedClass} mb-2`}>
-                    Your cash: {formatCurrency(userData?.cash || 0)}
-                  </p>
+                  <p className={`text-xs ${mutedClass} mb-2`}>Your cash: {formatCurrency(userData?.cash || 0)}</p>
                   <button
-                    onClick={() => { onRepayMargin(repayAmount); setRepayAmount(0); }}
+                    onClick={() => {
+                      onRepayMargin(repayAmount);
+                      setRepayAmount(0);
+                    }}
                     disabled={repayLoading || repayAmount <= 0 || repayAmount > (userData?.cash || 0)}
                     className={`w-full py-2 font-semibold rounded-sm text-white disabled:opacity-50 disabled:cursor-not-allowed ${colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'}`}
                   >
@@ -274,8 +365,11 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                 <p className={`text-xs ${mutedClass}`}>
                   {marginStatus.marginUsed > 0 ? (
                     <>
-                      <span className="text-amber-500">{formatCurrency(marginStatus.marginUsed * MARGIN_INTEREST_RATE)}/day</span> is added to your debt
-                      ({(MARGIN_INTEREST_RATE * 100).toFixed(1)}% of {formatCurrency(marginStatus.marginUsed)}). It is not taken from your cash.
+                      <span className="text-amber-500">
+                        {formatCurrency(marginStatus.marginUsed * MARGIN_INTEREST_RATE)}/day
+                      </span>{' '}
+                      is added to your debt ({(MARGIN_INTEREST_RATE * 100).toFixed(1)}% of{' '}
+                      {formatCurrency(marginStatus.marginUsed)}). It is not taken from your cash.
                     </>
                   ) : (
                     <>No interest charged when not using margin</>
@@ -289,7 +383,9 @@ const MarginModal = ({ onClose, onEnableMargin, onDisableMargin, onRepayMargin, 
                   onClick={onDisableMargin}
                   disabled={disableLoading}
                   className={`w-full py-2 text-sm font-semibold rounded-sm ${
-                    darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                    darkMode
+                      ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                   } disabled:opacity-50`}
                 >
                   {disableLoading ? 'Disabling...' : 'Disable Margin Trading'}

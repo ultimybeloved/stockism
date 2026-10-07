@@ -38,7 +38,11 @@ const makePrediction = (pools, overrides = {}) => ({
 const renderCard = (prediction, props = {}) =>
   render(<PredictionCard prediction={prediction} betLimit={1000} {...props} />);
 
-afterEach(() => { cleanup(); h.halted = false; h.ctx = baseCtx(); });
+afterEach(() => {
+  cleanup();
+  h.halted = false;
+  h.ctx = baseCtx();
+});
 
 describe('PredictionCard payout odds', () => {
   it('pays the underdog more than the favorite', () => {

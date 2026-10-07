@@ -1,6 +1,8 @@
 import {
-  MS_PER_HOUR, EVENT_OPEN_DELAY_PRESETS_HOURS,
-  EVENT_OPENING_ODDS_MIN_PCT, EVENT_OPENING_ODDS_MAX_PCT,
+  MS_PER_HOUR,
+  EVENT_OPEN_DELAY_PRESETS_HOURS,
+  EVENT_OPENING_ODDS_MIN_PCT,
+  EVENT_OPENING_ODDS_MAX_PCT,
 } from '../../constants/economy';
 
 // Event-only create fields for the admin Predictions tab: house liquidity seed,
@@ -19,9 +21,8 @@ const EventMarketFields = ({
   setOpeningOdds,
 }) => {
   const delay = Number(openDelayHours) || 0;
-  const opensLabel = delay > 0
-    ? `Opens: ${new Date(Date.now() + delay * MS_PER_HOUR).toLocaleString()}`
-    : 'Opens immediately';
+  const opensLabel =
+    delay > 0 ? `Opens: ${new Date(Date.now() + delay * MS_PER_HOUR).toLocaleString()}` : 'Opens immediately';
 
   const presetLabel = (h) => (h === 0 ? 'Off' : `${h}h`);
 
@@ -30,8 +31,7 @@ const EventMarketFields = ({
   const filled = options.map((o, i) => ({ name: o.trim(), i })).filter((x) => x.name);
   const entered = filled.filter((x) => String(openingOdds[x.i] ?? '').trim() !== '');
   const oddsTotal = entered.reduce((s, x) => s + (Number(openingOdds[x.i]) || 0), 0);
-  const oddsOk = entered.length === 0
-    || (entered.length === filled.length && Math.abs(oddsTotal - 100) <= 0.01);
+  const oddsOk = entered.length === 0 || (entered.length === filled.length && Math.abs(oddsTotal - 100) <= 0.01);
 
   return (
     <>
@@ -41,7 +41,7 @@ const EventMarketFields = ({
           type="number"
           min="100"
           value={seedLiquidity}
-          onChange={e => setSeedLiquidity(e.target.value === '' ? '' : parseInt(e.target.value))}
+          onChange={(e) => setSeedLiquidity(e.target.value === '' ? '' : parseInt(e.target.value))}
           className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
         />
         <p className={`text-xs ${mutedClass} mt-1`}>
@@ -60,7 +60,7 @@ const EventMarketFields = ({
                 min={EVENT_OPENING_ODDS_MIN_PCT}
                 max={EVENT_OPENING_ODDS_MAX_PCT}
                 value={openingOdds[i]}
-                onChange={e => {
+                onChange={(e) => {
                   const next = [...openingOdds];
                   next[i] = e.target.value;
                   setOpeningOdds(next);
@@ -81,7 +81,7 @@ const EventMarketFields = ({
       <div>
         <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Announce Before Open</label>
         <div className="flex gap-2">
-          {EVENT_OPEN_DELAY_PRESETS_HOURS.map(h => (
+          {EVENT_OPEN_DELAY_PRESETS_HOURS.map((h) => (
             <button
               key={h}
               type="button"
@@ -89,7 +89,9 @@ const EventMarketFields = ({
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm border-2 transition-all ${
                 delay === h
                   ? 'border-teal-500 bg-teal-500 text-white'
-                  : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'
+                  : darkMode
+                    ? 'border-slate-600 text-slate-300'
+                    : 'border-slate-300 text-slate-600'
               }`}
             >
               {presetLabel(h)}
@@ -101,7 +103,7 @@ const EventMarketFields = ({
           min="0"
           step="0.25"
           value={openDelayHours}
-          onChange={e => setOpenDelayHours(e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0))}
+          onChange={(e) => setOpenDelayHours(e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0))}
           placeholder="Custom hours..."
           className={`w-full mt-2 px-3 py-2 border rounded-sm ${inputClass}`}
         />

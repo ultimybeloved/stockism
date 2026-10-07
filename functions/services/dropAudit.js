@@ -11,7 +11,7 @@ const db = admin.firestore();
 const { ADMIN_UID } = require('../constants');
 
 exports.auditUserDrops = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -38,13 +38,18 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
 
   // Extract timestamps from Discord snowflake IDs
   const DISCORD_EPOCH = 1420070400000n;
-  const claimTimestamps = claimedMessages.map(id => {
-    try {
-      const snowflake = BigInt(id);
-      const ms = Number((snowflake >> 22n) + DISCORD_EPOCH);
-      return ms;
-    } catch { return null; }
-  }).filter(Boolean).sort((a, b) => a - b);
+  const claimTimestamps = claimedMessages
+    .map((id) => {
+      try {
+        const snowflake = BigInt(id);
+        const ms = Number((snowflake >> 22n) + DISCORD_EPOCH);
+        return ms;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a - b);
 
   // Calculate expected claims (1 per day since first claim)
   const firstClaim = claimTimestamps.length > 0 ? claimTimestamps[0] : null;
@@ -58,7 +63,7 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
 
   // Get ALL trades for this user
   const tradesSnap = await db.collection('trades').where('uid', '==', userId).get();
-  const trades = tradesSnap.docs.map(d => d.data());
+  const trades = tradesSnap.docs.map((d) => d.data());
 
   // Calculate gifted shares per ticker
   const holdings = userData.holdings || {};
@@ -67,9 +72,9 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
 
   for (const [ticker, held] of Object.entries(holdings)) {
     if (held <= 0) continue;
-    const tickerTrades = trades.filter(t => t.ticker === ticker);
-    const bought = tickerTrades.filter(t => t.action === 'buy').reduce((s, t) => s + (t.amount || 0), 0);
-    const sold = tickerTrades.filter(t => t.action === 'sell').reduce((s, t) => s + (t.amount || 0), 0);
+    const tickerTrades = trades.filter((t) => t.ticker === ticker);
+    const bought = tickerTrades.filter((t) => t.action === 'buy').reduce((s, t) => s + (t.amount || 0), 0);
+    const sold = tickerTrades.filter((t) => t.action === 'sell').reduce((s, t) => s + (t.amount || 0), 0);
     const netTraded = bought - sold;
     const gifted = Math.max(0, held - netTraded);
     if (gifted > 0) {
@@ -106,7 +111,6 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
     suspiciousDays,
     giftedSharesByTicker,
     totalGiftedValue,
-    cash: Math.round((userData.cash || 0) * 100) / 100
+    cash: Math.round((userData.cash || 0) * 100) / 100,
   };
 });
-

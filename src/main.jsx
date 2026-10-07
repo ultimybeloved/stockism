@@ -1,9 +1,9 @@
 import * as Sentry from '@sentry/react';
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App.jsx'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App.jsx';
+import './index.css';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
@@ -23,4 +23,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       </Sentry.ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
-)
+);

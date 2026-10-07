@@ -1,8 +1,4 @@
-import {
-  MARGIN_WARNING_THRESHOLD,
-  MARGIN_DANGER_THRESHOLD,
-  MARGIN_CALL_THRESHOLD
-} from '../../../constants';
+import { MARGIN_WARNING_THRESHOLD, MARGIN_DANGER_THRESHOLD, MARGIN_CALL_THRESHOLD } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
@@ -42,14 +38,30 @@ const MarginStatusBars = ({ marginStatus, statusColorClass }) => {
   const utilization = atLimit ? 1 : marginStatus.marginUsed / marginStatus.maxBorrowable;
   const utilizationPct = Math.min(100, Math.max(0, utilization * 100));
   const utilLabel = utilizationPct.toFixed(0);
-  const utilColor = utilization < 0.5 ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500')
-    : utilization < 0.75 ? 'bg-amber-500'
-    : utilization < 1 ? 'bg-orange-500'
-    : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500');
-  const utilTextColor = utilization < 0.5 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
-    : utilization < 0.75 ? 'text-amber-500'
-    : utilization < 1 ? 'text-orange-500'
-    : (colorBlindMode ? 'text-purple-500' : 'text-red-500');
+  const utilColor =
+    utilization < 0.5
+      ? colorBlindMode
+        ? 'bg-teal-500'
+        : 'bg-green-500'
+      : utilization < 0.75
+        ? 'bg-amber-500'
+        : utilization < 1
+          ? 'bg-orange-500'
+          : colorBlindMode
+            ? 'bg-purple-500'
+            : 'bg-red-500';
+  const utilTextColor =
+    utilization < 0.5
+      ? colorBlindMode
+        ? 'text-teal-500'
+        : 'text-green-500'
+      : utilization < 0.75
+        ? 'text-amber-500'
+        : utilization < 1
+          ? 'text-orange-500'
+          : colorBlindMode
+            ? 'text-purple-500'
+            : 'text-red-500';
 
   return (
     <>
@@ -62,9 +74,17 @@ const MarginStatusBars = ({ marginStatus, statusColorClass }) => {
         <div className={`relative ${trackClass}`}>
           <div
             className={`h-full rounded-full transition-all ${
-              ratio > MARGIN_WARNING_THRESHOLD ? (colorBlindMode ? 'bg-teal-500' : 'bg-green-500') :
-              ratio > MARGIN_DANGER_THRESHOLD ? 'bg-amber-500' :
-              ratio > MARGIN_CALL_THRESHOLD ? 'bg-orange-500' : (colorBlindMode ? 'bg-purple-500' : 'bg-red-500')
+              ratio > MARGIN_WARNING_THRESHOLD
+                ? colorBlindMode
+                  ? 'bg-teal-500'
+                  : 'bg-green-500'
+                : ratio > MARGIN_DANGER_THRESHOLD
+                  ? 'bg-amber-500'
+                  : ratio > MARGIN_CALL_THRESHOLD
+                    ? 'bg-orange-500'
+                    : colorBlindMode
+                      ? 'bg-purple-500'
+                      : 'bg-red-500'
             }`}
             style={{ width: `${fillPct}%` }}
           />
@@ -93,12 +113,14 @@ const MarginStatusBars = ({ marginStatus, statusColorClass }) => {
             <span className={utilTextColor}>
               {atLimit
                 ? `${formatCurrency(marginStatus.marginUsed)} (at limit)`
-                : `${formatCurrency(marginStatus.marginUsed)} / ${formatCurrency(marginStatus.maxBorrowable)} (${utilLabel}%)`
-              }
+                : `${formatCurrency(marginStatus.marginUsed)} / ${formatCurrency(marginStatus.maxBorrowable)} (${utilLabel}%)`}
             </span>
           </div>
           <div className={trackClass}>
-            <div className={`h-full rounded-full transition-all ${utilColor}`} style={{ width: `${utilizationPct}%` }} />
+            <div
+              className={`h-full rounded-full transition-all ${utilColor}`}
+              style={{ width: `${utilizationPct}%` }}
+            />
           </div>
         </div>
       )}

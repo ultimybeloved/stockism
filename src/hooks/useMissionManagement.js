@@ -9,49 +9,56 @@ import { callableErrorCode } from '../utils/errors';
 import { reportUnexpected } from '../monitoring';
 
 export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
-  const handleClaimMissionReward = useCallback(async (missionId, reward) => {
-    if (!user || !userData) return;
-    setLoadingKey('claimMission', true);
-    try {
-      const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
-      const today = getTodayDateString();
-      setUserData(prev => prev ? ({
-        ...prev,
-        cash: (prev.cash || 0) + reward,
-        dailyMissions: {
-          ...prev.dailyMissions,
-          [today]: {
-            ...(prev.dailyMissions?.[today] || {}),
-            claimed: { ...(prev.dailyMissions?.[today]?.claimed || {}), [missionId]: true }
-          }
+  const handleClaimMissionReward = useCallback(
+    async (missionId, reward) => {
+      if (!user || !userData) return;
+      setLoadingKey('claimMission', true);
+      try {
+        const result = await claimMissionRewardFunction({ missionId, type: 'daily', reward });
+        const today = getTodayDateString();
+        setUserData((prev) =>
+          prev
+            ? {
+                ...prev,
+                cash: (prev.cash || 0) + reward,
+                dailyMissions: {
+                  ...prev.dailyMissions,
+                  [today]: {
+                    ...(prev.dailyMissions?.[today] || {}),
+                    claimed: { ...(prev.dailyMissions?.[today]?.claimed || {}), [missionId]: true },
+                  },
+                },
+              }
+            : prev,
+        );
+        fireDailyRewardConfetti();
+        const newTotal = result.data.newTotal;
+        const achievements = userData.achievements || [];
+        let earnedAchievement = null;
+        if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
+        else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
+        else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
+        if (earnedAchievement) {
+          showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+        } else {
+          showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
         }
-      }) : prev);
-      fireDailyRewardConfetti();
-      const newTotal = result.data.newTotal;
-      const achievements = userData.achievements || [];
-      let earnedAchievement = null;
-      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
-      if (earnedAchievement) {
-        showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-      } else {
-        showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
+      } catch (err) {
+        reportUnexpected(err, { where: 'handleClaimMissionReward', missionId, reward });
+        // Codes arrive prefixed ('functions/failed-precondition'), so comparing
+        // against the bare name here silently never matched and players got the
+        // raw backend message instead of this one.
+        if (callableErrorCode(err) === 'failed-precondition') {
+          showNotification('error', 'Mission not completed yet - progress may need to update');
+        } else {
+          showNotification('error', err.message || 'Failed to claim reward');
+        }
+      } finally {
+        setLoadingKey('claimMission', false);
       }
-    } catch (err) {
-      reportUnexpected(err, { where: 'handleClaimMissionReward', missionId, reward });
-      // Codes arrive prefixed ('functions/failed-precondition'), so comparing
-      // against the bare name here silently never matched and players got the
-      // raw backend message instead of this one.
-      if (callableErrorCode(err) === 'failed-precondition') {
-        showNotification('error', 'Mission not completed yet - progress may need to update');
-      } else {
-        showNotification('error', err.message || 'Failed to claim reward');
-      }
-    } finally {
-      setLoadingKey('claimMission', false);
-    }
-  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+    },
+    [user, userData, showNotification, setUserData, setLoadingKey],
+  );
 
   const handleRerollMissions = useCallback(async () => {
     if (!user || !userData) return;
@@ -60,14 +67,18 @@ export function useMissionManagement({ user, userData, showNotification, setUser
       const result = await rerollMissionsFunction();
       const { rerollSeed } = result.data;
       const weekId = getWeekId();
-      setUserData(prev => prev ? {
-        ...prev,
-        cash: (prev.cash || 0) - 50,
-        weeklyMissions: {
-          ...prev.weeklyMissions,
-          [weekId]: { ...(prev.weeklyMissions?.[weekId] || {}), rerolled: true, rerollSeed }
-        }
-      } : prev);
+      setUserData((prev) =>
+        prev
+          ? {
+              ...prev,
+              cash: (prev.cash || 0) - 50,
+              weeklyMissions: {
+                ...prev.weeklyMissions,
+                [weekId]: { ...(prev.weeklyMissions?.[weekId] || {}), rerolled: true, rerollSeed },
+              },
+            }
+          : prev,
+      );
       showNotification('success', 'Missions rerolled!');
     } catch (err) {
       reportUnexpected(err, { where: 'handleRerollMissions' });
@@ -77,40 +88,53 @@ export function useMissionManagement({ user, userData, showNotification, setUser
     }
   }, [user, userData, showNotification, setUserData, setLoadingKey]);
 
-  const handleClaimWeeklyMissionReward = useCallback(async (missionId, reward) => {
-    if (!user || !userData) return;
-    setLoadingKey('claimWeeklyMission', true);
-    try {
-      const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
-      const weekId = getWeekId();
-      setUserData(prev => prev ? {
-        ...prev,
-        cash: (prev.cash || 0) + reward,
-        weeklyMissions: { ...prev.weeklyMissions, [weekId]: { ...(prev.weeklyMissions?.[weekId] || {}), claimed: { ...(prev.weeklyMissions?.[weekId]?.claimed || {}), [missionId]: true } } }
-      } : prev);
-      fireWeeklyRewardConfetti();
-      const newTotal = result.data.newTotal;
-      const achievements = userData.achievements || [];
-      let earnedAchievement = null;
-      if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
-      else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
-      else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
-      if (earnedAchievement) {
-        showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
-      } else {
-        showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
+  const handleClaimWeeklyMissionReward = useCallback(
+    async (missionId, reward) => {
+      if (!user || !userData) return;
+      setLoadingKey('claimWeeklyMission', true);
+      try {
+        const result = await claimMissionRewardFunction({ missionId, type: 'weekly', reward });
+        const weekId = getWeekId();
+        setUserData((prev) =>
+          prev
+            ? {
+                ...prev,
+                cash: (prev.cash || 0) + reward,
+                weeklyMissions: {
+                  ...prev.weeklyMissions,
+                  [weekId]: {
+                    ...(prev.weeklyMissions?.[weekId] || {}),
+                    claimed: { ...(prev.weeklyMissions?.[weekId]?.claimed || {}), [missionId]: true },
+                  },
+                },
+              }
+            : prev,
+        );
+        fireWeeklyRewardConfetti();
+        const newTotal = result.data.newTotal;
+        const achievements = userData.achievements || [];
+        let earnedAchievement = null;
+        if (newTotal >= 100 && !achievements.includes('MISSION_100')) earnedAchievement = ACHIEVEMENTS.MISSION_100;
+        else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
+        else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
+        if (earnedAchievement) {
+          showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+        } else {
+          showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
+        }
+      } catch (err) {
+        reportUnexpected(err, { where: 'handleClaimWeeklyMissionReward', missionId, reward });
+        if (callableErrorCode(err) === 'failed-precondition') {
+          showNotification('error', 'Mission not completed yet - progress may need to update');
+        } else {
+          showNotification('error', err.message || 'Failed to claim reward');
+        }
+      } finally {
+        setLoadingKey('claimWeeklyMission', false);
       }
-    } catch (err) {
-      reportUnexpected(err, { where: 'handleClaimWeeklyMissionReward', missionId, reward });
-      if (callableErrorCode(err) === 'failed-precondition') {
-        showNotification('error', 'Mission not completed yet - progress may need to update');
-      } else {
-        showNotification('error', err.message || 'Failed to claim reward');
-      }
-    } finally {
-      setLoadingKey('claimWeeklyMission', false);
-    }
-  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+    },
+    [user, userData, showNotification, setUserData, setLoadingKey],
+  );
 
   return { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward };
 }

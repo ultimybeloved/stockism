@@ -14,13 +14,20 @@ const IpoHoldingsList = ({ items, darkMode }) => {
         <span className={`text-xs font-normal ${mutedClass}`}>({items.length})</span>
       </h3>
       <div className="space-y-2 mb-4">
-        {items.map(item => (
-          <div key={`ipo-${item.ticker}`} className={`rounded-sm border-2 p-3 ${darkMode ? 'border-indigo-600 bg-indigo-950/30' : 'border-indigo-400 bg-indigo-50'}`}>
+        {items.map((item) => (
+          <div
+            key={`ipo-${item.ticker}`}
+            className={`rounded-sm border-2 p-3 ${darkMode ? 'border-indigo-600 bg-indigo-950/30' : 'border-indigo-400 bg-indigo-50'}`}
+          >
             <div className="flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-orange-500 font-mono font-semibold">${item.ticker}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>IPO</span>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded font-semibold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}
+                  >
+                    IPO
+                  </span>
                   <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
                 </div>
                 <div className={`text-sm ${mutedClass} mt-1`}>

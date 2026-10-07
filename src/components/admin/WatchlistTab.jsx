@@ -45,7 +45,6 @@ const WatchlistTab = ({
 }) => {
   return (
     <div className="space-y-4">
-
       <AltScanCard
         darkMode={darkMode}
         textClass={textClass}
@@ -59,7 +58,8 @@ const WatchlistTab = ({
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
         <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Anti-Alt Defense Health</h3>
         <p className={`text-xs mb-2 ${mutedClass}`}>
-          Shows whether the alt-account defenses are firing in production: accounts per address, blocked signups in the last 30 days, and whether real addresses are reaching us at all. Read-only.
+          Shows whether the alt-account defenses are firing in production: accounts per address, blocked signups in the
+          last 30 days, and whether real addresses are reaching us at all. Read-only.
         </p>
         <button
           onClick={loadIpHealth}
@@ -73,24 +73,37 @@ const WatchlistTab = ({
           <div className="mt-3 space-y-2">
             <div className={`text-xs ${textClass}`}>
               <span className="font-semibold">Address coverage:</span>{' '}
-              <span className={ipHealth.signupIpCoverage.coveragePercent >= 90 ? 'text-emerald-500 font-bold' : 'text-red-500 font-bold'}>
+              <span
+                className={
+                  ipHealth.signupIpCoverage.coveragePercent >= 90
+                    ? 'text-emerald-500 font-bold'
+                    : 'text-red-500 font-bold'
+                }
+              >
                 {ipHealth.signupIpCoverage.coveragePercent}%
               </span>{' '}
-              ({ipHealth.signupIpCoverage.missingIp} of {ipHealth.signupIpCoverage.realUsers} accounts have no recorded address)
+              ({ipHealth.signupIpCoverage.missingIp} of {ipHealth.signupIpCoverage.realUsers} accounts have no recorded
+              address)
             </div>
             <div className={`text-xs ${textClass}`}>
               <span className="font-semibold">Accounts per address:</span>{' '}
-              {Object.entries(ipHealth.ipTracking.accountsPerIpHistogram).map(([k, v]) => `${k}: ${v}`).join(' · ')}
-              {' '}({ipHealth.ipTracking.trackedIPs} addresses tracked, {ipHealth.ipTracking.totalTombstones} deleted-account tombstones held)
+              {Object.entries(ipHealth.ipTracking.accountsPerIpHistogram)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(' · ')}{' '}
+              ({ipHealth.ipTracking.trackedIPs} addresses tracked, {ipHealth.ipTracking.totalTombstones} deleted-account
+              tombstones held)
             </div>
             <div className={`text-xs ${textClass}`}>
               <span className="font-semibold">Blocks last 30 days:</span>{' '}
-              {ipHealth.alertsLast30d.total === 0 ? 'none' :
-                Object.entries(ipHealth.alertsLast30d.byType).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+              {ipHealth.alertsLast30d.total === 0
+                ? 'none'
+                : Object.entries(ipHealth.alertsLast30d.byType)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(' · ')}
             </div>
             <div className={`text-xs ${textClass}`}>
-              <span className="font-semibold">Discord wall:</span>{' '}
-              {ipHealth.discordWall.pending} flagged and still blocked · {ipHealth.discordWall.lifted} verified and lifted
+              <span className="font-semibold">Discord wall:</span> {ipHealth.discordWall.pending} flagged and still
+              blocked · {ipHealth.discordWall.lifted} verified and lifted
             </div>
             {ipHealth.ipTracking.multiAccountIPs.length > 0 && (
               <div>
@@ -98,7 +111,8 @@ const WatchlistTab = ({
                 <div className="space-y-0.5 max-h-32 overflow-y-auto">
                   {ipHealth.ipTracking.multiAccountIPs.map((row, i) => (
                     <div key={i} className={`text-xs font-mono ${mutedClass}`}>
-                      {row.ip} — {row.liveAccounts} live{row.deletedAccounts > 0 ? `, ${row.deletedAccounts} deleted` : ''}
+                      {row.ip} — {row.liveAccounts} live
+                      {row.deletedAccounts > 0 ? `, ${row.deletedAccounts} deleted` : ''}
                     </div>
                   ))}
                 </div>
@@ -130,14 +144,14 @@ const WatchlistTab = ({
           <input
             type="text"
             value={watchAddUserId}
-            onChange={e => setWatchAddUserId(e.target.value)}
+            onChange={(e) => setWatchAddUserId(e.target.value)}
             placeholder="User ID (from Firestore)"
             className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
           />
           <input
             type="text"
             value={watchAddReason}
-            onChange={e => setWatchAddReason(e.target.value)}
+            onChange={(e) => setWatchAddReason(e.target.value)}
             placeholder="Reason (e.g., Doxxing, alt abuse)"
             className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
           />
@@ -148,7 +162,7 @@ const WatchlistTab = ({
               min="1"
               max="10"
               value={watchAddMaxAccounts}
-              onChange={e => setWatchAddMaxAccounts(Number(e.target.value))}
+              onChange={(e) => setWatchAddMaxAccounts(Number(e.target.value))}
               className={`w-16 px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
             />
             <button
@@ -166,7 +180,8 @@ const WatchlistTab = ({
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-blue-50'}`}>
         <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Username Integrity</h3>
         <p className={`text-xs mb-2 ${mutedClass}`}>
-          Reserves a unique name for every account and flags duplicates (same name, different capitalization). Any duplicates show up in the alerts below. Safe to run anytime.
+          Reserves a unique name for every account and flags duplicates (same name, different capitalization). Any
+          duplicates show up in the alerts below. Safe to run anytime.
         </p>
         <button
           onClick={handleAuditUsernames}
@@ -182,8 +197,11 @@ const WatchlistTab = ({
         <div className={`p-3 text-center text-xs ${mutedClass}`}>No watched users.</div>
       )}
 
-      {watchedUsers.map(wu => (
-        <div key={wu.id} className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+      {watchedUsers.map((wu) => (
+        <div
+          key={wu.id}
+          className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}
+        >
           <div className="flex justify-between items-start mb-2">
             <div>
               <span className={`text-sm font-bold ${textClass}`}>{wu.displayName}</span>
@@ -197,9 +215,7 @@ const WatchlistTab = ({
             </button>
           </div>
 
-          {wu.reason && (
-            <div className={`text-xs mb-2 ${mutedClass}`}>Reason: {wu.reason}</div>
-          )}
+          {wu.reason && <div className={`text-xs mb-2 ${mutedClass}`}>Reason: {wu.reason}</div>}
 
           <div className={`text-xs mb-2 ${mutedClass}`}>
             Max accounts/IP: <span className="font-bold text-red-400">{wu.maxAccountsPerIP}</span>
@@ -217,7 +233,9 @@ const WatchlistTab = ({
                 {wu.linkedAccounts.map((alt, i) => (
                   <div key={i} className={`text-xs flex gap-2 items-center ${mutedClass}`}>
                     <span className="font-mono">{alt.displayName || alt.uid}</span>
-                    <span className={`px-1 rounded text-[10px] ${alt.linkedVia === 'ip' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                    <span
+                      className={`px-1 rounded text-[10px] ${alt.linkedVia === 'ip' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}
+                    >
                       {alt.linkedVia}
                     </span>
                     {alt.ip && <span className="font-mono text-[10px]">{alt.ip}</span>}
@@ -232,7 +250,7 @@ const WatchlistTab = ({
                 <input
                   type="text"
                   value={watchLinkAltId}
-                  onChange={e => setWatchLinkAltId(e.target.value)}
+                  onChange={(e) => setWatchLinkAltId(e.target.value)}
                   placeholder="Alt Account UID"
                   className={`flex-1 px-2 py-1 text-xs border rounded-sm ${inputClass}`}
                 />
@@ -244,7 +262,10 @@ const WatchlistTab = ({
                   Link
                 </button>
                 <button
-                  onClick={() => { setWatchLinkTarget(null); setWatchLinkAltId(''); }}
+                  onClick={() => {
+                    setWatchLinkTarget(null);
+                    setWatchLinkAltId('');
+                  }}
                   className={`px-2 py-1 text-xs ${mutedClass}`}
                 >
                   Cancel
@@ -286,7 +307,7 @@ const WatchlistTab = ({
                 <input
                   type="text"
                   value={watchAddIPValue}
-                  onChange={e => setWatchAddIPValue(e.target.value)}
+                  onChange={(e) => setWatchAddIPValue(e.target.value)}
                   placeholder="IP address (e.g. 1.2.3.4)"
                   className={`flex-1 px-2 py-1 text-xs border rounded-sm ${inputClass}`}
                 />
@@ -298,7 +319,10 @@ const WatchlistTab = ({
                   Add
                 </button>
                 <button
-                  onClick={() => { setWatchAddIPTarget(null); setWatchAddIPValue(''); }}
+                  onClick={() => {
+                    setWatchAddIPTarget(null);
+                    setWatchAddIPValue('');
+                  }}
                   className={`px-2 py-1 text-xs ${mutedClass}`}
                 >
                   Cancel
@@ -321,26 +345,47 @@ const WatchlistTab = ({
         <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-yellow-50'}`}>
           <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Alerts ({watchlistAlerts.length})</h3>
           <div className="space-y-1 max-h-60 overflow-y-auto">
-            {watchlistAlerts.map(alert => (
-              <div key={alert.id} className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}>
-                <span className={`font-semibold ${
-                  alert.type === 'alt_suspected' ? (alert.severity === 'high' ? 'text-red-400' : 'text-amber-400') :
-                  alert.type === 'account_blocked' ? 'text-red-400' :
-                  alert.type === 'account_linked' ? 'text-orange-400' :
-                  alert.type === 'new_ip_detected' ? 'text-yellow-400' :
-                  alert.type === 'duplicate_username' ? 'text-pink-400' :
-                  'text-blue-400'
-                }`}>
-                  {alert.type === 'alt_suspected' ? '🕵️' :
-                   alert.type === 'account_blocked' ? '🚫' :
-                   alert.type === 'account_linked' ? '🔗' :
-                   alert.type === 'new_ip_detected' ? '🌐' :
-                   alert.type === 'duplicate_username' ? '📛' :
-                   alert.type === 'user_added' ? '👁️' :
-                   alert.type === 'user_removed' ? '❌' :
-                   alert.type === 'ip_added' ? '📍' : '📋'}
-                </span>
-                {' '}{alert.details}
+            {watchlistAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}
+              >
+                <span
+                  className={`font-semibold ${
+                    alert.type === 'alt_suspected'
+                      ? alert.severity === 'high'
+                        ? 'text-red-400'
+                        : 'text-amber-400'
+                      : alert.type === 'account_blocked'
+                        ? 'text-red-400'
+                        : alert.type === 'account_linked'
+                          ? 'text-orange-400'
+                          : alert.type === 'new_ip_detected'
+                            ? 'text-yellow-400'
+                            : alert.type === 'duplicate_username'
+                              ? 'text-pink-400'
+                              : 'text-blue-400'
+                  }`}
+                >
+                  {alert.type === 'alt_suspected'
+                    ? '🕵️'
+                    : alert.type === 'account_blocked'
+                      ? '🚫'
+                      : alert.type === 'account_linked'
+                        ? '🔗'
+                        : alert.type === 'new_ip_detected'
+                          ? '🌐'
+                          : alert.type === 'duplicate_username'
+                            ? '📛'
+                            : alert.type === 'user_added'
+                              ? '👁️'
+                              : alert.type === 'user_removed'
+                                ? '❌'
+                                : alert.type === 'ip_added'
+                                  ? '📍'
+                                  : '📋'}
+                </span>{' '}
+                {alert.details}
                 <span className="ml-1 opacity-50">
                   {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}
                 </span>

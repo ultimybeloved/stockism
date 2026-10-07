@@ -31,12 +31,12 @@ const DiscordLinkBanner = () => {
           {discordLinkStatus.includes('link_expired')
             ? 'That link attempt expired. Click Link Discord again.'
             : discordLinkStatus.includes('already_has_discord')
-            ? 'Your account is already linked to a different Discord. Ask an admin if you need it changed.'
-            : discordLinkStatus.includes('bound_to_other_account')
-            ? 'That Discord is still reserved to the account it was unlinked from. It frees up a week after unlinking, or an admin can release it now.'
-            : discordLinkStatus.includes('already_linked')
-              ? 'Failed to link Discord. It may already be linked to another account.'
-              : `Failed to link Discord: ${discordLinkStatus.split(':').slice(1).join(':') || 'Unknown error'}`}
+              ? 'Your account is already linked to a different Discord. Ask an admin if you need it changed.'
+              : discordLinkStatus.includes('bound_to_other_account')
+                ? 'That Discord is still reserved to the account it was unlinked from. It frees up a week after unlinking, or an admin can release it now.'
+                : discordLinkStatus.includes('already_linked')
+                  ? 'Failed to link Discord. It may already be linked to another account.'
+                  : `Failed to link Discord: ${discordLinkStatus.split(':').slice(1).join(':') || 'Unknown error'}`}
         </div>
       )}
     </>

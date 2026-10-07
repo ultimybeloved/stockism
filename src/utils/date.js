@@ -82,7 +82,7 @@ export const getRelativeTime = (timestamp) => {
 export const formatShortDate = (timestamp) => {
   return new Date(timestamp).toLocaleDateString('en-US', {
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
 };
 
@@ -97,7 +97,7 @@ export const formatFullDate = (timestamp) => {
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 };
 

@@ -81,20 +81,26 @@ const PredictionsTab = ({
 }) => {
   return (
     <div className="space-y-6">
-
       {/* SECTION 1: Resolve Pending Predictions */}
       {unresolvedPredictions.length > 0 && (
         <div className={`p-4 rounded-sm border-2 border-amber-500 ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'}`}>
-          <h3 className={`font-semibold text-amber-500 mb-3`}>⏳ Pending Resolution ({unresolvedPredictions.length})</h3>
+          <h3 className={`font-semibold text-amber-500 mb-3`}>
+            ⏳ Pending Resolution ({unresolvedPredictions.length})
+          </h3>
           <div className="space-y-2 mb-3">
-            {unresolvedPredictions.map(p => (
+            {unresolvedPredictions.map((p) => (
               <button
                 key={p.id}
-                onClick={() => { setSelectedPrediction(p); setSelectedOutcomes([]); }}
+                onClick={() => {
+                  setSelectedPrediction(p);
+                  setSelectedOutcomes([]);
+                }}
                 className={`w-full p-3 text-left rounded-sm border transition-all ${
                   selectedPrediction?.id === p.id
                     ? 'border-teal-500 bg-teal-500/10'
-                    : darkMode ? 'border-slate-600 hover:border-slate-500' : 'border-slate-300 hover:border-slate-400'
+                    : darkMode
+                      ? 'border-slate-600 hover:border-slate-500'
+                      : 'border-slate-300 hover:border-slate-400'
                 }`}
               >
                 <div className={`font-semibold ${textClass}`}>{p.question}</div>
@@ -107,23 +113,28 @@ const PredictionsTab = ({
 
           {selectedPrediction && (
             <>
-              <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Winner(s) — tap to toggle</label>
+              <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>
+                Select Winner(s) — tap to toggle
+              </label>
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {selectedPrediction.options.map(opt => {
+                {selectedPrediction.options.map((opt) => {
                   const isSelected = selectedOutcomes.includes(opt);
                   return (
                     <button
                       key={opt}
-                      onClick={() => setSelectedOutcomes(prev =>
-                        isSelected ? prev.filter(o => o !== opt) : [...prev, opt]
-                      )}
+                      onClick={() =>
+                        setSelectedOutcomes((prev) => (isSelected ? prev.filter((o) => o !== opt) : [...prev, opt]))
+                      }
                       className={`p-3 rounded-sm border-2 font-semibold transition-all ${
                         isSelected
                           ? 'border-green-500 bg-green-500 text-white'
-                          : darkMode ? 'border-slate-600 text-slate-300 hover:border-green-500' : 'border-slate-300 hover:border-green-500'
+                          : darkMode
+                            ? 'border-slate-600 text-slate-300 hover:border-green-500'
+                            : 'border-slate-300 hover:border-green-500'
                       }`}
                     >
-                      {isSelected ? '✓ ' : ''}{opt}
+                      {isSelected ? '✓ ' : ''}
+                      {opt}
                     </button>
                   );
                 })}
@@ -201,7 +212,9 @@ const PredictionsTab = ({
       )}
 
       {/* SECTION 4: All Predictions List */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+      <div
+        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+      >
         <div className="flex justify-between items-center mb-3">
           <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
           <button
@@ -217,25 +230,23 @@ const PredictionsTab = ({
           <p className={`text-center py-4 ${mutedClass}`}>No predictions yet</p>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {predictions.map(p => (
+            {predictions.map((p) => (
               <div key={p.id} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold ${p.cancelled ? 'text-zinc-400' : p.resolved ? 'text-green-500' : 'text-amber-500'}`}>
+                      <span
+                        className={`text-xs font-semibold ${p.cancelled ? 'text-zinc-400' : p.resolved ? 'text-green-500' : 'text-amber-500'}`}
+                      >
                         {p.cancelled ? '🚫 Cancelled' : p.resolved ? '✅ Resolved' : '⏳ Active'}
                       </span>
                     </div>
                     <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
-                    <div className={`text-xs ${mutedClass} mt-1`}>
-                      Options: {p.options.join(', ')}
-                    </div>
+                    <div className={`text-xs ${mutedClass} mt-1`}>Options: {p.options.join(', ')}</div>
                     {p.resolved && !p.cancelled && (
                       <div className="text-xs text-green-500 mt-1">Winner: {p.outcome}</div>
                     )}
-                    {p.cancelled && (
-                      <div className="text-xs text-zinc-400 mt-1">All bettors refunded</div>
-                    )}
+                    {p.cancelled && <div className="text-xs text-zinc-400 mt-1">All bettors refunded</div>}
                     <div className={`text-xs ${mutedClass} mt-1`}>
                       {valueLabel(p)}: ${marketValue(p).toFixed(0)}
                     </div>
@@ -285,18 +296,20 @@ const PredictionsTab = ({
 
       {/* SECTION 5: Bets Summary */}
       {allBets.length > 0 && (
-        <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div
+          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+        >
           <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {(() => {
               const byPrediction = {};
-              allBets.forEach(bet => {
+              allBets.forEach((bet) => {
                 if (!byPrediction[bet.predictionId]) {
                   byPrediction[bet.predictionId] = {
                     question: bet.question,
                     totalAmount: 0,
                     betCount: 0,
-                    byOption: {}
+                    byOption: {},
                   };
                 }
                 byPrediction[bet.predictionId].totalAmount += bet.amount;
@@ -315,7 +328,10 @@ const PredictionsTab = ({
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {Object.entries(data.byOption).map(([opt, amt]) => (
-                      <span key={opt} className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                      <span
+                        key={opt}
+                        className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}
+                      >
                         {opt}: ${amt.toFixed(0)}
                       </span>
                     ))}

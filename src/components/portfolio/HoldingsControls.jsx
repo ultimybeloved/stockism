@@ -30,10 +30,13 @@ const HoldingsControls = ({ darkMode, search, setSearch, sortKey, sortDir, onSor
               className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors ${
                 active
                   ? 'bg-orange-600 text-white'
-                  : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-slate-500 hover:bg-zinc-100'
+                  : darkMode
+                    ? 'text-zinc-400 hover:bg-zinc-800'
+                    : 'text-slate-500 hover:bg-zinc-100'
               }`}
             >
-              {s.label}{active && (sortDir === 'asc' ? ' ▲' : ' ▼')}
+              {s.label}
+              {active && (sortDir === 'asc' ? ' ▲' : ' ▼')}
             </button>
           );
         })}

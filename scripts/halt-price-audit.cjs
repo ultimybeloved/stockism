@@ -32,8 +32,8 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const HALT_START_MIN = 780;  // 13:00 UTC
-const HALT_END_MIN = 1260;   // 21:00 UTC
+const HALT_START_MIN = 780; // 13:00 UTC
+const HALT_END_MIN = 1260; // 21:00 UTC
 
 // When the tagging went in. Untagged points inside a halt before this are
 // expected (they are almost certainly daily drops) and are reported as such.
@@ -41,10 +41,8 @@ const TAGGING_LANDED = Date.UTC(2026, 7, 21, 0, 5);
 
 const utc = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
 const hhmmss = (ms) => new Date(ms).toISOString().slice(11, 19);
-const toMs = (t) => (!t ? 0
-  : typeof t === 'number' ? t
-    : t._seconds ? t._seconds * 1000
-      : t.seconds ? t.seconds * 1000 : 0);
+const toMs = (t) =>
+  !t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0;
 
 function haltWindow(arg) {
   let d;
@@ -133,7 +131,9 @@ async function main() {
   for (const ts of [...batches.keys()].sort((a, b) => a - b)) {
     const batch = batches.get(ts);
     const claim = claims.find((c) => Math.abs(c.ms - ts) <= 15000);
-    console.log(`  ${hhmmss(ts)}  ${String(batch.length).padStart(2)} ticker(s): ${batch.map((p) => p.ticker).join(', ')}`);
+    console.log(
+      `  ${hhmmss(ts)}  ${String(batch.length).padStart(2)} ticker(s): ${batch.map((p) => p.ticker).join(', ')}`,
+    );
     if (claim) {
       console.log(`      matches a daily-drop claim at ${hhmmss(claim.ms)} - ${claim.message}`);
     } else {
@@ -157,4 +157,9 @@ async function main() {
   }
 }
 
-main().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

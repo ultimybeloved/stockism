@@ -82,19 +82,38 @@ const collapseAliasChain = (existing, old, nw) => {
 // per-ticker reinvestment toggle, and loyaltyTierNotified suppresses duplicate
 // tier-up notifications — dropping its key fires a spurious one at every holder.
 const USER_TICKER_MAPS = [
-  'holdings', 'shorts', 'costBasis', 'lastBuyTime', 'lowestWhileHolding',
-  'shortHistory', 'ipoPurchases', 'lastTickerTradeTime', 'tickerTradeHistory',
-  'holdingCohorts', 'profitByTicker', 'marginLockup', 'ipoLockup', 'drip',
+  'holdings',
+  'shorts',
+  'costBasis',
+  'lastBuyTime',
+  'lowestWhileHolding',
+  'shortHistory',
+  'ipoPurchases',
+  'lastTickerTradeTime',
+  'tickerTradeHistory',
+  'holdingCohorts',
+  'profitByTicker',
+  'marginLockup',
+  'ipoLockup',
+  'drip',
   'loyaltyTierNotified',
   // The buy-back block and the short-after-dump block. Dropping these lifts
   // both blocks early for anyone serving one on the renamed stock.
-  'lastHeavySell', 'lastHeavyExit',
+  'lastHeavySell',
+  'lastHeavyExit',
 ];
 
 // Ticker-keyed maps on market/current.
 const MARKET_TICKER_MAPS = [
-  'prices', 'volumes', 'dailyVolumes', 'liquidity', 'botImpact',
-  'haltedTickers', 'ath', 'atl', 'breakerCounts',
+  'prices',
+  'volumes',
+  'dailyVolumes',
+  'liquidity',
+  'botImpact',
+  'haltedTickers',
+  'ath',
+  'atl',
+  'breakerCounts',
 ];
 
 /** Everything one player document needs changed. {} means already migrated. */

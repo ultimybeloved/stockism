@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
-  db, depositToLadderGameFunction, withdrawFromLadderGameFunction, getLadderLeaderboardFunction,
+  db,
+  depositToLadderGameFunction,
+  withdrawFromLadderGameFunction,
+  getLadderLeaderboardFunction,
 } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { getLadderWithdrawable } from '../../utils/ladderTax';
@@ -75,7 +78,10 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
       return;
     }
     if (amount > withdrawable) {
-      showNotification('error', `You can cash out up to $${withdrawable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} right now`);
+      showNotification(
+        'error',
+        `You can cash out up to $${withdrawable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} right now`,
+      );
       return;
     }
     setWithdrawLoading(true);
@@ -85,7 +91,10 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
       setWithdrawAmount('');
       setShowTransferModal(false);
       const money = (n) => (n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      showNotification('success', `Withdrew $${money(grossAmount ?? amount)}. Tax was $${money(totalTax)}. You received $${money(netReceived)}.`);
+      showNotification(
+        'success',
+        `Withdrew $${money(grossAmount ?? amount)}. Tax was $${money(totalTax)}. You received $${money(netReceived)}.`,
+      );
     } catch (error) {
       console.error('Withdrawal error:', error);
       showNotification('error', error.message || 'Withdrawal failed');
@@ -113,12 +122,28 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
   }, [showLeaderboardModal]);
 
   return {
-    showTransferModal, setShowTransferModal, transferTab, setTransferTab,
-    showLeaderboardModal, setShowLeaderboardModal, showStatsModal, setShowStatsModal,
-    depositAmount, setDepositAmount, withdrawAmount, setWithdrawAmount,
-    depositLoading, withdrawLoading, handleDeposit, handleWithdraw,
-    leaderboard, leaderboardLoading,
-    showLadderTutorial, setShowLadderTutorial, showLadderTutorialReview, setShowLadderTutorialReview,
+    showTransferModal,
+    setShowTransferModal,
+    transferTab,
+    setTransferTab,
+    showLeaderboardModal,
+    setShowLeaderboardModal,
+    showStatsModal,
+    setShowStatsModal,
+    depositAmount,
+    setDepositAmount,
+    withdrawAmount,
+    setWithdrawAmount,
+    depositLoading,
+    withdrawLoading,
+    handleDeposit,
+    handleWithdraw,
+    leaderboard,
+    leaderboardLoading,
+    showLadderTutorial,
+    setShowLadderTutorial,
+    showLadderTutorialReview,
+    setShowLadderTutorialReview,
     handleLadderTutorialComplete,
   };
 }

@@ -1,26 +1,21 @@
 // Pure trade-form math: rolling 24h per-ticker limits, dynamic bid/ask under
 // impact, buying power, and max-shares for each action. Mirrors the backend.
 
-import {
-  MIN_PRICE,
-  MIN_EXIT_SHARES,
-  SHORT_MARGIN_REQUIREMENT,
-  MAX_TRADES_PER_TICKER_24H
-} from '../constants';
+import { MIN_PRICE, MIN_EXIT_SHARES, SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../constants';
 import {
   calculatePortfolioValue,
   calculateTraderImpactDollars,
   liquidityFor,
   maxTradeSharesFor,
   getBidAskPrices,
-  calculateMarginStatus
+  calculateMarginStatus,
 } from './calculations';
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 export const pruneAndSumTradeHistory = (entries, now) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
-  const recent = (entries || []).filter(e => e.ts > cutoff);
+  const recent = (entries || []).filter((e) => e.ts > cutoff);
   const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
   const totalImpact = recent.reduce((sum, e) => sum + (e.impact || 0), 0);
   // count = real trades only. Synthetic ETF trailing entries (shares: 0) feed the
@@ -84,7 +79,18 @@ export const getBuyingPower = (userCash, userData, prices, priceHistory, include
 // a well-funded buy handed the server an order it rejects out of hand.
 export const getMaxShares = (args) => Math.min(maxSharesForAction(args), maxTradeSharesFor(args.character?.ticker));
 
-const maxSharesForAction = ({ action, character, price, holdings, shortPosition, userCash, userData, prices, priceHistory, includeMargin = true }) => {
+const maxSharesForAction = ({
+  action,
+  character,
+  price,
+  holdings,
+  shortPosition,
+  userCash,
+  userData,
+  prices,
+  priceHistory,
+  includeMargin = true,
+}) => {
   const ticker = character.ticker;
   if (action === 'buy') {
     // Check trade count limit first
@@ -93,7 +99,9 @@ const maxSharesForAction = ({ action, character, price, holdings, shortPosition,
     const buyingPower = getBuyingPower(userCash, userData, prices, priceHistory, includeMargin);
     if (buyingPower <= 0) return 0;
     // Binary search; the /0.5 just over-estimates the upper bound, which is safe.
-    let low = 1, high = Math.floor(buyingPower / (price * 0.5)), maxAffordable = 0;
+    let low = 1,
+      high = Math.floor(buyingPower / (price * 0.5)),
+      maxAffordable = 0;
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const { ask } = getDynamicPrices(character, price, mid, 'buy', userData);
@@ -120,7 +128,7 @@ const maxSharesForAction = ({ action, character, price, holdings, shortPosition,
     if (getTradeCount(userData, ticker, 'sell') >= MAX_TRADES_PER_TICKER_24H) return 0;
     // Locked shares (IPO / margin holds) aren't sellable; mirror the server.
     const lockNow = Date.now();
-    const lockedOf = (lock) => (lock && lockNow < (lock.until || 0)) ? (lock.shares || 0) : 0;
+    const lockedOf = (lock) => (lock && lockNow < (lock.until || 0) ? lock.shares || 0 : 0);
     const lockedSell = lockedOf(userData?.ipoLockup?.[ticker]) + lockedOf(userData?.marginLockup?.[ticker]);
     return Math.max(0, (holdings || 0) - lockedSell);
   }
@@ -133,8 +141,10 @@ const maxSharesForAction = ({ action, character, price, holdings, shortPosition,
 
     // Total short margin (existing + new) can't exceed portfolio equity
     const shorts = userData?.shorts || {};
-    const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
-      sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
+    const existingShortMargin = Object.values(shorts).reduce(
+      (sum, pos) => sum + (pos && pos.shares > 0 ? pos.margin || 0 : 0),
+      0,
+    );
     const availableForShorts = Math.max(0, portfolioEquity - existingShortMargin);
     if (availableForShorts <= 0) return 0;
 
@@ -156,9 +166,8 @@ const maxSharesForAction = ({ action, character, price, holdings, shortPosition,
 // closed in full. Mirror of MIN_EXIT_SHARES / EXIT_SHARE_DECIMALS in
 // functions/constants.js — the server rejects anything finer.
 const EXIT_SHARE_STEP = 1 / MIN_EXIT_SHARES;
-export const roundShares = (n, isExit) => isExit
-  ? Math.round(n * EXIT_SHARE_STEP) / EXIT_SHARE_STEP
-  : Math.round(n * 100) / 100;
+export const roundShares = (n, isExit) =>
+  isExit ? Math.round(n * EXIT_SHARE_STEP) / EXIT_SHARE_STEP : Math.round(n * 100) / 100;
 
 export const formatShares = (n) => {
   if (!n) return '0';

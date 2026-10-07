@@ -50,7 +50,7 @@ const at = (h, m) => Date.UTC(2026, 7, 20, h, m);
 // GAP's real tape from 2026-08-20, plus a daily drop and the opening auction.
 const FIXTURE = {
   GAP: [
-    { timestamp: at(11, 40), price: 1615.32 },                            // pre-halt trade
+    { timestamp: at(11, 40), price: 1615.32 }, // pre-halt trade
     { timestamp: at(17, 32), price: 1634.71, source: 'trailing' },
     { timestamp: at(18, 12), price: 1641.25, source: 'trailing' },
     { timestamp: at(18, 19), price: 1670.79, source: 'trailing' },
@@ -74,11 +74,25 @@ const FIXTURE = {
 
 const seed = async () => {
   await db.collection('market').doc('priceHistory').set(FIXTURE);
-  await db.collection('market').doc('current').set({
-    prices: { GAP: 1667.33, KWON: 114.94, MONO: 128.54 },
-  }, { merge: true });
-  await db.collection('market').doc('reviewDetail').delete().catch(() => {});
-  await db.collection('market').doc('reviewChanges').delete().catch(() => {});
+  await db
+    .collection('market')
+    .doc('current')
+    .set(
+      {
+        prices: { GAP: 1667.33, KWON: 114.94, MONO: 128.54 },
+      },
+      { merge: true },
+    );
+  await db
+    .collection('market')
+    .doc('reviewDetail')
+    .delete()
+    .catch(() => {});
+  await db
+    .collection('market')
+    .doc('reviewChanges')
+    .delete()
+    .catch(() => {});
 };
 
 const history = async () => (await db.collection('market').doc('priceHistory').get()).data();
@@ -89,14 +103,23 @@ async function main() {
   // Order matters: the split has to be saved before the detail is folded.
   const before = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices: {} });
   const gapBefore = before.changes.GAP;
-  check('split recorded before the fold', gapBefore && typeof gapBefore.trailingChange === 'number',
-    JSON.stringify(gapBefore));
-  check('GAP total is the two halves compounded',
-    Math.abs(((1 + gapBefore.directChange / 100) * (1 + gapBefore.trailingChange / 100) - 1) * 100
-      - gapBefore.percentChange) < 0.001,
-    JSON.stringify(gapBefore));
-  check('the 20:56 auction is NOT part of the review', Math.abs(gapBefore.newPrice - 1667.33) > 0.01,
-    `newPrice ${gapBefore.newPrice}`);
+  check(
+    'split recorded before the fold',
+    gapBefore && typeof gapBefore.trailingChange === 'number',
+    JSON.stringify(gapBefore),
+  );
+  check(
+    'GAP total is the two halves compounded',
+    Math.abs(
+      ((1 + gapBefore.directChange / 100) * (1 + gapBefore.trailingChange / 100) - 1) * 100 - gapBefore.percentChange,
+    ) < 0.001,
+    JSON.stringify(gapBefore),
+  );
+  check(
+    'the 20:56 auction is NOT part of the review',
+    Math.abs(gapBefore.newPrice - 1667.33) > 0.01,
+    `newPrice ${gapBefore.newPrice}`,
+  );
 
   // The fold itself.
   const first = await collapseReviewWindow({ haltStart, haltEnd });
@@ -109,34 +132,61 @@ async function main() {
   const collapsed = gap.filter((p) => p.collapsed);
 
   check('GAP has exactly one collapsed point', collapsed.length === 1, JSON.stringify(collapsed));
-  check('stamped 20:54 UTC', collapsed[0] && collapsed[0].timestamp === STAMP,
-    collapsed[0] ? new Date(collapsed[0].timestamp).toISOString() : 'none');
-  check('carries the last review price, not the auction price',
-    collapsed[0] && collapsed[0].price === 1696.46, String(collapsed[0] && collapsed[0].price));
-  check('tagged admin_adjust so price protection still applies',
-    collapsed[0] && collapsed[0].source === 'admin_adjust', String(collapsed[0] && collapsed[0].source));
+  check(
+    'stamped 20:54 UTC',
+    collapsed[0] && collapsed[0].timestamp === STAMP,
+    collapsed[0] ? new Date(collapsed[0].timestamp).toISOString() : 'none',
+  );
+  check(
+    'carries the last review price, not the auction price',
+    collapsed[0] && collapsed[0].price === 1696.46,
+    String(collapsed[0] && collapsed[0].price),
+  );
+  check(
+    'tagged admin_adjust so price protection still applies',
+    collapsed[0] && collapsed[0].source === 'admin_adjust',
+    String(collapsed[0] && collapsed[0].source),
+  );
   check('pre-halt point untouched', gap[0].timestamp === at(11, 40) && gap[0].price === 1615.32);
-  check('the 20:56 auction fill survived',
-    inWindow.some((p) => p.source === 'pre_market_auction' && p.price === 1667.33));
-  check('GAP last price unchanged by the fold', gap[gap.length - 1].price === 1667.33,
-    String(gap[gap.length - 1].price));
+  check(
+    'the 20:56 auction fill survived',
+    inWindow.some((p) => p.source === 'pre_market_auction' && p.price === 1667.33),
+  );
+  check(
+    'GAP last price unchanged by the fold',
+    gap[gap.length - 1].price === 1667.33,
+    String(gap[gap.length - 1].price),
+  );
   check('collapsed point sits before the auction', collapsed[0] && collapsed[0].timestamp < at(20, 56));
 
   const kwon = after.KWON.slice().sort((a, b) => a.timestamp - b.timestamp);
-  check('the daily drop survived the fold',
-    kwon.some((p) => p.source === 'daily_drop' && p.price === 113.5), JSON.stringify(kwon));
+  check(
+    'the daily drop survived the fold',
+    kwon.some((p) => p.source === 'daily_drop' && p.price === 113.5),
+    JSON.stringify(kwon),
+  );
   check('KWON last price unchanged', kwon[kwon.length - 1].price === 114.94);
 
-  check('MONO was left alone (single adjustment)',
-    after.MONO.length === 2 && !after.MONO.some((p) => p.collapsed), JSON.stringify(after.MONO));
+  check(
+    'MONO was left alone (single adjustment)',
+    after.MONO.length === 2 && !after.MONO.some((p) => p.collapsed),
+    JSON.stringify(after.MONO),
+  );
 
   // The stash.
   const stash = (await db.collection('market').doc('reviewDetail').get()).data();
-  check('detail stashed for both folded stocks',
-    Object.keys(stash.detail || {}).sort().join(',') === 'GAP,KWON',
-    JSON.stringify(Object.keys(stash.detail || {})));
-  check('stash holds every original GAP step', (stash.detail.GAP || []).length === 5,
-    String((stash.detail.GAP || []).length));
+  check(
+    'detail stashed for both folded stocks',
+    Object.keys(stash.detail || {})
+      .sort()
+      .join(',') === 'GAP,KWON',
+    JSON.stringify(Object.keys(stash.detail || {})),
+  );
+  check(
+    'stash holds every original GAP step',
+    (stash.detail.GAP || []).length === 5,
+    String((stash.detail.GAP || []).length),
+  );
   check('stash is tagged to this window', stash.windowEnd === haltEnd);
 
   // Idempotent.
@@ -145,20 +195,32 @@ async function main() {
 
   // Rebuild AFTER the fold still reconstructs the split from the stash.
   const rebuilt = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices: {} });
-  check('rebuild after the fold keeps every stock',
-    rebuilt.tickerCount === before.tickerCount, `${rebuilt.tickerCount} vs ${before.tickerCount}`);
+  check(
+    'rebuild after the fold keeps every stock',
+    rebuilt.tickerCount === before.tickerCount,
+    `${rebuilt.tickerCount} vs ${before.tickerCount}`,
+  );
   const gapAfter = rebuilt.changes.GAP;
-  check('rebuilt GAP split matches the original',
-    gapAfter && Math.abs(gapAfter.directChange - gapBefore.directChange) < 0.001
-    && Math.abs(gapAfter.trailingChange - gapBefore.trailingChange) < 0.001,
-    `${JSON.stringify(gapAfter)} vs ${JSON.stringify(gapBefore)}`);
-  check('rebuilt KWON is still knock-on only',
-    rebuilt.changes.KWON && Math.abs(rebuilt.changes.KWON.directChange) < 0.001
-    && rebuilt.changes.KWON.trailingChange > 0,
-    JSON.stringify(rebuilt.changes.KWON));
+  check(
+    'rebuilt GAP split matches the original',
+    gapAfter &&
+      Math.abs(gapAfter.directChange - gapBefore.directChange) < 0.001 &&
+      Math.abs(gapAfter.trailingChange - gapBefore.trailingChange) < 0.001,
+    `${JSON.stringify(gapAfter)} vs ${JSON.stringify(gapBefore)}`,
+  );
+  check(
+    'rebuilt KWON is still knock-on only',
+    rebuilt.changes.KWON &&
+      Math.abs(rebuilt.changes.KWON.directChange) < 0.001 &&
+      rebuilt.changes.KWON.trailingChange > 0,
+    JSON.stringify(rebuilt.changes.KWON),
+  );
 
   console.log(failures === 0 ? '\nALL REVIEW-COLLAPSE E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Test crashed:', err); process.exit(1); });
+main().catch((err) => {
+  console.error('Test crashed:', err);
+  process.exit(1);
+});

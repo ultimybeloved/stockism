@@ -6,8 +6,14 @@ const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
 const {
-  splitPrice, splitShares, splitPoints, splitTradeHistory,
-  buildUserSplitUpdates, buildMarketSplitUpdates, buildOrderSplitUpdates, buildTradeSplitUpdates,
+  splitPrice,
+  splitShares,
+  splitPoints,
+  splitTradeHistory,
+  buildUserSplitUpdates,
+  buildMarketSplitUpdates,
+  buildOrderSplitUpdates,
+  buildTradeSplitUpdates,
 } = require('./services/stockSplit');
 
 describe('stock split arithmetic', () => {
@@ -18,12 +24,15 @@ describe('stock split arithmetic', () => {
   });
 
   it('rescales chart points and leaves everything else on them', () => {
-    expect(splitPoints([{ timestamp: 1, price: 100, source: 'trade' }], 4)).toEqual([{ timestamp: 1, price: 25, source: 'trade' }]);
+    expect(splitPoints([{ timestamp: 1, price: 100, source: 'trade' }], 4)).toEqual([
+      { timestamp: 1, price: 25, source: 'trade' },
+    ]);
   });
 
   it('multiplies trade-history shares but not their impact', () => {
-    expect(splitTradeHistory({ sell: [{ ts: 1, shares: 5, impact: 0.02 }] }, 10))
-      .toEqual({ sell: [{ ts: 1, shares: 50, impact: 0.02 }] });
+    expect(splitTradeHistory({ sell: [{ ts: 1, shares: 5, impact: 0.02 }] }, 10)).toEqual({
+      sell: [{ ts: 1, shares: 50, impact: 0.02 }],
+    });
   });
 });
 
@@ -71,9 +80,16 @@ describe('buildUserSplitUpdates', () => {
 
 describe('market, orders and trades', () => {
   it('market/current: price and records down, IPO volume up, others untouched', () => {
-    const up = buildMarketSplitUpdates({
-      prices: { SHNG: 2000, GOO: 50 }, ath: { SHNG: 2200 }, atl: { SHNG: 1300 }, volumes: { SHNG: 40 },
-    }, 'SHNG', 10);
+    const up = buildMarketSplitUpdates(
+      {
+        prices: { SHNG: 2000, GOO: 50 },
+        ath: { SHNG: 2200 },
+        atl: { SHNG: 1300 },
+        volumes: { SHNG: 40 },
+      },
+      'SHNG',
+      10,
+    );
     expect(up).toEqual({ 'prices.SHNG': 200, 'ath.SHNG': 220, 'atl.SHNG': 130, 'volumes.SHNG': 400 });
   });
 

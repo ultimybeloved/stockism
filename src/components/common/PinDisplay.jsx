@@ -17,17 +17,17 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
     if (crew) {
       if (userData.isCrewHead) {
         pins.push(
-          <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>🔱</span>
+          <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>
+            🔱
+          </span>,
         );
       }
       const shouldShowCrewPin = userData.isCrewHead || userData.displayCrewPin !== false;
       if (shouldShowCrewPin) {
         pins.push(
           <span key="crew" title={crew.name} className={`inline-flex items-center ${sizeClass}`}>
-            {crew.icon ? (
-              <img src={crew.icon} alt={crew.name} className={`${imgSize} object-contain`} />
-            ) : crew.emblem}
-          </span>
+            {crew.icon ? <img src={crew.icon} alt={crew.name} className={`${imgSize} object-contain`} /> : crew.emblem}
+          </span>,
         );
       }
     }
@@ -45,8 +45,10 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
         <span key={`ach-${idx}`} title={achievement.name} className={`inline-flex items-center ${sizeClass}`}>
           {achievement.icon ? (
             <img src={`/pins/${achievement.icon}`} alt={achievement.name} className={`${imgSize} object-contain`} />
-          ) : achievement.emoji}
-        </span>
+          ) : (
+            achievement.emoji
+          )}
+        </span>,
       );
     }
   });
@@ -62,7 +64,7 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
       pins.push(
         <span key={`shop-${idx}`} title={pin.name} className={`inline-flex items-center ${sizeClass}`}>
           <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />
-        </span>
+        </span>,
       );
     }
   });

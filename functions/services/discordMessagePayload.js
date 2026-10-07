@@ -137,7 +137,7 @@ function buildDiscordPayload(stored) {
     payload.components.push({
       type: 1, // action row
       components: stored.buttons.map((b) => ({
-        type: 2,  // button
+        type: 2, // button
         style: 5, // link
         label: b.label,
         url: b.url,

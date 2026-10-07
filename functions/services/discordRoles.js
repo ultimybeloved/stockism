@@ -36,8 +36,7 @@ const crewIds = () => Object.keys(CREWS);
 const validId = (id) => typeof id === 'string' && DISCORD_SNOWFLAKE_PATTERN.test(id);
 const crewName = (crewId) => (CREWS[crewId] && CREWS[crewId].name) || crewId;
 
-const memberRolePath = (discordId, roleId) =>
-  `/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`;
+const memberRolePath = (discordId, roleId) => `/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`;
 
 /** True when nothing is configured yet, so the whole feature no-ops. */
 function isConfigured() {
@@ -100,7 +99,9 @@ async function preflightCrewRoles() {
       continue;
     }
     if (botPosition !== null && role.position >= botPosition) {
-      problems.push(`${crewName(crewId)}: "${role.name}" sits above the bot's role. Drag the bot's role higher in Server Settings > Roles.`);
+      problems.push(
+        `${crewName(crewId)}: "${role.name}" sits above the bot's role. Drag the bot's role higher in Server Settings > Roles.`,
+      );
     }
   }
 
@@ -123,7 +124,10 @@ async function roleCall(method, discordId, roleId, reason) {
       res = await discordApi(method, memberRolePath(discordId, roleId), { reason });
     } catch (err) {
       // Network/timeout only. Leave stored state untouched so the next run retries.
-      if (attempt === 0) { await sleep(DISCORD_ROLE_CALL_SPACING_MS); continue; }
+      if (attempt === 0) {
+        await sleep(DISCORD_ROLE_CALL_SPACING_MS);
+        continue;
+      }
       return { ok: false, detail: `network error: ${err.message}` };
     }
 
@@ -147,12 +151,18 @@ async function roleCall(method, discordId, roleId, reason) {
       const retryMs = Math.round(((res.data && res.data.retry_after) || 1) * 1000);
       const global = (res.data && res.data.global) || res.headers?.['x-ratelimit-scope'] === 'global';
       if (global) return { ok: false, fatal: true, detail: 'globally rate limited' };
-      if (attempt === 0 && retryMs <= DISCORD_ROLE_RETRY_MAX_MS) { await sleep(retryMs); continue; }
+      if (attempt === 0 && retryMs <= DISCORD_ROLE_RETRY_MAX_MS) {
+        await sleep(retryMs);
+        continue;
+      }
       return { ok: false, detail: `rate limited (retry_after ${retryMs}ms)` };
     }
 
     if (res.status >= 500) {
-      if (attempt === 0) { await sleep(DISCORD_ROLE_CALL_SPACING_MS); continue; }
+      if (attempt === 0) {
+        await sleep(DISCORD_ROLE_CALL_SPACING_MS);
+        continue;
+      }
       return { ok: false, detail: `Discord ${res.status}` };
     }
 
@@ -178,24 +188,32 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
     }
 
     const snap = await STATE_DOC().get();
-    const prev = snap.exists ? (snap.data() || {}) : {};
+    const prev = snap.exists ? snap.data() || {} : {};
     // A different guild means every stored assignment refers to a server we no
     // longer act on. Drop them rather than firing DELETEs into the void.
     const stale = prev.guildId && prev.guildId !== DISCORD_GUILD_ID;
-    const prevHolders = stale ? {} : (prev.holders || {});
+    const prevHolders = stale ? {} : prev.holders || {};
 
     const holders = {};
     const pending = {};
     const problems = [];
     const plan = [];
-    let added = 0, removed = 0, skipped = 0, failed = 0, stoppedEarly = false;
+    let added = 0,
+      removed = 0,
+      skipped = 0,
+      failed = 0,
+      stoppedEarly = false;
 
     // Plan first, so a dry run reports exactly what a real run would do.
     for (const crewId of crewIds()) {
       const roleId = CREW_HEAD_ROLE_IDS[crewId];
       const held = prevHolders[crewId] || null;
 
-      if (!roleId) { holders[crewId] = held; skipped++; continue; }
+      if (!roleId) {
+        holders[crewId] = held;
+        skipped++;
+        continue;
+      }
       if (!validId(roleId)) {
         // Skip entirely: removing without being able to re-add would strip a
         // legitimate head off the back of a typo.
@@ -206,7 +224,7 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
       }
 
       const head = heads[crewId] || null;
-      const discordId = head ? (discordIds[crewId] || null) : null;
+      const discordId = head ? discordIds[crewId] || null : null;
 
       if (head && !discordId) {
         pending[crewId] = { uid: head.uid, reason: 'no-discord-link' };
@@ -235,21 +253,29 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
         break;
       }
 
-      const reason = step.op === 'put'
-        ? `Crew head of ${crewName(step.crewId)} for week ${weekId || 'current'}`
-        : `No longer crew head of ${crewName(step.crewId)}`;
+      const reason =
+        step.op === 'put'
+          ? `Crew head of ${crewName(step.crewId)} for week ${weekId || 'current'}`
+          : `No longer crew head of ${crewName(step.crewId)}`;
       const result = await roleCall(step.op, step.discordId, step.roleId, reason);
       await sleep(DISCORD_ROLE_CALL_SPACING_MS);
 
       if (result.fatal) {
         stoppedEarly = true;
-        problems.push(`Discord refused the call (${result.detail}). Check the bot has Manage Roles and that its role sits above the crew head roles.`);
+        problems.push(
+          `Discord refused the call (${result.detail}). Check the bot has Manage Roles and that its role sits above the crew head roles.`,
+        );
         break;
       }
 
       if (step.op === 'delete') {
-        if (result.ok || result.done) { holders[step.crewId] = null; removed++; }
-        else { failed++; problems.push(`${crewName(step.crewId)}: could not remove old role (${result.detail})`); }
+        if (result.ok || result.done) {
+          holders[step.crewId] = null;
+          removed++;
+        } else {
+          failed++;
+          problems.push(`${crewName(step.crewId)}: could not remove old role (${result.detail})`);
+        }
         continue;
       }
 
@@ -292,15 +318,22 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
     // fix (role hierarchy) lives in the same app the admin is already in.
     if (problems.length > 0) {
       reportError(new Error(`Crew head role sync had ${problems.length} problem(s)`), {
-        where: 'syncCrewHeadRoles', problems, added, removed, failed, stoppedEarly,
+        where: 'syncCrewHeadRoles',
+        problems,
+        added,
+        removed,
+        failed,
+        stoppedEarly,
       });
     }
     if (stoppedEarly) {
-      await sendDiscordMessage(null, [{
-        title: '⚠️ Crew head roles did not finish',
-        description: problems.join('\n').slice(0, 3000),
-        color: 0xED4245,
-      }]);
+      await sendDiscordMessage(null, [
+        {
+          title: '⚠️ Crew head roles did not finish',
+          description: problems.join('\n').slice(0, 3000),
+          color: 0xed4245,
+        },
+      ]);
     }
 
     return { configured: true, ...lastRun };

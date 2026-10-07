@@ -25,10 +25,10 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
   // arithmetic, so the amount never has to be worked out by hand.
   const handleSetCash = async (userId, displayName, currentCash = 0) => {
     const input = prompt(
-      `Cash for ${displayName} — currently $${Number(currentCash).toFixed(2)}\n\n`
-      + '  +500   add $500\n'
-      + '  -500   subtract $500\n'
-      + '   500   set the balance to exactly $500'
+      `Cash for ${displayName} — currently $${Number(currentCash).toFixed(2)}\n\n` +
+        '  +500   add $500\n' +
+        '  -500   subtract $500\n' +
+        '   500   set the balance to exactly $500',
     );
     if (input === null) return;
 
@@ -40,8 +40,8 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
     const { mode, amount, before, after } = parsed;
 
     const memo = prompt(
-      `Why? This is recorded against ${displayName} so you can look it up later.\n\n`
-      + 'e.g. "prize for weekly contest", "refund for the halt bug"'
+      `Why? This is recorded against ${displayName} so you can look it up later.\n\n` +
+        'e.g. "prize for weekly contest", "refund for the halt bug"',
     );
     if (memo === null) return;
     if (!memo.trim()) {
@@ -55,11 +55,14 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
     setLoading(true);
     try {
       const result = await adminSetCashFunction({
-        userId, mode, amount, memo: memo.trim(),
+        userId,
+        mode,
+        amount,
+        memo: memo.trim(),
       });
       const { previousCash, newCash } = result.data;
       showMessage('success', `Cash $${previousCash.toFixed(2)} -> $${newCash.toFixed(2)}`);
-      setSelectedUser(prev => prev ? { ...prev, cash: newCash } : prev);
+      setSelectedUser((prev) => (prev ? { ...prev, cash: newCash } : prev));
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);
@@ -68,7 +71,9 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
   };
 
   const handleTransferToLadder = async (userId, displayName) => {
-    const input = prompt(`Transfer cash to ${displayName}'s ladder game balance.\nEnter an amount (use a negative number to pull balance back to their cash):`);
+    const input = prompt(
+      `Transfer cash to ${displayName}'s ladder game balance.\nEnter an amount (use a negative number to pull balance back to their cash):`,
+    );
     if (input === null) return;
     const amount = parseFloat(input);
     if (isNaN(amount) || amount === 0) {
@@ -80,8 +85,11 @@ export function useAdminUserOps({ showMessage, setLoading, setSelectedUser }) {
     setLoading(true);
     try {
       const result = await adminTransferToLadderFunction({ userId, amount });
-      showMessage('success', `Done. Cash: $${result.data.newCash.toFixed(2)} • Ladder: $${result.data.newLadderBalance.toFixed(2)}`);
-      setSelectedUser(prev => prev ? { ...prev, cash: result.data.newCash } : prev);
+      showMessage(
+        'success',
+        `Done. Cash: $${result.data.newCash.toFixed(2)} • Ladder: $${result.data.newLadderBalance.toFixed(2)}`,
+      );
+      setSelectedUser((prev) => (prev ? { ...prev, cash: result.data.newCash } : prev));
     } catch (err) {
       console.error(err);
       showMessage('error', `Failed: ${err.message}`);

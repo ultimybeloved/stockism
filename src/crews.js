@@ -9,7 +9,7 @@ export const CREWS = {
     color: '#767676',
     emblem: '🏛️',
     icon: '/crews/allied.png',
-    members: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN']
+    members: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
   },
   BIG_DEAL: {
     id: 'BIG_DEAL',
@@ -17,7 +17,7 @@ export const CREWS = {
     color: '#aa8439',
     emblem: '🤝',
     icon: '/crews/big deal.png',
-    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH']
+    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
   },
   FIST_GANG: {
     id: 'FIST_GANG',
@@ -25,7 +25,27 @@ export const CREWS = {
     color: '#a91a2c',
     emblem: '👊',
     icon: '/crews/fist gang.png',
-    members: ['GAP', 'ELIT', 'JYNG', 'TOM', 'KWON', 'DNCE', 'GNTL', 'MMA', 'LIAR', 'NOH', 'TAXI', 'HANT', 'GWON', 'MNSK', 'EUNH', 'SUIT', 'DOGH', 'TOAD', 'POLR']
+    members: [
+      'GAP',
+      'ELIT',
+      'JYNG',
+      'TOM',
+      'KWON',
+      'DNCE',
+      'GNTL',
+      'MMA',
+      'LIAR',
+      'NOH',
+      'TAXI',
+      'HANT',
+      'GWON',
+      'MNSK',
+      'EUNH',
+      'SUIT',
+      'DOGH',
+      'TOAD',
+      'POLR',
+    ],
   },
   GOD_DOG: {
     id: 'GOD_DOG',
@@ -33,7 +53,7 @@ export const CREWS = {
     color: '#162141',
     emblem: '🐕',
     icon: '/crews/god dog.png',
-    members: ['GDOG', 'MIRO', 'EDEN']
+    members: ['GDOG', 'MIRO', 'EDEN'],
   },
   SECRET_FRIENDS: {
     id: 'SECRET_FRIENDS',
@@ -41,7 +61,7 @@ export const CREWS = {
     color: '#f3c404',
     emblem: '🤫',
     icon: '/crews/secret friends.png',
-    members: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN']
+    members: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
   },
   HOSTEL: {
     id: 'HOSTEL',
@@ -49,7 +69,7 @@ export const CREWS = {
     color: '#b1b39e',
     emblem: '🏠',
     icon: '/crews/hostel.png',
-    members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN']
+    members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
   },
   WTJC: {
     id: 'WTJC',
@@ -57,7 +77,7 @@ export const CREWS = {
     color: '#FFFFFF',
     emblem: '🐯',
     icon: '/crews/wtjc.png',
-    members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH']
+    members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
   },
   WORKERS: {
     id: 'WORKERS',
@@ -65,7 +85,26 @@ export const CREWS = {
     color: '#000000',
     emblem: '⚒️',
     icon: '/crews/workers.png',
-    members: ['WRKR', 'BANG', 'CAPG', 'JYNG', 'NOMN', 'NEKO', 'DOOR', 'JINJ', 'DRMA', 'HYOT', 'OLDF', 'SHKO', 'HIKO', 'DOC', 'NO1', 'DOC2', 'TAEJ', 'HPRK']
+    members: [
+      'WRKR',
+      'BANG',
+      'CAPG',
+      'JYNG',
+      'NOMN',
+      'NEKO',
+      'DOOR',
+      'JINJ',
+      'DRMA',
+      'HYOT',
+      'OLDF',
+      'SHKO',
+      'HIKO',
+      'DOC',
+      'NO1',
+      'DOC2',
+      'TAEJ',
+      'HPRK',
+    ],
   },
   KITAE_UNION: {
     id: 'KITAE_UNION',
@@ -74,7 +113,28 @@ export const CREWS = {
     emblem: '🪓',
     icon: '/crews/kitae union.png',
     // Mirrors the SHDW fund. SNGH left Workers for the Union.
-    members: ['KTAE', 'DG', 'GNTL', 'GOO', 'SAM', 'SHMN', 'SAMC', 'YONG', 'PAJU', 'PHNG', 'CROW', 'COP', 'RYU', 'SWMP', 'JEON', 'SCHN', 'SIN', 'TONG', 'ISU', 'SNGH']
+    members: [
+      'KTAE',
+      'DG',
+      'GNTL',
+      'GOO',
+      'SAM',
+      'SHMN',
+      'SAMC',
+      'YONG',
+      'PAJU',
+      'PHNG',
+      'CROW',
+      'COP',
+      'RYU',
+      'SWMP',
+      'JEON',
+      'SCHN',
+      'SIN',
+      'TONG',
+      'ISU',
+      'SNGH',
+    ],
   },
   YAMAZAKI: {
     id: 'YAMAZAKI',
@@ -82,13 +142,34 @@ export const CREWS = {
     color: '#f3c803',
     emblem: '⛩️',
     icon: '/crews/yamazaki.png',
-    members: ['GUN', 'SHNG', 'SHRO', 'SHKO', 'HIKO', 'SOMI', 'YADV', 'REI', 'IJA', 'KMSH', 'SUMO', 'OYA', 'TCHI', 'IKO', 'YOKO', 'RED', 'URAM', 'BLUE', 'BRCR', 'GRVS']
-  }
+    members: [
+      'GUN',
+      'SHNG',
+      'SHRO',
+      'SHKO',
+      'HIKO',
+      'SOMI',
+      'YADV',
+      'REI',
+      'IJA',
+      'KMSH',
+      'SUMO',
+      'OYA',
+      'TCHI',
+      'IKO',
+      'YOKO',
+      'RED',
+      'URAM',
+      'BLUE',
+      'BRCR',
+      'GRVS',
+    ],
+  },
 };
 
 // Create a map for quick lookup
 export const CREW_MAP = {};
-Object.values(CREWS).forEach(crew => {
+Object.values(CREWS).forEach((crew) => {
   CREW_MAP[crew.id] = crew;
 });
 
@@ -103,8 +184,8 @@ export const PIN_COLLECTIONS = {
     active: false, // retired from shop — kept so existing owners still display the badge
     limited: true,
     expiresAt: null,
-    pins: ['alpha_tester']
-  }
+    pins: ['alpha_tester'],
+  },
   // j_high_og5 collection removed — it used ripped official collab art. Owners
   // were refunded (base price + 50%) via the one-time refundJHighPins admin op.
 };
@@ -116,17 +197,17 @@ export const SHOP_PINS = {
     image: 'alpha/stockism_logo.png',
     description: 'Exclusive badge for early supporters',
     price: 1,
-    collection: 'alpha_rewards'
-  }
+    collection: 'alpha_rewards',
+  },
   // J High pins (jay/jace/vasco/zack/daniel) removed — ripped official art.
 };
 
 export const getActiveShopPins = () => {
   return Object.values(PIN_COLLECTIONS)
-    .filter(c => c.active)
-    .map(c => ({
+    .filter((c) => c.active)
+    .map((c) => ({
       ...c,
-      pins: c.pins.map(id => SHOP_PINS[id]).filter(Boolean)
+      pins: c.pins.map((id) => SHOP_PINS[id]).filter(Boolean),
     }));
 };
 
@@ -147,7 +228,7 @@ export const DAILY_MISSIONS = {
     name: 'Crew Support',
     description: 'Buy shares of any crew member',
     reward: 100,
-    checkType: 'BUY_CREW'
+    checkType: 'BUY_CREW',
   },
   MAKE_TRADES: {
     id: 'MAKE_TRADES',
@@ -155,21 +236,21 @@ export const DAILY_MISSIONS = {
     description: 'Make 5 trades today',
     reward: 100,
     checkType: 'TRADE_COUNT',
-    requirement: 5
+    requirement: 5,
   },
   BUY_ANY_STOCK: {
     id: 'BUY_ANY_STOCK',
     name: 'Market Buyer',
     description: 'Buy any stock today',
     reward: 75,
-    checkType: 'BUY_ANY'
+    checkType: 'BUY_ANY',
   },
   SELL_ANY_STOCK: {
     id: 'SELL_ANY_STOCK',
     name: 'Profit Taker',
     description: 'Sell any stock today',
     reward: 75,
-    checkType: 'SELL_ANY'
+    checkType: 'SELL_ANY',
   },
   TRADE_VOLUME: {
     id: 'TRADE_VOLUME',
@@ -177,21 +258,21 @@ export const DAILY_MISSIONS = {
     description: 'Trade 100+ total shares today',
     reward: 100,
     checkType: 'TRADE_VOLUME',
-    requirement: 100
+    requirement: 100,
   },
   RIVAL_TRADER: {
     id: 'RIVAL_TRADER',
     name: 'Rival Trader',
     description: 'Buy shares of a rival crew member today',
     reward: 75,
-    checkType: 'RIVAL_TRADER'
+    checkType: 'RIVAL_TRADER',
   },
   UNDERDOG_INVESTOR: {
     id: 'UNDERDOG_INVESTOR',
     name: 'Underdog Investor',
     description: 'Buy a character priced under $20 today',
     reward: 75,
-    checkType: 'UNDERDOG_INVESTOR'
+    checkType: 'UNDERDOG_INVESTOR',
   },
   CREW_ACCUMULATOR: {
     id: 'CREW_ACCUMULATOR',
@@ -199,7 +280,7 @@ export const DAILY_MISSIONS = {
     description: 'Buy 20+ total shares of crew members today',
     reward: 150,
     checkType: 'CREW_ACCUMULATOR',
-    requirement: 20
+    requirement: 20,
   },
 
   // ============================================
@@ -211,8 +292,8 @@ export const DAILY_MISSIONS = {
     description: 'Have 50%+ of your holdings in crew members',
     reward: 125,
     checkType: 'CREW_MAJORITY',
-    requirement: 50
-  }
+    requirement: 50,
+  },
 };
 
 // ============================================
@@ -235,7 +316,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Accumulate $20,000+ in total trade value this week',
     reward: 750,
     checkType: 'WEEKLY_TRADE_VALUE',
-    requirement: 20000
+    requirement: 20000,
   },
   VOLUME_KING: {
     id: 'VOLUME_KING',
@@ -243,7 +324,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Trade 200+ total shares this week',
     reward: 500,
     checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 200
+    requirement: 200,
   },
   TRADING_MACHINE: {
     id: 'TRADING_MACHINE',
@@ -251,7 +332,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Make 40+ trades this week',
     reward: 400,
     checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 40
+    requirement: 40,
   },
   SHARE_MOGUL: {
     id: 'SHARE_MOGUL',
@@ -259,7 +340,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Trade 400+ total shares this week',
     reward: 700,
     checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 400
+    requirement: 400,
   },
   TRADE_MASTER: {
     id: 'TRADE_MASTER',
@@ -267,7 +348,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Make 75+ trades this week',
     reward: 600,
     checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 75
+    requirement: 75,
   },
 
   // ============================================
@@ -279,7 +360,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Make at least 1 trade on 5 different days',
     reward: 600,
     checkType: 'WEEKLY_TRADING_DAYS',
-    requirement: 5
+    requirement: 5,
   },
   DAILY_GRINDER: {
     id: 'DAILY_GRINDER',
@@ -287,7 +368,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Check in every day this week (7 days)',
     reward: 500,
     checkType: 'WEEKLY_CHECKIN_STREAK',
-    requirement: 7
+    requirement: 7,
   },
 
   // ============================================
@@ -299,7 +380,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Have 80%+ of portfolio value in crew members',
     reward: 600,
     checkType: 'WEEKLY_CREW_PERCENT',
-    requirement: 80
+    requirement: 80,
   },
 
   // ============================================
@@ -311,7 +392,7 @@ export const WEEKLY_MISSIONS = {
     description: 'Grow your portfolio value by 15%+ this week',
     reward: 750,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
-    requirement: 15 // percent growth from the week's starting value
+    requirement: 15, // percent growth from the week's starting value
   },
   PORTFOLIO_MOONSHOT: {
     id: 'PORTFOLIO_MOONSHOT',
@@ -319,8 +400,8 @@ export const WEEKLY_MISSIONS = {
     description: 'Grow your portfolio value by 35%+ this week',
     reward: 1000,
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
-    requirement: 35 // percent growth from the week's starting value
-  }
+    requirement: 35, // percent growth from the week's starting value
+  },
 };
 
 // ============================================
@@ -338,15 +419,15 @@ export const WEEKLY_MISSIONS = {
 export const CREW_MISSION_REWARDS = {
   CREW_BUY_500: 500,
   CREW_SELL_500: 400,
-  CREW_VOLUME: 500
+  CREW_VOLUME: 500,
 };
 
 // Minimum personal contribution required to claim a crew mission payout.
 // The crew goal stays collective; these stop one-share freeloading.
 export const CREW_CONTRIB = {
-  BUY_SHARES: 50,   // shares of your crew's stocks you personally bought
-  SELL_SHARES: 50,  // shares of your crew's stocks you personally sold
-  VOLUME: 500       // dollars of crew-stock trade volume you personally generated
+  BUY_SHARES: 50, // shares of your crew's stocks you personally bought
+  SELL_SHARES: 50, // shares of your crew's stocks you personally sold
+  VOLUME: 500, // dollars of crew-stock trade volume you personally generated
 };
 
 // The buy / sell / volume crew goals only count trades of the crew's OWN
@@ -360,10 +441,8 @@ export const CREW_BUY_MIN = 300;
 export const CREW_SELL_MIN = 300;
 export const CREW_VOLUME_MIN = 6000;
 
-export const getCrewBuyTarget = (memberCount) =>
-  Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
-export const getCrewSellTarget = (memberCount) =>
-  Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
+export const getCrewBuyTarget = (memberCount) => Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
+export const getCrewSellTarget = (memberCount) => Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
 export const getCrewVolumeTarget = (memberCount) =>
   Math.max(CREW_VOLUME_MIN, CREW_VOLUME_PER_MEMBER * (memberCount || 0));
 
@@ -389,7 +468,7 @@ export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     const char = seed.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   hash = hash + rerollSeed; // Apply reroll offset
@@ -401,10 +480,7 @@ export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
   const idx2 = Math.abs(hash * 31) % count;
   const finalIdx2 = idx2 === idx1 ? (idx2 + 1) % count : idx2;
 
-  return [
-    WEEKLY_MISSIONS[missionKeys[idx1]],
-    WEEKLY_MISSIONS[missionKeys[finalIdx2]]
-  ];
+  return [WEEKLY_MISSIONS[missionKeys[idx1]], WEEKLY_MISSIONS[missionKeys[finalIdx2]]];
 };
 
 // Deterministic daily mission selection based on date and crew
@@ -436,7 +512,7 @@ export const getDailyMissions = (today, crewId, rerollSeed = 0) => {
 
 export const PIN_SLOT_COSTS = {
   EXTRA_ACHIEVEMENT_SLOT: 5000,
-  EXTRA_SHOP_SLOT: 7500
+  EXTRA_SHOP_SLOT: 7500,
 };
 
 // ============================================

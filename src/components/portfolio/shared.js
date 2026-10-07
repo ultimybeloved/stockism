@@ -3,11 +3,11 @@
 // Tier names and colors follow the card rarity tiers (see src/index.css).
 export const DIVIDEND_TIER_META = {
   legendary: { label: 'Legendary', color: 'text-amber-500' },
-  epic:      { label: 'Epic',      color: 'text-purple-500' },
-  rare:      { label: 'Rare',      color: 'text-blue-500' },
-  uncommon:  { label: 'Uncommon',  color: 'text-emerald-500' },
-  common:    { label: 'Common',    color: 'text-zinc-400' },
-  etf:       { label: 'ETF',       color: 'text-sky-500' },
+  epic: { label: 'Epic', color: 'text-purple-500' },
+  rare: { label: 'Rare', color: 'text-blue-500' },
+  uncommon: { label: 'Uncommon', color: 'text-emerald-500' },
+  common: { label: 'Common', color: 'text-zinc-400' },
+  etf: { label: 'ETF', color: 'text-sky-500' },
 };
 
 export const formatShares = (n) => {
@@ -27,9 +27,8 @@ export const HOLDING_SORTS = [
 export const filterHoldings = (items, query) => {
   const q = (query || '').trim().toLowerCase();
   if (!q) return items;
-  return items.filter((i) =>
-    (i.ticker || '').toLowerCase().includes(q) ||
-    (i.character?.name || '').toLowerCase().includes(q)
+  return items.filter(
+    (i) => (i.ticker || '').toLowerCase().includes(q) || (i.character?.name || '').toLowerCase().includes(q),
   );
 };
 
@@ -44,18 +43,18 @@ export const sortHoldings = (items, key, dir = 'desc') => {
       const bn = (b.character?.name || b.ticker || '').toLowerCase();
       return an.localeCompare(bn) * sign;
     }
-    const av = key === 'shares' ? (a.shares || 0) : (a.value || 0);
-    const bv = key === 'shares' ? (b.shares || 0) : (b.value || 0);
+    const av = key === 'shares' ? a.shares || 0 : a.value || 0;
+    const bv = key === 'shares' ? b.shares || 0 : b.value || 0;
     return (av - bv) * sign;
   });
   return sorted;
 };
 
 export const TIME_RANGES = [
-  { key: '1d',  label: '24h', days: 1 },
-  { key: '7d',  label: '7D',  days: 7 },
-  { key: '1m',  label: '1M',  months: 1 },
-  { key: '3m',  label: '3M',  months: 3 },
-  { key: '1y',  label: '1Y',  years: 1 },
+  { key: '1d', label: '24h', days: 1 },
+  { key: '7d', label: '7D', days: 7 },
+  { key: '1m', label: '1M', months: 1 },
+  { key: '3m', label: '3M', months: 3 },
+  { key: '1y', label: '1Y', years: 1 },
   { key: 'all', label: 'All' },
 ];

@@ -41,8 +41,8 @@ const { decayTarget } = require('./neglectDecayRules');
  * the recorded daily close is the day's real trading rather than a number this
  * job just moved.
  */
-exports.applyNeglectDecay = cf().pubsub
-  .schedule('40 21 * * *')
+exports.applyNeglectDecay = cf()
+  .pubsub.schedule('40 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     if (isWeeklyTradingHalt()) {
@@ -53,7 +53,9 @@ exports.applyNeglectDecay = cf().pubsub
     try {
       const marketRef = db.collection('market').doc('current');
       const [marketSnap, statsSnap, histSnap] = await Promise.all([
-        marketRef.get(), tickerStatsRef().get(), priceHistoryRef().get(),
+        marketRef.get(),
+        tickerStatsRef().get(),
+        priceHistoryRef().get(),
       ]);
 
       if (!marketSnap.exists) {
@@ -67,14 +69,16 @@ exports.applyNeglectDecay = cf().pubsub
       }
 
       const now = Date.now();
-      const stats = statsSnap.exists ? (statsSnap.data() || {}) : {};
+      const stats = statsSnap.exists ? statsSnap.data() || {} : {};
       const shortInterest = stats.shortInterest || {};
       const measuredAt = stats.shortInterestAt || 0;
 
       // Decaying on a stale "nobody is short" reading is the exact hole the
       // pause exists to close, so a stale reading skips the run entirely.
       if (now - measuredAt > SHORT_INTEREST_MAX_AGE_MS) {
-        console.warn(`applyNeglectDecay: short interest is stale (${Math.round((now - measuredAt) / 60000)} min old) — skipping`);
+        console.warn(
+          `applyNeglectDecay: short interest is stale (${Math.round((now - measuredAt) / 60000)} min old) — skipping`,
+        );
         return null;
       }
 
@@ -87,7 +91,7 @@ exports.applyNeglectDecay = cf().pubsub
       }
 
       const prices = marketData.prices || {};
-      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
+      const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
 
       const updates = {};
       const historyPoints = {};

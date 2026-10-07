@@ -7,21 +7,17 @@ const CrewFilter = ({ crewFilter, setCrewFilter, chipClass }) => (
     <button
       onClick={() => setCrewFilter('ALL')}
       className={`px-2 py-1.5 text-xs rounded-full font-semibold transition-colors ${
-        crewFilter === 'ALL'
-          ? 'bg-orange-600 text-white'
-          : chipClass
+        crewFilter === 'ALL' ? 'bg-orange-600 text-white' : chipClass
       }`}
     >
       All
     </button>
-    {Object.values(CREWS).map(crew => (
+    {Object.values(CREWS).map((crew) => (
       <button
         key={crew.id}
         onClick={() => setCrewFilter(crew.id)}
         className={`px-2 py-1.5 text-xs rounded-full font-semibold flex items-center justify-center gap-1 truncate transition-colors ${
-          crewFilter === crew.id
-            ? 'text-white'
-            : chipClass
+          crewFilter === crew.id ? 'text-white' : chipClass
         }`}
         style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
       >

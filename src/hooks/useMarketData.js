@@ -40,66 +40,69 @@ export function useMarketData() {
   useEffect(() => {
     const marketRef = doc(db, 'market', 'current');
 
-    const unsubscribe = onSnapshot(marketRef, (snap) => {
-      setMarketStatus('ready');
-      if (snap.exists()) {
-        const data = snap.data();
-        // Merge stored prices with basePrices for any new characters
-        const storedPrices = data.prices || {};
-        const launched = data.launchedTickers || [];
-        const mergedPrices = {};
-        CHARACTERS.forEach(c => {
-          const gated = c.ipoRequired && !launched.includes(c.ticker);
-          // A gated character is left out so an unlaunched IPO stock can't be
-          // priced or shown before it exists. But the moment its IPO opens the
-          // market doc carries a real price and players hold shares they bought
-          // in it, and leaving it out then values those shares at $0 —
-          // calculations.js reads `prices[ticker] || 0` — so the portfolio
-          // shows a loss equal to what they paid. Keep it out only while the
-          // market doc has no price for it. Trading stays gated by the
-          // ipoRequired checks in the browser and trade paths, not by this map.
-          if (gated && storedPrices[c.ticker] === undefined) return;
-          mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
-        });
-        setPrices(mergedPrices);
-        setMarketData(data);
-        setLaunchedTickers(launched);
+    const unsubscribe = onSnapshot(
+      marketRef,
+      (snap) => {
+        setMarketStatus('ready');
+        if (snap.exists()) {
+          const data = snap.data();
+          // Merge stored prices with basePrices for any new characters
+          const storedPrices = data.prices || {};
+          const launched = data.launchedTickers || [];
+          const mergedPrices = {};
+          CHARACTERS.forEach((c) => {
+            const gated = c.ipoRequired && !launched.includes(c.ticker);
+            // A gated character is left out so an unlaunched IPO stock can't be
+            // priced or shown before it exists. But the moment its IPO opens the
+            // market doc carries a real price and players hold shares they bought
+            // in it, and leaving it out then values those shares at $0 —
+            // calculations.js reads `prices[ticker] || 0` — so the portfolio
+            // shows a loss equal to what they paid. Keep it out only while the
+            // market doc has no price for it. Trading stays gated by the
+            // ipoRequired checks in the browser and trade paths, not by this map.
+            if (gated && storedPrices[c.ticker] === undefined) return;
+            mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
+          });
+          setPrices(mergedPrices);
+          setMarketData(data);
+          setLaunchedTickers(launched);
 
-        // Extend local chart history from live ticks (the server appends the
-        // same points to market/priceHistory; these local ones just keep the
-        // charts moving without re-downloading history).
-        const prev = prevPricesRef.current;
-        if (prev) {
-          const ts = Date.now();
-          const changed = Object.entries(mergedPrices)
-            .filter(([t, p]) => prev[t] !== undefined && prev[t] !== p);
-          if (changed.length > 0) {
-            setPriceHistory(prevHist => {
-              const next = { ...prevHist };
-              changed.forEach(([t, p]) => {
-                next[t] = [...(next[t] || []), { timestamp: ts, price: p }].slice(-2000);
+          // Extend local chart history from live ticks (the server appends the
+          // same points to market/priceHistory; these local ones just keep the
+          // charts moving without re-downloading history).
+          const prev = prevPricesRef.current;
+          if (prev) {
+            const ts = Date.now();
+            const changed = Object.entries(mergedPrices).filter(([t, p]) => prev[t] !== undefined && prev[t] !== p);
+            if (changed.length > 0) {
+              setPriceHistory((prevHist) => {
+                const next = { ...prevHist };
+                changed.forEach(([t, p]) => {
+                  next[t] = [...(next[t] || []), { timestamp: ts, price: p }].slice(-2000);
+                });
+                return next;
               });
-              return next;
-            });
+            }
           }
+          prevPricesRef.current = mergedPrices;
+        } else {
+          // Market doc missing (fresh environment) — show base prices; the
+          // backend owns market initialization.
+          const initialPrices = {};
+          CHARACTERS.forEach((c) => {
+            if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
+          });
+          setPrices(initialPrices);
+          setLaunchedTickers([]);
         }
-        prevPricesRef.current = mergedPrices;
-      } else {
-        // Market doc missing (fresh environment) — show base prices; the
-        // backend owns market initialization.
-        const initialPrices = {};
-        CHARACTERS.forEach(c => {
-          if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
-        });
-        setPrices(initialPrices);
-        setLaunchedTickers([]);
-      }
-    }, (err) => {
-      // Refused or unreachable. Only meaningful before the first successful
-      // read; after that the data on screen is real and worth keeping.
-      console.warn('market/current subscription:', err?.message);
-      setMarketStatus((prev) => (prev === 'ready' ? 'ready' : 'unavailable'));
-    });
+      },
+      (err) => {
+        // Refused or unreachable. Only meaningful before the first successful
+        // read; after that the data on screen is real and worth keeping.
+        console.warn('market/current subscription:', err?.message);
+        setMarketStatus((prev) => (prev === 'ready' ? 'ready' : 'unavailable'));
+      },
+    );
 
     return () => unsubscribe();
   }, []);
@@ -107,16 +110,20 @@ export function useMarketData() {
   // Listen to dividend tier overrides (admin-editable config doc)
   useEffect(() => {
     const ref = doc(db, 'dividendConfig', 'tierOverrides');
-    const unsubscribe = onSnapshot(ref, (snap) => {
-      if (snap.exists()) {
-        setDividendTierOverrides(snap.data().tiers || {});
-      } else {
-        setDividendTierOverrides({});
-      }
-    }, (err) => {
-      // Missing doc is fine — fall back to hardcoded defaults.
-      console.warn('dividendConfig/tierOverrides subscription:', err?.message);
-    });
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          setDividendTierOverrides(snap.data().tiers || {});
+        } else {
+          setDividendTierOverrides({});
+        }
+      },
+      (err) => {
+        // Missing doc is fine — fall back to hardcoded defaults.
+        console.warn('dividendConfig/tierOverrides subscription:', err?.message);
+      },
+    );
     return () => unsubscribe();
   }, []);
 
@@ -125,13 +132,17 @@ export function useMarketData() {
   // Cloud Function in the loop and guests get it without signing in.
   useEffect(() => {
     const ref = doc(db, 'config', 'siteMessages');
-    const unsubscribe = onSnapshot(ref, (snap) => {
-      setSiteMessages(snap.exists() ? (snap.data().messages || []) : []);
-    }, (err) => {
-      // No doc yet is the normal state. The bar renders nothing.
-      console.warn('config/siteMessages subscription:', err?.message);
-      setSiteMessages([]);
-    });
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        setSiteMessages(snap.exists() ? snap.data().messages || [] : []);
+      },
+      (err) => {
+        // No doc yet is the normal state. The bar renders nothing.
+        console.warn('config/siteMessages subscription:', err?.message);
+        setSiteMessages([]);
+      },
+    );
     return () => unsubscribe();
   }, []);
 
@@ -141,23 +152,25 @@ export function useMarketData() {
   useEffect(() => {
     let cancelled = false;
     getDoc(doc(db, 'market', 'priceHistory'))
-      .then(snap => {
+      .then((snap) => {
         if (cancelled || !snap.exists()) return;
         const fetched = snap.data() || {};
-        setPriceHistory(prevLocal => {
+        setPriceHistory((prevLocal) => {
           const merged = {};
           const tickers = new Set([...Object.keys(fetched), ...Object.keys(prevLocal)]);
-          tickers.forEach(t => {
+          tickers.forEach((t) => {
             const base = Array.isArray(fetched[t]) ? fetched[t] : [];
-            const seen = new Set(base.map(p => p.timestamp));
-            const extra = (prevLocal[t] || []).filter(p => !seen.has(p.timestamp));
+            const seen = new Set(base.map((p) => p.timestamp));
+            const extra = (prevLocal[t] || []).filter((p) => !seen.has(p.timestamp));
             merged[t] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
           });
           return merged;
         });
       })
-      .catch(err => console.error('Failed to load price history:', err));
-    return () => { cancelled = true; };
+      .catch((err) => console.error('Failed to load price history:', err));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Two small docs read once per session, not subscribed: reviewChanges only
@@ -166,12 +179,17 @@ export function useMarketData() {
   // either would be wasted reads.
   useEffect(() => {
     let cancelled = false;
-    const once = (id, set) => getDoc(doc(db, 'market', id))
-      .then(snap => { if (!cancelled && snap.exists()) set(snap.data()); })
-      .catch(err => console.warn(`Failed to load ${id}:`, err?.message));
+    const once = (id, set) =>
+      getDoc(doc(db, 'market', id))
+        .then((snap) => {
+          if (!cancelled && snap.exists()) set(snap.data());
+        })
+        .catch((err) => console.warn(`Failed to load ${id}:`, err?.message));
     once('reviewChanges', setStoredReviewChanges);
     once('crewStats', setCrewStats);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Listen to predictions
@@ -191,5 +209,17 @@ export function useMarketData() {
     return () => unsubscribe();
   }, []);
 
-  return { prices, priceHistory, marketData, dividendTierOverrides, launchedTickers, activeIPOs, predictions, crewStats, storedReviewChanges, siteMessages, marketStatus };
+  return {
+    prices,
+    priceHistory,
+    marketData,
+    dividendTierOverrides,
+    launchedTickers,
+    activeIPOs,
+    predictions,
+    crewStats,
+    storedReviewChanges,
+    siteMessages,
+    marketStatus,
+  };
 }

@@ -30,7 +30,7 @@ const REVIEW_DOC = 'reviewChanges';
  */
 const loadHistory = async ({ includeArchive }) => {
   const snap = await priceHistoryRef().get();
-  const live = snap.exists ? (snap.data() || {}) : {};
+  const live = snap.exists ? snap.data() || {} : {};
   if (!includeArchive) return live;
 
   const archiveColRef = db.collection('market').doc('current').collection('price_history');
@@ -93,7 +93,9 @@ const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, inc
   };
 
   await db.collection('market').doc(REVIEW_DOC).set(payload);
-  console.log(`reviewChanges written: ${payload.tickerCount} tickers for window ending ${new Date(haltEnd).toISOString()}`);
+  console.log(
+    `reviewChanges written: ${payload.tickerCount} tickers for window ending ${new Date(haltEnd).toISOString()}`,
+  );
   return payload;
 };
 
@@ -128,7 +130,7 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(priceHistoryRef());
-    const history = snap.exists ? (snap.data() || {}) : {};
+    const history = snap.exists ? snap.data() || {} : {};
 
     const updates = {};
     const detail = {};
@@ -139,9 +141,10 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
       if (!Array.isArray(points)) continue;
       const sorted = points.slice().sort((a, b) => a.timestamp - b.timestamp);
 
-      const reviewPts = sorted.filter((p) => p
-        && p.timestamp >= haltStart && p.timestamp <= reviewEnd
-        && REVIEW_SOURCES.has(p.source) && !p.collapsed);
+      const reviewPts = sorted.filter(
+        (p) =>
+          p && p.timestamp >= haltStart && p.timestamp <= reviewEnd && REVIEW_SOURCES.has(p.source) && !p.collapsed,
+      );
       if (reviewPts.length < 2) continue; // already one move, nothing to tidy
 
       const last = reviewPts[reviewPts.length - 1];
@@ -175,7 +178,10 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
     if (tidied === 0) return;
 
     tx.set(db.collection('market').doc('reviewDetail'), {
-      windowStart: haltStart, windowEnd: haltEnd, savedAt: Date.now(), detail,
+      windowStart: haltStart,
+      windowEnd: haltEnd,
+      savedAt: Date.now(),
+      detail,
     });
     tx.set(priceHistoryRef(), updates, { merge: true });
   });

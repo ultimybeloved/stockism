@@ -15,10 +15,7 @@ export function useAdminNetWorth(leaders, user) {
   const [loading, setLoading] = useState(false);
 
   const isAdmin = !!user && ADMIN_UIDS.includes(user.uid);
-  const ids = useMemo(
-    () => (leaders || []).map((l) => l.userId).filter(Boolean),
-    [leaders]
-  );
+  const ids = useMemo(() => (leaders || []).map((l) => l.userId).filter(Boolean), [leaders]);
   const idKey = ids.join(',');
 
   useEffect(() => {
@@ -26,10 +23,18 @@ export function useAdminNetWorth(leaders, user) {
     let cancelled = false;
     setLoading(true);
     getLeaderboardMarginsFunction({ userIds: ids })
-      .then((res) => { if (!cancelled) setMargins(res.data?.margins || {}); })
-      .catch(() => { if (!cancelled) setMargins({}); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((res) => {
+        if (!cancelled) setMargins(res.data?.margins || {});
+      })
+      .catch(() => {
+        if (!cancelled) setMargins({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isAdmin, netMode, idKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-rank on net worth. Falls back to the untouched list until the margins

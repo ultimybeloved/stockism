@@ -75,9 +75,10 @@ const splitPrice = (p, n) => (typeof p === 'number' ? Math.round((p / n) * 1e4) 
 const splitShares = (s, n) => (typeof s === 'number' ? Math.round(s * n * 1e6) / 1e6 : s);
 
 /** A list of { price } points (chart history, review detail). */
-const splitPoints = (arr, n) => (Array.isArray(arr)
-  ? arr.map((pt) => (pt && typeof pt.price === 'number' ? { ...pt, price: splitPrice(pt.price, n) } : pt))
-  : arr);
+const splitPoints = (arr, n) =>
+  Array.isArray(arr)
+    ? arr.map((pt) => (pt && typeof pt.price === 'number' ? { ...pt, price: splitPrice(pt.price, n) } : pt))
+    : arr;
 
 /** { buy: [{ts, shares, impact}], sell: [...], ... }: shares x N, impact unchanged. */
 const splitTradeHistory = (byAction, n) => {
@@ -149,7 +150,8 @@ const buildOrderSplitUpdates = (o, n, splitId) => {
   if (!o || o.splitsApplied?.[splitId]) return {};
   const up = { [`splitsApplied.${splitId}`]: true };
   for (const f of ['shares', 'filledShares']) if (typeof o[f] === 'number') up[f] = splitShares(o[f], n);
-  for (const f of ['limitPrice', 'executedPrice', 'stopPrice']) if (typeof o[f] === 'number') up[f] = splitPrice(o[f], n);
+  for (const f of ['limitPrice', 'executedPrice', 'stopPrice'])
+    if (typeof o[f] === 'number') up[f] = splitPrice(o[f], n);
   return up;
 };
 
@@ -181,8 +183,10 @@ const applyOnce = async (key, ref, build, splitId) => {
   return Object.keys(updates).length ? 1 : 0;
 };
 
-const walkMarked = (queryFn, build, opts) => ({ cursor, budget }) =>
-  walkQuery(queryFn, cursor, (data) => build(data), budget, opts);
+const walkMarked =
+  (queryFn, build, opts) =>
+  ({ cursor, budget }) =>
+    walkQuery(queryFn, cursor, (data) => build(data), budget, opts);
 
 const PHASES = [
   {
@@ -192,85 +196,134 @@ const PHASES = [
       const m = db.collection('market');
       let done = 0;
       done += await applyOnce('current', marketRef(), (d) => buildMarketSplitUpdates(d, t, n), splitId);
-      done += await applyOnce('priceHistory', priceHistoryRef(),
-        (d) => (d[t] !== undefined ? { [t]: splitPoints(d[t], n) } : {}), splitId);
-      done += await applyOnce('archive', marketRef().collection('price_history').doc(t),
-        (d) => (d.history ? { history: splitPoints(d.history, n) } : {}), splitId);
+      done += await applyOnce(
+        'priceHistory',
+        priceHistoryRef(),
+        (d) => (d[t] !== undefined ? { [t]: splitPoints(d[t], n) } : {}),
+        splitId,
+      );
+      done += await applyOnce(
+        'archive',
+        marketRef().collection('price_history').doc(t),
+        (d) => (d.history ? { history: splitPoints(d.history, n) } : {}),
+        splitId,
+      );
       const closes = await marketRef().collection('daily_closes').get();
       for (const doc of closes.docs) {
-        done += await applyOnce(`closes_${doc.id}`, doc.ref, (d) => {
-          const up = {};
-          for (const [day, byTicker] of Object.entries(d.closes || {})) {
-            if (typeof byTicker?.[t] === 'number') up[`closes.${day}.${t}`] = splitPrice(byTicker[t], n);
-          }
-          return up;
-        }, splitId);
+        done += await applyOnce(
+          `closes_${doc.id}`,
+          doc.ref,
+          (d) => {
+            const up = {};
+            for (const [day, byTicker] of Object.entries(d.closes || {})) {
+              if (typeof byTicker?.[t] === 'number') up[`closes.${day}.${t}`] = splitPrice(byTicker[t], n);
+            }
+            return up;
+          },
+          splitId,
+        );
       }
-      done += await applyOnce('preHaltSnapshot', m.doc('preHaltSnapshot'),
-        (d) => (typeof d.prices?.[t] === 'number' ? { [`prices.${t}`]: splitPrice(d.prices[t], n) } : {}), splitId);
-      done += await applyOnce('tickerStats', m.doc('tickerStats'),
-        (d) => (typeof d[t]?.shares === 'number' ? { [`${t}.shares`]: splitShares(d[t].shares, n) } : {}), splitId);
-      done += await applyOnce('reviewChanges', m.doc('reviewChanges'), (d) => {
-        const c = d.changes?.[t];
-        return c ? { [`changes.${t}`]: { ...c, oldPrice: splitPrice(c.oldPrice, n), newPrice: splitPrice(c.newPrice, n) } } : {};
-      }, splitId);
-      done += await applyOnce('reviewDetail', m.doc('reviewDetail'),
-        (d) => (d.detail?.[t] ? { [`detail.${t}`]: splitPoints(d.detail[t], n) } : {}), splitId);
-      done += await applyOnce('indexHistory', m.doc('indexHistory'), (d) => {
-        if (!Array.isArray(d.constituents) || !d.constituents.some((c) => c.t === t)) return {};
-        return { constituents: d.constituents.map((c) => (c.t === t ? { ...c, b: splitPrice(c.b, n) } : c)) };
-      }, splitId);
+      done += await applyOnce(
+        'preHaltSnapshot',
+        m.doc('preHaltSnapshot'),
+        (d) => (typeof d.prices?.[t] === 'number' ? { [`prices.${t}`]: splitPrice(d.prices[t], n) } : {}),
+        splitId,
+      );
+      done += await applyOnce(
+        'tickerStats',
+        m.doc('tickerStats'),
+        (d) => (typeof d[t]?.shares === 'number' ? { [`${t}.shares`]: splitShares(d[t].shares, n) } : {}),
+        splitId,
+      );
+      done += await applyOnce(
+        'reviewChanges',
+        m.doc('reviewChanges'),
+        (d) => {
+          const c = d.changes?.[t];
+          return c
+            ? { [`changes.${t}`]: { ...c, oldPrice: splitPrice(c.oldPrice, n), newPrice: splitPrice(c.newPrice, n) } }
+            : {};
+        },
+        splitId,
+      );
+      done += await applyOnce(
+        'reviewDetail',
+        m.doc('reviewDetail'),
+        (d) => (d.detail?.[t] ? { [`detail.${t}`]: splitPoints(d.detail[t], n) } : {}),
+        splitId,
+      );
+      done += await applyOnce(
+        'indexHistory',
+        m.doc('indexHistory'),
+        (d) => {
+          if (!Array.isArray(d.constituents) || !d.constituents.some((c) => c.t === t)) return {};
+          return { constituents: d.constituents.map((c) => (c.t === t ? { ...c, b: splitPrice(c.b, n) } : c)) };
+        },
+        splitId,
+      );
       return { done, complete: true };
     },
   },
   {
     name: 'users',
     label: 'Player holdings, shorts and lots',
-    run: ({ ticker, n, splitId, cursor, budget }) => walkQuery(
-      () => db.collection('users'), cursor,
-      (u) => buildUserSplitUpdates(u, ticker, n, splitId), budget
-    ),
+    run: ({ ticker, n, splitId, cursor, budget }) =>
+      walkQuery(
+        () => db.collection('users'),
+        cursor,
+        (u) => buildUserSplitUpdates(u, ticker, n, splitId),
+        budget,
+      ),
   },
   {
     name: 'limitOrders',
     label: 'Limit orders',
-    run: ({ ticker, n, splitId, cursor, budget }) => walkMarked(
-      () => db.collection('limitOrders').where('ticker', '==', ticker),
-      (o) => buildOrderSplitUpdates(o, n, splitId)
-    )({ cursor, budget }),
+    run: ({ ticker, n, splitId, cursor, budget }) =>
+      walkMarked(
+        () => db.collection('limitOrders').where('ticker', '==', ticker),
+        (o) => buildOrderSplitUpdates(o, n, splitId),
+      )({ cursor, budget }),
   },
   {
     name: 'priceAlerts',
     label: 'Price alerts',
-    run: ({ ticker, n, splitId, cursor, budget }) => walkMarked(
-      () => db.collectionGroup('priceAlerts').where('ticker', '==', ticker),
-      (a) => (a.splitsApplied?.[splitId] || typeof a.targetPrice !== 'number' ? {}
-        : { targetPrice: splitPrice(a.targetPrice, n), [`splitsApplied.${splitId}`]: true }),
-      { group: true }
-    )({ cursor, budget }),
+    run: ({ ticker, n, splitId, cursor, budget }) =>
+      walkMarked(
+        () => db.collectionGroup('priceAlerts').where('ticker', '==', ticker),
+        (a) =>
+          a.splitsApplied?.[splitId] || typeof a.targetPrice !== 'number'
+            ? {}
+            : { targetPrice: splitPrice(a.targetPrice, n), [`splitsApplied.${splitId}`]: true },
+        { group: true },
+      )({ cursor, budget }),
   },
   {
     name: 'trades',
     label: 'Trade records',
-    run: ({ ticker, n, splitId, cursor, budget }) => walkMarked(
-      () => db.collection('trades').where('ticker', '==', ticker),
-      (tr) => buildTradeSplitUpdates(tr, n, splitId)
-    )({ cursor, budget }),
+    run: ({ ticker, n, splitId, cursor, budget }) =>
+      walkMarked(
+        () => db.collection('trades').where('ticker', '==', ticker),
+        (tr) => buildTradeSplitUpdates(tr, n, splitId),
+      )({ cursor, budget }),
   },
   {
     name: 'ipTracking',
     label: 'IP trade tracking',
     // 24h of anti-manipulation state. Skipping it would hand every network a
     // share count 1/N of what it really traded today.
-    run: ({ ticker, n, splitId, cursor, budget }) => walkQuery(
-      () => db.collection('ipTracking'), cursor,
-      (d) => (d.splitsApplied?.[splitId] || !d.tickerTradeHistory?.[ticker] ? {}
-        : {
-          [`tickerTradeHistory.${ticker}`]: splitTradeHistory(d.tickerTradeHistory[ticker], n),
-          [`splitsApplied.${splitId}`]: true,
-        }),
-      budget
-    ),
+    run: ({ ticker, n, splitId, cursor, budget }) =>
+      walkQuery(
+        () => db.collection('ipTracking'),
+        cursor,
+        (d) =>
+          d.splitsApplied?.[splitId] || !d.tickerTradeHistory?.[ticker]
+            ? {}
+            : {
+                [`tickerTradeHistory.${ticker}`]: splitTradeHistory(d.tickerTradeHistory[ticker], n),
+                [`splitsApplied.${splitId}`]: true,
+              },
+        budget,
+      ),
   },
 ];
 
@@ -278,7 +331,7 @@ const PHASES = [
 // PREFLIGHT
 // ============================================
 
-const currentFactor = async (ticker) => (((await historyRef().get()).data() || {})[ticker]?.factor || 1);
+const currentFactor = async (ticker) => ((await historyRef().get()).data() || {})[ticker]?.factor || 1;
 
 /** Blocking checks, all shown in the dry run. */
 const runPreflight = async ({ ticker, ratio, marketData }) => {
@@ -288,35 +341,67 @@ const runPreflight = async ({ ticker, ratio, marketData }) => {
   const before = await currentFactor(ticker);
   const want = before * ratio;
 
-  add('format', 'Ticker and ratio are valid',
+  add(
+    'format',
+    'Ticker and ratio are valid',
     TICKER_PATTERN.test(ticker) && Number.isInteger(ratio) && ratio >= SPLIT_MIN_RATIO && ratio <= SPLIT_MAX_RATIO,
-    `A whole-number ratio from ${SPLIT_MIN_RATIO} to ${SPLIT_MAX_RATIO}.`);
-  add('roster', 'A character stock with a live price',
+    `A whole-number ratio from ${SPLIT_MIN_RATIO} to ${SPLIT_MAX_RATIO}.`,
+  );
+  add(
+    'roster',
+    'A character stock with a live price',
     !!c && !c.isETF && typeof marketData.prices?.[ticker] === 'number',
-    !c ? `${ticker} is not in the deployed roster.` : c.isETF ? 'Funds are not split.'
-      : `$${ticker} is at ${marketData.prices?.[ticker]}.`);
-  add('deployed', `characters.js has splitFactor ${want}, deployed`,
+    !c
+      ? `${ticker} is not in the deployed roster.`
+      : c.isETF
+        ? 'Funds are not split.'
+        : `$${ticker} is at ${marketData.prices?.[ticker]}.`,
+  );
+  add(
+    'deployed',
+    `characters.js has splitFactor ${want}, deployed`,
     (c?.splitFactor || 1) === want,
-    `Deployed splitFactor is ${c?.splitFactor || 1}; this split needs ${want} (${before} so far x ${ratio}). `
-      + 'Add it to src/characters.js, run sync:chars, and deploy functions — with the market already halted.');
-  add('halted', 'The market is halted', !!marketData.marketHalted,
-    'Halt it by hand BEFORE deploying the new splitFactor: from that deploy until the split runs, the index and '
-      + 'price impact read the new factor against the old price.');
+    `Deployed splitFactor is ${c?.splitFactor || 1}; this split needs ${want} (${before} so far x ${ratio}). ` +
+      'Add it to src/characters.js, run sync:chars, and deploy functions — with the market already halted.',
+  );
+  add(
+    'halted',
+    'The market is halted',
+    !!marketData.marketHalted,
+    'Halt it by hand BEFORE deploying the new splitFactor: from that deploy until the split runs, the index and ' +
+      'price impact read the new factor against the old price.',
+  );
 
-  const pendingPre = await db.collection('preMarketOrders')
-    .where('ticker', '==', ticker).where('status', '==', 'PENDING').limit(1).get();
-  add('preMarket', 'No pending pre-market orders', pendingPre.empty,
-    pendingPre.empty ? 'Nothing queued.' : 'Wait for the opening auction or cancel them first.');
+  const pendingPre = await db
+    .collection('preMarketOrders')
+    .where('ticker', '==', ticker)
+    .where('status', '==', 'PENDING')
+    .limit(1)
+    .get();
+  add(
+    'preMarket',
+    'No pending pre-market orders',
+    pendingPre.empty,
+    pendingPre.empty ? 'Nothing queued.' : 'Wait for the opening auction or cancel them first.',
+  );
 
   const [jSnap, rSnap] = await Promise.all([journalRef().get(), db.collection('market').doc(RENAME_JOURNAL_DOC).get()]);
   const journal = jSnap.exists ? jSnap.data() : null;
   const open = !!journal && journal.status !== 'complete';
-  const renameOpen = rSnap.exists && rSnap.data().status && rSnap.data().status !== 'complete' && rSnap.data().status !== 'failed';
-  add('journal', 'No split or rename is part-finished', !open && !renameOpen,
-    open ? (journal.abortedAt
-      ? `The $${journal.ticker} split was aborted part way; its records are half split. Fix by hand first.`
-      : `$${journal.ticker} ${journal.ratio}-for-1 is ${journal.status}. Resume it.`)
-      : renameOpen ? 'A ticker rename is running.' : 'No conflicting run.');
+  const renameOpen =
+    rSnap.exists && rSnap.data().status && rSnap.data().status !== 'complete' && rSnap.data().status !== 'failed';
+  add(
+    'journal',
+    'No split or rename is part-finished',
+    !open && !renameOpen,
+    open
+      ? journal.abortedAt
+        ? `The $${journal.ticker} split was aborted part way; its records are half split. Fix by hand first.`
+        : `$${journal.ticker} ${journal.ratio}-for-1 is ${journal.status}. Resume it.`
+      : renameOpen
+        ? 'A ticker rename is running.'
+        : 'No conflicting run.',
+  );
 
   return { checks, blocked: checks.some((x) => !x.pass), journal, before };
 };
@@ -390,17 +475,24 @@ const runSplit = async ({ ticker, ratio, mode, uid, timeBudgetMs = RENAME_TIME_B
   } else if (journal && journal.status !== 'complete') {
     // Never start a second run over an unfinished one. It would get a new id,
     // and every document the first run already split would be split again.
-    throw new functions.https.HttpsError('failed-precondition', journal.abortedAt
-      ? `A $${journal.ticker} split was aborted part way, so some of its records are already split. Sort that out by hand before splitting again.`
-      : `A $${journal.ticker} ${journal.ratio}-for-1 split is ${journal.status}. Resume it instead.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      journal.abortedAt
+        ? `A $${journal.ticker} split was aborted part way, so some of its records are already split. Sort that out by hand before splitting again.`
+        : `A $${journal.ticker} ${journal.ratio}-for-1 split is ${journal.status}. Resume it instead.`,
+    );
   } else {
     const market = (await marketRef().get()).data() || {};
     const before = await currentFactor(ticker);
     journal = {
-      splitId: `s${started}`, ticker, ratio,
-      factorBefore: before, factorAfter: before * ratio,
+      splitId: `s${started}`,
+      ticker,
+      ratio,
+      factorBefore: before,
+      factorAfter: before * ratio,
       priceBefore: market.prices?.[ticker],
-      startedAt: started, startedBy: uid,
+      startedAt: started,
+      startedBy: uid,
       phases: Object.fromEntries(PHASES.map((p) => [p.name, { status: 'pending', done: 0 }])),
       appliedDocs: {},
       status: 'running',
@@ -437,21 +529,30 @@ const runSplit = async ({ ticker, ratio, mode, uid, timeBudgetMs = RENAME_TIME_B
     const problems = await verifySplit(journal);
     if (problems.length) {
       await journalRef().set({ status: 'failed', lastError: problems.join('; ') }, { merge: true });
-      throw new functions.https.HttpsError('internal', `Split check failed: ${problems.join('; ')}. Market stays halted. Resume to retry.`);
+      throw new functions.https.HttpsError(
+        'internal',
+        `Split check failed: ${problems.join('; ')}. Market stays halted. Resume to retry.`,
+      );
     }
 
-    await historyRef().set({
-      [ctx.ticker]: {
-        factor: journal.factorAfter,
-        splits: admin.firestore.FieldValue.arrayUnion({ ratio: ctx.n, at: Date.now(), splitId: ctx.splitId }),
+    await historyRef().set(
+      {
+        [ctx.ticker]: {
+          factor: journal.factorAfter,
+          splits: admin.firestore.FieldValue.arrayUnion({ ratio: ctx.n, at: Date.now(), splitId: ctx.splitId }),
+        },
       },
-    }, { merge: true });
+      { merge: true },
+    );
     await journalRef().set({ status: 'complete', finishedAt: Date.now() }, { merge: true });
     return { success: true, ticker: ctx.ticker, ratio: ctx.n, journal: { ...journal, status: 'complete' } };
   } catch (err) {
     if (err instanceof functions.https.HttpsError) throw err;
     await journalRef().set({ status: 'failed', lastError: err.message }, { merge: true });
-    throw new functions.https.HttpsError('internal', `Split failed part way: ${err.message}. Market stays halted. Resume from the admin panel.`);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Split failed part way: ${err.message}. Market stays halted. Resume from the admin panel.`,
+    );
   }
 };
 

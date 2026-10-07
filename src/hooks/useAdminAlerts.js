@@ -26,11 +26,7 @@ export function useAdminAlerts(user) {
       return undefined;
     }
 
-    const q = query(
-      collection(db, 'watchlist_alerts'),
-      where('reviewed', '==', false),
-      limit(ALERT_QUERY_LIMIT)
-    );
+    const q = query(collection(db, 'watchlist_alerts'), where('reviewed', '==', false), limit(ALERT_QUERY_LIMIT));
 
     const unsubscribe = onSnapshot(
       q,
@@ -43,7 +39,7 @@ export function useAdminAlerts(user) {
         // header for the admin — just show no badge.
         setUnreviewedCount(0);
         setHighSeverityCount(0);
-      }
+      },
     );
 
     return unsubscribe;

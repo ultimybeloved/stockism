@@ -14,7 +14,7 @@ export function useAdminBankruptcy({ showMessage, setLoading, setSelectedUser })
     try {
       const snapshot = await getDocs(collection(db, 'users'));
       const users = [];
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         const data = doc.data();
         if (data.isBankrupt && !data.isBot) {
           users.push({
@@ -26,7 +26,7 @@ export function useAdminBankruptcy({ showMessage, setLoading, setSelectedUser })
             totalTrades: data.totalTrades || 0,
             crew: data.crew || null,
             holdings: data.holdings || {},
-            shorts: data.shorts || {}
+            shorts: data.shorts || {},
           });
         }
       });
@@ -46,7 +46,7 @@ export function useAdminBankruptcy({ showMessage, setLoading, setSelectedUser })
     setLoading(true);
     try {
       await reinstateUserFunction({ userId });
-      setBankruptUsers(prev => prev.filter(u => u.id !== userId));
+      setBankruptUsers((prev) => prev.filter((u) => u.id !== userId));
       showMessage('success', `Reinstated ${displayName}`);
     } catch (err) {
       console.error(err);
@@ -57,7 +57,11 @@ export function useAdminBankruptcy({ showMessage, setLoading, setSelectedUser })
 
   // Rollback user to a specific transaction timestamp
   const handleRollbackUser = async (userId, transaction) => {
-    if (!confirm(`⚠️ ROLLBACK USER ⚠️\n\nRoll back to transaction from ${new Date(transaction.timestamp).toLocaleString()}?\n\nThis will:\n- Set cash to $${transaction.cashAfter?.toLocaleString() || '0'}\n- Set portfolio to $${transaction.portfolioAfter?.toLocaleString() || '0'}\n- You'll need to manually fix holdings/shorts\n\nContinue?`)) {
+    if (
+      !confirm(
+        `⚠️ ROLLBACK USER ⚠️\n\nRoll back to transaction from ${new Date(transaction.timestamp).toLocaleString()}?\n\nThis will:\n- Set cash to $${transaction.cashAfter?.toLocaleString() || '0'}\n- Set portfolio to $${transaction.portfolioAfter?.toLocaleString() || '0'}\n- You'll need to manually fix holdings/shorts\n\nContinue?`,
+      )
+    ) {
       return;
     }
 
@@ -66,7 +70,7 @@ export function useAdminBankruptcy({ showMessage, setLoading, setSelectedUser })
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         cash: transaction.cashAfter || 0,
-        portfolioValue: transaction.portfolioAfter || 0
+        portfolioValue: transaction.portfolioAfter || 0,
       });
 
       showMessage('success', `Rolled back user to ${new Date(transaction.timestamp).toLocaleString()}!`);

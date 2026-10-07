@@ -36,12 +36,26 @@ const HomePage = ({
   onShowBailout,
 }) => {
   const {
-    darkMode, user, userData, prices, priceHistory,
-    activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges,
+    darkMode,
+    user,
+    userData,
+    prices,
+    priceHistory,
+    activeIPOs,
+    ipoRestrictedTickers,
+    launchedTickers,
+    storedReviewChanges,
   } = useAppContext();
   const { bgClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
 
-  const browser = useMarketBrowser({ userData, prices, priceHistory, launchedTickers, ipoRestrictedTickers, storedReviewChanges });
+  const browser = useMarketBrowser({
+    userData,
+    prices,
+    priceHistory,
+    launchedTickers,
+    ipoRestrictedTickers,
+    storedReviewChanges,
+  });
 
   const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`;
 
@@ -75,8 +89,14 @@ const HomePage = ({
 
         {/* Guest Banner */}
         {isGuest && (
-          <div className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-            👋 Browsing as guest. <button onClick={onShowLogin} className="font-semibold text-orange-500 hover:underline">Sign in</button> to trade and save progress!
+          <div
+            className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}
+          >
+            👋 Browsing as guest.{' '}
+            <button onClick={onShowLogin} className="font-semibold text-orange-500 hover:underline">
+              Sign in
+            </button>{' '}
+            to trade and save progress!
           </div>
         )}
 
@@ -90,18 +110,14 @@ const HomePage = ({
           <div className="mb-4">
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>🚀 IPO</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeIPOs.map(ipo => {
+              {activeIPOs.map((ipo) => {
                 const now = Date.now();
                 const inHypePhase = now < ipo.ipoStartsAt;
 
                 return inHypePhase ? (
                   <IPOHypeCard key={ipo.ticker} ipo={ipo} />
                 ) : (
-                  <IPOActiveCard
-                    key={ipo.ticker}
-                    ipo={ipo}
-                    onBuyIPO={onBuyIPO}
-                  />
+                  <IPOActiveCard key={ipo.ticker} ipo={ipo} onBuyIPO={onBuyIPO} />
                 );
               })}
             </div>
@@ -126,12 +142,16 @@ const HomePage = ({
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
             <MarketControls
-              filters={browser.filters} setFilter={browser.setFilter}
+              filters={browser.filters}
+              setFilter={browser.setFilter}
               clearFilters={browser.clearFilters}
-              sortBy={browser.sortBy} setSortBy={browser.setSortBy}
-              currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
+              sortBy={browser.sortBy}
+              setSortBy={browser.setSortBy}
+              currentPage={browser.currentPage}
+              setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
-              showAll={browser.showAll} setShowAll={browser.setShowAll}
+              showAll={browser.showAll}
+              setShowAll={browser.setShowAll}
               reviewChanges={browser.reviewChanges}
             />
             <MarketGrid
@@ -149,7 +169,8 @@ const HomePage = ({
               reviewChanges={browser.reviewChanges}
               reviewSections={browser.reviewSections}
               searchQuery={browser.filters.search}
-              currentPage={browser.currentPage} setCurrentPage={browser.setCurrentPage}
+              currentPage={browser.currentPage}
+              setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
               showAll={browser.showAll}
             />

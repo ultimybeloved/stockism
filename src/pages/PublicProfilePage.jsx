@@ -69,7 +69,7 @@ const PublicProfilePage = () => {
   const crewColor = crew?.color || '#6b7280';
 
   // Portfolio sparkline data
-  const sparklineData = (profile.portfolioHistory || []).map(p => ({
+  const sparklineData = (profile.portfolioHistory || []).map((p) => ({
     timestamp: p.timestamp,
     price: p.value,
   }));
@@ -85,9 +85,7 @@ const PublicProfilePage = () => {
   }
 
   // Earned achievements (lookup from constants)
-  const earnedAchievements = (profile.achievements || [])
-    .map(id => ACHIEVEMENTS[id])
-    .filter(Boolean);
+  const earnedAchievements = (profile.achievements || []).map((id) => ACHIEVEMENTS[id]).filter(Boolean);
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-4">
@@ -108,30 +106,35 @@ const PublicProfilePage = () => {
               <PinDisplay userData={profile} size="sm" />
             </h1>
             {profileTitle && (
-              <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{profileTitle.text}</p>
+              <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                {profileTitle.text}
+              </p>
             )}
             {crew && (
               <div className="flex items-center gap-1.5 mt-1">
-                {crew.icon
-                  ? <img src={crew.icon} alt="" className="w-4 h-4 object-contain" />
-                  : <span>{crew.emblem}</span>}
-                <span className="text-sm font-semibold" style={{ color: crewColor }}>{crew.name}</span>
+                {crew.icon ? (
+                  <img src={crew.icon} alt="" className="w-4 h-4 object-contain" />
+                ) : (
+                  <span>{crew.emblem}</span>
+                )}
+                <span className="text-sm font-semibold" style={{ color: crewColor }}>
+                  {crew.name}
+                </span>
                 {profile.isCrewHead && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold text-white" style={{ backgroundColor: crewColor }}>Head</span>
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded-full font-bold text-white"
+                    style={{ backgroundColor: crewColor }}
+                  >
+                    Head
+                  </span>
                 )}
-                {profile.crewRank && (
-                  <span className={`text-xs ${mutedClass}`}>#{profile.crewRank} in crew</span>
-                )}
+                {profile.crewRank && <span className={`text-xs ${mutedClass}`}>#{profile.crewRank} in crew</span>}
               </div>
             )}
-            {accountAge && (
-              <p className={`text-xs ${mutedClass} mt-0.5`}>Member for {accountAge}</p>
-            )}
+            {accountAge && <p className={`text-xs ${mutedClass} mt-0.5`}>Member for {accountAge}</p>}
           </div>
           <div className="text-right shrink-0">
-            {profile.rank && (
-              <div className={`text-sm font-bold ${textClass}`}>#{profile.rank} global</div>
-            )}
+            {profile.rank && <div className={`text-sm font-bold ${textClass}`}>#{profile.rank} global</div>}
             <div className={`text-lg font-bold ${textClass}`}>{formatCurrency(profile.portfolioValue)}</div>
             <div className={`text-xs ${mutedClass}`}>{profile.holdingsCount || 0} characters</div>
           </div>
@@ -188,7 +191,7 @@ const PublicProfilePage = () => {
         <div className={`${cardClass} border rounded-sm p-4`}>
           <h2 className={`font-semibold ${textClass} mb-3`}>Top Holdings</h2>
           <div className="flex flex-wrap gap-2 mb-3">
-            {profile.topHoldings.map(ticker => {
+            {profile.topHoldings.map((ticker) => {
               const char = CHARACTER_MAP[ticker];
               return (
                 <div
@@ -196,9 +199,7 @@ const PublicProfilePage = () => {
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
                 >
                   <span className="text-orange-500 font-mono text-sm font-bold">${ticker}</span>
-                  {char && !char.isETF && (
-                    <span className={`text-xs ${mutedClass}`}>{char.name}</span>
-                  )}
+                  {char && !char.isETF && <span className={`text-xs ${mutedClass}`}>{char.name}</span>}
                 </div>
               );
             })}
@@ -206,8 +207,8 @@ const PublicProfilePage = () => {
           {(profile.holdingTickers || []).length > (profile.topHoldings || []).length && (
             <div className="flex flex-wrap gap-1.5">
               {profile.holdingTickers
-                .filter(t => !(profile.topHoldings || []).includes(t))
-                .map(ticker => (
+                .filter((t) => !(profile.topHoldings || []).includes(t))
+                .map((ticker) => (
                   <span
                     key={ticker}
                     className={`px-2 py-0.5 text-xs font-mono rounded ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}
@@ -225,7 +226,7 @@ const PublicProfilePage = () => {
         <div className={`${cardClass} border rounded-sm p-4`}>
           <h2 className={`font-semibold ${textClass} mb-3`}>Short Positions</h2>
           <div className="flex flex-wrap gap-2">
-            {profile.shortTickers.map(ticker => (
+            {profile.shortTickers.map((ticker) => (
               <div
                 key={ticker}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-red-50 border-red-200'}`}
@@ -235,7 +236,9 @@ const PublicProfilePage = () => {
             ))}
           </div>
           {profile.totalShortValue > 0 && (
-            <p className={`text-xs ${mutedClass} mt-2`}>Total short exposure: {formatCurrency(profile.totalShortValue)}</p>
+            <p className={`text-xs ${mutedClass} mt-2`}>
+              Total short exposure: {formatCurrency(profile.totalShortValue)}
+            </p>
           )}
         </div>
       )}
@@ -243,17 +246,21 @@ const PublicProfilePage = () => {
       {/* Achievements */}
       {earnedAchievements.length > 0 && (
         <div className={`${cardClass} border rounded-sm p-4`}>
-          <h2 className={`font-semibold ${textClass} mb-3`}>Achievements <span className={`text-sm font-normal ${mutedClass}`}>({earnedAchievements.length})</span></h2>
+          <h2 className={`font-semibold ${textClass} mb-3`}>
+            Achievements <span className={`text-sm font-normal ${mutedClass}`}>({earnedAchievements.length})</span>
+          </h2>
           <div className="flex flex-wrap gap-2">
-            {earnedAchievements.map(a => (
+            {earnedAchievements.map((a) => (
               <div
                 key={a.id}
                 title={a.description}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-200' : 'bg-amber-100 text-slate-700'}`}
               >
-                {a.icon
-                  ? <img src={`/${a.icon}`} alt="" className="w-3.5 h-3.5 object-contain" />
-                  : <span>{a.emoji}</span>}
+                {a.icon ? (
+                  <img src={`/${a.icon}`} alt="" className="w-3.5 h-3.5 object-contain" />
+                ) : (
+                  <span>{a.emoji}</span>
+                )}
                 {a.name}
               </div>
             ))}
@@ -262,9 +269,7 @@ const PublicProfilePage = () => {
       )}
 
       {/* Admin panel */}
-      {viewerIsAdmin && profile.adminData && (
-        <ProfileAdminPanel data={profile.adminData} />
-      )}
+      {viewerIsAdmin && profile.adminData && <ProfileAdminPanel data={profile.adminData} />}
     </div>
   );
 };

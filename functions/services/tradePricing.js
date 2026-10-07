@@ -9,7 +9,7 @@ const { MIN_PRICE, TRAILING_MAX_DEPTH } = require('../constants');
 // Reverse lookup: stockTicker → [{ etfTicker, coefficient }]. Built once at
 // module load; the roster never changes at runtime.
 const REVERSE_ETF_MAP = {};
-CHARACTERS.filter(c => c.isETF && c.trailingFactors).forEach(etf => {
+CHARACTERS.filter((c) => c.isETF && c.trailingFactors).forEach((etf) => {
   etf.trailingFactors.forEach(({ ticker: stockTicker, coefficient }) => {
     if (!REVERSE_ETF_MAP[stockTicker]) REVERSE_ETF_MAP[stockTicker] = [];
     REVERSE_ETF_MAP[stockTicker].push({ etfTicker: etf.ticker, coefficient });
@@ -131,8 +131,11 @@ function buildTrailingEntries({ priceUpdates, ticker, prices, action, now }) {
     if (originalPrice && originalPrice > 0) {
       const trailingImpactPercent = Math.abs(updatedPrice - originalPrice) / originalPrice;
       // Use buy direction for trailing effects (they represent buy-side pressure)
-      const trailingAction = (action === 'buy' || action === 'cover') ? 'buy' : 'sell';
-      trailingEntries[updatedTicker] = { action: trailingAction, entry: { ts: now, shares: 0, impact: trailingImpactPercent } };
+      const trailingAction = action === 'buy' || action === 'cover' ? 'buy' : 'sell';
+      trailingEntries[updatedTicker] = {
+        action: trailingAction,
+        entry: { ts: now, shares: 0, impact: trailingImpactPercent },
+      };
     }
   });
   return trailingEntries;

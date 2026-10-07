@@ -13,15 +13,15 @@ const sessionCache = {}; // key -> { leaders, callerRank, callerRankUid, fetched
 // Must mirror the backend cacheKey in functions/services/leaderboard.js
 const isGainSort = (sortBy) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
 const docKey = (sortBy, crew) =>
-  crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew)
-       : (isGainSort(sortBy) ? sortBy : 'global');
+  crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew) : isGainSort(sortBy) ? sortBy : 'global';
 
-const decorate = (entries) => entries.map((u, i) => ({
-  rank: i + 1,
-  crewRank: i + 1,
-  ...u,
-  id: u.userId,
-}));
+const decorate = (entries) =>
+  entries.map((u, i) => ({
+    rank: i + 1,
+    crewRank: i + 1,
+    ...u,
+    id: u.userId,
+  }));
 
 // Loads a leaderboard view. Fast path: the precomputed leaderboard/{key} doc
 // (1 Firestore read, no function call, no cold start) — the list renders
@@ -41,7 +41,7 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
 
     const rankFromList = (list) => {
       if (!user) return null;
-      const idx = list.findIndex(e => e.id === user.uid);
+      const idx = list.findIndex((e) => e.id === user.uid);
       return idx === -1 ? null : idx + 1;
     };
 
@@ -53,7 +53,7 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
       // the backend would still compute one, so don't ask for it.
       if (crew && crew !== userCrew) return;
       getLeaderboardFunction(params)
-        .then(res => {
+        .then((res) => {
           if (cancelled) return;
           setUserRank(res.data.callerRank ?? null);
           if (sessionCache[key]) {
@@ -61,7 +61,9 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
             sessionCache[key].callerRankUid = user.uid;
           }
         })
-        .catch(() => { /* rank stays blank; list is already on screen */ });
+        .catch(() => {
+          /* rank stays blank; list is already on screen */
+        });
     };
 
     const load = async () => {
@@ -91,7 +93,9 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
           fetchRankInBackground(leaderData);
           return;
         }
-      } catch (_) { /* fall through to the callable */ }
+      } catch (_) {
+        /* fall through to the callable */
+      }
 
       // Layer 2: recompute via the callable (which republishes the doc)
       try {
@@ -113,7 +117,9 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [sortBy, crewFilter, user, userCrew]);
 
   return { leaders, userRank, loading };

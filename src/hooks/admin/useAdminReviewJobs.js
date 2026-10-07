@@ -1,7 +1,4 @@
-import {
-  triggerReviewChangesFunction,
-  triggerCollapseReviewHistoryFunction,
-} from '../../firebase';
+import { triggerReviewChangesFunction, triggerCollapseReviewHistoryFunction } from '../../firebase';
 
 // The two admin re-runs for a finished chapter review. Both are recovery tools:
 // the scheduled jobs do this on their own every Thursday, the recap at 20:30 and
@@ -30,9 +27,12 @@ export function useAdminReviewJobs({ showMessage, setLoading }) {
     setLoading(true);
     try {
       const d = (await triggerCollapseReviewHistoryFunction({})).data || {};
-      showMessage('success', d.tidied
-        ? `Chart tidied: ${d.tidied} stock${d.tidied === 1 ? '' : 's'}, ${d.folded} extra points folded away.`
-        : 'Nothing to tidy — the review is already one point per stock.');
+      showMessage(
+        'success',
+        d.tidied
+          ? `Chart tidied: ${d.tidied} stock${d.tidied === 1 ? '' : 's'}, ${d.folded} extra points folded away.`
+          : 'Nothing to tidy — the review is already one point per stock.',
+      );
     } catch (err) {
       console.error('Review collapse failed:', err);
       showMessage('error', 'Failed to tidy the review chart: ' + err.message);

@@ -25,6 +25,6 @@ export function getLastActiveMs(userData) {
     toMs(userData.lastSynced),
     toMs(userData.lastActive),
     toMs(userData.lastTradeTime),
-    toMs(userData.lastCheckin)
+    toMs(userData.lastCheckin),
   );
 }

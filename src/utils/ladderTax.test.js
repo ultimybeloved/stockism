@@ -70,7 +70,7 @@ describe('calculateLadderWithdrawTax', () => {
 
   it('rounds each component up to the cent and keeps the breakdown consistent', () => {
     // principalPart 0.10 -> fee 0.005 ceils to 0.01
-    const r = calculateLadderWithdrawTax({ ...base, amount: 0.10, totalDeposited: 0.10 });
+    const r = calculateLadderWithdrawTax({ ...base, amount: 0.1, totalDeposited: 0.1 });
     expect(r.principalFee).toBe(0.01);
     expect(r.totalTax).toBe(0.01);
     expect(r.netReceived).toBe(0.09);

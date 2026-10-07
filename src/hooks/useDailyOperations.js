@@ -24,7 +24,17 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
     try {
       const result = await dailyCheckinFunction({});
       const { reward, newStreak, ladderTopUpAmount, totalCheckins } = result.data;
-      setUserData(prev => prev ? { ...prev, lastCheckin: new Date().toISOString(), cash: (prev.cash || 0) + reward, checkinStreak: newStreak, totalCheckins } : prev);
+      setUserData((prev) =>
+        prev
+          ? {
+              ...prev,
+              lastCheckin: new Date().toISOString(),
+              cash: (prev.cash || 0) + reward,
+              checkinStreak: newStreak,
+              totalCheckins,
+            }
+          : prev,
+      );
       fireDailyRewardConfetti();
       let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
       if (ladderTopUpAmount > 0) notificationMsg += ` | Ladder Game topped up to $100`;
@@ -54,15 +64,27 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
     try {
       const currentCrew = userData.crew;
       const result = await bailoutFunction({});
-      setUserData(prev => {
+      setUserData((prev) => {
         if (!prev) return prev;
         const lockouts = { ...(prev.crewLockouts || {}) };
         if (currentCrew) lockouts[currentCrew] = Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000;
-        return { ...prev, cash: BAILOUT_CASH, crew: null, holdings: {}, shorts: {}, marginUsed: 0, marginEnabled: false, crewLockouts: lockouts };
+        return {
+          ...prev,
+          cash: BAILOUT_CASH,
+          crew: null,
+          holdings: {},
+          shorts: {},
+          marginUsed: 0,
+          marginEnabled: false,
+          crewLockouts: lockouts,
+        };
       });
       if (result.data.hadCrew) {
         const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
-        showNotification('warning', `Bailout accepted. You can't rejoin ${crewName} for ${CREW_REJOIN_LOCKOUT_DAYS} days. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
+        showNotification(
+          'warning',
+          `Bailout accepted. You can't rejoin ${crewName} for ${CREW_REJOIN_LOCKOUT_DAYS} days. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`,
+        );
       } else {
         showNotification('success', `Bailout accepted. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`);
       }

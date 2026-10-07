@@ -46,14 +46,17 @@ export function useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUs
     const id = (rawId || '').trim();
     setMoveSource(null);
     if (!id) {
-      showMessage('error', 'Enter the new account\'s name, Discord, or user ID first');
+      showMessage('error', "Enter the new account's name, Discord, or user ID first");
       return;
     }
     setLoading(true);
     try {
       const snap = await findAccount(id);
       if (!snap) {
-        showMessage('error', `No account matches "${id}". Try their exact display name, Discord username, Discord ID, or the user ID from their user card.`);
+        showMessage(
+          'error',
+          `No account matches "${id}". Try their exact display name, Discord username, Discord ID, or the user ID from their user card.`,
+        );
       } else {
         const d = snap.data();
         setMoveSource({
@@ -63,7 +66,7 @@ export function useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUs
           discordUsername: d.discordUsername || null,
           cash: d.cash || 0,
           portfolioValue: d.portfolioValue || 0,
-          createdAt: d.createdAt?.toDate?.() || null
+          createdAt: d.createdAt?.toDate?.() || null,
         });
       }
     } catch (err) {
@@ -88,21 +91,27 @@ export function useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUs
       showMessage('error', `${moveSource.displayName} has no Discord linked — nothing to move`);
       return;
     }
-    if (!confirm(
-      `Move Discord ${moveSource.discordUsername || moveSource.discordId} off "${moveSource.displayName}" and onto "${targetName}"?\n\n` +
-      `"${targetName}" keeps its own portfolio. Nothing is transferred.\n` +
-      `"${moveSource.displayName}" loses its login for good (its data stays for the record).\n\n` +
-      `They then log in with that Discord and land in "${targetName}".`
-    )) return;
+    if (
+      !confirm(
+        `Move Discord ${moveSource.discordUsername || moveSource.discordId} off "${moveSource.displayName}" and onto "${targetName}"?\n\n` +
+          `"${targetName}" keeps its own portfolio. Nothing is transferred.\n` +
+          `"${moveSource.displayName}" loses its login for good (its data stays for the record).\n\n` +
+          `They then log in with that Discord and land in "${targetName}".`,
+      )
+    )
+      return;
     setLoading(true);
     try {
       const result = await adminMoveDiscordLinkFunction({ sourceUserId: moveSource.id, targetUserId });
       const { alreadyMoved, discordId } = result.data;
       const discordUsername = moveSource.discordUsername;
-      showMessage('success', alreadyMoved
-        ? `${targetName} was already on that Discord`
-        : `Moved ${discordUsername || discordId} to ${targetName}. They can log in with Discord now.`);
-      setSelectedUser(prev => prev ? { ...prev, discordId, discordUsername } : prev);
+      showMessage(
+        'success',
+        alreadyMoved
+          ? `${targetName} was already on that Discord`
+          : `Moved ${discordUsername || discordId} to ${targetName}. They can log in with Discord now.`,
+      );
+      setSelectedUser((prev) => (prev ? { ...prev, discordId, discordUsername } : prev));
       setMoveSource(null);
       setMoveSourceId('');
     } catch (err) {
@@ -122,13 +131,15 @@ export function useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUs
     setLoading(true);
     try {
       const { data } = await adminFreeDiscordFunction({ discordId: id });
-      const cleared = [
-        data.clearedTombstone && 'delete cooldown',
-        data.clearedBinding && 'account binding',
-      ].filter(Boolean);
-      showMessage('success', cleared.length
-        ? `Freed ${id} (cleared ${cleared.join(' and ')}). They can link it now.`
-        : `${id} had nothing blocking it — it was already free to link.`);
+      const cleared = [data.clearedTombstone && 'delete cooldown', data.clearedBinding && 'account binding'].filter(
+        Boolean,
+      );
+      showMessage(
+        'success',
+        cleared.length
+          ? `Freed ${id} (cleared ${cleared.join(' and ')}). They can link it now.`
+          : `${id} had nothing blocking it — it was already free to link.`,
+      );
       setFreeDiscordId('');
     } catch (err) {
       console.error(err);
@@ -138,7 +149,13 @@ export function useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUs
   };
 
   return {
-    moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink,
-    freeDiscordId, setFreeDiscordId, handleFreeDiscord,
+    moveSourceId,
+    setMoveSourceId,
+    moveSource,
+    handleLookupMoveSource,
+    handleMoveDiscordLink,
+    freeDiscordId,
+    setFreeDiscordId,
+    handleFreeDiscord,
   };
 }

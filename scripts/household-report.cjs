@@ -29,9 +29,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const {
-  ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT,
-} = require('../functions/constants');
+const { ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT } = require('../functions/constants');
 
 // Two trades in the same stock inside this window are treated as one action
 // split across two accounts.
@@ -41,11 +39,18 @@ const CONCURRENT_MS = 10 * 1000;
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
-const toMs = (ts) => (!ts ? 0
-  : typeof ts === 'number' ? ts
-    : ts._seconds ? ts._seconds * 1000
-      : ts.seconds ? ts.seconds * 1000
-        : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 
 function networkKey(ip) {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
@@ -60,7 +65,8 @@ async function main() {
   const days = Number(process.argv[2]) || 90;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const snap = await db.collection('trades')
+  const snap = await db
+    .collection('trades')
     .where('timestamp', '>', cutoff)
     .select('uid', 'ip', 'ticker', 'action', 'amount', 'totalValue', 'timestamp')
     .get();
@@ -87,10 +93,17 @@ async function main() {
   const parent = new Map();
   const find = (x) => {
     if (!parent.has(x)) parent.set(x, x);
-    while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); }
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
     return x;
   };
-  const union = (a, b) => { const ra = find(a); const rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
 
   for (const [, uids] of accountsByNetwork) {
     if (uids.size < 2 || uids.size > ALT_CROWDED_NETWORK_LIMIT) continue;
@@ -110,11 +123,12 @@ async function main() {
   // Account detail for everyone involved.
   const uids = [...new Set(real.flat())];
   const docs = await db.getAll(...uids.map((u) => db.collection('users').doc(u)), {
-    fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings',
-      'marginUsed', 'discordId', 'createdAt'],
+    fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt'],
   });
   const U = new Map();
-  docs.forEach((d) => { if (d.exists) U.set(d.id, d.data()); });
+  docs.forEach((d) => {
+    if (d.exists) U.set(d.id, d.data());
+  });
 
   const marketSnap = await db.collection('market').doc('current').get();
   const prices = (marketSnap.data() || {}).prices || {};
@@ -181,9 +195,14 @@ async function main() {
     else verdict = 'SAME HOUSEHOLD, WEAK';
 
     return {
-      shared: shared.length, exclusive: exclusive.length, quiet: quiet.length,
-      coordinated: coordinated.length, coordTickers, sharedHoldings,
-      fastest, verdict,
+      shared: shared.length,
+      exclusive: exclusive.length,
+      quiet: quiet.length,
+      coordinated: coordinated.length,
+      coordTickers,
+      sharedHoldings,
+      fastest,
+      verdict,
     };
   }
 
@@ -204,12 +223,14 @@ async function main() {
     for (const uid of named.sort((a, b) => valueOf(U.get(b)) - valueOf(U.get(a)))) {
       const u = U.get(uid);
       const nets = networksByAccount.get(uid) || new Set();
-      console.log(`  ${(u.displayName || uid).padEnd(24)} ${money(valueOf(u)).padStart(13)}`
-        + `  joined ${day(toMs(u.createdAt))}`
-        + `  ${(u.crew || 'no crew').padEnd(14)}`
-        + `  ${nets.size} network(s)`
-        + `  ${u.discordId ? 'discord' : 'NO discord'}`
-        + `${u.isBanned ? '  [BANNED]' : ''}`);
+      console.log(
+        `  ${(u.displayName || uid).padEnd(24)} ${money(valueOf(u)).padStart(13)}` +
+          `  joined ${day(toMs(u.createdAt))}` +
+          `  ${(u.crew || 'no crew').padEnd(14)}` +
+          `  ${nets.size} network(s)` +
+          `  ${u.discordId ? 'discord' : 'NO discord'}` +
+          `${u.isBanned ? '  [BANNED]' : ''}`,
+      );
     }
 
     console.log('');
@@ -221,7 +242,13 @@ async function main() {
         pairs.push({ a: named[i], b: named[j], ...ev });
       }
     }
-    const rank = { 'ACTING AS ONE': 0, 'SAME OPERATOR LIKELY': 1, 'COORDINATED, LOW VOLUME': 2, 'SAME HOUSEHOLD': 3, 'SAME HOUSEHOLD, WEAK': 4 };
+    const rank = {
+      'ACTING AS ONE': 0,
+      'SAME OPERATOR LIKELY': 1,
+      'COORDINATED, LOW VOLUME': 2,
+      'SAME HOUSEHOLD': 3,
+      'SAME HOUSEHOLD, WEAK': 4,
+    };
     pairs.sort((x, y) => rank[x.verdict] - rank[y.verdict] || y.exclusive - x.exclusive);
 
     for (const p of pairs) {
@@ -230,14 +257,24 @@ async function main() {
       console.log(`  ${p.verdict}`);
       console.log(`    ${na} + ${nb}`);
       console.log(`      networks shared ${p.shared}, of which ${p.exclusive} used by nobody else`);
-      console.log(`      trades in the same stock within 30 min: ${p.coordinated}`
-        + `${p.coordTickers.length ? ` (${p.coordTickers.slice(0, 6).join(', ')})` : ''}`);
-      console.log(`      both currently holding: ${p.sharedHoldings.length ? p.sharedHoldings.slice(0, 6).join(', ') : 'nothing in common'}`);
-      console.log(`      fastest switch between them: ${
-        p.fastest === Infinity ? 'never alternated'
-          : p.fastest < CONCURRENT_MS ? `${(p.fastest / 1000).toFixed(1)}s — two sessions at once, likely two people`
-            : p.fastest < 60000 ? `${(p.fastest / 1000).toFixed(0)}s`
-              : `${Math.round(p.fastest / 60000)} min`}`);
+      console.log(
+        `      trades in the same stock within 30 min: ${p.coordinated}` +
+          `${p.coordTickers.length ? ` (${p.coordTickers.slice(0, 6).join(', ')})` : ''}`,
+      );
+      console.log(
+        `      both currently holding: ${p.sharedHoldings.length ? p.sharedHoldings.slice(0, 6).join(', ') : 'nothing in common'}`,
+      );
+      console.log(
+        `      fastest switch between them: ${
+          p.fastest === Infinity
+            ? 'never alternated'
+            : p.fastest < CONCURRENT_MS
+              ? `${(p.fastest / 1000).toFixed(1)}s — two sessions at once, likely two people`
+              : p.fastest < 60000
+                ? `${(p.fastest / 1000).toFixed(0)}s`
+                : `${Math.round(p.fastest / 60000)} min`
+        }`,
+      );
       console.log('');
     }
   }
@@ -247,4 +284,9 @@ async function main() {
   console.log('connection nobody else uses — that is the pattern worth acting on.\n');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

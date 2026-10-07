@@ -39,14 +39,30 @@ const { executeTrade } = require('../functions/services/trading');
 const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/marginScanners');
 const { bailout } = require('../functions/services/margin');
 const {
-  BASE_IMPACT, BASE_LIQUIDITY, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD,
-  MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT, MAX_TRADES_PER_TICKER_24H,
-  SHORT_MARGIN_RATIO, MARGIN_SELL_LOCKUP_MS, isWeeklyTradingHalt,
-  SHORT_MARGIN_DAMPENING_FACTOR, WEEKLY_HALT_END_MINUTE, MARKET_OPEN_GRACE_PERIOD_MINUTES,
-  CIRCUIT_BREAKER_WINDOW_MS, CIRCUIT_BREAKER_MAX_PER_DAY,
-  WASH_RULE_COOLDOWN_MS, WASH_RULE_IMPACT_TRIGGER, SHORT_AFTER_DUMP_COOLDOWN_MS, OVERSIZED_IMPACT_MULTIPLE,
-  LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD, MARGIN_LIQUIDATION_SLIPPAGE,
-  BAILOUT_CASH, ADMIN_UID,
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
+  MAX_PRICE_CHANGE_PERCENT,
+  MAX_DAILY_IMPACT,
+  MAX_TRADES_PER_TICKER_24H,
+  SHORT_MARGIN_RATIO,
+  MARGIN_SELL_LOCKUP_MS,
+  isWeeklyTradingHalt,
+  SHORT_MARGIN_DAMPENING_FACTOR,
+  WEEKLY_HALT_END_MINUTE,
+  MARKET_OPEN_GRACE_PERIOD_MINUTES,
+  CIRCUIT_BREAKER_WINDOW_MS,
+  CIRCUIT_BREAKER_MAX_PER_DAY,
+  WASH_RULE_COOLDOWN_MS,
+  WASH_RULE_IMPACT_TRIGGER,
+  SHORT_AFTER_DUMP_COOLDOWN_MS,
+  OVERSIZED_IMPACT_MULTIPLE,
+  LONG_MARGIN_LIQUIDATION_THRESHOLD,
+  LONG_MARGIN_CALL_THRESHOLD,
+  MARGIN_LIQUIDATION_SLIPPAGE,
+  BAILOUT_CASH,
+  ADMIN_UID,
 } = require('../functions/constants');
 const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/characters');
 
@@ -60,11 +76,11 @@ const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../fun
 //       ipoRequired flag is set below rather than borrowed from characters.js —
 //       it gets dropped once a stock actually launches (all five were cleared
 //       on 2026-08-07), and relying on it broke this check.
-const T = 'SOPH';   // main test ticker, basePrice 80
-const T2 = 'CROC';  // secondary clean ticker, basePrice 66
-const T3 = 'XIAO';  // third clean ticker, basePrice 40
+const T = 'SOPH'; // main test ticker, basePrice 80
+const T2 = 'CROC'; // secondary clean ticker, basePrice 66
+const T3 = 'XIAO'; // third clean ticker, basePrice 40
 const ETF = 'SCRT';
-const CON = 'GOO';  // SCRT constituent
+const CON = 'GOO'; // SCRT constituent
 const UND = 'MIRA'; // underdog (< $20)
 const IPOT = 'REI'; // gated for these tests, unlaunched
 if (!CHARACTER_MAP[IPOT]) throw new Error(`${IPOT} is not in characters.js`);
@@ -88,11 +104,19 @@ const freshIp = () => `203.0.113.${++ipSeed % 250}.${Math.floor(ipSeed / 250)}`.
 const ctx = (uid, ip) => ({ auth: { uid }, rawRequest: { ip: ip || `198.51.100.${++ipSeed}` } });
 const ok = (data, uid, ip) => executeTrade.run(data, ctx(uid, ip));
 const err = async (data, uid, ip) => {
-  try { await executeTrade.run(data, ctx(uid, ip)); return null; }
-  catch (e) { return e.message || String(e); }
+  try {
+    await executeTrade.run(data, ctx(uid, ip));
+    return null;
+  } catch (e) {
+    return e.message || String(e);
+  }
 };
 
-const setUser = (uid, data) => db.collection('users').doc(uid).set({ displayName: uid, ...data });
+const setUser = (uid, data) =>
+  db
+    .collection('users')
+    .doc(uid)
+    .set({ displayName: uid, ...data });
 const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
 const getMarket = async () => (await db.collection('market').doc('current').get()).data();
 const getHistoryDoc = async () => {
@@ -103,18 +127,23 @@ const getHistoryDoc = async () => {
 // Reset the market docs to a known state. `prices` maps ticker → price; only
 // seeded tickers participate in trailing effects (unseeded ones are skipped).
 const seedMarket = async (prices, extra = {}) => {
-  await db.collection('market').doc('current').set({
-    prices, launchedTickers: [], marketHalted: false, haltedTickers: {}, ...extra,
-  });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({
+      prices,
+      launchedTickers: [],
+      marketHalted: false,
+      haltedTickers: {},
+      ...extra,
+    });
   await db.collection('market').doc('priceHistory').set({});
 };
 
 // ── Independent reimplementation of the engine's price math ─────────────────
 const round2 = (x) => Math.round(x * 100) / 100;
 const impactOf = (price, amount, cum = 0, factor = 1) => {
-  const raw = price * BASE_IMPACT * (
-    Math.sqrt((cum + amount) / BASE_LIQUIDITY) - Math.sqrt(cum / BASE_LIQUIDITY)
-  );
+  const raw = price * BASE_IMPACT * (Math.sqrt((cum + amount) / BASE_LIQUIDITY) - Math.sqrt(cum / BASE_LIQUIDITY));
   return Math.min(raw, price * MAX_PRICE_CHANGE_PERCENT) * factor;
 };
 const buyMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD } = {}) => {
@@ -125,7 +154,11 @@ const buyMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD }
 };
 // `discount` is the exit-loyalty fraction: the market still moves by the full
 // impact (newPrice), but the seller is priced against a reduced one (sellerMid).
-const sellMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD, capRemaining = Infinity, discount = 0 } = {}) => {
+const sellMath = (
+  price,
+  amount,
+  { cum = 0, factor = 1, spread = BID_ASK_SPREAD, capRemaining = Infinity, discount = 0 } = {},
+) => {
   let impact = impactOf(price, amount, cum, factor);
   impact = Math.min(impact, price * capRemaining);
   const newPrice = Math.max(0.01, round2(price - impact));
@@ -171,8 +204,11 @@ async function testValidation() {
   check('rejects invalid ticker', !!eTick && /Invalid ticker/i.test(eTick), eTick || 'no error');
 
   let eAuth = null;
-  try { await executeTrade.run({ ticker: T, action: 'buy', amount: 1 }, { rawRequest: { ip: '1.2.3.4' } }); }
-  catch (e) { eAuth = e.message; }
+  try {
+    await executeTrade.run({ ticker: T, action: 'buy', amount: 1 }, { rawRequest: { ip: '1.2.3.4' } });
+  } catch (e) {
+    eAuth = e.message;
+  }
   check('rejects unauthenticated call', !!eAuth && /logged in/i.test(eAuth), eAuth || 'no error');
 
   const eNoUser = await err({ ticker: T, action: 'buy', amount: 1 }, 'val_ghost');
@@ -207,8 +243,10 @@ async function testValidation() {
   await seedMarket({ [T]: 80 });
   const now = Date.now();
   await setUser('val_broke', {
-    cash: 50, isBankrupt: true,
-    holdings: { [T]: 2 }, costBasis: { [T]: 80 },
+    cash: 50,
+    isBankrupt: true,
+    holdings: { [T]: 2 },
+    costBasis: { [T]: 80 },
     shorts: { [T2]: { shares: 1, costBasis: 66, margin: 66, openedAt: now - MIN, system: 'v2' } },
   });
   const eBB = await err({ ticker: T, action: 'buy', amount: 0.5 }, 'val_broke');
@@ -223,8 +261,11 @@ async function testValidation() {
   await setUser('val_base', { cash: 10000 });
   const okBase = await ok({ ticker: T3, action: 'buy', amount: 1 }, 'val_base');
   const bm = buyMath(40, 1);
-  check('unseeded price falls back to basePrice', okBase.success && near(okBase.newPrice, bm.newPrice),
-    `newPrice=${okBase.newPrice} expected=${bm.newPrice}`);
+  check(
+    'unseeded price falls back to basePrice',
+    okBase.success && near(okBase.newPrice, bm.newPrice),
+    `newPrice=${okBase.newPrice} expected=${bm.newPrice}`,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -241,37 +282,77 @@ async function testBuy() {
   const m = await getMarket();
 
   check('buy: price impact matches sqrt formula', near(r.priceImpact, exp.impact), `${r.priceImpact} vs ${exp.impact}`);
-  check('buy: new price rounded to cents', near(r.newPrice, exp.newPrice) && near(m.prices[T], exp.newPrice),
-    `result=${r.newPrice} market=${m.prices[T]} expected=${exp.newPrice}`);
-  check('buy: executes at ask (newPrice + half spread)', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
+  check(
+    'buy: new price rounded to cents',
+    near(r.newPrice, exp.newPrice) && near(m.prices[T], exp.newPrice),
+    `result=${r.newPrice} market=${m.prices[T]} expected=${exp.newPrice}`,
+  );
+  check(
+    'buy: executes at ask (newPrice + half spread)',
+    near(r.executionPrice, exp.exec),
+    `${r.executionPrice} vs ${exp.exec}`,
+  );
   check('buy: cash debited exactly', near(u.cash, 10000 - exp.cost), `${u.cash} vs ${10000 - exp.cost}`);
   check('buy: holdings credited', u.holdings[T] === 10, JSON.stringify(u.holdings));
   check('buy: cost basis = rounded exec price', near(u.costBasis[T], round2(exp.exec)), `${u.costBasis[T]}`);
-  check('buy: lowestWhileHolding = rounded exec price', near(u.lowestWhileHolding[T], round2(exp.exec)), `${u.lowestWhileHolding[T]}`);
+  check(
+    'buy: lowestWhileHolding = rounded exec price',
+    near(u.lowestWhileHolding[T], round2(exp.exec)),
+    `${u.lowestWhileHolding[T]}`,
+  );
   const cohort = u.holdingCohorts?.[T];
-  check('buy: dividend cohort has 10 pending shares', cohort && cohort.eligible === 0 &&
-    cohort.pending?.length === 1 && cohort.pending[0].shares === 10, JSON.stringify(cohort));
-  check('buy: throttle stamps written', !!u.lastTradeTime && !!u.lastBuyTime?.[T] && !!u.lastTickerTradeTime?.[T],
-    JSON.stringify({ lt: !!u.lastTradeTime, lb: !!u.lastBuyTime, ltt: !!u.lastTickerTradeTime }));
+  check(
+    'buy: dividend cohort has 10 pending shares',
+    cohort && cohort.eligible === 0 && cohort.pending?.length === 1 && cohort.pending[0].shares === 10,
+    JSON.stringify(cohort),
+  );
+  check(
+    'buy: throttle stamps written',
+    !!u.lastTradeTime && !!u.lastBuyTime?.[T] && !!u.lastTickerTradeTime?.[T],
+    JSON.stringify({ lt: !!u.lastTradeTime, lb: !!u.lastBuyTime, ltt: !!u.lastTickerTradeTime }),
+  );
   const hist = u.tickerTradeHistory?.[T]?.buy;
-  check('buy: trade history entry appended', hist?.length === 1 && hist[0].shares === 10 &&
-    near(hist[0].impact, exp.impact / 80), JSON.stringify(hist));
-  check('buy: remaining trades counts down', r.remainingTrades === MAX_TRADES_PER_TICKER_24H - 1, `${r.remainingTrades}`);
+  check(
+    'buy: trade history entry appended',
+    hist?.length === 1 && hist[0].shares === 10 && near(hist[0].impact, exp.impact / 80),
+    JSON.stringify(hist),
+  );
+  check(
+    'buy: remaining trades counts down',
+    r.remainingTrades === MAX_TRADES_PER_TICKER_24H - 1,
+    `${r.remainingTrades}`,
+  );
 
   const hd = await getHistoryDoc();
-  const lastPoint = (hd[T] || [])[ (hd[T] || []).length - 1 ];
-  check('buy: price history point appended', !!lastPoint && near(lastPoint.price, exp.newPrice), JSON.stringify(lastPoint));
+  const lastPoint = (hd[T] || [])[(hd[T] || []).length - 1];
+  check(
+    'buy: price history point appended',
+    !!lastPoint && near(lastPoint.price, exp.newPrice),
+    JSON.stringify(lastPoint),
+  );
 
   const daily = u.dailyMissions?.[todayDate()];
-  check('buy: daily mission counters', daily && daily.tradesCount === 1 && daily.tradeVolume === 10 && daily.boughtAny === true,
-    JSON.stringify(daily));
+  check(
+    'buy: daily mission counters',
+    daily && daily.tradesCount === 1 && daily.tradeVolume === 10 && daily.boughtAny === true,
+    JSON.stringify(daily),
+  );
   const weekly = u.weeklyMissions?.[weekIdOf()];
-  check('buy: weekly mission counters', weekly && weekly.tradeCount === 1 && near(weekly.tradeValue, exp.cost) &&
-    weekly.tradingDays?.[todayDate()] === true, JSON.stringify(weekly));
+  check(
+    'buy: weekly mission counters',
+    weekly &&
+      weekly.tradeCount === 1 &&
+      near(weekly.tradeValue, exp.cost) &&
+      weekly.tradingDays?.[todayDate()] === true,
+    JSON.stringify(weekly),
+  );
   check('buy: totalTrades incremented', u.totalTrades === 1, `${u.totalTrades}`);
   const tx = (u.transactionLog || [])[u.transactionLog.length - 1];
-  check('buy: transaction log entry', tx && tx.type === 'BUY' && near(tx.totalCost, exp.cost) && near(tx.pricePerShare, exp.exec),
-    JSON.stringify(tx));
+  check(
+    'buy: transaction log entry',
+    tx && tx.type === 'BUY' && near(tx.totalCost, exp.cost) && near(tx.pricePerShare, exp.exec),
+    JSON.stringify(tx),
+  );
   const trades = await db.collection('trades').where('uid', '==', 'buy_gold').get();
   check('buy: trades collection record', trades.size === 1 && trades.docs[0].data().action === 'buy', `${trades.size}`);
 
@@ -284,8 +365,12 @@ async function testBuy() {
   const exp2 = buyMath(p2, 10, { cum: 10 });
   const r2 = await ok({ ticker: T, action: 'buy', amount: 10 }, 'buy_gold');
   const u2 = await getUser('buy_gold');
-  check('buy: 2nd buy impact uses cumulative volume', near(r2.priceImpact, exp2.impact), `${r2.priceImpact} vs ${exp2.impact}`);
-  const expBasis = round2(((round2(exp.exec) * 10) + (exp2.exec * 10)) / 20);
+  check(
+    'buy: 2nd buy impact uses cumulative volume',
+    near(r2.priceImpact, exp2.impact),
+    `${r2.priceImpact} vs ${exp2.impact}`,
+  );
+  const expBasis = round2((round2(exp.exec) * 10 + exp2.exec * 10) / 20);
   check('buy: cost basis is weighted average', near(u2.costBasis[T], expBasis), `${u2.costBasis[T]} vs ${expBasis}`);
   check('buy: holdings accumulate', u2.holdings[T] === 20, JSON.stringify(u2.holdings));
 
@@ -298,12 +383,17 @@ async function testBuy() {
   await seedMarket({ [T]: 80 });
   await setUser('buy_whale', { cash: 1000000 });
   const rW = await ok({ ticker: T, action: 'buy', amount: 5000 }, 'buy_whale');
-  check('buy: impact capped at 5% of price', near(rW.priceImpact, 80 * MAX_PRICE_CHANGE_PERCENT) && near(rW.newPrice, 84),
-    `impact=${rW.priceImpact} newPrice=${rW.newPrice}`);
+  check(
+    'buy: impact capped at 5% of price',
+    near(rW.priceImpact, 80 * MAX_PRICE_CHANGE_PERCENT) && near(rW.newPrice, 84),
+    `impact=${rW.priceImpact} newPrice=${rW.newPrice}`,
+  );
   const uW = await getUser('buy_whale');
-  check('buy: MONOPOLY + SHARK achievements on capped big buy',
+  check(
+    'buy: MONOPOLY + SHARK achievements on capped big buy',
     (uW.achievements || []).includes('MONOPOLY') && (uW.achievements || []).includes('SHARK'),
-    JSON.stringify(uW.achievements));
+    JSON.stringify(uW.achievements),
+  );
 
   // Daily 10% impact cap blocks further buys
   await seedMarket({ [T]: 80 });
@@ -315,7 +405,11 @@ async function testBuy() {
   check('buy: daily 10% impact cap blocks', !!eCap && /Daily trading limit/i.test(eCap), eCap || 'no error');
 
   // 10-trades-per-24h cap
-  const entries = Array.from({ length: MAX_TRADES_PER_TICKER_24H }, (_, i) => ({ ts: Date.now() - (i + 1) * 1000, shares: 0.01, impact: 0 }));
+  const entries = Array.from({ length: MAX_TRADES_PER_TICKER_24H }, (_, i) => ({
+    ts: Date.now() - (i + 1) * 1000,
+    shares: 0.01,
+    impact: 0,
+  }));
   await setUser('buy_maxed', { cash: 10000, tickerTradeHistory: { [T]: { buy: entries } } });
   const eMax = await err({ ticker: T, action: 'buy', amount: 1 }, 'buy_maxed');
   check('buy: 10-trade/24h cap blocks', !!eMax && /limit of 10 buys/i.test(eMax), eMax || 'no error');
@@ -335,8 +429,12 @@ async function testBuy() {
 async function testSell() {
   console.log('\nC. Sell mechanics');
   await seedMarket({ [T]: 80 });
-  await setUser('sell_gold', { cash: 1000, holdings: { [T]: 10 }, costBasis: { [T]: 80 },
-    holdingCohorts: { [T]: { eligible: 10, pending: [] } } });
+  await setUser('sell_gold', {
+    cash: 1000,
+    holdings: { [T]: 10 },
+    costBasis: { [T]: 80 },
+    holdingCohorts: { [T]: { eligible: 10, pending: [] } },
+  });
 
   // These 10 shares sit in `eligible`, which carries the ladder-epoch stamp, so
   // the discount they earn drifts upward as that stamp ages. Ask the real
@@ -347,13 +445,24 @@ async function testSell() {
   const r = await ok({ ticker: T, action: 'sell', amount: 4 }, 'sell_gold');
   const u = await getUser('sell_gold');
   const m = await getMarket();
-  check('sell: price drops by impact', near(r.newPrice, exp.newPrice) && near(m.prices[T], exp.newPrice),
-    `${r.newPrice} vs ${exp.newPrice}`);
-  check('sell: executes at bid (seller mid - half spread)', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
+  check(
+    'sell: price drops by impact',
+    near(r.newPrice, exp.newPrice) && near(m.prices[T], exp.newPrice),
+    `${r.newPrice} vs ${exp.newPrice}`,
+  );
+  check(
+    'sell: executes at bid (seller mid - half spread)',
+    near(r.executionPrice, exp.exec),
+    `${r.executionPrice} vs ${exp.exec}`,
+  );
   check('sell: cash credited exactly', near(u.cash, 1000 + exp.proceeds), `${u.cash} vs ${1000 + exp.proceeds}`);
   check('sell: holdings decremented', u.holdings[T] === 6, JSON.stringify(u.holdings));
   check('sell: cost basis untouched on partial sell', u.costBasis[T] === 80, `${u.costBasis[T]}`);
-  check('sell: cohort decremented (eligible first)', u.holdingCohorts[T].eligible === 6, JSON.stringify(u.holdingCohorts[T]));
+  check(
+    'sell: cohort decremented (eligible first)',
+    u.holdingCohorts[T].eligible === 6,
+    JSON.stringify(u.holdingCohorts[T]),
+  );
   const daily = u.dailyMissions?.[todayDate()];
   check('sell: daily mission soldAny set', daily?.soldAny === true, JSON.stringify(daily));
 
@@ -361,11 +470,22 @@ async function testSell() {
   await db.collection('users').doc('sell_gold').update({ lastTradeTime: admin.firestore.FieldValue.delete() });
   const okAll = await ok({ ticker: T, action: 'sell', amount: 6 }, 'sell_gold');
   const uAll = await getUser('sell_gold');
-  check('sell-all: holdings key removed', okAll.success && !(T in (uAll.holdings || {})), JSON.stringify(uAll.holdings));
+  check(
+    'sell-all: holdings key removed',
+    okAll.success && !(T in (uAll.holdings || {})),
+    JSON.stringify(uAll.holdings),
+  );
   check('sell-all: cost basis zeroed', uAll.costBasis[T] === 0, `${uAll.costBasis[T]}`);
-  check('sell-all: lowestWhileHolding removed', !(uAll.lowestWhileHolding && T in uAll.lowestWhileHolding),
-    JSON.stringify(uAll.lowestWhileHolding));
-  check('sell-all: cohort removed', !(uAll.holdingCohorts && T in uAll.holdingCohorts), JSON.stringify(uAll.holdingCohorts));
+  check(
+    'sell-all: lowestWhileHolding removed',
+    !(uAll.lowestWhileHolding && T in uAll.lowestWhileHolding),
+    JSON.stringify(uAll.lowestWhileHolding),
+  );
+  check(
+    'sell-all: cohort removed',
+    !(uAll.holdingCohorts && T in uAll.holdingCohorts),
+    JSON.stringify(uAll.holdingCohorts),
+  );
 
   // Dust: a position under a cent still has to be closable. Dividends and
   // partial fills leave these, and Max on the trade form sends the exact
@@ -373,15 +493,21 @@ async function testSell() {
   await setUser('sell_dust', { cash: 0, holdings: { [T]: 0.004 }, costBasis: { [T]: 80 } });
   const okDust = await ok({ ticker: T, action: 'sell', amount: 0.004 }, 'sell_dust');
   const uDust = await getUser('sell_dust');
-  check('sell: sub-cent dust position can be closed',
-    okDust.success === true && !(T in (uDust.holdings || {})), JSON.stringify(uDust.holdings));
+  check(
+    'sell: sub-cent dust position can be closed',
+    okDust.success === true && !(T in (uDust.holdings || {})),
+    JSON.stringify(uDust.holdings),
+  );
 
   // Same for a fractional position with more decimal places than a price has.
   await setUser('sell_frac', { cash: 0, holdings: { [T]: 3.4567 }, costBasis: { [T]: 80 } });
   const okFrac = await ok({ ticker: T, action: 'sell', amount: 3.4567 }, 'sell_frac');
   const uFrac = await getUser('sell_frac');
-  check('sell: 4-decimal position can be closed in full',
-    okFrac.success === true && !(T in (uFrac.holdings || {})), JSON.stringify(uFrac.holdings));
+  check(
+    'sell: 4-decimal position can be closed in full',
+    okFrac.success === true && !(T in (uFrac.holdings || {})),
+    JSON.stringify(uFrac.holdings),
+  );
 
   // Insufficient shares
   await setUser('sell_none', { cash: 0, holdings: { [T]: 1 } });
@@ -392,13 +518,19 @@ async function testSell() {
   await setUser('sell_hold', { cash: 0, holdings: { [T]: 5 }, lastBuyTime: { [T]: Date.now() - 10000 } });
   const eHold = await err({ ticker: T, action: 'sell', amount: 1 }, 'sell_hold');
   check('sell: 45s hold period enforced', !!eHold && /Hold period/i.test(eHold), eHold || 'no error');
-  await db.collection('users').doc('sell_hold').update({ [`lastBuyTime.${T}`]: Date.now() - 50000 });
+  await db
+    .collection('users')
+    .doc('sell_hold')
+    .update({ [`lastBuyTime.${T}`]: Date.now() - 50000 });
   const okHold = await ok({ ticker: T, action: 'sell', amount: 1 }, 'sell_hold');
   check('sell: allowed once hold expires', okHold.success === true, JSON.stringify(okHold));
 
   // Margin lockup blocks selling locked shares
-  await setUser('sell_mlock', { cash: 0, holdings: { [T]: 10 },
-    marginLockup: { [T]: { shares: 6, until: Date.now() + DAY } } });
+  await setUser('sell_mlock', {
+    cash: 0,
+    holdings: { [T]: 10 },
+    marginLockup: { [T]: { shares: 6, until: Date.now() + DAY } },
+  });
   const eML = await err({ ticker: T, action: 'sell', amount: 5 }, 'sell_mlock');
   check('sell: margin-locked shares blocked', !!eML && /margin-locked/i.test(eML), eML || 'no error');
   const okML = await ok({ ticker: T, action: 'sell', amount: 4 }, 'sell_mlock');
@@ -406,26 +538,41 @@ async function testSell() {
 
   // At daily impact cap the sell still executes, with zero price movement
   await seedMarket({ [T]: 80 });
-  await setUser('sell_cap', { cash: 0, holdings: { [T]: 10 },
-    tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] } } });
+  await setUser('sell_cap', {
+    cash: 0,
+    holdings: { [T]: 10 },
+    tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] } },
+  });
   const rCap = await ok({ ticker: T, action: 'sell', amount: 5 }, 'sell_cap');
-  check('sell: executes at daily cap with clamped (zero) impact',
+  check(
+    'sell: executes at daily cap with clamped (zero) impact',
     rCap.success && rCap.priceImpact === 0 && near(rCap.newPrice, 80),
-    `impact=${rCap.priceImpact} newPrice=${rCap.newPrice}`);
+    `impact=${rCap.priceImpact} newPrice=${rCap.newPrice}`,
+  );
 
   // Cohort FIFO: eligible consumed first, then oldest pending
   const now = Date.now();
-  await setUser('sell_fifo', { cash: 0, holdings: { [T]: 10 },
-    holdingCohorts: { [T]: { eligible: 5, pending: [
-      { shares: 3, availableAt: now + 1 * DAY },
-      { shares: 2, availableAt: now + 5 * DAY },
-    ] } } });
+  await setUser('sell_fifo', {
+    cash: 0,
+    holdings: { [T]: 10 },
+    holdingCohorts: {
+      [T]: {
+        eligible: 5,
+        pending: [
+          { shares: 3, availableAt: now + 1 * DAY },
+          { shares: 2, availableAt: now + 5 * DAY },
+        ],
+      },
+    },
+  });
   await ok({ ticker: T, action: 'sell', amount: 7 }, 'sell_fifo');
   const uF = await getUser('sell_fifo');
   const cF = uF.holdingCohorts[T];
-  check('sell: cohort FIFO (eligible → oldest pending)',
+  check(
+    'sell: cohort FIFO (eligible → oldest pending)',
     cF.eligible === 0 && cF.pending.length === 2 && cF.pending[0].shares === 1 && cF.pending[1].shares === 2,
-    JSON.stringify(cF));
+    JSON.stringify(cF),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -443,39 +590,56 @@ async function testShort() {
   check('short: price drops like a sell', near(r.newPrice, exp.newPrice), `${r.newPrice} vs ${exp.newPrice}`);
   check('short: 100% collateral deducted (no proceeds)', near(u.cash, 1000 - margin), `${u.cash} vs ${1000 - margin}`);
   const pos = u.shorts[T];
-  check('short: position recorded (v2, basis = bid exec)',
+  check(
+    'short: position recorded (v2, basis = bid exec)',
     pos && pos.shares === 5 && near(pos.costBasis, exp.exec) && near(pos.margin, margin) && pos.system === 'v2',
-    JSON.stringify(pos));
+    JSON.stringify(pos),
+  );
   check('short: shortHistory stamped', (u.shortHistory?.[T] || []).length === 1, JSON.stringify(u.shortHistory));
   check('short: hasOpenShorts flag set', u.hasOpenShorts === true, `${u.hasOpenShorts}`);
 
   // Adding to an existing short: weighted basis, accumulated margin
   await seedMarket({ [T]: 50 });
   const now = Date.now();
-  await setUser('shrt_add', { cash: 2000,
-    shorts: { [T]: { shares: 5, costBasis: 40, margin: 200, openedAt: now - MIN, system: 'v2' } } });
+  await setUser('shrt_add', {
+    cash: 2000,
+    shorts: { [T]: { shares: 5, costBasis: 40, margin: 200, openedAt: now - MIN, system: 'v2' } },
+  });
   const expA = sellMath(50, 5);
   await ok({ ticker: T, action: 'short', amount: 5 }, 'shrt_add');
   const uA = await getUser('shrt_add');
   const posA = uA.shorts[T];
   const expBasis = (40 * 5 + expA.exec * 5) / 10;
-  check('short: add-on merges with weighted basis', posA.shares === 10 && near(posA.costBasis, expBasis) &&
-    near(posA.margin, 200 + 50 * 5), JSON.stringify(posA));
+  check(
+    'short: add-on merges with weighted basis',
+    posA.shares === 10 && near(posA.costBasis, expBasis) && near(posA.margin, 200 + 50 * 5),
+    JSON.stringify(posA),
+  );
 
   // Insufficient cash for collateral
   await seedMarket({ [T]: 80 });
   await setUser('shrt_poor', { cash: 100 });
   const ePoor = await err({ ticker: T, action: 'short', amount: 5 }, 'shrt_poor');
-  check('short: insufficient collateral rejected', !!ePoor && /Insufficient cash for short margin/i.test(ePoor), ePoor || 'no error');
+  check(
+    'short: insufficient collateral rejected',
+    !!ePoor && /Insufficient cash for short margin/i.test(ePoor),
+    ePoor || 'no error',
+  );
 
   // Total-shorts-vs-equity cap. The existing short must be underwater (price above
   // basis) so equity < cash + margin — otherwise the insufficient-cash check fires first.
   // equity = 700 + (500 + (50-90)*10) = 800; existing margin 500 + new 400 = 900 > 800.
   await seedMarket({ [T]: 80, [T2]: 90 });
-  await setUser('shrt_equity', { cash: 700,
-    shorts: { [T2]: { shares: 10, costBasis: 50, margin: 500, openedAt: now - MIN, system: 'v2' } } });
+  await setUser('shrt_equity', {
+    cash: 700,
+    shorts: { [T2]: { shares: 10, costBasis: 50, margin: 500, openedAt: now - MIN, system: 'v2' } },
+  });
   const eEq = await err({ ticker: T, action: 'short', amount: 5 }, 'shrt_equity');
-  check('short: total shorts capped at portfolio equity', !!eEq && /cannot exceed your portfolio value/i.test(eEq), eEq || 'no error');
+  check(
+    'short: total shorts capped at portfolio equity',
+    !!eEq && /cannot exceed your portfolio value/i.test(eEq),
+    eEq || 'no error',
+  );
 
   // Per-ticker concentration cap (50% of equity)
   await seedMarket({ [T]: 80 });
@@ -486,14 +650,15 @@ async function testShort() {
   check('short: allowed just under concentration cap', okConc.success === true, JSON.stringify(okConc));
 
   // 8h cooldown after 3 shorts on one ticker
-  await setUser('shrt_cool', { cash: 10000,
-    shortHistory: { [T]: [now - 1 * HOUR, now - 2 * HOUR, now - 3 * HOUR] } });
+  await setUser('shrt_cool', { cash: 10000, shortHistory: { [T]: [now - 1 * HOUR, now - 2 * HOUR, now - 3 * HOUR] } });
   const eCool = await err({ ticker: T, action: 'short', amount: 1 }, 'shrt_cool');
   check('short: 8h cooldown after 3 shorts', !!eCool && /can short/i.test(eCool), eCool || 'no error');
 
   // Pending SELL limit order on the ticker blocks shorting
   await setUser('shrt_limit', { cash: 10000 });
-  await db.collection('limitOrders').add({ userId: 'shrt_limit', ticker: T, status: 'PENDING', type: 'SELL', shares: 1, limitPrice: 99 });
+  await db
+    .collection('limitOrders')
+    .add({ userId: 'shrt_limit', ticker: T, status: 'PENDING', type: 'SELL', shares: 1, limitPrice: 99 });
   const eLim = await err({ ticker: T, action: 'short', amount: 1 }, 'shrt_limit');
   check('short: blocked by pending sell limit order', !!eLim && /pending sell order/i.test(eLim), eLim || 'no error');
 }
@@ -507,8 +672,10 @@ async function testCover() {
 
   // v2 full cover: cash += margin back + (basis - exec) * shares; price rises like a buy
   await seedMarket({ [T]: 80 });
-  await setUser('cov_gold', { cash: 100,
-    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - MIN, system: 'v2' } } });
+  await setUser('cov_gold', {
+    cash: 100,
+    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - MIN, system: 'v2' } },
+  });
   const exp = buyMath(80, 5); // covers price like buys, execute at ask
   const r = await ok({ ticker: T, action: 'cover', amount: 5 }, 'cov_gold');
   const u = await getUser('cov_gold');
@@ -518,43 +685,65 @@ async function testCover() {
   check('cover: v2 payout = margin + P&L', near(u.cash, expCash), `${u.cash} vs ${expCash}`);
   check('cover: full cover removes the position', !(u.shorts && T in u.shorts), JSON.stringify(u.shorts));
   check('cover: full cover clears hasOpenShorts flag', u.hasOpenShorts === false, `${u.hasOpenShorts}`);
-  check('cover: COLD_BLOODED on profitable cover', (u.achievements || []).includes('COLD_BLOODED'),
-    JSON.stringify(u.achievements));
+  check(
+    'cover: COLD_BLOODED on profitable cover',
+    (u.achievements || []).includes('COLD_BLOODED'),
+    JSON.stringify(u.achievements),
+  );
   const tx = (u.transactionLog || [])[u.transactionLog.length - 1];
-  check('cover: transaction log SHORT_CLOSE with profit', tx?.type === 'SHORT_CLOSE' && near(tx.totalProfit, (90 - exp.exec) * 5),
-    JSON.stringify(tx));
+  check(
+    'cover: transaction log SHORT_CLOSE with profit',
+    tx?.type === 'SHORT_CLOSE' && near(tx.totalProfit, (90 - exp.exec) * 5),
+    JSON.stringify(tx),
+  );
 
   // Partial cover: proportional margin return
   await seedMarket({ [T]: 80 });
-  await setUser('cov_part', { cash: 0,
-    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - MIN, system: 'v2' } } });
+  await setUser('cov_part', {
+    cash: 0,
+    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - MIN, system: 'v2' } },
+  });
   const expP = buyMath(80, 2);
   await ok({ ticker: T, action: 'cover', amount: 2 }, 'cov_part');
   const uP = await getUser('cov_part');
-  check('cover: partial returns proportional margin', near(uP.cash, 160 + (90 - expP.exec) * 2) &&
-    uP.shorts[T].shares === 3 && near(uP.shorts[T].margin, 240), JSON.stringify({ cash: uP.cash, pos: uP.shorts[T] }));
+  check(
+    'cover: partial returns proportional margin',
+    near(uP.cash, 160 + (90 - expP.exec) * 2) && uP.shorts[T].shares === 3 && near(uP.shorts[T].margin, 240),
+    JSON.stringify({ cash: uP.cash, pos: uP.shorts[T] }),
+  );
   check('cover: partial cover keeps hasOpenShorts flag', uP.hasOpenShorts === true, `${uP.hasOpenShorts}`);
 
   // Over-cover rejected (clear the 3s cooldown left by the partial cover first)
   await db.collection('users').doc('cov_part').update({ lastTradeTime: admin.firestore.FieldValue.delete() });
   const eOver = await err({ ticker: T, action: 'cover', amount: 10 }, 'cov_part');
-  check('cover: covering more than the position rejected', !!eOver && /No short position/i.test(eOver), eOver || 'no error');
+  check(
+    'cover: covering more than the position rejected',
+    !!eOver && /No short position/i.test(eOver),
+    eOver || 'no error',
+  );
 
   // 45s hold from open
-  await setUser('cov_hold', { cash: 0,
-    shorts: { [T]: { shares: 2, costBasis: 90, margin: 160, openedAt: Date.now() - 10000, system: 'v2' } } });
+  await setUser('cov_hold', {
+    cash: 0,
+    shorts: { [T]: { shares: 2, costBasis: 90, margin: 160, openedAt: Date.now() - 10000, system: 'v2' } },
+  });
   const eHold = await err({ ticker: T, action: 'cover', amount: 1 }, 'cov_hold');
   check('cover: 45s hold period from open', !!eHold && /Hold period/i.test(eHold), eHold || 'no error');
 
   // Legacy (pre-v2) cover: pay cover cost, get margin back
   await seedMarket({ [T]: 80 });
-  await setUser('cov_v1', { cash: 1000,
-    shorts: { [T]: { shares: 5, costBasis: 90, margin: 225, openedAt: now - MIN, system: 'v1' } } });
+  await setUser('cov_v1', {
+    cash: 1000,
+    shorts: { [T]: { shares: 5, costBasis: 90, margin: 225, openedAt: now - MIN, system: 'v1' } },
+  });
   const expL = buyMath(80, 5);
   await ok({ ticker: T, action: 'cover', amount: 5 }, 'cov_v1');
   const uL = await getUser('cov_v1');
-  check('cover: legacy path pays cost and returns margin', near(uL.cash, 1000 - expL.cost + 225),
-    `${uL.cash} vs ${1000 - expL.cost + 225}`);
+  check(
+    'cover: legacy path pays cost and returns margin',
+    near(uL.cash, 1000 - expL.cost + 225),
+    `${uL.cash} vs ${1000 - expL.cost + 225}`,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -574,42 +763,72 @@ async function testMarginBuy() {
   check('margin: cash floors at 0', u.cash === 0, `${u.cash}`);
   const lock = u.marginLockup?.[T3];
   const expLockShares = Math.round((expMargin / exp.exec) * 100) / 100;
-  check('margin: funded shares locked for 36h', lock && near(lock.shares, expLockShares) &&
-    lock.until > Date.now() + MARGIN_SELL_LOCKUP_MS - 10000, JSON.stringify(lock));
+  check(
+    'margin: funded shares locked for 36h',
+    lock && near(lock.shares, expLockShares) && lock.until > Date.now() + MARGIN_SELL_LOCKUP_MS - 10000,
+    JSON.stringify(lock),
+  );
   check('margin: buy succeeded with holdings credited', r.success && u.holdings[T3] === 3, JSON.stringify(u.holdings));
 
   // In a season, margin owed is averaged over time, so a buy that changes the
   // debt closes the running span and opens a new one at the new amount.
   await seedMarket({ [T3]: 40 });
   const pinnedAt = Date.now() - 2 * 24 * 60 * 60 * 1000;
-  await setUser('mgn_season', { cash: 100, marginEnabled: true, peakPortfolioValue: 0, marginUsed: 0,
+  await setUser('mgn_season', {
+    cash: 100,
+    marginEnabled: true,
+    peakPortfolioValue: 0,
+    marginUsed: 0,
     seasonBaseline: { seasonId: 'S9', value: 100, pinnedAt },
-    seasonMargin: { seasonId: 'S9', dd: 0, amount: 0, at: pinnedAt } });
+    seasonMargin: { seasonId: 'S9', dd: 0, amount: 0, at: pinnedAt },
+  });
   await ok({ ticker: T3, action: 'buy', amount: 3 }, 'mgn_season');
   const us = await getUser('mgn_season');
-  check('margin: season margin tally logs the new debt', us.seasonMargin?.seasonId === 'S9'
-    && near(us.seasonMargin.amount, Math.round(us.marginUsed * 100) / 100, 1e-6)
-    && us.seasonMargin.dd === 0 && us.seasonMargin.at > pinnedAt, JSON.stringify(us.seasonMargin));
+  check(
+    'margin: season margin tally logs the new debt',
+    us.seasonMargin?.seasonId === 'S9' &&
+      near(us.seasonMargin.amount, Math.round(us.marginUsed * 100) / 100, 1e-6) &&
+      us.seasonMargin.dd === 0 &&
+      us.seasonMargin.at > pinnedAt,
+    JSON.stringify(us.seasonMargin),
+  );
   check('margin: no season, no margin tally written', u.seasonMargin === undefined, JSON.stringify(u.seasonMargin));
 
   // Beyond available margin → rejected
   await setUser('mgn_over', { cash: 100, marginEnabled: true, peakPortfolioValue: 0 });
   const eOver = await err({ ticker: T3, action: 'buy', amount: 4 }, 'mgn_over'); // ~160 > 100+25
-  check('margin: blocked past borrowing power', !!eOver && /Insufficient funds \(including margin\)/i.test(eOver), eOver || 'no error');
+  check(
+    'margin: blocked past borrowing power',
+    !!eOver && /Insufficient funds \(including margin\)/i.test(eOver),
+    eOver || 'no error',
+  );
 
   // Collateral valued at LOWER of cost basis or market (pump-proof)
   await seedMarket({ [T3]: 40, [T]: 400 });
-  await setUser('mgn_pump', { cash: 0, marginEnabled: true, peakPortfolioValue: 0,
-    holdings: { [T]: 10 }, costBasis: { [T]: 10 } });
+  await setUser('mgn_pump', {
+    cash: 0,
+    marginEnabled: true,
+    peakPortfolioValue: 0,
+    holdings: { [T]: 10 },
+    costBasis: { [T]: 10 },
+  });
   // collateral = min(10, 400) * 10 = 100 → max borrowable 25 → can't afford 40+ purchase
   const ePump = await err({ ticker: T3, action: 'buy', amount: 1 }, 'mgn_pump');
-  check('margin: collateral uses lower of basis/market', !!ePump && /Insufficient funds/i.test(ePump), ePump || 'no error');
+  check(
+    'margin: collateral uses lower of basis/market',
+    !!ePump && /Insufficient funds/i.test(ePump),
+    ePump || 'no error',
+  );
 
   // Without marginEnabled, no borrowing happens
   await seedMarket({ [T3]: 40 });
   await setUser('mgn_off', { cash: 100, marginEnabled: false });
   const eOff = await err({ ticker: T3, action: 'buy', amount: 3 }, 'mgn_off');
-  check('margin: disabled users get plain insufficient-funds', !!eOff && /Insufficient funds\./i.test(eOff), eOff || 'no error');
+  check(
+    'margin: disabled users get plain insufficient-funds',
+    !!eOff && /Insufficient funds\./i.test(eOff),
+    eOff || 'no error',
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -627,20 +846,38 @@ async function testEtfTrailing() {
   check('etf: uses the tighter ETF spread', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
   const pct = (exp.newPrice - 50) / 50;
   const expCon = (p0) => Math.max(0.01, round2(p0 * (1 + pct * 0.16)));
-  check('etf: constituents trail at their coefficient',
+  check(
+    'etf: constituents trail at their coefficient',
     near(m.prices.GOO, expCon(85)) && near(m.prices.LOGN, expCon(30)) && near(m.prices.SAM, expCon(60)),
-    JSON.stringify({ GOO: m.prices.GOO, LOGN: m.prices.LOGN, SAM: m.prices.SAM,
-      exp: [expCon(85), expCon(30), expCon(60)] }));
-  check('etf: result includes all affected tickers', r.priceUpdates && ETF in r.priceUpdates &&
-    'GOO' in r.priceUpdates && 'LOGN' in r.priceUpdates && 'SAM' in r.priceUpdates, JSON.stringify(r.priceUpdates));
+    JSON.stringify({
+      GOO: m.prices.GOO,
+      LOGN: m.prices.LOGN,
+      SAM: m.prices.SAM,
+      exp: [expCon(85), expCon(30), expCon(60)],
+    }),
+  );
+  check(
+    'etf: result includes all affected tickers',
+    r.priceUpdates &&
+      ETF in r.priceUpdates &&
+      'GOO' in r.priceUpdates &&
+      'LOGN' in r.priceUpdates &&
+      'SAM' in r.priceUpdates,
+    JSON.stringify(r.priceUpdates),
+  );
   const uE = await getUser('etf_user');
   const trailGoo = uE.tickerTradeHistory?.GOO?.buy;
-  check('etf: trailing impact logged as synthetic history (shares 0)',
-    trailGoo?.length === 1 && trailGoo[0].shares === 0 && trailGoo[0].impact > 0, JSON.stringify(trailGoo));
+  check(
+    'etf: trailing impact logged as synthetic history (shares 0)',
+    trailGoo?.length === 1 && trailGoo[0].shares === 0 && trailGoo[0].impact > 0,
+    JSON.stringify(trailGoo),
+  );
   const hd = await getHistoryDoc();
-  check('etf: price history written for trailing tickers too',
+  check(
+    'etf: price history written for trailing tickers too',
     (hd[ETF] || []).length === 1 && (hd.GOO || []).length === 1 && (hd.LOGN || []).length === 1,
-    JSON.stringify(Object.keys(hd)));
+    JSON.stringify(Object.keys(hd)),
+  );
 
   // Buy a constituent: the parent ETF moves via reverse propagation
   await seedMarket({ [ETF]: 50, GOO: 85 });
@@ -650,16 +887,20 @@ async function testEtfTrailing() {
   const m2 = await getMarket();
   const gooPct = (expG.newPrice - 85) / 85;
   const expEtf = Math.max(0.01, round2(50 * (1 + gooPct * 0.16)));
-  check('etf: stock buy propagates to parent ETF', near(m2.prices[ETF], expEtf),
-    `${m2.prices[ETF]} vs ${expEtf}`);
+  check('etf: stock buy propagates to parent ETF', near(m2.prices[ETF], expEtf), `${m2.prices[ETF]} vs ${expEtf}`);
 
   // Trailing impact counts against the constituent's own daily cap
   await seedMarket({ [ETF]: 50, GOO: 85 });
-  await setUser('etf_cap', { cash: 100000,
-    tickerTradeHistory: { GOO: { buy: [{ ts: Date.now() - 1000, shares: 0.01, impact: 0.0999 }] } } });
+  await setUser('etf_cap', {
+    cash: 100000,
+    tickerTradeHistory: { GOO: { buy: [{ ts: Date.now() - 1000, shares: 0.01, impact: 0.0999 }] } },
+  });
   const eTrailCap = await err({ ticker: 'GOO', action: 'buy', amount: 50 }, 'etf_cap');
-  check('etf: trailing/daily impact cap still enforced per ticker',
-    !!eTrailCap && /Daily trading limit/i.test(eTrailCap), eTrailCap || 'no error');
+  check(
+    'etf: trailing/daily impact cap still enforced per ticker',
+    !!eTrailCap && /Daily trading limit/i.test(eTrailCap),
+    eTrailCap || 'no error',
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -676,8 +917,12 @@ async function testThrottles() {
   check('3s global trade cooldown', !!eG && /Trade cooldown/i.test(eG), eG || 'no error');
 
   // 10s same-ticker cooldown (buy/short only) — sells exempt
-  await setUser('thr_ticker', { cash: 10000, holdings: { [T]: 5 },
-    lastTradeTime: now - 5000, lastTickerTradeTime: { [T]: now - 5000 } });
+  await setUser('thr_ticker', {
+    cash: 10000,
+    holdings: { [T]: 5 },
+    lastTradeTime: now - 5000,
+    lastTickerTradeTime: { [T]: now - 5000 },
+  });
   const eT = await err({ ticker: T, action: 'buy', amount: 1 }, 'thr_ticker');
   check('10s same-ticker cooldown on buys', !!eT && /Same-stock cooldown/i.test(eT), eT || 'no error');
   const okSell = await ok({ ticker: T, action: 'sell', amount: 1 }, 'thr_ticker');
@@ -688,7 +933,9 @@ async function testThrottles() {
   const batch = db.batch();
   for (let i = 0; i < 3; i++) {
     batch.set(db.collection('trades').doc(), {
-      uid: 'thr_burst', ticker: T, action: 'buy',
+      uid: 'thr_burst',
+      ticker: T,
+      action: 'buy',
       timestamp: admin.firestore.Timestamp.fromMillis(now - (i + 1) * 30000),
     });
   }
@@ -701,7 +948,9 @@ async function testThrottles() {
   const batch2 = db.batch();
   for (let i = 0; i < 15; i++) {
     batch2.set(db.collection('trades').doc(), {
-      uid: 'thr_vel', ticker: T2, action: 'buy',
+      uid: 'thr_vel',
+      ticker: T2,
+      action: 'buy',
       timestamp: admin.firestore.Timestamp.fromMillis(now - 10 * MIN - i * 1000),
     });
   }
@@ -712,9 +961,12 @@ async function testThrottles() {
   // Per-IP account cap: 3rd account buying from one IP within an hour is blocked
   const capIp = '198.18.0.1';
   const capIpDoc = capIp.replace(/[.:/]/g, '_');
-  await db.collection('ipTracking').doc(capIpDoc).set({
-    recentTraders: { ip_user_a: now - 5 * MIN, ip_user_b: now - 5 * MIN },
-  });
+  await db
+    .collection('ipTracking')
+    .doc(capIpDoc)
+    .set({
+      recentTraders: { ip_user_a: now - 5 * MIN, ip_user_b: now - 5 * MIN },
+    });
   await setUser('ip_user_c', { cash: 10000, holdings: { [T]: 5 } });
   const eIp = await err({ ticker: T, action: 'buy', amount: 1 }, 'ip_user_c', capIp);
   check('per-IP cap: 3rd account cannot buy', !!eIp && /Too many accounts/i.test(eIp), eIp || 'no error');
@@ -723,10 +975,13 @@ async function testThrottles() {
 
   // IP-shared daily impact: a sibling account's impact counts against yours
   const shIp = '198.18.0.2';
-  await db.collection('ipTracking').doc(shIp.replace(/[.:/]/g, '_')).set({
-    tickerTradeHistory: { [T2]: { buy: [{ ts: now - 1000, shares: 1, impact: 0.099 }] } },
-    recentTraders: {},
-  });
+  await db
+    .collection('ipTracking')
+    .doc(shIp.replace(/[.:/]/g, '_'))
+    .set({
+      tickerTradeHistory: { [T2]: { buy: [{ ts: now - 1000, shares: 1, impact: 0.099 }] } },
+      recentTraders: {},
+    });
   await setUser('ip_shared', { cash: 10000 });
   const eShared = await err({ ticker: T2, action: 'buy', amount: 10 }, 'ip_shared', shIp);
   check('IP-shared daily impact cap', !!eShared && /Daily trading limit/i.test(eShared), eShared || 'no error');
@@ -741,74 +996,117 @@ async function testAchievements() {
 
   // BULL_RUN (≥25% sell profit) + DIAMOND_HANDS (held through ≥30% dip, sold green)
   await seedMarket({ [T]: 80 });
-  await setUser('ach_bull', { cash: 0, holdings: { [T]: 5 }, costBasis: { [T]: 10 },
-    lowestWhileHolding: { [T]: 5 } });
+  await setUser('ach_bull', { cash: 0, holdings: { [T]: 5 }, costBasis: { [T]: 10 }, lowestWhileHolding: { [T]: 5 } });
   await ok({ ticker: T, action: 'sell', amount: 5 }, 'ach_bull');
   const uB = await getUser('ach_bull');
-  check('BULL_RUN + DIAMOND_HANDS on dip-surviving profitable sell',
+  check(
+    'BULL_RUN + DIAMOND_HANDS on dip-surviving profitable sell',
     (uB.achievements || []).includes('BULL_RUN') && (uB.achievements || []).includes('DIAMOND_HANDS'),
-    JSON.stringify(uB.achievements));
+    JSON.stringify(uB.achievements),
+  );
 
   // DISCORD_LINKED: any trade by a linked account
   await setUser('ach_disc', { cash: 10000, discordId: '12345' });
   await ok({ ticker: T, action: 'buy', amount: 1 }, 'ach_disc');
   const uD = await getUser('ach_disc');
-  check('DISCORD_LINKED awarded on first trade', (uD.achievements || []).includes('DISCORD_LINKED'),
-    JSON.stringify(uD.achievements));
+  check(
+    'DISCORD_LINKED awarded on first trade',
+    (uD.achievements || []).includes('DISCORD_LINKED'),
+    JSON.stringify(uD.achievements),
+  );
 
   // TOPPED_OFF: sold at/above the all-time high
   await seedMarket({ [T]: 80 });
-  await db.collection('market').doc('priceHistory').set({
-    [T]: [{ timestamp: now - DAY, price: 50 }, { timestamp: now - HOUR, price: 60 }],
-  });
+  await db
+    .collection('market')
+    .doc('priceHistory')
+    .set({
+      [T]: [
+        { timestamp: now - DAY, price: 50 },
+        { timestamp: now - HOUR, price: 60 },
+      ],
+    });
   await setUser('ach_top', { cash: 0, holdings: { [T]: 2 }, costBasis: { [T]: 40 } });
   await ok({ ticker: T, action: 'sell', amount: 2 }, 'ach_top');
   const uT = await getUser('ach_top');
-  check('TOPPED_OFF on selling at all-time high', (uT.achievements || []).includes('TOPPED_OFF'),
-    JSON.stringify(uT.achievements));
+  check(
+    'TOPPED_OFF on selling at all-time high',
+    (uT.achievements || []).includes('TOPPED_OFF'),
+    JSON.stringify(uT.achievements),
+  );
 
   // ...but not at a merely recent high. The live history keeps only the last
   // few dozen points; a real high that scrolled out of it lives in market.ath.
   await seedMarket({ [T]: 80 });
-  await db.collection('market').doc('current').update({ [`ath.${T}`]: 200 });
-  await db.collection('market').doc('priceHistory').set({
-    [T]: [{ timestamp: now - DAY, price: 50 }, { timestamp: now - HOUR, price: 60 }],
-  });
+  await db
+    .collection('market')
+    .doc('current')
+    .update({ [`ath.${T}`]: 200 });
+  await db
+    .collection('market')
+    .doc('priceHistory')
+    .set({
+      [T]: [
+        { timestamp: now - DAY, price: 50 },
+        { timestamp: now - HOUR, price: 60 },
+      ],
+    });
   await setUser('ach_top2', { cash: 0, holdings: { [T]: 2 }, costBasis: { [T]: 40 } });
   await ok({ ticker: T, action: 'sell', amount: 2 }, 'ach_top2');
   const uT2 = await getUser('ach_top2');
-  check('no TOPPED_OFF when the recorded all-time high is far above', !(uT2.achievements || []).includes('TOPPED_OFF'),
-    JSON.stringify(uT2.achievements));
+  check(
+    'no TOPPED_OFF when the recorded all-time high is far above',
+    !(uT2.achievements || []).includes('TOPPED_OFF'),
+    JSON.stringify(uT2.achievements),
+  );
 
   // THATS_A_BIG_DEAL: bought a bullish stock within 3% of its 7-day low
   await seedMarket({ [T2]: 55 });
-  await db.collection('market').doc('priceHistory').set({
-    [T2]: [{ timestamp: now - 6 * DAY, price: 60 }, { timestamp: now - 25 * HOUR, price: 54 }],
-  });
+  await db
+    .collection('market')
+    .doc('priceHistory')
+    .set({
+      [T2]: [
+        { timestamp: now - 6 * DAY, price: 60 },
+        { timestamp: now - 25 * HOUR, price: 54 },
+      ],
+    });
   await setUser('ach_deal', { cash: 10000 });
   await ok({ ticker: T2, action: 'buy', amount: 1 }, 'ach_deal');
   const uDeal = await getUser('ach_deal');
-  check('THATS_A_BIG_DEAL on bullish weekly-low buy', (uDeal.achievements || []).includes('THATS_A_BIG_DEAL'),
-    JSON.stringify(uDeal.achievements));
+  check(
+    'THATS_A_BIG_DEAL on bullish weekly-low buy',
+    (uDeal.achievements || []).includes('THATS_A_BIG_DEAL'),
+    JSON.stringify(uDeal.achievements),
+  );
 
   // ANIMAL_INSTINCT: cumulative animal-character profit ≥ 250
   await seedMarket({ RYAN: 48 });
   await setUser('ach_zoo', { cash: 0, holdings: { RYAN: 10 }, costBasis: { RYAN: 10 } });
   await ok({ ticker: 'RYAN', action: 'sell', amount: 10 }, 'ach_zoo');
   const uZ = await getUser('ach_zoo');
-  check('ANIMAL_INSTINCT + profitByTicker tracking',
+  check(
+    'ANIMAL_INSTINCT + profitByTicker tracking',
     (uZ.achievements || []).includes('ANIMAL_INSTINCT') && (uZ.profitByTicker?.RYAN || 0) > 250,
-    JSON.stringify({ ach: uZ.achievements, pbt: uZ.profitByTicker }));
+    JSON.stringify({ ach: uZ.achievements, pbt: uZ.profitByTicker }),
+  );
 
   // UNIFIER revocation: selling below a full share strips badge AND pin
   await seedMarket({ [T]: 80 });
-  await setUser('ach_uni', { cash: 0, holdings: { [T]: 1.5 }, costBasis: { [T]: 80 },
-    achievements: ['UNIFIER'], displayedAchievementPins: ['UNIFIER'] });
+  await setUser('ach_uni', {
+    cash: 0,
+    holdings: { [T]: 1.5 },
+    costBasis: { [T]: 80 },
+    achievements: ['UNIFIER'],
+    displayedAchievementPins: ['UNIFIER'],
+  });
   await ok({ ticker: T, action: 'sell', amount: 1 }, 'ach_uni');
   const uU = await getUser('ach_uni');
-  check('UNIFIER revoked (badge + displayed pin) on partial-share sell',
+  check(
+    'UNIFIER revoked (badge + displayed pin) on partial-share sell',
     !(uU.achievements || []).includes('UNIFIER') && !(uU.displayedAchievementPins || []).includes('UNIFIER'),
-    JSON.stringify({ ach: uU.achievements, pins: uU.displayedAchievementPins }));
+    JSON.stringify({ ach: uU.achievements, pins: uU.displayedAchievementPins }),
+  );
 
   // Crew mission flags: crew-member buy vs rival buy
   await seedMarket({ GOO: 85, JAKE: 65 });
@@ -816,8 +1114,11 @@ async function testAchievements() {
   await ok({ ticker: 'GOO', action: 'buy', amount: 2 }, 'ach_crew');
   let uC = await getUser('ach_crew');
   let dC = uC.dailyMissions?.[todayDate()];
-  check('crew buy sets boughtCrewMember + crewSharesBought', dC?.boughtCrewMember === true && dC?.crewSharesBought === 2,
-    JSON.stringify(dC));
+  check(
+    'crew buy sets boughtCrewMember + crewSharesBought',
+    dC?.boughtCrewMember === true && dC?.crewSharesBought === 2,
+    JSON.stringify(dC),
+  );
   await db.collection('users').doc('ach_crew').update({
     lastTradeTime: admin.firestore.FieldValue.delete(),
     lastTickerTradeTime: admin.firestore.FieldValue.delete(),
@@ -832,8 +1133,11 @@ async function testAchievements() {
   await setUser('ach_und', { cash: 1000 });
   await ok({ ticker: UND, action: 'buy', amount: 1 }, 'ach_und');
   const uUnd = await getUser('ach_und');
-  check('underdog buy flag (< $20)', uUnd.dailyMissions?.[todayDate()]?.boughtUnderdog === true,
-    JSON.stringify(uUnd.dailyMissions?.[todayDate()]));
+  check(
+    'underdog buy flag (< $20)',
+    uUnd.dailyMissions?.[todayDate()]?.boughtUnderdog === true,
+    JSON.stringify(uUnd.dailyMissions?.[todayDate()]),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -861,11 +1165,15 @@ async function testMarginCallScanner() {
   await seedMarket({ [T3]: 90, [T2]: 66 });
 
   // Deeply underwater: equity = 500 − (90−50)×10 = 100; ratio 100/900 ≈ 0.11 < 0.25
-  await setUser('mc_under', { cash: 1000,
-    shorts: { [T3]: { shares: 10, costBasis: 50, margin: 500, openedAt: nowTs, system: 'v2' } } });
+  await setUser('mc_under', {
+    cash: 1000,
+    shorts: { [T3]: { shares: 10, costBasis: 50, margin: 500, openedAt: nowTs, system: 'v2' } },
+  });
   // At the money: equity = margin → ratio 1.0, healthy
-  await setUser('mc_healthy', { cash: 1000,
-    shorts: { [T2]: { shares: 5, costBasis: 66, margin: 330, openedAt: nowTs, system: 'v2' } } });
+  await setUser('mc_healthy', {
+    cash: 1000,
+    shorts: { [T2]: { shares: 5, costBasis: 66, margin: 330, openedAt: nowTs, system: 'v2' } },
+  });
   // Stale flag with no shorts — the backfill scan should clear it
   await setUser('mc_stale', { cash: 100, shorts: {}, hasOpenShorts: true });
 
@@ -880,24 +1188,37 @@ async function testMarginCallScanner() {
   const capped = Math.min(raw * SHORT_MARGIN_DAMPENING_FACTOR, 90 * MAX_PRICE_CHANGE_PERCENT);
   const coverPrice = round2(90 + capped);
   const uU = await getUser('mc_under');
-  check('scanner: underwater short force-covered, flag cleared',
+  check(
+    'scanner: underwater short force-covered, flag cleared',
     !(uU.shorts && T3 in uU.shorts) && uU.hasOpenShorts === false,
-    JSON.stringify({ shorts: uU.shorts, flag: uU.hasOpenShorts }));
+    JSON.stringify({ shorts: uU.shorts, flag: uU.hasOpenShorts }),
+  );
   const expCash = round2(1000 + 500 + (50 - coverPrice) * 10);
-  check('scanner: liquidation payout = margin + P&L at dampened price', near(uU.cash, expCash, 0.01),
-    `${uU.cash} vs ${expCash}`);
-  check('scanner: dampened impact applied to market price', near(mkt.prices[T3], coverPrice),
-    `${mkt.prices[T3]} vs ${coverPrice}`);
-  const liqTrades = await db.collection('trades')
-    .where('uid', '==', 'mc_under').get();
-  check('scanner: liquidation logged as margin_call_cover trade',
-    liqTrades.size === 1 && liqTrades.docs[0].data().action === 'margin_call_cover' && liqTrades.docs[0].data().automated === true,
-    `${liqTrades.size}`);
+  check(
+    'scanner: liquidation payout = margin + P&L at dampened price',
+    near(uU.cash, expCash, 0.01),
+    `${uU.cash} vs ${expCash}`,
+  );
+  check(
+    'scanner: dampened impact applied to market price',
+    near(mkt.prices[T3], coverPrice),
+    `${mkt.prices[T3]} vs ${coverPrice}`,
+  );
+  const liqTrades = await db.collection('trades').where('uid', '==', 'mc_under').get();
+  check(
+    'scanner: liquidation logged as margin_call_cover trade',
+    liqTrades.size === 1 &&
+      liqTrades.docs[0].data().action === 'margin_call_cover' &&
+      liqTrades.docs[0].data().automated === true,
+    `${liqTrades.size}`,
+  );
 
   const uH = await getUser('mc_healthy');
-  check('scanner: healthy short untouched, flag backfilled to true',
+  check(
+    'scanner: healthy short untouched, flag backfilled to true',
     uH.shorts[T2]?.shares === 5 && uH.hasOpenShorts === true,
-    JSON.stringify({ shorts: uH.shorts, flag: uH.hasOpenShorts }));
+    JSON.stringify({ shorts: uH.shorts, flag: uH.hasOpenShorts }),
+  );
   const uS = await getUser('mc_stale');
   check('scanner: backfill clears stale flag', uS.hasOpenShorts === false, `${uS.hasOpenShorts}`);
 
@@ -908,8 +1229,11 @@ async function testMarginCallScanner() {
   const uS2 = await getUser('mc_stale2');
   check('scanner: query path self-heals stale flags', uS2.hasOpenShorts === false, `${uS2.hasOpenShorts}`);
   const uH2 = await getUser('mc_healthy');
-  check('scanner: healthy short survives the query-path run',
-    uH2.shorts[T2]?.shares === 5 && uH2.hasOpenShorts === true, JSON.stringify(uH2.shorts));
+  check(
+    'scanner: healthy short survives the query-path run',
+    uH2.shorts[T2]?.shares === 5 && uH2.hasOpenShorts === true,
+    JSON.stringify(uH2.shorts),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -930,8 +1254,11 @@ async function testMarginLendingScanner() {
   //
   // Underwater: gross = 100 cash + 10×90 = 1000; ratio = (1000−800)/1000 = 0.20
   await setUser('ml_under', {
-    cash: 100, holdings: { [T3]: 10 }, costBasis: { [T3]: 90 },
-    marginEnabled: true, marginUsed: 800,
+    cash: 100,
+    holdings: { [T3]: 10 },
+    costBasis: { [T3]: 90 },
+    marginEnabled: true,
+    marginUsed: 800,
     // The lot ledger and the per-position bookkeeping a real holder would carry.
     // A forced liquidation closes the position outright, so all of it has to go
     // with it — it used to write zeros into holdings and leave these behind,
@@ -942,19 +1269,28 @@ async function testMarginLendingScanner() {
   });
   // Margin-call zone: ratio = (1000−720)/1000 = 0.28 — call, but no liquidation
   await setUser('ml_call', {
-    cash: 100, holdings: { [T3]: 10 }, costBasis: { [T3]: 90 },
-    marginEnabled: true, marginUsed: 720,
+    cash: 100,
+    holdings: { [T3]: 10 },
+    costBasis: { [T3]: 90 },
+    marginEnabled: true,
+    marginUsed: 720,
   });
   // Healthy: gross = 1000 + 330 = 1330; ratio = (1330−100)/1330 ≈ 0.92
   await setUser('ml_healthy', {
-    cash: 1000, holdings: { [T2]: 5 }, costBasis: { [T2]: 66 },
-    marginEnabled: true, marginUsed: 100,
+    cash: 1000,
+    holdings: { [T2]: 5 },
+    costBasis: { [T2]: 66 },
+    marginEnabled: true,
+    marginUsed: 100,
   });
 
-  check('lending: seeded ratios straddle the thresholds',
-    0.20 <= LONG_MARGIN_LIQUIDATION_THRESHOLD
-    && 0.28 > LONG_MARGIN_LIQUIDATION_THRESHOLD && 0.28 <= LONG_MARGIN_CALL_THRESHOLD,
-    `liq=${LONG_MARGIN_LIQUIDATION_THRESHOLD} call=${LONG_MARGIN_CALL_THRESHOLD}`);
+  check(
+    'lending: seeded ratios straddle the thresholds',
+    0.2 <= LONG_MARGIN_LIQUIDATION_THRESHOLD &&
+      0.28 > LONG_MARGIN_LIQUIDATION_THRESHOLD &&
+      0.28 <= LONG_MARGIN_CALL_THRESHOLD,
+    `liq=${LONG_MARGIN_LIQUIDATION_THRESHOLD} call=${LONG_MARGIN_CALL_THRESHOLD}`,
+  );
 
   await checkMarginLending.run({}, {});
 
@@ -965,48 +1301,75 @@ async function testMarginLendingScanner() {
   check('lending: underwater portfolio fully sold', !(uU.holdings?.[T3] > 0), JSON.stringify(uU.holdings));
   // A closed position leaves nothing behind. Same end state as a normal full
   // exit through executeTrade, so a later re-buy starts from a clean slate.
-  check('lending: position bookkeeping cleared with the shares',
-    uU.holdings?.[T3] === undefined
-    && uU.costBasis?.[T3] === undefined
-    && uU.holdingCohorts?.[T3] === undefined
-    && uU.lowestWhileHolding?.[T3] === undefined
-    && uU.marginLockup?.[T3] === undefined,
+  check(
+    'lending: position bookkeeping cleared with the shares',
+    uU.holdings?.[T3] === undefined &&
+      uU.costBasis?.[T3] === undefined &&
+      uU.holdingCohorts?.[T3] === undefined &&
+      uU.lowestWhileHolding?.[T3] === undefined &&
+      uU.marginLockup?.[T3] === undefined,
     JSON.stringify({
-      h: uU.holdings?.[T3], cb: uU.costBasis?.[T3], co: uU.holdingCohorts?.[T3],
-      lo: uU.lowestWhileHolding?.[T3], ml: uU.marginLockup?.[T3],
-    }));
-  check('lending: payout = cash + holdings at slippage price − debt', near(uU.cash, expCash, 0.01),
-    `${uU.cash} vs ${expCash}`);
-  check('lending: debt cleared and margin switched off',
+      h: uU.holdings?.[T3],
+      cb: uU.costBasis?.[T3],
+      co: uU.holdingCohorts?.[T3],
+      lo: uU.lowestWhileHolding?.[T3],
+      ml: uU.marginLockup?.[T3],
+    }),
+  );
+  check(
+    'lending: payout = cash + holdings at slippage price − debt',
+    near(uU.cash, expCash, 0.01),
+    `${uU.cash} vs ${expCash}`,
+  );
+  check(
+    'lending: debt cleared and margin switched off',
     uU.marginUsed === 0 && uU.marginEnabled === false && uU.marginCallAt === null,
-    JSON.stringify({ used: uU.marginUsed, on: uU.marginEnabled, call: uU.marginCallAt }));
-  check('lending: solvent after liquidation, not flagged bankrupt',
-    expCash > 0 && !uU.isBankrupt, `${uU.cash} bankrupt=${uU.isBankrupt}`);
+    JSON.stringify({ used: uU.marginUsed, on: uU.marginEnabled, call: uU.marginCallAt }),
+  );
+  check(
+    'lending: solvent after liquidation, not flagged bankrupt',
+    expCash > 0 && !uU.isBankrupt,
+    `${uU.cash} bankrupt=${uU.isBankrupt}`,
+  );
   const liqTrades = await db.collection('trades').where('uid', '==', 'ml_under').get();
-  check('lending: liquidation logged as margin_liquidation trade',
-    liqTrades.size === 1 && liqTrades.docs[0].data().action === 'margin_liquidation'
-    && liqTrades.docs[0].data().automated === true,
-    `${liqTrades.size}`);
+  check(
+    'lending: liquidation logged as margin_liquidation trade',
+    liqTrades.size === 1 &&
+      liqTrades.docs[0].data().action === 'margin_liquidation' &&
+      liqTrades.docs[0].data().automated === true,
+    `${liqTrades.size}`,
+  );
 
   // Margin call: warned on the clock, but holdings and debt left alone
   const uC = await getUser('ml_call');
-  check('lending: margin-call user keeps holdings and debt',
-    uC.holdings[T3] === 10 && uC.marginUsed === 720, JSON.stringify(uC.holdings));
-  check('lending: margin-call grace clock started', typeof uC.marginCallAt === 'number' && uC.marginCallAt > 0,
-    `${uC.marginCallAt}`);
+  check(
+    'lending: margin-call user keeps holdings and debt',
+    uC.holdings[T3] === 10 && uC.marginUsed === 720,
+    JSON.stringify(uC.holdings),
+  );
+  check(
+    'lending: margin-call grace clock started',
+    typeof uC.marginCallAt === 'number' && uC.marginCallAt > 0,
+    `${uC.marginCallAt}`,
+  );
 
   // Healthy: untouched entirely
   const uH = await getUser('ml_healthy');
-  check('lending: healthy margin user untouched',
+  check(
+    'lending: healthy margin user untouched',
     uH.holdings[T2] === 5 && uH.marginUsed === 100 && uH.marginEnabled === true,
-    JSON.stringify({ h: uH.holdings, used: uH.marginUsed }));
+    JSON.stringify({ h: uH.holdings, used: uH.marginUsed }),
+  );
 
   // Re-run: the liquidated user now has no debt, so the scan must skip them
   // entirely rather than liquidate (and re-announce) an already-empty account.
   await checkMarginLending.run({}, {});
   const uU2 = await getUser('ml_under');
-  check('lending: second run does not re-liquidate a cleared account',
-    near(uU2.cash, expCash, 0.01), `${uU2.cash} vs ${expCash}`);
+  check(
+    'lending: second run does not re-liquidate a cleared account',
+    near(uU2.cash, expCash, 0.01),
+    `${uU2.cash} vs ${expCash}`,
+  );
   const liqTrades2 = await db.collection('trades').where('uid', '==', 'ml_under').get();
   check('lending: no duplicate liquidation trade on second run', liqTrades2.size === 1, `${liqTrades2.size}`);
 }
@@ -1037,22 +1400,28 @@ async function testBailoutWipe() {
   await bailout.run({}, { auth: { uid: 'bail_locked' } });
   const u = await getUser('bail_locked');
 
-  check('bailout: positions wiped and cash reset',
+  check(
+    'bailout: positions wiped and cash reset',
     Object.keys(u.holdings || {}).length === 0 && u.cash === BAILOUT_CASH,
-    JSON.stringify({ h: u.holdings, cash: u.cash }));
-  check('bailout: margin lock cleared with the shares it locked',
-    Object.keys(u.marginLockup || {}).length === 0, JSON.stringify(u.marginLockup));
-  check('bailout: IPO lock cleared with the shares it locked',
-    Object.keys(u.ipoLockup || {}).length === 0, JSON.stringify(u.ipoLockup));
+    JSON.stringify({ h: u.holdings, cash: u.cash }),
+  );
+  check(
+    'bailout: margin lock cleared with the shares it locked',
+    Object.keys(u.marginLockup || {}).length === 0,
+    JSON.stringify(u.marginLockup),
+  );
+  check(
+    'bailout: IPO lock cleared with the shares it locked',
+    Object.keys(u.ipoLockup || {}).length === 0,
+    JSON.stringify(u.ipoLockup),
+  );
 
   // The real symptom: buy fresh shares post-bailout and they must be sellable.
   await ok({ ticker: T, action: 'buy', amount: 10 }, 'bail_locked');
   // Clear the unrelated post-buy timers so this checks the LOCK, not the cooldowns.
-  await db.collection('users').doc('bail_locked')
-    .update({ lastBuyTime: {}, lastTradeTime: 0 });
+  await db.collection('users').doc('bail_locked').update({ lastBuyTime: {}, lastTradeTime: 0 });
   const sellErr = await err({ ticker: T, action: 'sell', amount: 5 }, 'bail_locked');
-  check('bailout: shares bought after a bailout are sellable', sellErr === null,
-    sellErr || 'no error');
+  check('bailout: shares bought after a bailout are sellable', sellErr === null, sellErr || 'no error');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1079,73 +1448,111 @@ async function testExitLoyalty() {
   const rFresh = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_fresh');
   const uFresh = await getUser('loy_fresh');
   const mFresh = (await getMarket()).prices[T];
-  check('loyalty: a day-old position gets no discount',
-    near(rFresh.executionPrice, expFresh.exec), `${rFresh.executionPrice} vs ${expFresh.exec}`);
-  check('loyalty: fresh sale is the original math unchanged',
-    near(uFresh.cash, 1000 + expFresh.proceeds), `${uFresh.cash} vs ${1000 + expFresh.proceeds}`);
+  check(
+    'loyalty: a day-old position gets no discount',
+    near(rFresh.executionPrice, expFresh.exec),
+    `${rFresh.executionPrice} vs ${expFresh.exec}`,
+  );
+  check(
+    'loyalty: fresh sale is the original math unchanged',
+    near(uFresh.cash, 1000 + expFresh.proceeds),
+    `${uFresh.cash} vs ${1000 + expFresh.proceeds}`,
+  );
 
   // ── Mature holder: same sale, same ticker, same price ─────────────────────
   await seedMarket({ [T]: 80 });
   await setUser('loy_mature', { ...base, holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, 60)] } } });
-  const expMature = sellMath(80, 10, { discount: 0.40 });
+  const expMature = sellMath(80, 10, { discount: 0.4 });
   const rMature = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_mature');
   const uMature = await getUser('loy_mature');
   const mMature = (await getMarket()).prices[T];
 
-  check('loyalty: 8-week position sells at the 40% rung',
-    near(rMature.executionPrice, expMature.exec), `${rMature.executionPrice} vs ${expMature.exec}`);
-  check('loyalty: mature seller is paid more than the fresh one',
-    uMature.cash > uFresh.cash, `mature=${uMature.cash} fresh=${uFresh.cash}`);
+  check(
+    'loyalty: 8-week position sells at the 40% rung',
+    near(rMature.executionPrice, expMature.exec),
+    `${rMature.executionPrice} vs ${expMature.exec}`,
+  );
+  check(
+    'loyalty: mature seller is paid more than the fresh one',
+    uMature.cash > uFresh.cash,
+    `mature=${uMature.cash} fresh=${uFresh.cash}`,
+  );
 
   // The whole point of the design:
-  check('loyalty: market price moves the SAME for both sellers',
+  check(
+    'loyalty: market price moves the SAME for both sellers',
     near(mFresh, mMature) && near(mMature, expMature.newPrice),
-    `fresh=${mFresh} mature=${mMature} expected=${expMature.newPrice}`);
-  check('loyalty: reported newPrice is the full-impact price, not the seller price',
+    `fresh=${mFresh} mature=${mMature} expected=${expMature.newPrice}`,
+  );
+  check(
+    'loyalty: reported newPrice is the full-impact price, not the seller price',
     near(rMature.newPrice, expMature.newPrice) && rMature.newPrice < expMature.sellerMid,
-    `newPrice=${rMature.newPrice} sellerMid=${expMature.sellerMid}`);
+    `newPrice=${rMature.newPrice} sellerMid=${expMature.sellerMid}`,
+  );
 
   // ── Middle rungs ──────────────────────────────────────────────────────────
-  for (const [ageDays, rung] of [[15, 0.10], [30, 0.25]]) {
+  for (const [ageDays, rung] of [
+    [15, 0.1],
+    [30, 0.25],
+  ]) {
     await seedMarket({ [T]: 80 });
-    await setUser(`loy_${ageDays}`, { ...base, holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, ageDays)] } } });
+    await setUser(`loy_${ageDays}`, {
+      ...base,
+      holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(20, ageDays)] } },
+    });
     const expRung = sellMath(80, 10, { discount: rung });
     const rRung = await ok({ ticker: T, action: 'sell', amount: 10 }, `loy_${ageDays}`);
-    check(`loyalty: ${ageDays}-day position sells at the ${rung * 100}% rung`,
-      near(rRung.executionPrice, expRung.exec), `${rRung.executionPrice} vs ${expRung.exec}`);
+    check(
+      `loyalty: ${ageDays}-day position sells at the ${rung * 100}% rung`,
+      near(rRung.executionPrice, expRung.exec),
+      `${rRung.executionPrice} vs ${expRung.exec}`,
+    );
   }
 
   // ── Mixed ages are weighted, not rounded up to the oldest lot ─────────────
   await seedMarket({ [T]: 80 });
   await setUser('loy_mixed', {
-    cash: 1000, holdings: { [T]: 100 }, costBasis: { [T]: 80 },
+    cash: 1000,
+    holdings: { [T]: 100 },
+    costBasis: { [T]: 80 },
     holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(10, 60), agedLot(90, 1)] } },
   });
   // Selling 50: oldest-first takes the 10 mature shares, then 40 fresh ones.
-  const mixedDiscount = (10 * 0.40 + 40 * 0) / 50;
+  const mixedDiscount = (10 * 0.4 + 40 * 0) / 50;
   const expMixed = sellMath(80, 50, { discount: mixedDiscount });
   const rMixed = await ok({ ticker: T, action: 'sell', amount: 50 }, 'loy_mixed');
-  check('loyalty: mixed position is weighted by how many shares are actually old',
-    near(rMixed.executionPrice, expMixed.exec), `${rMixed.executionPrice} vs ${expMixed.exec}`);
+  check(
+    'loyalty: mixed position is weighted by how many shares are actually old',
+    near(rMixed.executionPrice, expMixed.exec),
+    `${rMixed.executionPrice} vs ${expMixed.exec}`,
+  );
 
   // ── No cohort record at all → no discount, no crash ───────────────────────
   await seedMarket({ [T]: 80 });
   await setUser('loy_nocohort', { cash: 1000, holdings: { [T]: 20 }, costBasis: { [T]: 80 } });
   const expNone = sellMath(80, 10, { discount: 0 });
   const rNone = await ok({ ticker: T, action: 'sell', amount: 10 }, 'loy_nocohort');
-  check('loyalty: a holding with no cohort record sells at full impact',
-    near(rNone.executionPrice, expNone.exec), `${rNone.executionPrice} vs ${expNone.exec}`);
+  check(
+    'loyalty: a holding with no cohort record sells at full impact',
+    near(rNone.executionPrice, expNone.exec),
+    `${rNone.executionPrice} vs ${expNone.exec}`,
+  );
 
   // ── Shorts never get it: you are not exiting a long-held position ─────────
   await seedMarket({ [T]: 80 });
   await setUser('loy_shorter', {
-    cash: 100000, holdings: {}, shorts: {},
+    cash: 100000,
+    holdings: {},
+    shorts: {},
     holdingCohorts: { [T]: { eligible: 0, pending: [agedLot(500, 60)] } },
   });
   const expShort = sellMath(80, 5); // no discount
   const rShort = await ok({ ticker: T, action: 'short', amount: 5 }, 'loy_shorter');
-  check('loyalty: opening a short ignores the cohort entirely',
-    near(rShort.executionPrice, expShort.exec), `${rShort.executionPrice} vs ${expShort.exec}`);
+  check(
+    'loyalty: opening a short ignores the cohort entirely',
+    near(rShort.executionPrice, expShort.exec),
+    `${rShort.executionPrice} vs ${expShort.exec}`,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1166,76 +1573,110 @@ async function testDirectionalImpact() {
   // ── The ratchet itself: short the allowance out, then cover ───────────────
   await seedMarket({ [T]: 80 });
   await setUser('dir_cover', {
-    cash: 500000, holdings: {},
-    shorts: { [T]: { shares: 50, costBasis: 80, margin: 4000,
-      openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000), system: 'v2' } },
+    cash: 500000,
+    holdings: {},
+    shorts: {
+      [T]: {
+        shares: 50,
+        costBasis: 80,
+        margin: 4000,
+        openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000),
+        system: 'v2',
+      },
+    },
     tickerTradeHistory: spent('short'),
   });
   const rCover = await ok({ ticker: T, action: 'cover', amount: 25 }, 'dir_cover');
-  check('directional: cover still moves the price after the down allowance is spent',
+  check(
+    'directional: cover still moves the price after the down allowance is spent',
     rCover.success && rCover.priceImpact > 0 && rCover.newPrice > 80,
-    `impact=${rCover.priceImpact} newPrice=${rCover.newPrice}`);
+    `impact=${rCover.priceImpact} newPrice=${rCover.newPrice}`,
+  );
 
   // ── Same hole in reverse: buy the allowance out, then sell ────────────────
   await seedMarket({ [T]: 80 });
   await setUser('dir_sell', { cash: 0, holdings: { [T]: 50 }, tickerTradeHistory: spent('buy') });
   const rSell = await ok({ ticker: T, action: 'sell', amount: 25 }, 'dir_sell');
-  check('directional: sell still moves the price after the up allowance is spent',
+  check(
+    'directional: sell still moves the price after the up allowance is spent',
     rSell.success && rSell.priceImpact > 0 && rSell.newPrice < 80,
-    `impact=${rSell.priceImpact} newPrice=${rSell.newPrice}`);
+    `impact=${rSell.priceImpact} newPrice=${rSell.newPrice}`,
+  );
 
   // ── Each direction still caps on its OWN history ──────────────────────────
   await seedMarket({ [T]: 80 });
   await setUser('dir_buy_block', { cash: 500000, holdings: {}, tickerTradeHistory: spent('buy') });
   const eBuy = await err({ ticker: T, action: 'buy', amount: 10 }, 'dir_buy_block');
-  check('directional: buy still blocked by a spent UP allowance',
-    !!eBuy && /Daily trading limit/i.test(eBuy), eBuy || 'no error');
+  check(
+    'directional: buy still blocked by a spent UP allowance',
+    !!eBuy && /Daily trading limit/i.test(eBuy),
+    eBuy || 'no error',
+  );
 
   await seedMarket({ [T]: 80 });
   await setUser('dir_short_block', { cash: 500000, holdings: {}, tickerTradeHistory: spent('sell') });
   const eShort = await err({ ticker: T, action: 'short', amount: 10 }, 'dir_short_block');
-  check('directional: short still blocked by a spent DOWN allowance',
-    !!eShort && /Daily trading limit/i.test(eShort), eShort || 'no error');
+  check(
+    'directional: short still blocked by a spent DOWN allowance',
+    !!eShort && /Daily trading limit/i.test(eShort),
+    eShort || 'no error',
+  );
 
   // ── A spent UP allowance must not block a short, and vice versa ───────────
   await seedMarket({ [T]: 80 });
   await setUser('dir_cross_short', { cash: 500000, holdings: {}, tickerTradeHistory: spent('buy') });
   const rCross = await ok({ ticker: T, action: 'short', amount: 10 }, 'dir_cross_short');
-  check('directional: a spent UP allowance does not block shorting',
-    rCross.success && rCross.priceImpact > 0, JSON.stringify(rCross.priceImpact));
+  check(
+    'directional: a spent UP allowance does not block shorting',
+    rCross.success && rCross.priceImpact > 0,
+    JSON.stringify(rCross.priceImpact),
+  );
 
   await seedMarket({ [T]: 80 });
   await setUser('dir_cross_buy', { cash: 500000, holdings: {}, tickerTradeHistory: spent('short') });
   const rCrossBuy = await ok({ ticker: T, action: 'buy', amount: 10 }, 'dir_cross_buy');
-  check('directional: a spent DOWN allowance does not block buying',
-    rCrossBuy.success && rCrossBuy.priceImpact > 0, JSON.stringify(rCrossBuy.priceImpact));
+  check(
+    'directional: a spent DOWN allowance does not block buying',
+    rCrossBuy.success && rCrossBuy.priceImpact > 0,
+    JSON.stringify(rCrossBuy.priceImpact),
+  );
 
   // ── Sells and shorts share one pool; buys and covers share the other ──────
   await seedMarket({ [T]: 80 });
-  await setUser('dir_same_pool', { cash: 500000, holdings: { [T]: 50 },
-    tickerTradeHistory: spent('short') });
+  await setUser('dir_same_pool', { cash: 500000, holdings: { [T]: 50 }, tickerTradeHistory: spent('short') });
   const rPooled = await ok({ ticker: T, action: 'sell', amount: 25 }, 'dir_same_pool');
-  check('directional: a short spends the same DOWN pool a sell draws on',
+  check(
+    'directional: a short spends the same DOWN pool a sell draws on',
     rPooled.success && rPooled.priceImpact === 0 && near(rPooled.newPrice, 80),
-    `impact=${rPooled.priceImpact} newPrice=${rPooled.newPrice}`);
+    `impact=${rPooled.priceImpact} newPrice=${rPooled.newPrice}`,
+  );
 
   // ── The IP-level allowance is split the same way ──────────────────────────
   await seedMarket({ [T2]: 80 });
   const dirIp = '198.18.0.3';
-  await db.collection('ipTracking').doc(dirIp.replace(/[.:/]/g, '_')).set({
-    tickerTradeHistory: { [T2]: { short: [{ ts: Date.now() - 1000, shares: 1, impact: 0.099 }] } },
-    recentTraders: {},
-  });
+  await db
+    .collection('ipTracking')
+    .doc(dirIp.replace(/[.:/]/g, '_'))
+    .set({
+      tickerTradeHistory: { [T2]: { short: [{ ts: Date.now() - 1000, shares: 1, impact: 0.099 }] } },
+      recentTraders: {},
+    });
   await setUser('dir_ip', { cash: 500000, holdings: {} });
   const rIpBuy = await ok({ ticker: T2, action: 'buy', amount: 5 }, 'dir_ip', dirIp);
-  check("directional: an IP sibling's DOWN impact does not block a buy",
-    rIpBuy.success && rIpBuy.priceImpact > 0, JSON.stringify(rIpBuy.priceImpact));
+  check(
+    "directional: an IP sibling's DOWN impact does not block a buy",
+    rIpBuy.success && rIpBuy.priceImpact > 0,
+    JSON.stringify(rIpBuy.priceImpact),
+  );
   // A second account on that IP, so the short is not caught by the 3s per-user
   // trade cooldown from the buy above. Two accounts is within the per-IP cap.
   await setUser('dir_ip2', { cash: 500000, holdings: {} });
   const eIpShort = await err({ ticker: T2, action: 'short', amount: 5 }, 'dir_ip2', dirIp);
-  check("directional: an IP sibling's DOWN impact still blocks a short",
-    !!eIpShort && /Daily trading limit/i.test(eIpShort), eIpShort || 'no error');
+  check(
+    "directional: an IP sibling's DOWN impact still blocks a short",
+    !!eIpShort && /Daily trading limit/i.test(eIpShort),
+    eIpShort || 'no error',
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1254,7 +1695,10 @@ async function testCircuitBreaker() {
   console.log('\nO. Circuit breaker');
   const BEFORE = Date.now() - CIRCUIT_BREAKER_WINDOW_MS - 60000;
   const seedHistory = async (points) =>
-    db.collection('market').doc('priceHistory').set({ [T]: points });
+    db
+      .collection('market')
+      .doc('priceHistory')
+      .set({ [T]: points });
 
   // ── Reference 111 -> a sell taking it below ~100 crosses -10% ─────────────
   await seedMarket({ [T]: 100 });
@@ -1262,29 +1706,42 @@ async function testCircuitBreaker() {
   await setUser('cb_trip', { cash: 0, holdings: { [T]: 5000 } });
   const rTrip = await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_trip');
   const haltTrip = ((await getMarket()).haltedTickers || {})[T];
-  check('breaker: a fast enough drop pauses the ticker',
-    rTrip.success && !!haltTrip && haltTrip.resumeAt > Date.now(), JSON.stringify(haltTrip || null));
-  check('breaker: the breaching trade itself still executes',
-    rTrip.success && rTrip.priceImpact > 0, JSON.stringify(rTrip.success));
-  check('breaker: the halt records which way and how far',
-    !!haltTrip && haltTrip.movePercent <= -10, String(haltTrip && haltTrip.movePercent));
-  check('breaker: the daily count was bumped with it',
+  check(
+    'breaker: a fast enough drop pauses the ticker',
+    rTrip.success && !!haltTrip && haltTrip.resumeAt > Date.now(),
+    JSON.stringify(haltTrip || null),
+  );
+  check(
+    'breaker: the breaching trade itself still executes',
+    rTrip.success && rTrip.priceImpact > 0,
+    JSON.stringify(rTrip.success),
+  );
+  check(
+    'breaker: the halt records which way and how far',
+    !!haltTrip && haltTrip.movePercent <= -10,
+    String(haltTrip && haltTrip.movePercent),
+  );
+  check(
+    'breaker: the daily count was bumped with it',
     (((await getMarket()).breakerCounts || {})[T] || {}).n === 1,
-    JSON.stringify(((await getMarket()).breakerCounts || {})[T] || null));
+    JSON.stringify(((await getMarket()).breakerCounts || {})[T] || null),
+  );
 
   // ── ...and the next trade on it is refused ────────────────────────────────
   await setUser('cb_next', { cash: 500000, holdings: {} });
   const ePaused = await err({ ticker: T, action: 'buy', amount: 1 }, 'cb_next');
-  check('breaker: a paused ticker refuses further trades',
-    !!ePaused && /halted|circuit breaker/i.test(ePaused), ePaused || 'no error');
+  check(
+    'breaker: a paused ticker refuses further trades',
+    !!ePaused && /halted|circuit breaker/i.test(ePaused),
+    ePaused || 'no error',
+  );
 
   // ── A move under the threshold does not pause ─────────────────────────────
   await seedMarket({ [T]: 100 });
   await seedHistory([{ timestamp: BEFORE, price: 100 }]);
   await setUser('cb_small', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 5 }, 'cb_small');
-  check('breaker: a small move does not pause',
-    !((await getMarket()).haltedTickers || {})[T]);
+  check('breaker: a small move does not pause', !((await getMarket()).haltedTickers || {})[T]);
 
   // ── An admin adjustment inside the window is never a cascade ──────────────
   await seedMarket({ [T]: 100 });
@@ -1294,9 +1751,11 @@ async function testCircuitBreaker() {
   ]);
   await setUser('cb_admin', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_admin');
-  check('breaker: an admin price set in the window is never a cascade',
+  check(
+    'breaker: an admin price set in the window is never a cascade',
     !((await getMarket()).haltedTickers || {})[T],
-    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null),
+  );
 
   // ── The daily cap stops the pause being a repeatable weapon ───────────────
   const today = new Date().toISOString().slice(0, 10);
@@ -1304,26 +1763,29 @@ async function testCircuitBreaker() {
   await seedHistory([{ timestamp: BEFORE, price: 111 }]);
   await setUser('cb_capped', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_capped');
-  check('breaker: refuses to fire past the daily cap',
+  check(
+    'breaker: refuses to fire past the daily cap',
     !((await getMarket()).haltedTickers || {})[T],
-    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null),
+  );
 
   // ── Yesterday's count must not carry into today ───────────────────────────
   await seedMarket({ [T]: 100 }, { breakerCounts: { [T]: { day: '2020-01-01', n: 99 } } });
   await seedHistory([{ timestamp: BEFORE, price: 111 }]);
   await setUser('cb_stale', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_stale');
-  check('breaker: a stale day count does not block today',
-    !!((await getMarket()).haltedTickers || {})[T]);
+  check('breaker: a stale day count does not block today', !!((await getMarket()).haltedTickers || {})[T]);
 
   // ── A brand-new ticker has nothing to measure against ─────────────────────
   await seedMarket({ [T]: 100 });
   await seedHistory([{ timestamp: Date.now() - 1000, price: 111 }]);
   await setUser('cb_new', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 2000 }, 'cb_new');
-  check('breaker: no history older than the window means no pause',
+  check(
+    'breaker: no history older than the window means no pause',
     !((await getMarket()).haltedTickers || {})[T],
-    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null));
+    JSON.stringify(((await getMarket()).haltedTickers || {})[T] || null),
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1336,41 +1798,49 @@ async function testCircuitBreaker() {
 // never blocked.
 async function testWashRule() {
   console.log('\nP. Wash rule');
-  const armed = (ts = Date.now()) => ({ lastHeavySell: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) } });
+  const armed = (ts = Date.now()) => ({
+    lastHeavySell: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) },
+  });
 
   // ── A heavy sell arms it ─────────────────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('wash_arm', { cash: 0, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 2000 }, 'wash_arm');
   const uArm = await getUser('wash_arm');
-  check('wash: a heavy sell arms the buy-back block',
-    !!uArm.lastHeavySell?.[T], JSON.stringify(uArm.lastHeavySell || null));
+  check(
+    'wash: a heavy sell arms the buy-back block',
+    !!uArm.lastHeavySell?.[T],
+    JSON.stringify(uArm.lastHeavySell || null),
+  );
 
   // ── ...and the buy-back is refused ───────────────────────────────────────
   // Re-seeded with the arm the sell just produced, minus lastTradeTime: the 3s
   // global cooldown would otherwise answer first and prove nothing.
   await setUser('wash_arm', {
-    cash: 500000, holdings: {}, lastHeavySell: uArm.lastHeavySell,
+    cash: 500000,
+    holdings: {},
+    lastHeavySell: uArm.lastHeavySell,
   });
   const eBack = await err({ ticker: T, action: 'buy', amount: 1 }, 'wash_arm');
-  check('wash: buying it back is refused',
-    !!eBack && /wash rule/i.test(eBack), eBack || 'no error');
+  check('wash: buying it back is refused', !!eBack && /wash rule/i.test(eBack), eBack || 'no error');
 
   // ── A small sell does NOT arm it ─────────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('wash_small', { cash: 500000, holdings: { [T]: 5000 } });
   await ok({ ticker: T, action: 'sell', amount: 1 }, 'wash_small');
   const uSmall = await getUser('wash_small');
-  check('wash: a small sell does not arm it',
-    !uSmall.lastHeavySell?.[T], JSON.stringify(uSmall.lastHeavySell || null));
+  check('wash: a small sell does not arm it', !uSmall.lastHeavySell?.[T], JSON.stringify(uSmall.lastHeavySell || null));
 
   // ── A heavy SHORT arms it too (same trade, other direction) ──────────────
   await seedMarket({ [T]: 100 });
   await setUser('wash_short', { cash: 5000000, holdings: {}, shorts: {} });
   await ok({ ticker: T, action: 'short', amount: 2000 }, 'wash_short');
   const uShort = await getUser('wash_short');
-  check('wash: a heavy short arms it as well',
-    !!uShort.lastHeavySell?.[T], JSON.stringify(uShort.lastHeavySell || null));
+  check(
+    'wash: a heavy short arms it as well',
+    !!uShort.lastHeavySell?.[T],
+    JSON.stringify(uShort.lastHeavySell || null),
+  );
 
   // ── Exits are never blocked ──────────────────────────────────────────────
   await seedMarket({ [T]: 100 });
@@ -1380,9 +1850,17 @@ async function testWashRule() {
 
   await seedMarket({ [T]: 100 });
   await setUser('wash_cover', {
-    cash: 500000, holdings: {},
-    shorts: { [T]: { shares: 50, costBasis: 100, margin: 5000,
-      openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * MIN), system: 'v2' } },
+    cash: 500000,
+    holdings: {},
+    shorts: {
+      [T]: {
+        shares: 50,
+        costBasis: 100,
+        margin: 5000,
+        openedAt: admin.firestore.Timestamp.fromMillis(Date.now() - 10 * MIN),
+        system: 'v2',
+      },
+    },
     ...armed(),
   });
   const rCover = await ok({ ticker: T, action: 'cover', amount: 10 }, 'wash_cover');
@@ -1397,25 +1875,26 @@ async function testWashRule() {
   // ── It expires ───────────────────────────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('wash_expired', {
-    cash: 500000, holdings: {}, ...armed(Date.now() - WASH_RULE_COOLDOWN_MS - MIN),
+    cash: 500000,
+    holdings: {},
+    ...armed(Date.now() - WASH_RULE_COOLDOWN_MS - MIN),
   });
   const rExpired = await ok({ ticker: T, action: 'buy', amount: 5 }, 'wash_expired');
-  check('wash: the block lifts once the cooldown passes',
-    rExpired.success === true, JSON.stringify(rExpired.success));
+  check('wash: the block lifts once the cooldown passes', rExpired.success === true, JSON.stringify(rExpired.success));
 
   // ── Selling again re-arms the clock from the LAST push ───────────────────
   await seedMarket({ [T]: 100 });
   const nearlyOver = Date.now() - WASH_RULE_COOLDOWN_MS + 5 * MIN;
   await setUser('wash_rearm', {
-    cash: 0, holdings: { [T]: 5000 },
+    cash: 0,
+    holdings: { [T]: 5000 },
     tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 1, impact: WASH_RULE_IMPACT_TRIGGER }] } },
     ...armed(nearlyOver),
   });
   await ok({ ticker: T, action: 'sell', amount: 5 }, 'wash_rearm');
   const uRe = await getUser('wash_rearm');
   const reMs = uRe.lastHeavySell[T].toMillis();
-  check('wash: another push restarts the clock',
-    reMs > nearlyOver + MIN, `${reMs} vs ${nearlyOver}`);
+  check('wash: another push restarts the clock', reMs > nearlyOver + MIN, `${reMs} vs ${nearlyOver}`);
 
   // ── Still blocked a day later (the raid waited ~24h to buy back) ─────────
   await seedMarket({ [T]: 100 });
@@ -1425,14 +1904,24 @@ async function testWashRule() {
 
   // ── Short after dump ─────────────────────────────────────────────────────
   // The heavy sell above also armed the short block; a heavy short did not.
-  check('dump: a heavy sell arms the short block', !!uArm.lastHeavyExit?.[T], JSON.stringify(uArm.lastHeavyExit || null));
+  check(
+    'dump: a heavy sell arms the short block',
+    !!uArm.lastHeavyExit?.[T],
+    JSON.stringify(uArm.lastHeavyExit || null),
+  );
   check('dump: a heavy short does not', !uShort.lastHeavyExit?.[T], JSON.stringify(uShort.lastHeavyExit || null));
 
-  const dumped = (ts = Date.now()) => ({ lastHeavyExit: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) } });
+  const dumped = (ts = Date.now()) => ({
+    lastHeavyExit: { [T]: new admin.firestore.Timestamp(Math.floor(ts / 1000), 0) },
+  });
   await seedMarket({ [T]: 100 });
   await setUser('dump_short', { cash: 5000000, holdings: {}, shorts: {}, ...dumped() });
   const eShort = await err({ ticker: T, action: 'short', amount: 10 }, 'dump_short');
-  check('dump: shorting a stock you just dumped is refused', !!eShort && /can't short it yet/i.test(eShort), eShort || 'no error');
+  check(
+    'dump: shorting a stock you just dumped is refused',
+    !!eShort && /can't short it yet/i.test(eShort),
+    eShort || 'no error',
+  );
 
   await seedMarket({ [T]: 100, [T2]: 100 });
   await setUser('dump_other', { cash: 5000000, holdings: {}, shorts: {}, ...dumped() });
@@ -1440,7 +1929,12 @@ async function testWashRule() {
   check('dump: shorting a different stock is fine', rShortOther.success === true, JSON.stringify(rShortOther.success));
 
   await seedMarket({ [T]: 100 });
-  await setUser('dump_expired', { cash: 5000000, holdings: {}, shorts: {}, ...dumped(Date.now() - SHORT_AFTER_DUMP_COOLDOWN_MS - MIN) });
+  await setUser('dump_expired', {
+    cash: 5000000,
+    holdings: {},
+    shorts: {},
+    ...dumped(Date.now() - SHORT_AFTER_DUMP_COOLDOWN_MS - MIN),
+  });
   const rShortLater = await ok({ ticker: T, action: 'short', amount: 10 }, 'dump_expired');
   check('dump: the short block lifts after 48h', rShortLater.success === true, JSON.stringify(rShortLater.success));
 }
@@ -1463,27 +1957,37 @@ async function testOversizedImpact() {
 
   // 2000 shares at $100 is ~5.37% raw, just over the 5% cap.
   const BIG = 2000;
-  check('oversized: the test size really is over the cap',
-    rawImpact(100, BIG) > 100 * MAX_PRICE_CHANGE_PERCENT, `${rawImpact(100, BIG)}`);
+  check(
+    'oversized: the test size really is over the cap',
+    rawImpact(100, BIG) > 100 * MAX_PRICE_CHANGE_PERCENT,
+    `${rawImpact(100, BIG)}`,
+  );
 
   // ── Market move capped, seller charged the real cost ─────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('over_sell', { cash: 0, holdings: { [T]: 10000 } });
   const rBig = await ok({ ticker: T, action: 'sell', amount: BIG }, 'over_sell');
-  check('oversized sell: the market still only moves the capped 5%',
-    near(rBig.newPrice, 95), `newPrice=${rBig.newPrice}`);
-  check('oversized sell: the seller is paid against the full raw impact',
+  check(
+    'oversized sell: the market still only moves the capped 5%',
+    near(rBig.newPrice, 95),
+    `newPrice=${rBig.newPrice}`,
+  );
+  check(
+    'oversized sell: the seller is paid against the full raw impact',
     rBig.executionPrice < 95 * (1 - BID_ASK_SPREAD / 2),
-    `exec=${rBig.executionPrice} vs capped bid ${95 * (1 - BID_ASK_SPREAD / 2)}`);
+    `exec=${rBig.executionPrice} vs capped bid ${95 * (1 - BID_ASK_SPREAD / 2)}`,
+  );
 
   // ── A normal-sized order is untouched ────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('over_small', { cash: 0, holdings: { [T]: 10000 } });
   const rSmall = await ok({ ticker: T, action: 'sell', amount: 100 }, 'over_small');
   const expSmall = sellMath(100, 100);
-  check('normal sell: unchanged, market and seller charged the same',
+  check(
+    'normal sell: unchanged, market and seller charged the same',
     near(rSmall.executionPrice, expSmall.exec) && near(rSmall.newPrice, expSmall.newPrice),
-    `${rSmall.executionPrice} vs ${expSmall.exec}`);
+    `${rSmall.executionPrice} vs ${expSmall.exec}`,
+  );
 
   // ── Dumping at once is no longer cheaper than easing out ─────────────────
   await seedMarket({ [T]: 100 });
@@ -1499,46 +2003,63 @@ async function testOversizedImpact() {
     await new Promise((res) => setTimeout(res, 3100)); // global 3s trade cooldown
   }
   const onceProceeds = atOnce.executionPrice * 1200;
-  check('oversized: dumping at once no longer beats easing out',
+  check(
+    'oversized: dumping at once no longer beats easing out',
     onceProceeds <= splitProceeds * 1.005,
-    `atOnce ${onceProceeds.toFixed(0)} vs split ${splitProceeds.toFixed(0)}`);
+    `atOnce ${onceProceeds.toFixed(0)} vs split ${splitProceeds.toFixed(0)}`,
+  );
 
   // ── The penalty is bounded ───────────────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('over_huge', { cash: 0, holdings: { [T]: 10000 } });
   const rHuge = await ok({ ticker: T, action: 'sell', amount: 10000 }, 'over_huge');
   const floorPrice = 100 * (1 - MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE);
-  check('oversized: the trader penalty is bounded, never open-ended',
+  check(
+    'oversized: the trader penalty is bounded, never open-ended',
     rHuge.executionPrice >= floorPrice * (1 - BID_ASK_SPREAD / 2) - 0.02,
-    `exec=${rHuge.executionPrice} floor=${floorPrice}`);
-  check('oversized: a huge dump still only moves the market 5%',
-    near(rHuge.newPrice, 95), `newPrice=${rHuge.newPrice}`);
+    `exec=${rHuge.executionPrice} floor=${floorPrice}`,
+  );
+  check(
+    'oversized: a huge dump still only moves the market 5%',
+    near(rHuge.newPrice, 95),
+    `newPrice=${rHuge.newPrice}`,
+  );
 
   // ── Spending the allowance first must not make a dump free ───────────────
   // This is why the answer to "should the seller still pay at the cap?" is yes:
   // otherwise burn the allowance on small sells, then dump for nothing.
   await seedMarket({ [T]: 100 });
   await setUser('over_capped', {
-    cash: 0, holdings: { [T]: 10000 },
+    cash: 0,
+    holdings: { [T]: 10000 },
     tickerTradeHistory: { [T]: { sell: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] } },
   });
   const rCapped = await ok({ ticker: T, action: 'sell', amount: BIG }, 'over_capped');
-  check('oversized: at the daily cap the market does not move',
+  check(
+    'oversized: at the daily cap the market does not move',
     near(rCapped.newPrice, 100) && rCapped.priceImpact === 0,
-    `newPrice=${rCapped.newPrice} impact=${rCapped.priceImpact}`);
-  check('oversized: but the seller still pays for the size they moved',
+    `newPrice=${rCapped.newPrice} impact=${rCapped.priceImpact}`,
+  );
+  check(
+    'oversized: but the seller still pays for the size they moved',
     rCapped.executionPrice < 100 * (1 - BID_ASK_SPREAD / 2) - 1,
-    `exec=${rCapped.executionPrice}`);
+    `exec=${rCapped.executionPrice}`,
+  );
 
   // ── The buy side has the same split ──────────────────────────────────────
   await seedMarket({ [T]: 100 });
   await setUser('over_buy', { cash: 5000000, holdings: {} });
   const rBuy = await ok({ ticker: T, action: 'buy', amount: BIG }, 'over_buy');
-  check('oversized buy: the market still only moves the capped 5%',
-    near(rBuy.newPrice, 105), `newPrice=${rBuy.newPrice}`);
-  check('oversized buy: the buyer pays against the full raw impact',
+  check(
+    'oversized buy: the market still only moves the capped 5%',
+    near(rBuy.newPrice, 105),
+    `newPrice=${rBuy.newPrice}`,
+  );
+  check(
+    'oversized buy: the buyer pays against the full raw impact',
     rBuy.executionPrice > 105 * (1 + BID_ASK_SPREAD / 2),
-    `exec=${rBuy.executionPrice}`);
+    `exec=${rBuy.executionPrice}`,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1551,14 +2072,24 @@ async function testAdminActAs() {
   await setUser('actas_target', { cash: 0, holdings: { [T]: 50 } });
   await setUser(ADMIN_UID, { cash: 1000, holdings: {} });
   const adminIp = '203.0.113.77';
-  const r = await executeTrade.run({ ticker: T, action: 'sell', amount: 10, actAsUid: 'actas_target' }, ctx(ADMIN_UID, adminIp));
+  const r = await executeTrade.run(
+    { ticker: T, action: 'sell', amount: 10, actAsUid: 'actas_target' },
+    ctx(ADMIN_UID, adminIp),
+  );
   const target = await getUser('actas_target');
   const adminAfter = await getUser(ADMIN_UID);
-  check('admin: the sale lands on the player', r.success === true && target.holdings[T] === 40 && target.cash > 0, target.holdings);
+  check(
+    'admin: the sale lands on the player',
+    r.success === true && target.holdings[T] === 40 && target.cash > 0,
+    target.holdings,
+  );
   check('admin: the admin account is untouched', adminAfter.cash === 1000 && !adminAfter.holdings?.[T], adminAfter);
   const recs = (await db.collection('trades').where('uid', '==', 'actas_target').get()).docs.map((d) => d.data());
-  check('admin: recorded on the player, tagged admin, no IP', recs.length === 1 && recs[0].source === 'admin'
-    && (recs[0].ip === 'unknown' || !recs[0].ip), recs);
+  check(
+    'admin: recorded on the player, tagged admin, no IP',
+    recs.length === 1 && recs[0].source === 'admin' && (recs[0].ip === 'unknown' || !recs[0].ip),
+    recs,
+  );
   const ipDoc = await db.collection('ipTracking').doc(adminIp.replace(/[.:/]/g, '_')).get();
   check('admin: the admin IP is never tied to the player', !ipDoc.exists);
 
@@ -1567,8 +2098,10 @@ async function testAdminActAs() {
   await setUser('actas_sneak', { cash: 0, holdings: { [T]: 20 } });
   await setUser('actas_victim', { cash: 0, holdings: { [T]: 20 } });
   await ok({ ticker: T, action: 'sell', amount: 5, actAsUid: 'actas_victim' }, 'actas_sneak');
-  check('admin: a player cannot trade on someone else', (await getUser('actas_victim')).holdings[T] === 20
-    && (await getUser('actas_sneak')).holdings[T] === 15);
+  check(
+    'admin: a player cannot trade on someone else',
+    (await getUser('actas_victim')).holdings[T] === 20 && (await getUser('actas_sneak')).holdings[T] === 15,
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1603,4 +2136,7 @@ async function main() {
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((e) => { console.error('Test crashed:', e); process.exit(1); });
+main().catch((e) => {
+  console.error('Test crashed:', e);
+  process.exit(1);
+});

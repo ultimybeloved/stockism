@@ -13,11 +13,30 @@ const roster = (pairs) => ({
 // case: $JAY 40.78 ended the blue tier while $SHKO/$XIAO sat just below it,
 // with the real divide at $PYNG 39.90.
 const clusterPairs = [
-  ['T00', 60], ['T01', 58], ['T02', 56], ['T03', 54], ['T04', 52],
-  ['T05', 50], ['T06', 48], ['T07', 46], ['T08', 44], ['T09', 42],
-  ['JAY', 40.78], ['SHKO', 40.49], ['XIAO', 40.27], ['PYNG', 39.90],
-  ['T14', 39.55], ['T15', 39.2], ['T16', 38], ['T17', 36.5], ['T18', 35],
-  ['T19', 33.5], ['T20', 32], ['T21', 30.5], ['T22', 29], ['T23', 27.5],
+  ['T00', 60],
+  ['T01', 58],
+  ['T02', 56],
+  ['T03', 54],
+  ['T04', 52],
+  ['T05', 50],
+  ['T06', 48],
+  ['T07', 46],
+  ['T08', 44],
+  ['T09', 42],
+  ['JAY', 40.78],
+  ['SHKO', 40.49],
+  ['XIAO', 40.27],
+  ['PYNG', 39.9],
+  ['T14', 39.55],
+  ['T15', 39.2],
+  ['T16', 38],
+  ['T17', 36.5],
+  ['T18', 35],
+  ['T19', 33.5],
+  ['T20', 32],
+  ['T21', 30.5],
+  ['T22', 29],
+  ['T23', 27.5],
   ['T24', 26],
 ];
 
@@ -46,12 +65,31 @@ describe('computeRarityTiers gap snapping', () => {
     // The uncommon/common rank cutoff (after 19 of 25) lands inside a flat
     // $13 cluster; the only clear divide is above it, below the $16 characters.
     const { characters, prices } = roster([
-      ['T00', 60], ['T01', 58], ['T02', 56], ['T03', 54], ['T04', 52],
-      ['T05', 50], ['T06', 48], ['T07', 46], ['T08', 44], ['T09', 42],
-      ['T10', 40], ['T11', 38], ['T12', 36], ['T13', 34], ['T14', 32],
-      ['T15', 30], ['GRN1', 16.8], ['GRN2', 16.2], ['STRG', 13.15],
-      ['C0', 13.10], ['C1', 13.05], ['C2', 13.00], ['C3', 12.95],
-      ['C4', 12.90], ['C5', 12.85],
+      ['T00', 60],
+      ['T01', 58],
+      ['T02', 56],
+      ['T03', 54],
+      ['T04', 52],
+      ['T05', 50],
+      ['T06', 48],
+      ['T07', 46],
+      ['T08', 44],
+      ['T09', 42],
+      ['T10', 40],
+      ['T11', 38],
+      ['T12', 36],
+      ['T13', 34],
+      ['T14', 32],
+      ['T15', 30],
+      ['GRN1', 16.8],
+      ['GRN2', 16.2],
+      ['STRG', 13.15],
+      ['C0', 13.1],
+      ['C1', 13.05],
+      ['C2', 13.0],
+      ['C3', 12.95],
+      ['C4', 12.9],
+      ['C5', 12.85],
     ]);
     const tiers = computeRarityTiers(characters, prices);
 
@@ -69,12 +107,31 @@ describe('computeRarityTiers gap snapping', () => {
     // The boundary retreats to the straggler, then upgrades to the bigger
     // adjacent break, so the straggler lands with the cluster below.
     const { characters, prices } = roster([
-      ['T00', 60], ['T01', 58], ['T02', 56], ['T03', 54], ['T04', 52],
-      ['T05', 50], ['T06', 48], ['T07', 46], ['T08', 44], ['T09', 42],
-      ['T10', 40], ['T11', 38], ['T12', 36], ['T13', 17.5], ['T14', 16.6],
-      ['T15', 15.8], ['SNGH', 15.07], ['BEOM', 14.14], ['JACE', 13.79],
-      ['C0', 13.71], ['C1', 13.62], ['C2', 13.60], ['C3', 13.55],
-      ['C4', 13.52], ['C5', 13.43],
+      ['T00', 60],
+      ['T01', 58],
+      ['T02', 56],
+      ['T03', 54],
+      ['T04', 52],
+      ['T05', 50],
+      ['T06', 48],
+      ['T07', 46],
+      ['T08', 44],
+      ['T09', 42],
+      ['T10', 40],
+      ['T11', 38],
+      ['T12', 36],
+      ['T13', 17.5],
+      ['T14', 16.6],
+      ['T15', 15.8],
+      ['SNGH', 15.07],
+      ['BEOM', 14.14],
+      ['JACE', 13.79],
+      ['C0', 13.71],
+      ['C1', 13.62],
+      ['C2', 13.6],
+      ['C3', 13.55],
+      ['C4', 13.52],
+      ['C5', 13.43],
     ]);
     const tiers = computeRarityTiers(characters, prices);
 
@@ -84,15 +141,14 @@ describe('computeRarityTiers gap snapping', () => {
   });
 
   it('keeps every boundary on its rank cutoff when gaps are uniform', () => {
-    const pairs = Array.from({ length: 25 }, (_, i) => [
-      `T${String(i).padStart(2, '0')}`,
-      100 * 0.97 ** i,
-    ]);
+    const pairs = Array.from({ length: 25 }, (_, i) => [`T${String(i).padStart(2, '0')}`, 100 * 0.97 ** i]);
     const { characters, prices } = roster(pairs);
     const tiers = computeRarityTiers(characters, prices);
 
     const counts = {};
-    Object.values(tiers).forEach((t) => { counts[t] = (counts[t] || 0) + 1; });
+    Object.values(tiers).forEach((t) => {
+      counts[t] = (counts[t] || 0) + 1;
+    });
     // Nominal splits for n=25: 1 / 3 / 7 / 8 / 6.
     expect(counts).toEqual({ legendary: 1, epic: 3, rare: 7, uncommon: 8, common: 6 });
   });
@@ -115,10 +171,7 @@ describe('computeRarityTiers gap snapping', () => {
   it('handles tiny and empty rosters', () => {
     expect(computeRarityTiers([], {})).toEqual({});
     expect(computeRarityTiers([{ ticker: 'X' }], { X: 5 })).toEqual({ X: 'legendary' });
-    const two = computeRarityTiers(
-      [{ ticker: 'X' }, { ticker: 'Y' }],
-      { X: 5, Y: 3 },
-    );
+    const two = computeRarityTiers([{ ticker: 'X' }, { ticker: 'Y' }], { X: 5, Y: 3 });
     expect(two.X).toBe('legendary');
     expect(RARITY_ORDER).toContain(two.Y);
   });
@@ -140,7 +193,10 @@ describe('computeRarityTiers gap snapping', () => {
 describe('computeRarityTiers with stock splits', () => {
   it('ranks a split stock on its pre-split price, so a split never moves its tier', () => {
     const pairs = clusterPairs.map(([t, p]) => [t, p]);
-    const before = computeRarityTiers(pairs.map(([ticker]) => ({ ticker })), Object.fromEntries(pairs));
+    const before = computeRarityTiers(
+      pairs.map(([ticker]) => ({ ticker })),
+      Object.fromEntries(pairs),
+    );
 
     // T00 (top of the board at 60) goes 3-for-1: its live price is now 20.
     const characters = pairs.map(([ticker]) => (ticker === 'T00' ? { ticker, splitFactor: 3 } : { ticker }));

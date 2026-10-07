@@ -9,13 +9,27 @@ import AnnounceCard from './AnnounceCard';
 // sent here is recorded with its channel and message id. Fixing a typo later is
 // an edit, not a repost, which keeps the pin and any links to it alive.
 export default function DiscordTab({
-  darkMode, textClass, mutedClass, inputClass,
-  discordChannels, discordChannelNote, discordMessages, discordDraft, discordBusy, discordLoaded,
+  darkMode,
+  textClass,
+  mutedClass,
+  inputClass,
+  discordChannels,
+  discordChannelNote,
+  discordMessages,
+  discordDraft,
+  discordBusy,
+  discordLoaded,
   loadDiscordMessages,
-  patchDiscordDraft, patchDiscordEmbed,
-  addDiscordButton, patchDiscordButton, removeDiscordButton,
-  newDiscordDraft, editDiscordMessage, sendDiscordDraft,
-  deleteDiscordMessage, importDiscordMessage,
+  patchDiscordDraft,
+  patchDiscordEmbed,
+  addDiscordButton,
+  patchDiscordButton,
+  removeDiscordButton,
+  newDiscordDraft,
+  editDiscordMessage,
+  sendDiscordDraft,
+  deleteDiscordMessage,
+  importDiscordMessage,
 }) {
   const common = { darkMode, textClass, mutedClass, inputClass };
 

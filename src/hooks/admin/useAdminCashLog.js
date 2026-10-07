@@ -35,19 +35,24 @@ export function useAdminCashLog({ showMessage }) {
     return entries.filter((e) => {
       if (onlyGrants && !(e.delta > 0)) return false;
       if (!q) return true;
-      return (e.displayName || '').toLowerCase().includes(q)
-        || (e.memo || '').toLowerCase().includes(q)
-        || (e.userId || '').toLowerCase().includes(q);
+      return (
+        (e.displayName || '').toLowerCase().includes(q) ||
+        (e.memo || '').toLowerCase().includes(q) ||
+        (e.userId || '').toLowerCase().includes(q)
+      );
     });
   }, [entries, search, onlyGrants]);
 
   // Totals for what is actually on screen, so filtering down to one player
   // answers "how much have I given them" without any extra maths.
-  const visibleTotals = useMemo(() => ({
-    granted: Math.round(visibleEntries.reduce((s, e) => s + (e.delta > 0 ? e.delta : 0), 0) * 100) / 100,
-    takenBack: Math.round(visibleEntries.reduce((s, e) => s + (e.delta < 0 ? -e.delta : 0), 0) * 100) / 100,
-    count: visibleEntries.length,
-  }), [visibleEntries]);
+  const visibleTotals = useMemo(
+    () => ({
+      granted: Math.round(visibleEntries.reduce((s, e) => s + (e.delta > 0 ? e.delta : 0), 0) * 100) / 100,
+      takenBack: Math.round(visibleEntries.reduce((s, e) => s + (e.delta < 0 ? -e.delta : 0), 0) * 100) / 100,
+      count: visibleEntries.length,
+    }),
+    [visibleEntries],
+  );
 
   return {
     cashLogEntries: visibleEntries,

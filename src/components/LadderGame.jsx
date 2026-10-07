@@ -21,31 +21,31 @@ const LadderGame = ({ onClose }) => {
     setShowLadderTutorial: modals.setShowLadderTutorial,
   });
 
-  const winRate = (userLadderData?.gamesPlayed || 0) > 0
-    ? Math.round(((userLadderData?.wins || 0) / userLadderData.gamesPlayed) * 100)
-    : 0;
+  const winRate =
+    (userLadderData?.gamesPlayed || 0) > 0
+      ? Math.round(((userLadderData?.wins || 0) / userLadderData.gamesPlayed) * 100)
+      : 0;
 
-  const containerStyle = onClose ? {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.7)',
-    zIndex: 9999,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px'
-  } : {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px'
-  };
+  const containerStyle = onClose
+    ? {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }
+    : {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      };
 
   return (
-    <div
-      style={containerStyle}
-      onClick={onClose}
-    >
+    <div style={containerStyle} onClick={onClose}>
       <div
         style={{
           background: bgMain,
@@ -53,7 +53,7 @@ const LadderGame = ({ onClose }) => {
           width: '100%',
           borderRadius: onClose ? '4px' : undefined,
           position: 'relative',
-          ...(onClose ? { maxHeight: '90vh', overflowY: 'auto' } : {})
+          ...(onClose ? { maxHeight: '90vh', overflowY: 'auto' } : {}),
         }}
         onClick={onClose ? (e) => e.stopPropagation() : undefined}
       >
@@ -61,24 +61,24 @@ const LadderGame = ({ onClose }) => {
         {onClose && (
           <button
             onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            background: '#ff4444',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            width: '30px',
-            height: '30px',
-            fontSize: '18px',
-            cursor: 'pointer',
-            zIndex: 10000,
-            fontWeight: 'bold'
-          }}
-        >
-          ×
-        </button>
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: '#ff4444',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              width: '30px',
+              height: '30px',
+              fontSize: '18px',
+              cursor: 'pointer',
+              zIndex: 10000,
+              fontWeight: 'bold',
+            }}
+          >
+            ×
+          </button>
         )}
 
         <div className="ladder-layout" style={{ display: 'flex', gap: '12px', padding: '15px' }}>
@@ -98,11 +98,7 @@ const LadderGame = ({ onClose }) => {
         </div>
 
         {modals.showTransferModal && (
-          <LadderTransferModal
-            userLadderData={userLadderData}
-            userStockismCash={userStockismCash}
-            {...modals}
-          />
+          <LadderTransferModal userLadderData={userLadderData} userStockismCash={userStockismCash} {...modals} />
         )}
 
         {modals.showLeaderboardModal && (

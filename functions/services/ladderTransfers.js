@@ -3,7 +3,17 @@ const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
-const { checkBanned, checkDiscordWall, getTotalInvested, getLadderDepositFactor, getLadderRampEndDate, touchLastActive, grantedFlowUpdate, reportError, getLadderChips } = require('../helpers');
+const {
+  checkBanned,
+  checkDiscordWall,
+  getTotalInvested,
+  getLadderDepositFactor,
+  getLadderRampEndDate,
+  touchLastActive,
+  grantedFlowUpdate,
+  reportError,
+  getLadderChips,
+} = require('../helpers');
 const {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
@@ -23,7 +33,13 @@ const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;
 // Principal (the user's own deposits coming back) pays a flat fee; profit pays
 // lifetime-progressive bracket rates over cumulative profit withdrawn; a rush
 // surcharge on the whole amount applies if any deposit landed within the window.
-const calculateLadderWithdrawTax = ({ amount, totalDeposited, principalWithdrawn, profitWithdrawn, hasRecentDeposit }) => {
+const calculateLadderWithdrawTax = ({
+  amount,
+  totalDeposited,
+  principalWithdrawn,
+  profitWithdrawn,
+  hasRecentDeposit,
+}) => {
   const deposited = totalDeposited || 0;
   const principalSoFar = principalWithdrawn || 0;
   const profitSoFar = profitWithdrawn || 0;
@@ -48,14 +64,23 @@ const calculateLadderWithdrawTax = ({ amount, totalDeposited, principalWithdrawn
   const totalTax = Math.round((principalFee + profitTax + rushSurcharge) * 100) / 100;
   const netReceived = Math.round((amount - totalTax) * 100) / 100;
 
-  return { grossAmount: amount, principalPart, profitPart, principalFee, profitTax, rushSurcharge, totalTax, netReceived };
+  return {
+    grossAmount: amount,
+    principalPart,
+    profitPart,
+    principalFee,
+    profitTax,
+    rushSurcharge,
+    totalTax,
+    netReceived,
+  };
 };
 
 /**
  * Deposit from Stockism cash to ladder game balance (one-way)
  */
 exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -77,7 +102,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
 
       const [mainUserDoc, ladderUserDoc] = await Promise.all([
         transaction.get(mainUserRef),
-        transaction.get(ladderUserRef)
+        transaction.get(ladderUserRef),
       ]);
 
       if (!mainUserDoc.exists) {
@@ -97,21 +122,26 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       // (cost basis of holdings + open short margin). Mirrors the prediction market.
       const totalInvested = getTotalInvested(mainUser);
       if (totalInvested <= 0) {
-        throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before depositing to the ladder game.');
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Invest in stocks before depositing to the ladder game.',
+        );
       }
 
-      const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
-        balance: 0,
-        totalDeposited: 0,
-        totalWon: 0,
-        totalLost: 0,
-        gamesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        lastPlayed: null
-      };
+      const ladderData = ladderUserDoc.exists
+        ? ladderUserDoc.data()
+        : {
+            balance: 0,
+            totalDeposited: 0,
+            totalWon: 0,
+            totalLost: 0,
+            gamesPlayed: 0,
+            wins: 0,
+            losses: 0,
+            currentStreak: 0,
+            bestStreak: 0,
+            lastPlayed: null,
+          };
 
       // New accounts only have part of the caps unlocked. The invested-in-stocks
       // gate below doesn't stop an alt — it buys stock with its signup cash and
@@ -124,35 +154,43 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
 
       const currentBalance = ladderData.balance ?? 0;
       if (currentBalance >= maxBalance) {
-        throw new functions.https.HttpsError('failed-precondition', `Ladder balance is already at the $${maxBalance.toLocaleString()} limit.${rampNote}`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Ladder balance is already at the $${maxBalance.toLocaleString()} limit.${rampNote}`,
+        );
       }
       if (currentBalance + amount > maxBalance) {
-        throw new functions.https.HttpsError('failed-precondition', `You can only deposit $${(maxBalance - currentBalance).toFixed(2)} more before hitting the $${maxBalance.toLocaleString()} cap.${rampNote}`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `You can only deposit $${(maxBalance - currentBalance).toFixed(2)} more before hitting the $${maxBalance.toLocaleString()} cap.${rampNote}`,
+        );
       }
 
       // Enforce the invested-in-stocks cap on the ladder balance.
       if (currentBalance + amount > totalInvested) {
         const room = Math.max(0, totalInvested - currentBalance);
-        throw new functions.https.HttpsError('failed-precondition',
+        throw new functions.https.HttpsError(
+          'failed-precondition',
           room <= 0
             ? `Your ladder balance is at your invested amount ($${totalInvested.toFixed(2)}). Invest more in stocks to deposit more.`
-            : `You can only deposit $${room.toFixed(2)} more — the ladder game is capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`);
+            : `You can only deposit $${room.toFixed(2)} more — the ladder game is capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
+        );
       }
 
       // Rolling deposit cap: at most LADDER_GAME_MAX_DEPOSIT_PER_WINDOW within the trailing window
       const now = Date.now();
-      const recent = (ladderData.recentDeposits || []).filter(d => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
+      const recent = (ladderData.recentDeposits || []).filter((d) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
       const windowTotal = recent.reduce((sum, d) => sum + d.amount, 0);
       const remaining = maxPerWindow - windowTotal;
       if (amount > remaining) {
         // soonest relief = when the oldest in-window deposit ages out
-        const oldest = recent.length ? Math.min(...recent.map(d => d.ts)) : now;
+        const oldest = recent.length ? Math.min(...recent.map((d) => d.ts)) : now;
         const freesIn = formatWait(oldest + LADDER_DEPOSIT_WINDOW_MS - now);
         throw new functions.https.HttpsError(
           'failed-precondition',
           remaining <= 0
             ? `Deposit limit reached: max $${maxPerWindow.toLocaleString()} per 12 hours. More frees up in ${freesIn}.${rampNote}`
-            : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.${rampNote}`
+            : `You can only deposit $${remaining.toFixed(2)} more in the next 12 hours.${rampNote}`,
         );
       }
 
@@ -173,13 +211,13 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
         ...ladderData,
         balance: (ladderData.balance ?? 0) + amount,
         totalDeposited: (ladderData.totalDeposited || 0) + amount,
-        recentDeposits: recent
+        recentDeposits: recent,
       });
 
       return {
         success: true,
         newStockismCash: cash - amount,
-        newLadderBalance: (ladderData.balance ?? 0) + amount
+        newLadderBalance: (ladderData.balance ?? 0) + amount,
       };
     });
   } catch (error) {
@@ -197,7 +235,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
  * rush surcharge applies if any deposit landed within the last 12 hours.
  */
 exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -217,7 +255,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
 
       const [mainUserDoc, ladderUserDoc] = await Promise.all([
         transaction.get(mainUserRef),
-        transaction.get(ladderUserRef)
+        transaction.get(ladderUserRef),
       ]);
 
       if (!mainUserDoc.exists) {
@@ -244,21 +282,21 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
           'failed-precondition',
           chips > 0
             ? `You can cash out up to $${withdrawable.toFixed(2)}. Bonus chips from check-ins and the welcome stake can be played but not cashed out. What you win with them can.`
-            : 'Withdrawal amount exceeds ladder balance.'
+            : 'Withdrawal amount exceeds ladder balance.',
         );
       }
 
       const principalWithdrawn = ladderData.principalWithdrawn || 0;
       const profitWithdrawn = ladderData.profitWithdrawn || 0;
       const now = Date.now();
-      const hasRecentDeposit = (ladderData.recentDeposits || []).some(d => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
+      const hasRecentDeposit = (ladderData.recentDeposits || []).some((d) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
 
       const tax = calculateLadderWithdrawTax({
         amount,
         totalDeposited: ladderData.totalDeposited || 0,
         principalWithdrawn,
         profitWithdrawn,
-        hasRecentDeposit
+        hasRecentDeposit,
       });
 
       // Ladder balance loses the full gross; the tax just disappears (money sink).
@@ -272,7 +310,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
         // Chips are untouched by a withdrawal (only what sits above them comes
         // out), but write the repaired figure back so the fix sticks.
         nonWithdrawable: chips,
-        chipsMigrated: true
+        chipsMigrated: true,
       });
       // Cancels the deposit's negative flow, so a ladder round trip is invisible
       // to season and leaderboard returns — winnings included.
@@ -290,7 +328,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
         totalTax: tax.totalTax,
         netReceived: tax.netReceived,
         newLadderBalance,
-        newStockismCash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100
+        newStockismCash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100,
       };
     });
   } catch (error) {
@@ -308,7 +346,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
  * Creates the ladder doc if the user has never played.
  */
 exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -329,7 +367,7 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
 
       const [mainUserDoc, ladderUserDoc] = await Promise.all([
         transaction.get(mainUserRef),
-        transaction.get(ladderUserRef)
+        transaction.get(ladderUserRef),
       ]);
 
       if (!mainUserDoc.exists) {
@@ -339,26 +377,34 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
       const mainUser = mainUserDoc.data();
       const cash = mainUser.cash || 0;
 
-      const ladderData = ladderUserDoc.exists ? ladderUserDoc.data() : {
-        balance: 0,
-        totalDeposited: 0,
-        totalWon: 0,
-        totalLost: 0,
-        gamesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        lastPlayed: null
-      };
+      const ladderData = ladderUserDoc.exists
+        ? ladderUserDoc.data()
+        : {
+            balance: 0,
+            totalDeposited: 0,
+            totalWon: 0,
+            totalLost: 0,
+            gamesPlayed: 0,
+            wins: 0,
+            losses: 0,
+            currentStreak: 0,
+            bestStreak: 0,
+            lastPlayed: null,
+          };
       const ladderBalance = ladderData.balance ?? 0;
 
       // Positive: pull from cash. Negative: pull from ladder balance.
       if (amount > 0 && cash < amount) {
-        throw new functions.https.HttpsError('failed-precondition', `User only has $${cash.toFixed(2)} cash to transfer.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `User only has $${cash.toFixed(2)} cash to transfer.`,
+        );
       }
       if (amount < 0 && ladderBalance < -amount) {
-        throw new functions.https.HttpsError('failed-precondition', `User only has $${ladderBalance.toFixed(2)} in the ladder game to pull back.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `User only has $${ladderBalance.toFixed(2)} in the ladder game to pull back.`,
+        );
       }
 
       const newCash = Math.round((cash - amount) * 100) / 100;
@@ -371,15 +417,19 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
         cash: newCash,
         ...grantedFlowUpdate(-amount),
       });
-      transaction.set(ladderUserRef, {
-        ...ladderData,
-        balance: newLadderBalance,
-        // An admin pull can take the balance below the house chips sitting in
-        // it; chips can never exceed what is actually there.
-        nonWithdrawable: Math.min(getLadderChips(ladderData), newLadderBalance),
-        chipsMigrated: true,
-        totalDeposited: (ladderData.totalDeposited || 0) + Math.max(0, amount)
-      }, { merge: true });
+      transaction.set(
+        ladderUserRef,
+        {
+          ...ladderData,
+          balance: newLadderBalance,
+          // An admin pull can take the balance below the house chips sitting in
+          // it; chips can never exceed what is actually there.
+          nonWithdrawable: Math.min(getLadderChips(ladderData), newLadderBalance),
+          chipsMigrated: true,
+          totalDeposited: (ladderData.totalDeposited || 0) + Math.max(0, amount),
+        },
+        { merge: true },
+      );
 
       return {
         success: true,
@@ -387,7 +437,7 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
         previousCash: cash,
         previousLadderBalance: ladderBalance,
         newCash,
-        newLadderBalance
+        newLadderBalance,
       };
     });
   } catch (error) {

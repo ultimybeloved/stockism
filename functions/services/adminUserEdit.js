@@ -69,10 +69,7 @@ exports.adminChangeDisplayName = cf().https.onCall(async (data, context) => {
   const newUsernameRef = db.collection('usernames').doc(newNameLower);
 
   return db.runTransaction(async (transaction) => {
-    const [userDoc, existingDoc] = await Promise.all([
-      transaction.get(userRef),
-      transaction.get(newUsernameRef),
-    ]);
+    const [userDoc, existingDoc] = await Promise.all([transaction.get(userRef), transaction.get(newUsernameRef)]);
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
 
@@ -164,7 +161,7 @@ exports.adminGrantAchievement = cf().https.onCall(async (data, context) => {
 
   await ref.update({
     achievements: FieldValue.arrayUnion(achievementId),
-    [`achievementDates.${achievementId}`]: Date.now()
+    [`achievementDates.${achievementId}`]: Date.now(),
   });
 
   return { success: true, alreadyEarned: false, achievementId };
@@ -203,7 +200,7 @@ exports.adminSetMargin = cf().https.onCall(async (data, context) => {
     success: true,
     marginEnabled: enabled,
     clearedDebt: !!clearDebt,
-    previousMarginUsed
+    previousMarginUsed,
   };
 });
 
@@ -223,14 +220,17 @@ exports.adminSetHolding = cf().https.onCall(async (data, context) => {
   if (!ticker || typeof ticker !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'ticker required');
   }
-  if (!CHARACTERS.some(c => c.ticker === ticker)) {
+  if (!CHARACTERS.some((c) => c.ticker === ticker)) {
     throw new functions.https.HttpsError('invalid-argument', `Unknown ticker: ${ticker}`);
   }
   if (typeof shares !== 'number' || !isFinite(shares) || shares < 0) {
     throw new functions.https.HttpsError('invalid-argument', 'shares must be a number >= 0');
   }
-  if (costBasis !== undefined && costBasis !== null &&
-      (typeof costBasis !== 'number' || !isFinite(costBasis) || costBasis < 0)) {
+  if (
+    costBasis !== undefined &&
+    costBasis !== null &&
+    (typeof costBasis !== 'number' || !isFinite(costBasis) || costBasis < 0)
+  ) {
     throw new functions.https.HttpsError('invalid-argument', 'costBasis must be a number >= 0');
   }
 

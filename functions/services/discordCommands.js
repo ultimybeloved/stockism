@@ -20,8 +20,11 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const {
-  DISCORD_COMMAND_COOLDOWN_MS, DISCORD_LEADERBOARD_ROWS, DISCORD_PORTFOLIO_ROWS,
-  SITE_URL, LEADERBOARD_CACHE_TTL,
+  DISCORD_COMMAND_COOLDOWN_MS,
+  DISCORD_LEADERBOARD_ROWS,
+  DISCORD_PORTFOLIO_ROWS,
+  SITE_URL,
+  LEADERBOARD_CACHE_TTL,
 } = require('../constants');
 const { getDailyMissions, getCrewWeeklyMissions, CREWS } = require('../crews');
 const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('./missionChecks');
@@ -34,9 +37,11 @@ const EPHEMERAL = 64;
 // Formatting
 // ---------------------------------------------------------------------------
 
-const money = (n) => `$${(Number(n) || 0).toLocaleString('en-US', {
-  minimumFractionDigits: 2, maximumFractionDigits: 2,
-})}`;
+const money = (n) =>
+  `$${(Number(n) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 const signedPct = (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 
@@ -62,14 +67,20 @@ const resolveTicker = (input) => {
   const q = String(input).trim().toUpperCase();
   if (CHAR_BY_TICKER.has(q)) return CHAR_BY_TICKER.get(q);
   const lower = q.toLowerCase();
-  return CHARACTERS.find((c) => c.name.toLowerCase() === lower)
-    || CHARACTERS.find((c) => (c.altNames || []).some((a) => a.toLowerCase() === lower))
-    || CHARACTERS.find((c) => c.name.toLowerCase().includes(lower))
-    || null;
+  return (
+    CHARACTERS.find((c) => c.name.toLowerCase() === lower) ||
+    CHARACTERS.find((c) => (c.altNames || []).some((a) => a.toLowerCase() === lower)) ||
+    CHARACTERS.find((c) => c.name.toLowerCase().includes(lower)) ||
+    null
+  );
 };
 
 const linkButton = (label, url, emoji) => ({
-  type: 2, style: 5, label, url, ...(emoji ? { emoji: { name: emoji } } : {}),
+  type: 2,
+  style: 5,
+  label,
+  url,
+  ...(emoji ? { emoji: { name: emoji } } : {}),
 });
 
 const buttonRow = (...buttons) => ({ type: 1, components: buttons.filter(Boolean) });
@@ -82,19 +93,23 @@ const buttonRow = (...buttons) => ({ type: 1, components: buttons.filter(Boolean
 // no account. That is the single best moment to pitch them, so it gets a real
 // reply rather than an error.
 const signupPitch = (what) => ({
-  embeds: [{
-    color: BRAND_COLOR,
-    title: '📈 You are not on Stockism yet',
-    description:
-      `${what}\n\n` +
-      'Stockism is a stock market for characters. You start with cash, buy who you ' +
-      'think is going up, and climb the leaderboard.\n\n' +
-      'Already have an account? Link your Discord and this command will work here.',
-  }],
-  components: [buttonRow(
-    linkButton('Create an account', SITE_URL, '🚀'),
-    linkButton('Link my Discord', `${SITE_URL}/link-discord`, '🔗'),
-  )],
+  embeds: [
+    {
+      color: BRAND_COLOR,
+      title: '📈 You are not on Stockism yet',
+      description:
+        `${what}\n\n` +
+        'Stockism is a stock market for characters. You start with cash, buy who you ' +
+        'think is going up, and climb the leaderboard.\n\n' +
+        'Already have an account? Link your Discord and this command will work here.',
+    },
+  ],
+  components: [
+    buttonRow(
+      linkButton('Create an account', SITE_URL, '🚀'),
+      linkButton('Link my Discord', `${SITE_URL}/link-discord`, '🔗'),
+    ),
+  ],
 });
 
 // ---------------------------------------------------------------------------
@@ -110,10 +125,10 @@ const readMarket = async (withSnapshot = false) => {
   if (withSnapshot) reads.push(db.collection('market').doc('preHaltSnapshot').get());
   const [marketSnap, snapshotSnap] = await Promise.all(reads);
   return {
-    prices: marketSnap.exists ? (marketSnap.data().prices || {}) : {},
-    launchedTickers: marketSnap.exists ? (marketSnap.data().launchedTickers || []) : [],
+    prices: marketSnap.exists ? marketSnap.data().prices || {} : {},
+    launchedTickers: marketSnap.exists ? marketSnap.data().launchedTickers || [] : [],
     marketHalted: marketSnap.exists ? !!marketSnap.data().marketHalted : false,
-    previousPrices: snapshotSnap && snapshotSnap.exists ? (snapshotSnap.data().prices || {}) : {},
+    previousPrices: snapshotSnap && snapshotSnap.exists ? snapshotSnap.data().prices || {} : {},
   };
 };
 
@@ -133,15 +148,17 @@ const findUserByDiscordId = async (discordId) => {
 // partner server should never be able to trigger a users-collection scan.
 const cmdLeaderboard = async () => {
   const snap = await db.collection('leaderboard').doc('global').get();
-  const entries = snap.exists ? (snap.data().entries || []) : [];
+  const entries = snap.exists ? snap.data().entries || [] : [];
 
   if (entries.length === 0) {
     return {
-      embeds: [{
-        color: BRAND_COLOR,
-        title: '🏆 Leaderboard',
-        description: 'The leaderboard is still being built. Try again in a few minutes.',
-      }],
+      embeds: [
+        {
+          color: BRAND_COLOR,
+          title: '🏆 Leaderboard',
+          description: 'The leaderboard is still being built. Try again in a few minutes.',
+        },
+      ],
       components: [buttonRow(linkButton('Open Stockism', `${SITE_URL}/leaderboard`, '📈'))],
     };
   }
@@ -149,20 +166,22 @@ const cmdLeaderboard = async () => {
   // Display names are validated to letters/numbers/underscores, so they can't
   // carry a link — but an underscore still italicises in Discord, so escape them
   // to render names literally (and stay safe if that validation ever loosens).
-  const rows = entries.slice(0, DISCORD_LEADERBOARD_ROWS).map((e, i) =>
-    `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}** — ${money(e.portfolioValue)}`
-  );
+  const rows = entries
+    .slice(0, DISCORD_LEADERBOARD_ROWS)
+    .map((e, i) => `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}** — ${money(e.portfolioValue)}`);
 
   const generatedAt = snap.data().generatedAt || 0;
   const stale = Date.now() - generatedAt > LEADERBOARD_CACHE_TTL;
 
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: '🏆 Top Traders',
-      description: rows.join('\n'),
-      footer: { text: stale ? 'Updates every few minutes' : 'Live' },
-    }],
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: '🏆 Top Traders',
+        description: rows.join('\n'),
+        footer: { text: stale ? 'Updates every few minutes' : 'Live' },
+      },
+    ],
     components: [buttonRow(linkButton('Full leaderboard', `${SITE_URL}/leaderboard`, '🏆'))],
   };
 };
@@ -182,13 +201,15 @@ const cmdProfile = async (interaction) => {
     return isSelf
       ? signupPitch('Link your account to see your profile here.')
       : {
-        embeds: [{
-          color: BRAND_COLOR,
-          title: 'No account found',
-          description: 'That person has not linked a Stockism account yet.',
-        }],
-        components: [buttonRow(linkButton('Create an account', SITE_URL, '🚀'))],
-      };
+          embeds: [
+            {
+              color: BRAND_COLOR,
+              title: 'No account found',
+              description: 'That person has not linked a Stockism account yet.',
+            },
+          ],
+          components: [buttonRow(linkButton('Create an account', SITE_URL, '🚀'))],
+        };
   }
 
   const { data } = found;
@@ -229,11 +250,13 @@ const cmdProfile = async (interaction) => {
   // people. Better no button than a useless one.
   const name = data.displayName || 'Anonymous';
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: `${data.isCrewHead ? '👑 ' : ''}${name}`,
-      fields,
-    }],
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: `${data.isCrewHead ? '👑 ' : ''}${name}`,
+        fields,
+      },
+    ],
   };
 };
 
@@ -247,11 +270,13 @@ const cmdPrice = async (interaction) => {
 
   if (!character) {
     return {
-      embeds: [{
-        color: BRAND_COLOR,
-        title: 'Not found',
-        description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
-      }],
+      embeds: [
+        {
+          color: BRAND_COLOR,
+          title: 'Not found',
+          description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
+        },
+      ],
       components: [buttonRow(linkButton('Browse all stocks', SITE_URL, '📈'))],
     };
   }
@@ -262,13 +287,15 @@ const cmdPrice = async (interaction) => {
   if (price == null) {
     const unlaunched = character.ipoRequired && !launchedTickers.includes(character.ticker);
     return {
-      embeds: [{
-        color: BRAND_COLOR,
-        title: `${character.name} (${character.ticker})`,
-        description: unlaunched
-          ? 'Not trading yet. This one launches in a future IPO.'
-          : 'No price available right now.',
-      }],
+      embeds: [
+        {
+          color: BRAND_COLOR,
+          title: `${character.name} (${character.ticker})`,
+          description: unlaunched
+            ? 'Not trading yet. This one launches in a future IPO.'
+            : 'No price available right now.',
+        },
+      ],
       components: [buttonRow(linkButton('Open Stockism', SITE_URL, '📈'))],
     };
   }
@@ -283,15 +310,15 @@ const cmdPrice = async (interaction) => {
   }
 
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: `${character.name} (${character.ticker})`,
-      fields,
-      footer: marketHalted ? { text: 'Market is halted for chapter review' } : undefined,
-    }],
-    components: [buttonRow(
-      linkButton('Trade on Stockism', `${SITE_URL}/stock/${character.ticker}`, '💸'),
-    )],
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: `${character.name} (${character.ticker})`,
+        fields,
+        footer: marketHalted ? { text: 'Market is halted for chapter review' } : undefined,
+      },
+    ],
+    components: [buttonRow(linkButton('Trade on Stockism', `${SITE_URL}/stock/${character.ticker}`, '💸'))],
   };
 };
 
@@ -330,9 +357,7 @@ const cmdPortfolio = async (interaction) => {
   if (rows.length === 0) {
     description = 'You do not own any stocks yet.';
   } else {
-    description = shown
-      .map((r) => `**${r.ticker}** ${r.shares}× — ${money(r.value)}`)
-      .join('\n');
+    description = shown.map((r) => `**${r.ticker}** ${r.shares}× — ${money(r.value)}`).join('\n');
     if (rest.length > 0) {
       const restValue = rest.reduce((s, r) => s + r.value, 0);
       description += `\n*+ ${rest.length} more worth ${money(restValue)}*`;
@@ -340,15 +365,17 @@ const cmdPortfolio = async (interaction) => {
   }
 
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: '💼 Your Portfolio',
-      description,
-      fields: [
-        { name: 'Holdings value', value: money(holdingsValue), inline: true },
-        { name: 'Cash', value: money(data.cash), inline: true },
-      ],
-    }],
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: '💼 Your Portfolio',
+        description,
+        fields: [
+          { name: 'Holdings value', value: money(holdingsValue), inline: true },
+          { name: 'Cash', value: money(data.cash), inline: true },
+        ],
+      },
+    ],
     components: [buttonRow(linkButton('Manage portfolio', SITE_URL, '💼'))],
   };
 };
@@ -364,11 +391,13 @@ const cmdMissions = async (interaction) => {
   const { data } = found;
   if (!data.crew) {
     return {
-      embeds: [{
-        color: BRAND_COLOR,
-        title: '🎯 Missions',
-        description: 'Pick a crew on the website to start getting missions.',
-      }],
+      embeds: [
+        {
+          color: BRAND_COLOR,
+          title: '🎯 Missions',
+          description: 'Pick a crew on the website to start getting missions.',
+        },
+      ],
       components: [buttonRow(linkButton('Choose a crew', `${SITE_URL}/profile`, '🏴'))],
     };
   }
@@ -381,28 +410,33 @@ const cmdMissions = async (interaction) => {
   const weeklyProgress = (data.weeklyMissions || {})[weekId] || {};
   const seed = weeklyProgress.rerollSeed || 0;
 
-  const render = (missions, progress, checks, claimedMap) => missions.map((m) => {
-    const claimed = !!(claimedMap || {})[m.id];
-    const check = checks[m.id];
-    const done = check ? check(progress, data, prices) : false;
-    const icon = claimed ? '✅' : done ? '🎁' : '⬜';
-    const suffix = claimed ? '' : done ? ' — **ready to claim**' : '';
-    return `${icon} ${m.name || m.id}${suffix}`;
-  }).join('\n') || 'None assigned.';
+  const render = (missions, progress, checks, claimedMap) =>
+    missions
+      .map((m) => {
+        const claimed = !!(claimedMap || {})[m.id];
+        const check = checks[m.id];
+        const done = check ? check(progress, data, prices) : false;
+        const icon = claimed ? '✅' : done ? '🎁' : '⬜';
+        const suffix = claimed ? '' : done ? ' — **ready to claim**' : '';
+        return `${icon} ${m.name || m.id}${suffix}`;
+      })
+      .join('\n') || 'None assigned.';
 
   const daily = getDailyMissions(today, data.crew, seed);
   const weekly = getCrewWeeklyMissions(data.crew, weekId, seed);
 
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: '🎯 Your Missions',
-      fields: [
-        { name: 'Daily', value: render(daily, dailyProgress, DAILY_MISSION_CHECKS, dailyProgress.claimed) },
-        { name: 'Weekly', value: render(weekly, weeklyProgress, WEEKLY_MISSION_CHECKS, weeklyProgress.claimed) },
-      ],
-      footer: { text: 'Claim rewards on the website' },
-    }],
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: '🎯 Your Missions',
+        fields: [
+          { name: 'Daily', value: render(daily, dailyProgress, DAILY_MISSION_CHECKS, dailyProgress.claimed) },
+          { name: 'Weekly', value: render(weekly, weeklyProgress, WEEKLY_MISSION_CHECKS, weeklyProgress.claimed) },
+        ],
+        footer: { text: 'Claim rewards on the website' },
+      },
+    ],
     components: [buttonRow(linkButton('Claim rewards', SITE_URL, '🎁'))],
   };
 };
@@ -417,11 +451,13 @@ const cmdBuy = async (interaction) => {
 
   if (!character) {
     return {
-      embeds: [{
-        color: BRAND_COLOR,
-        title: 'Not found',
-        description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
-      }],
+      embeds: [
+        {
+          color: BRAND_COLOR,
+          title: 'Not found',
+          description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
+        },
+      ],
       components: [buttonRow(linkButton('Browse all stocks', SITE_URL, '📈'))],
     };
   }
@@ -430,21 +466,19 @@ const cmdBuy = async (interaction) => {
   const price = prices[character.ticker];
 
   return {
-    embeds: [{
-      color: BRAND_COLOR,
-      title: `Trade ${character.name} (${character.ticker})`,
-      description: price != null
-        ? `Currently **${money(price)}** per share.`
-        : 'Not trading yet.',
-      footer: {
-        text: marketHalted
-          ? 'Market is halted for chapter review — you can still queue an order'
-          : 'Trades happen on the website so you can see the price impact first',
+    embeds: [
+      {
+        color: BRAND_COLOR,
+        title: `Trade ${character.name} (${character.ticker})`,
+        description: price != null ? `Currently **${money(price)}** per share.` : 'Not trading yet.',
+        footer: {
+          text: marketHalted
+            ? 'Market is halted for chapter review — you can still queue an order'
+            : 'Trades happen on the website so you can see the price impact first',
+        },
       },
-    }],
-    components: [buttonRow(
-      linkButton('Open trade page', `${SITE_URL}/stock/${character.ticker}`, '💸'),
-    )],
+    ],
+    components: [buttonRow(linkButton('Open trade page', `${SITE_URL}/stock/${character.ticker}`, '💸'))],
   };
 };
 
@@ -453,9 +487,9 @@ const cmdBuy = async (interaction) => {
 // ---------------------------------------------------------------------------
 
 const callerDiscordId = (interaction) =>
-  (interaction.member && interaction.member.user && interaction.member.user.id)
-  || (interaction.user && interaction.user.id)
-  || null;
+  (interaction.member && interaction.member.user && interaction.member.user.id) ||
+  (interaction.user && interaction.user.id) ||
+  null;
 
 // Instance-memory cooldown. Trimmed opportunistically so a busy instance cannot
 // grow this map without bound.

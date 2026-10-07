@@ -23,15 +23,27 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
 const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/constants');
 
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '-');
 const pctS = (n, d) => (d ? ((n / d) * 100).toFixed(0) + '%' : '-');
 
@@ -43,12 +55,18 @@ function networkKey(ip) {
   if (g.length < ALT_IPV6_PREFIX_GROUPS) return a;
   return g.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
 }
-const isVpn = (n) => /^104\.2[0-9]\./.test(n || '') || /^2a09:bac/.test(n || '')
-  || /^172\.6[4-9]\./.test(n || '') || /^162\.15[89]\./.test(n || '');
+const isVpn = (n) =>
+  /^104\.2[0-9]\./.test(n || '') ||
+  /^2a09:bac/.test(n || '') ||
+  /^172\.6[4-9]\./.test(n || '') ||
+  /^162\.15[89]\./.test(n || '');
 
 async function main() {
   const names = process.argv.slice(2);
-  if (names.length < 2) { console.error('Usage: node scripts/location-matrix.cjs <name> <name> [...]'); process.exit(1); }
+  if (names.length < 2) {
+    console.error('Usage: node scripts/location-matrix.cjs <name> <name> [...]');
+    process.exit(1);
+  }
 
   const users = await db.collection('users').select('displayName', 'createdAt', 'discordId').get();
   const byName = new Map();
@@ -61,14 +79,17 @@ async function main() {
   const ids = [];
   for (const n of names) {
     const id = byName.get(n.toLowerCase());
-    if (!id) { console.error(`unknown account "${n}"`); process.exit(1); }
+    if (!id) {
+      console.error(`unknown account "${n}"`);
+      process.exit(1);
+    }
     ids.push(id);
   }
 
   const snap = await db.collection('trades').select('uid', 'ip', 'timestamp').get();
-  const grid = new Map();          // net -> Map(uid -> count)
-  const othersOn = new Map();      // net -> Set(uid) including accounts not listed
-  const times = new Map();         // uid -> [{ts, net}]
+  const grid = new Map(); // net -> Map(uid -> count)
+  const othersOn = new Map(); // net -> Set(uid) including accounts not listed
+  const times = new Map(); // uid -> [{ts, net}]
   snap.forEach((d) => {
     const t = d.data();
     const n = networkKey(t.ip);
@@ -89,20 +110,28 @@ async function main() {
   out.push('\nACCOUNTS');
   ids.forEach((id, i) => {
     const m = meta.get(id);
-    out.push(`  ${names[i].padEnd(18)} joined ${day(toMs(m.createdAt))}  ${m.discordId ? 'Discord ' + m.discordId : 'NO Discord'}  `
-      + `${totals[i]} trades`);
+    out.push(
+      `  ${names[i].padEnd(18)} joined ${day(toMs(m.createdAt))}  ${m.discordId ? 'Discord ' + m.discordId : 'NO Discord'}  ` +
+        `${totals[i]} trades`,
+    );
   });
 
   const rows = [...grid.entries()]
-    .map(([net, m]) => ({ net, counts: ids.map((id) => m.get(id) || 0), outsiders: othersOn.get(net).size - ids.filter((id) => m.get(id)).length }))
+    .map(([net, m]) => ({
+      net,
+      counts: ids.map((id) => m.get(id) || 0),
+      outsiders: othersOn.get(net).size - ids.filter((id) => m.get(id)).length,
+    }))
     .sort((a, b) => b.counts.reduce((x, y) => x + y, 0) - a.counts.reduce((x, y) => x + y, 0));
 
   out.push(`\nCONNECTIONS — ${rows.length} in total, most active first`);
   out.push(`  ${'CONNECTION'.padEnd(34)} ${short.map((s) => s.padStart(13)).join('')}  OTHERS`);
   for (const r of rows) {
-    out.push(`  ${(r.net + (isVpn(r.net) ? ' [VPN]' : '')).padEnd(34)} `
-      + r.counts.map((c) => String(c || '.').padStart(13)).join('')
-      + `  ${r.outsiders || ''}`);
+    out.push(
+      `  ${(r.net + (isVpn(r.net) ? ' [VPN]' : '')).padEnd(34)} ` +
+        r.counts.map((c) => String(c || '.').padStart(13)).join('') +
+        `  ${r.outsiders || ''}`,
+    );
   }
   out.push(`  ${'TOTAL'.padEnd(34)} ${totals.map((t) => String(t).padStart(13)).join('')}`);
   out.push('\n  "." = never traded there.  OTHERS = how many accounts outside this list also used it.');
@@ -110,27 +139,44 @@ async function main() {
   out.push('\nPAIRWISE');
   for (let i = 0; i < ids.length; i++) {
     for (let j = i + 1; j < ids.length; j++) {
-      const a = ids[i]; const b = ids[j];
+      const a = ids[i];
+      const b = ids[j];
       const shared = rows.filter((r) => r.counts[i] > 0 && r.counts[j] > 0);
-      if (!shared.length) { out.push(`\n  ${names[i]} + ${names[j]}: no connection in common`); continue; }
+      if (!shared.length) {
+        out.push(`\n  ${names[i]} + ${names[j]}: no connection in common`);
+        continue;
+      }
       const aOn = shared.reduce((s, r) => s + r.counts[i], 0);
       const bOn = shared.reduce((s, r) => s + r.counts[j], 0);
       const priv = shared.filter((r) => r.outsiders === 0).length;
 
-      const merged = [...(times.get(a) || []).map((e) => ({ ...e, w: 'a' })),
-        ...(times.get(b) || []).map((e) => ({ ...e, w: 'b' }))]
-        .filter((e) => shared.some((r) => r.net === e.net)).sort((x, y) => x.ts - y.ts);
+      const merged = [
+        ...(times.get(a) || []).map((e) => ({ ...e, w: 'a' })),
+        ...(times.get(b) || []).map((e) => ({ ...e, w: 'b' })),
+      ]
+        .filter((e) => shared.some((r) => r.net === e.net))
+        .sort((x, y) => x.ts - y.ts);
       let fastest = Infinity;
-      for (let k = 1; k < merged.length; k++) if (merged[k].w !== merged[k - 1].w) fastest = Math.min(fastest, merged[k].ts - merged[k - 1].ts);
+      for (let k = 1; k < merged.length; k++)
+        if (merged[k].w !== merged[k - 1].w) fastest = Math.min(fastest, merged[k].ts - merged[k - 1].ts);
 
       out.push(`\n  ${names[i]} + ${names[j]}`);
       out.push(`    ${shared.length} connections in common, ${priv} used by nobody else`);
       out.push(`    ${names[i]}: ${aOn} of ${totals[i]} trades there (${pctS(aOn, totals[i])})`);
       out.push(`    ${names[j]}: ${bOn} of ${totals[j]} trades there (${pctS(bOn, totals[j])})`);
-      out.push(`    closest they were ever active: ${fastest === Infinity ? 'never alternated'
-        : fastest < 10000 ? `${(fastest / 1000).toFixed(1)}s`
-          : fastest < 60000 ? `${Math.round(fastest / 1000)}s`
-            : fastest < 3600000 ? `${Math.round(fastest / 60000)} min` : `${Math.round(fastest / 3600000)} hr`}`);
+      out.push(
+        `    closest they were ever active: ${
+          fastest === Infinity
+            ? 'never alternated'
+            : fastest < 10000
+              ? `${(fastest / 1000).toFixed(1)}s`
+              : fastest < 60000
+                ? `${Math.round(fastest / 1000)}s`
+                : fastest < 3600000
+                  ? `${Math.round(fastest / 60000)} min`
+                  : `${Math.round(fastest / 3600000)} hr`
+        }`,
+      );
     }
   }
   out.push('');
@@ -140,4 +186,9 @@ async function main() {
   fs.writeFileSync(path.join(__dirname, '..', 'location-matrix.txt'), text, 'utf8');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

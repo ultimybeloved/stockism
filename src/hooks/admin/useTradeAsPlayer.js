@@ -16,7 +16,12 @@ export function useTradeAsPlayer(selectedUser) {
     const t = ticker.trim().toUpperCase().replace(/^\$/, '');
     const n = Number(amount);
     if (!t || !(n > 0)) return;
-    if (!confirm(`Place a REAL ${action.toUpperCase()} of ${n} $${t} on ${selectedUser.displayName}'s account?\n\nIt moves the price like any trade and can't be undone.`)) return;
+    if (
+      !confirm(
+        `Place a REAL ${action.toUpperCase()} of ${n} $${t} on ${selectedUser.displayName}'s account?\n\nIt moves the price like any trade and can't be undone.`,
+      )
+    )
+      return;
     setBusy(true);
     setError(null);
     setResult(null);

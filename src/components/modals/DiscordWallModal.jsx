@@ -25,7 +25,8 @@ export default function DiscordWallModal() {
         <div className="text-4xl mb-3">🔗</div>
         <h2 className={`text-xl font-bold mb-2 ${textClass}`}>Link Discord to continue</h2>
         <p className={`text-sm mb-5 ${mutedClass}`}>
-          To keep the game fair, this account needs a linked Discord before you can trade or play. It is a one-time step and takes a few seconds.
+          To keep the game fair, this account needs a linked Discord before you can trade or play. It is a one-time step
+          and takes a few seconds.
         </p>
         <button
           onClick={beginDiscordLink}

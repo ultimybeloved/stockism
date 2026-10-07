@@ -28,16 +28,19 @@ const CACHE_SECONDS = 1800;
 // Display names and prediction questions are user- and admin-authored, so every
 // interpolated value goes through this. A name containing markup would otherwise
 // end up as live HTML on a public page.
-const esc = (v) => String(v ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;');
+const esc = (v) =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
-const money = (n) => Number(n || 0).toLocaleString('en-US', {
-  minimumFractionDigits: 2, maximumFractionDigits: 2,
-});
+const money = (n) =>
+  Number(n || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const page = (title, bodyHtml, takenAt) => `<!doctype html>
 <html lang="en"><head>
@@ -75,8 +78,7 @@ ${market.marketHalted && market.haltReason ? `<p class="meta">Reason: ${esc(mark
 
 const pricesSection = (market) => {
   const prices = market.prices || {};
-  const rows = CHARACTERS
-    .filter((c) => isRosterTicker(c.ticker) && prices[c.ticker] !== undefined)
+  const rows = CHARACTERS.filter((c) => isRosterTicker(c.ticker) && prices[c.ticker] !== undefined)
     .map((c) => ({ ticker: c.ticker, name: c.name, price: prices[c.ticker] }))
     .sort((a, b) => b.price - a.price);
 
@@ -94,7 +96,9 @@ const datedPricesSection = (closes, day) => {
   const rows = Object.entries(closes || {})
     .filter(([ticker]) => isRosterTicker(ticker))
     .map(([ticker, price]) => ({
-      ticker, price, name: CHARACTER_MAP[ticker]?.name || ticker,
+      ticker,
+      price,
+      name: CHARACTER_MAP[ticker]?.name || ticker,
     }))
     .sort((a, b) => b.price - a.price);
 
@@ -128,9 +132,13 @@ const seasonSection = (season, standings) => {
   const rows = (standings?.entries || []).slice(0, 25);
   return `<h2>Season ${esc(season.number)} — ${esc(season.name)}</h2>
 <p class="meta">Week ${esc(standings?.weeks ?? '')} · ranked on trading return, free stock and bonuses excluded</p>
-${rows.length ? `<table><thead><tr><th>#</th><th>Player</th><th>Tier</th><th class="n">Return</th></tr></thead><tbody>
+${
+  rows.length
+    ? `<table><thead><tr><th>#</th><th>Player</th><th>Tier</th><th class="n">Return</th></tr></thead><tbody>
 ${rows.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.displayName)}</td><td>${esc(e.tier || '')}</td><td class="n">${e.returnPercent > 0 ? '+' : ''}${esc(e.returnPercent)}%</td></tr>`).join('\n')}
-</tbody></table>` : ''}`;
+</tbody></table>`
+    : ''
+}`;
 };
 
 const predictionsSection = (list) => {
@@ -169,26 +177,26 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
     if (dated && !wantsPredictions) {
       const monthId = dated[1];
       const day = dated[2] ? `${monthId}${dated[2]}` : null;
-      const doc = await db.collection('market').doc('current')
-        .collection('daily_closes').doc(monthId).get();
-      const closes = doc.exists ? ((doc.data() || {}).closes || {}) : {};
+      const doc = await db.collection('market').doc('current').collection('daily_closes').doc(monthId).get();
+      const closes = doc.exists ? (doc.data() || {}).closes || {} : {};
 
       if (day) {
-        const body = datedPricesSection(closes[day], day)
-          + `<p class="meta"><a href="${SITE}/snapshot/${monthId}">All of ${monthId}</a>`
-          + ` · <a href="${SITE}/snapshot">Current market</a></p>`;
+        const body =
+          datedPricesSection(closes[day], day) +
+          `<p class="meta"><a href="${SITE}/snapshot/${monthId}">All of ${monthId}</a>` +
+          ` · <a href="${SITE}/snapshot">Current market</a></p>`;
         return res.status(200).send(page(`Market on ${day}`, body, takenAt));
       }
 
       const days = Object.keys(closes).sort();
-      const body = monthIndexSection(monthId, days)
-        + `<p class="meta"><a href="${SITE}/snapshot">Current market</a></p>`;
+      const body =
+        monthIndexSection(monthId, days) + `<p class="meta"><a href="${SITE}/snapshot">Current market</a></p>`;
       return res.status(200).send(page(`Market archive ${monthId}`, body, takenAt));
     }
 
     if (wantsPredictions) {
       const snap = await db.collection('predictions').doc('current').get();
-      const list = snap.exists ? (snap.data().list || []) : [];
+      const list = snap.exists ? snap.data().list || [] : [];
       return res.status(200).send(page('Predictions snapshot', predictionsSection(list), takenAt));
     }
 
@@ -200,7 +208,7 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
     ]);
 
     const market = marketSnap.exists ? marketSnap.data() : {};
-    const entries = (boardSnap.exists ? (boardSnap.data().entries || []) : []).slice(0, 50);
+    const entries = (boardSnap.exists ? boardSnap.data().entries || [] : []).slice(0, 50);
     const season = seasonSnap.exists ? seasonSnap.data() : null;
     const seasonBoard = seasonBoardSnap.exists ? seasonBoardSnap.data() : null;
 
@@ -209,8 +217,8 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
       pricesSection(market),
       leaderboardSection(entries),
       seasonSection(season, seasonBoard),
-      `<p class="meta"><a href="${SITE}/snapshot/predictions">Predictions snapshot →</a>`
-        + ` · <a href="${SITE}/snapshot/${new Date().toISOString().slice(0, 7)}">This month's daily closes →</a></p>`,
+      `<p class="meta"><a href="${SITE}/snapshot/predictions">Predictions snapshot →</a>` +
+        ` · <a href="${SITE}/snapshot/${new Date().toISOString().slice(0, 7)}">This month's daily closes →</a></p>`,
     ].join('\n');
 
     return res.status(200).send(page('Market snapshot', body, takenAt));
@@ -261,8 +269,8 @@ const runArchive = async (includePredictions) => {
 // (/snapshot/YYYY-MM-DD) which are backed by our own daily closes.
 //
 // Predictions ride along on the 1st-8th, which works out to roughly monthly.
-exports.archiveSnapshot = cf().pubsub
-  .schedule('30 21 * * 4')
+exports.archiveSnapshot = cf()
+  .pubsub.schedule('30 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     const includePredictions = new Date().getUTCDate() <= 7;

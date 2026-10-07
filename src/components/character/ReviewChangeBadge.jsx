@@ -27,11 +27,16 @@ const ReviewChangeBadge = ({ change, currentPrice }) => {
 
   if (!change || typeof change.percentChange !== 'number') return null;
 
-  const toneFor = (pct) => (pct > 0
-    ? (colorBlindMode ? 'text-teal-400' : 'text-green-400')
-    : pct < 0
-      ? (colorBlindMode ? 'text-purple-400' : 'text-red-400')
-      : mutedClass);
+  const toneFor = (pct) =>
+    pct > 0
+      ? colorBlindMode
+        ? 'text-teal-400'
+        : 'text-green-400'
+      : pct < 0
+        ? colorBlindMode
+          ? 'text-purple-400'
+          : 'text-red-400'
+        : mutedClass;
   const signed = (pct) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
 
   const reviewPct = change.percentChange;
@@ -46,9 +51,8 @@ const ReviewChangeBadge = ({ change, currentPrice }) => {
 
   // Drift since the review: from the price it ended the review at to the live one.
   const setPrice = change.newPrice;
-  const sincePct = (setPrice > 0 && typeof currentPrice === 'number')
-    ? ((currentPrice - setPrice) / setPrice) * 100
-    : null;
+  const sincePct =
+    setPrice > 0 && typeof currentPrice === 'number' ? ((currentPrice - setPrice) / setPrice) * 100 : null;
 
   return (
     <div
@@ -57,11 +61,10 @@ const ReviewChangeBadge = ({ change, currentPrice }) => {
       }`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">
-          📖 Chapter Review
-        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">📖 Chapter Review</span>
         <span className={`font-extrabold text-base leading-none ${toneFor(reviewPct)}`}>
-          {signed(reviewPct)}{emphasisMarks(reviewPct)}
+          {signed(reviewPct)}
+          {emphasisMarks(reviewPct)}
         </span>
       </div>
       <p className={`text-[10px] mt-0.5 ${mutedClass}`}>

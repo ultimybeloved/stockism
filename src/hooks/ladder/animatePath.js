@@ -21,7 +21,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
       const pathColor = result === 'odd' ? '#2286f6' : '#f22431';
       const points = [{ x, y }];
 
-      rungs.forEach(rungPos => {
+      rungs.forEach((rungPos) => {
         const rY = (rungPos / 10) * height;
         points.push({ x, y: rY });
         x = x === leftX ? rightX : leftX;

@@ -4,19 +4,31 @@ import { parseCashInput, describeCashChange } from './adminCash';
 describe('parseCashInput', () => {
   it('adds on a leading +', () => {
     expect(parseCashInput('+500', 1000)).toEqual({
-      ok: true, mode: 'add', amount: 500, before: 1000, after: 1500,
+      ok: true,
+      mode: 'add',
+      amount: 500,
+      before: 1000,
+      after: 1500,
     });
   });
 
   it('subtracts on a leading -', () => {
     expect(parseCashInput('-250', 1000)).toEqual({
-      ok: true, mode: 'subtract', amount: 250, before: 1000, after: 750,
+      ok: true,
+      mode: 'subtract',
+      amount: 250,
+      before: 1000,
+      after: 750,
     });
   });
 
   it('sets on a bare number', () => {
     expect(parseCashInput('500', 1000)).toEqual({
-      ok: true, mode: 'set', amount: 500, before: 1000, after: 500,
+      ok: true,
+      mode: 'set',
+      amount: 500,
+      before: 1000,
+      after: 500,
     });
   });
 
@@ -58,11 +70,8 @@ describe('parseCashInput', () => {
 
 describe('describeCashChange', () => {
   it('reads as plain English', () => {
-    expect(describeCashChange({ mode: 'set', amount: 500 }, 'Stitch'))
-      .toBe("Set Stitch's cash to $500.00");
-    expect(describeCashChange({ mode: 'add', amount: 500 }, 'Stitch'))
-      .toBe("Add $500.00 to Stitch's cash");
-    expect(describeCashChange({ mode: 'subtract', amount: 500 }, 'Stitch'))
-      .toBe("Subtract $500.00 from Stitch's cash");
+    expect(describeCashChange({ mode: 'set', amount: 500 }, 'Stitch')).toBe("Set Stitch's cash to $500.00");
+    expect(describeCashChange({ mode: 'add', amount: 500 }, 'Stitch')).toBe("Add $500.00 to Stitch's cash");
+    expect(describeCashChange({ mode: 'subtract', amount: 500 }, 'Stitch')).toBe("Subtract $500.00 from Stitch's cash");
   });
 });

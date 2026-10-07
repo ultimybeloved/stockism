@@ -33,7 +33,7 @@ export function useAdminTrades({ showMessage }) {
 
       const trades = [];
 
-      snapshot.forEach(docSnap => {
+      snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const userId = docSnap.id;
         const userName = data.displayName || 'Unknown';
@@ -46,7 +46,7 @@ export function useAdminTrades({ showMessage }) {
         // 'all' shows both
 
         // Get trades from transaction log
-        transactionLog.forEach(tx => {
+        transactionLog.forEach((tx) => {
           if (!['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'].includes(tx.type)) return;
           if (tx.timestamp < cutoffTime) return;
           if (typeFilter !== 'all' && tx.type !== typeFilter) return;
@@ -64,7 +64,7 @@ export function useAdminTrades({ showMessage }) {
             timestamp: tx.timestamp,
             priceImpact: tx.priceImpact || 0,
             newPrice: tx.newPrice || 0,
-            profit: tx.profit || null
+            profit: tx.profit || null,
           });
         });
       });
@@ -82,8 +82,16 @@ export function useAdminTrades({ showMessage }) {
   };
 
   return {
-    tradeTimePeriod, setTradeTimePeriod, tradeTypeFilter, setTradeTypeFilter,
-    tradeFilterTicker, setTradeFilterTicker, tradeBotFilter, setTradeBotFilter,
-    tradesLoading, recentTrades, loadRecentTrades,
+    tradeTimePeriod,
+    setTradeTimePeriod,
+    tradeTypeFilter,
+    setTradeTypeFilter,
+    tradeFilterTicker,
+    setTradeFilterTicker,
+    tradeBotFilter,
+    setTradeBotFilter,
+    tradesLoading,
+    recentTrades,
+    loadRecentTrades,
   };
 }

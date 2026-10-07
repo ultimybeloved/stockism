@@ -10,7 +10,9 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
   const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
 
   return (
-    <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+    <div
+      className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
+    >
       <h3 className={`font-semibold ${textClass} mb-3`}>⚙️ Settings</h3>
       <div className="flex items-center justify-between">
         <div>
@@ -22,14 +24,14 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
             const newMode = !userData?.colorBlindMode;
             try {
               await updateDoc(doc(db, 'users', user.uid), {
-                colorBlindMode: newMode
+                colorBlindMode: newMode,
               });
             } catch (err) {
               console.error('Failed to update color blind mode:', err);
             }
           }}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            userData?.colorBlindMode ? 'bg-orange-600' : (darkMode ? 'bg-zinc-700' : 'bg-slate-300')
+            userData?.colorBlindMode ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
           }`}
         >
           <span
@@ -58,10 +60,12 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
               }
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              userData?.isPublic ? 'bg-orange-600' : (darkMode ? 'bg-zinc-700' : 'bg-slate-300')
+              userData?.isPublic ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
             }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${userData?.isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${userData?.isPublic ? 'translate-x-6' : 'translate-x-1'}`}
+            />
           </button>
         </div>
         {userData?.isPublic && userData?.displayName && (
@@ -86,9 +90,9 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
           <p className={`text-xs ${mutedClass}`}>
             {userData?.discordId
               ? `Linked${userData?.discordUsername ? ` as ${userData.discordUsername}` : ''}`
-              : (userData?.startingCashUnlocked
-                  ? 'Link to claim daily free stocks in Discord'
-                  : `Link Discord to unlock your full $${STARTING_CASH.toLocaleString()} starting balance`)}
+              : userData?.startingCashUnlocked
+                ? 'Link to claim daily free stocks in Discord'
+                : `Link Discord to unlock your full $${STARTING_CASH.toLocaleString()} starting balance`}
           </p>
         </div>
         {userData?.discordId ? (
@@ -141,7 +145,9 @@ const ProfileSettings = ({ userData, user, darkMode }) => {
           >
             <option value="">No title</option>
             {(userData.ownedTitles || []).map((id) => (
-              <option key={id} value={id}>{userData.titleMeta?.[id] || id}</option>
+              <option key={id} value={id}>
+                {userData.titleMeta?.[id] || id}
+              </option>
             ))}
           </select>
         </div>

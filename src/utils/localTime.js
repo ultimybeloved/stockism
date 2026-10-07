@@ -28,15 +28,18 @@ const timePart = (d) => d.toLocaleTimeString(undefined, { hour: 'numeric', minut
 const dayPart = (d) => d.toLocaleDateString(undefined, { weekday: 'short' });
 
 /** The viewer's zone abbreviation right now, e.g. "CDT". */
-export const zoneName = (d = new Date()) =>
-  d.toLocaleTimeString(undefined, { timeZoneName: 'short' }).split(' ').pop();
+export const zoneName = (d = new Date()) => d.toLocaleTimeString(undefined, { timeZoneName: 'short' }).split(' ').pop();
 
 /** "Sep 23, 4:00 PM CDT" — any timestamp, in the viewer's zone. */
 export const formatDateTime = (ms) => {
   const d = new Date(ms);
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
   });
 };
 

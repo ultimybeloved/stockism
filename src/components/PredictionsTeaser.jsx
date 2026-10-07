@@ -18,9 +18,7 @@ const PredictionsTeaser = ({ predictions = [] }) => {
 
   // Same "open weekly" definition as PredictionsPage, minus resolved ones —
   // a teaser should only advertise bets you can still place.
-  const openWeekly = predictions.filter(
-    (p) => p.type !== 'event' && !p.hidden && !p.cancelled && !p.resolved
-  );
+  const openWeekly = predictions.filter((p) => p.type !== 'event' && !p.hidden && !p.cancelled && !p.resolved);
 
   const [idx, setIdx] = useState(0);
   useEffect(() => {
@@ -43,7 +41,9 @@ const PredictionsTeaser = ({ predictions = [] }) => {
             {openWeekly.length} live bet{openWeekly.length !== 1 ? 's' : ''} →
           </span>
         ) : (
-          <span className="text-xs font-semibold text-orange-500 group-hover:translate-x-0.5 transition-transform">→</span>
+          <span className="text-xs font-semibold text-orange-500 group-hover:translate-x-0.5 transition-transform">
+            →
+          </span>
         )}
       </div>
 
@@ -63,7 +63,10 @@ const PredictionsTeaser = ({ predictions = [] }) => {
         <div className="min-h-[3.25rem]">
           <p className={`text-[10px] font-semibold uppercase tracking-wide ${mutedClass}`}>This week</p>
           {/* key remounts the line on rotation so it fades in */}
-          <p key={featured.id} className={`text-sm font-semibold leading-snug line-clamp-2 animate-fadeIn ${textClass}`}>
+          <p
+            key={featured.id}
+            className={`text-sm font-semibold leading-snug line-clamp-2 animate-fadeIn ${textClass}`}
+          >
             {featured.question}
           </p>
         </div>

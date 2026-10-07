@@ -18,7 +18,7 @@ export const SEASON_TIERS = [
   { id: 'diamond', name: 'Diamond', order: 5, color: '#5FC9F3' },
 ];
 
-export const SEASON_TIER_MAP = Object.fromEntries(SEASON_TIERS.map(t => [t.id, t]));
+export const SEASON_TIER_MAP = Object.fromEntries(SEASON_TIERS.map((t) => [t.id, t]));
 
 // Bronze is not a return threshold. It is for turning up: a player active at this
 // many weekly checkpoints earns it regardless of performance, so a losing season
@@ -77,19 +77,22 @@ export const seasonRulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season
 const asPercent = (share) => `${Math.round(share * 100)}%`;
 
 /** One plain sentence per tier, for the card, the board and the admin panel. */
-export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) => ({
-  bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
-  silver: 'Earn Bronze and finish the season up. Free stock and bonuses don\'t count.',
-  gold: 'Earn Silver and finish the season ahead of the market.',
-  platinum: `Earn Gold and finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
-  diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included) at a checkpoint where at least ${asPercent(rules.diamondConcentrationMinInvested)} of their money was invested.`,
-}[tierId] || '');
+export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) =>
+  ({
+    bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
+    silver: "Earn Bronze and finish the season up. Free stock and bonuses don't count.",
+    gold: 'Earn Silver and finish the season ahead of the market.',
+    platinum: `Earn Gold and finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
+    diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included) at a checkpoint where at least ${asPercent(rules.diamondConcentrationMinInvested)} of their money was invested.`,
+  })[tierId] || '';
 
 /** The size division a baseline value falls in. Mirror of divisionFor in seasonTiers.js. */
 export const seasonDivisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
   const divisions = rules.divisions || [];
   const v = baselineValue || 0;
-  return divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max)) || divisions[0] || null;
+  return (
+    divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max)) || divisions[0] || null
+  );
 };
 
 /** "$10k to $50k", "$200k and up". */
@@ -122,8 +125,8 @@ export const seasonStandingTier = ({ returnPercent, marketPercent }) => {
 
 /** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */
 export const nextSeasonTier = (tierId) => {
-  const order = tierId ? (SEASON_TIER_MAP[tierId]?.order || 0) : 0;
-  return SEASON_TIERS.find(t => t.order === order + 1) || null;
+  const order = tierId ? SEASON_TIER_MAP[tierId]?.order || 0 : 0;
+  return SEASON_TIERS.find((t) => t.order === order + 1) || null;
 };
 
 // Coordinated-pressure flags in one season before the admin panel marks a

@@ -35,7 +35,7 @@ export function useAdminSiteMessages({ showMessage }) {
     setLoading(true);
     try {
       const snap = await getDoc(REF());
-      setMessages(snap.exists() ? (snap.data().messages || []) : []);
+      setMessages(snap.exists() ? snap.data().messages || [] : []);
       setLoaded(true);
       setDirty(false);
     } catch (e) {
@@ -45,26 +45,30 @@ export function useAdminSiteMessages({ showMessage }) {
     }
   }, [showMessage]);
 
-  const save = useCallback(async (next) => {
-    const list = next || messages;
-    // An empty text with active on would render a bar with nothing in it.
-    const cleaned = list
-      .filter((m) => m.text?.trim() || !m.active)
-      .map((m) => ({ ...m, text: (m.text || '').trim(), link: (m.link || '').trim() }));
-    setLoading(true);
-    try {
-      await setDoc(REF(), { messages: cleaned, updatedAt: Date.now() }, { merge: true });
-      setMessages(cleaned);
-      setDirty(false);
-      showMessage('success', cleaned.some((m) => m.active)
-        ? 'Site message bar updated.'
-        : 'Site message bar is now hidden.');
-    } catch (e) {
-      showMessage('error', e?.message || 'Could not save site messages.');
-    } finally {
-      setLoading(false);
-    }
-  }, [messages, showMessage]);
+  const save = useCallback(
+    async (next) => {
+      const list = next || messages;
+      // An empty text with active on would render a bar with nothing in it.
+      const cleaned = list
+        .filter((m) => m.text?.trim() || !m.active)
+        .map((m) => ({ ...m, text: (m.text || '').trim(), link: (m.link || '').trim() }));
+      setLoading(true);
+      try {
+        await setDoc(REF(), { messages: cleaned, updatedAt: Date.now() }, { merge: true });
+        setMessages(cleaned);
+        setDirty(false);
+        showMessage(
+          'success',
+          cleaned.some((m) => m.active) ? 'Site message bar updated.' : 'Site message bar is now hidden.',
+        );
+      } catch (e) {
+        showMessage('error', e?.message || 'Could not save site messages.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [messages, showMessage],
+  );
 
   const update = useCallback((id, patch) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));

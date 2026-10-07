@@ -28,10 +28,14 @@ export function useSeasonCoordFlags(active) {
 
   const toggleExclusion = async (player) => {
     const excluded = !player.excluded;
-    if (!confirm(excluded
-      ? `Keep ${player.name} out of Platinum and Diamond this season?\n\nThey still score and can still earn Bronze, Silver and Gold. Their place goes to the next player in their division.`
-      : `Let ${player.name} compete for Platinum and Diamond again this season?`
-    )) return;
+    if (
+      !confirm(
+        excluded
+          ? `Keep ${player.name} out of Platinum and Diamond this season?\n\nThey still score and can still earn Bronze, Silver and Gold. Their place goes to the next player in their division.`
+          : `Let ${player.name} compete for Platinum and Diamond again this season?`,
+      )
+    )
+      return;
 
     setBusyUid(player.uid);
     setError(null);

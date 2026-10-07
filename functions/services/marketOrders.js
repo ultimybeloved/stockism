@@ -7,14 +7,32 @@ const db = admin.firestore();
 
 const { CHARACTER_MAP } = require('../characters');
 const { ADMIN_UID, MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } = require('../constants');
-const { liquidityFor, writeNotification, writeFeedEntry, calculateMarginalImpact, applyDueIPOJumps, reportError, appendPriceHistory, lockedShares, buildTradeCreditUpdates, recordTrade, round2, spreadFor, recordHeartbeat, floorExitShares, remainingShares, cohortAddUpdate, cohortRemoveUpdate, washRuleRemainingMs } = require('../helpers');
+const {
+  liquidityFor,
+  writeNotification,
+  writeFeedEntry,
+  calculateMarginalImpact,
+  applyDueIPOJumps,
+  reportError,
+  appendPriceHistory,
+  lockedShares,
+  buildTradeCreditUpdates,
+  recordTrade,
+  round2,
+  spreadFor,
+  recordHeartbeat,
+  floorExitShares,
+  remainingShares,
+  cohortAddUpdate,
+  cohortRemoveUpdate,
+  washRuleRemainingMs,
+} = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
 const { computePriceUpdates } = require('./tradePricing');
 // The stop-loss sweep that runs on the opening prices this file computes.
 const { runStopLossSweep } = require('./marketOpenStopLoss');
-
 
 // Most recent Thursday 20:30 UTC — the start of the current pre-market session.
 // A manual re-run later in the same week still targets that session's orders;
@@ -31,7 +49,6 @@ const getSessionPreMarketStart = () => {
   return d;
 };
 
-
 /**
  * Pre-market opening auction + stop-loss sweep + stranded-order cleanup.
  *
@@ -43,7 +60,15 @@ const getSessionPreMarketStart = () => {
  * (triggerMarketOpenOrders) for recovery if a run fails.
  */
 const runMarketOpenProcessing = async (trigger) => {
-  const summary = { trigger, ipoJumps: 0, pmFilled: 0, pmFailed: 0, pmExpired: 0, stopLossFilled: 0, stopLossSkipped: 0 };
+  const summary = {
+    trigger,
+    ipoJumps: 0,
+    pmFilled: 0,
+    pmFailed: 0,
+    pmExpired: 0,
+    stopLossFilled: 0,
+    stopLossSkipped: 0,
+  };
   const marketRef = db.collection('market').doc('current');
 
   // ── 1. Apply IPO jumps deferred by the halt ──────────────────────────────
@@ -64,7 +89,8 @@ const runMarketOpenProcessing = async (trigger) => {
   const launchedTickers = marketSnap.data().launchedTickers || [];
 
   // ── 2. Collect this session's pending pre-market orders ──────────────────
-  const preMarketSnap = await db.collection('preMarketOrders')
+  const preMarketSnap = await db
+    .collection('preMarketOrders')
     .where('status', '==', 'PENDING')
     .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(sessionStart))
     .get();
@@ -86,12 +112,16 @@ const runMarketOpenProcessing = async (trigger) => {
   ]);
 
   const failOrder = async (doc, order, reason) => {
-    await doc.ref.update({ status: 'FAILED', failReason: reason, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    await doc.ref.update({
+      status: 'FAILED',
+      failReason: reason,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
     await writeNotification(order.userId, {
       type: 'trade',
       title: 'Market Open Order Failed',
       message: `Your ${order.action} of ${order.shares} $${order.ticker} could not be filled: ${reason}`,
-      data: { ticker: order.ticker, orderId: doc.id }
+      data: { ticker: order.ticker, orderId: doc.id },
     });
     summary.pmFailed++;
   };
@@ -103,7 +133,7 @@ const runMarketOpenProcessing = async (trigger) => {
     // failed here and contribute nothing — no more phantom demand pumping
     // the open, and no free manipulation by queueing unaffordable buys.
     const orders = preMarketSnap.docs
-      .map(doc => ({ doc, order: doc.data() }))
+      .map((doc) => ({ doc, order: doc.data() }))
       .sort((a, b) => (a.order.createdAt?.toMillis?.() || 0) - (b.order.createdAt?.toMillis?.() || 0));
 
     const userCache = new Map();
@@ -114,7 +144,7 @@ const runMarketOpenProcessing = async (trigger) => {
       }
     }
 
-    const cashAvail = new Map();   // userId -> uncommitted cash across their buy orders
+    const cashAvail = new Map(); // userId -> uncommitted cash across their buy orders
     const sharesAvail = new Map(); // userId_ticker -> uncommitted shares across their sell orders
     const executable = [];
 
@@ -125,11 +155,18 @@ const runMarketOpenProcessing = async (trigger) => {
       else if (ud.isBanned) failReason = 'Account is banned';
       else if (ud.requiresDiscordLink && !ud.discordId) failReason = 'Discord verification required';
       else if (ud.isBankrupt || (ud.cash || 0) < 0) failReason = 'Account is bankrupt or in debt';
-      else if (CHARACTER_MAP[order.ticker]?.ipoRequired && !launchedTickers.includes(order.ticker)) failReason = 'Stock is still in IPO phase';
-      if (failReason) { await failOrder(doc, order, failReason); continue; }
+      else if (CHARACTER_MAP[order.ticker]?.ipoRequired && !launchedTickers.includes(order.ticker))
+        failReason = 'Stock is still in IPO phase';
+      if (failReason) {
+        await failOrder(doc, order, failReason);
+        continue;
+      }
 
       const basePrice = currentPrices[order.ticker] || CHARACTER_MAP[order.ticker]?.basePrice;
-      if (!basePrice) { await failOrder(doc, order, 'No market price'); continue; }
+      if (!basePrice) {
+        await failOrder(doc, order, 'No market price');
+        continue;
+      }
 
       // Buys sit on whole-cent share counts; sells go to six decimals, because a
       // position built out of dividends and partial fills has to be closable in
@@ -142,7 +179,7 @@ const runMarketOpenProcessing = async (trigger) => {
       if (!isSell) {
         if (!cashAvail.has(order.userId)) cashAvail.set(order.userId, ud.cash || 0);
         const estAsk = basePrice * (1 + spreadFor(order.ticker) / 2);
-        fillable = round2(Math.min(order.shares, Math.floor(cashAvail.get(order.userId) / estAsk * 100) / 100));
+        fillable = round2(Math.min(order.shares, Math.floor((cashAvail.get(order.userId) / estAsk) * 100) / 100));
         if (fillable >= minFill) cashAvail.set(order.userId, cashAvail.get(order.userId) - estAsk * fillable);
       } else {
         const key = `${order.userId}_${order.ticker}`;
@@ -174,9 +211,10 @@ const runMarketOpenProcessing = async (trigger) => {
       let openingPrice = basePrice;
       if (Math.abs(netDemand) >= 0.01) {
         const impact = calculateMarginalImpact(basePrice, Math.abs(netDemand), 0, liquidityFor(ticker));
-        openingPrice = netDemand > 0
-          ? Math.min(basePrice + impact, basePrice * (1 + MAX_PRICE_CHANGE_PERCENT))
-          : Math.max(0.01, Math.max(basePrice - impact, basePrice * (1 - MAX_PRICE_CHANGE_PERCENT)));
+        openingPrice =
+          netDemand > 0
+            ? Math.min(basePrice + impact, basePrice * (1 + MAX_PRICE_CHANGE_PERCENT))
+            : Math.max(0.01, Math.max(basePrice - impact, basePrice * (1 - MAX_PRICE_CHANGE_PERCENT)));
       }
       openingPrice = round2(openingPrice);
 
@@ -184,7 +222,7 @@ const runMarketOpenProcessing = async (trigger) => {
       auctionPrices[ticker] = {
         openingPrice,
         openingAsk: round2(openingPrice * (1 + spread / 2)),
-        openingBid: round2(openingPrice * (1 - spread / 2))
+        openingBid: round2(openingPrice * (1 - spread / 2)),
       };
 
       if (openingPrice !== basePrice) {
@@ -192,7 +230,7 @@ const runMarketOpenProcessing = async (trigger) => {
         auctionHistoryPoints[ticker] = {
           timestamp: Date.now(),
           price: openingPrice,
-          source: 'pre_market_auction'
+          source: 'pre_market_auction',
         };
       }
     }
@@ -211,7 +249,10 @@ const runMarketOpenProcessing = async (trigger) => {
       if (!basePrice || openingPrice === basePrice) continue;
 
       const moved = computePriceUpdates({
-        ticker: t, currentPrice: basePrice, newPrice: openingPrice, prices: working,
+        ticker: t,
+        currentPrice: basePrice,
+        newPrice: openingPrice,
+        prices: working,
       });
       for (const [movedTicker, price] of Object.entries(moved)) {
         if (auctionTickers.has(movedTicker)) continue;
@@ -220,7 +261,7 @@ const runMarketOpenProcessing = async (trigger) => {
         auctionHistoryPoints[movedTicker] = {
           timestamp: Date.now(),
           price,
-          source: 'pre_market_auction'
+          source: 'pre_market_auction',
         };
       }
     }
@@ -270,22 +311,27 @@ const runMarketOpenProcessing = async (trigger) => {
           let localFillShares = order.shares;
 
           if (order.action === 'buy') {
-            const affordable = Math.floor((ud.cash || 0) / executionPrice * 100) / 100;
+            const affordable = Math.floor(((ud.cash || 0) / executionPrice) * 100) / 100;
             localFillShares = round2(Math.min(localFillShares, affordable));
             if (localFillShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
 
             const currentHoldings = ud.holdings?.[order.ticker] || 0;
             const currentCostBasis = ud.costBasis?.[order.ticker] || 0;
             const newHoldings = Math.round((currentHoldings + localFillShares) * 10000) / 10000;
-            const newCostBasis = currentHoldings > 0
-              ? round2(((currentCostBasis * currentHoldings) + (executionPrice * localFillShares)) / newHoldings)
-              : executionPrice;
+            const newCostBasis =
+              currentHoldings > 0
+                ? round2((currentCostBasis * currentHoldings + executionPrice * localFillShares) / newHoldings)
+                : executionPrice;
             // Mission/stat credit — same fields executeTrade writes, so
             // pre-market fills count toward missions like regular trades.
             const { updates: creditUpdates } = buildTradeCreditUpdates({
-              userData: ud, ticker: order.ticker, action: 'buy', shares: localFillShares,
-              totalValue: executionPrice * localFillShares, executionPrice,
-              marketPrice: prices.openingPrice
+              userData: ud,
+              ticker: order.ticker,
+              action: 'buy',
+              shares: localFillShares,
+              totalValue: executionPrice * localFillShares,
+              executionPrice,
+              marketPrice: prices.openingPrice,
             });
             transaction.update(userRef, {
               cash: admin.firestore.FieldValue.increment(-executionPrice * localFillShares),
@@ -296,9 +342,8 @@ const runMarketOpenProcessing = async (trigger) => {
               // Dividend/exit-loyalty lot ledger — same write executeTrade
               // makes. Without it these shares had no lot, and the next
               // dividend run restarted their 10-day clock from scratch.
-              ...cohortAddUpdate(ud, order.ticker, localFillShares, Date.now(),
-                !!CHARACTER_MAP[order.ticker]?.isETF),
-              ...creditUpdates
+              ...cohortAddUpdate(ud, order.ticker, localFillShares, Date.now(), !!CHARACTER_MAP[order.ticker]?.isETF),
+              ...creditUpdates,
             });
 
             // Same trade record executeTrade writes, so the fill shows up in
@@ -329,16 +374,20 @@ const runMarketOpenProcessing = async (trigger) => {
             // Mission/stat credit — same fields executeTrade writes, so
             // pre-market fills count toward missions like regular trades.
             const { updates: creditUpdates } = buildTradeCreditUpdates({
-              userData: ud, ticker: order.ticker, action: 'sell', shares: localFillShares,
-              totalValue: executionPrice * localFillShares, executionPrice,
-              marketPrice: prices.openingPrice
+              userData: ud,
+              ticker: order.ticker,
+              action: 'sell',
+              shares: localFillShares,
+              totalValue: executionPrice * localFillShares,
+              executionPrice,
+              marketPrice: prices.openingPrice,
             });
             const updates = {
               cash: admin.firestore.FieldValue.increment(executionPrice * localFillShares),
               lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
               // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
               ...cohortRemoveUpdate(ud, order.ticker, localFillShares),
-              ...creditUpdates
+              ...creditUpdates,
             };
             if (!newHoldings) {
               updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
@@ -372,7 +421,7 @@ const runMarketOpenProcessing = async (trigger) => {
             filledShares: localFillShares,
             executedPrice: executionPrice,
             executedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
           fillShares = localFillShares;
@@ -380,7 +429,14 @@ const runMarketOpenProcessing = async (trigger) => {
 
         // Crew mission progress (fire-and-forget, same as executeTrade)
         if (feedCrew) {
-          updateCrewMissionProgress(feedCrew, order.userId, order.action, fillShares, order.ticker, executionPrice * fillShares);
+          updateCrewMissionProgress(
+            feedCrew,
+            order.userId,
+            order.action,
+            fillShares,
+            order.ticker,
+            executionPrice * fillShares,
+          );
         }
 
         const partialNote = fillShares < order.shares ? ` (filled ${fillShares} of ${order.shares})` : '';
@@ -388,7 +444,7 @@ const runMarketOpenProcessing = async (trigger) => {
           type: 'trade',
           title: 'Market Open Order Filled',
           message: `Your ${order.action} of ${fillShares} $${order.ticker} executed at $${executionPrice.toFixed(2)} in the opening auction${partialNote}`,
-          data: { ticker: order.ticker, orderId: doc.id, price: executionPrice }
+          data: { ticker: order.ticker, orderId: doc.id, price: executionPrice },
         });
         writeFeedEntry({
           type: 'trade',
@@ -399,7 +455,7 @@ const runMarketOpenProcessing = async (trigger) => {
           action: order.action,
           amount: fillShares,
           price: executionPrice,
-          message: `${order.action === 'buy' ? 'bought' : 'sold'} ${fillShares} $${order.ticker} via market open auction at $${executionPrice.toFixed(2)}`
+          message: `${order.action === 'buy' ? 'bought' : 'sold'} ${fillShares} $${order.ticker} via market open auction at $${executionPrice.toFixed(2)}`,
         });
         summary.pmFilled++;
       } catch (err) {
@@ -431,7 +487,8 @@ const runMarketOpenProcessing = async (trigger) => {
   // ── 7. Stranded-order cleanup ─────────────────────────────────────────────
   // Any PENDING pre-market order from a previous session can never fill —
   // expire it and tell the owner, so nothing sits in the queue forever.
-  const staleSnap = await db.collection('preMarketOrders')
+  const staleSnap = await db
+    .collection('preMarketOrders')
     .where('status', '==', 'PENDING')
     .where('createdAt', '<', admin.firestore.Timestamp.fromDate(sessionStart))
     .get();
@@ -440,13 +497,13 @@ const runMarketOpenProcessing = async (trigger) => {
     await doc.ref.update({
       status: 'EXPIRED',
       failReason: 'Order missed its opening auction',
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     await writeNotification(order.userId, {
       type: 'trade',
       title: 'Pre-Market Order Expired',
       message: `Your ${order.action} of ${order.shares} $${order.ticker} missed its opening auction and was cancelled. No cash or shares were taken.`,
-      data: { ticker: order.ticker, orderId: doc.id }
+      data: { ticker: order.ticker, orderId: doc.id },
     });
     summary.pmExpired++;
   }
@@ -455,8 +512,8 @@ const runMarketOpenProcessing = async (trigger) => {
   return summary;
 };
 
-exports.processMarketOpenOrders = cf().pubsub
-  .schedule('56 20 * * 4')
+exports.processMarketOpenOrders = cf()
+  .pubsub.schedule('56 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     try {
@@ -474,7 +531,7 @@ exports.runMarketOpenProcessing = runMarketOpenProcessing;
 // Admin-only recovery: re-runs the same processing (idempotent — filled orders
 // are skipped) if the scheduled run failed or was missed.
 exports.triggerMarketOpenOrders = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
   }

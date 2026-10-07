@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import {
-  auditUserDropsFunction, diagnoseTickerRollbackFunction, recoverTickerFunction,
-} from '../../firebase';
+import { auditUserDropsFunction, diagnoseTickerRollbackFunction, recoverTickerFunction } from '../../firebase';
 
 // Diagnostics tab: drop audits, ticker rollback diagnosis, ticker recovery.
 // Uses setMessage directly (no auto-dismiss), matching the original behavior.
@@ -69,7 +67,12 @@ export function useAdminDiagnostics({ setMessage }) {
     try {
       const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
       const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, rollbackToTimestamp, dryRun: true });
+      const result = await recoverTickerFunction({
+        ticker: diagTicker,
+        startTimestamp,
+        rollbackToTimestamp,
+        dryRun: true,
+      });
       setRecoveryPreview(result.data);
     } catch (err) {
       setMessage({ type: 'error', text: `Recovery preview failed: ${err.message}` });
@@ -78,15 +81,28 @@ export function useAdminDiagnostics({ setMessage }) {
   };
 
   const handleRecoveryExecute = async () => {
-    if (!window.confirm(`EXECUTE RECOVERY on ${diagTicker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `EXECUTE RECOVERY on ${diagTicker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`,
+      )
+    )
+      return;
     setRecoveryExecuting(true);
     try {
       const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
       const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({ ticker: diagTicker, startTimestamp, rollbackToTimestamp, dryRun: false });
+      const result = await recoverTickerFunction({
+        ticker: diagTicker,
+        startTimestamp,
+        rollbackToTimestamp,
+        dryRun: false,
+      });
       setRecoveryPreview(result.data);
       setRecoveryDone(true);
-      setMessage({ type: 'success', text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${result.data.priceReset.to.toFixed(2)}` });
+      setMessage({
+        type: 'success',
+        text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${result.data.priceReset.to.toFixed(2)}`,
+      });
     } catch (err) {
       setMessage({ type: 'error', text: `Recovery failed: ${err.message}` });
     }
@@ -94,10 +110,27 @@ export function useAdminDiagnostics({ setMessage }) {
   };
 
   return {
-    dropAuditQuery, setDropAuditQuery, dropAuditRunning, handleDropAudit, dropAuditResult,
-    diagTicker, setDiagTicker, diagStartDate, setDiagStartDate,
-    diagRunning, handleRunDiagnostic, diagResult, diagUserSort, setDiagUserSort,
-    recoveryRollbackDate, setRecoveryRollbackDate, recoveryRunning, recoveryExecuting,
-    handleRecoveryPreview, recoveryDone, recoveryPreview, handleRecoveryExecute,
+    dropAuditQuery,
+    setDropAuditQuery,
+    dropAuditRunning,
+    handleDropAudit,
+    dropAuditResult,
+    diagTicker,
+    setDiagTicker,
+    diagStartDate,
+    setDiagStartDate,
+    diagRunning,
+    handleRunDiagnostic,
+    diagResult,
+    diagUserSort,
+    setDiagUserSort,
+    recoveryRollbackDate,
+    setRecoveryRollbackDate,
+    recoveryRunning,
+    recoveryExecuting,
+    handleRecoveryPreview,
+    recoveryDone,
+    recoveryPreview,
+    handleRecoveryExecute,
   };
 }

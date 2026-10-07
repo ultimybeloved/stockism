@@ -5,8 +5,7 @@ import { CHECKIN_STREAK_REWARDS } from '../constants/economy';
 const CAP_DAY = CHECKIN_STREAK_REWARDS.length; // streak length where the reward stops climbing
 
 // Reward for a given streak day (1-based), capped at the last tier.
-const rewardForStreak = (streak) =>
-  CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
+const rewardForStreak = (streak) => CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
 
 const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onSignIn, darkMode, loading }) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -19,15 +18,15 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onS
 
   // checkinStreak is the streak as of the last check-in.
   const currentStreak = checkinStreak || 0;
-  const continuing = lastCheckinStr === yesterday;        // last check-in was yesterday → streak carries
+  const continuing = lastCheckinStr === yesterday; // last check-in was yesterday → streak carries
   const claimStreak = continuing ? currentStreak + 1 : 1; // streak the user reaches if they claim now
   // Bars show the streak already banked: today's once claimed, the live streak if
   // yesterday counts, otherwise nothing (a missed day has killed it).
-  const displayStreak = hasCheckedIn ? currentStreak : (continuing ? currentStreak : 0);
+  const displayStreak = hasCheckedIn ? currentStreak : continuing ? currentStreak : 0;
   const filledDays = Math.min(displayStreak, CAP_DAY);
 
-  const claimReward = rewardForStreak(claimStreak);            // what claiming now pays
-  const nextReward = rewardForStreak(currentStreak + 1);       // what tomorrow pays after today's check-in
+  const claimReward = rewardForStreak(claimStreak); // what claiming now pays
+  const nextReward = rewardForStreak(currentStreak + 1); // what tomorrow pays after today's check-in
   const atCap = displayStreak >= CAP_DAY;
   const lostStreak = !hasCheckedIn && !isGuest && currentStreak > 0 && !continuing;
 
@@ -51,7 +50,7 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onS
   // Toggle tooltip on click/tap for mobile support
   const handleButtonClick = () => {
     if (hasCheckedIn) {
-      setShowTooltip(prev => !prev);
+      setShowTooltip((prev) => !prev);
     } else {
       onCheckin();
     }
@@ -106,9 +105,7 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onS
               key={day}
               title={`Day ${day}${isCap ? '+' : ''}: $${reward}`}
               className={`flex-1 h-1.5 rounded-full transition-colors ${
-                reached
-                  ? (isCap ? 'bg-amber-400' : 'bg-orange-500')
-                  : darkMode ? 'bg-zinc-700' : 'bg-zinc-200'
+                reached ? (isCap ? 'bg-amber-400' : 'bg-orange-500') : darkMode ? 'bg-zinc-700' : 'bg-zinc-200'
               }`}
             />
           );
@@ -135,16 +132,20 @@ const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onS
       </button>
 
       {showTooltip && hasCheckedIn && (
-        <div className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 rounded-sm text-xs whitespace-nowrap z-50 ${
-          darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
-        } shadow-lg`}>
+        <div
+          className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 rounded-sm text-xs whitespace-nowrap z-50 ${
+            darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
+          } shadow-lg`}
+        >
           <div className="text-center">
             <div className="font-semibold">Next check-in available in:</div>
             <div className="text-orange-400 font-mono mt-1">{timeUntilReset}</div>
           </div>
-          <div className={`absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent ${
-            darkMode ? 'border-t-slate-700' : 'border-t-slate-800'
-          }`} />
+          <div
+            className={`absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent ${
+              darkMode ? 'border-t-slate-700' : 'border-t-slate-800'
+            }`}
+          />
         </div>
       )}
     </div>

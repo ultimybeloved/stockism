@@ -49,9 +49,7 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
 
   // Filtered by date here rather than in the query, so it needs no composite
   // index. There are only ever a handful of these alerts a day.
-  const snap = await db.collection('watchlist_alerts')
-    .where('type', '==', 'coordinated_pressure')
-    .get();
+  const snap = await db.collection('watchlist_alerts').where('type', '==', 'coordinated_pressure').get();
 
   const players = new Map();
   snap.forEach((doc) => {
@@ -60,7 +58,13 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
     const uids = a.participantUIDs || [];
     uids.forEach((uid, i) => {
       if (!players.has(uid)) {
-        players.set(uid, { uid, name: (a.participants || [])[i] || uid, flags: 0, tickers: new Set(), partners: new Map() });
+        players.set(uid, {
+          uid,
+          name: (a.participants || [])[i] || uid,
+          flags: 0,
+          tickers: new Set(),
+          partners: new Map(),
+        });
       }
       const p = players.get(uid);
       p.flags++;
@@ -77,9 +81,9 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
   const userDocs = rows.length
     ? await db.getAll(...rows.map((p) => db.collection('users').doc(p.uid)), { fieldMask: ['seasonTopTierExclusion'] })
     : [];
-  const excluded = new Set(userDocs
-    .filter((d) => d.exists && d.data().seasonTopTierExclusion?.seasonId === season.id)
-    .map((d) => d.id));
+  const excluded = new Set(
+    userDocs.filter((d) => d.exists && d.data().seasonTopTierExclusion?.seasonId === season.id).map((d) => d.id),
+  );
 
   return {
     seasonId: season.id,
@@ -111,13 +115,13 @@ exports.setSeasonTopTierExclusion = cf().https.onCall(async (data, context) => {
   if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
 
   await userRef.update({
-    seasonTopTierExclusion: excluded
-      ? { seasonId: season.id, at: Date.now() }
-      : FieldValue.delete(),
+    seasonTopTierExclusion: excluded ? { seasonId: season.id, at: Date.now() } : FieldValue.delete(),
   });
   // The cached board would keep projecting their old tier until it expired.
   await db.collection('leaderboard').doc('season').delete();
 
-  console.log(`SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`);
+  console.log(
+    `SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`,
+  );
   return { success: true, uid, excluded: !!excluded };
 });

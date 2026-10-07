@@ -22,13 +22,13 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
           ordersRef,
           where('userId', '==', user.uid),
           where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']),
-          orderBy('createdAt', 'desc')
+          orderBy('createdAt', 'desc'),
         );
 
         const snapshot = await getDocs(q);
-        const orders = snapshot.docs.map(d => ({
+        const orders = snapshot.docs.map((d) => ({
           id: d.id,
-          ...d.data()
+          ...d.data(),
         }));
 
         setPendingOrders(orders);
@@ -47,11 +47,11 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
     try {
       await updateDoc(doc(db, 'limitOrders', orderId), {
         status: 'CANCELED',
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       });
 
       // Remove from list immediately
-      setPendingOrders(prev => prev.filter(o => o.id !== orderId));
+      setPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (error) {
       console.error('Error canceling order:', error);
       showNotification('error', `Failed to cancel order: ${error.message}`);

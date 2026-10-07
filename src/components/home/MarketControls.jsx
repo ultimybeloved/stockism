@@ -29,15 +29,21 @@ const SORTS = [
 // separate stacked pill rows, one per feature, and the next one would have made
 // three rows before you could see a stock.
 const MarketControls = ({
-  filters, setFilter, clearFilters,
-  sortBy, setSortBy,
-  currentPage, setCurrentPage,
+  filters,
+  setFilter,
+  clearFilters,
+  sortBy,
+  setSortBy,
+  currentPage,
+  setCurrentPage,
   totalPages,
-  showAll, setShowAll,
+  showAll,
+  setShowAll,
   reviewChanges,
 }) => {
   const { darkMode, user, userData } = useAppContext();
-  const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } =
+    getThemeClasses(darkMode);
   const [panelOpen, setPanelOpen] = useState(false);
 
   const hasReviewChanges = Object.keys(reviewChanges).length > 0;
@@ -60,30 +66,32 @@ const MarketControls = ({
           if (t.needsUser && !user) return null;
           if (t.needsReview && !hasReviewChanges) return null;
           return (
-            <button key={t.id} onClick={() => switchTab(t.id)}
+            <button
+              key={t.id}
+              onClick={() => switchTab(t.id)}
               className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
-                filters.tab === t.id
-                  ? 'bg-orange-600 text-white'
-                  : `border ${ghostBtnClass}`
-              }`}>
+                filters.tab === t.id ? 'bg-orange-600 text-white' : `border ${ghostBtnClass}`
+              }`}
+            >
               {t.label}
               {t.id === 'review' && ` (${Object.keys(reviewChanges).length})`}
             </button>
           );
         })}
 
-        <button onClick={() => setPanelOpen((o) => !o)}
+        <button
+          onClick={() => setPanelOpen((o) => !o)}
           className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all border ${ghostBtnClass} ${
             activeCount ? 'text-orange-500 border-orange-500' : ''
-          }`}>
+          }`}
+        >
           Filters{activeCount ? ` (${activeCount})` : ''} {panelOpen ? '▲' : '▼'}
         </button>
 
         {/* Only offered when something is actually filtered, so it is never a
             button that does nothing. */}
         {activeCount > 0 && (
-          <button onClick={clearFilters}
-            className={`px-3 py-2 text-xs font-semibold rounded-sm ${chipClass}`}>
+          <button onClick={clearFilters} className={`px-3 py-2 text-xs font-semibold rounded-sm ${chipClass}`}>
             Clear all
           </button>
         )}
@@ -91,39 +99,68 @@ const MarketControls = ({
 
       {panelOpen && (
         <MarketFilterPanel
-          filters={filters} setFilter={setFilter} userData={userData}
-          darkMode={darkMode} chipClass={chipClass} mutedClass={mutedClass} textClass={textClass}
+          filters={filters}
+          setFilter={setFilter}
+          userData={userData}
+          darkMode={darkMode}
+          chipClass={chipClass}
+          mutedClass={mutedClass}
+          textClass={textClass}
         />
       )}
 
       <div className={`${cardClass} ${raisedClass} border rounded-sm p-4 mb-4`}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-            className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}>
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}
+          >
             {isReviewTab && <option value="review-change">Biggest Review Change</option>}
             {isReviewTab && <option value="review-since">Moved Most Since Review</option>}
-            {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {SORTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
           </select>
-          <input type="text" placeholder="Search..." value={filters.search}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={filters.search}
             onChange={(e) => setFilter('search', e.target.value)}
-            className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`} />
+            className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}
+          />
           {/* The Review tab is sectioned and always shows everything, so paging
               it would only split a section in half. */}
           {!isReviewTab && (
             <>
               <div className="flex items-center justify-center gap-2">
-                <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={showAll || currentPage === 1}
-                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={showAll || currentPage === 1}
+                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+                >
                   Prev
                 </button>
-                <span className={`text-sm ${mutedClass}`}>{currentPage}/{totalPages}</span>
-                <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={showAll || currentPage === totalPages}
-                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}>
+                <span className={`text-sm ${mutedClass}`}>
+                  {currentPage}/{totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={showAll || currentPage === totalPages}
+                  className={`px-3 py-2 text-sm rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+                >
                   Next
                 </button>
               </div>
-              <button onClick={() => setShowAll(!showAll)}
-                className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}>
+              <button
+                onClick={() => setShowAll(!showAll)}
+                className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}
+              >
                 {showAll ? 'Show Pages' : 'Show All'}
               </button>
             </>

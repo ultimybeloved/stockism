@@ -22,9 +22,7 @@ describe('failedFunctions', () => {
   });
 
   it('strips the resource path down to the function name', () => {
-    const out = failedFunctions(
-      'failed to update function projects/p/locations/us-central1/functions/executeTrade'
-    );
+    const out = failedFunctions('failed to update function projects/p/locations/us-central1/functions/executeTrade');
     expect(out).toEqual(['executeTrade']);
   });
 
@@ -33,11 +31,9 @@ describe('failedFunctions', () => {
   });
 
   it('finds every casualty, not just the first', () => {
-    const out = failedFunctions([
-      'failed to update function alpha',
-      'some other line',
-      'failed to update function beta',
-    ].join('\n'));
+    const out = failedFunctions(
+      ['failed to update function alpha', 'some other line', 'failed to update function beta'].join('\n'),
+    );
     expect(out).toEqual(['alpha', 'beta']);
   });
 

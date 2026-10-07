@@ -22,7 +22,13 @@ const round2 = (n) => Math.round(n * 100) / 100;
  * without an emulator.
  */
 const decayTarget = ({
-  character, price, stats, shortInterest, priceHistory, now, trackingStartedAt,
+  character,
+  price,
+  stats,
+  shortInterest,
+  priceHistory,
+  now,
+  trackingStartedAt,
   haltedTickers,
 }) => {
   if (character.isETF) return null;
@@ -43,8 +49,7 @@ const decayTarget = ({
   // traded last week — before tracking existed — as long dead and decay it
   // immediately. trackingStartedAt is the floor on how far back any claim of
   // neglect can reach.
-  const reference = stats?.lastTradedAt
-    || Math.max(new Date(character.dateAdded).getTime(), trackingStartedAt || 0);
+  const reference = stats?.lastTradedAt || Math.max(new Date(character.dateAdded).getTime(), trackingStartedAt || 0);
   if (now - reference < NEGLECT_WINDOW_MS) return null;
 
   if ((shortInterest[character.ticker] || 0) >= NEGLECT_SHORT_INTEREST_THRESHOLD) return null;
@@ -60,6 +65,5 @@ const decayTarget = ({
   // same number every day forever.
   return target < price ? target : null;
 };
-
 
 module.exports = { decayTarget };

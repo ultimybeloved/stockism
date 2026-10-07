@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { CREWS, CREW_MAP, getCrewMultiplier, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY, CREW_SWITCH_EVENT, isFreeSwitchTarget } from '../../crews';
+import {
+  CREWS,
+  CREW_MAP,
+  getCrewMultiplier,
+  CREW_REJOIN_LOCKOUT_DAYS,
+  CREW_SWITCH_PENALTY,
+  CREW_SWITCH_EVENT,
+  isFreeSwitchTarget,
+} from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { formatDateTime } from '../../utils/localTime';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
@@ -23,9 +31,8 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
 
   // Free-switch event, if one is running. The server enforces this; the UI just
   // has to describe the same rules.
-  const eventCrew = CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId)
-    ? CREW_MAP[CREW_SWITCH_EVENT.crewId]
-    : null;
+  const eventCrew =
+    CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId) ? CREW_MAP[CREW_SWITCH_EVENT.crewId] : null;
   const isFreeTarget = (crewId) => !!eventCrew && isFreeSwitchTarget(crewId);
 
   // 30-day rejoin lockout on crews you recently left. The event crew ignores it
@@ -60,19 +67,18 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
-        onClick={e => e.stopPropagation()}>
-
+      <div
+        className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🏴 {isGuest ? 'Crews' : 'Crew'}</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              ×
+            </button>
           </div>
-          {isGuest && (
-            <p className={`text-sm text-amber-500 mt-1`}>
-              Sign in to join a crew!
-            </p>
-          )}
+          {isGuest && <p className={`text-sm text-amber-500 mt-1`}>Sign in to join a crew!</p>}
           {!isGuest && currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1 flex items-center gap-1`}>
               Current:
@@ -98,7 +104,8 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
               🎉 <strong>Free to join {eventCrew.name}</strong>
               <br />
               <span className={`text-xs ${mutedClass}`}>
-                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends {formatDateTime(CREW_SWITCH_EVENT.endsAt)}.
+                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends{' '}
+                {formatDateTime(CREW_SWITCH_EVENT.endsAt)}.
               </span>
             </p>
           </div>
@@ -110,7 +117,10 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
             <p className="text-amber-400 text-sm text-center">
               ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>{penaltyPct}% of your entire portfolio</strong>
               <br />
-              <span className={`text-xs ${mutedClass}`}>{penaltyPct}% of your cash and shares will be taken if you ever leave. You also can't rejoin that crew for {CREW_REJOIN_LOCKOUT_DAYS} days.</span>
+              <span className={`text-xs ${mutedClass}`}>
+                {penaltyPct}% of your cash and shares will be taken if you ever leave. You also can't rejoin that crew
+                for {CREW_REJOIN_LOCKOUT_DAYS} days.
+              </span>
             </p>
           </div>
         )}
@@ -123,11 +133,11 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
               <p className="text-red-400 font-semibold mb-2">
                 You will lose approximately {formatCurrency(penaltyAmount)}
               </p>
-              <p className={`text-xs ${mutedClass}`}>
-                {penaltyPct}% of your cash and shares will be taken.
-              </p>
+              <p className={`text-xs ${mutedClass}`}>{penaltyPct}% of your cash and shares will be taken.</p>
             </div>
-            <p className={`text-sm ${mutedClass} mb-6`}>You can't rejoin {CREW_MAP[currentCrew]?.name} for {CREW_REJOIN_LOCKOUT_DAYS} days. Other crews stay open.</p>
+            <p className={`text-sm ${mutedClass} mb-6`}>
+              You can't rejoin {CREW_MAP[currentCrew]?.name} for {CREW_REJOIN_LOCKOUT_DAYS} days. Other crews stay open.
+            </p>
 
             <div className="flex gap-3 justify-center">
               <button
@@ -149,12 +159,19 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
           <div className="p-6 text-center">
             <div className="mb-4">
               {CREW_MAP[selectedCrew]?.icon ? (
-                <img src={CREW_MAP[selectedCrew]?.icon} alt={CREW_MAP[selectedCrew]?.name} className="w-16 h-16 object-contain mx-auto" />
+                <img
+                  src={CREW_MAP[selectedCrew]?.icon}
+                  alt={CREW_MAP[selectedCrew]?.name}
+                  className="w-16 h-16 object-contain mx-auto"
+                />
               ) : (
                 <span className="text-4xl">{CREW_MAP[selectedCrew]?.emblem}</span>
               )}
             </div>
-            <h3 className={`text-xl font-bold mb-2 ${textClass}`} style={{ color: crewColor(CREW_MAP[selectedCrew]?.color) }}>
+            <h3
+              className={`text-xl font-bold mb-2 ${textClass}`}
+              style={{ color: crewColor(CREW_MAP[selectedCrew]?.color) }}
+            >
               {currentCrew ? `Switch to ${CREW_MAP[selectedCrew]?.name}?` : `Join ${CREW_MAP[selectedCrew]?.name}?`}
             </h3>
 
@@ -165,32 +182,36 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
             )}
 
             {currentCrew && isFreeTarget(selectedCrew) ? (
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} border border-emerald-500/30 mb-4`}>
-                <p className="text-emerald-400 font-semibold mb-2">
-                  This switch is free
-                </p>
+              <div
+                className={`p-4 rounded-sm ${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} border border-emerald-500/30 mb-4`}
+              >
+                <p className="text-emerald-400 font-semibold mb-2">This switch is free</p>
                 <p className={`text-xs ${mutedClass}`}>
-                  Nothing is taken from your cash or shares, and {CREW_MAP[currentCrew]?.name} stays open to you if you want to go back.
-                  Leaving {CREW_MAP[selectedCrew]?.name} later costs the usual {penaltyPct}%.
+                  Nothing is taken from your cash or shares, and {CREW_MAP[currentCrew]?.name} stays open to you if you
+                  want to go back. Leaving {CREW_MAP[selectedCrew]?.name} later costs the usual {penaltyPct}%.
                 </p>
               </div>
             ) : currentCrew ? (
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}>
+              <div
+                className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}
+              >
                 <p className="text-red-400 font-semibold mb-2">
                   You will lose approximately {formatCurrency(penaltyAmount)}
                 </p>
                 <p className={`text-xs ${mutedClass}`}>
-                  {penaltyPct}% of your cash and shares will be taken. You can't rejoin {CREW_MAP[currentCrew]?.name} for {CREW_REJOIN_LOCKOUT_DAYS} days.
+                  {penaltyPct}% of your cash and shares will be taken. You can't rejoin {CREW_MAP[currentCrew]?.name}{' '}
+                  for {CREW_REJOIN_LOCKOUT_DAYS} days.
                 </p>
               </div>
             ) : (
               <div className="mb-4">
-                <p className={`text-sm text-orange-500 mb-3`}>
-                  ✓ Joining a crew is free!
-                </p>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}>
+                <p className={`text-sm text-orange-500 mb-3`}>✓ Joining a crew is free!</p>
+                <div
+                  className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}
+                >
                   <p className="text-amber-400 text-sm">
-                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose <strong>{penaltyPct}% of your portfolio</strong>.
+                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose{' '}
+                    <strong>{penaltyPct}% of your portfolio</strong>.
                   </p>
                 </div>
               </div>
@@ -209,7 +230,13 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
                 disabled={selectLoading}
                 className="px-6 py-2 rounded-sm bg-orange-600 hover:bg-orange-700 text-white font-semibold disabled:opacity-50"
               >
-                {selectLoading ? (currentCrew ? 'Switching...' : 'Joining...') : (currentCrew ? 'Confirm Switch' : 'Join Crew')}
+                {selectLoading
+                  ? currentCrew
+                    ? 'Switching...'
+                    : 'Joining...'
+                  : currentCrew
+                    ? 'Confirm Switch'
+                    : 'Join Crew'}
               </button>
             </div>
           </div>
@@ -226,7 +253,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Object.values(CREWS).map(crew => {
+              {Object.values(CREWS).map((crew) => {
                 const lockedDays = lockDaysLeft(crew.id);
                 const multiplier = getCrewMultiplier(crewStats, crew.id);
                 const activeCount = crewStats?.activeCounts?.[crew.id];
@@ -266,9 +293,7 @@ const CrewSelectionModal = ({ onClose, onSelect, onLeave, isGuest, leaveLoading,
                         {multiplier > 1 && (
                           <span className="text-orange-500 font-semibold">🔥 x{multiplier} rewards</span>
                         )}
-                        {typeof activeCount === 'number' && (
-                          <span className={mutedClass}>{activeCount} active</span>
-                        )}
+                        {typeof activeCount === 'number' && <span className={mutedClass}>{activeCount} active</span>}
                       </div>
                     )}
                     {crew.id === currentCrew && (

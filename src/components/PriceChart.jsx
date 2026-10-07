@@ -33,24 +33,31 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
   // see what actually happened. Nobody else gets the toggle, or the extra read.
   const isAdmin = Boolean(user && ADMIN_UIDS.includes(user.uid));
   const [showReviewSteps, setShowReviewSteps] = useState(false);
-  const { fullHistory, loading: loadingArchive, hasReviewDetail } =
-    usePriceHistory(ticker, {
-      loadReviewDetail: isAdmin,
-      showReviewDetail: isAdmin && showReviewSteps,
-    });
+  const {
+    fullHistory,
+    loading: loadingArchive,
+    hasReviewDetail,
+  } = usePriceHistory(ticker, {
+    loadReviewDetail: isAdmin,
+    showReviewDetail: isAdmin && showReviewSteps,
+  });
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const chartRef = useRef(null);
 
   const currentData = useMemo(() => {
-    const range = TIME_RANGES.find(r => r.key === timeRange);
+    const range = TIME_RANGES.find((r) => r.key === timeRange);
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
 
     let data = fullHistory
-      .filter(p => p.timestamp >= cutoff)
-      .map(p => ({
+      .filter((p) => p.timestamp >= cutoff)
+      .map((p) => ({
         ...p,
         fullDate: new Date(p.timestamp).toLocaleDateString('en-US', {
-          month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
         }),
       }));
 
@@ -59,19 +66,30 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       const startTime = range.hours === Infinity ? now - 7 * 86400000 : now - range.hours * 3600000;
       let startPrice = basePrice;
       for (let i = fullHistory.length - 1; i >= 0; i--) {
-        if (fullHistory[i].timestamp <= cutoff) { startPrice = fullHistory[i].price; break; }
+        if (fullHistory[i].timestamp <= cutoff) {
+          startPrice = fullHistory[i].price;
+          break;
+        }
       }
       if (startPrice === basePrice && fullHistory.length > 0) startPrice = fullHistory[0].price;
       const latestPrice = fullHistory.length > 0 ? fullHistory[fullHistory.length - 1].price : currentPrice;
       data = [
-        { timestamp: startTime, price: startPrice, fullDate: new Date(startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+        {
+          timestamp: startTime,
+          price: startPrice,
+          fullDate: new Date(startTime).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+        },
         { timestamp: now, price: latestPrice, fullDate: 'Now' },
       ];
     }
     return data;
   }, [fullHistory, basePrice, currentPrice, timeRange]);
 
-  const prices = currentData.map(d => d.price);
+  const prices = currentData.map((d) => d.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const priceRange = maxPrice - minPrice || 1;
@@ -87,16 +105,21 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
   const downColor = colorBlindMode ? '#a855f7' : '#ef4444';
   const strokeColor = isUp ? upColor : downColor;
   const fillColor = isUp
-    ? (colorBlindMode ? 'rgba(20,184,166,0.1)' : 'rgba(34,197,94,0.1)')
-    : (colorBlindMode ? 'rgba(168,85,247,0.1)' : 'rgba(239,68,68,0.1)');
+    ? colorBlindMode
+      ? 'rgba(20,184,166,0.1)'
+      : 'rgba(34,197,94,0.1)'
+    : colorBlindMode
+      ? 'rgba(168,85,247,0.1)'
+      : 'rgba(239,68,68,0.1)';
 
-  const pathData = currentData.map((d, i) =>
-    `${i === 0 ? 'M' : 'L'} ${getX(i, currentData.length)} ${getY(d.price, minPrice, priceRange)}`
-  ).join(' ');
+  const pathData = currentData
+    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i, currentData.length)} ${getY(d.price, minPrice, priceRange)}`)
+    .join(' ');
 
-  const areaPath = currentData.length > 0
-    ? `${pathData} L ${getX(currentData.length - 1, currentData.length)} ${PAD_Y + CHART_H} L ${PAD_X} ${PAD_Y + CHART_H} Z`
-    : '';
+  const areaPath =
+    currentData.length > 0
+      ? `${pathData} L ${getX(currentData.length - 1, currentData.length)} ${PAD_Y + CHART_H} L ${PAD_X} ${PAD_Y + CHART_H} Z`
+      : '';
 
   const handleMove = (e) => {
     if (!chartRef.current || currentData.length === 0) return;
@@ -104,9 +127,10 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     const rect = chartRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const svgX = ((clientX - rect.left) / rect.width) * SVG_W;
-    const idx = Math.max(0, Math.min(currentData.length - 1,
-      Math.round(((svgX - PAD_X) / CHART_W) * (currentData.length - 1))
-    ));
+    const idx = Math.max(
+      0,
+      Math.min(currentData.length - 1, Math.round(((svgX - PAD_X) / CHART_W) * (currentData.length - 1))),
+    );
     const p = currentData[idx];
     if (p) {
       const point = { ...p, x: getX(idx, currentData.length), y: getY(p.price, minPrice, priceRange) };
@@ -128,23 +152,37 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
         className="w-full cursor-crosshair"
         style={{ touchAction: 'none' }}
         onMouseMove={handleMove}
-        onMouseLeave={() => { setHoveredPoint(null); onHover?.(null); }}
-        onTouchStart={e => { e.preventDefault(); handleMove(e); }}
+        onMouseLeave={() => {
+          setHoveredPoint(null);
+          onHover?.(null);
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          handleMove(e);
+        }}
         onTouchMove={handleMove}
-        onTouchEnd={() => { setHoveredPoint(null); onHover?.(null); }}
+        onTouchEnd={() => {
+          setHoveredPoint(null);
+          onHover?.(null);
+        }}
       >
         {/* Grid */}
         {gridRatios.map((ratio, i) => {
           const y = PAD_Y + ratio * CHART_H;
           return (
             <g key={i}>
-              <line x1={PAD_X} y1={y} x2={SVG_W - PAD_X} y2={y}
-                stroke={darkMode ? '#334155' : '#e2e8f0'} strokeWidth="1" />
+              <line
+                x1={PAD_X}
+                y1={y}
+                x2={SVG_W - PAD_X}
+                y2={y}
+                stroke={darkMode ? '#334155' : '#e2e8f0'}
+                strokeWidth="1"
+              />
               {/* The SVG scales down to ~57% on phones, so this renders near 7px
                   there — don't shrink it below 13 or mobile loses the labels. */}
               {axisLabels[i] && (
-                <text x={PAD_X - 8} y={y + 4} textAnchor="end"
-                  fill={darkMode ? '#94a3b8' : '#64748b'} fontSize="13">
+                <text x={PAD_X - 8} y={y + 4} textAnchor="end" fill={darkMode ? '#94a3b8' : '#64748b'} fontSize="13">
                   {axisLabels[i]}
                 </text>
               )}
@@ -161,27 +199,46 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
         )}
 
         {/* Bar */}
-        {chartType === 'bar' && currentData.map((d, i) => {
-          const x = getX(i, currentData.length);
-          const y = getY(d.price, minPrice, priceRange);
-          const barBottom = PAD_Y + CHART_H;
-          const prevPrice = i > 0 ? currentData[i - 1].price : d.price;
-          const barUp = d.price >= prevPrice;
-          const barW = Math.max(1, (CHART_W / currentData.length) * 0.75);
-          return (
-            <rect key={i} x={x - barW / 2} y={y} width={barW}
-              height={Math.max(1, barBottom - y)}
-              fill={barUp ? upColor : downColor} opacity={0.75} />
-          );
-        })}
+        {chartType === 'bar' &&
+          currentData.map((d, i) => {
+            const x = getX(i, currentData.length);
+            const y = getY(d.price, minPrice, priceRange);
+            const barBottom = PAD_Y + CHART_H;
+            const prevPrice = i > 0 ? currentData[i - 1].price : d.price;
+            const barUp = d.price >= prevPrice;
+            const barW = Math.max(1, (CHART_W / currentData.length) * 0.75);
+            return (
+              <rect
+                key={i}
+                x={x - barW / 2}
+                y={y}
+                width={barW}
+                height={Math.max(1, barBottom - y)}
+                fill={barUp ? upColor : downColor}
+                opacity={0.75}
+              />
+            );
+          })}
 
         {/* Hover dot + line */}
         {hoveredPoint && (
           <>
-            <line x1={hoveredPoint.x} y1={PAD_Y} x2={hoveredPoint.x} y2={PAD_Y + CHART_H}
-              stroke={darkMode ? '#475569' : '#cbd5e1'} strokeDasharray="4" />
-            <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={5}
-              fill={strokeColor} stroke={darkMode ? '#1e293b' : '#ffffff'} strokeWidth={2} />
+            <line
+              x1={hoveredPoint.x}
+              y1={PAD_Y}
+              x2={hoveredPoint.x}
+              y2={PAD_Y + CHART_H}
+              stroke={darkMode ? '#475569' : '#cbd5e1'}
+              strokeDasharray="4"
+            />
+            <circle
+              cx={hoveredPoint.x}
+              cy={hoveredPoint.y}
+              r={5}
+              fill={strokeColor}
+              stroke={darkMode ? '#1e293b' : '#ffffff'}
+              strokeWidth={2}
+            />
           </>
         )}
       </svg>
@@ -189,7 +246,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       {/* Admin: show the review's real steps instead of the tidied single point */}
       {isAdmin && hasReviewDetail && (
         <button
-          onClick={() => setShowReviewSteps(v => !v)}
+          onClick={() => setShowReviewSteps((v) => !v)}
           className={`absolute top-1 right-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors ${
             showReviewSteps
               ? 'bg-amber-500 text-white border-amber-500'

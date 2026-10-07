@@ -6,7 +6,16 @@ import { isWeeklyHalt } from '../utils/marketHours';
 import { marketTimes } from '../utils/localTime';
 import { useAppContext } from '../context/AppContext';
 
-const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, betLimit = 0, isAdmin = false, onHide }) => {
+const PredictionCard = ({
+  prediction,
+  userBet,
+  onBet,
+  isGuest,
+  onRequestBet,
+  betLimit = 0,
+  isAdmin = false,
+  onHide,
+}) => {
   const { darkMode, userData, marketData } = useAppContext();
   // Betting closes with the market, same as trading. Mirrors placeBet's guards.
   const bettingHalted = isWeeklyHalt() || !!marketData?.marketHalted;
@@ -23,14 +32,14 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
   // Support both old (yesPool/noPool) and new (pools object) format
   const options = prediction.options || ['Yes', 'No'];
   const pools = prediction.pools || {
-    'Yes': prediction.yesPool || 0,
-    'No': prediction.noPool || 0
+    Yes: prediction.yesPool || 0,
+    No: prediction.noPool || 0,
   };
   const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
 
   const getOptionPercent = (option) => {
     if (totalPool === 0) return Math.floor(100 / options.length);
-    return Math.floor((pools[option] || 0) / totalPool * 100);
+    return Math.floor(((pools[option] || 0) / totalPool) * 100);
   };
 
   const calculatePayout = (option, amount) => {
@@ -87,7 +96,9 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🔮</span>
-            <span className={`text-xs font-semibold uppercase ${isActive ? 'text-orange-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}>
+            <span
+              className={`text-xs font-semibold uppercase ${isActive ? 'text-orange-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}
+            >
               {isActive ? 'Active' : prediction.resolved ? 'Resolved' : 'Ended'}
             </span>
             {prediction.reopened && isActive && (
@@ -111,7 +122,9 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
         <div className={`flex justify-between items-baseline gap-2 text-xs ${mutedClass} mb-2`}>
           <span>
             Pool: {formatCurrency(totalPool)}
-            {prediction.seedTotal > 0 && <span className="opacity-70"> (incl. {formatCurrency(prediction.seedTotal)} house seed)</span>}
+            {prediction.seedTotal > 0 && (
+              <span className="opacity-70"> (incl. {formatCurrency(prediction.seedTotal)} house seed)</span>
+            )}
           </span>
           {showOdds && <span className="opacity-70">payout on a ${previewBet.toLocaleString('en-US')} bet</span>}
         </div>
@@ -123,7 +136,10 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
             const isWinner = prediction.resolved && winningOutcomes.includes(option);
             return (
               <div key={option} className="flex items-center gap-2">
-                <div className={`w-28 sm:w-40 shrink-0 truncate text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`} title={option}>
+                <div
+                  className={`w-28 sm:w-40 shrink-0 truncate text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`}
+                  title={option}
+                >
                   {option} {isWinner && '✓'}
                 </div>
                 <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
@@ -149,24 +165,33 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
       {userBet && (
         <div className={`mb-3 p-2 rounded-sm ${subtleClass}`}>
           <div className={`text-xs ${mutedClass}`}>Your bet</div>
-          <div className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}>
+          <div
+            className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}
+          >
             {formatCurrency(userBet.amount)} on "{userBet.option}"
           </div>
-          {isActive && !prediction.resolved && (() => {
-            // Calculate current potential payout
-            const myPool = pools[userBet.option] || 0;
-            const potentialPayout = myPool > 0 ? (userBet.amount / myPool) * totalPool : userBet.amount;
-            const potentialMultiplier = userBet.amount > 0 ? potentialPayout / userBet.amount : 1;
-            return (
-              <div className={`text-xs mt-1 ${mutedClass}`}>
-                Current potential: <span className="text-orange-500 font-semibold">{formatCurrency(potentialPayout)}</span>
-                <span className="opacity-70"> ({formatMultiplier(potentialMultiplier)})</span>
-              </div>
-            );
-          })()}
+          {isActive &&
+            !prediction.resolved &&
+            (() => {
+              // Calculate current potential payout
+              const myPool = pools[userBet.option] || 0;
+              const potentialPayout = myPool > 0 ? (userBet.amount / myPool) * totalPool : userBet.amount;
+              const potentialMultiplier = userBet.amount > 0 ? potentialPayout / userBet.amount : 1;
+              return (
+                <div className={`text-xs mt-1 ${mutedClass}`}>
+                  Current potential:{' '}
+                  <span className="text-orange-500 font-semibold">{formatCurrency(potentialPayout)}</span>
+                  <span className="opacity-70"> ({formatMultiplier(potentialMultiplier)})</span>
+                </div>
+              );
+            })()}
           {prediction.resolved && (
-            <div className={`text-xs mt-1 ${(prediction.outcomes || [prediction.outcome]).includes(userBet.option) ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
-              {(prediction.outcomes || [prediction.outcome]).includes(userBet.option) ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!` : '❌ Lost'}
+            <div
+              className={`text-xs mt-1 ${(prediction.outcomes || [prediction.outcome]).includes(userBet.option) ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
+            >
+              {(prediction.outcomes || [prediction.outcome]).includes(userBet.option)
+                ? `🎉 Won ${formatCurrency(userBet.payout || 0)}!`
+                : '❌ Lost'}
             </div>
           )}
         </div>
@@ -175,31 +200,38 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
       {isActive && !isGuest && (
         <>
           {bettingHalted ? (
-            <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
+            <div
+              className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
+            >
               {marketData?.marketHalted
                 ? `⏸️ Betting paused: ${marketData.haltReason || 'market halted'}`
                 : `⏸️ Betting is closed for chapter review. Reopens ${marketTimes().reopen}.`}
             </div>
           ) : hasExistingBet && !prediction.allowAdditionalBets ? (
-            <div className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}>
+            <div
+              className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
+            >
               🔒 You've already placed a bet on this prediction
             </div>
           ) : !showBetUI ? (
-            <button onClick={() => {
-              setShowBetUI(true);
-              // Pre-select their existing option if they're adding to bet
-              if (hasExistingBet && prediction.allowAdditionalBets) {
-                setSelectedOption(userBet.option);
-              }
-            }}
-              className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm">
+            <button
+              onClick={() => {
+                setShowBetUI(true);
+                // Pre-select their existing option if they're adding to bet
+                if (hasExistingBet && prediction.allowAdditionalBets) {
+                  setSelectedOption(userBet.option);
+                }
+              }}
+              className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm"
+            >
               {hasExistingBet && prediction.allowAdditionalBets ? 'Add to Bet' : 'Place Bet'}
             </button>
           ) : (
             <div className="space-y-3">
               {hasExistingBet && prediction.allowAdditionalBets && (
                 <div className={`text-xs ${mutedClass} bg-blue-500/10 border border-blue-500 rounded-sm p-2`}>
-                  💡 You can add more to your existing bet on "<span className="text-blue-500 font-semibold">{userBet.option}</span>" (cannot change or remove)
+                  💡 You can add more to your existing bet on "
+                  <span className="text-blue-500 font-semibold">{userBet.option}</span>" (cannot change or remove)
                 </div>
               )}
               <div className={`grid gap-2 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
@@ -215,9 +247,10 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
                         isLocked
                           ? 'opacity-30 cursor-not-allowed border-zinc-700 text-zinc-500'
                           : selectedOption === option
-                          ? `${colors.bg} border-transparent text-white`
-                          : `${colors.border} ${colors.text} hover:opacity-80`
-                      }`}>
+                            ? `${colors.bg} border-transparent text-white`
+                            : `${colors.border} ${colors.text} hover:opacity-80`
+                      }`}
+                    >
                       {option}
                     </button>
                   );
@@ -226,16 +259,26 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
               <div>
                 <div className={`text-xs ${mutedClass} mb-1`}>Bet Amount</div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setBetAmount(a => Math.max(0, a - betStep))}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setBetAmount((a) => Math.max(0, a - betStep))}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+                  >
                     -{betStep}
                   </button>
-                  <button type="button" onClick={() => setBetAmount(a => Math.min(betLimit || Infinity, a + betStep))}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setBetAmount((a) => Math.min(betLimit || Infinity, a + betStep))}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+                  >
                     +{betStep}
                   </button>
-                  <button type="button" onClick={() => setBetAmount(Math.floor(betLimit))} disabled={!(betLimit > 0)}
-                    className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40">
+                  <button
+                    type="button"
+                    onClick={() => setBetAmount(Math.floor(betLimit))}
+                    disabled={!(betLimit > 0)}
+                    className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-40"
+                  >
                     Max
                   </button>
                 </div>
@@ -268,17 +311,31 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
               </div>
               {selectedOption && betAmount > 0 && (
                 <div className={`text-sm ${mutedClass}`}>
-                  Potential payout: <span className="text-orange-500 font-semibold">{formatCurrency(calculatePayout(selectedOption, betAmount))}</span>
-                  <span className="opacity-70"> ({formatMultiplier(calculatePayout(selectedOption, betAmount) / betAmount)})</span>
+                  Potential payout:{' '}
+                  <span className="text-orange-500 font-semibold">
+                    {formatCurrency(calculatePayout(selectedOption, betAmount))}
+                  </span>
+                  <span className="opacity-70">
+                    {' '}
+                    ({formatMultiplier(calculatePayout(selectedOption, betAmount) / betAmount)})
+                  </span>
                 </div>
               )}
               <div className="flex gap-2">
-                <button onClick={() => { setShowBetUI(false); setSelectedOption(null); }}
-                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${chipClass}`}>
+                <button
+                  onClick={() => {
+                    setShowBetUI(false);
+                    setSelectedOption(null);
+                  }}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-sm ${chipClass}`}
+                >
                   Cancel
                 </button>
-                <button onClick={handlePlaceBet} disabled={!selectedOption || betAmount <= 0}
-                  className="flex-1 py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50">
+                <button
+                  onClick={handlePlaceBet}
+                  disabled={!selectedOption || betAmount <= 0}
+                  className="flex-1 py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
+                >
                   {hasExistingBet && prediction.allowAdditionalBets ? 'Add to Bet' : 'Confirm'}
                 </button>
               </div>
@@ -287,14 +344,17 @@ const PredictionCard = ({ prediction, userBet, onBet, isGuest, onRequestBet, bet
         </>
       )}
 
-      {isGuest && isActive && (
-        <div className={`text-center text-sm ${mutedClass}`}>Sign in to place bets</div>
-      )}
+      {isGuest && isActive && <div className={`text-center text-sm ${mutedClass}`}>Sign in to place bets</div>}
 
       {prediction.resolved && (
-        <div className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}>
-          <span className={`font-semibold ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.text || 'text-orange-500'}`}>
-            {(prediction.outcomes?.length ?? 1) > 1 ? 'Winners' : 'Winner'}: {(prediction.outcomes || [prediction.outcome]).join(' & ')}
+        <div
+          className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}
+        >
+          <span
+            className={`font-semibold ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.text || 'text-orange-500'}`}
+          >
+            {(prediction.outcomes?.length ?? 1) > 1 ? 'Winners' : 'Winner'}:{' '}
+            {(prediction.outcomes || [prediction.outcome]).join(' & ')}
           </span>
         </div>
       )}

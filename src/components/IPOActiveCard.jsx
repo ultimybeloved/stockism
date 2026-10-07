@@ -47,7 +47,9 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
   const userMaxedOut = userIPOPurchases >= ipoMaxPerUser;
 
   return (
-    <div className={`${cardClass} border-2 ${colorBlindMode ? 'border-teal-500' : 'border-green-500'} rounded-sm p-4 relative overflow-hidden`}>
+    <div
+      className={`${cardClass} border-2 ${colorBlindMode ? 'border-teal-500' : 'border-green-500'} rounded-sm p-4 relative overflow-hidden`}
+    >
       {/* Live indicator */}
       <div className="absolute top-2 right-2 flex items-center gap-1">
         <span className={`w-2 h-2 ${colorBlindMode ? 'bg-teal-500' : 'bg-green-500'} rounded-full animate-pulse`} />
@@ -56,7 +58,11 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">📈</span>
-        <span className={`text-xs font-bold uppercase ${colorBlindMode ? 'text-teal-500' : 'text-green-500'} tracking-wider`}>IPO Now Open</span>
+        <span
+          className={`text-xs font-bold uppercase ${colorBlindMode ? 'text-teal-500' : 'text-green-500'} tracking-wider`}
+        >
+          IPO Now Open
+        </span>
       </div>
 
       <h3 className={`text-lg font-bold ${textClass}`}>
@@ -67,11 +73,15 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className={`text-xs ${mutedClass}`}>Price</p>
-            <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(ipo.basePrice)}</p>
+            <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+              {formatCurrency(ipo.basePrice)}
+            </p>
           </div>
           <div>
             <p className={`text-xs ${mutedClass}`}>Left</p>
-            <p className={`text-lg font-bold ${sharesRemaining <= 20 ? (colorBlindMode ? 'text-purple-500' : 'text-red-500') : 'text-orange-500'}`}>
+            <p
+              className={`text-lg font-bold ${sharesRemaining <= 20 ? (colorBlindMode ? 'text-purple-500' : 'text-red-500') : 'text-orange-500'}`}
+            >
               {sharesRemaining}/{ipoTotalShares}
             </p>
           </div>
@@ -121,7 +131,10 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
               value={quantity}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val === '') { setQuantity(''); return; }
+                if (val === '') {
+                  setQuantity('');
+                  return;
+                }
                 const num = parseInt(val);
                 if (!isNaN(num)) setQuantity(Math.min(maxCanBuy, Math.max(0, num)));
               }}
@@ -144,7 +157,8 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
             </button>
           </div>
           <p className={`text-xs ${mutedClass}`}>
-            Max: {maxCanBuy} shares &nbsp;•&nbsp; Total: <span className={`font-semibold ${textClass}`}>{formatCurrency(totalCost)}</span>
+            Max: {maxCanBuy} shares &nbsp;•&nbsp; Total:{' '}
+            <span className={`font-semibold ${textClass}`}>{formatCurrency(totalCost)}</span>
           </p>
 
           <button
@@ -161,8 +175,13 @@ const IPOActiveCard = ({ ipo, onBuyIPO }) => {
                 <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 Buying...
               </span>
-            ) : buyState === 'bought' ? '✓ Bought' : !canAfford ? 'Insufficient Funds'
-              : `Buy ${qtyNum} Share${qtyNum > 1 ? 's' : ''}`}
+            ) : buyState === 'bought' ? (
+              '✓ Bought'
+            ) : !canAfford ? (
+              'Insufficient Funds'
+            ) : (
+              `Buy ${qtyNum} Share${qtyNum > 1 ? 's' : ''}`
+            )}
           </button>
         </div>
       )}

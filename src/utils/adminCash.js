@@ -36,9 +36,7 @@ export function parseCashInput(input, currentCash) {
   }
 
   const before = round2(Number(currentCash) || 0);
-  const after = round2(
-    mode === 'set' ? amount : mode === 'add' ? before + amount : before - amount
-  );
+  const after = round2(mode === 'set' ? amount : mode === 'add' ? before + amount : before - amount);
 
   if (after < 0) {
     return {

@@ -60,8 +60,13 @@ const [C1, C2, C3] = CREWS;
 let passed = 0;
 let failed = 0;
 function check(name, cond, detail) {
-  if (cond) { passed++; console.log(`  ok   ${name}`); }
-  else { failed++; console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`); }
+  if (cond) {
+    passed++;
+    console.log(`  ok   ${name}`);
+  } else {
+    failed++;
+    console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`);
+  }
 }
 
 const reset = async (holders = null) => {
@@ -149,7 +154,10 @@ const state = async () => (await STATE.get()).data() || {};
 
   // I — 403 stops the run, but earlier work is kept
   await reset();
-  scripted = [{ status: 204, data: '' }, { status: 403, data: { code: 50013, message: 'Missing Permissions' } }];
+  scripted = [
+    { status: 204, data: '' },
+    { status: 403, data: { code: 50013, message: 'Missing Permissions' } },
+  ];
   r = await syncCrewHeadRoles({
     heads: { [C1]: head('u1', 'One'), [C2]: head('u2', 'Two'), [C3]: head('u3', 'Three') },
     discordIds: { [C1]: '900000000000000001', [C2]: '900000000000000002', [C3]: '900000000000000003' },
@@ -157,11 +165,17 @@ const state = async () => (await STATE.get()).data() || {};
   check('I: stopped early', r.stoppedEarly === true, JSON.stringify(r));
   check('I: did not try every crew', calls.length < 3, `made ${calls.length} calls`);
   check('I: first success persisted', (await state()).holders[C1] !== null);
-  check('I: problem is actionable', (r.problems || []).some((p) => /Manage Roles/i.test(p)));
+  check(
+    'I: problem is actionable',
+    (r.problems || []).some((p) => /Manage Roles/i.test(p)),
+  );
 
   // J — 429 retries once and then succeeds
   await reset();
-  scripted = [{ status: 429, data: { retry_after: 0.05 } }, { status: 204, data: '' }];
+  scripted = [
+    { status: 429, data: { retry_after: 0.05 } },
+    { status: 204, data: '' },
+  ];
   r = await syncCrewHeadRoles({ heads: { [C1]: head('u1', 'One') }, discordIds: { [C1]: '900000000000000001' } });
   check('J: retried once and landed', r.added === 1 && calls.length === 2, JSON.stringify(r));
 
@@ -175,7 +189,11 @@ const state = async () => (await STATE.get()).data() || {};
   // L — a different guild invalidates stored holders
   calls = [];
   scripted = [];
-  await STATE.set({ guildId: '999999999999999999', holders: { [C1]: { discordId: '900000000000000001', uid: 'u1', roleId: ROLE[C1] } }, updatedAt: Date.now() });
+  await STATE.set({
+    guildId: '999999999999999999',
+    holders: { [C1]: { discordId: '900000000000000001', uid: 'u1', roleId: ROLE[C1] } },
+    updatedAt: Date.now(),
+  });
   r = await syncCrewHeadRoles({ heads: {}, discordIds: {} });
   check('L: no DELETEs fired at the old guild', dels().length === 0, JSON.stringify(calls));
 
@@ -213,24 +231,39 @@ const state = async () => (await STATE.get()).data() || {};
   const activeLastWeek = { weeklyMissions: { [prevWeekId]: { tradeCount: 3 } } };
 
   // Whale: biggest portfolio, flat week. Rocket: tiny account, huge percentage.
-  await db.collection('users').doc('whale').set({
-    displayName: 'Whale', crew: C1, portfolioValue: 500000,
-    portfolioSnapshot7d: { value: 495000 },
-    discordId: '900000000000000042', ...activeLastWeek,
-  });
-  await db.collection('users').doc('rocket').set({
-    displayName: 'Rocket', crew: C1, portfolioValue: 4000,
-    portfolioSnapshot7d: { value: 1000 },
-    discordId: '900000000000000043', ...activeLastWeek,
-  });
+  await db
+    .collection('users')
+    .doc('whale')
+    .set({
+      displayName: 'Whale',
+      crew: C1,
+      portfolioValue: 500000,
+      portfolioSnapshot7d: { value: 495000 },
+      discordId: '900000000000000042',
+      ...activeLastWeek,
+    });
+  await db
+    .collection('users')
+    .doc('rocket')
+    .set({
+      displayName: 'Rocket',
+      crew: C1,
+      portfolioValue: 4000,
+      portfolioSnapshot7d: { value: 1000 },
+      discordId: '900000000000000043',
+      ...activeLastWeek,
+    });
 
   const { runWeeklyCrewRankings } = require('../functions/services/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
   const crowned = (stats.heads || {})[C1];
-  check('E2E: biggest portfolio takes the crown', crowned && crowned.uid === 'whale',
-    `crowned ${crowned && crowned.uid} (rocket gained 300%, whale gained 1%)`);
+  check(
+    'E2E: biggest portfolio takes the crown',
+    crowned && crowned.uid === 'whale',
+    `crowned ${crowned && crowned.uid} (rocket gained 300%, whale gained 1%)`,
+  );
   check('E2E: portfolio value reported, not a percentage', crowned && crowned.portfolioValue === 500000);
 
   // The regression guard. A leak here exposes linked Discord IDs to every

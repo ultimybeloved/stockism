@@ -1,5 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
-import { isWeeklyHalt, formatCountdown, isMarketOpenGracePeriod, getWeeklyHaltPhase, HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../utils/marketHours';
+import {
+  isWeeklyHalt,
+  formatCountdown,
+  isMarketOpenGracePeriod,
+  getWeeklyHaltPhase,
+  HALT_END_MINUTE,
+  GRACE_PERIOD_MINUTES,
+} from '../utils/marketHours';
 import { marketTimes, localDailyTime } from '../utils/localTime';
 import { useAppContext } from '../context/AppContext';
 
@@ -33,9 +40,15 @@ const MarketTicker = () => {
       if (!p) return;
       const t = formatCountdown(p.msToNext);
       if (p.phase === 'closed') {
-        setHaltBanner({ text: `MARKET CLOSED: Chapter review · Pre-market opens in ${t}, queue orders early for the ${marketTimes().reopenTime} open`, tone: 'red' });
+        setHaltBanner({
+          text: `MARKET CLOSED: Chapter review · Pre-market opens in ${t}, queue orders early for the ${marketTimes().reopenTime} open`,
+          tone: 'red',
+        });
       } else if (p.phase === 'queue') {
-        setHaltBanner({ text: `PRE-MARKET OPEN: Orders lock in ${t} · Queue buys/sells now, they fill at the ${marketTimes().reopenTime} open`, tone: 'amber' });
+        setHaltBanner({
+          text: `PRE-MARKET OPEN: Orders lock in ${t} · Queue buys/sells now, they fill at the ${marketTimes().reopenTime} open`,
+          tone: 'amber',
+        });
       } else {
         setHaltBanner({ text: `PRE-MARKET LOCKED: Queued orders are set · Market opens in ${t}`, tone: 'red' });
       }
@@ -49,19 +62,21 @@ const MarketTicker = () => {
   const movers = useMemo(() => {
     if (!prices || !priceHistory) return [];
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const entries = Object.entries(prices).map(([ticker, price]) => {
-      const history = priceHistory[ticker] || [];
-      if (history.length === 0) return null;
-      let price24hAgo = history[0].price;
-      for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].timestamp <= dayAgo) {
-          price24hAgo = history[i].price;
-          break;
+    const entries = Object.entries(prices)
+      .map(([ticker, price]) => {
+        const history = priceHistory[ticker] || [];
+        if (history.length === 0) return null;
+        let price24hAgo = history[0].price;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history[i].timestamp <= dayAgo) {
+            price24hAgo = history[i].price;
+            break;
+          }
         }
-      }
-      const change = price24hAgo > 0 ? ((price - price24hAgo) / price24hAgo) * 100 : 0;
-      return { ticker, price, change };
-    }).filter(Boolean);
+        const change = price24hAgo > 0 ? ((price - price24hAgo) / price24hAgo) * 100 : 0;
+        return { ticker, price, change };
+      })
+      .filter(Boolean);
 
     entries.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
     return entries.slice(0, 8);
@@ -74,15 +89,25 @@ const MarketTicker = () => {
   const preMarketTone = haltBanner?.tone === 'amber';
 
   return (
-    <div className={`w-full overflow-hidden ${halted
-      ? (preMarketTone ? 'bg-amber-700/80 border-b border-amber-600' : 'bg-red-900/80 border-b border-red-700')
-      : gracePeriod
-        ? 'bg-amber-700/80 border-b border-amber-600'
-        : darkMode ? 'bg-zinc-800 border-b border-zinc-700' : 'bg-slate-100 border-b border-slate-200'
-    }`} style={{ height: '32px' }}>
+    <div
+      className={`w-full overflow-hidden ${
+        halted
+          ? preMarketTone
+            ? 'bg-amber-700/80 border-b border-amber-600'
+            : 'bg-red-900/80 border-b border-red-700'
+          : gracePeriod
+            ? 'bg-amber-700/80 border-b border-amber-600'
+            : darkMode
+              ? 'bg-zinc-800 border-b border-zinc-700'
+              : 'bg-slate-100 border-b border-slate-200'
+      }`}
+      style={{ height: '32px' }}
+    >
       {halted ? (
         <div className="w-full flex items-center justify-center h-full px-2">
-          <span className={`text-xs font-bold tracking-wide text-center truncate ${preMarketTone ? 'text-amber-100' : 'text-red-200'}`}>
+          <span
+            className={`text-xs font-bold tracking-wide text-center truncate ${preMarketTone ? 'text-amber-100' : 'text-red-200'}`}
+          >
             {haltBanner?.text || 'MARKET CLOSED'}
           </span>
         </div>
@@ -93,15 +118,19 @@ const MarketTicker = () => {
           </span>
         </div>
       ) : (
-      <div
-        className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active w-max"
-        onMouseEnter={e => { e.currentTarget.style.animationPlayState = 'paused'; }}
-        onMouseLeave={e => { e.currentTarget.style.animationPlayState = 'running'; }}
-        onClick={e => {
-          const el = e.currentTarget;
-          el.style.animationPlayState = el.style.animationPlayState === 'paused' ? 'running' : 'paused';
-        }}
-      >
+        <div
+          className="ticker-scroll-container flex items-center h-full whitespace-nowrap ticker-scroll-active w-max"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.animationPlayState = 'paused';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.animationPlayState = 'running';
+          }}
+          onClick={(e) => {
+            const el = e.currentTarget;
+            el.style.animationPlayState = el.style.animationPlayState === 'paused' ? 'running' : 'paused';
+          }}
+        >
           <>
             <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
               <a
@@ -109,7 +138,7 @@ const MarketTicker = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               >
                 💬 Join the Discord!
               </a>
@@ -117,15 +146,22 @@ const MarketTicker = () => {
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>
-                  {' '}
-                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
-                  {' '}
-                  <span className={m.change >= 0
-                    ? (colorBlindMode ? 'text-teal-500' : 'text-emerald-500')
-                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
-                  }>
-                    {m.change >= 0 ? '▲' : '▼'}{m.change >= 0 ? '+' : ''}{m.change.toFixed(1)}%
+                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>{' '}
+                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>{' '}
+                  <span
+                    className={
+                      m.change >= 0
+                        ? colorBlindMode
+                          ? 'text-teal-500'
+                          : 'text-emerald-500'
+                        : colorBlindMode
+                          ? 'text-purple-500'
+                          : 'text-red-500'
+                    }
+                  >
+                    {m.change >= 0 ? '▲' : '▼'}
+                    {m.change >= 0 ? '+' : ''}
+                    {m.change.toFixed(1)}%
                   </span>
                 </span>
               ))}
@@ -139,7 +175,7 @@ const MarketTicker = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               >
                 💬 Join the Discord!
               </a>
@@ -147,15 +183,22 @@ const MarketTicker = () => {
               {movers.map((m, i) => (
                 <span key={m.ticker}>
                   {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>
-                  {' '}
-                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>
-                  {' '}
-                  <span className={m.change >= 0
-                    ? (colorBlindMode ? 'text-teal-500' : 'text-emerald-500')
-                    : (colorBlindMode ? 'text-purple-500' : 'text-red-500')
-                  }>
-                    {m.change >= 0 ? '▲' : '▼'}{m.change >= 0 ? '+' : ''}{m.change.toFixed(1)}%
+                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>{' '}
+                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>{' '}
+                  <span
+                    className={
+                      m.change >= 0
+                        ? colorBlindMode
+                          ? 'text-teal-500'
+                          : 'text-emerald-500'
+                        : colorBlindMode
+                          ? 'text-purple-500'
+                          : 'text-red-500'
+                    }
+                  >
+                    {m.change >= 0 ? '▲' : '▼'}
+                    {m.change >= 0 ? '+' : ''}
+                    {m.change.toFixed(1)}%
                   </span>
                 </span>
               ))}
@@ -163,8 +206,8 @@ const MarketTicker = () => {
               <span className={darkMode ? 'text-zinc-500' : 'text-slate-500'}>{scheduleText}</span>
             </span>
           </>
-      </div>
-        )}
+        </div>
+      )}
     </div>
   );
 };

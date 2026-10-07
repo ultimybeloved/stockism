@@ -89,7 +89,13 @@ describe('buildWeekRecord', () => {
     const { CHARACTER_MAP } = require('./characters');
     const members = CHARACTER_MAP.SCRT.trailingFactors.map((f) => f.ticker);
     const userData = { ...base, holdings: { [members[0]]: 55, SCRT: 45 } };
-    const r = buildWeekRecord({ season, weeks: 1, userData, prices: { [members[0]]: 100, SCRT: 100 }, indexValue: 1000 });
+    const r = buildWeekRecord({
+      season,
+      weeks: 1,
+      userData,
+      prices: { [members[0]]: 100, SCRT: 100 },
+      indexValue: 1000,
+    });
     expect(r.h).toBeCloseTo(10000, 6);
     expect(r.c / r.h).toBeCloseTo(0.55 + 0.45 / members.length, 6);
   });
@@ -135,7 +141,7 @@ describe('what the record makes computable', () => {
   // is the reason the rule can still be changed after a season has started.
   const weekly = (prev, curr) => {
     const grantsThisWeek = curr.g - prev.g;
-    return ((curr.v - grantsThisWeek) - prev.v) / prev.v;
+    return (curr.v - grantsThisWeek - prev.v) / prev.v;
   };
   const indexWeekly = (prev, curr) => (curr.x - prev.x) / prev.x;
 
@@ -144,7 +150,7 @@ describe('what the record makes computable', () => {
 
   it('derives a weekly return with grants stripped out', () => {
     // 10000 -> 11500, but 500 of that was free money, so the real move is +10%.
-    expect(weekly(w1, w2)).toBeCloseTo(0.10, 9);
+    expect(weekly(w1, w2)).toBeCloseTo(0.1, 9);
   });
 
   it('derives whether the player beat the market that week', () => {
@@ -153,7 +159,7 @@ describe('what the record makes computable', () => {
   });
 
   it('derives concentration both ways', () => {
-    expect(w2.c / w2.h).toBeCloseTo(0.6, 9);   // of invested money
+    expect(w2.c / w2.h).toBeCloseTo(0.6, 9); // of invested money
     expect(w2.c / w2.v).toBeCloseTo(0.5217, 3); // of the whole portfolio
   });
 });

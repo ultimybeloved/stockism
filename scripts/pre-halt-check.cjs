@@ -28,19 +28,23 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const HALT_DAY = 4;            // Thursday
-const HALT_START_MIN = 780;    // 13:00 UTC
-const HALT_END_MIN = 1260;     // 21:00 UTC
+const HALT_DAY = 4; // Thursday
+const HALT_START_MIN = 780; // 13:00 UTC
+const HALT_END_MIN = 1260; // 21:00 UTC
 // A buy this large relative to their book is a conviction play, not a nibble.
 const BIG_BUY_SHARE = 0.15;
 const LOOKAHEAD_DAYS = 5;
 
 const m = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
-const toMs = (t) => (!t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0);
+const toMs = (t) =>
+  !t ? 0 : typeof t === 'number' ? t : t._seconds ? t._seconds * 1000 : t.seconds ? t.seconds * 1000 : 0;
 const stamp = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ');
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -60,13 +64,23 @@ const inPreHalt = (ms, hours) => {
 
 async function main() {
   const names = process.argv.slice(2);
-  if (!names.length) { console.error('Usage: node scripts/pre-halt-check.cjs <name> [name...]'); process.exit(1); }
+  if (!names.length) {
+    console.error('Usage: node scripts/pre-halt-check.cjs <name> [name...]');
+    process.exit(1);
+  }
 
   const users = await db.collection('users').select('displayName', 'isBot').get();
-  const byName = new Map(); const nameOf = new Map();
-  users.forEach((d) => { byName.set((d.data().displayName || '').toLowerCase(), d.id); nameOf.set(d.id, d.data().displayName); });
+  const byName = new Map();
+  const nameOf = new Map();
+  users.forEach((d) => {
+    byName.set((d.data().displayName || '').toLowerCase(), d.id);
+    nameOf.set(d.id, d.data().displayName);
+  });
 
-  const all = await db.collection('trades').select('uid', 'ticker', 'action', 'amount', 'price', 'totalValue', 'timestamp').get();
+  const all = await db
+    .collection('trades')
+    .select('uid', 'ticker', 'action', 'amount', 'price', 'totalValue', 'timestamp')
+    .get();
   const byTicker = new Map();
   const byUid = new Map();
   all.forEach((doc) => {
@@ -85,15 +99,24 @@ async function main() {
   const priceAt = (ticker, ms) => {
     const arr = byTicker.get(ticker) || [];
     let p = null;
-    for (const t of arr) { if (t.ts > ms) break; if (t.price) p = t.price; }
+    for (const t of arr) {
+      if (t.ts > ms) break;
+      if (t.price) p = t.price;
+    }
     return p;
   };
 
   for (const name of names) {
     const uid = byName.get(name.toLowerCase());
-    if (!uid) { console.log(`\n${name}: unknown account`); continue; }
+    if (!uid) {
+      console.log(`\n${name}: unknown account`);
+      continue;
+    }
     const trades = (byUid.get(uid) || []).sort((a, b) => a.ts - b.ts);
-    if (!trades.length) { console.log(`\n${name}: no trades`); continue; }
+    if (!trades.length) {
+      console.log(`\n${name}: no trades`);
+      continue;
+    }
 
     console.log('\n' + '='.repeat(80));
     console.log(`${name} — ${trades.length} trades`);
@@ -101,7 +124,9 @@ async function main() {
 
     // When do they trade?
     const byDay = new Array(7).fill(0);
-    const preHalt2 = []; const preHalt6 = []; const insideHalt = [];
+    const preHalt2 = [];
+    const preHalt6 = [];
+    const insideHalt = [];
     for (const t of trades) {
       byDay[new Date(t.ts).getUTCDay()]++;
       if (inHaltWindow(t.ts)) insideHalt.push(t);
@@ -116,8 +141,10 @@ async function main() {
     if (insideHalt.length) {
       console.log('\n  TRADES INSIDE THE CURRENT HALT WINDOW (not possible today):');
       for (const t of insideHalt.slice(-15)) {
-        console.log(`    ${stamp(t.ts)} UTC  ${String(t.action).padEnd(5)} ${String(t.ticker).padEnd(6)} `
-          + `${String(t.amount).padStart(9)} sh  ${m(t.totalValue).padStart(12)}  @ ${m(t.price)}`);
+        console.log(
+          `    ${stamp(t.ts)} UTC  ${String(t.action).padEnd(5)} ${String(t.ticker).padEnd(6)} ` +
+            `${String(t.amount).padStart(9)} sh  ${m(t.totalValue).padStart(12)}  @ ${m(t.price)}`,
+        );
       }
     }
 
@@ -138,7 +165,7 @@ async function main() {
       console.log('  WHEN (UTC)          DAY  TICKER   VALUE        PRICE AT BUY   +5 DAYS      MOVE   TIMING');
       for (const e of events.slice(-25)) {
         const after = priceAt(e.ticker, e.ts + LOOKAHEAD_DAYS * 86400000);
-        const move = (after && e.price) ? ((after - e.price) / e.price) * 100 : null;
+        const move = after && e.price ? ((after - e.price) / e.price) * 100 : null;
         const d = new Date(e.ts);
         const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
         let timing = '';
@@ -146,9 +173,11 @@ async function main() {
         else if (d.getUTCDay() === HALT_DAY && mins < HALT_START_MIN) {
           timing = `${((HALT_START_MIN - mins) / 60).toFixed(1)}h before halt`;
         }
-        console.log(`  ${stamp(e.ts)}  ${DAYS[d.getUTCDay()]}  ${String(e.ticker).padEnd(6)} `
-          + `${m(e.totalValue).padStart(11)}  ${m(e.price).padStart(12)}  ${(after ? m(after) : '-').padStart(11)}  `
-          + `${(move === null ? '-' : (move >= 0 ? '+' : '') + move.toFixed(1) + '%').padStart(7)}   ${timing}`);
+        console.log(
+          `  ${stamp(e.ts)}  ${DAYS[d.getUTCDay()]}  ${String(e.ticker).padEnd(6)} ` +
+            `${m(e.totalValue).padStart(11)}  ${m(e.price).padStart(12)}  ${(after ? m(after) : '-').padStart(11)}  ` +
+            `${(move === null ? '-' : (move >= 0 ? '+' : '') + move.toFixed(1) + '%').padStart(7)}   ${timing}`,
+        );
       }
     }
 
@@ -161,7 +190,10 @@ async function main() {
       const v = Number(t.totalValue) || 0;
       const act = (t.action || '').toLowerCase();
       if (act === 'sell') b.sold += v;
-      if (act === 'buy') { b.bought += v; b.buys.set(t.ticker, (b.buys.get(t.ticker) || 0) + v); }
+      if (act === 'buy') {
+        b.bought += v;
+        b.buys.set(t.ticker, (b.buys.get(t.ticker) || 0) + v);
+      }
     }
     const rotations = [...dayMap.entries()]
       .filter(([, b]) => b.sold > 50000 && b.bought > 50000 && b.buys.size <= 2)
@@ -170,7 +202,10 @@ async function main() {
       console.log('\n  ROTATIONS  (sold heavily and concentrated into one or two names the same day)');
       for (const [d, b] of rotations.slice(0, 12)) {
         const wd = DAYS[new Date(b.ts).getUTCDay()];
-        const into = [...b.buys.entries()].sort((x, y) => y[1] - x[1]).map(([t, v]) => `${t} ${m(v)}`).join(', ');
+        const into = [...b.buys.entries()]
+          .sort((x, y) => y[1] - x[1])
+          .map(([t, v]) => `${t} ${m(v)}`)
+          .join(', ');
         console.log(`    ${d} (${wd})  sold ${m(b.sold).padStart(11)}  ->  ${into}`);
       }
     }
@@ -178,4 +213,9 @@ async function main() {
   console.log('');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

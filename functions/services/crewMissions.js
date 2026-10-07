@@ -7,8 +7,11 @@ const db = admin.firestore();
 
 const {
   CREW_MEMBERS,
-  getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
-  CREW_MISSION_REWARDS, CREW_CONTRIB,
+  getCrewBuyTarget,
+  getCrewSellTarget,
+  getCrewVolumeTarget,
+  CREW_MISSION_REWARDS,
+  CREW_CONTRIB,
 } = require('../constants');
 const { getCrewMultiplier } = require('../crews');
 const { checkBanned, checkDiscordWall, writeNotification, touchLastActive, grantedValueUpdate } = require('../helpers');
@@ -18,8 +21,7 @@ const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 // Contribution fields stored booleans before June 2026; those legacy `true`
 // values are grandfathered as qualifying so nobody loses credit mid-week.
 // From the next Monday reset on, only the numeric counters exist.
-const meetsContribution = (value, threshold) =>
-  value === true || (typeof value === 'number' && value >= threshold);
+const meetsContribution = (value, threshold) => value === true || (typeof value === 'number' && value >= threshold);
 
 // Progress writing + the UTC week id live in an internal module so the three
 // trade-executing paths can import them without this file having to export a
@@ -68,7 +70,7 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
 }
 
 exports.claimCrewMission = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -88,7 +90,8 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   checkDiscordWall(userData);
 
   const crew = userData.crew;
-  if (!crew) throw new functions.https.HttpsError('failed-precondition', 'You must be in a crew to claim crew missions.');
+  if (!crew)
+    throw new functions.https.HttpsError('failed-precondition', 'You must be in a crew to claim crew missions.');
 
   const weekId = getWeekId();
   const missionRef = db.collection('crewMissions').doc(`${crew}_${weekId}`);
@@ -101,7 +104,8 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
 
   const { complete, contributed, reason } = await checkCrewGoal(missionId, missionData, crew, uid, userData, weekId);
   if (!complete) throw new functions.https.HttpsError('failed-precondition', reason || 'Mission not yet complete.');
-  if (!contributed) throw new functions.https.HttpsError('failed-precondition', 'You have not contributed to this mission.');
+  if (!contributed)
+    throw new functions.https.HttpsError('failed-precondition', 'You have not contributed to this mission.');
 
   // Scaled by the crew's underdog multiplier for this week.
   const crewStatsSnap = await db.collection('market').doc('crewStats').get();
@@ -112,7 +116,8 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   await db.runTransaction(async (tx) => {
     const [freshUser, freshMission] = await Promise.all([tx.get(userRef), tx.get(missionRef)]);
     if (!freshUser.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-    if (freshUser.data().crew !== crew) throw new functions.https.HttpsError('failed-precondition', 'Your crew has changed.');
+    if (freshUser.data().crew !== crew)
+      throw new functions.https.HttpsError('failed-precondition', 'Your crew has changed.');
     if (freshMission.exists && freshMission.data().claimed?.[uid]?.[missionId]) {
       throw new functions.https.HttpsError('failed-precondition', 'Already claimed.');
     }

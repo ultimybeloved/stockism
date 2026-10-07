@@ -29,7 +29,7 @@ const requireAppCheck = (context) => {
   if (!context.app) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'This request could not be verified. Reload the page and try again.'
+      'This request could not be verified. Reload the page and try again.',
     );
   }
 };

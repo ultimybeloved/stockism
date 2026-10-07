@@ -16,14 +16,24 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const {
-  MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES,
-} = require('../constants');
+const { MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES } = require('../constants');
 const {
   liquidityFor,
-  writeNotification, writeFeedEntry, calculateMarginalImpact, getAccountAgeImpactFactor,
-  pruneAndSumTradeHistory, sumDirectionalImpact, appendPriceHistory, lockedShares, buildTradeCreditUpdates,
-  recordTrade, round2, spreadFor, floorExitShares, remainingShares, cohortRemoveUpdate,
+  writeNotification,
+  writeFeedEntry,
+  calculateMarginalImpact,
+  getAccountAgeImpactFactor,
+  pruneAndSumTradeHistory,
+  sumDirectionalImpact,
+  appendPriceHistory,
+  lockedShares,
+  buildTradeCreditUpdates,
+  recordTrade,
+  round2,
+  spreadFor,
+  floorExitShares,
+  remainingShares,
+  cohortRemoveUpdate,
 } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
 const { computePriceUpdates, buildTrailingEntries } = require('./tradePricing');
@@ -74,8 +84,10 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
 
   const now = Date.now();
   const tickerTradeHistory = userData.tickerTradeHistory || {};
-  const { totalShares: cumVol, count: tradeCount } =
-    pruneAndSumTradeHistory(tickerTradeHistory[order.ticker]?.sell || [], now);
+  const { totalShares: cumVol, count: tradeCount } = pruneAndSumTradeHistory(
+    tickerTradeHistory[order.ticker]?.sell || [],
+    now,
+  );
   if (tradeCount >= MAX_TRADES_PER_TICKER_24H) throw new Error('Trade limit reached');
 
   // Daily 10% impact cap (same rule as executeTrade): the stop loss still fills,
@@ -85,11 +97,12 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   // order's connection, same as executeTrade.
   const spentDown = Math.max(
     sumDirectionalImpact(tickerTradeHistory[order.ticker], now).down,
-    networkImpactSpent(net, order.ticker, 'sell', now)
+    networkImpactSpent(net, order.ticker, 'sell', now),
   );
   const effectiveImpact = Math.min(
-    calculateMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) * getAccountAgeImpactFactor(userData),
-    freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown)
+    calculateMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) *
+      getAccountAgeImpactFactor(userData),
+    freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown),
   );
   const impactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;
 
@@ -98,30 +111,51 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
   const executedPrice = round2(bidPrice);
 
   // Trailing effects + parent-ETF propagation, same as every other fill lane.
-  const priceUpdates = effectiveImpact > 0
-    ? computePriceUpdates({ ticker: order.ticker, currentPrice: freshPrice, newPrice: newMarketPrice, prices: freshPrices })
-    : {};
+  const priceUpdates =
+    effectiveImpact > 0
+      ? computePriceUpdates({
+          ticker: order.ticker,
+          currentPrice: freshPrice,
+          newPrice: newMarketPrice,
+          prices: freshPrices,
+        })
+      : {};
   const trailingEntries = buildTrailingEntries({
-    priceUpdates, ticker: order.ticker, prices: freshPrices, action: 'sell', now,
+    priceUpdates,
+    ticker: order.ticker,
+    prices: freshPrices,
+    action: 'sell',
+    now,
   });
   const historyEntry = { ts: now, shares: fillShares, impact: impactPercent };
   const updatedHistory = appendTradeEntries(
     pruneHistoryMap(tickerTradeHistory, now),
-    order.ticker, 'sell',
+    order.ticker,
+    'sell',
     historyEntry,
-    trailingEntries
+    trailingEntries,
   );
   writeNetworkFill(transaction, net, {
-    ticker: order.ticker, action: 'sell', entry: historyEntry, trailingEntries, uid: order.userId, now,
+    ticker: order.ticker,
+    action: 'sell',
+    entry: historyEntry,
+    trailingEntries,
+    uid: order.userId,
+    now,
   });
 
   const newHoldings = remainingShares(userShares, fillShares);
   // Mission/stat credit — same fields executeTrade writes (includes the
   // totalTrades increment), so sweep fills count like regular trades.
   const { updates: creditUpdates } = buildTradeCreditUpdates({
-    userData, ticker: order.ticker, action: 'sell', shares: fillShares,
-    totalValue: executedPrice * fillShares, executionPrice: executedPrice,
-    marketPrice: freshPrice, now,
+    userData,
+    ticker: order.ticker,
+    action: 'sell',
+    shares: fillShares,
+    totalValue: executedPrice * fillShares,
+    executionPrice: executedPrice,
+    marketPrice: freshPrice,
+    now,
   });
   const updates = {
     cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
@@ -192,7 +226,8 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
  * other sections do.
  */
 const runStopLossSweep = async ({ marketRef, openingPrices, summary }) => {
-  const ordersSnapshot = await db.collection('limitOrders')
+  const ordersSnapshot = await db
+    .collection('limitOrders')
     .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
     .get();
 
@@ -207,13 +242,18 @@ const runStopLossSweep = async ({ marketRef, openingPrices, summary }) => {
 
     try {
       const fill = await db.runTransaction((transaction) =>
-        executeSweepFill(transaction, { order, orderDoc, marketRef, openingPrice }));
+        executeSweepFill(transaction, { order, orderDoc, marketRef, openingPrice }),
+      );
 
       // Crew mission progress (fire-and-forget, same as executeTrade)
       if (fill.crew) {
         updateCrewMissionProgress(
-          fill.crew, order.userId, 'sell', fill.fillShares, order.ticker,
-          fill.executedPrice * fill.fillShares
+          fill.crew,
+          order.userId,
+          'sell',
+          fill.fillShares,
+          order.ticker,
+          fill.executedPrice * fill.fillShares,
         );
       }
       await writeNotification(order.userId, {

@@ -23,10 +23,16 @@ const PositionSummary = ({ darkMode, textClass, mutedClass, holdersData, shortsD
         <Cell label="Long Value" value={`$${longValue.toFixed(2)}`} tone="text-green-500" />
       </div>
 
-      <div className={`grid grid-cols-3 gap-2 text-center pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+      <div
+        className={`grid grid-cols-3 gap-2 text-center pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-300'}`}
+      >
         <Cell label="Shorting" value={shortsData.length} tone={shortsData.length > 0 ? 'text-red-400' : textClass} />
         <Cell label="Short Shares" value={shortShares} tone={shortShares > 0 ? 'text-red-400' : textClass} />
-        <Cell label="Short Value" value={`$${shortValue.toFixed(2)}`} tone={shortShares > 0 ? 'text-red-400' : textClass} />
+        <Cell
+          label="Short Value"
+          value={`$${shortValue.toFixed(2)}`}
+          tone={shortShares > 0 ? 'text-red-400' : textClass}
+        />
       </div>
 
       {shortShares > 0 && (

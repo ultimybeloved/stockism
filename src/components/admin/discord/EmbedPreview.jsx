@@ -2,8 +2,7 @@
 // pixel-perfect clone — it exists so you can see the colour bar, the title and
 // the buttons before posting, not to replace looking at Discord.
 export default function EmbedPreview({ draft, darkMode }) {
-  const hasEmbed = draft.useEmbed
-    && (draft.embed.title || draft.embed.description || draft.embed.imageUrl);
+  const hasEmbed = draft.useEmbed && (draft.embed.title || draft.embed.description || draft.embed.imageUrl);
   const nothing = !draft.content && !hasEmbed && !draft.buttons.length;
 
   const shell = darkMode ? 'bg-[#313338] text-slate-100' : 'bg-white text-slate-900';
@@ -15,9 +14,7 @@ export default function EmbedPreview({ draft, darkMode }) {
 
       {nothing && <p className={`text-xs italic ${muted}`}>Nothing to show yet.</p>}
 
-      {draft.content && (
-        <p className="text-sm whitespace-pre-wrap break-words mb-2">{draft.content}</p>
-      )}
+      {draft.content && <p className="text-sm whitespace-pre-wrap break-words mb-2">{draft.content}</p>}
 
       {hasEmbed && (
         <div
@@ -28,23 +25,24 @@ export default function EmbedPreview({ draft, darkMode }) {
           {draft.embed.description && (
             <div className="text-sm whitespace-pre-wrap break-words opacity-90">{draft.embed.description}</div>
           )}
-          {draft.embed.imageUrl && (
-            <img src={draft.embed.imageUrl} alt="" className="mt-2 max-h-40 rounded-sm" />
-          )}
+          {draft.embed.imageUrl && <img src={draft.embed.imageUrl} alt="" className="mt-2 max-h-40 rounded-sm" />}
           {draft.embed.footer && <div className={`text-[11px] mt-2 ${muted}`}>{draft.embed.footer}</div>}
         </div>
       )}
 
       {draft.buttons.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {draft.buttons.filter((b) => b.label).map((b, i) => (
-            <span
-              key={i}
-              className={`px-3 py-1.5 text-xs font-medium rounded-sm ${darkMode ? 'bg-slate-600 text-slate-100' : 'bg-slate-200 text-slate-800'}`}
-            >
-              {b.emoji ? `${b.emoji} ` : ''}{b.label}
-            </span>
-          ))}
+          {draft.buttons
+            .filter((b) => b.label)
+            .map((b, i) => (
+              <span
+                key={i}
+                className={`px-3 py-1.5 text-xs font-medium rounded-sm ${darkMode ? 'bg-slate-600 text-slate-100' : 'bg-slate-200 text-slate-800'}`}
+              >
+                {b.emoji ? `${b.emoji} ` : ''}
+                {b.label}
+              </span>
+            ))}
         </div>
       )}
 

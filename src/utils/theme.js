@@ -6,69 +6,67 @@ export const getThemeClasses = (darkMode) => {
   const card = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
 
   return {
-  // Card/panel containers
-  cardClass:   card,
-  // Page/section background
-  bgClass:     darkMode ? 'bg-zinc-950'                  : 'bg-amber-50',
-  // Primary text
-  textClass:   darkMode ? 'text-zinc-100'                : 'text-slate-900',
-  // Secondary/muted text
-  mutedClass:  darkMode ? 'text-zinc-400'                : 'text-zinc-600',
-  // Form inputs
-  inputClass:  darkMode
-    ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
-    : 'bg-white border-amber-300 text-zinc-900',
-  // Subtle section fill (inside a card)
-  subtleClass: darkMode ? 'bg-zinc-800'                  : 'bg-amber-50',
-  // Dividers/separators
-  divideClass: darkMode ? 'divide-zinc-700'              : 'divide-amber-200',
-  // Borders standalone
-  borderClass: darkMode ? 'border-zinc-700'              : 'border-amber-200',
-  // Border color matching the card edge (modal header/footer dividers).
-  // Pair with border-b/border-t at the call site.
-  cardEdgeClass: darkMode ? 'border-zinc-800'            : 'border-amber-200',
+    // Card/panel containers
+    cardClass: card,
+    // Page/section background
+    bgClass: darkMode ? 'bg-zinc-950' : 'bg-amber-50',
+    // Primary text
+    textClass: darkMode ? 'text-zinc-100' : 'text-slate-900',
+    // Secondary/muted text
+    mutedClass: darkMode ? 'text-zinc-400' : 'text-zinc-600',
+    // Form inputs
+    inputClass: darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-zinc-900',
+    // Subtle section fill (inside a card)
+    subtleClass: darkMode ? 'bg-zinc-800' : 'bg-amber-50',
+    // Dividers/separators
+    divideClass: darkMode ? 'divide-zinc-700' : 'divide-amber-200',
+    // Borders standalone
+    borderClass: darkMode ? 'border-zinc-700' : 'border-amber-200',
+    // Border color matching the card edge (modal header/footer dividers).
+    // Pair with border-b/border-t at the call site.
+    cardEdgeClass: darkMode ? 'border-zinc-800' : 'border-amber-200',
 
-  // --- Elevation ---
-  // Ambient depth for cards/panels that sit on the page background.
-  // Pair with cardClass + `border`. Rarity-tiered cards get their own
-  // shadows from index.css (.rarity-*) and don't need this.
-  raisedClass: darkMode ? 'shadow-md shadow-black/40'    : 'shadow-sm shadow-amber-900/10',
+    // --- Elevation ---
+    // Ambient depth for cards/panels that sit on the page background.
+    // Pair with cardClass + `border`. Rarity-tiered cards get their own
+    // shadows from index.css (.rarity-*) and don't need this.
+    raisedClass: darkMode ? 'shadow-md shadow-black/40' : 'shadow-sm shadow-amber-900/10',
 
-  // --- Accent ---
-  // Brand accent for tickers, links, and highlights. Text accents are
-  // orange-500 everywhere; filled buttons stay bg-orange-600.
-  accentClass:      'text-orange-500',
-  accentHoverClass: 'hover:text-orange-400',
+    // --- Accent ---
+    // Brand accent for tickers, links, and highlights. Text accents are
+    // orange-500 everywhere; filled buttons stay bg-orange-600.
+    accentClass: 'text-orange-500',
+    accentHoverClass: 'hover:text-orange-400',
 
-  // --- Buttons ---
-  // Quiet bordered button (tabs, pagination, secondary actions).
-  // Pair with `border` + your own padding/rounding at the call site.
-  ghostBtnClass: darkMode
-    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-    : 'border-amber-200 text-zinc-600 hover:bg-amber-50',
+    // --- Buttons ---
+    // Quiet bordered button (tabs, pagination, secondary actions).
+    // Pair with `border` + your own padding/rounding at the call site.
+    ghostBtnClass: darkMode
+      ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+      : 'border-amber-200 text-zinc-600 hover:bg-amber-50',
 
-  // --- Chips/tags ---
-  // Small neutral tag fill (filters, counts, metadata).
-  chipClass: darkMode ? 'bg-zinc-800 text-zinc-300'      : 'bg-slate-200 text-zinc-600',
+    // --- Chips/tags ---
+    // Small neutral tag fill (filters, counts, metadata).
+    chipClass: darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600',
 
-  // --- Modal shell ---
-  // Fullscreen scrim + centering. Add a z-index at the call site (z-50 for
-  // normal modals; walls/tutorials that sit above everything go higher).
-  overlayClass:      'fixed inset-0 bg-black/60 flex items-center justify-center p-4',
-  // Darker scrim for blocking walls and tutorials that demand full focus.
-  overlayHeavyClass: 'fixed inset-0 bg-black/70 flex items-center justify-center p-4',
-  // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
-  // scrolls) at the call site.
-  modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
+    // --- Modal shell ---
+    // Fullscreen scrim + centering. Add a z-index at the call site (z-50 for
+    // normal modals; walls/tutorials that sit above everything go higher).
+    overlayClass: 'fixed inset-0 bg-black/60 flex items-center justify-center p-4',
+    // Darker scrim for blocking walls and tutorials that demand full focus.
+    overlayHeavyClass: 'fixed inset-0 bg-black/70 flex items-center justify-center p-4',
+    // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
+    // scrolls) at the call site.
+    modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
   };
 };
 
 // Spacing rhythm — shared paddings/gaps so sections breathe evenly.
 // Use these instead of ad-hoc p-*/mb-*/gap-* when laying out cards and grids.
 export const SPACING = {
-  cardPad:    'p-4',   // standard card interior
-  sectionGap: 'mb-4',  // vertical gap between page sections
-  gridGap:    'gap-4', // gap inside card grids
+  cardPad: 'p-4', // standard card interior
+  sectionGap: 'mb-4', // vertical gap between page sections
+  gridGap: 'gap-4', // gap inside card grids
 };
 
 // ===== Rarity tier tokens =====
@@ -103,10 +101,14 @@ export const getReadableCrewColor = (hex, darkMode) => {
   const mix = (v, target, t) => Math.round(v + (target - v) * t);
   if (darkMode && luminance < 0.45) {
     const t = ((0.45 - luminance) / 0.45) * 0.85;
-    r = mix(r, 255, t); g = mix(g, 255, t); b = mix(b, 255, t);
+    r = mix(r, 255, t);
+    g = mix(g, 255, t);
+    b = mix(b, 255, t);
   } else if (!darkMode && luminance > 0.62) {
     const t = ((luminance - 0.62) / 0.38) * 0.85;
-    r = mix(r, 0, t); g = mix(g, 0, t); b = mix(b, 0, t);
+    r = mix(r, 0, t);
+    g = mix(g, 0, t);
+    b = mix(b, 0, t);
   }
   return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 };

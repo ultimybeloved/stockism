@@ -8,8 +8,11 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
 const {
-  MAX_TRADES_PER_TICKER_24H, ALL_CREW_TICKERS, UNIFIER_FULL_SHARE_MIN,
-  MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS,
+  MAX_TRADES_PER_TICKER_24H,
+  ALL_CREW_TICKERS,
+  UNIFIER_FULL_SHARE_MIN,
+  MAX_SHORTS_BEFORE_COOLDOWN,
+  SHORT_COOLDOWN_WINDOW_MS,
 } = require('../constants');
 const { writeNotification, writeFeedEntry, reportError } = require('../helpers');
 const { updateCrewMissionProgress } = require('./crewMissionProgress');
@@ -18,9 +21,20 @@ const { trackWatchedIpTrade } = require('./watchlist');
 // Compute achievement context inside the transaction (the caller has all the
 // data there; awarding happens after commit via processTradeAchievements).
 function buildAchievementCtx({
-  action, ticker, amount, totalCost, hitMaxImpact, priceHistory,
-  currentPrice, executionPrice, userData, shorts, newHoldings,
-  animalProfitTotal, now, recordedHigh = 0,
+  action,
+  ticker,
+  amount,
+  totalCost,
+  hitMaxImpact,
+  priceHistory,
+  currentPrice,
+  executionPrice,
+  userData,
+  shorts,
+  newHoldings,
+  animalProfitTotal,
+  now,
+  recordedHigh = 0,
 }) {
   const achievementCtx = { tradeValue: totalCost };
   if (action === 'buy') {
@@ -30,13 +44,13 @@ function buildAchievementCtx({
     if (buyHistory.length >= 2) {
       const now7d = now - 7 * 24 * 60 * 60 * 1000;
       const now24h = now - 24 * 60 * 60 * 1000;
-      const last7d = buyHistory.filter(h => h.timestamp >= now7d);
-      const weeklyLow = last7d.length > 0 ? Math.min(...last7d.map(h => h.price)) : 0;
-      const price24hAgo = [...buyHistory].reverse().find(h => h.timestamp <= now24h)?.price || currentPrice;
-      const price7dAgo = [...buyHistory].reverse().find(h => h.timestamp <= now7d)?.price || currentPrice;
+      const last7d = buyHistory.filter((h) => h.timestamp >= now7d);
+      const weeklyLow = last7d.length > 0 ? Math.min(...last7d.map((h) => h.price)) : 0;
+      const price24hAgo = [...buyHistory].reverse().find((h) => h.timestamp <= now24h)?.price || currentPrice;
+      const price7dAgo = [...buyHistory].reverse().find((h) => h.timestamp <= now7d)?.price || currentPrice;
       const dailyChange = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
       const weeklyChange = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
-      const sentimentScore = (dailyChange * 0.6) + (weeklyChange * 0.4);
+      const sentimentScore = dailyChange * 0.6 + weeklyChange * 0.4;
       achievementCtx.boughtBullishAtWeeklyLow =
         weeklyLow > 0 && currentPrice <= weeklyLow * 1.03 && sentimentScore >= 1;
     }
@@ -70,7 +84,7 @@ function buildAchievementCtx({
     // the recorded mark (market/current.ath, swept hourly) covers the rest.
     const tickerHistory = priceHistory[ticker] || [];
     if (tickerHistory.length > 0) {
-      const allTimeHigh = Math.max(recordedHigh, ...tickerHistory.map(h => h.price));
+      const allTimeHigh = Math.max(recordedHigh, ...tickerHistory.map((h) => h.price));
       achievementCtx.soldAtAllTimeHigh = executionPrice >= allTimeHigh;
     }
     // Animal Instinct: cumulative animal-character profit — computed (and
@@ -99,7 +113,7 @@ function buildShortWarning({ action, ticker, userData, now }) {
   if (action !== 'short') return null;
   const sh = userData.shortHistory?.[ticker] || [];
   // +1 because this trade's timestamp hasn't been pushed yet when we read shortHistory
-  const recentCount = sh.filter(ts => now - ts < SHORT_COOLDOWN_WINDOW_MS).length + 1;
+  const recentCount = sh.filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS).length + 1;
   if (recentCount >= MAX_SHORTS_BEFORE_COOLDOWN - 1) {
     return `Next short on $${ticker} will trigger an 8-hour cooldown.`;
   }
@@ -114,14 +128,14 @@ async function sendTradeLimitNotifications(uid, action, ticker, remainingTrades)
       type: 'system',
       title: 'Trade Limit Warning',
       message: `You have ${tradesUsed}/${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker} in the last 24h.`,
-      data: { ticker }
+      data: { ticker },
     });
   } else if (tradesUsed >= MAX_TRADES_PER_TICKER_24H) {
     await writeNotification(uid, {
       type: 'system',
       title: 'Trade Limit Reached',
       message: `You've hit the limit of ${MAX_TRADES_PER_TICKER_24H} ${action}s on $${ticker}. This resets on a rolling 24h basis.`,
-      data: { ticker }
+      data: { ticker },
     });
   }
 }
@@ -141,13 +155,17 @@ async function processTradeAchievements(uid, ticker, action, result) {
       if (ctx.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
       if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
       if (ctx.isMonopoly && !currentAchievements.includes('MONOPOLY')) newAchievements.push('MONOPOLY');
-      if (ctx.isDiscountDeacon && !currentAchievements.includes('DISCOUNT_DEACON')) newAchievements.push('DISCOUNT_DEACON');
+      if (ctx.isDiscountDeacon && !currentAchievements.includes('DISCOUNT_DEACON'))
+        newAchievements.push('DISCOUNT_DEACON');
       if (ctx.soldAtAllTimeHigh && !currentAchievements.includes('TOPPED_OFF')) newAchievements.push('TOPPED_OFF');
-      if (ctx.boughtBullishAtWeeklyLow && !currentAchievements.includes('THATS_A_BIG_DEAL')) newAchievements.push('THATS_A_BIG_DEAL');
-      if ((ctx.animalProfit || 0) >= 250 && !currentAchievements.includes('ANIMAL_INSTINCT')) newAchievements.push('ANIMAL_INSTINCT');
+      if (ctx.boughtBullishAtWeeklyLow && !currentAchievements.includes('THATS_A_BIG_DEAL'))
+        newAchievements.push('THATS_A_BIG_DEAL');
+      if ((ctx.animalProfit || 0) >= 250 && !currentAchievements.includes('ANIMAL_INSTINCT'))
+        newAchievements.push('ANIMAL_INSTINCT');
 
       // Plugged In: awarded once a Discord-linked user makes any trade
-      if (userDoc.data().discordId && !currentAchievements.includes('DISCORD_LINKED')) newAchievements.push('DISCORD_LINKED');
+      if (userDoc.data().discordId && !currentAchievements.includes('DISCORD_LINKED'))
+        newAchievements.push('DISCORD_LINKED');
 
       // NPC Lover: track cumulative profit from non-crew characters
       const achievementUpdate = {};
@@ -174,17 +192,16 @@ async function processTradeAchievements(uid, ticker, action, result) {
       // longer qualify. syncPortfolio re-awards it if they buy back up to a
       // full share. Also drop it from displayed pins so it can't keep
       // occupying a profile slot the user can no longer see to free up.
-      if (
-        action === 'sell' &&
-        ctx.droppedBelowFullShare &&
-        currentAchievements.includes('UNIFIER')
-      ) {
-        const char = CHARACTERS.find(c => c.ticker === ticker);
+      if (action === 'sell' && ctx.droppedBelowFullShare && currentAchievements.includes('UNIFIER')) {
+        const char = CHARACTERS.find((c) => c.ticker === ticker);
         if (char && !char.isETF) {
-          await db.collection('users').doc(uid).update({
-            achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
-            displayedAchievementPins: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
-          });
+          await db
+            .collection('users')
+            .doc(uid)
+            .update({
+              achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+              displayedAchievementPins: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+            });
         }
       }
     }
@@ -199,10 +216,14 @@ async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }
   try {
     const userDoc2 = await db.collection('users').doc(uid).get();
     const uData = userDoc2.exists ? userDoc2.data() : {};
-    const feedMsg = action === 'buy' ? `bought ${amount} $${ticker}`
-      : action === 'sell' ? `sold ${amount} $${ticker}`
-      : action === 'short' ? `shorted ${amount} $${ticker}`
-      : `covered ${amount} $${ticker}`;
+    const feedMsg =
+      action === 'buy'
+        ? `bought ${amount} $${ticker}`
+        : action === 'sell'
+          ? `sold ${amount} $${ticker}`
+          : action === 'short'
+            ? `shorted ${amount} $${ticker}`
+            : `covered ${amount} $${ticker}`;
 
     writeFeedEntry({
       type: 'trade',
@@ -215,7 +236,7 @@ async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }
       amount,
       price: result.executionPrice || 0,
       // Delay large block trades 30 min to prevent real-time targeting
-      displayAfter: amount >= 50 ? Date.now() + 30 * 60 * 1000 : null
+      displayAfter: amount >= 50 ? Date.now() + 30 * 60 * 1000 : null,
     });
 
     // Notify on new achievements
@@ -225,7 +246,7 @@ async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }
           type: 'achievement',
           title: 'Achievement Unlocked!',
           message: `You earned: ${achId}`,
-          data: { achievementId: achId }
+          data: { achievementId: achId },
         });
         writeFeedEntry({
           type: 'achievement',
@@ -233,7 +254,7 @@ async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }
           displayName: uData.displayName || 'Anonymous',
           crew: uData.crew || null,
           message: `unlocked ${achId}`,
-          achievementId: achId
+          achievementId: achId,
         });
       }
     }

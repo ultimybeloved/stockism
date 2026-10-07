@@ -24,7 +24,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -32,47 +35,139 @@ const { STARTING_CASH, UNVERIFIED_STARTING_CASH } = require('../functions/consta
 
 // Abusive on its own, whoever it names.
 const SLUR = [
-  'rape', 'rvpe', 'rapes', 'raped', 'rapist', 'molest', 'pedo',
-  'cum', 'coom', 'cock', 'penis', 'dick', 'porn', 'hentai',
-  'nigg', 'fag', 'retard', 'whore', 'slut', 'cuck', 'tranny',
-  'kys', 'killurself', 'killyourself',
+  'rape',
+  'rvpe',
+  'rapes',
+  'raped',
+  'rapist',
+  'molest',
+  'pedo',
+  'cum',
+  'coom',
+  'cock',
+  'penis',
+  'dick',
+  'porn',
+  'hentai',
+  'nigg',
+  'fag',
+  'retard',
+  'whore',
+  'slut',
+  'cuck',
+  'tranny',
+  'kys',
+  'killurself',
+  'killyourself',
 ];
 
 // Degrading only in context. Flags when wrapped around a real player's name.
 const DEGRADING = [
-  'slave', 'peg', 'pegs', 'pegged', 'submissive', 'bottom', 'dog', 'rat',
-  'suck', 'sucks', 'lick', 'licks', 'finger', 'fingers', 'owns', 'owned',
-  'bitch', 'simp', 'toy', 'pet', 'servant', 'worship', 'lover', 'wife',
-  'husband', 'smells', 'stinks', 'ugly', 'trash', 'loser', 'eater',
-  'bucket', 'gay', 'kisser', 'breath', 'fart', 'poop', 'baby', 'son',
+  'slave',
+  'peg',
+  'pegs',
+  'pegged',
+  'submissive',
+  'bottom',
+  'dog',
+  'rat',
+  'suck',
+  'sucks',
+  'lick',
+  'licks',
+  'finger',
+  'fingers',
+  'owns',
+  'owned',
+  'bitch',
+  'simp',
+  'toy',
+  'pet',
+  'servant',
+  'worship',
+  'lover',
+  'wife',
+  'husband',
+  'smells',
+  'stinks',
+  'ugly',
+  'trash',
+  'loser',
+  'eater',
+  'bucket',
+  'gay',
+  'kisser',
+  'breath',
+  'fart',
+  'poop',
+  'baby',
+  'son',
 ];
 
 // Leetspeak and padding, so N1CumBucket and StchFingers both normalise.
-const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const deleet = (s) => norm(s)
-  .replace(/0/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a')
-  .replace(/5/g, 's').replace(/7/g, 't').replace(/8/g, 'b').replace(/9/g, 'g')
-  .replace(/2/g, '').replace(/6/g, '');
+const norm = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+const deleet = (s) =>
+  norm(s)
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/8/g, 'b')
+    .replace(/9/g, 'g')
+    .replace(/2/g, '')
+    .replace(/6/g, '');
 
-const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const money = (n) =>
+  '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
 const ago = (ms) => (ms ? Math.floor((Date.now() - ms) / 86400000) + 'd ago' : 'never');
 
 function hits(name, words) {
-  const a = norm(name); const b = deleet(name);
+  const a = norm(name);
+  const b = deleet(name);
   return words.filter((w) => a.includes(w) || b.includes(deleet(w)));
 }
 
 async function main() {
   const [snap, mk] = await Promise.all([
-    db.collection('users').select(
-      'displayName', 'displayNameLower', 'cash', 'holdings', 'shorts', 'marginUsed',
-      'portfolioValue', 'totalTrades', 'createdAt', 'lastActive', 'discordId',
-      'isBot', 'isBanned', 'isAdmin', 'signupIp', 'crew',
-    ).get(),
+    db
+      .collection('users')
+      .select(
+        'displayName',
+        'displayNameLower',
+        'cash',
+        'holdings',
+        'shorts',
+        'marginUsed',
+        'portfolioValue',
+        'totalTrades',
+        'createdAt',
+        'lastActive',
+        'discordId',
+        'isBot',
+        'isBanned',
+        'isAdmin',
+        'signupIp',
+        'crew',
+      )
+      .get(),
     db.collection('market').doc('current').get(),
   ]);
   const prices = (mk.data() || {}).prices || {};
@@ -103,8 +198,9 @@ async function main() {
     const degrading = hits(name, DEGRADING);
 
     // Whose name is buried inside this one?
-    const targets = realNames.filter((r) => r.uid !== u.uid
-      && norm(name).length > r.key.length && norm(name).includes(r.key));
+    const targets = realNames.filter(
+      (r) => r.uid !== u.uid && norm(name).length > r.key.length && norm(name).includes(r.key),
+    );
 
     let reason = null;
     if (slurs.length) reason = 'slur: ' + slurs.join(', ');
@@ -116,14 +212,21 @@ async function main() {
     const nw = netWorth(u);
     const start = u.discordId ? STARTING_CASH : UNVERIFIED_STARTING_CASH;
     flagged.push({
-      uid: u.uid, name, reason,
+      uid: u.uid,
+      name,
+      reason,
       trades: u.totalTrades || 0,
-      nw, start, growth: nw - start,
+      nw,
+      start,
+      growth: nw - start,
       cash: u.cash || 0,
       positions: Object.values(u.holdings || {}).filter((s) => s > 0).length,
       shorts: Object.values(u.shorts || {}).filter((s) => s && (s.shares || s) > 0).length,
-      created: toMs(u.createdAt), last: toMs(u.lastActive),
-      discord: !!u.discordId, banned: !!u.isBanned, crew: u.crew || null,
+      created: toMs(u.createdAt),
+      last: toMs(u.lastActive),
+      discord: !!u.discordId,
+      banned: !!u.isBanned,
+      crew: u.crew || null,
       ip: u.signupIp || null,
       targets: targets.map((t) => t.name),
     });
@@ -131,7 +234,7 @@ async function main() {
 
   // Throwaways first: no trades, no growth.
   const dead = (f) => f.trades === 0 && Math.abs(f.growth) < 0.01;
-  flagged.sort((a, b) => (dead(b) - dead(a)) || a.trades - b.trades || a.nw - b.nw);
+  flagged.sort((a, b) => dead(b) - dead(a) || a.trades - b.trades || a.nw - b.nw);
 
   console.log('\nScanned ' + users.length + ' accounts. ' + flagged.length + ' flagged.\n');
   console.log('='.repeat(78));
@@ -142,20 +245,42 @@ async function main() {
     for (const f of rows) {
       console.log('  ' + f.name);
       console.log('     ' + f.reason);
-      console.log('     net ' + money(f.nw) + ' (start ' + money(f.start) + ', '
-        + (f.growth >= 0 ? '+' : '') + money(f.growth) + ')'
-        + '   ' + f.trades + ' trades   ' + f.positions + ' positions'
-        + (f.shorts ? '   ' + f.shorts + ' shorts' : ''));
-      console.log('     joined ' + day(f.created) + '   active ' + ago(f.last)
-        + '   ' + (f.discord ? 'Discord linked' : 'no Discord')
-        + (f.crew ? '   ' + f.crew : '') + (f.banned ? '   [ALREADY BANNED]' : ''));
+      console.log(
+        '     net ' +
+          money(f.nw) +
+          ' (start ' +
+          money(f.start) +
+          ', ' +
+          (f.growth >= 0 ? '+' : '') +
+          money(f.growth) +
+          ')' +
+          '   ' +
+          f.trades +
+          ' trades   ' +
+          f.positions +
+          ' positions' +
+          (f.shorts ? '   ' + f.shorts + ' shorts' : ''),
+      );
+      console.log(
+        '     joined ' +
+          day(f.created) +
+          '   active ' +
+          ago(f.last) +
+          '   ' +
+          (f.discord ? 'Discord linked' : 'no Discord') +
+          (f.crew ? '   ' + f.crew : '') +
+          (f.banned ? '   [ALREADY BANNED]' : ''),
+      );
       console.log('     ' + f.uid + '   ip ' + (f.ip || 'unknown'));
       console.log('');
     }
   };
 
   show('NO ACTIVITY - pure throwaways', flagged.filter(dead));
-  show('HAS ACTIVITY - traded or grew', flagged.filter((f) => !dead(f)));
+  show(
+    'HAS ACTIVITY - traded or grew',
+    flagged.filter((f) => !dead(f)),
+  );
 
   // Who is making these?
   const byIp = new Map();
@@ -168,7 +293,8 @@ async function main() {
   if (rings.length) {
     console.log('='.repeat(78));
     console.log('\nSIGNUP IPs MAKING MORE THAN ONE OF THESE\n');
-    for (const [ip, names] of rings) console.log('  ' + names.length + 'x  ' + ip + '\n     ' + names.join(', ') + '\n');
+    for (const [ip, names] of rings)
+      console.log('  ' + names.length + 'x  ' + ip + '\n     ' + names.join(', ') + '\n');
   }
 
   console.log('='.repeat(78));
@@ -184,9 +310,7 @@ async function main() {
   // script's and has no initialized app.
   const helpersSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'helpers.js'), 'utf8');
   const block = helpersSrc.match(/const PROTECTED_PLAYER_NAMES = \[([\s\S]*?)\];/);
-  const PROTECTED_PLAYER_NAMES = block
-    ? [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
-    : [];
+  const PROTECTED_PLAYER_NAMES = block ? [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : [];
   if (!PROTECTED_PLAYER_NAMES.length) {
     console.log('\nCould not read PROTECTED_PLAYER_NAMES from functions/helpers.js - skipping coverage check.\n');
     return;
@@ -205,8 +329,14 @@ async function main() {
     console.log('  Add these to PROTECTED_PLAYER_NAMES in functions/helpers.js (lowercase,');
     console.log('  letters and digits only), then redeploy createUser and changeDisplayName:\n');
     for (const u of missing) {
-      console.log("    '" + norm(u.displayName) + "',   // " + u.displayName
-        + '  $' + Math.round(u.portfolioValue || 0).toLocaleString('en-US'));
+      console.log(
+        "    '" +
+          norm(u.displayName) +
+          "',   // " +
+          u.displayName +
+          '  $' +
+          Math.round(u.portfolioValue || 0).toLocaleString('en-US'),
+      );
     }
     console.log('');
   } else {
@@ -214,4 +344,9 @@ async function main() {
   }
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

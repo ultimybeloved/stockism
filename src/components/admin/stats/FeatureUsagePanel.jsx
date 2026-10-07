@@ -31,7 +31,7 @@ const FeatureUsagePanel = ({ darkMode, textClass, mutedClass }) => {
 
   useEffect(() => {
     getDoc(doc(db, 'admin', 'featureUsage'))
-      .then(snap => {
+      .then((snap) => {
         if (snap.exists()) {
           setReport(snap.data());
           setState('ready');
@@ -39,15 +39,13 @@ const FeatureUsagePanel = ({ darkMode, textClass, mutedClass }) => {
           setState('empty');
         }
       })
-      .catch(err => {
+      .catch((err) => {
         console.error('Failed to load feature usage:', err);
         setState('error');
       });
   }, []);
 
-  const rows = report
-    ? Object.entries(report.counts || {}).sort((a, b) => b[1] - a[1])
-    : [];
+  const rows = report ? Object.entries(report.counts || {}).sort((a, b) => b[1] - a[1]) : [];
   const total = report?.totalUsers || 0;
 
   return (

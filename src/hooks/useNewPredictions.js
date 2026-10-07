@@ -27,7 +27,7 @@ const writeSeenAt = (value) => {
   } catch {
     // Private mode / storage disabled — the badge just won't persist.
   }
-  subscribers.forEach(notify => notify(value));
+  subscribers.forEach((notify) => notify(value));
 };
 
 export function useNewPredictions() {
@@ -52,10 +52,8 @@ export function useNewPredictions() {
   // Only live ones count. A first-time visitor has seenAt 0 and sees every open
   // prediction as new, which is the point.
   const now = Date.now();
-  const newCount = (predictions || []).filter(p =>
-    !p.resolved &&
-    (!p.endsAt || p.endsAt > now) &&
-    (p.createdAt || 0) > seenAt
+  const newCount = (predictions || []).filter(
+    (p) => !p.resolved && (!p.endsAt || p.endsAt > now) && (p.createdAt || 0) > seenAt,
   ).length;
 
   return { newCount, markSeen };

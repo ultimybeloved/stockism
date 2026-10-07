@@ -25,15 +25,15 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const currentList = snap.exists() ? snap.data().list || [] : [];
 
-      const updatedList = currentList.map(p => {
+      const updatedList = currentList.map((p) => {
         if (p.id === selectedPrediction.id) {
           return {
             ...p,
             resolved: true,
             outcomes: selectedOutcomes,
-            outcome: selectedOutcomes[0]
+            outcome: selectedOutcomes[0],
           };
         }
         return p;
@@ -44,7 +44,11 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
       const label = selectedOutcomes.length === 1 ? `"${selectedOutcomes[0]}"` : `"${selectedOutcomes.join('" & "')}"`;
       showMessage('success', `Resolved! Winner(s): ${label}`);
       if (selectedPrediction?.type === 'event') {
-        try { await triggerEventSettlementsFunction(); } catch (e) { console.error('Settlement trigger failed', e); }
+        try {
+          await triggerEventSettlementsFunction();
+        } catch (e) {
+          console.error('Settlement trigger failed', e);
+        }
       }
       setSelectedPrediction(null);
       setSelectedOutcomes([]);
@@ -63,9 +67,9 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const currentList = snap.exists() ? snap.data().list || [] : [];
 
-      const updatedList = currentList.filter(p => p.id !== predictionId);
+      const updatedList = currentList.filter((p) => p.id !== predictionId);
 
       await updateDoc(predictionsRef, { list: updatedList });
 
@@ -85,23 +89,26 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
-      const prediction = currentList.find(p => p.id === predictionId);
+      const currentList = snap.exists() ? snap.data().list || [] : [];
+      const prediction = currentList.find((p) => p.id === predictionId);
 
       // Long-term (event) markets hold money in eventPositions, not bets — refund
       // server-side where the full user scan and per-user transactions live.
       if (prediction?.type === 'event') {
         const res = await cancelEventMarketFunction({ marketId: predictionId });
         const { refunded = 0, total = 0 } = res?.data || {};
-        showMessage('success', `Market cancelled — ${refunded} holder${refunded !== 1 ? 's' : ''} refunded ($${Math.round(total).toLocaleString()})`);
+        showMessage(
+          'success',
+          `Market cancelled — ${refunded} holder${refunded !== 1 ? 's' : ''} refunded ($${Math.round(total).toLocaleString()})`,
+        );
         setSelectedPrediction(null);
         setLoading(false);
         return;
       }
 
       // Weekly predictions: mark cancelled and refund bets from the client.
-      const updatedList = currentList.map(p =>
-        p.id === predictionId ? { ...p, cancelled: true, cancelledAt: Date.now() } : p
+      const updatedList = currentList.map((p) =>
+        p.id === predictionId ? { ...p, cancelled: true, cancelledAt: Date.now() } : p,
       );
       await updateDoc(predictionsRef, { list: updatedList });
 
@@ -144,15 +151,15 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
       const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const currentList = snap.exists() ? snap.data().list || [] : [];
 
-      const updatedList = currentList.map(p => {
+      const updatedList = currentList.map((p) => {
         if (p.id === extendPredictionId) {
           return {
             ...p,
             endsAt: getEndTime(extendDays),
             allowAdditionalBets: allowAdditionalBets,
-            reopened: true
+            reopened: true,
           };
         }
         return p;
@@ -160,8 +167,11 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
 
       await updateDoc(predictionsRef, { list: updatedList });
 
-      const pred = currentList.find(p => p.id === extendPredictionId);
-      showMessage('success', `Extended "${pred?.question}" by ${extendDays} days${allowAdditionalBets ? ' • Additional bets allowed' : ''}`);
+      const pred = currentList.find((p) => p.id === extendPredictionId);
+      showMessage(
+        'success',
+        `Extended "${pred?.question}" by ${extendDays} days${allowAdditionalBets ? ' • Additional bets allowed' : ''}`,
+      );
       setExtendPredictionId('');
       setExtendDays(7);
       setAllowAdditionalBets(false);
@@ -173,9 +183,19 @@ export function useAdminPredictionManage({ showMessage, setLoading, getEndTime }
   };
 
   return {
-    selectedPrediction, setSelectedPrediction, selectedOutcomes, setSelectedOutcomes,
-    handleResolvePrediction, handleDeletePrediction, handleCancelPrediction,
-    extendPredictionId, setExtendPredictionId, extendDays, setExtendDays,
-    allowAdditionalBets, setAllowAdditionalBets, handleExtendPrediction,
+    selectedPrediction,
+    setSelectedPrediction,
+    selectedOutcomes,
+    setSelectedOutcomes,
+    handleResolvePrediction,
+    handleDeletePrediction,
+    handleCancelPrediction,
+    extendPredictionId,
+    setExtendPredictionId,
+    extendDays,
+    setExtendDays,
+    allowAdditionalBets,
+    setAllowAdditionalBets,
+    handleExtendPrediction,
   };
 }

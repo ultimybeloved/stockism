@@ -23,7 +23,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -36,9 +39,18 @@ const SECONDARY_MAX_VALUE = 100000;
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 
 function networkKey(ip) {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
@@ -55,13 +67,12 @@ async function main() {
   const days = Number(process.argv[2]) || 120;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const snap = await db.collection('trades')
-    .where('timestamp', '>', cutoff).select('uid', 'ip', 'timestamp').get();
+  const snap = await db.collection('trades').where('timestamp', '>', cutoff).select('uid', 'ip', 'timestamp').get();
 
-  const accountsByNetwork = new Map();      // net -> Set(uid)
-  const networksByAccount = new Map();      // uid -> Set(net)
-  const countByAccountNetwork = new Map();  // `${uid}|${net}` -> trades
-  const firstSeen = new Map();              // uid -> earliest trade ms
+  const accountsByNetwork = new Map(); // net -> Set(uid)
+  const networksByAccount = new Map(); // uid -> Set(net)
+  const countByAccountNetwork = new Map(); // `${uid}|${net}` -> trades
+  const firstSeen = new Map(); // uid -> earliest trade ms
 
   snap.forEach((d) => {
     const t = d.data();
@@ -79,8 +90,19 @@ async function main() {
 
   // Households via shared, non-crowded networks.
   const parent = new Map();
-  const find = (x) => { if (!parent.has(x)) parent.set(x, x); while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  const union = (a, b) => { const ra = find(a); const rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+  const find = (x) => {
+    if (!parent.has(x)) parent.set(x, x);
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
+    return x;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
   for (const [, uids] of accountsByNetwork) {
     if (uids.size < 2 || uids.size > ALT_CROWDED_NETWORK_LIMIT) continue;
     const l = [...uids];
@@ -96,10 +118,13 @@ async function main() {
   const households = [...groups.values()].filter((m) => m.length > 1);
 
   const uids = [...new Set(households.flat())];
-  const docs = await db.getAll(...uids.map((u) => db.collection('users').doc(u)),
-    { fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt'] });
+  const docs = await db.getAll(...uids.map((u) => db.collection('users').doc(u)), {
+    fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt'],
+  });
   const U = new Map();
-  docs.forEach((d) => { if (d.exists && !d.data().isBot) U.set(d.id, d.data()); });
+  docs.forEach((d) => {
+    if (d.exists && !d.data().isBot) U.set(d.id, d.data());
+  });
 
   const mkt = await db.collection('market').doc('current').get();
   const prices = (mkt.data() || {}).prices || {};
@@ -110,9 +135,9 @@ async function main() {
   };
   const tradesOn = (uid, net) => countByAccountNetwork.get(`${uid}|${net}`) || 0;
   const totalTrades = (uid) => [...(networksByAccount.get(uid) || [])].reduce((s, n) => s + tradesOn(uid, n), 0);
-  const homeNet = (uid) => [...(networksByAccount.get(uid) || [])]
-    .sort((a, b) => tradesOn(uid, b) - tradesOn(uid, a))[0] || null;
-  const name = (uid) => (U.get(uid)?.displayName) || uid.slice(0, 10);
+  const homeNet = (uid) =>
+    [...(networksByAccount.get(uid) || [])].sort((a, b) => tradesOn(uid, b) - tradesOn(uid, a))[0] || null;
+  const name = (uid) => U.get(uid)?.displayName || uid.slice(0, 10);
 
   // Stable labels for every network that links two or more accounts.
   const netLabel = new Map();
@@ -144,10 +169,12 @@ async function main() {
     const sorted = [...members].sort((a, b) => valueOf(U.get(b)) - valueOf(U.get(a)));
     for (const uid of sorted) {
       const u = U.get(uid);
-      out.push(`  ${name(uid).padEnd(24)} ${money(valueOf(u)).padStart(11)}  ${day(toMs(u.createdAt))}  `
-        + `${(u.discordId ? 'yes' : 'NO ').padEnd(7)} ${String(totalTrades(uid)).padStart(6)}  `
-        + `${(networksByAccount.get(uid) || new Set()).size}`
-        + `${u.isBanned ? '   [BANNED]' : ''}`);
+      out.push(
+        `  ${name(uid).padEnd(24)} ${money(valueOf(u)).padStart(11)}  ${day(toMs(u.createdAt))}  ` +
+          `${(u.discordId ? 'yes' : 'NO ').padEnd(7)} ${String(totalTrades(uid)).padStart(6)}  ` +
+          `${(networksByAccount.get(uid) || new Set()).size}` +
+          `${u.isBanned ? '   [BANNED]' : ''}`,
+      );
     }
 
     out.push('\n  HOW THEY LINK');
@@ -158,8 +185,10 @@ async function main() {
         const here = [...accountsByNetwork.get(net)].filter((u) => members.includes(u));
         if (here.length < 2) continue;
         shown.add(net);
-        const who = here.sort((a, b) => tradesOn(b, net) - tradesOn(a, net))
-          .map((u) => `${name(u)} (${tradesOn(u, net)})`).join(', ');
+        const who = here
+          .sort((a, b) => tradesOn(b, net) - tradesOn(a, net))
+          .map((u) => `${name(u)} (${tradesOn(u, net)})`)
+          .join(', ');
         const exclusive = accountsByNetwork.get(net).size === here.length;
         out.push(`    ${netLabel.get(net).padEnd(16)} ${who}${exclusive ? '   <- nobody else uses this one' : ''}`);
       }
@@ -195,9 +224,19 @@ async function main() {
       else confidence = 'UNCLEAR';
 
       attributions.push({
-        household: hn, uid, name: name(uid), value: valueOf(u), created: toMs(u.createdAt),
-        owner: name(topUid), ownerValue: valueOf(top), confidence,
-        nets: nets.length, topScore, runner, onTheirHome, predates,
+        household: hn,
+        uid,
+        name: name(uid),
+        value: valueOf(u),
+        created: toMs(u.createdAt),
+        owner: name(topUid),
+        ownerValue: valueOf(top),
+        confidence,
+        nets: nets.length,
+        topScore,
+        runner,
+        onTheirHome,
+        predates,
         alternatives: cands.slice(1, 3).map(([c, s]) => `${name(c)} (${s})`),
       });
     }
@@ -215,15 +254,19 @@ async function main() {
 
   for (const a of attributions) {
     out.push(`  ${a.confidence.padEnd(8)} ${a.name.padEnd(24)} -> ${a.owner}`);
-    out.push(`           ${money(a.value).padStart(10)}  created ${day(a.created)}  household ${a.household}  ${a.nets} connection(s)`);
-    out.push(`           ${a.topScore} trades by ${a.owner} on the same connection`
-      + `${a.onTheirHome ? ', and it is their main one' : ''}`
-      + `${a.predates ? '' : '  [note: owner account is NEWER, so it may be the other way round]'}`);
+    out.push(
+      `           ${money(a.value).padStart(10)}  created ${day(a.created)}  household ${a.household}  ${a.nets} connection(s)`,
+    );
+    out.push(
+      `           ${a.topScore} trades by ${a.owner} on the same connection` +
+        `${a.onTheirHome ? ', and it is their main one' : ''}` +
+        `${a.predates ? '' : '  [note: owner account is NEWER, so it may be the other way round]'}`,
+    );
     if (a.alternatives.length) out.push(`           other accounts there: ${a.alternatives.join(', ')}`);
     out.push('');
   }
 
-  out.push('STRONG  = one connection only, it is the owner\'s main one, owner predates it.');
+  out.push("STRONG  = one connection only, it is the owner's main one, owner predates it.");
   out.push('LIKELY  = one candidate dominates and predates it, but the account moved around.');
   out.push('UNCLEAR = several candidates on that connection, cannot separate them.\n');
   out.push('None of this proves who typed. It proves which router the account sat behind.');
@@ -235,4 +278,9 @@ async function main() {
   console.error(`\n[written to ${dest}]`);
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

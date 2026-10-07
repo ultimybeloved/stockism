@@ -10,15 +10,25 @@
 const { CHARACTERS, computeRarityTiers, RARITY_ORDER, splitFactorOf } = require('../characters');
 const {
   DAILY_DROP_JACKPOT_CHANCE,
-  DAILY_DROP_BONUS_TIERS, DAILY_DROP_BONUS_SHARE_VALUES, DAILY_DROP_BONUS_SHARE_WEIGHTS,
-  DAILY_DROP_BONUS_VARIETY_VALUES, DAILY_DROP_BONUS_VARIETY_WEIGHTS,
-  DAILY_DROP_CORE_TIER_VALUES, DAILY_DROP_CORE_TIER_WEIGHTS,
-  DAILY_DROP_CORE_SHARE_VALUES, DAILY_DROP_CORE_SHARE_WEIGHTS,
-  DAILY_DROP_CORE_VARIETY_VALUES, DAILY_DROP_CORE_VARIETY_WEIGHTS,
-  DAILY_DROP_LEGENDARY_CHANCE, DAILY_DROP_LEGENDARY_SHARES, DAILY_DROP_LEGENDARY_POOL_FRACTION,
+  DAILY_DROP_BONUS_TIERS,
+  DAILY_DROP_BONUS_SHARE_VALUES,
+  DAILY_DROP_BONUS_SHARE_WEIGHTS,
+  DAILY_DROP_BONUS_VARIETY_VALUES,
+  DAILY_DROP_BONUS_VARIETY_WEIGHTS,
+  DAILY_DROP_CORE_TIER_VALUES,
+  DAILY_DROP_CORE_TIER_WEIGHTS,
+  DAILY_DROP_CORE_SHARE_VALUES,
+  DAILY_DROP_CORE_SHARE_WEIGHTS,
+  DAILY_DROP_CORE_VARIETY_VALUES,
+  DAILY_DROP_CORE_VARIETY_WEIGHTS,
+  DAILY_DROP_LEGENDARY_CHANCE,
+  DAILY_DROP_LEGENDARY_SHARES,
+  DAILY_DROP_LEGENDARY_POOL_FRACTION,
   DAILY_DROP_JACKPOT_TIERS,
-  DAILY_DROP_JACKPOT_SHARES_MIN, DAILY_DROP_JACKPOT_SHARES_MAX,
-  DAILY_DROP_JACKPOT_VARIETY_MIN, DAILY_DROP_JACKPOT_VARIETY_MAX,
+  DAILY_DROP_JACKPOT_SHARES_MIN,
+  DAILY_DROP_JACKPOT_SHARES_MAX,
+  DAILY_DROP_JACKPOT_VARIETY_MIN,
+  DAILY_DROP_JACKPOT_VARIETY_MAX,
 } = require('../constants');
 
 const TIERS_BY_VALUE = [...RARITY_ORDER].reverse(); // legendary first
@@ -54,9 +64,9 @@ function shuffle(arr) {
  * to populate every tier (the sandbox, mainly; prod has 150+ stocks).
  */
 function buildDropPools(prices, launchedTickers) {
-  const all = CHARACTERS
-    .filter((c) => !c.ipoRequired || launchedTickers.includes(c.ticker))
-    .filter((c) => prices[c.ticker] > 0);
+  const all = CHARACTERS.filter((c) => !c.ipoRequired || launchedTickers.includes(c.ticker)).filter(
+    (c) => prices[c.ticker] > 0,
+  );
 
   const tiers = computeRarityTiers(CHARACTERS, prices);
 
@@ -72,9 +82,10 @@ function buildDropPools(prices, launchedTickers) {
       floors[tier] = unsplitPrice(prices, c.ticker);
     }
   }
-  const tierOf = (c) => tiers[c.ticker]
-    || TIERS_BY_VALUE.find((t) => floors[t] !== undefined && unsplitPrice(prices, c.ticker) >= floors[t])
-    || RARITY_ORDER[0];
+  const tierOf = (c) =>
+    tiers[c.ticker] ||
+    TIERS_BY_VALUE.find((t) => floors[t] !== undefined && unsplitPrice(prices, c.ticker) >= floors[t]) ||
+    RARITY_ORDER[0];
 
   const byTier = {};
   for (const c of all) {
@@ -95,13 +106,15 @@ const unsplitPrice = (prices, ticker) => (prices[ticker] || 0) * splitFactorOf(t
 function draw(pool, prices, totalShares, variety, group) {
   if (!pool.length || totalShares < 1) return [];
   const count = Math.max(1, Math.min(variety, totalShares, pool.length));
-  const picks = shuffle(pool).slice(0, count).map((c) => ({
-    ticker: c.ticker,
-    name: c.name,
-    shares: 0,
-    currentPrice: prices[c.ticker],
-    group,
-  }));
+  const picks = shuffle(pool)
+    .slice(0, count)
+    .map((c) => ({
+      ticker: c.ticker,
+      name: c.name,
+      shares: 0,
+      currentPrice: prices[c.ticker],
+      group,
+    }));
   for (let i = 0; i < totalShares; i++) picks[i % picks.length].shares += 1;
   for (const p of picks) p.shares *= splitFactorOf(p.ticker);
   return picks;
@@ -118,7 +131,10 @@ function mergePicks(picks) {
   const byTicker = new Map();
   for (const pick of picks) {
     const existing = byTicker.get(pick.ticker);
-    if (!existing) { byTicker.set(pick.ticker, { ...pick }); continue; }
+    if (!existing) {
+      byTicker.set(pick.ticker, { ...pick });
+      continue;
+    }
     existing.shares += pick.shares;
     if (GROUP_PRECEDENCE.indexOf(pick.group) < GROUP_PRECEDENCE.indexOf(existing.group)) {
       existing.group = pick.group;
@@ -132,7 +148,9 @@ function mergePicks(picks) {
 // rather than mislabelling a cheap stock as a legendary.
 function drawLegendaryChance(byTier, prices) {
   if (Math.random() >= DAILY_DROP_LEGENDARY_CHANCE) return [];
-  const tier = [...(byTier.legendary || [])].sort((a, b) => unsplitPrice(prices, a.ticker) - unsplitPrice(prices, b.ticker));
+  const tier = [...(byTier.legendary || [])].sort(
+    (a, b) => unsplitPrice(prices, a.ticker) - unsplitPrice(prices, b.ticker),
+  );
   if (!tier.length) return [];
   const slice = tier.slice(0, Math.max(1, Math.ceil(tier.length * DAILY_DROP_LEGENDARY_POOL_FRACTION)));
   return draw(slice, prices, DAILY_DROP_LEGENDARY_SHARES, 1, 'legendary');
@@ -161,7 +179,7 @@ function rollDailyStock(prices, launchedTickers = []) {
     prices,
     weightedRandom(DAILY_DROP_BONUS_SHARE_VALUES, DAILY_DROP_BONUS_SHARE_WEIGHTS),
     weightedRandom(DAILY_DROP_BONUS_VARIETY_VALUES, DAILY_DROP_BONUS_VARIETY_WEIGHTS),
-    'bonus'
+    'bonus',
   );
 
   const isJackpot = Math.random() < DAILY_DROP_JACKPOT_CHANCE;
@@ -179,7 +197,7 @@ function rollDailyStock(prices, launchedTickers = []) {
     prices,
     weightedRandom(DAILY_DROP_CORE_SHARE_VALUES[tier], DAILY_DROP_CORE_SHARE_WEIGHTS[tier]),
     weightedRandom(DAILY_DROP_CORE_VARIETY_VALUES, DAILY_DROP_CORE_VARIETY_WEIGHTS),
-    'main'
+    'main',
   );
   const legendary = drawLegendaryChance(byTier, prices);
   return { picks: mergePicks([...bonus, ...main, ...legendary]), isJackpot: false };

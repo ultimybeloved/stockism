@@ -29,11 +29,7 @@ const path = require('path');
 // The runtime sets one of these to the function being invoked. All are unset
 // when firebase-tools loads this file locally to discover what to deploy, which
 // is exactly when we want to load everything.
-const invokedFunction = () =>
-  process.env.K_SERVICE
-  || process.env.FUNCTION_TARGET
-  || process.env.FUNCTION_NAME
-  || null;
+const invokedFunction = () => process.env.K_SERVICE || process.env.FUNCTION_TARGET || process.env.FUNCTION_NAME || null;
 
 // Does this file export `name`, without executing it? Every Cloud Function in
 // this codebase is declared as `exports.<name> = ...` at the start of a line;
@@ -48,8 +44,7 @@ const fileExports = (absPathNoExt, name) => {
 };
 
 const isDeployable = (value) =>
-  typeof value === 'function'
-  && (value.__endpoint !== undefined || value.__trigger !== undefined);
+  typeof value === 'function' && (value.__endpoint !== undefined || value.__trigger !== undefined);
 
 const copyFunctions = (serviceModule, target) => {
   for (const [name, value] of Object.entries(serviceModule)) {

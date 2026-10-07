@@ -11,9 +11,7 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const { CHARACTERS } = require('../characters');
-const {
-  ADMIN_UID,
-} = require('../constants');
+const { ADMIN_UID } = require('../constants');
 const { appendPriceHistory } = require('../helpers');
 const { runPreflight, countDryRun, runRename, PHASES } = require('./tickerRename');
 const split = require('./stockSplit');
@@ -92,7 +90,10 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
   if (mode === 'execute') {
     const { blocked, checks } = await runPreflight({ old, nw, marketData });
     if (blocked) {
-      const failed = checks.filter((c) => !c.pass).map((c) => c.label).join('; ');
+      const failed = checks
+        .filter((c) => !c.pass)
+        .map((c) => c.label)
+        .join('; ');
       throw new functions.https.HttpsError('failed-precondition', `Preflight failed: ${failed}`);
     }
   }
@@ -117,17 +118,25 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
   if (!['dryRun', 'execute', 'resume', 'abort'].includes(mode)) {
     throw new functions.https.HttpsError('invalid-argument', 'Unknown mode');
   }
-  const ticker = String(data?.ticker || '').trim().toUpperCase();
+  const ticker = String(data?.ticker || '')
+    .trim()
+    .toUpperCase();
   const ratio = Number(data?.ratio);
 
   if (mode === 'dryRun' || mode === 'execute') {
     const marketSnap = await db.collection('market').doc('current').get();
     const { checks, blocked, journal, before } = await split.runPreflight({
-      ticker, ratio, marketData: marketSnap.exists ? marketSnap.data() : {},
+      ticker,
+      ratio,
+      marketData: marketSnap.exists ? marketSnap.data() : {},
     });
     if (mode === 'dryRun') {
       return {
-        dryRun: true, ticker, ratio, checks, blocked,
+        dryRun: true,
+        ticker,
+        ratio,
+        checks,
+        blocked,
         factorBefore: before,
         priceNow: marketSnap.data()?.prices?.[ticker] ?? null,
         breakdown: blocked ? null : await split.countDryRun({ ticker }),
@@ -137,7 +146,10 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
       };
     }
     if (blocked) {
-      const failed = checks.filter((c) => !c.pass).map((c) => c.label).join('; ');
+      const failed = checks
+        .filter((c) => !c.pass)
+        .map((c) => c.label)
+        .join('; ');
       throw new functions.https.HttpsError('failed-precondition', `Preflight failed: ${failed}`);
     }
   }
@@ -150,7 +162,7 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
  * times — only writes missing entries.
  */
 exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -183,6 +195,6 @@ exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
 
   await marketRef.update(updates);
   await appendPriceHistory(null, historyPoints);
-  console.log(`Initialized prices for ${initialized.length} characters:`, initialized.map(i => i.ticker).join(', '));
+  console.log(`Initialized prices for ${initialized.length} characters:`, initialized.map((i) => i.ticker).join(', '));
   return { message: `Initialized ${initialized.length} character prices`, initialized };
 });

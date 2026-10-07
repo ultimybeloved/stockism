@@ -15,7 +15,7 @@ export function useAdminBots({ showMessage, setLoading }) {
       const usersSnap = await getDocs(usersRef);
       const botList = [];
 
-      usersSnap.forEach(doc => {
+      usersSnap.forEach((doc) => {
         const data = doc.data();
         if (data.isBot) {
           botList.push({ id: doc.id, ...data });
@@ -60,7 +60,10 @@ export function useAdminBots({ showMessage, setLoading }) {
       if (data.created === 0) {
         showMessage('info', `Nothing to create — all ${data.skipped} bots already exist.`);
       } else {
-        showMessage('success', `✅ Created ${data.created} bot${data.created === 1 ? '' : 's'}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ''}`);
+        showMessage(
+          'success',
+          `✅ Created ${data.created} bot${data.created === 1 ? '' : 's'}${data.skipped > 0 ? ` (${data.skipped} already existed)` : ''}`,
+        );
       }
       await handleLoadBots();
     } catch (err) {

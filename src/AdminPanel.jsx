@@ -81,13 +81,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const seasonOps = useAdminSeason({ showMessage, setLoading });
   const cosmetics = useAdminCosmetics({ showMessage, setLoading, setSelectedUser: userList.setSelectedUser });
   const userDeletion = useAdminUserDeletion({
-    showMessage, setLoading, prices,
-    allUsers: userList.allUsers, setAllUsers: userList.setAllUsers,
+    showMessage,
+    setLoading,
+    prices,
+    allUsers: userList.allUsers,
+    setAllUsers: userList.setAllUsers,
     setUserSearchResults: userList.setUserSearchResults,
   });
   const portfolioSync = useAdminPortfolioSync({
-    showMessage, setLoading, prices,
-    selectedUser: userList.selectedUser, setSelectedUser: userList.setSelectedUser,
+    showMessage,
+    setLoading,
+    prices,
+    selectedUser: userList.selectedUser,
+    setSelectedUser: userList.setSelectedUser,
     calculateLivePortfolioValue: userList.calculateLivePortfolioValue,
     handleLoadAllUsers: userList.handleLoadAllUsers,
   });
@@ -106,12 +112,18 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   const orphans = useAdminOrphans({ showMessage, setLoading });
   const priceMaintenance = useAdminPriceMaintenance({ showMessage, setLoading });
   const backupTools = useAdminBackups({
-    showMessage, setMessage, setLoading,
+    showMessage,
+    setMessage,
+    setLoading,
     handleSyncPricesToHistory: priceMaintenance.handleSyncPricesToHistory,
   });
   const accountRepair = useAdminAccountRepair({ setMessage, setLoading });
   const predictionCreate = useAdminPredictionCreate({ showMessage, setLoading });
-  const predictionManage = useAdminPredictionManage({ showMessage, setLoading, getEndTime: predictionCreate.getEndTime });
+  const predictionManage = useAdminPredictionManage({
+    showMessage,
+    setLoading,
+    getEndTime: predictionCreate.getEndTime,
+  });
   const bets = useAdminBets({ showMessage, setLoading });
   const ipo = useAdminIpo({ showMessage, setLoading });
   const trades = useAdminTrades({ showMessage });
@@ -124,17 +136,24 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   if (!isAdmin) {
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
-        <div className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6 text-center`} onClick={e => e.stopPropagation()}>
+        <div
+          className={`w-full max-w-md ${cardClass} border rounded-sm shadow-xl p-6 text-center`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-red-500 text-lg mb-4">🔒 Admin Access Required</p>
-          <p className={mutedClass}>Your UID: <code className="text-xs bg-slate-700 px-2 py-1 rounded">{user?.uid || 'Not logged in'}</code></p>
+          <p className={mutedClass}>
+            Your UID: <code className="text-xs bg-slate-700 px-2 py-1 rounded">{user?.uid || 'Not logged in'}</code>
+          </p>
           <p className={`text-xs ${mutedClass} mt-2`}>Add this UID to ADMIN_UIDS in AdminPanel.jsx</p>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-600 text-white rounded-sm">Close</button>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-600 text-white rounded-sm">
+            Close
+          </button>
         </div>
       </div>
     );
   }
 
-  const unresolvedPredictions = predictions.filter(p => !p.resolved && !p.cancelled);
+  const unresolvedPredictions = predictions.filter((p) => !p.resolved && !p.cancelled);
 
   // Sort characters by name for the dropdown
   const sortedCharacters = [...CHARACTERS].sort((a, b) => a.name.localeCompare(b.name));
@@ -143,9 +162,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={onClose}>
       {/* 13 tabs of dense controls do not fit in 3xl — the pills wrapped and every
           panel was squeezed into a tall thin column. */}
-      <div className={`w-full max-w-6xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[92vh] flex flex-col`}
-        onClick={e => e.stopPropagation()}>
-
+      <div
+        className={`w-full max-w-6xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[92vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
           <div className="flex justify-between items-center">
@@ -157,7 +177,9 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
               >
                 💰 Adjust Prices
               </button>
-              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>×</button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>
+                ×
+              </button>
             </div>
           </div>
         </div>
@@ -167,32 +189,81 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           <div className="flex flex-wrap gap-1.5">
             {[
               { id: 'users', icon: '👥', label: 'Users' },
-              { id: 'trades', icon: '💹', label: 'Trades', load: () => trades.loadRecentTrades(trades.tradeTimePeriod, trades.tradeTypeFilter, trades.tradeFilterTicker, trades.tradeBotFilter) },
+              {
+                id: 'trades',
+                icon: '💹',
+                label: 'Trades',
+                load: () =>
+                  trades.loadRecentTrades(
+                    trades.tradeTimePeriod,
+                    trades.tradeTypeFilter,
+                    trades.tradeFilterTicker,
+                    trades.tradeBotFilter,
+                  ),
+              },
               { id: 'holders', icon: '📊', label: 'Holders' },
               { id: 'market', icon: '🏛️', label: 'Market' },
               { id: 'stats', icon: '📈', label: 'Stats', load: stats.loadMarketStats },
               { id: 'ipo', icon: '🚀', label: 'IPO', load: ipo.loadIPOs },
-              { id: 'predictions', icon: '🎲', label: 'Bets', badge: unresolvedPredictions.length, load: bets.loadAllBets },
+              {
+                id: 'predictions',
+                icon: '🎲',
+                label: 'Bets',
+                badge: unresolvedPredictions.length,
+                load: bets.loadAllBets,
+              },
               { id: 'dividends', icon: '💵', label: 'Dividends', load: dividends.loadDividendConfig },
               { id: 'bots', icon: '🤖', label: 'Bots', load: bots.handleLoadBots },
               { id: 'badges', icon: '🏅', label: 'Badges', load: badges.loadBadgeUsers },
-              { id: 'watchlist', icon: '👁️', label: 'Watchlist', load: () => { if (!watchlist.watchlistLoaded) watchlist.loadWatchlist(); } },
-              { id: 'giveaways', icon: '💸', label: 'Giveaways', load: () => { if (!cashLog.cashLogLoaded) cashLog.loadCashLog(); } },
-              { id: 'siteMessages', icon: '📣', label: 'Site Msgs', load: () => { if (!siteMessages.siteMessagesLoaded) siteMessages.loadSiteMessages(); } },
-              { id: 'discord', icon: '💬', label: 'Discord', load: () => { if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages(); } },
+              {
+                id: 'watchlist',
+                icon: '👁️',
+                label: 'Watchlist',
+                load: () => {
+                  if (!watchlist.watchlistLoaded) watchlist.loadWatchlist();
+                },
+              },
+              {
+                id: 'giveaways',
+                icon: '💸',
+                label: 'Giveaways',
+                load: () => {
+                  if (!cashLog.cashLogLoaded) cashLog.loadCashLog();
+                },
+              },
+              {
+                id: 'siteMessages',
+                icon: '📣',
+                label: 'Site Msgs',
+                load: () => {
+                  if (!siteMessages.siteMessagesLoaded) siteMessages.loadSiteMessages();
+                },
+              },
+              {
+                id: 'discord',
+                icon: '💬',
+                label: 'Discord',
+                load: () => {
+                  if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages();
+                },
+              },
               { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
               { id: 'recovery', icon: '🔧', label: 'Recovery' },
-            ].map(tab => (
+            ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); if (tab.load) tab.load(); }}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.load) tab.load();
+                }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
                   activeTab === tab.id
                     ? 'bg-teal-600 text-white'
                     : `${mutedClass} ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`
                 }`}
               >
-                {tab.icon} {tab.label}{tab.badge > 0 ? ` (${tab.badge})` : ''}
+                {tab.icon} {tab.label}
+                {tab.badge > 0 ? ` (${tab.badge})` : ''}
               </button>
             ))}
           </div>
@@ -200,20 +271,19 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
         {/* Message */}
         {message && (
-          <div className={`mx-4 mt-4 p-3 rounded-sm text-sm font-semibold ${
-            message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-          }`}>
+          <div
+            className={`mx-4 mt-4 p-3 rounded-sm text-sm font-semibold ${
+              message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+            }`}
+          >
             {message.text}
           </div>
         )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-
           {/* IPO TAB */}
-          {activeTab === 'ipo' && (
-            <IpoTab {...common} {...ipo} setMessage={setMessage} />
-          )}
+          {activeTab === 'ipo' && <IpoTab {...common} {...ipo} setMessage={setMessage} />}
           {/* PREDICTIONS TAB (Consolidated: Create + Resolve + View All + Bets) */}
           {activeTab === 'predictions' && (
             <PredictionsTab
@@ -227,12 +297,10 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
             />
           )}
 
-                    {/* HOLDERS TAB */}
-          {activeTab === 'holders' && (
-            <HoldersTab {...common} prices={prices} {...holders} />
-          )}
+          {/* HOLDERS TAB */}
+          {activeTab === 'holders' && <HoldersTab {...common} prices={prices} {...holders} />}
 
-                    {/* USERS TAB */}
+          {/* USERS TAB */}
           {activeTab === 'users' && (
             <UsersTab
               {...common}
@@ -245,22 +313,16 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
             />
           )}
 
-                    {/* BOTS TAB */}
-          {activeTab === 'bots' && (
-            <BotsTab {...common} prices={prices} {...bots} />
-          )}
+          {/* BOTS TAB */}
+          {activeTab === 'bots' && <BotsTab {...common} prices={prices} {...bots} />}
 
-                    {/* TRADES TAB */}
-          {activeTab === 'trades' && (
-            <TradesTab {...common} {...trades} />
-          )}
+          {/* TRADES TAB */}
+          {activeTab === 'trades' && <TradesTab {...common} {...trades} />}
 
-                    {/* STATS TAB */}
-          {activeTab === 'stats' && (
-            <StatsTab {...common} {...stats} {...priceMaintenance} {...orphans} />
-          )}
+          {/* STATS TAB */}
+          {activeTab === 'stats' && <StatsTab {...common} {...stats} {...priceMaintenance} {...orphans} />}
 
-                    {/* RECOVERY TAB */}
+          {/* RECOVERY TAB */}
           {activeTab === 'recovery' && (
             <RecoveryTab
               {...common}
@@ -279,13 +341,21 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           )}
 
           {/* BADGES TAB */}
-          {activeTab === 'badges' && (
-            <BadgesTab {...common} {...badges} />
-          )}
+          {activeTab === 'badges' && <BadgesTab {...common} {...badges} />}
 
           {/* MARKET TAB */}
           {activeTab === 'market' && (
-            <MarketTab {...common} setLoading={setLoading} setMessage={setMessage} user={user} prices={prices} {...marketTools} {...scheduledJobs} {...reviewJobs} {...seasonOps} />
+            <MarketTab
+              {...common}
+              setLoading={setLoading}
+              setMessage={setMessage}
+              user={user}
+              prices={prices}
+              {...marketTools}
+              {...scheduledJobs}
+              {...reviewJobs}
+              {...seasonOps}
+            />
           )}
 
           {/* WATCHLIST TAB */}
@@ -301,28 +371,18 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           )}
 
           {/* DIAGNOSTIC TAB */}
-          {activeTab === 'diagnostic' && (
-            <DiagnosticTab {...common} {...diagnostics} />
-          )}
+          {activeTab === 'diagnostic' && <DiagnosticTab {...common} {...diagnostics} />}
 
           {/* GIVEAWAYS TAB */}
-          {activeTab === 'giveaways' && (
-            <CashLogCard {...common} {...cashLog} />
-          )}
+          {activeTab === 'giveaways' && <CashLogCard {...common} {...cashLog} />}
 
-          {activeTab === 'siteMessages' && (
-            <SiteMessagesTab {...common} {...siteMessages} />
-          )}
+          {activeTab === 'siteMessages' && <SiteMessagesTab {...common} {...siteMessages} />}
 
           {/* DISCORD TAB */}
-          {activeTab === 'discord' && (
-            <DiscordTab {...common} {...discordMessages} />
-          )}
+          {activeTab === 'discord' && <DiscordTab {...common} {...discordMessages} />}
 
           {/* DIVIDENDS TAB */}
-          {activeTab === 'dividends' && (
-            <DividendsTab {...common} {...dividends} prices={prices} />
-          )}
+          {activeTab === 'dividends' && <DividendsTab {...common} {...dividends} prices={prices} />}
         </div>
       </div>
 

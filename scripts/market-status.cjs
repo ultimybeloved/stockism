@@ -39,9 +39,12 @@ function readEnvLocal() {
     const [k, ...rest] = line.split('=');
     env[k.trim()] = rest.join('=').trim();
   }
-  const missing = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_APP_ID',
-    'VITE_FIREBASE_MESSAGING_SENDER_ID', 'VITE_APPCHECK_DEBUG_TOKEN']
-    .filter((k) => !env[k]);
+  const missing = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_APP_ID',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_APPCHECK_DEBUG_TOKEN',
+  ].filter((k) => !env[k]);
   if (missing.length) {
     console.error(`.env.local is missing: ${missing.join(', ')}`);
     process.exit(1);
@@ -50,8 +53,9 @@ function readEnvLocal() {
 }
 
 async function appCheckToken(env) {
-  const url = `https://firebaseappcheck.googleapis.com/v1/projects/${env.VITE_FIREBASE_MESSAGING_SENDER_ID}`
-    + `/apps/${env.VITE_FIREBASE_APP_ID}:exchangeDebugToken?key=${env.VITE_FIREBASE_API_KEY}`;
+  const url =
+    `https://firebaseappcheck.googleapis.com/v1/projects/${env.VITE_FIREBASE_MESSAGING_SENDER_ID}` +
+    `/apps/${env.VITE_FIREBASE_APP_ID}:exchangeDebugToken?key=${env.VITE_FIREBASE_API_KEY}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Referer: REFERER },
@@ -67,10 +71,10 @@ async function appCheckToken(env) {
 }
 
 async function readMarket(env, token) {
-  const fields = ['launchedTickers', 'prices', 'marketHalted']
-    .map((f) => `mask.fieldPaths=${f}`).join('&');
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}`
-    + `/databases/(default)/documents/market/current?key=${env.VITE_FIREBASE_API_KEY}&${fields}`;
+  const fields = ['launchedTickers', 'prices', 'marketHalted'].map((f) => `mask.fieldPaths=${f}`).join('&');
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}` +
+    `/databases/(default)/documents/market/current?key=${env.VITE_FIREBASE_API_KEY}&${fields}`;
   const res = await fetch(url, { headers: { Referer: REFERER, 'X-Firebase-AppCheck': token } });
   if (!res.ok) {
     console.error(`Reading market/current failed (${res.status}): ${await res.text()}`);
@@ -95,10 +99,10 @@ async function readMarket(env, token) {
  * divisor actually get written" is now a thing worth being able to check.
  */
 async function readIndex(env, token) {
-  const fields = ['divisor', 'lastDivisorAdjustment', 'constituents']
-    .map((f) => `mask.fieldPaths=${f}`).join('&');
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}`
-    + `/databases/(default)/documents/market/indexHistory?key=${env.VITE_FIREBASE_API_KEY}&${fields}`;
+  const fields = ['divisor', 'lastDivisorAdjustment', 'constituents'].map((f) => `mask.fieldPaths=${f}`).join('&');
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}` +
+    `/databases/(default)/documents/market/indexHistory?key=${env.VITE_FIREBASE_API_KEY}&${fields}`;
   const res = await fetch(url, { headers: { Referer: REFERER, 'X-Firebase-AppCheck': token } });
   if (!res.ok) return { error: `${res.status} ${await res.text()}` };
   const f = (await res.json()).fields || {};
@@ -106,11 +110,13 @@ async function readIndex(env, token) {
   return {
     divisor: Number(f.divisor?.doubleValue ?? f.divisor?.integerValue ?? 0),
     constituents: (f.constituents?.arrayValue?.values || []).length,
-    lastAdjustment: Object.keys(adj).length ? {
-      reason: adj.reason?.stringValue,
-      at: Number(adj.at?.doubleValue ?? adj.at?.integerValue ?? 0),
-      count: Number(adj.count?.doubleValue ?? adj.count?.integerValue ?? 0),
-    } : null,
+    lastAdjustment: Object.keys(adj).length
+      ? {
+          reason: adj.reason?.stringValue,
+          at: Number(adj.at?.doubleValue ?? adj.at?.integerValue ?? 0),
+          count: Number(adj.count?.doubleValue ?? adj.count?.integerValue ?? 0),
+        }
+      : null,
   };
 }
 
@@ -182,11 +188,16 @@ async function main() {
     }
     if (index.lastAdjustment) {
       const when = new Date(index.lastAdjustment.at).toISOString().replace('T', ' ').slice(0, 16);
-      console.log(`  Last change  : ${index.lastAdjustment.reason} at ${when} UTC (${index.lastAdjustment.count} constituents)`);
+      console.log(
+        `  Last change  : ${index.lastAdjustment.reason} at ${when} UTC (${index.lastAdjustment.count} constituents)`,
+      );
     }
   }
 
   console.log('');
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

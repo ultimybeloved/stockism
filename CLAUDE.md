@@ -1,5 +1,7 @@
 # Claude Code Instructions
 
+> **Modernization in progress (since 2026-10-07).** Read `docs/MODERNIZATION.md` first: it has the current phase and next step.
+
 ## Local Dev Setup
 
 Run the app locally before pushing changes:
@@ -467,7 +469,7 @@ These are known gaps that were evaluated and deliberately left alone. Don't reop
 - ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.jsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.jsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.jsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.js` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.jsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - ~~**End-to-end trade tests**~~ **DONE**: the emulator suites (`npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season`, and ~15 more; see package.json) run the real function code against a local Firestore, and CI runs the money-path ones on every push to main (`.github/workflows/ci.yml`).
-- **TypeScript migration**: The codebase is plain JS. Don't start adding `.ts` files — a half-migrated codebase is worse than none.
+- **TypeScript migration**: APPROVED 2026-10-07 as a full conversion, in progress. Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
 
 ---
 

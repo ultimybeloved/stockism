@@ -1,4 +1,3 @@
-
 const TradesTab = ({
   darkMode,
   textClass,
@@ -24,7 +23,9 @@ const TradesTab = ({
       </div>
 
       {/* Filters */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+      <div
+        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+      >
         <div className="flex flex-wrap gap-3 items-end">
           {/* Time Period */}
           <div>
@@ -96,26 +97,32 @@ const TradesTab = ({
 
       {/* Trade Stats Summary */}
       {recentTrades.length > 0 && (
-        <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div
+          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+        >
           <div className="grid grid-cols-5 gap-4 text-center">
             <div>
               <p className="text-xl font-bold text-yellow-500">{recentTrades.length}</p>
               <p className={`text-xs ${mutedClass}`}>Total Trades</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-green-500">{recentTrades.filter(t => t.type === 'BUY').length}</p>
+              <p className="text-xl font-bold text-green-500">{recentTrades.filter((t) => t.type === 'BUY').length}</p>
               <p className={`text-xs ${mutedClass}`}>Buys</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-red-400">{recentTrades.filter(t => t.type === 'SELL').length}</p>
+              <p className="text-xl font-bold text-red-400">{recentTrades.filter((t) => t.type === 'SELL').length}</p>
               <p className={`text-xs ${mutedClass}`}>Sells</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-orange-500">{recentTrades.filter(t => t.type === 'SHORT_OPEN').length}</p>
+              <p className="text-xl font-bold text-orange-500">
+                {recentTrades.filter((t) => t.type === 'SHORT_OPEN').length}
+              </p>
               <p className={`text-xs ${mutedClass}`}>Shorts Opened</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-purple-500">{recentTrades.filter(t => t.type === 'SHORT_CLOSE').length}</p>
+              <p className="text-xl font-bold text-purple-500">
+                {recentTrades.filter((t) => t.type === 'SHORT_CLOSE').length}
+              </p>
               <p className={`text-xs ${mutedClass}`}>Shorts Closed</p>
             </div>
           </div>
@@ -123,7 +130,9 @@ const TradesTab = ({
       )}
 
       {/* Trades Feed */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+      <div
+        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+      >
         <h3 className={`font-semibold mb-3 ${textClass}`}>Trade Feed</h3>
 
         {tradesLoading ? (
@@ -139,12 +148,17 @@ const TradesTab = ({
               >
                 <div className="flex items-center gap-3">
                   {/* Trade Type Badge */}
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    trade.type === 'BUY' ? 'bg-green-500/20 text-green-500' :
-                    trade.type === 'SELL' ? 'bg-red-500/20 text-red-400' :
-                    trade.type === 'SHORT_OPEN' ? 'bg-orange-500/20 text-orange-500' :
-                    'bg-purple-500/20 text-purple-500'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-bold ${
+                      trade.type === 'BUY'
+                        ? 'bg-green-500/20 text-green-500'
+                        : trade.type === 'SELL'
+                          ? 'bg-red-500/20 text-red-400'
+                          : trade.type === 'SHORT_OPEN'
+                            ? 'bg-orange-500/20 text-orange-500'
+                            : 'bg-purple-500/20 text-purple-500'
+                    }`}
+                  >
                     {trade.type === 'SHORT_OPEN' ? 'SHORT' : trade.type === 'SHORT_CLOSE' ? 'COVER' : trade.type}
                   </span>
 
@@ -155,7 +169,16 @@ const TradesTab = ({
                       {trade.isBot && (
                         <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-purple-600 text-white">🤖</span>
                       )}
-                      <span className={mutedClass}> {trade.type === 'BUY' ? 'bought' : trade.type === 'SELL' ? 'sold' : trade.type === 'SHORT_OPEN' ? 'shorted' : 'covered'} </span>
+                      <span className={mutedClass}>
+                        {' '}
+                        {trade.type === 'BUY'
+                          ? 'bought'
+                          : trade.type === 'SELL'
+                            ? 'sold'
+                            : trade.type === 'SHORT_OPEN'
+                              ? 'shorted'
+                              : 'covered'}{' '}
+                      </span>
                       <span className="font-bold text-cyan-500">{trade.shares}</span>
                       <span className={mutedClass}> shares of </span>
                       <span className="font-bold">${trade.ticker}</span>
@@ -173,12 +196,8 @@ const TradesTab = ({
 
                 {/* Timestamp */}
                 <div className="text-right">
-                  <p className={`text-xs ${mutedClass}`}>
-                    {new Date(trade.timestamp).toLocaleDateString()}
-                  </p>
-                  <p className={`text-xs ${mutedClass}`}>
-                    {new Date(trade.timestamp).toLocaleTimeString()}
-                  </p>
+                  <p className={`text-xs ${mutedClass}`}>{new Date(trade.timestamp).toLocaleDateString()}</p>
+                  <p className={`text-xs ${mutedClass}`}>{new Date(trade.timestamp).toLocaleTimeString()}</p>
                 </div>
               </div>
             ))}

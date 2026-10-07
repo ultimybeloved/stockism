@@ -66,7 +66,7 @@ export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be sw
 // Entries (buy/short) are whole-cent share counts. Exits (sell/cover) go much
 // finer: dividends, partial fills and ETF math leave fractional remainders, and
 // a player must always be able to close a position down to the last speck.
-export const MIN_TRADE_SHARES = 0.01;    // min buy/short size
+export const MIN_TRADE_SHARES = 0.01; // min buy/short size
 export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
 // Hard ceiling on any single order, every action. The server rejects anything
 // above this outright, so the Max button has to know about it — without it, a
@@ -100,15 +100,15 @@ export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
 export const MARGIN_TIERS = [
   { minPeak: 0, maxPeak: 7500, multiplier: 0.25 },
   { minPeak: 7500, maxPeak: 15000, multiplier: 0.35 },
-  { minPeak: 15000, maxPeak: 30000, multiplier: 0.50 },
+  { minPeak: 15000, maxPeak: 30000, multiplier: 0.5 },
   { minPeak: 30000, maxPeak: Infinity, multiplier: 0.75 },
 ];
 export const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
 export const MARGIN_WARNING_THRESHOLD = 0.65; // Display warning at 65% equity ratio
-export const MARGIN_DANGER_THRESHOLD = 0.40; // Display danger zone at 40% equity ratio
-export const MARGIN_CALL_THRESHOLD = 0.30; // Matches backend threshold — actual margin call fires here
+export const MARGIN_DANGER_THRESHOLD = 0.4; // Display danger zone at 40% equity ratio
+export const MARGIN_CALL_THRESHOLD = 0.3; // Matches backend threshold — actual margin call fires here
 export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Matches backend threshold — liquidation fires here
-export const MARGIN_MAINTENANCE_RATIO = 0.30; // 30% maintenance requirement for all positions
+export const MARGIN_MAINTENANCE_RATIO = 0.3; // 30% maintenance requirement for all positions
 
 // Anti-manipulation protections
 // How much more than the market move a trader is charged on an oversized order.
@@ -120,7 +120,7 @@ export const OVERSIZED_IMPACT_MULTIPLE = 2;
 // 10% max cumulative impact per user per ticker per day, PER DIRECTION
 // (sells+shorts down, buys+covers up). Mirrors MAX_DAILY_IMPACT in
 // functions/constants.js.
-export const MAX_DAILY_IMPACT_PER_USER = 0.10;
+export const MAX_DAILY_IMPACT_PER_USER = 0.1;
 export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
 export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
 export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window (deposit cap + rush fee) — keep in sync with functions/constants.js
@@ -134,7 +134,7 @@ export const LADDER_WITHDRAW_RUSH_RATE = 0.15; // +15% of the whole withdrawal i
 // Lifetime-progressive brackets over cumulative profit withdrawn (not per-withdrawal).
 export const LADDER_WITHDRAW_PROFIT_BRACKETS = [
   { upTo: 1000, rate: 0.15 },
-  { upTo: 5000, rate: 0.30 },
+  { upTo: 5000, rate: 0.3 },
   { upTo: Infinity, rate: 0.45 },
 ];
 
@@ -143,9 +143,7 @@ export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 d
 export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0, ramps to 100%
 
 // Admin user IDs - only these users can see the Admin button
-export const ADMIN_UIDS = [
-  '4usiVxPmHLhmitEKH2HfCpbx4Yi1'
-];
+export const ADMIN_UIDS = ['4usiVxPmHLhmitEKH2HfCpbx4Yi1'];
 
 // ============================================
 // DIVIDEND SYSTEM

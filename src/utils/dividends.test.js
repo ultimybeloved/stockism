@@ -40,8 +40,7 @@ describe('dividendWeightedShares', () => {
   });
 
   it('pays eligible shares at the top multiplier once the epoch ladder matures', () => {
-    expect(dividendWeightedShares({ eligible: 10, pending: [] }, NOW))
-      .toBe(10 * DIVIDEND_MAX_MULTIPLIER);
+    expect(dividendWeightedShares({ eligible: 10, pending: [] }, NOW)).toBe(10 * DIVIDEND_MAX_MULTIPLIER);
   });
 
   it('climbs legacy eligible shares from the ladder epoch instead of granting 1.5x', () => {
@@ -58,12 +57,12 @@ describe('dividendWeightedShares', () => {
 
   it('weights each pending lot by its own age', () => {
     const cohort = {
-      eligible: 4,               // 4 × 1.5  = 6
+      eligible: 4, // 4 × 1.5  = 6
       pending: [
-        lot(10, 5),              // inside hold gate → 0
-        lot(10, 12),             // 10 × 1.0  = 10
-        lot(8, 30),              // 8 × 1.25  = 10
-        lot(2, 60),              // 2 × 1.5   = 3 (not yet folded into eligible)
+        lot(10, 5), // inside hold gate → 0
+        lot(10, 12), // 10 × 1.0  = 10
+        lot(8, 30), // 8 × 1.25  = 10
+        lot(2, 60), // 2 × 1.5   = 3 (not yet folded into eligible)
       ],
     };
     expect(dividendWeightedShares(cohort, NOW)).toBe(6 + 10 + 10 + 3);

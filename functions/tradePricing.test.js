@@ -14,12 +14,13 @@ const { CHARACTERS, CHARACTER_MAP } = require('./characters');
 // $JIN, $SHNG and $GAP are mutually linked, which is what made the old
 // depth-first walk order-dependent. Coefficients are read from the roster rather
 // than hardcoded so re-weighting them does not break these tests.
-const linkTo = (from, to) =>
-  CHARACTER_MAP[from].trailingFactors.find((t) => t.ticker === to).coefficient;
+const linkTo = (from, to) => CHARACTER_MAP[from].trailingFactors.find((t) => t.ticker === to).coefficient;
 
 const flatPrices = () => {
   const prices = {};
-  CHARACTERS.forEach((c) => { prices[c.ticker] = 100; });
+  CHARACTERS.forEach((c) => {
+    prices[c.ticker] = 100;
+  });
   return prices;
 };
 
@@ -31,7 +32,10 @@ describe('computePriceUpdates trailing effects', () => {
     // +1.00%, off identical coefficients, purely because $GAP is typed first in
     // src/characters.js.
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates.GAP).toBeCloseTo(100 * (1 + 0.05 * linkTo('JIN', 'GAP')), 2);
     expect(updates.SHNG).toBeCloseTo(100 * (1 + 0.05 * linkTo('JIN', 'SHNG')), 2);
@@ -40,7 +44,10 @@ describe('computePriceUpdates trailing effects', () => {
   it('gives equally linked stocks the same move', () => {
     expect(linkTo('JIN', 'GAP')).toBe(linkTo('JIN', 'SHNG'));
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates.GAP).toBe(updates.SHNG);
   });
@@ -62,14 +69,20 @@ describe('computePriceUpdates trailing effects', () => {
   it('reaches stocks that are only linked indirectly', () => {
     // JIN does not link to KTAE. GAP does, and JIN links to GAP.
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates.KTAE).toBeGreaterThan(100);
   });
 
   it('carries the direction of the move', () => {
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 95, prices: flatPrices(),
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 95,
+      prices: flatPrices(),
     });
     expect(updates.GAP).toBeLessThan(100);
     expect(updates.SHNG).toBeLessThan(100);
@@ -77,14 +90,20 @@ describe('computePriceUpdates trailing effects', () => {
 
   it('returns only the traded ticker when nothing moved', () => {
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 100, prices: flatPrices(),
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 100,
+      prices: flatPrices(),
     });
     expect(updates).toEqual({ JIN: 100 });
   });
 
   it('skips stocks with no live price', () => {
     const updates = computePriceUpdates({
-      ticker: 'JIN', currentPrice: 100, newPrice: 105, prices: { JIN: 100, GAP: 100 },
+      ticker: 'JIN',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: { JIN: 100, GAP: 100 },
     });
     expect(updates.GAP).toBeGreaterThan(100);
     expect(updates.SHNG).toBeUndefined();
@@ -100,22 +119,27 @@ describe('computePriceUpdates trailing effects', () => {
 });
 
 describe('computePriceUpdates ETF propagation', () => {
-  const etfOf = (stock) =>
-    CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((t) => t.ticker === stock));
+  const etfOf = (stock) => CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((t) => t.ticker === stock));
 
   it('drags a parent ETF when a constituent moves', () => {
     // $GAP sits inside $FIST. Trading the stock has to move the fund.
     const etf = etfOf('GAP');
     expect(etf).toBeDefined();
     const updates = computePriceUpdates({
-      ticker: 'GAP', currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: 'GAP',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates[etf.ticker]).toBeGreaterThan(100);
   });
 
   it('does not feed an ETF move back into the traded ticker', () => {
     const updates = computePriceUpdates({
-      ticker: 'GAP', currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: 'GAP',
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates.GAP).toBe(105);
   });
@@ -123,7 +147,10 @@ describe('computePriceUpdates ETF propagation', () => {
   it('leaves a traded ETF at the price the trade set', () => {
     const etf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.length);
     const updates = computePriceUpdates({
-      ticker: etf.ticker, currentPrice: 100, newPrice: 105, prices: flatPrices(),
+      ticker: etf.ticker,
+      currentPrice: 100,
+      newPrice: 105,
+      prices: flatPrices(),
     });
     expect(updates[etf.ticker]).toBe(105);
   });

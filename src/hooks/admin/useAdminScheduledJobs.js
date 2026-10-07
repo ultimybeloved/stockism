@@ -17,7 +17,9 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     try {
       const result = await triggerWeeklyCrewRankingsFunction({ skipDiscord: !!skipDiscord });
       const mults = result.data?.multipliers || {};
-      const summary = Object.entries(mults).map(([id, m]) => `${id} x${m}`).join(', ');
+      const summary = Object.entries(mults)
+        .map(([id, m]) => `${id} x${m}`)
+        .join(', ');
       showMessage('success', `Crew stats updated. ${summary}`);
     } catch (err) {
       console.error('Crew rankings run failed:', err);
@@ -110,8 +112,8 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
   const runDailyFreeStock = async () => {
     const ok = window.confirm(
       'Post another free stock drop?\n\n' +
-      'Every linked player gets a second claim today, worth about $400 each on average. ' +
-      'The drop stays claimable for 72 hours.'
+        'Every linked player gets a second claim today, worth about $400 each on average. ' +
+        'The drop stays claimable for 72 hours.',
     );
     if (!ok) return;
 
@@ -156,7 +158,10 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
     try {
       const result = await backfillFillTradeRecordsFunction({});
       const { limitOrders, preMarketOrders } = result.data || {};
-      showMessage('success', `Backfilled ${limitOrders?.written || 0} limit/stop-loss fills and ${preMarketOrders?.written || 0} pre-market fills.`);
+      showMessage(
+        'success',
+        `Backfilled ${limitOrders?.written || 0} limit/stop-loss fills and ${preMarketOrders?.written || 0} pre-market fills.`,
+      );
     } catch (err) {
       console.error('Fill backfill failed:', err);
       showMessage('error', 'Backfill failed: ' + err.message);
@@ -165,7 +170,13 @@ export function useAdminScheduledJobs({ showMessage, setLoading }) {
   };
 
   return {
-    runCrewRankings, runMarketSummary, runDailyMarketSummary, runDailyFreeStock,
-    checkCrewRoles, syncCrewRoles, runArchivePriceHistory, runBackfillFillTrades,
+    runCrewRankings,
+    runMarketSummary,
+    runDailyMarketSummary,
+    runDailyFreeStock,
+    checkCrewRoles,
+    syncCrewRoles,
+    runArchivePriceHistory,
+    runBackfillFillTrades,
   };
 }

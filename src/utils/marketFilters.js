@@ -84,9 +84,11 @@ const matchesStatus = (c, filters) => {
 const matchesSearch = (c, filters) => {
   const q = (filters.search || '').toLowerCase();
   if (!q) return true;
-  return c.name.toLowerCase().includes(q)
-    || c.ticker.toLowerCase().includes(q)
-    || (c.altNames || []).some((n) => n.toLowerCase().includes(q));
+  return (
+    c.name.toLowerCase().includes(q) ||
+    c.ticker.toLowerCase().includes(q) ||
+    (c.altNames || []).some((n) => n.toLowerCase().includes(q))
+  );
 };
 
 // An unlaunched IPO character does not exist yet as far as the board is
@@ -96,12 +98,13 @@ const isTradeableHere = (c, ctx) => {
   return !ctx.ipoRestrictedTickers.includes(c.ticker);
 };
 
-export const matchesFilters = (c, filters, ctx) => matchesTab(c, filters, ctx)
-  && matchesCrew(c, filters, ctx)
-  && matchesGeneration(c, filters)
-  && matchesStatus(c, filters)
-  && matchesSearch(c, filters)
-  && isTradeableHere(c, ctx);
+export const matchesFilters = (c, filters, ctx) =>
+  matchesTab(c, filters, ctx) &&
+  matchesCrew(c, filters, ctx) &&
+  matchesGeneration(c, filters) &&
+  matchesStatus(c, filters) &&
+  matchesSearch(c, filters) &&
+  isTradeableHere(c, ctx);
 
 /**
  * Sort in place and return the list.
@@ -112,7 +115,7 @@ export const matchesFilters = (c, filters, ctx) => matchesTab(c, filters, ctx)
  */
 export const sortCharacters = (list, sortBy, ctx) => {
   const { prices, priceHistory, priceChanges, reviewChanges, tab } = ctx;
-  const effective = (REVIEW_SORTS.includes(sortBy) && tab !== 'review') ? 'price-high' : sortBy;
+  const effective = REVIEW_SORTS.includes(sortBy) && tab !== 'review' ? 'price-high' : sortBy;
 
   // How far trading has carried a stock away from the price the admin set in
   // the review. Same figure the card's badge shows.
@@ -125,14 +128,20 @@ export const sortCharacters = (list, sortBy, ctx) => {
 
   switch (effective) {
     case 'review-change':
-      return list.sort((a, b) => Math.abs(reviewChanges[b.ticker]?.percentChange || 0)
-        - Math.abs(reviewChanges[a.ticker]?.percentChange || 0));
+      return list.sort(
+        (a, b) =>
+          Math.abs(reviewChanges[b.ticker]?.percentChange || 0) - Math.abs(reviewChanges[a.ticker]?.percentChange || 0),
+      );
     case 'review-since':
       return list.sort((a, b) => Math.abs(driftSinceReview(b.ticker)) - Math.abs(driftSinceReview(a.ticker)));
-    case 'price-high': return list.sort((a, b) => priceOf(b.ticker) - priceOf(a.ticker));
-    case 'price-low': return list.sort((a, b) => priceOf(a.ticker) - priceOf(b.ticker));
-    case 'change-high': return list.sort((a, b) => (priceChanges[b.ticker] || 0) - (priceChanges[a.ticker] || 0));
-    case 'change-low': return list.sort((a, b) => (priceChanges[a.ticker] || 0) - (priceChanges[b.ticker] || 0));
+    case 'price-high':
+      return list.sort((a, b) => priceOf(b.ticker) - priceOf(a.ticker));
+    case 'price-low':
+      return list.sort((a, b) => priceOf(a.ticker) - priceOf(b.ticker));
+    case 'change-high':
+      return list.sort((a, b) => (priceChanges[b.ticker] || 0) - (priceChanges[a.ticker] || 0));
+    case 'change-low':
+      return list.sort((a, b) => (priceChanges[a.ticker] || 0) - (priceChanges[b.ticker] || 0));
     case 'active':
       return list.sort((a, b) => {
         const activityA = getTradeActivity(priceHistory[a.ticker]);
@@ -141,10 +150,14 @@ export const sortCharacters = (list, sortBy, ctx) => {
         if (activityB.weekTrades !== activityA.weekTrades) return activityB.weekTrades - activityA.weekTrades;
         return a.ticker.localeCompare(b.ticker);
       });
-    case 'ticker': return list.sort((a, b) => a.ticker.localeCompare(b.ticker));
-    case 'newest': return list.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
-    case 'oldest': return list.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
-    default: return list;
+    case 'ticker':
+      return list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    case 'newest':
+      return list.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+    case 'oldest':
+      return list.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
+    default:
+      return list;
   }
 };
 
@@ -161,10 +174,10 @@ export const sortCharacters = (list, sortBy, ctx) => {
  * Was implemented separately in NewCharactersBoard and App.jsx, which meant the
  * board and the header banner could disagree about what counts as new.
  */
-export const newThisWeek = (characters, launchedTickers, weekStart) => characters
-  .filter((c) => new Date(c.dateAdded) >= weekStart
-    && (!c.ipoRequired || launchedTickers.includes(c.ticker)))
-  .sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
+export const newThisWeek = (characters, launchedTickers, weekStart) =>
+  characters
+    .filter((c) => new Date(c.dateAdded) >= weekStart && (!c.ipoRequired || launchedTickers.includes(c.ticker)))
+    .sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
 
 /**
  * The funds a character belongs to. Empty for a fund itself.
@@ -172,6 +185,5 @@ export const newThisWeek = (characters, launchedTickers, weekStart) => character
  * A character can be in several (Minsik Choi is in both Fist Gang and WTJC), so
  * this always returns every match rather than the first.
  */
-export const fundsContaining = (characters, ticker, isETF) => (isETF
-  ? []
-  : characters.filter((c) => c.isETF && c.constituents?.includes(ticker)));
+export const fundsContaining = (characters, ticker, isETF) =>
+  isETF ? [] : characters.filter((c) => c.isETF && c.constituents?.includes(ticker));

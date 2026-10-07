@@ -11,13 +11,10 @@ export function useDustCleanup(portfolioItems, showNotification) {
 
   const dustItems = useMemo(
     () => portfolioItems.filter((i) => i.value > 0 && i.value < DUST_MAX_VALUE),
-    [portfolioItems]
+    [portfolioItems],
   );
 
-  const dustTotal = useMemo(
-    () => dustItems.reduce((sum, i) => sum + i.value, 0),
-    [dustItems]
-  );
+  const dustTotal = useMemo(() => dustItems.reduce((sum, i) => sum + i.value, 0), [dustItems]);
 
   const handleSweep = async () => {
     if (sweeping) return;
@@ -28,7 +25,7 @@ export function useDustCleanup(portfolioItems, showNotification) {
       if (swept > 0) {
         showNotification(
           'success',
-          `Cleaned up ${swept} tiny position${swept === 1 ? '' : 's'} for ${formatCurrency(proceeds)}`
+          `Cleaned up ${swept} tiny position${swept === 1 ? '' : 's'} for ${formatCurrency(proceeds)}`,
         );
       } else {
         showNotification('error', 'Nothing to clean up. Those positions may be locked.');

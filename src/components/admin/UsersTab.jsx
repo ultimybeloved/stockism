@@ -66,22 +66,23 @@ const UsersTab = ({
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
-        <p className={`text-sm ${mutedClass}`}>
-          👥 Browse, search, and manage users. Click "Load" to fetch all users.
-        </p>
+        <p className={`text-sm ${mutedClass}`}>👥 Browse, search, and manage users. Click "Load" to fetch all users.</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
         <input
           type="text"
           value={userSearchQuery}
-          onChange={e => { handleUserSearch(e.target.value); setUsersPage(0); }}
+          onChange={(e) => {
+            handleUserSearch(e.target.value);
+            setUsersPage(0);
+          }}
           placeholder="Search by name, ID, or Discord..."
           className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
         />
         <select
           value={userSortBy}
-          onChange={e => handleUserSortChange(e.target.value)}
+          onChange={(e) => handleUserSortChange(e.target.value)}
           className={`px-3 py-2 border rounded-sm ${inputClass}`}
         >
           <option value="portfolio-high">Portfolio: High → Low</option>
@@ -105,11 +106,16 @@ const UsersTab = ({
           {loading ? '...' : '📊 Recalc'}
         </button>
         <button
-          onClick={() => { setDeleteMode(!deleteMode); setSelectedForDeletion(new Set()); }}
+          onClick={() => {
+            setDeleteMode(!deleteMode);
+            setSelectedForDeletion(new Set());
+          }}
           className={`px-4 py-2 font-semibold rounded-sm ${
             deleteMode
               ? 'bg-red-600 hover:bg-red-700 text-white'
-              : darkMode ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
+              : darkMode
+                ? 'bg-slate-600 hover:bg-slate-500 text-white'
+                : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
           }`}
         >
           {deleteMode ? '✕ Cancel' : '🗑️ Delete Mode'}
@@ -122,9 +128,7 @@ const UsersTab = ({
           <div className="flex justify-between items-center">
             <div>
               <span className="text-red-500 font-semibold">Delete Mode Active</span>
-              <span className={`ml-2 ${mutedClass}`}>
-                {selectedForDeletion.size} selected
-              </span>
+              <span className={`ml-2 ${mutedClass}`}>{selectedForDeletion.size} selected</span>
             </div>
             <button
               onClick={deleteSelectedUsers}
@@ -136,72 +140,73 @@ const UsersTab = ({
           </div>
 
           {/* Live selection summary */}
-          {selectedForDeletion.size > 0 && (() => {
-            let totalCash = 0;
-            let totalShares = 0;
-            let totalValue = 0;
-            let totalShortShares = 0;
-            let totalShortValue = 0;
+          {selectedForDeletion.size > 0 &&
+            (() => {
+              let totalCash = 0;
+              let totalShares = 0;
+              let totalValue = 0;
+              let totalShortShares = 0;
+              let totalShortValue = 0;
 
-            for (const userId of selectedForDeletion) {
-              const user = allUsers.find(u => u.id === userId);
-              if (!user) continue;
-              totalCash += user.cash || 0;
+              for (const userId of selectedForDeletion) {
+                const user = allUsers.find((u) => u.id === userId);
+                if (!user) continue;
+                totalCash += user.cash || 0;
 
-              if (user.holdings && Object.keys(user.holdings).length > 0) {
-                Object.entries(user.holdings).forEach(([ticker, shares]) => {
-                  const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
-                  if (shareCount > 0) {
-                    totalShares += shareCount;
-                    const character = CHARACTERS.find(c => c.ticker === ticker);
-                    const price = prices[ticker] || character?.basePrice || 0;
-                    totalValue += shareCount * price;
-                  }
-                });
+                if (user.holdings && Object.keys(user.holdings).length > 0) {
+                  Object.entries(user.holdings).forEach(([ticker, shares]) => {
+                    const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
+                    if (shareCount > 0) {
+                      totalShares += shareCount;
+                      const character = CHARACTERS.find((c) => c.ticker === ticker);
+                      const price = prices[ticker] || character?.basePrice || 0;
+                      totalValue += shareCount * price;
+                    }
+                  });
+                }
+
+                if (user.shorts && Object.keys(user.shorts).length > 0) {
+                  Object.values(user.shorts).forEach((position) => {
+                    if (position && position.shares > 0) {
+                      totalShortShares += position.shares;
+                      totalShortValue += position.margin || 0;
+                    }
+                  });
+                }
               }
 
-              if (user.shorts && Object.keys(user.shorts).length > 0) {
-                Object.values(user.shorts).forEach((position) => {
-                  if (position && position.shares > 0) {
-                    totalShortShares += position.shares;
-                    totalShortValue += position.margin || 0;
-                  }
-                });
-              }
-            }
-
-            return (
-              <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <span className={mutedClass}>Cash: </span>
-                    <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
+              return (
+                <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className={mutedClass}>Cash: </span>
+                      <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className={mutedClass}>Shares: </span>
+                      <span className={`font-semibold ${textClass}`}>{totalShares}</span>
+                    </div>
+                    <div>
+                      <span className={mutedClass}>Value: </span>
+                      <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className={mutedClass}>Shares: </span>
-                    <span className={`font-semibold ${textClass}`}>{totalShares}</span>
-                  </div>
-                  <div>
-                    <span className={mutedClass}>Value: </span>
-                    <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
-                  </div>
+                  {totalShortShares > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-1">
+                      <div>
+                        <span className={mutedClass}>Shorts: </span>
+                        <span className="text-orange-500 font-semibold">{totalShortShares}</span>
+                      </div>
+                      <div>
+                        <span className={mutedClass}>Collateral: </span>
+                        <span className="text-orange-500 font-semibold">${totalShortValue.toFixed(2)}</span>
+                      </div>
+                      <div></div>
+                    </div>
+                  )}
                 </div>
-                {totalShortShares > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mt-1">
-                    <div>
-                      <span className={mutedClass}>Shorts: </span>
-                      <span className="text-orange-500 font-semibold">{totalShortShares}</span>
-                    </div>
-                    <div>
-                      <span className={mutedClass}>Collateral: </span>
-                      <span className="text-orange-500 font-semibold">${totalShortValue.toFixed(2)}</span>
-                    </div>
-                    <div></div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+              );
+            })()}
 
           <p className={`text-xs ${mutedClass} mt-2`}>
             Click on users to select them for deletion. Admin accounts cannot be deleted.
@@ -211,7 +216,8 @@ const UsersTab = ({
 
       {allUsers.length > 0 && (
         <div className={`text-xs ${mutedClass}`}>
-          Showing {Math.min(usersPage * USERS_PER_PAGE + 1, userSearchResults.length)}-{Math.min((usersPage + 1) * USERS_PER_PAGE, userSearchResults.length)} of {userSearchResults.length} users
+          Showing {Math.min(usersPage * USERS_PER_PAGE + 1, userSearchResults.length)}-
+          {Math.min((usersPage + 1) * USERS_PER_PAGE, userSearchResults.length)} of {userSearchResults.length} users
           {userSearchQuery && ` (filtered from ${allUsers.length})`}
         </div>
       )}
@@ -230,10 +236,9 @@ const UsersTab = ({
                 </p>
               )}
             </div>
-            <button
-              onClick={() => setSelectedUser(null)}
-              className={`text-xl ${mutedClass} hover:text-red-500`}
-            >×</button>
+            <button onClick={() => setSelectedUser(null)} className={`text-xl ${mutedClass} hover:text-red-500`}>
+              ×
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -242,17 +247,29 @@ const UsersTab = ({
                 <div className={`text-xs ${mutedClass}`}>Cash</div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleSetCash(selectedUser.id, selectedUser.displayName || selectedUser.username, selectedUser.cash)}
+                    onClick={() =>
+                      handleSetCash(
+                        selectedUser.id,
+                        selectedUser.displayName || selectedUser.username,
+                        selectedUser.cash,
+                      )
+                    }
                     disabled={loading}
                     title="Add, subtract, or set this user's cash. Requires a memo."
                     className="text-[10px] px-1.5 py-0.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
-                  >Edit</button>
+                  >
+                    Edit
+                  </button>
                   <button
-                    onClick={() => handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username)}
+                    onClick={() =>
+                      handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username)
+                    }
                     disabled={loading}
                     title="Transfer cash to/from this user's ladder game balance"
                     className="text-[10px] px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50"
-                  >→ Ladder</button>
+                  >
+                    → Ladder
+                  </button>
                 </div>
               </div>
               <div className={`font-bold ${isNaN(selectedUser.cash) ? 'text-red-500' : 'text-green-500'}`}>
@@ -275,10 +292,56 @@ const UsersTab = ({
             </div>
           </div>
 
-          <UserFinancials {...{ darkMode, textClass, mutedClass, loading, prices, selectedUser, calculateLivePortfolioValue, handleSyncSingleUser }} />
+          <UserFinancials
+            {...{
+              darkMode,
+              textClass,
+              mutedClass,
+              loading,
+              prices,
+              selectedUser,
+              calculateLivePortfolioValue,
+              handleSyncSingleUser,
+            }}
+          />
           <UserPositions {...{ darkMode, textClass, mutedClass, prices, selectedUser }} />
           <UserTradeAs {...{ mutedClass, inputClass, selectedUser }} />
-          <UserAdminActions {...{ darkMode, textClass, mutedClass, inputClass, loading, selectedUser, handleToggleDiscordWall, handleUnlinkDiscord, handleGrantCosmetic, handleRevokeCosmetic, handleChangeDisplayName, newDisplayName, setNewDisplayName, handleRollbackUser, moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink, freeDiscordId, setFreeDiscordId, handleFreeDiscord, handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding, editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis }} />
+          <UserAdminActions
+            {...{
+              darkMode,
+              textClass,
+              mutedClass,
+              inputClass,
+              loading,
+              selectedUser,
+              handleToggleDiscordWall,
+              handleUnlinkDiscord,
+              handleGrantCosmetic,
+              handleRevokeCosmetic,
+              handleChangeDisplayName,
+              newDisplayName,
+              setNewDisplayName,
+              handleRollbackUser,
+              moveSourceId,
+              setMoveSourceId,
+              moveSource,
+              handleLookupMoveSource,
+              handleMoveDiscordLink,
+              freeDiscordId,
+              setFreeDiscordId,
+              handleFreeDiscord,
+              handleSetCrew,
+              handleGrantAchievement,
+              handleSetMargin,
+              handleSetHolding,
+              editTicker,
+              setEditTicker,
+              editShares,
+              setEditShares,
+              editCostBasis,
+              setEditCostBasis,
+            }}
+          />
         </div>
       )}
 
@@ -286,49 +349,51 @@ const UsersTab = ({
       {!selectedUser && userSearchResults.length > 0 && (
         <>
           <div className="space-y-1">
-            {userSearchResults
-              .slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE)
-              .map((u) => {
-                const isSelected = selectedForDeletion.has(u.id);
-                const isAdminUser = ADMIN_UIDS.includes(u.id);
+            {userSearchResults.slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE).map((u) => {
+              const isSelected = selectedForDeletion.has(u.id);
+              const isAdminUser = ADMIN_UIDS.includes(u.id);
 
-                return (
-                  <div
-                    key={u.id}
-                    onClick={() => {
-                      if (deleteMode) {
-                        if (!isAdminUser) toggleUserForDeletion(u.id);
-                      } else {
-                        selectUser(u);
-                      }
-                    }}
-                    className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${
-                      deleteMode && isSelected
-                        ? 'bg-red-500/30 border border-red-500'
-                        : deleteMode && isAdminUser
+              return (
+                <div
+                  key={u.id}
+                  onClick={() => {
+                    if (deleteMode) {
+                      if (!isAdminUser) toggleUserForDeletion(u.id);
+                    } else {
+                      selectUser(u);
+                    }
+                  }}
+                  className={`p-2 rounded-sm cursor-pointer flex justify-between items-center ${
+                    deleteMode && isSelected
+                      ? 'bg-red-500/30 border border-red-500'
+                      : deleteMode && isAdminUser
                         ? `${darkMode ? 'bg-slate-800 opacity-50' : 'bg-slate-200 opacity-50'} cursor-not-allowed`
-                        : darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {deleteMode && (
-                        <span className={`text-lg ${isSelected ? 'text-red-500' : mutedClass}`}>
-                          {isSelected ? '☑' : isAdminUser ? '🔒' : '☐'}
-                        </span>
+                        : darkMode
+                          ? 'hover:bg-slate-700'
+                          : 'hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {deleteMode && (
+                      <span className={`text-lg ${isSelected ? 'text-red-500' : mutedClass}`}>
+                        {isSelected ? '☑' : isAdminUser ? '🔒' : '☐'}
+                      </span>
+                    )}
+                    <div>
+                      <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
+                      {isAdminUser && <span className="ml-2 text-xs text-amber-500">👑 Admin</span>}
+                      {(u.isBankrupt || u.portfolioValue <= 100) && (
+                        <span className="ml-2 text-xs text-red-500">💔 Bankrupt</span>
                       )}
-                      <div>
-                        <span className={`font-semibold ${textClass}`}>{u.displayName}</span>
-                        {isAdminUser && <span className="ml-2 text-xs text-amber-500">👑 Admin</span>}
-                        {(u.isBankrupt || u.portfolioValue <= 100) && <span className="ml-2 text-xs text-red-500">💔 Bankrupt</span>}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-bold ${textClass}`}>${u.portfolioValue.toFixed(2)}</div>
-                      <div className={`text-xs ${mutedClass}`}>Cash: ${u.cash.toFixed(2)}</div>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <div className={`text-sm font-bold ${textClass}`}>${u.portfolioValue.toFixed(2)}</div>
+                    <div className={`text-xs ${mutedClass}`}>Cash: ${u.cash.toFixed(2)}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Pagination */}
@@ -344,7 +409,7 @@ const UsersTab = ({
                 ««
               </button>
               <button
-                onClick={() => setUsersPage(p => Math.max(0, p - 1))}
+                onClick={() => setUsersPage((p) => Math.max(0, p - 1))}
                 disabled={usersPage === 0}
                 className={`px-3 py-1 text-xs rounded-sm ${
                   usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
@@ -356,10 +421,14 @@ const UsersTab = ({
                 Page {usersPage + 1} of {Math.ceil(userSearchResults.length / USERS_PER_PAGE)}
               </span>
               <button
-                onClick={() => setUsersPage(p => Math.min(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1, p + 1))}
+                onClick={() =>
+                  setUsersPage((p) => Math.min(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1, p + 1))
+                }
                 disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
                 className={`px-3 py-1 text-xs rounded-sm ${
-                  usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
+                  usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1
+                    ? 'opacity-30 cursor-not-allowed'
+                    : ''
                 } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
               >
                 Next ›
@@ -368,7 +437,9 @@ const UsersTab = ({
                 onClick={() => setUsersPage(Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1)}
                 disabled={usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1}
                 className={`px-2 py-1 text-xs rounded-sm ${
-                  usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1 ? 'opacity-30 cursor-not-allowed' : ''
+                  usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1
+                    ? 'opacity-30 cursor-not-allowed'
+                    : ''
                 } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
               >
                 »»
@@ -378,11 +449,7 @@ const UsersTab = ({
         </>
       )}
 
-      {allUsers.length === 0 && (
-        <p className={`text-center ${mutedClass} py-8`}>
-          Click "Load" to fetch all users
-        </p>
-      )}
+      {allUsers.length === 0 && <p className={`text-center ${mutedClass} py-8`}>Click "Load" to fetch all users</p>}
     </div>
   );
 };

@@ -28,7 +28,13 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason, triggerSeasonCheckpoint } = require('../functions/services/season');
+const {
+  adminStartSeason,
+  runSeasonCheckpoint,
+  getSeasonStandings,
+  adminEndSeason,
+  triggerSeasonCheckpoint,
+} = require('../functions/services/season');
 const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/services/seasonExclusions');
 const { ADMIN_UID } = require('../functions/constants');
 
@@ -38,7 +44,10 @@ const adminCtx = { auth: { uid: ADMIN_UID } };
 let failures = 0;
 const check = (name, cond, detail) => {
   if (cond) console.log(`  ok   ${name}`);
-  else { failures++; console.log(`  FAIL ${name}${detail !== undefined ? ` -> ${JSON.stringify(detail)}` : ''}`); }
+  else {
+    failures++;
+    console.log(`  FAIL ${name}${detail !== undefined ? ` -> ${JSON.stringify(detail)}` : ''}`);
+  }
 };
 const close = (a, b, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
 
@@ -50,9 +59,14 @@ const setPrices = (prices) => db.collection('market').doc('current').set({ price
 
 const seed = async () => {
   const now = Date.now();
-  await db.collection('market').doc('indexHistory').set({
-    history: [], constituents: [{ t: 'SOPH', b: 80 }], divisor: 0.001,
-  });
+  await db
+    .collection('market')
+    .doc('indexHistory')
+    .set({
+      history: [],
+      constituents: [{ t: 'SOPH', b: 80 }],
+      divisor: 0.001,
+    });
   await setPrices({ SOPH: 80, CROC: 50, XIAO: 50, GOO: 50, MIRA: 10 });
 
   const players = {
@@ -89,7 +103,10 @@ const seed = async () => {
     });
   }
   batch.set(db.collection('ladderGameUsers').doc('parker'), {
-    balance: 5000, nonWithdrawable: 0, chipsMigrated: true, totalDeposited: 5000,
+    balance: 5000,
+    nonWithdrawable: 0,
+    chipsMigrated: true,
+    totalDeposited: 5000,
   });
   await batch.commit();
 };
@@ -100,28 +117,60 @@ const run = async () => {
   console.log('\nA. Start');
   await adminStartSeason.run({ name: 'Test Arc' }, adminCtx);
   const season = (await db.collection('market').doc('season').get()).data();
-  check('season is active with the rules pinned', season.status === 'active' && season.rules?.platinumTopShare === 0.15, season.rules);
+  check(
+    'season is active with the rules pinned',
+    season.status === 'active' && season.rules?.platinumTopShare === 0.15,
+    season.rules,
+  );
   check('opening index read from the stored divisor', close(season.indexAtStart, 1000), season.indexAtStart);
-  check('checkpoint week list starts empty', Array.isArray(season.checkpointWeeks) && season.checkpointWeeks.length === 0);
+  check(
+    'checkpoint week list starts empty',
+    Array.isArray(season.checkpointWeeks) && season.checkpointWeeks.length === 0,
+  );
   check('thresholds are gone', season.thresholds === undefined);
   // Holdings count at what they'd sell for: 100 shares at $50 move the price
   // 1.2%, so each $5,000 position is worth $4,940.
-  check('baseline valued at sell value, pinned with the index', close((await user('diverse')).seasonBaseline.value, 9880)
-    && close((await user('diverse')).seasonBaseline.index, 1000));
-  check('margin loan is not baseline value', close((await user('margin')).seasonBaseline.value, 9940), (await user('margin')).seasonBaseline);
-  check('stale stored portfolioValue is ignored', close((await user('stale')).seasonBaseline.value, 10000), (await user('stale')).seasonBaseline);
+  check(
+    'baseline valued at sell value, pinned with the index',
+    close((await user('diverse')).seasonBaseline.value, 9880) &&
+      close((await user('diverse')).seasonBaseline.index, 1000),
+  );
+  check(
+    'margin loan is not baseline value',
+    close((await user('margin')).seasonBaseline.value, 9940),
+    (await user('margin')).seasonBaseline,
+  );
+  check(
+    'stale stored portfolioValue is ignored',
+    close((await user('stale')).seasonBaseline.value, 10000),
+    (await user('stale')).seasonBaseline,
+  );
   check('bots get no baseline', !(await user('bot')).seasonBaseline);
   const parker = (await user('parker')).seasonBaseline;
   check('ladder cash pinned beside the baseline', close(parker.value, 6000) && close(parker.ladder, 5000), parker);
   const tally = (await user('margin')).seasonMargin;
-  check('margin tally opened at the start', tally?.seasonId === 'S1' && close(tally.amount, 5000) && tally.dd === 0, tally);
+  check(
+    'margin tally opened at the start',
+    tally?.seasonId === 'S1' && close(tally.amount, 5000) && tally.dd === 0,
+    tally,
+  );
   // Pinned 8 days ago, so the average owed isn't swamped by cent rounding on a
   // tally that has only run for a fraction of a second.
   const eightDaysAgo = Date.now() - 8 * DAY;
-  await db.collection('users').doc('margin').update({ 'seasonBaseline.pinnedAt': eightDaysAgo, 'seasonMargin.at': eightDaysAgo });
+  await db
+    .collection('users')
+    .doc('margin')
+    .update({ 'seasonBaseline.pinnedAt': eightDaysAgo, 'seasonMargin.at': eightDaysAgo });
 
   // A player who signs up after the start with no baseline yet.
-  await db.collection('users').doc('late').set({ displayName: 'late', cash: 3000, holdings: {}, portfolioValue: 3000, grantedValue: 0, lastActive: Date.now() });
+  await db.collection('users').doc('late').set({
+    displayName: 'late',
+    cash: 3000,
+    holdings: {},
+    portfolioValue: 3000,
+    grantedValue: 0,
+    lastActive: Date.now(),
+  });
 
   console.log('\nB. Checkpoint 1 (market +5%)');
   await setPrices({ SOPH: 84, CROC: 60, XIAO: 50, GOO: 75, MIRA: 9 });
@@ -129,60 +178,107 @@ const run = async () => {
   const cp1 = await runSeasonCheckpoint();
   check('checkpoint ran as week 1', cp1.ran && cp1.weeks === 1, cp1);
   // Ahead of the market this week, but Gold goes by where the season finishes.
-  check('a good week banks no Gold', !(await user('diverse')).seasonTier && !(await user('sitter')).seasonTier,
-    [(await user('diverse')).seasonTier, (await user('sitter')).seasonTier]);
+  check('a good week banks no Gold', !(await user('diverse')).seasonTier && !(await user('sitter')).seasonTier, [
+    (await user('diverse')).seasonTier,
+    (await user('sitter')).seasonTier,
+  ]);
   const marginRec = (await user('margin')).seasonWeeks?.[0];
   // 10,000 cash + 100 CROC selling at 60 - 0.72 - 5,000 loan.
   check('week record stores net sell value, not gross', close(marginRec?.v, 10928), marginRec);
   check('week record stores dollar-days owed', typeof marginRec?.d === 'number' && marginRec.d > 0, marginRec);
   const synced = (await user('margin')).seasonMargin;
-  check('checkpoint re-syncs the margin tally', close(synced?.amount, 5000) && synced.dd > 0 && close(synced.dd, marginRec.d), synced);
+  check(
+    'checkpoint re-syncs the margin tally',
+    close(synced?.amount, 5000) && synced.dd > 0 && close(synced.dd, marginRec.d),
+    synced,
+  );
   check('stale spike banks nothing', !(await user('stale')).seasonTier, (await user('stale')).seasonTier);
   check('free money banks nothing', !(await user('granted')).seasonTier, (await user('granted')).seasonTier);
   check('loser banks nothing yet (one active week)', !(await user('loser')).seasonTier);
   const late = await user('late');
-  check('late joiner pinned at the checkpoint with that day\'s index', late.seasonBaseline && close(late.seasonBaseline.index, 1050) && close(late.seasonBaseline.value, 3000), late.seasonBaseline);
+  check(
+    "late joiner pinned at the checkpoint with that day's index",
+    late.seasonBaseline && close(late.seasonBaseline.index, 1050) && close(late.seasonBaseline.value, 3000),
+    late.seasonBaseline,
+  );
   check('late joiner not scored on the week they were pinned', !late.seasonWeeks);
 
   await runSeasonCheckpoint();
   const rerun = await user('diverse');
-  check('re-running the same week does not count activity twice', rerun.seasonActiveWeeks.weeks === 1, rerun.seasonActiveWeeks);
+  check(
+    're-running the same week does not count activity twice',
+    rerun.seasonActiveWeeks.weeks === 1,
+    rerun.seasonActiveWeeks,
+  );
   check('re-running the same week replaces the record', rerun.seasonWeeks.length === 1);
 
   console.log('\nC. Checkpoint 2 (market +10% since start)');
-  await db.collection('market').doc('season').update({ startedAt: Date.now() - 8 * DAY });
+  await db
+    .collection('market')
+    .doc('season')
+    .update({ startedAt: Date.now() - 8 * DAY });
   await setPrices({ SOPH: 88, CROC: 66, XIAO: 55, GOO: 90, MIRA: 8 });
   const cp2 = await runSeasonCheckpoint();
   check('checkpoint ran as week 2', cp2.weeks === 2, cp2);
   const s2 = (await db.collection('market').doc('season').get()).data();
-  check('season records both checkpoint weeks', JSON.stringify([...s2.checkpointWeeks].sort()) === '[1,2]', s2.checkpointWeeks);
+  check(
+    'season records both checkpoint weeks',
+    JSON.stringify([...s2.checkpointWeeks].sort()) === '[1,2]',
+    s2.checkpointWeeks,
+  );
   check('stale earns Bronze for turning up twice', (await user('stale')).seasonTier?.tier === 'bronze');
   check('fillers earn Bronze', (await user('filler0')).seasonTier?.tier === 'bronze');
-  check('checkpoints never bank Platinum or Diamond', !['platinum', 'diamond'].includes((await user('sitter')).seasonTier?.tier));
+  check(
+    'checkpoints never bank Platinum or Diamond',
+    !['platinum', 'diamond'].includes((await user('sitter')).seasonTier?.tier),
+  );
 
   console.log('\nD. Standings board');
   const board = await getSeasonStandings.run({}, {});
   const row = (uid) => board.entries.find((e) => e.userId === uid);
-  check('board has every active player and no one else', board.totalScored === 14 && !row('dormant') && !row('bot'), board.entries.map((e) => e.userId));
+  check(
+    'board has every active player and no one else',
+    board.totalScored === 14 && !row('dormant') && !row('bot'),
+    board.entries.map((e) => e.userId),
+  );
   check('ranked by lead over the market', board.entries[0].userId === 'sitter', board.entries.slice(0, 3));
-  check('sitter: +80% return, +70% over the market', close(row('sitter').returnPercent, 80, 0.1) && close(row('sitter').excess, 70, 0.1), row('sitter'));
+  check(
+    'sitter: +80% return, +70% over the market',
+    close(row('sitter').returnPercent, 80, 0.1) && close(row('sitter').excess, 70, 0.1),
+    row('sitter'),
+  );
   check('market figure for the season', close(board.marketPercent, 10, 0.1), board.marketPercent);
   const div = Object.fromEntries(board.divisions.map((d) => [d.id, d]));
-  check('Rookies: 12 players, two Platinum places, one Diamond', div.rookie.players === 12
-    && div.rookie.platinum === 2 && div.rookie.diamond === 1, board.divisions);
-  check('Traders ranked in their own division', div.trader.players === 2 && row('stale').division === 'trader'
-    && row('diverse').division === 'rookie', board.divisions);
+  check(
+    'Rookies: 12 players, two Platinum places, one Diamond',
+    div.rookie.players === 12 && div.rookie.platinum === 2 && div.rookie.diamond === 1,
+    board.divisions,
+  );
+  check(
+    'Traders ranked in their own division',
+    div.trader.players === 2 && row('stale').division === 'trader' && row('diverse').division === 'rookie',
+    board.divisions,
+  );
   check('sitter projected Platinum, not Diamond', row('sitter').projectedTier === 'platinum', row('sitter'));
   check('diverse projected Diamond', row('diverse').projectedTier === 'diamond', row('diverse'));
-  check('late joiner measured from their own start (market +4.8%, not +10%)', close(row('late').excess, -4.76, 0.1), row('late'));
+  check(
+    'late joiner measured from their own start (market +4.8%, not +10%)',
+    close(row('late').excess, -4.76, 0.1),
+    row('late'),
+  );
   // $1,580.80 made on $9,940 of equity plus $5,000 owed the whole time: +10.6%, not +15.9%.
   check('margin return measured on borrowed money too', close(row('margin').returnPercent, 10.6, 0.1), row('margin'));
   check('margin projected Gold from the finish', row('margin').projectedTier === 'gold', row('margin'));
 
   console.log('\nD2. Keeping a repeat coordinator out of Platinum and Diamond');
-  const alert = (uids, ticker, timestamp) => db.collection('watchlist_alerts').add({
-    type: 'coordinated_pressure', participantUIDs: uids, participants: uids.map((u) => u.toUpperCase()), ticker, timestamp,
-  });
+  const alert = (uids, ticker, timestamp) =>
+    db.collection('watchlist_alerts').add({
+      type: 'coordinated_pressure',
+      participantUIDs: uids,
+      participants: uids.map((u) => u.toUpperCase()),
+      ticker,
+      timestamp,
+    });
   const seasonStart = (await db.collection('market').doc('season').get()).data().startedAt;
   const countFrom = seasonStart;
   await alert(['diverse', 'sitter'], 'GUN', admin.firestore.Timestamp.fromMillis(countFrom + 60000));
@@ -190,113 +286,209 @@ const run = async () => {
   await alert(['diverse', 'margin'], 'OLD', admin.firestore.Timestamp.fromMillis(countFrom - 60000));
   const flags = await getSeasonCoordFlags.run({}, adminCtx);
   const flagged = Object.fromEntries(flags.players.map((p) => [p.uid, p]));
-  check('flags from before the season do not count', flagged.diverse?.flags === 2 && !flagged.margin
-    && JSON.stringify(flagged.diverse.tickers) === '["DG","GUN"]', flags.players);
-  check('flagged partners listed', flagged.diverse?.partners?.[0]?.name === 'SITTER' && flagged.diverse.partners[0].n === 2, flagged.diverse);
+  check(
+    'flags from before the season do not count',
+    flagged.diverse?.flags === 2 && !flagged.margin && JSON.stringify(flagged.diverse.tickers) === '["DG","GUN"]',
+    flags.players,
+  );
+  check(
+    'flagged partners listed',
+    flagged.diverse?.partners?.[0]?.name === 'SITTER' && flagged.diverse.partners[0].n === 2,
+    flagged.diverse,
+  );
 
   let denied = null;
-  try { await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: true }, { auth: { uid: 'sitter' } }); }
-  catch (e) { denied = e.message; }
+  try {
+    await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: true }, { auth: { uid: 'sitter' } });
+  } catch (e) {
+    denied = e.message;
+  }
   check('only the admin can exclude', /Admin only/.test(denied || ''), denied);
 
   await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: true }, adminCtx);
-  check('exclusion recorded on the player for this season', (await user('diverse')).seasonTopTierExclusion?.seasonId === 'S1');
-  check('flags list shows them excluded', (await getSeasonCoordFlags.run({}, adminCtx)).players.find((p) => p.uid === 'diverse')?.excluded === true);
+  check(
+    'exclusion recorded on the player for this season',
+    (await user('diverse')).seasonTopTierExclusion?.seasonId === 'S1',
+  );
+  check(
+    'flags list shows them excluded',
+    (await getSeasonCoordFlags.run({}, adminCtx)).players.find((p) => p.uid === 'diverse')?.excluded === true,
+  );
   const exBoard = await getSeasonStandings.run({}, {});
   const exRow = (uid) => exBoard.entries.find((e) => e.userId === uid);
-  check('excluded player still on the board, but projects no top tier', exRow('diverse')
-    && !['platinum', 'diamond'].includes(exRow('diverse').projectedTier), exRow('diverse'));
-  check('their place goes to someone else in the division', exBoard.entries
-    .filter((e) => e.division === 'rookie' && ['platinum', 'diamond'].includes(e.projectedTier)).length === 2, exBoard.entries);
+  check(
+    'excluded player still on the board, but projects no top tier',
+    exRow('diverse') && !['platinum', 'diamond'].includes(exRow('diverse').projectedTier),
+    exRow('diverse'),
+  );
+  check(
+    'their place goes to someone else in the division',
+    exBoard.entries.filter((e) => e.division === 'rookie' && ['platinum', 'diamond'].includes(e.projectedTier))
+      .length === 2,
+    exBoard.entries,
+  );
   check('the public board never says who was excluded', !/xclu/.test(JSON.stringify(exBoard)));
 
   await setSeasonTopTierExclusion.run({ uid: 'diverse', excluded: false }, adminCtx);
   const backBoard = await getSeasonStandings.run({}, {});
-  check('undo restores their projected place', backBoard.entries.find((e) => e.userId === 'diverse')?.projectedTier === 'diamond');
+  check(
+    'undo restores their projected place',
+    backBoard.entries.find((e) => e.userId === 'diverse')?.projectedTier === 'diamond',
+  );
   check('undo clears the mark', !(await user('diverse')).seasonTopTierExclusion);
 
   console.log('\nE. End');
   // Final scores are read at this moment's prices, so ending is refused unless
   // the market is halted (the Thursday halt or an admin halt).
   let refused = false;
-  try { await adminEndSeason.run({}, adminCtx); } catch (e) { refused = e.code === 'failed-precondition'; }
+  try {
+    await adminEndSeason.run({}, adminCtx);
+  } catch (e) {
+    refused = e.code === 'failed-precondition';
+  }
   check('ending while the market is open is refused', refused);
   let cpRefused = false;
-  try { await triggerSeasonCheckpoint.run({}, adminCtx); } catch (e) { cpRefused = e.code === 'failed-precondition'; }
+  try {
+    await triggerSeasonCheckpoint.run({}, adminCtx);
+  } catch (e) {
+    cpRefused = e.code === 'failed-precondition';
+  }
   check('a manual checkpoint while the market is open is refused', cpRefused);
-  check('the public board carries nobody\'s ladder figure', !/returnWithLadder/.test(JSON.stringify(backBoard)));
+  check("the public board carries nobody's ladder figure", !/returnWithLadder/.test(JSON.stringify(backBoard)));
   await db.collection('market').doc('current').set({ marketHalted: true }, { merge: true });
   const end = await adminEndSeason.run({}, adminCtx);
   // Bronze: stale, granted, loser, late and the seven fillers.
-  check('end hands out Diamond, Platinum, Gold and Bronze', end.tierCounts.diamond === 1 && end.tierCounts.platinum === 1
-    && end.tierCounts.gold === 1 && end.tierCounts.bronze === 11, end.tierCounts);
+  check(
+    'end hands out Diamond, Platinum, Gold and Bronze',
+    end.tierCounts.diamond === 1 &&
+      end.tierCounts.platinum === 1 &&
+      end.tierCounts.gold === 1 &&
+      end.tierCounts.bronze === 11,
+    end.tierCounts,
+  );
   const diverse = await user('diverse');
-  check('diverse ends Diamond with both titles', diverse.seasonTier?.tier === 'diamond'
-    && diverse.ownedTitles?.includes('season_1_diamond') && diverse.ownedTitles?.includes('arc_s1_diamond')
-    && diverse.titleMeta?.season_1_diamond === 'Season 1 Diamond', { tier: diverse.seasonTier, titles: diverse.ownedTitles });
+  check(
+    'diverse ends Diamond with both titles',
+    diverse.seasonTier?.tier === 'diamond' &&
+      diverse.ownedTitles?.includes('season_1_diamond') &&
+      diverse.ownedTitles?.includes('arc_s1_diamond') &&
+      diverse.titleMeta?.season_1_diamond === 'Season 1 Diamond',
+    { tier: diverse.seasonTier, titles: diverse.ownedTitles },
+  );
   check('sitter ends Platinum', (await user('sitter')).seasonTier?.tier === 'platinum');
   check('margin ends Gold, ahead of the market over the season', (await user('margin')).seasonTier?.tier === 'gold');
   // The late joiner was pinned at checkpoint 1 and scored when that week re-ran,
   // so they were active in weeks 1 and 2. Ending re-runs week 2 and must not
   // make it three.
   const lateEnd = await user('late');
-  check('ending on a checkpoint week does not count activity twice', lateEnd.seasonActiveWeeks?.weeks === 2
-    && lateEnd.seasonTier?.tier === 'bronze', { active: lateEnd.seasonActiveWeeks, tier: lateEnd.seasonTier });
+  check(
+    'ending on a checkpoint week does not count activity twice',
+    lateEnd.seasonActiveWeeks?.weeks === 2 && lateEnd.seasonTier?.tier === 'bronze',
+    { active: lateEnd.seasonActiveWeeks, tier: lateEnd.seasonTier },
+  );
   const results = (await db.collection('seasonResults').doc('S1').get()).data();
-  check('results filed with the board size and tier counts', results?.boardSize === 14 && results?.tierCounts?.diamond === 1, { boardSize: results?.boardSize });
+  check(
+    'results filed with the board size and tier counts',
+    results?.boardSize === 14 && results?.tierCounts?.diamond === 1,
+    { boardSize: results?.boardSize },
+  );
   check('standings filed best first', results?.standings?.[0]?.uid === 'sitter');
   check('season marked ended', (await db.collection('market').doc('season').get()).data().status === 'ended');
 
   console.log('\nF. Preseason');
   // Under the $1,000 floor when it starts. Used to be out for the whole season.
-  await db.collection('users').doc('small').set({ displayName: 'small', cash: 500, holdings: {}, portfolioValue: 500, grantedValue: 0, lastActive: Date.now() });
+  await db.collection('users').doc('small').set({
+    displayName: 'small',
+    cash: 500,
+    holdings: {},
+    portfolioValue: 500,
+    grantedValue: 0,
+    lastActive: Date.now(),
+  });
   const pre = await adminStartSeason.run({ name: 'Trial Arc', preseason: true }, adminCtx);
   const preDoc = (await db.collection('market').doc('season').get()).data();
-  check('preseason does not use up a season number', pre.id === 'P1' && preDoc.number === 1 && preDoc.preseason === true && preDoc.preseasons === 1, preDoc);
+  check(
+    'preseason does not use up a season number',
+    pre.id === 'P1' && preDoc.number === 1 && preDoc.preseason === true && preDoc.preseasons === 1,
+    preDoc,
+  );
   check('small player pinned under the floor', close((await user('small')).seasonBaseline.value, 500));
 
   await db.collection('users').doc('small').update({ cash: 2000 });
   await setPrices({ CROC: 80 });
   await runSeasonCheckpoint();
   const small = await user('small');
-  check('grown past the floor: re-pinned at the checkpoint', small.seasonBaseline.seasonId === 'P1' && close(small.seasonBaseline.value, 2000), small.seasonBaseline);
+  check(
+    'grown past the floor: re-pinned at the checkpoint',
+    small.seasonBaseline.seasonId === 'P1' && close(small.seasonBaseline.value, 2000),
+    small.seasonBaseline,
+  );
   check('re-pinned player is not scored on the week they were pinned', !small.seasonWeeks);
   // Pinned at the preseason start: CROC 71 and XIAO 50, each sold down 1.2%.
-  check('a player already over the floor is not re-pinned', close((await user('diverse')).seasonBaseline.value, 11954.8), (await user('diverse')).seasonBaseline);
+  check(
+    'a player already over the floor is not re-pinned',
+    close((await user('diverse')).seasonBaseline.value, 11954.8),
+    (await user('diverse')).seasonBaseline,
+  );
 
   // Tiers are a ladder: nothing above Bronze without Bronze's turnout. This
   // preseason has only the one checkpoint, so give diverse the earlier week.
-  await db.collection('users').doc('diverse').update({ seasonActiveWeeks: { seasonId: 'P1', weeks: 1, lastWeek: 0 } });
+  await db
+    .collection('users')
+    .doc('diverse')
+    .update({ seasonActiveWeeks: { seasonId: 'P1', weeks: 1, lastWeek: 0 } });
   await adminEndSeason.run({}, adminCtx);
   const preDiverse = await user('diverse');
   const preTier = preDiverse.seasonTier?.tier;
   const preLabel = preTier ? preTier.charAt(0).toUpperCase() + preTier.slice(1) : '';
-  check('preseason hands out one Preseason title', preTier === 'diamond'
-    && preDiverse.ownedTitles.includes(`preseason_1_${preTier}`)
-    && preDiverse.titleMeta[`preseason_1_${preTier}`] === `Preseason ${preLabel}`
-    && !preDiverse.ownedTitles.some((t) => t.startsWith('arc_p1_')), preDiverse.ownedTitles);
+  check(
+    'preseason hands out one Preseason title',
+    preTier === 'diamond' &&
+      preDiverse.ownedTitles.includes(`preseason_1_${preTier}`) &&
+      preDiverse.titleMeta[`preseason_1_${preTier}`] === `Preseason ${preLabel}` &&
+      !preDiverse.ownedTitles.some((t) => t.startsWith('arc_p1_')),
+    preDiverse.ownedTitles,
+  );
   check('preseason results filed under P1', (await db.collection('seasonResults').doc('P1').get()).exists);
 
   console.log('\nG. Counting the start week');
   await db.collection('users').doc('diverse').update({ lastActive: Date.now() });
   const s2start = await adminStartSeason.run({ name: 'Next Arc', countThisWeek: true }, adminCtx);
   const s2doc = (await db.collection('market').doc('season').get()).data();
-  check('the next real season is Season 2 and keeps the preseason count', s2start.id === 'S2' && s2doc.number === 2 && s2doc.preseasons === 1 && s2doc.preseason === false, s2doc);
+  check(
+    'the next real season is Season 2 and keeps the preseason count',
+    s2start.id === 'S2' && s2doc.number === 2 && s2doc.preseasons === 1 && s2doc.preseason === false,
+    s2doc,
+  );
   const sinceStart = Date.now() - s2doc.startedAt;
-  check('dated from the last Thursday halt, within the past week', sinceStart >= 0 && sinceStart < 7 * DAY && new Date(s2doc.startedAt).getUTCDay() === 4, new Date(s2doc.startedAt).toISOString());
+  check(
+    'dated from the last Thursday halt, within the past week',
+    sinceStart >= 0 && sinceStart < 7 * DAY && new Date(s2doc.startedAt).getUTCDay() === 4,
+    new Date(s2doc.startedAt).toISOString(),
+  );
   check('start week credited to recently active players', (await user('diverse')).seasonActiveWeeks?.weeks === 1);
   check('start week not credited to dormant players', !(await user('dormant')).seasonActiveWeeks);
   check('start week is not a checkpoint week', s2doc.checkpointWeeks.length === 0);
   // Next Thursday's checkpoint is week 2 and brings the active count to 2.
-  await db.collection('market').doc('season').update({ startedAt: s2doc.startedAt - 7 * DAY + 60 * 1000 });
+  await db
+    .collection('market')
+    .doc('season')
+    .update({ startedAt: s2doc.startedAt - 7 * DAY + 60 * 1000 });
   await db.collection('users').doc('diverse').update({ lastActive: Date.now() });
   const g2 = await runSeasonCheckpoint();
   check('next checkpoint is week 2', g2.weeks === 2, g2);
   const dv = await user('diverse');
-  check('active in both weeks: Bronze at the first real checkpoint', dv.seasonActiveWeeks.weeks === 2 && dv.seasonTier?.tier === 'bronze', { a: dv.seasonActiveWeeks, t: dv.seasonTier });
+  check(
+    'active in both weeks: Bronze at the first real checkpoint',
+    dv.seasonActiveWeeks.weeks === 2 && dv.seasonTier?.tier === 'bronze',
+    { a: dv.seasonActiveWeeks, t: dv.seasonTier },
+  );
 
   console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll season checks passed.');
   process.exit(failures ? 1 : 0);
 };
 
-run().catch((err) => { console.error(err); process.exit(1); });
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('../service-account-key.json'); // You'll need your service account key
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -31,19 +31,18 @@ async function banUser(userId) {
       portfolioHistory: [{ timestamp: Date.now(), value: 1000 }],
       isBanned: true,
       bannedAt: admin.firestore.FieldValue.serverTimestamp(),
-      banReason: 'Check-in fraud, timestamp manipulation, bailout abuse'
+      banReason: 'Check-in fraud, timestamp manipulation, bailout abuse',
     });
 
     // Disable authentication (prevents sign-in)
     await admin.auth().updateUser(userId, {
-      disabled: true
+      disabled: true,
     });
 
     console.log('✅ User banned successfully');
     console.log('- Account disabled (cannot sign in)');
     console.log('- Cash/portfolio reset to $1000');
     console.log('- Marked as banned in database');
-
   } catch (error) {
     console.error('Error banning user:', error);
   }

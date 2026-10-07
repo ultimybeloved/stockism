@@ -61,9 +61,7 @@ const renameInRoster = (from, to) => {
       c.constituents = c.constituents.map((t) => (t === from ? to : t));
     }
     if (Array.isArray(c.trailingFactors)) {
-      c.trailingFactors = c.trailingFactors.map(
-        (t) => (t.ticker === from ? { ...t, ticker: to } : t)
-      );
+      c.trailingFactors = c.trailingFactors.map((t) => (t.ticker === from ? { ...t, ticker: to } : t));
     }
   }
   for (const crew of Object.values(CREWS)) {
@@ -108,7 +106,11 @@ const seed = async (ticker = OLD) => {
   for (const c of ['trades', 'limitOrders', 'preMarketOrders', 'feed', 'ipTracking', 'users']) {
     await wipe(c);
   }
-  await db.collection('market').doc('tickerRename').delete().catch(() => {});
+  await db
+    .collection('market')
+    .doc('tickerRename')
+    .delete()
+    .catch(() => {});
 
   await marketRef().set({
     prices: { [t]: 90, [OTHER]: 40 },
@@ -127,7 +129,10 @@ const seed = async (ticker = OLD) => {
 
   const { priceHistoryRef } = require('../functions/helpers');
   await priceHistoryRef().set({
-    [t]: [{ timestamp: now - DAY, price: 88 }, { timestamp: now, price: 90 }],
+    [t]: [
+      { timestamp: now - DAY, price: 88 },
+      { timestamp: now, price: 90 },
+    ],
     [OTHER]: [{ timestamp: now, price: 40 }],
   });
 
@@ -135,43 +140,92 @@ const seed = async (ticker = OLD) => {
   await archive.doc(t).set({ history: [{ timestamp: now - 90 * DAY, price: 70 }] });
   await archive.doc(OTHER).set({ history: [{ timestamp: now - 90 * DAY, price: 33 }] });
 
-  await db.collection('market').doc('current').collection('daily_closes')
-    .doc('2026-09').set({ closes: { '2026-09-01': { [t]: 91, [OTHER]: 41 } } });
+  await db
+    .collection('market')
+    .doc('current')
+    .collection('daily_closes')
+    .doc('2026-09')
+    .set({ closes: { '2026-09-01': { [t]: 91, [OTHER]: 41 } } });
 
-  await db.collection('market').doc('preHaltSnapshot').set({ prices: both(89, 39) });
-  await db.collection('market').doc('reviewChanges').set({ changes: both({ pct: 4 }, { pct: 1 }) });
-  await db.collection('market').doc('reviewDetail').set({ detail: both([{ p: 1 }], [{ p: 2 }]) });
-  await db.collection('market').doc('indexHistory').set({
-    divisor: 0.152, history: [{ t: now, v: 1000 }],
-    constituents: [{ t, b: 85 }, { t: OTHER, b: 40 }],
-  });
-  await db.collection('market').doc('ipos').set({
-    list: [{ ticker: t, shares: 10 }, { ticker: OTHER, shares: 5 }],
-  });
-  await db.collection('market').doc('tickerStats').set({
-    [t]: { trades: 9, netFlow: 500, lastTradedAt: now },
-    [OTHER]: { trades: 2, netFlow: 10, lastTradedAt: now },
-    shortInterest: { [t]: 40, [OTHER]: 5 },
-    shortInterestAt: now,
-  });
-  await db.collection('dividendConfig').doc('tierOverrides').set({ tiers: both('rare', 'common') });
+  await db
+    .collection('market')
+    .doc('preHaltSnapshot')
+    .set({ prices: both(89, 39) });
+  await db
+    .collection('market')
+    .doc('reviewChanges')
+    .set({ changes: both({ pct: 4 }, { pct: 1 }) });
+  await db
+    .collection('market')
+    .doc('reviewDetail')
+    .set({ detail: both([{ p: 1 }], [{ p: 2 }]) });
+  await db
+    .collection('market')
+    .doc('indexHistory')
+    .set({
+      divisor: 0.152,
+      history: [{ t: now, v: 1000 }],
+      constituents: [
+        { t, b: 85 },
+        { t: OTHER, b: 40 },
+      ],
+    });
+  await db
+    .collection('market')
+    .doc('ipos')
+    .set({
+      list: [
+        { ticker: t, shares: 10 },
+        { ticker: OTHER, shares: 5 },
+      ],
+    });
+  await db
+    .collection('market')
+    .doc('tickerStats')
+    .set({
+      [t]: { trades: 9, netFlow: 500, lastTradedAt: now },
+      [OTHER]: { trades: 2, netFlow: 10, lastTradedAt: now },
+      shortInterest: { [t]: 40, [OTHER]: 5 },
+      shortInterestAt: now,
+    });
+  await db
+    .collection('dividendConfig')
+    .doc('tierOverrides')
+    .set({ tiers: both('rare', 'common') });
 
   // u1 carries every ticker-keyed map, each with a neighbour alongside.
   const u1 = {};
   for (const map of R.USER_TICKER_MAPS) u1[map] = both(1, 2);
   u1.watchlist = [t, OTHER];
-  u1.transactionLog = [{ ticker: t, type: 'buy' }, { ticker: OTHER, type: 'buy' }];
+  u1.transactionLog = [
+    { ticker: t, type: 'buy' },
+    { ticker: OTHER, type: 'buy' },
+  ];
   u1.displayName = 'Holder One';
   await db.collection('users').doc('u1').set(u1);
 
   // u2 is a partial shape: only a short. Proves a sparse doc is handled.
-  await db.collection('users').doc('u2').set({ displayName: 'Shorty', shorts: { [t]: { shares: 4 } } });
+  await db
+    .collection('users')
+    .doc('u2')
+    .set({ displayName: 'Shorty', shorts: { [t]: { shares: 4 } } });
   // u3 touches nothing and must not be written at all.
-  await db.collection('users').doc('u3').set({ displayName: 'Bystander', holdings: { [OTHER]: 3 } });
+  await db
+    .collection('users')
+    .doc('u3')
+    .set({ displayName: 'Bystander', holdings: { [OTHER]: 3 } });
 
-  await db.collection('users').doc('u1').collection('priceAlerts').doc('a1')
+  await db
+    .collection('users')
+    .doc('u1')
+    .collection('priceAlerts')
+    .doc('a1')
     .set({ ticker: t, target: 100, triggered: false });
-  await db.collection('users').doc('u1').collection('notifications').doc('n1')
+  await db
+    .collection('users')
+    .doc('u1')
+    .collection('notifications')
+    .doc('n1')
     .set({ data: { ticker: t }, message: `${t} hit your target` });
 
   await db.collection('trades').doc('t1').set({ ticker: t, uid: 'u1', action: 'buy' });
@@ -179,18 +233,35 @@ const seed = async (ticker = OLD) => {
   await db.collection('trades').doc('t3').set({ ticker: OTHER, uid: 'u1', action: 'buy' });
   await db.collection('limitOrders').doc('l1').set({ ticker: t, status: 'PENDING' });
   await db.collection('preMarketOrders').doc(`u1_2026-09-03_${t}_buy`).set({ ticker: t, status: 'FILLED' });
-  await db.collection('ipTracking').doc('1_2_3_4').set({
-    tickerTradeHistory: { [t]: { buy: [{ ts: now }] }, [OTHER]: { buy: [{ ts: now }] } },
-  });
-  await db.collection('feed').doc('f1').set({ ticker: t, message: `bought 5 $${t}`, createdAt: now });
-  await db.collection('feed').doc('f2').set({ ticker: OTHER, message: `bought 5 $${OTHER}`, createdAt: now });
+  await db
+    .collection('ipTracking')
+    .doc('1_2_3_4')
+    .set({
+      tickerTradeHistory: { [t]: { buy: [{ ts: now }] }, [OTHER]: { buy: [{ ts: now }] } },
+    });
+  await db
+    .collection('feed')
+    .doc('f1')
+    .set({ ticker: t, message: `bought 5 $${t}`, createdAt: now });
+  await db
+    .collection('feed')
+    .doc('f2')
+    .set({ ticker: OTHER, message: `bought 5 $${OTHER}`, createdAt: now });
   // Longer ticker sharing a prefix. Must survive untouched.
-  await db.collection('feed').doc('f3').set({ ticker: `${t}NER`, message: `bought 5 $${t}NER`, createdAt: now });
+  await db
+    .collection('feed')
+    .doc('f3')
+    .set({ ticker: `${t}NER`, message: `bought 5 $${t}NER`, createdAt: now });
 };
 
-const run = (mode, opts = {}) => R.runRename({
-  old: OLD, nw: NEW, mode, uid: 'admin-test', ...opts,
-});
+const run = (mode, opts = {}) =>
+  R.runRename({
+    old: OLD,
+    nw: NEW,
+    mode,
+    uid: 'admin-test',
+    ...opts,
+  });
 
 (async () => {
   console.log('\nTICKER RENAME — EMULATOR TEST\n');
@@ -225,8 +296,7 @@ const run = (mode, opts = {}) => R.runRename({
   check('accepts clean crew rosters', p.crewRefs === true);
   check('accepts the price state', p.prices === true);
 
-  await db.collection('preMarketOrders').doc('pending1')
-    .set({ ticker: OLD, status: 'PENDING' });
+  await db.collection('preMarketOrders').doc('pending1').set({ ticker: OLD, status: 'PENDING' });
   p = await pf(OLD, NEW);
   check('refuses while a pre-market order is still pending', p.preMarket === false);
   await db.collection('preMarketOrders').doc('pending1').delete();
@@ -275,8 +345,7 @@ const run = (mode, opts = {}) => R.runRename({
   check('live history moved with both points', (hist[NEW] || []).length === 2 && hist[OLD] === undefined);
   check('neighbour history untouched', (hist[OTHER] || []).length === 1);
 
-  const closes = await db.collection('market').doc('current')
-    .collection('daily_closes').doc('2026-09').get();
+  const closes = await db.collection('market').doc('current').collection('daily_closes').doc('2026-09').get();
   const dayCloses = closes.data().closes['2026-09-01'];
   check('daily close moved', dayCloses[NEW] === 91 && dayCloses[OLD] === undefined);
   check('neighbour daily close untouched', dayCloses[OTHER] === 41);
@@ -288,17 +357,24 @@ const run = (mode, opts = {}) => R.runRename({
   const rd = await getDoc('market', 'reviewDetail');
   check('review detail moved', rd.detail[NEW] !== undefined);
   const idx = await getDoc('market', 'indexHistory');
-  check('index constituents moved', idx.constituents.some((c) => c.t === NEW)
-    && !idx.constituents.some((c) => c.t === OLD));
+  check(
+    'index constituents moved',
+    idx.constituents.some((c) => c.t === NEW) && !idx.constituents.some((c) => c.t === OLD),
+  );
   check('index divisor untouched', idx.divisor === 0.152);
   const ipos = await getDoc('market', 'ipos');
-  check('IPO list moved', ipos.list.some((i) => i.ticker === NEW));
+  check(
+    'IPO list moved',
+    ipos.list.some((i) => i.ticker === NEW),
+  );
   const stats = await getDoc('market', 'tickerStats');
   check('ticker stats moved', stats[NEW]?.trades === 9 && stats[OLD] === undefined);
   // Missed, a renamed stock reads as un-shorted and its neglect decay switches
   // back on even though someone is short it.
-  check('short interest moved with the ticker',
-    stats.shortInterest?.[NEW] === 40 && stats.shortInterest?.[OLD] === undefined);
+  check(
+    'short interest moved with the ticker',
+    stats.shortInterest?.[NEW] === 40 && stats.shortInterest?.[OLD] === undefined,
+  );
   check('neighbour short interest untouched', stats.shortInterest?.[OTHER] === 5);
   const divCfg = await getDoc('dividendConfig', 'tierOverrides');
   check('dividend tier override moved', divCfg.tiers[NEW] === 'rare');
@@ -340,8 +416,10 @@ const run = (mode, opts = {}) => R.runRename({
   const pre = await db.collection('preMarketOrders').where('ticker', '==', NEW).get();
   check('pre-market order rewritten', pre.size === 1);
   const ip = await getDoc('ipTracking', '1_2_3_4');
-  check('IP trade history moved', ip.tickerTradeHistory[NEW] !== undefined
-    && ip.tickerTradeHistory[OTHER] !== undefined);
+  check(
+    'IP trade history moved',
+    ip.tickerTradeHistory[NEW] !== undefined && ip.tickerTradeHistory[OTHER] !== undefined,
+  );
 
   const f1 = await getDoc('feed', 'f1');
   check('feed ticker rewritten', f1.ticker === NEW);
@@ -390,17 +468,20 @@ const run = (mode, opts = {}) => R.runRename({
   check('resumes to completion', resumed.success === true, `after ${guard} passes`);
   check('market reopened only at the end', (await getMarket()).marketHalted === false);
   const resumedU1 = await getDoc('users', 'u1');
-  check('resumed run produced the same player state', resumedU1.holdingCohorts[NEW] !== undefined
-    && resumedU1.holdingCohorts[OLD] === undefined);
-  check('no trace of the old ticker after a resumed run',
-    (await R.verifyClean(OLD)).length === 0);
+  check(
+    'resumed run produced the same player state',
+    resumedU1.holdingCohorts[NEW] !== undefined && resumedU1.holdingCohorts[OLD] === undefined,
+  );
+  check('no trace of the old ticker after a resumed run', (await R.verifyClean(OLD)).length === 0);
 
   // ── G. Failure keeps the market halted ─────────────────────────────────
   section('G. A failure keeps the market halted');
   await seed();
   const tradesPhase = R.PHASES.find((ph) => ph.name === 'trades');
   const realRun = tradesPhase.run;
-  tradesPhase.run = async () => { throw new Error('injected failure'); };
+  tradesPhase.run = async () => {
+    throw new Error('injected failure');
+  };
   let threw = false;
   try {
     await run('execute');
@@ -413,12 +494,18 @@ const run = (mode, opts = {}) => R.runRename({
   check('MARKET STAYS HALTED after a failure', failedMarket.marketHalted === true);
   // The player-facing banner must NOT change on failure: it named tickers and
   // printed admin instructions to the whole site.
-  check('banner stays neutral and names no ticker',
-    !/rename|incomplete|resume|abort/i.test(failedMarket.haltReason || ''), failedMarket.haltReason);
+  check(
+    'banner stays neutral and names no ticker',
+    !/rename|incomplete|resume|abort/i.test(failedMarket.haltReason || ''),
+    failedMarket.haltReason,
+  );
   const failedJournal = await getJournal();
   check('journal records the failure', failedJournal.status === 'failed');
-  check('journal carries the detail the admin panel needs',
-    /injected failure/.test(failedJournal.lastError || ''), failedJournal.lastError);
+  check(
+    'journal carries the detail the admin panel needs',
+    /injected failure/.test(failedJournal.lastError || ''),
+    failedJournal.lastError,
+  );
 
   let recovered = null;
   guard = 0;
@@ -444,8 +531,7 @@ const run = (mode, opts = {}) => R.runRename({
   const second = await R.runRename({ old: NEW, nw: NEWER, mode: 'execute', uid: 'admin-test' });
   check('second rename succeeds', second.success === true, JSON.stringify(second).slice(0, 140));
   const finalAliases = (await getMarket()).tickerAliases;
-  check('the original name points at the final one', finalAliases[OLD] === NEWER,
-    JSON.stringify(finalAliases));
+  check('the original name points at the final one', finalAliases[OLD] === NEWER, JSON.stringify(finalAliases));
   check('the intermediate name points at the final one', finalAliases[NEW] === NEWER);
   check('no two-hop chain remains', !Object.values(finalAliases).includes(NEW));
 

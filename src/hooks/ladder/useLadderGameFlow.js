@@ -103,7 +103,7 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
       const result = await playLadderGameFunction({
         startSide: selectedStart,
         bet,
-        amount
+        amount,
       });
 
       const { rungs, result: gameResult, won, payout, newBalance, currentStreak } = result.data;
@@ -116,7 +116,7 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
         bet: amount,
         won,
         payout,
-        newBalance
+        newBalance,
       });
 
       // Clear old ladder
@@ -127,13 +127,14 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
 
       // Animate
       trackTimeout(() => {
-        revealRungs().then(() => {
-          return animatePath(rungs, selectedStart, gameResult, newBalance);
-        }).then(() => {
-          showResult(gameResult, won, amount, payout, currentStreak);
-        });
+        revealRungs()
+          .then(() => {
+            return animatePath(rungs, selectedStart, gameResult, newBalance);
+          })
+          .then(() => {
+            showResult(gameResult, won, amount, payout, currentStreak);
+          });
       }, 250);
-
     } catch (error) {
       console.error('Game error:', error);
       showNotification('error', error.message || 'Failed to play game');
@@ -155,9 +156,18 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
 
   return {
     ...banners,
-    tracksRef, activeButton, activeResult,
-    selectedStart, playing, complete, betAmount, setBetAmount,
-    displayBalance, frozenHistory, instruction,
-    selectStart, selectBetAndPlay,
+    tracksRef,
+    activeButton,
+    activeResult,
+    selectedStart,
+    playing,
+    complete,
+    betAmount,
+    setBetAmount,
+    displayBalance,
+    frozenHistory,
+    instruction,
+    selectStart,
+    selectBetAndPlay,
   };
 }

@@ -37,7 +37,11 @@ export const getDailyMissionProgress = (mission, { holdings, dailyProgress, crew
     }
     case 'CREW_ACCUMULATOR': {
       const crewSharesBought = dailyProgress.crewSharesBought || 0;
-      return { complete: crewSharesBought >= mission.requirement, progress: crewSharesBought, target: mission.requirement };
+      return {
+        complete: crewSharesBought >= mission.requirement,
+        progress: crewSharesBought,
+        target: mission.requirement,
+      };
     }
 
     // ============================================
@@ -56,7 +60,10 @@ export const getDailyMissionProgress = (mission, { holdings, dailyProgress, crew
 };
 
 // Weekly (crew) mission progress from this week's weeklyProgress record.
-export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp, prices, crewMembers, portfolioValue, grantedValue = 0 }) => {
+export const getWeeklyMissionProgress = (
+  mission,
+  { holdings, weeklyProgress: wp, prices, crewMembers, portfolioValue, grantedValue = 0 },
+) => {
   switch (mission.checkType) {
     // ============================================
     // TRADING VOLUME
@@ -66,7 +73,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: value >= mission.requirement,
         progress: Math.floor(value),
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
     case 'WEEKLY_TRADE_VOLUME': {
@@ -74,7 +81,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: volume >= mission.requirement,
         progress: volume,
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
     case 'WEEKLY_TRADE_COUNT': {
@@ -82,7 +89,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: count >= mission.requirement,
         progress: count,
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
 
@@ -94,7 +101,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: days >= mission.requirement,
         progress: days,
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
     case 'WEEKLY_CHECKIN_STREAK': {
@@ -102,7 +109,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: days >= mission.requirement,
         progress: days,
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
 
@@ -127,7 +134,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: percent >= mission.requirement,
         progress: Math.floor(percent),
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
 
@@ -144,7 +151,7 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
       return {
         complete: growthPct >= mission.requirement,
         progress: Math.max(0, Math.floor(growthPct)),
-        target: mission.requirement
+        target: mission.requirement,
       };
     }
 
@@ -156,5 +163,5 @@ export const getWeeklyMissionProgress = (mission, { holdings, weeklyProgress: wp
 // Days until the weekly missions reset (next Monday, UTC)
 export const getDaysUntilWeeklyReset = () => {
   const day = new Date().getUTCDay();
-  return day === 0 ? 1 : (8 - day);
+  return day === 0 ? 1 : 8 - day;
 };

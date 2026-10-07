@@ -41,9 +41,8 @@ export const getTradeProfit = (trade) => {
 
   if (trade.costBasisAtTrade && trade.price) {
     const pl = (trade.price - trade.costBasisAtTrade) * trade.amount;
-    const percent = trade.costBasisAtTrade > 0
-      ? ((trade.price - trade.costBasisAtTrade) / trade.costBasisAtTrade) * 100
-      : 0;
+    const percent =
+      trade.costBasisAtTrade > 0 ? ((trade.price - trade.costBasisAtTrade) / trade.costBasisAtTrade) * 100 : 0;
     const isShortClose = trade.action === 'cover' || trade.action === 'margin_call_cover';
     return { amount: isShortClose ? -pl : pl, percent };
   }
@@ -54,7 +53,7 @@ export const getTradeProfit = (trade) => {
 /** Download the given trades as a CSV. */
 export const exportTradesToCSV = (trades) => {
   const headers = ['Date', 'Ticker', 'Action', 'Amount', 'Price', 'Total Value', 'P&L'];
-  const rows = trades.map(trade => {
+  const rows = trades.map((trade) => {
     const date = getTimestampDate(trade.timestamp);
     const pl = getTradeProfit(trade);
     return [
@@ -64,7 +63,7 @@ export const exportTradesToCSV = (trades) => {
       trade.amount,
       trade.price?.toFixed(2) || '',
       (trade.totalValue || trade.price * trade.amount)?.toFixed(2) || '',
-      pl?.amount?.toFixed(2) || ''
+      pl?.amount?.toFixed(2) || '',
     ].join(',');
   });
 

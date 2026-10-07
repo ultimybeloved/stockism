@@ -22,9 +22,9 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
         </button>
       </div>
       <p className={`text-xs ${mutedClass} mb-2`}>
-        Everyone named in a coordinated-pressure alert since the season started. {SEASON_REPEAT_COORD_FLAGS}+ flags
-        is marked as a repeat. Excluded players keep Bronze, Silver and Gold but can&apos;t place Platinum or
-        Diamond. Only they see it, on their own season card.
+        Everyone named in a coordinated-pressure alert since the season started. {SEASON_REPEAT_COORD_FLAGS}+ flags is
+        marked as a repeat. Excluded players keep Bronze, Silver and Gold but can&apos;t place Platinum or Diamond. Only
+        they see it, on their own season card.
       </p>
 
       {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
@@ -38,25 +38,30 @@ const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
           return (
             <li key={p.uid} className={`text-xs py-1 border-b ${rowClass}`}>
               <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <span className={`font-semibold ${textClass}`}>{p.name}</span>{' '}
-                <span className={repeat ? 'text-red-500 font-semibold' : mutedClass}>
-                  {p.flags} flag{p.flags === 1 ? '' : 's'}{repeat ? ' · repeat' : ''}
-                </span>
-                <div className={`${mutedClass} truncate`}>
-                  {p.tickers.map((t) => `$${t}`).join(' ')}
-                  {p.partners.length > 0 && ` · with ${p.partners.slice(0, 4).map((x) => `${x.name} (${x.n})`).join(', ')}`}
+                <div className="min-w-0">
+                  <span className={`font-semibold ${textClass}`}>{p.name}</span>{' '}
+                  <span className={repeat ? 'text-red-500 font-semibold' : mutedClass}>
+                    {p.flags} flag{p.flags === 1 ? '' : 's'}
+                    {repeat ? ' · repeat' : ''}
+                  </span>
+                  <div className={`${mutedClass} truncate`}>
+                    {p.tickers.map((t) => `$${t}`).join(' ')}
+                    {p.partners.length > 0 &&
+                      ` · with ${p.partners
+                        .slice(0, 4)
+                        .map((x) => `${x.name} (${x.n})`)
+                        .join(', ')}`}
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => toggleExclusion(p)}
-                disabled={busyUid === p.uid}
-                className={`shrink-0 px-2 py-1 rounded font-semibold text-white disabled:opacity-50 ${
-                  p.excluded ? 'bg-slate-500 hover:bg-slate-600' : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                {p.excluded ? 'Excluded · undo' : 'Exclude from Plat/Diamond'}
-              </button>
+                <button
+                  onClick={() => toggleExclusion(p)}
+                  disabled={busyUid === p.uid}
+                  className={`shrink-0 px-2 py-1 rounded font-semibold text-white disabled:opacity-50 ${
+                    p.excluded ? 'bg-slate-500 hover:bg-slate-600' : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {p.excluded ? 'Excluded · undo' : 'Exclude from Plat/Diamond'}
+                </button>
               </div>
               <CoordProfitPanel player={p} {...{ textClass, mutedClass, inputClass }} />
             </li>

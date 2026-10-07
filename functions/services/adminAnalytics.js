@@ -48,7 +48,7 @@ const summarise = (returns) => {
     best: sorted.length ? round1(sorted[0]) : null,
     worst: sorted.length ? round1(sorted[sorted.length - 1]) : null,
     median: cuts.top50,
-    positive: sorted.filter(r => r > 0).length,
+    positive: sorted.filter((r) => r > 0).length,
     cuts,
   };
 };
@@ -97,9 +97,18 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
   const now = Date.now();
 
   const [snap, idxSnap] = await Promise.all([
-    db.collection('users')
-      .select('portfolioValue', 'portfolioSnapshot30d', 'isBot', 'isBanned', 'createdAt', 'lastSynced',
-        'grantedValue', 'grantedSamples')
+    db
+      .collection('users')
+      .select(
+        'portfolioValue',
+        'portfolioSnapshot30d',
+        'isBot',
+        'isBanned',
+        'createdAt',
+        'lastSynced',
+        'grantedValue',
+        'grantedSamples',
+      )
       .get(),
     db.collection('market').doc('indexHistory').get(),
   ]);
@@ -118,21 +127,36 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
 
   snap.forEach((doc) => {
     const u = doc.data();
-    if (u.isBot) { skipped.bots++; return; }
-    if (u.isBanned) { skipped.banned++; return; }
+    if (u.isBot) {
+      skipped.bots++;
+      return;
+    }
+    if (u.isBanned) {
+      skipped.banned++;
+      return;
+    }
 
     const baseline = u.portfolioSnapshot30d?.value;
-    if (!baseline || baseline <= 0) { skipped.noSnapshot++; return; }
+    if (!baseline || baseline <= 0) {
+      skipped.noSnapshot++;
+      return;
+    }
     const refreshedAt = toMs(u.portfolioSnapshot30d.refreshedAt);
-    if (refreshedAt < now - MAX_WINDOW_AGE_MS) { skipped.staleWindow++; return; }
-    if (baseline < minBaseline) { skipped.belowBaseline++; return; }
+    if (refreshedAt < now - MAX_WINDOW_AGE_MS) {
+      skipped.staleWindow++;
+      return;
+    }
+    if (baseline < minBaseline) {
+      skipped.belowBaseline++;
+      return;
+    }
 
     const end = toMs(u.lastSynced) || refreshedAt;
     const start = Math.max(refreshedAt - THIRTY_DAYS_MS, toMs(u.createdAt));
 
     const atStart = grantedTotalAt(u, start);
     const atEnd = grantedTotalAt(u, end);
-    const granted = (atStart === null || atEnd === null) ? 0 : atEnd - atStart;
+    const granted = atStart === null || atEnd === null ? 0 : atEnd - atStart;
     if (atStart === null) grants.none++;
     else if (u.grantedSamples.some((s) => s && s.ts <= start)) grants.exact++;
     else grants.lowerBound++;
@@ -144,7 +168,7 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
     const row = { ret, excess: ret - market };
 
     all.push(row);
-    const div = DIVISIONS.find(d => baseline >= d.min && (d.max === null || baseline < d.max));
+    const div = DIVISIONS.find((d) => baseline >= d.min && (d.max === null || baseline < d.max));
     if (div) byDivision[div.id].push(row);
   });
 
@@ -160,7 +184,7 @@ exports.adminReturnDistribution = cf({ timeoutSeconds: 300 }).https.onCall(async
     skipped,
     marketLast30: marketStart > 0 ? round1(((marketEnd - marketStart) / marketStart) * 100) : null,
     overall: summariseGroup(all),
-    divisions: DIVISIONS.map(d => ({
+    divisions: DIVISIONS.map((d) => ({
       id: d.id,
       label: d.label,
       min: d.min,

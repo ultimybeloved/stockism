@@ -15,28 +15,51 @@ export function useCoordProfit(player) {
   const run = async (fn) => {
     setBusy(true);
     setError(null);
-    try { await fn(); } catch (err) { console.error(err); setError(err.message); }
+    try {
+      await fn();
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    }
     setBusy(false);
   };
 
-  const load = () => run(async () => {
-    const { data } = await getCoordProfitFunction({ uid: player.uid });
-    setProfit(data);
-    setAmount(String(Math.round(data.suggested)));
-    setPreview(data.suggested > 0 ? data.preview : null);
-  });
+  const load = () =>
+    run(async () => {
+      const { data } = await getCoordProfitFunction({ uid: player.uid });
+      setProfit(data);
+      setAmount(String(Math.round(data.suggested)));
+      setPreview(data.suggested > 0 ? data.preview : null);
+    });
 
-  const checkAmount = () => run(async () => {
-    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: Number(amount), preview: true, preferTickers: profit.preferTickers });
-    setPreview(data);
-  });
+  const checkAmount = () =>
+    run(async () => {
+      const { data } = await adminRemoveCoordProfitFunction({
+        uid: player.uid,
+        amount: Number(amount),
+        preview: true,
+        preferTickers: profit.preferTickers,
+      });
+      setPreview(data);
+    });
 
-  const remove = () => run(async () => {
-    const n = Number(amount);
-    if (!confirm(`Remove $${n.toLocaleString()} from ${player.name}?\n\nShares of the stocks they pushed go first (taken, not sold, so the price doesn't move), then other holdings, then cash; margin debt only for anything left. They get a notice with the amount. This cannot be undone.`)) return;
-    const { data } = await adminRemoveCoordProfitFunction({ uid: player.uid, amount: n, memo, preferTickers: profit.preferTickers });
-    setDone(data);
-  });
+  const remove = () =>
+    run(async () => {
+      const n = Number(amount);
+      if (
+        !confirm(
+          `Remove $${n.toLocaleString()} from ${player.name}?\n\nShares of the stocks they pushed go first (taken, not sold, so the price doesn't move), then other holdings, then cash; margin debt only for anything left. They get a notice with the amount. This cannot be undone.`,
+        )
+      )
+        return;
+      const { data } = await adminRemoveCoordProfitFunction({
+        uid: player.uid,
+        amount: n,
+        memo,
+        preferTickers: profit.preferTickers,
+      });
+      setDone(data);
+    });
 
   return { profit, amount, setAmount, memo, setMemo, preview, busy, error, done, load, checkAmount, remove };
 }

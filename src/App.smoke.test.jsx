@@ -25,7 +25,10 @@ vi.mock('./firebase', () => ({
   changeDisplayNameFunction: vi.fn(),
 }));
 vi.mock('firebase/auth', () => ({
-  onAuthStateChanged: vi.fn((auth, cb) => { cb(null); return () => {}; }),
+  onAuthStateChanged: vi.fn((auth, cb) => {
+    cb(null);
+    return () => {};
+  }),
   applyActionCode: vi.fn(),
   signInWithCustomToken: vi.fn(),
   signOut: vi.fn(),
@@ -56,7 +59,11 @@ afterEach(cleanup);
 
 describe('App smoke', () => {
   it('mounts and renders the home page as a guest', async () => {
-    render(<MemoryRouter><App /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    );
     expect(await screen.findByText(/Browsing as guest/i)).toBeInTheDocument();
   });
 });

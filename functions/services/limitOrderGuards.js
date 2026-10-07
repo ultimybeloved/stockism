@@ -12,10 +12,14 @@
 // cancel-vs-defer, so the wording of these throws is load-bearing.
 
 const { CHARACTER_MAP } = require('../characters');
-const { lockedShares, pruneAndSumTradeHistory, floorExitShares, isTickerPaused, washRuleRemainingMs } = require('../helpers');
 const {
-  MAX_TRADES_PER_TICKER_24H, MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
-} = require('../constants');
+  lockedShares,
+  pruneAndSumTradeHistory,
+  floorExitShares,
+  isTickerPaused,
+  washRuleRemainingMs,
+} = require('../helpers');
+const { MAX_TRADES_PER_TICKER_24H, MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS } = require('../constants');
 
 const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
 
@@ -148,9 +152,8 @@ const resolveFillShares = ({ effectiveType, order, userData, freshPrice, fillSha
     // Whole-cent share counts, same grid every other buy path uses. This used
     // to floor to WHOLE shares, so $15 of cash against a $10 stock filled 1
     // share and left $5 of buying power on the table.
-    const affordableShares = freshPrice > 0
-      ? Math.floor((userData.cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP
-      : 0;
+    const affordableShares =
+      freshPrice > 0 ? Math.floor((userData.cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP : 0;
     if (affordableShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
     console.log(`Partial fill: can only afford ${affordableShares} shares`);
     return affordableShares;

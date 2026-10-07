@@ -8,10 +8,13 @@
 
 import admin from 'firebase-admin';
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import {
-  getFirestore, connectFirestoreEmulator, doc, updateDoc, deleteField
-} from 'firebase/firestore';
+  getAuth,
+  connectAuthEmulator,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, doc, updateDoc, deleteField } from 'firebase/firestore';
 
 const PROJECT_ID = 'stockism-abb28';
 
@@ -46,15 +49,23 @@ async function check(label, mode, fields) {
   const ref = doc(clientDb, 'users', uid);
   try {
     await updateDoc(ref, fields);
-    if (mode === 'allowed') { console.log(`  PASS  ${label} (allowed)`); pass++; }
-    else { console.log(`  FAIL  ${label} — write was ALLOWED but should be blocked`); fail++; }
+    if (mode === 'allowed') {
+      console.log(`  PASS  ${label} (allowed)`);
+      pass++;
+    } else {
+      console.log(`  FAIL  ${label} — write was ALLOWED but should be blocked`);
+      fail++;
+    }
   } catch (err) {
     if (mode === 'blocked' && (err.code === 'permission-denied' || /PERMISSION_DENIED/.test(err.message))) {
-      console.log(`  PASS  ${label} (blocked)`); pass++;
+      console.log(`  PASS  ${label} (blocked)`);
+      pass++;
     } else if (mode === 'blocked') {
-      console.log(`  FAIL  ${label} — expected permission-denied, got: ${err.code || err.message}`); fail++;
+      console.log(`  FAIL  ${label} — expected permission-denied, got: ${err.code || err.message}`);
+      fail++;
     } else {
-      console.log(`  FAIL  ${label} — expected success, got: ${err.code || err.message}`); fail++;
+      console.log(`  FAIL  ${label} — expected success, got: ${err.code || err.message}`);
+      fail++;
     }
   }
 }
@@ -72,33 +83,36 @@ async function main() {
   uid = cred.user.uid;
 
   // Seed the user doc as admin (bypasses rules), mirroring a real account.
-  await adminDb.collection('users').doc(uid).set({
-    displayName: 'RulesTester',
-    displayNameLower: 'rulestester',
-    cash: 10000,
-    holdings: {},
-    shorts: {},
-    marginUsed: 0,
-    marginEnabled: false,
-    eventPositions: {},
-    checkinStreak: 0,
-    darkMode: true,
-    drip: {},
-    activeCosmetics: {},
-    watchlist: [],
-    // Season titles: one granted, so the "equip what you own" rule has both a
-    // legal and an illegal case to test against.
-    ownedTitles: ['season_1_gold'],
-    titleMeta: { season_1_gold: 'Season 1 Gold' },
-    createdAt: admin.firestore.Timestamp.now()
-  });
+  await adminDb
+    .collection('users')
+    .doc(uid)
+    .set({
+      displayName: 'RulesTester',
+      displayNameLower: 'rulestester',
+      cash: 10000,
+      holdings: {},
+      shorts: {},
+      marginUsed: 0,
+      marginEnabled: false,
+      eventPositions: {},
+      checkinStreak: 0,
+      darkMode: true,
+      drip: {},
+      activeCosmetics: {},
+      watchlist: [],
+      // Season titles: one granted, so the "equip what you own" rule has both a
+      // legal and an illegal case to test against.
+      ownedTitles: ['season_1_gold'],
+      titleMeta: { season_1_gold: 'Season 1 Gold' },
+      createdAt: admin.firestore.Timestamp.now(),
+    });
 
   console.log('\n── Exploits that MUST now be blocked ─────────────────────────');
   await check('forge prediction winnings (eventPositions)', 'blocked', {
-    eventPositions: { rigged: { shares: { YES: 999999 }, costBasis: 0, settled: false } }
+    eventPositions: { rigged: { shares: { YES: 999999 }, costBasis: 0, settled: false } },
   });
   await check('reset daily check-in cooldown (lastCheckin)', 'blocked', {
-    lastCheckin: Date.now() - 86400000
+    lastCheckin: Date.now() - 86400000,
   });
   await check('forge check-in streak (checkinStreak)', 'blocked', { checkinStreak: 9999 });
   await check('grant self cash', 'blocked', { cash: 1000000 });

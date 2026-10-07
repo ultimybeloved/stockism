@@ -21,11 +21,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const db = admin.firestore();
 const { ADMIN_UID, DISCORD_GUILD_ID } = require('../constants');
 const { discordApi } = require('../helpers');
-const {
-  buildDiscordPayload,
-  normalizeStored,
-  DISCORD_TEXT_CHANNEL_TYPES,
-} = require('./discordMessagePayload');
+const { buildDiscordPayload, normalizeStored, DISCORD_TEXT_CHANNEL_TYPES } = require('./discordMessagePayload');
 
 const COLLECTION = 'discordMessages';
 // Guild id is not a required env var, so it is resolved once from a known
@@ -64,14 +60,19 @@ function assertOk(res, what) {
 
   const detail = res.data?.message || `HTTP ${res.status}`;
   if (res.status === 403) {
-    throw new functions.https.HttpsError('permission-denied',
-      `Discord refused: ${detail}. The bot is usually missing View Channel, Send Messages or Embed Links in that channel.`);
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      `Discord refused: ${detail}. The bot is usually missing View Channel, Send Messages or Embed Links in that channel.`,
+    );
   }
   if (res.status === 404) {
     throw new functions.https.HttpsError('not-found', `Discord could not find it: ${detail}`);
   }
   if (res.status === 429) {
-    throw new functions.https.HttpsError('resource-exhausted', 'Discord is rate limiting the bot. Wait a minute and try again.');
+    throw new functions.https.HttpsError(
+      'resource-exhausted',
+      'Discord is rate limiting the bot. Wait a minute and try again.',
+    );
   }
   throw new functions.https.HttpsError('internal', `${what} failed: ${detail}`);
 }
@@ -178,7 +179,7 @@ exports.adminSendDiscordMessage = cf().https.onCall(async (data, context) => {
 
   const sent = assertOk(
     await discordApi('post', `/channels/${channelId}/messages`, { body: payload }),
-    'Sending the message'
+    'Sending the message',
   );
 
   const now = Timestamp.now();
@@ -219,7 +220,7 @@ exports.adminUpdateDiscordMessage = cf().https.onCall(async (data, context) => {
 
   assertOk(
     await discordApi('patch', `/channels/${existing.channelId}/messages/${existing.messageId}`, { body: payload }),
-    'Editing the message'
+    'Editing the message',
   );
 
   await ref.update({ ...stored, updatedAt: Timestamp.now(), updatedBy: context.auth.uid });
@@ -280,15 +281,14 @@ exports.adminImportDiscordMessage = cf().https.onCall(async (data, context) => {
     return { success: true, alreadyTracked: true, message: docToClient(dupe.docs[0]) };
   }
 
-  const msg = assertOk(
-    await discordApi('get', `/channels/${channelId}/messages/${messageId}`),
-    'Reading the message'
-  );
+  const msg = assertOk(await discordApi('get', `/channels/${channelId}/messages/${messageId}`), 'Reading the message');
 
   const me = assertOk(await discordApi('get', '/users/@me'), 'Identifying the bot');
   if (msg.author?.id !== me.id) {
-    throw new functions.https.HttpsError('failed-precondition',
-      'That message was not posted by the bot, so the bot cannot edit it. Discord only lets a bot edit its own messages.');
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'That message was not posted by the bot, so the bot cannot edit it. Discord only lets a bot edit its own messages.',
+    );
   }
 
   const embed = msg.embeds?.[0] || null;

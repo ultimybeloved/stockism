@@ -19,13 +19,18 @@ const LadderStats = ({ user, userData, darkMode }) => {
     if (!user) return;
     let cancelled = false;
     getDoc(doc(db, 'ladderGameUsers', user.uid))
-      .then(snap => {
+      .then((snap) => {
         if (cancelled) return;
         setStats(snap.exists() ? snap.data() : null);
         setLoaded(true);
       })
-      .catch(e => { Sentry.captureException(e); if (!cancelled) setLoaded(true); });
-    return () => { cancelled = true; };
+      .catch((e) => {
+        Sentry.captureException(e);
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const totalDeposited = stats?.totalDeposited || 0;
@@ -48,13 +53,16 @@ const LadderStats = ({ user, userData, darkMode }) => {
   const downClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
 
   return (
-    <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+    <div
+      className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
+    >
       <h3 className={`font-semibold ${textClass} mb-3`}>🎰 Ladder Stats</h3>
 
       {/* Headline net result */}
       <div className="text-center mb-4">
         <p className={`text-3xl font-bold ${net >= 0 ? upClass : downClass}`}>
-          {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
+          {net >= 0 ? '+' : '-'}
+          {formatCurrency(Math.abs(net))}
         </p>
         <p className={`text-xs ${mutedClass}`}>Net result (won minus lost)</p>
       </div>
@@ -78,7 +86,9 @@ const LadderStats = ({ user, userData, darkMode }) => {
         </div>
         <div className="flex justify-between">
           <span className={mutedClass}>Games Played:</span>
-          <span className={`font-semibold ${textClass}`}>{gamesPlayed.toLocaleString()} ({winRate}% win rate)</span>
+          <span className={`font-semibold ${textClass}`}>
+            {gamesPlayed.toLocaleString()} ({winRate}% win rate)
+          </span>
         </div>
         <div className="flex justify-between">
           <span className={mutedClass}>Chips In Play:</span>

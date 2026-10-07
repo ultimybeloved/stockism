@@ -12,8 +12,8 @@ const { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } = require('../const
  * This is the guard that would have caught the wrong-bot-token outage on its own: a token
  * that belongs to the wrong bot passes the /users/@me check but 403s on every channel.
  */
-exports.discordHealthCheck = cf().pubsub
-  .schedule('every 24 hours')
+exports.discordHealthCheck = cf()
+  .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async () => {
     const token = process.env.DISCORD_BOT_TOKEN;
@@ -35,11 +35,13 @@ exports.discordHealthCheck = cf().pubsub
     }
 
     // 2. Can the bot reach each channel it needs to post to?
-    const channelIds = [...new Set([
-      DISCORD_DAILY_DROP_CHANNEL,
-      process.env.DISCORD_CHANNEL_ID,
-      process.env.DISCORD_SIGNUP_CHANNEL_ID,
-    ].filter(Boolean))];
+    const channelIds = [
+      ...new Set(
+        [DISCORD_DAILY_DROP_CHANNEL, process.env.DISCORD_CHANNEL_ID, process.env.DISCORD_SIGNUP_CHANNEL_ID].filter(
+          Boolean,
+        ),
+      ),
+    ];
 
     const reachable = [];
     for (const id of channelIds) {
@@ -73,13 +75,15 @@ exports.discordHealthCheck = cf().pubsub
     if (reachable.length > 0) {
       await sendDiscordMessage(
         null,
-        [{
-          title: '⚠️ Discord config health check failed',
-          description: problems.map((p) => `• ${p}`).join('\n'),
-          color: 0xE74C3C,
-          footer: { text: 'Automated self-check • fix functions/.env and redeploy' },
-          timestamp: new Date().toISOString(),
-        }],
+        [
+          {
+            title: '⚠️ Discord config health check failed',
+            description: problems.map((p) => `• ${p}`).join('\n'),
+            color: 0xe74c3c,
+            footer: { text: 'Automated self-check • fix functions/.env and redeploy' },
+            timestamp: new Date().toISOString(),
+          },
+        ],
         reachable[0],
       );
     }
@@ -104,12 +108,12 @@ exports.discordHealthCheck = cf().pubsub
  * 2026-08-18. "Never ran" and "not due yet" look identical in the data; the
  * install timestamp is what separates them.
  */
-exports.scheduledJobWatchdog = cf().pubsub
-  .schedule('every 24 hours')
+exports.scheduledJobWatchdog = cf()
+  .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async () => {
     const snap = await HEARTBEAT_DOC().get();
-    const beats = snap.exists ? (snap.data() || {}) : {};
+    const beats = snap.exists ? snap.data() || {} : {};
     const now = Date.now();
 
     // First run after deploy: remember when we started watching, and report
@@ -137,9 +141,7 @@ exports.scheduledJobWatchdog = cf().pubsub
       }
       const ageHours = (now - last) / (60 * 60 * 1000);
       if (ageHours > maxAgeHours) {
-        stale.push(
-          `${label} (${job}) — last ran ${Math.floor(ageHours)}h ago, budget ${maxAgeHours}h`
-        );
+        stale.push(`${label} (${job}) — last ran ${Math.floor(ageHours)}h ago, budget ${maxAgeHours}h`);
       }
     }
 
@@ -155,13 +157,15 @@ exports.scheduledJobWatchdog = cf().pubsub
       never,
     });
 
-    await sendDiscordMessage(null, [{
-      title: '⚠️ Scheduled job watchdog',
-      description: problems.map((p) => `• ${p}`).join('\n'),
-      color: 0xE74C3C,
-      footer: { text: 'A stale job means it failed or never ran' },
-      timestamp: new Date().toISOString(),
-    }]);
+    await sendDiscordMessage(null, [
+      {
+        title: '⚠️ Scheduled job watchdog',
+        description: problems.map((p) => `• ${p}`).join('\n'),
+        color: 0xe74c3c,
+        footer: { text: 'A stale job means it failed or never ran' },
+        timestamp: new Date().toISOString(),
+      },
+    ]);
 
     return null;
   });

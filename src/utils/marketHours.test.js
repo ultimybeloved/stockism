@@ -157,10 +157,7 @@ describe('getReviewChanges', () => {
     vi.useFakeTimers();
     at(new Date(during).toISOString());
     const history = {
-      JAKE: [
-        { timestamp: start - 7 * 24 * 60 * 60 * 1000, price: 100, source: 'admin_adjust' },
-        before(115),
-      ],
+      JAKE: [{ timestamp: start - 7 * 24 * 60 * 60 * 1000, price: 100, source: 'admin_adjust' }, before(115)],
     };
     expect(getReviewChanges(history, [{ ticker: 'JAKE' }])).toEqual({});
   });
@@ -244,7 +241,10 @@ describe('mergeReviewChanges', () => {
 
 describe('buildReviewSections', () => {
   const chars = [
-    { ticker: 'GAP' }, { ticker: 'JIN' }, { ticker: 'KTAE' }, { ticker: 'KWON' },
+    { ticker: 'GAP' },
+    { ticker: 'JIN' },
+    { ticker: 'KTAE' },
+    { ticker: 'KWON' },
     { ticker: 'FIST', isETF: true },
   ];
   const changes = {
@@ -256,9 +256,7 @@ describe('buildReviewSections', () => {
     KWON: { percentChange: 0.5, directChange: 0, trailingChange: 0.5, drivers: ['FIST'] },
     FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0, drivers: [] },
   };
-  const byId = (sections) => Object.fromEntries(
-    sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]),
-  );
+  const byId = (sections) => Object.fromEntries(sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]));
 
   it('separates hand-set stocks, funds, fund trailers and character trailers', () => {
     expect(byId(buildReviewSections(chars, changes))).toEqual({
@@ -295,8 +293,12 @@ describe('buildReviewSections', () => {
   });
 
   it('gives every section a short label for the picker', () => {
-    expect(buildReviewSections(chars, changes).map((s) => s.short))
-      .toEqual(['Adjusted', 'Funds', 'Fund Trailers', 'Trailers']);
+    expect(buildReviewSections(chars, changes).map((s) => s.short)).toEqual([
+      'Adjusted',
+      'Funds',
+      'Fund Trailers',
+      'Trailers',
+    ]);
   });
 
   it('drops empty sections', () => {
@@ -336,7 +338,7 @@ describe('getReviewChanges — the opening auction is not part of the review', (
         { timestamp: start - 60 * 60 * 1000, price: 125.93 },
         { timestamp: at20('17:32'), price: 127.06, source: 'trailing' },
         { timestamp: at20('20:21'), price: 127.79, source: 'trailing' },
-        { timestamp: at20('20:56'), price: 126.00, source: 'pre_market_auction' },
+        { timestamp: at20('20:56'), price: 126.0, source: 'pre_market_auction' },
       ],
     };
     const c = getReviewChanges(history, [{ ticker: 'VIN' }]).VIN;
@@ -413,8 +415,7 @@ describe('spliceReviewDetail', () => {
 
   it('swaps the single tidied point for the real steps, in order', () => {
     const history = [{ timestamp: 100, price: 100 }, collapsed, { timestamp: 900, price: 130 }];
-    expect(spliceReviewDetail(history, steps).map((p) => p.timestamp))
-      .toEqual([100, 200, 300, 400, 900]);
+    expect(spliceReviewDetail(history, steps).map((p) => p.timestamp)).toEqual([100, 200, 300, 400, 900]);
   });
 
   it('leaves everything that is not the review alone', () => {

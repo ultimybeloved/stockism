@@ -6,9 +6,20 @@ import { CHARACTERS } from '../../../characters';
 // The odd one-off user fixes that used to mean opening the Firebase console:
 // crew, achievements, margin, and a single holding.
 const UserFieldEditor = ({
-  darkMode, mutedClass, loading, selectedUser,
-  handleSetCrew, handleGrantAchievement, handleSetMargin, handleSetHolding,
-  editTicker, setEditTicker, editShares, setEditShares, editCostBasis, setEditCostBasis,
+  darkMode,
+  mutedClass,
+  loading,
+  selectedUser,
+  handleSetCrew,
+  handleGrantAchievement,
+  handleSetMargin,
+  handleSetHolding,
+  editTicker,
+  setEditTicker,
+  editShares,
+  setEditShares,
+  editCostBasis,
+  setEditCostBasis,
 }) => {
   const [achievementId, setAchievementId] = useState('');
   const name = selectedUser.displayName || selectedUser.username;
@@ -23,11 +34,13 @@ const UserFieldEditor = ({
     <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
       <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>🛠️ Direct Edits</h4>
       <div className="space-y-3">
-
         {/* Crew */}
         <div>
           <label className={`text-xs ${mutedClass} block mb-1`}>
-            Crew: <span className="text-teal-400">{selectedUser.crew ? (CREWS[selectedUser.crew]?.name || selectedUser.crew) : 'none'}</span>
+            Crew:{' '}
+            <span className="text-teal-400">
+              {selectedUser.crew ? CREWS[selectedUser.crew]?.name || selectedUser.crew : 'none'}
+            </span>
             {selectedUser.isCrewHead && <span className="ml-1 text-amber-400">(crew head)</span>}
           </label>
           <select
@@ -37,8 +50,10 @@ const UserFieldEditor = ({
             className={`w-full ${fieldClass}`}
           >
             <option value="">— no crew —</option>
-            {Object.values(CREWS).map(c => (
-              <option key={c.id} value={c.id}>{c.emblem} {c.name}</option>
+            {Object.values(CREWS).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.emblem} {c.name}
+              </option>
             ))}
           </select>
         </div>
@@ -53,12 +68,22 @@ const UserFieldEditor = ({
               className={`flex-1 ${fieldClass}`}
             >
               <option value="">— pick one —</option>
-              {Object.values(ACHIEVEMENTS).map(a => (
-                <option key={a.id} value={a.id}>{owned.includes(a.id) ? '✓ ' : ''}{a.name}</option>
+              {Object.values(ACHIEVEMENTS).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {owned.includes(a.id) ? '✓ ' : ''}
+                  {a.name}
+                </option>
               ))}
             </select>
             <button
-              onClick={() => handleGrantAchievement(selectedUser.id, name, achievementId, ACHIEVEMENTS[achievementId]?.name || achievementId)}
+              onClick={() =>
+                handleGrantAchievement(
+                  selectedUser.id,
+                  name,
+                  achievementId,
+                  ACHIEVEMENTS[achievementId]?.name || achievementId,
+                )
+              }
               disabled={loading || !achievementId}
               className="px-3 py-1 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             >
@@ -70,7 +95,8 @@ const UserFieldEditor = ({
         {/* Margin */}
         <div>
           <label className={`text-xs ${mutedClass} block mb-1`}>
-            Margin: <span className={selectedUser.marginEnabled ? 'text-green-400' : mutedClass}>
+            Margin:{' '}
+            <span className={selectedUser.marginEnabled ? 'text-green-400' : mutedClass}>
               {selectedUser.marginEnabled ? 'enabled' : 'disabled'}
             </span>
             {marginUsed > 0 && <span className="text-red-400"> · owes ${marginUsed.toFixed(2)}</span>}
@@ -105,9 +131,10 @@ const UserFieldEditor = ({
               className={`flex-1 min-w-[110px] ${fieldClass}`}
             >
               <option value="">— ticker —</option>
-              {CHARACTERS.map(c => (
+              {CHARACTERS.map((c) => (
                 <option key={c.ticker} value={c.ticker}>
-                  {c.ticker}{(selectedUser.holdings || {})[c.ticker] ? ` (${(selectedUser.holdings || {})[c.ticker]})` : ''}
+                  {c.ticker}
+                  {(selectedUser.holdings || {})[c.ticker] ? ` (${(selectedUser.holdings || {})[c.ticker]})` : ''}
                 </option>
               ))}
             </select>
@@ -138,10 +165,10 @@ const UserFieldEditor = ({
             </button>
           </div>
           <p className={`text-xs ${mutedClass} mt-1`}>
-            Leave cost basis blank to keep the current one. Hit Sync above afterwards so their portfolio value catches up.
+            Leave cost basis blank to keep the current one. Hit Sync above afterwards so their portfolio value catches
+            up.
           </p>
         </div>
-
       </div>
     </div>
   );

@@ -6,199 +6,233 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
-const { ADMIN_UID, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD, MAX_DAILY_IMPACT, MAX_PRICE_CHANGE_PERCENT, MAX_TRADES_PER_TICKER_24H, TWENTY_FOUR_HOURS_MS, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_LOCK_MINUTE, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } = require('../constants');
-const { writeNotification, writeFeedEntry, sendDiscordMessage, sendMarketStatusAlert, calculateMarginalImpact, pruneAndSumTradeHistory, priceHistoryRef, getReviewWindowChanges, getLastActiveMs, sumMarketActivity, isRosterTicker, reportError, recordHeartbeat, recordDailyCloses } = require('../helpers');
+const {
+  ADMIN_UID,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
+  MAX_DAILY_IMPACT,
+  MAX_PRICE_CHANGE_PERCENT,
+  MAX_TRADES_PER_TICKER_24H,
+  TWENTY_FOUR_HOURS_MS,
+  WEEKLY_HALT_START_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+  PRE_MARKET_LOCK_MINUTE,
+  ACTIVE_USER_WINDOW_MS,
+  ACTIVE_USER_WINDOW_DAYS,
+} = require('../constants');
+const {
+  writeNotification,
+  writeFeedEntry,
+  sendDiscordMessage,
+  sendMarketStatusAlert,
+  calculateMarginalImpact,
+  pruneAndSumTradeHistory,
+  priceHistoryRef,
+  getReviewWindowChanges,
+  getLastActiveMs,
+  sumMarketActivity,
+  isRosterTicker,
+  reportError,
+  recordHeartbeat,
+  recordDailyCloses,
+} = require('../helpers');
 const { writeReviewChanges } = require('./reviewChanges');
 const { indexConstituents, reconcileDivisor, computeIndexValue } = require('./indexMaintenance');
-
 
 // Builds and posts the daily market summary Discord embed. Shared by the
 // scheduled run and the admin re-trigger. Only the scheduled run records the
 // daily market-index point, so a manual re-run can't double-record it.
 async function doDailyMarketSummary({ recordIndexHistory }) {
-      const marketRef = db.collection('market').doc('current');
-      const marketSnap = await marketRef.get();
+  const marketRef = db.collection('market').doc('current');
+  const marketSnap = await marketRef.get();
 
-      if (!marketSnap.exists) {
-        console.log('No market data found');
-        return { success: false, error: 'No market data found' };
+  if (!marketSnap.exists) {
+    console.log('No market data found');
+    return { success: false, error: 'No market data found' };
+  }
+
+  const marketData = marketSnap.data();
+  const prices = marketData.prices || {};
+  const histSnap = await priceHistoryRef().get();
+  const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
+
+  // Get all users for stats
+  const usersSnap = await db.collection('users').get();
+  const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  // Calculate 24h changes
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  const gainers = [];
+  const losers = [];
+  const athStocks = [];
+
+  Object.entries(prices).forEach(([ticker, currentPrice]) => {
+    if (!isRosterTicker(ticker)) return;
+    const history = priceHistory[ticker] || [];
+    if (history.length === 0) return;
+
+    // Find price 24h ago
+    let price24hAgo = history[0].price;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp <= dayAgo) {
+        price24hAgo = history[i].price;
+        break;
       }
+    }
 
-      const marketData = marketSnap.data();
-      const prices = marketData.prices || {};
-      const histSnap = await priceHistoryRef().get();
-      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
+    const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
+    const stock = { ticker, price: currentPrice, change };
 
-      // Get all users for stats
-      const usersSnap = await db.collection('users').get();
-      const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (change > 0) gainers.push(stock);
+    if (change < 0) losers.push(stock);
 
-      // Calculate 24h changes
-      const now = Date.now();
-      const dayAgo = now - (24 * 60 * 60 * 1000);
-      const gainers = [];
-      const losers = [];
-      const athStocks = [];
+    // Check for ATH
+    const highestHistorical = Math.max(...history.map((h) => h.price));
+    if (currentPrice >= highestHistorical) {
+      athStocks.push(ticker);
+    }
+  });
 
-      Object.entries(prices).forEach(([ticker, currentPrice]) => {
-        if (!isRosterTicker(ticker)) return;
-        const history = priceHistory[ticker] || [];
-        if (history.length === 0) return;
+  gainers.sort((a, b) => b.change - a.change);
+  losers.sort((a, b) => a.change - b.change);
 
-        // Find price 24h ago
-        let price24hAgo = history[0].price;
-        for (let i = history.length - 1; i >= 0; i--) {
-          if (history[i].timestamp <= dayAgo) {
-            price24hAgo = history[i].price;
-            break;
-          }
-        }
+  // Record today's market index value so the index banner can show a rolling
+  // 30-day change. Stored in its own doc (not market/current) to keep the
+  // frequently-read market doc small. Never trimmed — at one point per day
+  // this stays tiny for decades, and the index's full arc is part of the
+  // game's permanent record.
+  if (recordIndexHistory)
+    try {
+      const idxRef = db.collection('market').doc('indexHistory');
+      const idxSnap = await idxRef.get();
+      const stored = idxSnap.exists ? idxSnap.data() || {} : {};
+      const hist = stored.history || [];
+      const lastIndexValue = hist.length ? hist[hist.length - 1].v || 0 : 0;
 
-        const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
-        const stock = { ticker, price: currentPrice, change };
+      // Divisor-adjusted, so adding characters to the roster can't move the
+      // index on its own — see indexMaintenance.js. Season tiers are scored
+      // against this line, so a phantom drop would hand everyone a free win.
+      const constituents = indexConstituents();
+      const { divisor, adjusted, reason } = reconcileDivisor({ prices, constituents, stored, lastIndexValue });
+      const indexValue = computeIndexValue(prices, constituents, divisor);
 
-        if (change > 0) gainers.push(stock);
-        if (change < 0) losers.push(stock);
-
-        // Check for ATH
-        const highestHistorical = Math.max(...history.map(h => h.price));
-        if (currentPrice >= highestHistorical) {
-          athStocks.push(ticker);
-        }
-      });
-
-      gainers.sort((a, b) => b.change - a.change);
-      losers.sort((a, b) => a.change - b.change);
-
-      // Record today's market index value so the index banner can show a rolling
-      // 30-day change. Stored in its own doc (not market/current) to keep the
-      // frequently-read market doc small. Never trimmed — at one point per day
-      // this stays tiny for decades, and the index's full arc is part of the
-      // game's permanent record.
-      if (recordIndexHistory) try {
-        const idxRef = db.collection('market').doc('indexHistory');
-        const idxSnap = await idxRef.get();
-        const stored = idxSnap.exists ? (idxSnap.data() || {}) : {};
-        const hist = stored.history || [];
-        const lastIndexValue = hist.length ? (hist[hist.length - 1].v || 0) : 0;
-
-        // Divisor-adjusted, so adding characters to the roster can't move the
-        // index on its own — see indexMaintenance.js. Season tiers are scored
-        // against this line, so a phantom drop would hand everyone a free win.
-        const constituents = indexConstituents();
-        const { divisor, adjusted, reason } =
-          reconcileDivisor({ prices, constituents, stored, lastIndexValue });
-        const indexValue = computeIndexValue(prices, constituents, divisor);
-
-        hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
-        const idxUpdate = { history: hist, divisor, constituents };
-        if (adjusted) {
-          idxUpdate.lastDivisorAdjustment = { at: now, reason, divisor, count: constituents.length };
-          console.log(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
-        }
-        await idxRef.set(idxUpdate, { merge: true });
-      } catch (e) {
-        console.error('index history record failed:', e.message);
+      hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
+      const idxUpdate = { history: hist, divisor, constituents };
+      if (adjusted) {
+        idxUpdate.lastDivisorAdjustment = { at: now, reason, divisor, count: constituents.length };
+        console.log(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
       }
+      await idxRef.set(idxUpdate, { merge: true });
+    } catch (e) {
+      console.error('index history record failed:', e.message);
+    }
 
-      // Today's closing prices, one document per calendar month. The live
-      // price-history doc keeps only the most recent points per ticker and
-      // archives the rest, so this is the only place a clean daily series
-      // exists. Idempotent — a re-run overwrites today rather than duplicating
-      // it — and best-effort, because a failed archive must never take down the
-      // daily summary.
-      try {
-        const closed = await recordDailyCloses(prices, now);
-        console.log(`daily closes recorded: ${closed} tickers`);
-      } catch (e) {
-        console.error('daily close record failed:', e.message);
-      }
+  // Today's closing prices, one document per calendar month. The live
+  // price-history doc keeps only the most recent points per ticker and
+  // archives the rest, so this is the only place a clean daily series
+  // exists. Idempotent — a re-run overwrites today rather than duplicating
+  // it — and best-effort, because a failed archive must never take down the
+  // daily summary.
+  try {
+    const closed = await recordDailyCloses(prices, now);
+    console.log(`daily closes recorded: ${closed} tickers`);
+  } catch (e) {
+    console.error('daily close record failed:', e.message);
+  }
 
-      // Trading volume and counts. Bots count toward market volume but never
-      // toward trader rankings — they aren't in the trades collection at all.
-      const { trades: tradeCount, volume: totalVolume, tradesByUid: traderActivity } =
-        await sumMarketActivity({ sinceMs: dayAgo, users });
+  // Trading volume and counts. Bots count toward market volume but never
+  // toward trader rankings — they aren't in the trades collection at all.
+  const {
+    trades: tradeCount,
+    volume: totalVolume,
+    tradesByUid: traderActivity,
+  } = await sumMarketActivity({ sinceMs: dayAgo, users });
 
-      // Headcounts. "Traded today" is a subset of the players who showed up —
-      // most people check prices far more often than they trade, so the two
-      // numbers are very different and both are worth posting.
-      const realPlayers = users.filter(u => !u.isBot && !u.isBanned);
-      const activeToday = realPlayers.filter(u => getLastActiveMs(u) > dayAgo).length;
-      const activeInWindow = realPlayers.filter(u => getLastActiveMs(u) > now - ACTIVE_USER_WINDOW_MS).length;
+  // Headcounts. "Traded today" is a subset of the players who showed up —
+  // most people check prices far more often than they trade, so the two
+  // numbers are very different and both are worth posting.
+  const realPlayers = users.filter((u) => !u.isBot && !u.isBanned);
+  const activeToday = realPlayers.filter((u) => getLastActiveMs(u) > dayAgo).length;
+  const activeInWindow = realPlayers.filter((u) => getLastActiveMs(u) > now - ACTIVE_USER_WINDOW_MS).length;
 
-      // Banned accounts are kept out of the counts and the ranking the same way
-      // bots are.
-      const nameByUid = new Map(realPlayers.map(u => [u.id, u.displayName || 'Anonymous']));
-      const tradedToday = Object.keys(traderActivity).filter(uid => nameByUid.has(uid)).length;
-      const topTraders = Object.entries(traderActivity)
-        .filter(([uid]) => nameByUid.has(uid))
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
+  // Banned accounts are kept out of the counts and the ranking the same way
+  // bots are.
+  const nameByUid = new Map(realPlayers.map((u) => [u.id, u.displayName || 'Anonymous']));
+  const tradedToday = Object.keys(traderActivity).filter((uid) => nameByUid.has(uid)).length;
+  const topTraders = Object.entries(traderActivity)
+    .filter(([uid]) => nameByUid.has(uid))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
 
-      // Build Discord embed
-      const embed = {
-        title: '📊 Daily Market Summary',
-        description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
-        color: 0xFF6B35,
-        fields: [
-          {
-            name: '📈 Market Activity',
-            value: `${tradeCount} trades • $${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} volume`,
-            inline: false
-          },
-          {
-            name: '🔥 Top Gainers (24h)',
-            value: gainers.slice(0, 3).map(s =>
-              `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`
-            ).join('\n') || 'None',
-            inline: true
-          },
-          {
-            name: '📉 Top Losers (24h)',
-            value: losers.slice(0, 3).map(s =>
-              `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`
-            ).join('\n') || 'None',
-            inline: true
-          }
-        ],
-        timestamp: new Date().toISOString()
-      };
+  // Build Discord embed
+  const embed = {
+    title: '📊 Daily Market Summary',
+    description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
+    color: 0xff6b35,
+    fields: [
+      {
+        name: '📈 Market Activity',
+        value: `${tradeCount} trades • $${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} volume`,
+        inline: false,
+      },
+      {
+        name: '🔥 Top Gainers (24h)',
+        value:
+          gainers
+            .slice(0, 3)
+            .map((s) => `**${s.ticker}** $${s.price.toFixed(2)} (+${s.change.toFixed(1)}%)`)
+            .join('\n') || 'None',
+        inline: true,
+      },
+      {
+        name: '📉 Top Losers (24h)',
+        value:
+          losers
+            .slice(0, 3)
+            .map((s) => `**${s.ticker}** $${s.price.toFixed(2)} (${s.change.toFixed(1)}%)`)
+            .join('\n') || 'None',
+        inline: true,
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  };
 
-      if (athStocks.length > 0) {
-        embed.fields.push({
-          name: '🎯 New All-Time Highs',
-          value: athStocks.slice(0, 5).join(', '),
-          inline: false
-        });
-      }
+  if (athStocks.length > 0) {
+    embed.fields.push({
+      name: '🎯 New All-Time Highs',
+      value: athStocks.slice(0, 5).join(', '),
+      inline: false,
+    });
+  }
 
-      if (topTraders.length > 0) {
-        embed.fields.push({
-          name: '⚡ Most Active Traders',
-          value: topTraders.map(([uid, count], i) =>
-            `${i + 1}. ${nameByUid.get(uid)} - ${count} ${count === 1 ? 'trade' : 'trades'}`
-          ).join('\n'),
-          inline: false
-        });
-      }
+  if (topTraders.length > 0) {
+    embed.fields.push({
+      name: '⚡ Most Active Traders',
+      value: topTraders
+        .map(([uid, count], i) => `${i + 1}. ${nameByUid.get(uid)} - ${count} ${count === 1 ? 'trade' : 'trades'}`)
+        .join('\n'),
+      inline: false,
+    });
+  }
 
-      embed.fields.push({
-        name: '💰 Market Stats',
-        value: [
-          `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : (u.cash || 0)), 0)).toLocaleString()}`,
-          `Traded today: ${tradedToday}`,
-          `Players active today: ${activeToday}`,
-          `Active in the last ${ACTIVE_USER_WINDOW_DAYS} days: ${activeInWindow}`,
-        ].join('\n'),
-        inline: false
-      });
+  embed.fields.push({
+    name: '💰 Market Stats',
+    value: [
+      `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : u.cash || 0), 0)).toLocaleString()}`,
+      `Traded today: ${tradedToday}`,
+      `Players active today: ${activeToday}`,
+      `Active in the last ${ACTIVE_USER_WINDOW_DAYS} days: ${activeInWindow}`,
+    ].join('\n'),
+    inline: false,
+  });
 
-      await sendDiscordMessage(null, [embed]);
-      return { success: true };
+  await sendDiscordMessage(null, [embed]);
+  return { success: true };
 }
 
-exports.dailyMarketSummary = cf().pubsub
-  .schedule('0 21 * * *')
+exports.dailyMarketSummary = cf()
+  .pubsub.schedule('0 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     try {
@@ -213,8 +247,8 @@ exports.dailyMarketSummary = cf().pubsub
 /**
  * Save pre-halt prices snapshot every Thursday at 12:55 UTC (5 min before halt)
  */
-exports.savePreHaltPrices = cf().pubsub
-  .schedule('55 12 * * 4')
+exports.savePreHaltPrices = cf()
+  .pubsub.schedule('55 12 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
@@ -229,7 +263,7 @@ exports.savePreHaltPrices = cf().pubsub
 
       await db.collection('market').doc('preHaltSnapshot').set({
         prices,
-        savedAt: admin.firestore.FieldValue.serverTimestamp()
+        savedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       console.log(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);
@@ -251,8 +285,8 @@ exports.savePreHaltPrices = cf().pubsub
  * adjustments, and anything moved by a trade or a bot, are excluded — see
  * getReviewWindowChanges. Adjustments made after this runs are not announced.
  */
-exports.chapterReviewRecap = cf().pubsub
-  .schedule('30 20 * * 4')
+exports.chapterReviewRecap = cf()
+  .pubsub.schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
@@ -283,7 +317,7 @@ exports.chapterReviewRecap = cf().pubsub
       const haltEnd = dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000;
 
       const histSnap = await priceHistoryRef().get();
-      const priceHistory = histSnap.exists ? (histSnap.data() || {}) : {};
+      const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
 
       // Everything the review moved, direct and knock-on. The pre-halt snapshot
       // is the opening price for a ticker with no surviving earlier point.
@@ -306,7 +340,7 @@ exports.chapterReviewRecap = cf().pubsub
       }
 
       // Build ETF ticker set from CHARACTERS
-      const etfTickers = new Set(CHARACTERS.filter(c => c.isETF).map(c => c.ticker));
+      const etfTickers = new Set(CHARACTERS.filter((c) => c.isETF).map((c) => c.ticker));
 
       // Split into gainers/losers; a directly adjusted ETF is tracked separately
       const gainers = [];
@@ -328,7 +362,7 @@ exports.chapterReviewRecap = cf().pubsub
       // Genuinely untouched: not adjusted AND not dragged. Counting off
       // `adjustments` alone would report the knock-on stocks as unchanged and
       // then count them again under Moved On Their Own.
-      const unchangedCount = CHARACTERS.filter(c => !c.isETF && !windowChanges[c.ticker]).length;
+      const unchangedCount = CHARACTERS.filter((c) => !c.isETF && !windowChanges[c.ticker]).length;
 
       gainers.sort((a, b) => b.change - a.change);
       losers.sort((a, b) => a.change - b.change);
@@ -339,20 +373,18 @@ exports.chapterReviewRecap = cf().pubsub
       // matched the site's index since the divisor was introduced. Same
       // function as the real one now, so the recap and the site agree.
       const idxSnap = await db.collection('market').doc('indexHistory').get();
-      const idxDivisor = idxSnap.exists ? (idxSnap.data().divisor || 0) : 0;
+      const idxDivisor = idxSnap.exists ? idxSnap.data().divisor || 0 : 0;
       const idxConstituents = indexConstituents();
       const smiBefore = computeIndexValue(beforePrices, idxConstituents, idxDivisor);
       const smiAfter = computeIndexValue(afterPrices, idxConstituents, idxDivisor);
-      const smiChange = smiBefore > 0
-        ? ((smiAfter - smiBefore) / smiBefore) * 100
-        : 0;
+      const smiChange = smiBefore > 0 ? ((smiAfter - smiBefore) / smiBefore) * 100 : 0;
 
       // Build Discord embed
       const dateStr = new Date().toLocaleDateString('en-US', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric',
       });
 
       const formatLine = (s) =>
@@ -372,7 +404,7 @@ exports.chapterReviewRecap = cf().pubsub
         fields.push({
           name: '📈 Price Increases',
           value: formatList(gainers),
-          inline: false
+          inline: false,
         });
       }
 
@@ -380,7 +412,7 @@ exports.chapterReviewRecap = cf().pubsub
         fields.push({
           name: '📉 Price Decreases',
           value: formatList(losers),
-          inline: false
+          inline: false,
         });
       }
 
@@ -388,13 +420,13 @@ exports.chapterReviewRecap = cf().pubsub
         fields.push({
           name: '➖ No Changes',
           value: 'No price adjustments were made this week.',
-          inline: false
+          inline: false,
         });
       } else if (unchangedCount > 0) {
         fields.push({
           name: '➖ Unchanged',
           value: `${unchangedCount} stock${unchangedCount !== 1 ? 's' : ''}`,
-          inline: false
+          inline: false,
         });
       }
 
@@ -402,16 +434,17 @@ exports.chapterReviewRecap = cf().pubsub
         fields.push({
           name: '🧺 ETF Movements',
           value: formatList(etfMovements.sort((a, b) => b.change - a.change)),
-          inline: false
+          inline: false,
         });
       }
 
       if (knockOnOnlyCount > 0) {
         fields.push({
           name: '🔗 Moved On Their Own',
-          value: `${knockOnOnlyCount} stock${knockOnOnlyCount !== 1 ? 's' : ''} moved without being adjusted, `
-            + 'because a stock they follow was.',
-          inline: false
+          value:
+            `${knockOnOnlyCount} stock${knockOnOnlyCount !== 1 ? 's' : ''} moved without being adjusted, ` +
+            'because a stock they follow was.',
+          inline: false,
         });
       }
 
@@ -419,15 +452,15 @@ exports.chapterReviewRecap = cf().pubsub
       fields.push({
         name: '📊 Stockism Market Index',
         value: `${Math.round(smiBefore).toLocaleString()} → ${Math.round(smiAfter).toLocaleString()} (${smiSign}${smiChange.toFixed(1)}%)`,
-        inline: false
+        inline: false,
       });
 
       const embed = {
         title: '📖 Chapter Review Recap',
         description: dateStr,
-        color: 0x9B59B6,
+        color: 0x9b59b6,
         fields,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       await sendDiscordMessage(null, [embed]);
@@ -444,7 +477,9 @@ exports.chapterReviewRecap = cf().pubsub
 
       // Cleanup snapshot
       await snapshotRef.delete();
-      console.log(`Chapter review recap sent: ${gainers.length} gainers, ${losers.length} losers, ${unchangedCount} unchanged`);
+      console.log(
+        `Chapter review recap sent: ${gainers.length} gainers, ${losers.length} losers, ${unchangedCount} unchanged`,
+      );
 
       return null;
     } catch (error) {
@@ -488,7 +523,7 @@ exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (d
   // The pre-halt snapshot is deleted once the recap posts, so it is usually
   // gone by the time this runs. Use it when it happens to still be there.
   const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
-  const fallbackPrices = snapshotSnap.exists ? (snapshotSnap.data().prices || {}) : {};
+  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data().prices || {} : {};
 
   const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
   return { success: true, tickerCount: payload.tickerCount, windowEnd: payload.windowEnd };
@@ -498,7 +533,7 @@ exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (d
  * Manual trigger for daily market summary (admin only)
  */
 exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Admin check
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
@@ -521,8 +556,8 @@ exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
 // ============================================
 
 // Weekly halt begins — Thursday 13:00 UTC
-exports.marketClosedAlert = cf().pubsub
-  .schedule('0 13 * * 4')
+exports.marketClosedAlert = cf()
+  .pubsub.schedule('0 13 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     await sendMarketStatusAlert('closed');
@@ -530,8 +565,8 @@ exports.marketClosedAlert = cf().pubsub
   });
 
 // Pre-market queue opens — Thursday 20:30 UTC
-exports.preMarketOpenAlert = cf().pubsub
-  .schedule('30 20 * * 4')
+exports.preMarketOpenAlert = cf()
+  .pubsub.schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     await sendMarketStatusAlert('premarket');
@@ -539,8 +574,8 @@ exports.preMarketOpenAlert = cf().pubsub
   });
 
 // Trading resumes — Thursday 21:00 UTC
-exports.marketOpenAlert = cf().pubsub
-  .schedule('0 21 * * 4')
+exports.marketOpenAlert = cf()
+  .pubsub.schedule('0 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     await sendMarketStatusAlert('open');
@@ -551,7 +586,7 @@ exports.marketOpenAlert = cf().pubsub
  * Admin: manually halt or resume the market. Sets the flag and announces it on Discord.
  */
 exports.setMarketHalt = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Only admin can halt the market.');
   }
@@ -563,12 +598,15 @@ exports.setMarketHalt = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'A halt reason is required.');
   }
 
-  await db.collection('market').doc('current').update({
-    marketHalted: halted,
-    haltReason: halted ? reason : '',
-    haltedAt: halted ? Date.now() : null,
-    haltedBy: halted ? context.auth.uid : null
-  });
+  await db
+    .collection('market')
+    .doc('current')
+    .update({
+      marketHalted: halted,
+      haltReason: halted ? reason : '',
+      haltedAt: halted ? Date.now() : null,
+      haltedBy: halted ? context.auth.uid : null,
+    });
 
   try {
     await sendMarketStatusAlert(halted ? 'halted' : 'resumed', reason);

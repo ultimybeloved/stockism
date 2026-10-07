@@ -15,7 +15,14 @@ import { seasonRulesFor } from '../../constants/seasons';
 //
 // Everything here is derived client-side from the raw weekly record on the
 // user's own doc. No extra reads.
-const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0, baselinePinnedAt = 0, baselineIndex }) => {
+const SeasonProgress = ({
+  season,
+  seasonWeeks,
+  baselineValue,
+  baselineLadder = 0,
+  baselinePinnedAt = 0,
+  baselineIndex,
+}) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -47,9 +54,7 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
   // empty box.
   if (!summary || !series) {
     return (
-      <p className={`text-xs ${mutedClass} mt-3`}>
-        Your week-by-week record starts at the first Thursday checkpoint.
-      </p>
+      <p className={`text-xs ${mutedClass} mt-3`}>Your week-by-week record starts at the first Thursday checkpoint.</p>
     );
   }
 
@@ -81,24 +86,48 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
       >
         {series.min < 0 && series.max > 0 && (
           <line
-            x1="0" x2={series.width} y1={series.zeroY} y2={series.zeroY}
-            stroke={darkMode ? '#3f3f46' : '#e4e4e7'} strokeWidth="1" strokeDasharray="3 3"
+            x1="0"
+            x2={series.width}
+            y1={series.zeroY}
+            y2={series.zeroY}
+            stroke={darkMode ? '#3f3f46' : '#e4e4e7'}
+            strokeWidth="1"
+            strokeDasharray="3 3"
           />
         )}
         <polyline
-          points={series.market} fill="none" stroke={marketColor}
-          strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round"
+          points={series.market}
+          fill="none"
+          stroke={marketColor}
+          strokeWidth="1.5"
+          strokeDasharray="4 3"
+          strokeLinejoin="round"
         />
         <polyline
-          points={series.you} fill="none" stroke={youColor}
-          strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+          points={series.you}
+          fill="none"
+          stroke={youColor}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
         />
       </svg>
 
       <p className={`text-sm ${textClass} mt-1`}>
-        {ahead
-          ? <>You're <span className="font-semibold" style={{ color: youColor }}>{fmt(summary.excess).replace('+', '')}</span> ahead of the market this season.</>
-          : <>You're <span className="font-semibold text-red-400">{Math.abs(summary.excess).toFixed(1)}%</span> behind the market this season.</>}
+        {ahead ? (
+          <>
+            You're{' '}
+            <span className="font-semibold" style={{ color: youColor }}>
+              {fmt(summary.excess).replace('+', '')}
+            </span>{' '}
+            ahead of the market this season.
+          </>
+        ) : (
+          <>
+            You're <span className="font-semibold text-red-400">{Math.abs(summary.excess).toFixed(1)}%</span> behind the
+            market this season.
+          </>
+        )}
       </p>
 
       {/* One mark per week. This is the consistency record itself. */}
@@ -108,7 +137,9 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
             Weeks you beat the market{' '}
             <span className={`font-normal ${mutedClass}`}>(Diamond needs {pct(rules.diamondBeatShare)})</span>
           </p>
-          <p className={`text-xs ${mutedClass}`}>{summary.beatCount} of {seasonCheckpoints}</p>
+          <p className={`text-xs ${mutedClass}`}>
+            {summary.beatCount} of {seasonCheckpoints}
+          </p>
         </div>
         <div className="flex flex-wrap gap-1 mt-1.5">
           {weeks.map((w) => (
@@ -118,7 +149,7 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
               className="w-4 h-4 rounded-sm border"
               style={{
                 backgroundColor: w.beat ? youColor : 'transparent',
-                borderColor: w.beat ? youColor : (darkMode ? '#52525b' : '#d4d4d8'),
+                borderColor: w.beat ? youColor : darkMode ? '#52525b' : '#d4d4d8',
               }}
             />
           ))}
@@ -128,13 +159,18 @@ const SeasonProgress = ({ season, seasonWeeks, baselineValue, baselineLadder = 0
       {/* Concentration. Diamond is out for the season the first time a checkpoint
           finds more than the limit in one character. */}
       <p className={`text-xs ${mutedClass} mt-3`}>
-        {overLimit
-          ? <>One character reached {pct(summary.peakConcentration)} of your invested money at a checkpoint,
-            over the {pct(rules.diamondMaxConcentration)} Diamond limit. Diamond is out this season, but Platinum is
-            still open.</>
-          : <>Your most on one character has peaked at {pct(summary.peakConcentration)} of your invested money.
-            Diamond needs it at or under {pct(rules.diamondMaxConcentration)} at every Thursday checkpoint. Shorts
-            count, and crew funds count toward their members.</>}
+        {overLimit ? (
+          <>
+            One character reached {pct(summary.peakConcentration)} of your invested money at a checkpoint, over the{' '}
+            {pct(rules.diamondMaxConcentration)} Diamond limit. Diamond is out this season, but Platinum is still open.
+          </>
+        ) : (
+          <>
+            Your most on one character has peaked at {pct(summary.peakConcentration)} of your invested money. Diamond
+            needs it at or under {pct(rules.diamondMaxConcentration)} at every Thursday checkpoint. Shorts count, and
+            crew funds count toward their members.
+          </>
+        )}
       </p>
     </div>
   );

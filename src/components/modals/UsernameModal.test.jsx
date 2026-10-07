@@ -22,7 +22,11 @@ import UsernameModal from './UsernameModal';
 
 const DEBOUNCE = 600;
 const type = (value) => fireEvent.change(screen.getByPlaceholderText('Enter a username...'), { target: { value } });
-const advance = async (ms) => { await act(async () => { vi.advanceTimersByTime(ms); }); };
+const advance = async (ms) => {
+  await act(async () => {
+    vi.advanceTimersByTime(ms);
+  });
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -32,7 +36,10 @@ beforeEach(() => {
   h.createUser.mockResolvedValue({ data: { success: true } });
 });
 
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('UsernameModal availability check', () => {
   it('does not call the server until typing settles', async () => {
@@ -80,7 +87,12 @@ describe('UsernameModal availability check', () => {
     // First name resolves only after the second one has been typed. Without the
     // stale guard its "taken" would land on top of the newer name's result.
     let resolveFirst;
-    h.checkUsername.mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }));
+    h.checkUsername.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolveFirst = r;
+        }),
+    );
     render(<UsernameModal onComplete={() => {}} darkMode={false} />);
 
     type('firstname');
@@ -89,7 +101,9 @@ describe('UsernameModal availability check', () => {
     type('secondname');
     await advance(DEBOUNCE);
 
-    await act(async () => { resolveFirst({ data: { available: false } }); });
+    await act(async () => {
+      resolveFirst({ data: { available: false } });
+    });
 
     expect(screen.getByText(/that name is free/i)).toBeInTheDocument();
     expect(screen.queryByText(/that name is taken/i)).not.toBeInTheDocument();

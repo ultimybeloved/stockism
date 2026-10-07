@@ -8,15 +8,17 @@ import { formatCurrency } from '../utils/formatters';
 const ShortRiskAlert = ({ onOpenPortfolio }) => {
   const { shorts, prices } = useAppContext();
 
-  const atRisk = useMemo(() => (
-    Object.entries(shorts || {})
-      .map(([ticker, pos]) => {
-        const risk = getShortRisk(pos, prices[ticker] || 0);
-        return risk?.isAtRisk && risk.liquidationPrice ? { ticker, ...risk } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.equityRatio - b.equityRatio)
-  ), [shorts, prices]);
+  const atRisk = useMemo(
+    () =>
+      Object.entries(shorts || {})
+        .map(([ticker, pos]) => {
+          const risk = getShortRisk(pos, prices[ticker] || 0);
+          return risk?.isAtRisk && risk.liquidationPrice ? { ticker, ...risk } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.equityRatio - b.equityRatio),
+    [shorts, prices],
+  );
 
   if (atRisk.length === 0) return null;
 

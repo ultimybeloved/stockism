@@ -33,16 +33,33 @@ export default function ImportMessageForm({ darkMode, textClass, mutedClass, inp
   }
 
   return (
-    <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+    <div
+      className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}
+    >
       <h4 className={`text-sm font-semibold mb-1 ${textClass}`}>Import an existing bot message</h4>
       <p className={`text-xs mb-3 ${mutedClass}`}>
-        In Discord: turn on Developer Mode, right-click the message, Copy Message Link, and paste the
-        last two numbers from it below. It must be a message the bot posted.
+        In Discord: turn on Developer Mode, right-click the message, Copy Message Link, and paste the last two numbers
+        from it below. It must be a message the bot posted.
       </p>
       <div className="grid sm:grid-cols-3 gap-2 mb-2">
-        <input value={channelId} onChange={(e) => setChannelId(e.target.value.trim())} placeholder="Channel ID" className={field} />
-        <input value={messageId} onChange={(e) => setMessageId(e.target.value.trim())} placeholder="Message ID" className={field} />
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Name it, e.g. Server rules" className={field} />
+        <input
+          value={channelId}
+          onChange={(e) => setChannelId(e.target.value.trim())}
+          placeholder="Channel ID"
+          className={field}
+        />
+        <input
+          value={messageId}
+          onChange={(e) => setMessageId(e.target.value.trim())}
+          placeholder="Message ID"
+          className={field}
+        />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Name it, e.g. Server rules"
+          className={field}
+        />
       </div>
       <div className="flex gap-2">
         <button
@@ -52,7 +69,10 @@ export default function ImportMessageForm({ darkMode, textClass, mutedClass, inp
         >
           {busy ? 'Importing…' : 'Import'}
         </button>
-        <button onClick={() => setOpen(false)} className={`px-3 py-1.5 text-xs rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} ${mutedClass}`}>
+        <button
+          onClick={() => setOpen(false)}
+          className={`px-3 py-1.5 text-xs rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} ${mutedClass}`}
+        >
           Cancel
         </button>
       </div>

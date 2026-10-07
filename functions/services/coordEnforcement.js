@@ -23,11 +23,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const {
-  COORD_ALL_IN_SHARE,
-  COORD_ALL_IN_BORROWED,
-  WASH_RULE_COOLDOWN_MS,
-} = require('../constants');
+const { COORD_ALL_IN_SHARE, COORD_ALL_IN_BORROWED, WASH_RULE_COOLDOWN_MS } = require('../constants');
 
 const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts : ts.toMillis ? ts.toMillis() : 0);
 

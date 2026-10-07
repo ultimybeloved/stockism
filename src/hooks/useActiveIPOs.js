@@ -23,7 +23,7 @@ export function useActiveIPOs() {
   useEffect(() => {
     const unsubscribe = onSnapshot(
       doc(db, 'market', 'ipos'),
-      (snap) => setAllIPOs(snap.exists() ? (snap.data().list || []) : []),
+      (snap) => setAllIPOs(snap.exists() ? snap.data().list || [] : []),
       (err) => console.warn('market/ipos subscription:', err?.message),
     );
     return () => unsubscribe();
@@ -36,10 +36,16 @@ export function useActiveIPOs() {
     return () => clearInterval(id);
   }, []);
 
-  return useMemo(() => allIPOs.filter((ipo) => {
-    const inHypePhase = clock < ipo.ipoStartsAt;
-    const inBuyingPhase = clock >= ipo.ipoStartsAt && clock < ipo.ipoEndsAt
-      && (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
-    return inHypePhase || inBuyingPhase;
-  }), [allIPOs, clock]);
+  return useMemo(
+    () =>
+      allIPOs.filter((ipo) => {
+        const inHypePhase = clock < ipo.ipoStartsAt;
+        const inBuyingPhase =
+          clock >= ipo.ipoStartsAt &&
+          clock < ipo.ipoEndsAt &&
+          (ipo.sharesRemaining ?? (ipo.totalShares || IPO_TOTAL_SHARES)) > 0;
+        return inHypePhase || inBuyingPhase;
+      }),
+    [allIPOs, clock],
+  );
 }

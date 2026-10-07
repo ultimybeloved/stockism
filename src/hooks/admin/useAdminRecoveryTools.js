@@ -22,16 +22,16 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
       const usersSnapshot = await getDocs(usersRef);
       const marketRef = doc(db, 'market', 'current');
       const histSnap = await getDoc(priceHistoryDocRef());
-      const priceHistory = histSnap.exists() ? (histSnap.data() || {}) : {};
+      const priceHistory = histSnap.exists() ? histSnap.data() || {} : {};
 
       let tradesReversed = 0;
       let usersAffected = 0;
       const priceRollbacks = {};
-      
+
       // First, find prices at the rollback timestamp
       for (const [ticker, history] of Object.entries(priceHistory)) {
         if (!history || history.length === 0) continue;
-        
+
         // Find the price at or before the rollback timestamp
         let priceAtRollback = history[0]?.price || 100; // Default to first price or 100
         for (let i = history.length - 1; i >= 0; i--) {
@@ -42,32 +42,31 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
         }
         priceRollbacks[ticker] = priceAtRollback;
       }
-      
+
       // Process each user
       for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
         const userId = userDoc.id;
         const transactionLog = userData.transactionLog || [];
-        
+
         // Find trades after rollback timestamp
-        const tradesToReverse = transactionLog.filter(tx => 
-          tx.timestamp > rollbackTimestamp && 
-          ['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'].includes(tx.type)
+        const tradesToReverse = transactionLog.filter(
+          (tx) => tx.timestamp > rollbackTimestamp && ['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'].includes(tx.type),
         );
-        
+
         if (tradesToReverse.length === 0) continue;
-        
+
         usersAffected++;
         tradesReversed += tradesToReverse.length;
-        
+
         // Calculate reversals
         let cashAdjustment = 0;
         const holdingsAdjustments = {};
         const shortsAdjustments = {};
-        
+
         for (const tx of tradesToReverse) {
           const ticker = tx.ticker;
-          
+
           switch (tx.type) {
             case 'BUY':
               // Reverse buy: remove shares, refund cash
@@ -91,22 +90,22 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
               break;
           }
         }
-        
+
         // Build update object
         const userRef = doc(db, 'users', userId);
         const updateData = {
           cash: (userData.cash || 0) + cashAdjustment,
           // Remove trades after rollback from log
-          transactionLog: transactionLog.filter(tx => tx.timestamp <= rollbackTimestamp)
+          transactionLog: transactionLog.filter((tx) => tx.timestamp <= rollbackTimestamp),
         };
-        
+
         // Apply holdings adjustments
         for (const [ticker, adjustment] of Object.entries(holdingsAdjustments)) {
           const currentHolding = userData.holdings?.[ticker] || 0;
           const newHolding = Math.max(0, currentHolding + adjustment);
           updateData[`holdings.${ticker}`] = newHolding;
         }
-        
+
         // Apply shorts adjustments (simplified - may need more complex logic)
         for (const [ticker, adjustment] of Object.entries(shortsAdjustments)) {
           const currentShort = userData.shorts?.[ticker]?.shares || 0;
@@ -115,10 +114,10 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
             updateData[`shorts.${ticker}`] = { shares: 0, margin: 0, entryPrice: 0 };
           }
         }
-        
+
         await updateDoc(userRef, updateData);
       }
-      
+
       // Now rollback all prices AND clean price history
       const priceUpdates = {};
       for (const [ticker, price] of Object.entries(priceRollbacks)) {
@@ -130,7 +129,7 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
       for (const [ticker, history] of Object.entries(priceHistory)) {
         if (!history || history.length === 0) continue;
         // Keep only entries at or before the rollback timestamp
-        const cleanedHistory = history.filter(h => h.timestamp <= rollbackTimestamp);
+        const cleanedHistory = history.filter((h) => h.timestamp <= rollbackTimestamp);
         if (cleanedHistory.length !== history.length) {
           historyUpdates[ticker] = cleanedHistory;
         }
@@ -144,8 +143,10 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
       }
 
       const historyTrimmed = Object.keys(historyUpdates).length;
-      showMessage('success', `Rollback complete! Reversed ${tradesReversed} trades for ${usersAffected} users. Prices restored. ${historyTrimmed > 0 ? `Cleaned history for ${historyTrimmed} tickers.` : ''}`);
-      
+      showMessage(
+        'success',
+        `Rollback complete! Reversed ${tradesReversed} trades for ${usersAffected} users. Prices restored. ${historyTrimmed > 0 ? `Cleaned history for ${historyTrimmed} tickers.` : ''}`,
+      );
     } catch (err) {
       console.error('Full rollback failed:', err);
       showMessage('error', 'Rollback failed: ' + err.message);
@@ -158,10 +159,10 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
     try {
       const histSnap = await getDoc(priceHistoryDocRef());
       const history = (histSnap.data() || {})[ticker] || [];
-      return history.slice(-1000).map(h => ({
+      return history.slice(-1000).map((h) => ({
         timestamp: h.timestamp,
         price: h.price,
-        date: new Date(h.timestamp).toLocaleString()
+        date: new Date(h.timestamp).toLocaleString(),
       }));
     } catch (err) {
       console.error('Failed to get price history:', err);
@@ -170,9 +171,19 @@ export function useAdminRecoveryTools({ showMessage, setLoading }) {
   };
 
   return {
-    rollbackTimestamp, setRollbackTimestamp, rollbackConfirm, setRollbackConfirm,
-    executeFullRollback, selectedTickerHistory, setSelectedTickerHistory, getPriceHistoryForTicker,
-    renameOldTicker, setRenameOldTicker, renameNewTicker, setRenameNewTicker,
-    renameResult, setRenameResult,
+    rollbackTimestamp,
+    setRollbackTimestamp,
+    rollbackConfirm,
+    setRollbackConfirm,
+    executeFullRollback,
+    selectedTickerHistory,
+    setSelectedTickerHistory,
+    getPriceHistoryForTicker,
+    renameOldTicker,
+    setRenameOldTicker,
+    renameNewTicker,
+    setRenameNewTicker,
+    renameResult,
+    setRenameResult,
   };
 }

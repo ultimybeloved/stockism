@@ -51,11 +51,17 @@ const EmailVerificationModal = ({ user, darkMode, userData }) => {
         </div>
 
         {message && (
-          <div className={`mb-4 p-3 rounded-sm text-sm ${
-            message.includes('sent')
-              ? darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800'
-              : darkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-800'
-          }`}>
+          <div
+            className={`mb-4 p-3 rounded-sm text-sm ${
+              message.includes('sent')
+                ? darkMode
+                  ? 'bg-green-900/30 text-green-400'
+                  : 'bg-green-100 text-green-800'
+                : darkMode
+                  ? 'bg-red-900/30 text-red-400'
+                  : 'bg-red-100 text-red-800'
+            }`}
+          >
             {message}
           </div>
         )}

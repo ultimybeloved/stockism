@@ -40,9 +40,12 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', {
-  minimumFractionDigits: 2, maximumFractionDigits: 2,
-});
+const money = (n) =>
+  '$' +
+  (Number(n) || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 const pct = (n) => ((Number(n) || 0) * 100).toFixed(2) + '%';
 const rule = (label) => console.log('\n' + '='.repeat(72) + (label ? '\n' + label : ''));
 
@@ -94,7 +97,10 @@ async function main() {
     db.collection('market').doc('current').get(),
   ]);
 
-  for (const [uid, snap] of [[uidA, snapA], [uidB, snapB]]) {
+  for (const [uid, snap] of [
+    [uidA, snapA],
+    [uidB, snapB],
+  ]) {
     if (!snap.exists) {
       console.error(`User ${uid} not found.`);
       process.exit(1);
@@ -141,7 +147,9 @@ async function main() {
     for (const [ticker, shares] of positions.slice(0, 12)) {
       const value = (prices[ticker] || 0) * shares;
       const share = held > 0 ? value / held : 0;
-      console.log(`    ${ticker.padEnd(8)} ${shares.toFixed(4).padStart(12)} sh  ${money(value).padStart(14)}  ${pct(share).padStart(8)} of book`);
+      console.log(
+        `    ${ticker.padEnd(8)} ${shares.toFixed(4).padStart(12)} sh  ${money(value).padStart(14)}  ${pct(share).padStart(8)} of book`,
+      );
     }
     if (positions.length > 12) console.log(`    ... and ${positions.length - 12} more`);
   }
@@ -164,11 +172,14 @@ async function main() {
   // profits from the trader's impact.
   rule('PUMP ANALYSIS');
   console.log('For every ticker one account holds, how much of the live price was');
-  console.log('created by the OTHER account\'s own trading.\n');
+  console.log("created by the OTHER account's own trading.\n");
 
   const findings = [];
 
-  for (const [holder, trader] of [[A, B], [B, A]]) {
+  for (const [holder, trader] of [
+    [A, B],
+    [B, A],
+  ]) {
     const holdings = holder.holdings || {};
     const byTicker = {};
     for (const t of trader.trades) {
@@ -195,12 +206,21 @@ async function main() {
       const spent = buys.reduce((s, t) => s + (Number(t.totalValue) || 0), 0);
 
       findings.push({
-        holder: holder.displayName, holderUid: holder.uid,
+        holder: holder.displayName,
+        holderUid: holder.uid,
         trader: trader.displayName,
-        ticker, shares, livePrice, counterfactual, multiplier,
-        inflatedPerShare, inflatedDollars,
-        tradeCount: traderTrades.length, buys: buys.length, sells: sells.length,
-        sharesBought, spent,
+        ticker,
+        shares,
+        livePrice,
+        counterfactual,
+        multiplier,
+        inflatedPerShare,
+        inflatedDollars,
+        tradeCount: traderTrades.length,
+        buys: buys.length,
+        sells: sells.length,
+        sharesBought,
+        spent,
         firstTrade: day(traderTrades[0]._ts),
         lastTrade: day(traderTrades[traderTrades.length - 1]._ts),
       });
@@ -215,8 +235,12 @@ async function main() {
   }
 
   for (const f of findings) {
-    console.log(`  ${f.ticker}  —  ${f.holder} holds ${f.shares.toFixed(4)} sh, ${f.trader} traded it ${f.tradeCount}x`);
-    console.log(`     ${f.trader}: ${f.buys} buys / ${f.sells} sells, ${f.sharesBought.toFixed(4)} sh bought for ${money(f.spent)}`);
+    console.log(
+      `  ${f.ticker}  —  ${f.holder} holds ${f.shares.toFixed(4)} sh, ${f.trader} traded it ${f.tradeCount}x`,
+    );
+    console.log(
+      `     ${f.trader}: ${f.buys} buys / ${f.sells} sells, ${f.sharesBought.toFixed(4)} sh bought for ${money(f.spent)}`,
+    );
     console.log(`     active ${f.firstTrade} -> ${f.lastTrade}`);
     console.log(`     price now              ${money(f.livePrice)}`);
     console.log(`     price without ${(f.trader + ':').padEnd(12)} ${money(f.counterfactual)}`);
@@ -248,7 +272,9 @@ async function main() {
       console.log(`\n  ${ticker}: ${others.length} other real players, ${totalShares.toFixed(2)} shares between them`);
       console.log(`  their combined exposure to the inflated part: ${money(totalShares * f.inflatedPerShare)}`);
       for (const o of others.slice(0, 10)) {
-        console.log(`    ${o.name.padEnd(20)} ${o.shares.toFixed(4).padStart(12)} sh   inflated by ${money(o.shares * f.inflatedPerShare)}`);
+        console.log(
+          `    ${o.name.padEnd(20)} ${o.shares.toFixed(4).padStart(12)} sh   inflated by ${money(o.shares * f.inflatedPerShare)}`,
+        );
       }
       if (others.length > 10) console.log(`    ... and ${others.length - 10} more`);
     }
@@ -286,4 +312,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch((err) => { console.error(err); process.exit(1); });
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

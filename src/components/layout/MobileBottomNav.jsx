@@ -7,15 +7,7 @@ import { useNewPredictions } from '../../hooks/useNewPredictions';
 const LadderIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" className="inline-block">
     <circle cx="12" cy="12" r="11" fill="#b4ac99" />
-    <text
-      x="12"
-      y="12"
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontSize="16"
-      fontWeight="bold"
-      fill="#333"
-    >
+    <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="bold" fill="#333">
       X
     </text>
   </svg>
@@ -62,38 +54,28 @@ const MobileBottomNav = () => {
     {
       path: '/',
       icon: <img src="/pins/alpha/stockism_logo.png" alt="Home" className="w-6 h-6" />,
-      label: 'Home'
+      label: 'Home',
     },
     { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
     { path: '/predictions', icon: '🔮', label: 'Predict', badge: newPredictions },
     { path: '/ladder', icon: <LadderIcon />, label: 'Ladder' },
     { path: '/achievements', icon: '🏅', label: 'Achievements' },
-    ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : [])
+    ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : []),
   ];
 
   return (
     <nav
       className={`md:hidden fixed bottom-0 left-0 right-0 z-40 border-t shadow-lg transition-transform duration-300 ${
         isVisible ? 'translate-y-0' : 'translate-y-full'
-      } ${
-        darkMode
-          ? 'bg-zinc-900 border-zinc-800'
-          : 'bg-white border-amber-200'
-      }`}
+      } ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'}`}
     >
       <div className="flex items-center justify-around h-16">
-        {navItems.map(item => (
+        {navItems.map((item) => (
           <button
             key={item.path}
-            onClick={() => navigate(
-              item.path === '/' ? '/' : (isActivePage(item.path) ? '/' : item.path)
-            )}
+            onClick={() => navigate(item.path === '/' ? '/' : isActivePage(item.path) ? '/' : item.path)}
             className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActivePage(item.path)
-                ? 'text-orange-500'
-                : darkMode
-                  ? 'text-zinc-400'
-                  : 'text-zinc-600'
+              isActivePage(item.path) ? 'text-orange-500' : darkMode ? 'text-zinc-400' : 'text-zinc-600'
             }`}
           >
             <span className="text-2xl mb-1">{item.icon}</span>

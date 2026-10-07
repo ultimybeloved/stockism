@@ -3,8 +3,13 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import {
-  CREW_MAP, getWeekId, CREW_MISSION_REWARDS, CREW_CONTRIB,
-  getCrewBuyTarget, getCrewSellTarget, getCrewVolumeTarget,
+  CREW_MAP,
+  getWeekId,
+  CREW_MISSION_REWARDS,
+  CREW_CONTRIB,
+  getCrewBuyTarget,
+  getCrewSellTarget,
+  getCrewVolumeTarget,
   getCrewMultiplier,
 } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
@@ -13,8 +18,7 @@ import { useAppContext } from '../../context/AppContext';
 
 // Contribution fields stored booleans before June 2026; treat those as
 // qualifying until the Monday reset clears them (matches the backend).
-const meetsContribution = (value, threshold) =>
-  value === true || (typeof value === 'number' && value >= threshold);
+const meetsContribution = (value, threshold) => value === true || (typeof value === 'number' && value >= threshold);
 
 const CREW_MISSIONS = [
   {
@@ -43,8 +47,8 @@ const CREW_MISSIONS = [
     color: 'blue',
     getProgress: (d, memberCount) => ({ value: d.tradeVolume || 0, target: getCrewVolumeTarget(memberCount) }),
     contributed: (d, uid) => meetsContribution(d.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
-    formatProgress: (v) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`,
-    formatTarget: (t) => t >= 1000 ? `$${(t / 1000).toFixed(t % 1000 === 0 ? 0 : 1)}k` : `$${t}`,
+    formatProgress: (v) => (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`),
+    formatTarget: (t) => (t >= 1000 ? `$${(t / 1000).toFixed(t % 1000 === 0 ? 0 : 1)}k` : `$${t}`),
   },
 ];
 
@@ -112,9 +116,7 @@ export default function CrewMissionsTab() {
         )}
       </div>
 
-      {claimError && (
-        <p className="text-xs text-red-500 text-center px-2">{claimError}</p>
-      )}
+      {claimError && <p className="text-xs text-red-500 text-center px-2">{claimError}</p>}
 
       {CREW_MISSIONS.map((mission) => {
         const memberCount = (crewInfo?.members || []).length;
@@ -132,11 +134,7 @@ export default function CrewMissionsTab() {
           <div
             key={mission.id}
             className={`p-3 rounded-sm border ${
-              isClaimed
-                ? 'border-blue-500/30 bg-blue-500/5'
-                : canClaim
-                  ? 'border-blue-500 bg-blue-500/10'
-                  : borderClass
+              isClaimed ? 'border-blue-500/30 bg-blue-500/5' : canClaim ? 'border-blue-500 bg-blue-500/10' : borderClass
             }`}
           >
             <div className="flex justify-between items-start mb-2">
@@ -174,9 +172,7 @@ export default function CrewMissionsTab() {
                 {claiming === mission.id ? 'Claiming...' : 'Claim Reward'}
               </button>
             )}
-            {isClaimed && (
-              <p className="text-xs text-blue-500 mt-2 text-center">Claimed</p>
-            )}
+            {isClaimed && <p className="text-xs text-blue-500 mt-2 text-center">Claimed</p>}
           </div>
         );
       })}

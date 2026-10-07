@@ -114,10 +114,7 @@ function writeMap(resolved) {
   const body = Object.keys(CREWS)
     .map((id) => `  ${id}: '${resolved[id] || ''}',`)
     .join(eol);
-  const next = src.replace(
-    /const CREW_EMOJIS = \{[\s\S]*?\r?\n\};/,
-    `const CREW_EMOJIS = {${eol}${body}${eol}};`,
-  );
+  const next = src.replace(/const CREW_EMOJIS = \{[\s\S]*?\r?\n\};/, `const CREW_EMOJIS = {${eol}${body}${eol}};`);
   if (next === src) {
     console.log('CREW_EMOJIS already matches Discord — nothing to write.');
     return;
@@ -207,9 +204,11 @@ async function main() {
     writeMap(resolved);
   } else {
     const changed = Object.keys(resolved).some((id) => resolved[id] !== (current[id] || ''));
-    console.log(changed
-      ? 'Re-run with --write to put these IDs into functions/constants.js.'
-      : 'functions/constants.js is already up to date.');
+    console.log(
+      changed
+        ? 'Re-run with --write to put these IDs into functions/constants.js.'
+        : 'functions/constants.js is already up to date.',
+    );
   }
 }
 

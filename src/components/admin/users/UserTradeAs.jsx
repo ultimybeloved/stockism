@@ -3,7 +3,8 @@ import { formatCurrency } from '../../../utils/formatters';
 
 // Admin → Users → one player: place a real trade on their account.
 const UserTradeAs = ({ mutedClass, inputClass, selectedUser }) => {
-  const { ticker, setTicker, action, setAction, amount, setAmount, busy, result, error, place } = useTradeAsPlayer(selectedUser);
+  const { ticker, setTicker, action, setAction, amount, setAmount, busy, result, error, place } =
+    useTradeAsPlayer(selectedUser);
 
   return (
     <div className="mb-4">
@@ -15,8 +16,21 @@ const UserTradeAs = ({ mutedClass, inputClass, selectedUser }) => {
           <option value="cover">Cover</option>
           <option value="short">Short</option>
         </select>
-        <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Shares" className={`w-24 ${inputClass}`} />
-        <input type="text" value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker" className={`w-24 ${inputClass}`} />
+        <input
+          type="number"
+          min="0"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Shares"
+          className={`w-24 ${inputClass}`}
+        />
+        <input
+          type="text"
+          value={ticker}
+          onChange={(e) => setTicker(e.target.value)}
+          placeholder="Ticker"
+          className={`w-24 ${inputClass}`}
+        />
         <button
           onClick={place}
           disabled={busy || !ticker.trim() || !(Number(amount) > 0)}
@@ -30,7 +44,8 @@ const UserTradeAs = ({ mutedClass, inputClass, selectedUser }) => {
       </p>
       {result && (
         <p className="text-xs text-green-500 mt-1">
-          {result.action} {result.amount} ${result.ticker} at {formatCurrency(result.price)} ({formatCurrency(result.total)}).
+          {result.action} {result.amount} ${result.ticker} at {formatCurrency(result.price)} (
+          {formatCurrency(result.total)}).
         </p>
       )}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}

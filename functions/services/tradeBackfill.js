@@ -44,9 +44,7 @@ function buildRecord(orderId, order, { action, source }) {
 // an earlier backfill run. Without this, pressing the button after a fill has
 // been recorded live would write a second copy of the same trade.
 async function alreadyRecordedOrderIds() {
-  const snap = await db.collection('trades')
-    .where('source', 'in', ['limit', 'stop_loss', 'premarket'])
-    .get();
+  const snap = await db.collection('trades').where('source', 'in', ['limit', 'stop_loss', 'premarket']).get();
 
   const ids = new Set();
   snap.forEach((doc) => {
@@ -65,10 +63,16 @@ async function backfillCollection(name, toRecord, recorded) {
   let pending = 0;
 
   for (const doc of snap.docs) {
-    if (recorded.has(doc.id)) { skipped++; continue; }
+    if (recorded.has(doc.id)) {
+      skipped++;
+      continue;
+    }
 
     const record = toRecord(doc.id, doc.data());
-    if (!record) { skipped++; continue; }
+    if (!record) {
+      skipped++;
+      continue;
+    }
 
     batch.set(db.collection('trades').doc(fillRecordId(doc.id)), record);
     written++;
@@ -89,15 +93,25 @@ async function backfillCollection(name, toRecord, recorded) {
 async function runFillBackfill() {
   const recorded = await alreadyRecordedOrderIds();
 
-  const limitOrders = await backfillCollection('limitOrders', (id, order) => buildRecord(id, order, {
-    action: order.type === 'BUY' ? 'buy' : 'sell',
-    source: order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit',
-  }), recorded);
+  const limitOrders = await backfillCollection(
+    'limitOrders',
+    (id, order) =>
+      buildRecord(id, order, {
+        action: order.type === 'BUY' ? 'buy' : 'sell',
+        source: order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit',
+      }),
+    recorded,
+  );
 
-  const preMarketOrders = await backfillCollection('preMarketOrders', (id, order) => buildRecord(id, order, {
-    action: order.action === 'buy' ? 'buy' : 'sell',
-    source: 'premarket',
-  }), recorded);
+  const preMarketOrders = await backfillCollection(
+    'preMarketOrders',
+    (id, order) =>
+      buildRecord(id, order, {
+        action: order.action === 'buy' ? 'buy' : 'sell',
+        source: 'premarket',
+      }),
+    recorded,
+  );
 
   console.log('[BACKFILL] limitOrders', limitOrders, 'preMarketOrders', preMarketOrders);
   return { success: true, limitOrders, preMarketOrders };

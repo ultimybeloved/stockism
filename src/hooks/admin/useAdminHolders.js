@@ -11,9 +11,8 @@ export function useAdminHolders({ showMessage, prices }) {
   // Holders state
   const [holdersTicker, setHoldersTicker] = useState('');
   const [holdersData, setHoldersData] = useState([]); // Array of { userId, displayName, shares, value }
-  const [shortsData, setShortsData] = useState([]);   // Array of { userId, displayName, shares, entryPrice, ... }
+  const [shortsData, setShortsData] = useState([]); // Array of { userId, displayName, shares, entryPrice, ... }
   const [holdersLoading, setHoldersLoading] = useState(false);
-
 
   // Load holders for a specific character
   const loadHolders = async (ticker) => {
@@ -30,9 +29,9 @@ export function useAdminHolders({ showMessage, prices }) {
 
       const holders = [];
       const shorts = [];
-      const currentPrice = prices[ticker] || CHARACTERS.find(c => c.ticker === ticker)?.basePrice || 0;
+      const currentPrice = prices[ticker] || CHARACTERS.find((c) => c.ticker === ticker)?.basePrice || 0;
 
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         const userData = doc.data();
         const shares = userData.holdings?.[ticker] || 0;
 
@@ -42,7 +41,7 @@ export function useAdminHolders({ showMessage, prices }) {
             displayName: userData.displayName || 'Unknown',
             shares,
             value: shares * currentPrice,
-            costBasis: userData.costBasis?.[ticker] || null
+            costBasis: userData.costBasis?.[ticker] || null,
           });
         }
 
@@ -82,8 +81,13 @@ export function useAdminHolders({ showMessage, prices }) {
   };
 
   return {
-    holdersTicker, setHoldersTicker, holdersData, setHoldersData,
-    shortsData, setShortsData,
-    holdersLoading, loadHolders,
+    holdersTicker,
+    setHoldersTicker,
+    holdersData,
+    setHoldersData,
+    shortsData,
+    setShortsData,
+    holdersLoading,
+    loadHolders,
   };
 }

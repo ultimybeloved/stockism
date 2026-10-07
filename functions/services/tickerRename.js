@@ -30,12 +30,7 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const { CREWS } = require('../crews');
-const {
-  RENAME_TIME_BUDGET_MS,
-  RENAME_PAGE_SIZE,
-  RENAME_JOURNAL_DOC,
-  TICKER_PATTERN,
-} = require('../constants');
+const { RENAME_TIME_BUDGET_MS, RENAME_PAGE_SIZE, RENAME_JOURNAL_DOC, TICKER_PATTERN } = require('../constants');
 const { priceHistoryRef } = require('../helpers');
 
 const DELETE = () => admin.firestore.FieldValue.delete();
@@ -46,9 +41,15 @@ const journalRef = () => db.collection('market').doc(RENAME_JOURNAL_DOC);
 // What a rename means for each document: pure helpers, in tickerRemap.js so
 // they test without an emulator.
 const {
-  mapMoveUpdates, remapArrayOfStrings, remapObjectArray, remapMessage,
-  collapseAliasChain, buildUserUpdates, buildMarketUpdates,
-  USER_TICKER_MAPS, MARKET_TICKER_MAPS,
+  mapMoveUpdates,
+  remapArrayOfStrings,
+  remapObjectArray,
+  remapMessage,
+  collapseAliasChain,
+  buildUserUpdates,
+  buildMarketUpdates,
+  USER_TICKER_MAPS,
+  MARKET_TICKER_MAPS,
 } = require('./tickerRemap');
 
 // ============================================
@@ -70,62 +71,103 @@ const runPreflight = async ({ old, nw, marketData }) => {
   const prices = marketData.prices || {};
   const aliases = marketData.tickerAliases || {};
 
-  add('format', 'Both tickers are well formed',
+  add(
+    'format',
+    'Both tickers are well formed',
     TICKER_PATTERN.test(old) && TICKER_PATTERN.test(nw),
-    'Letters and digits only, 2 to 6 characters. A dot would be a field-path injection.');
+    'Letters and digits only, 2 to 6 characters. A dot would be a field-path injection.',
+  );
 
-  add('newInRoster', 'New ticker is in the deployed roster',
+  add(
+    'newInRoster',
+    'New ticker is in the deployed roster',
     !!CHARACTER_MAP[nw],
-    CHARACTER_MAP[nw] ? `${nw} is "${CHARACTER_MAP[nw].name}"`
-      : `${nw} is not in the deployed characters.js. Edit the source, run sync:chars, and deploy functions BEFORE renaming.`);
+    CHARACTER_MAP[nw]
+      ? `${nw} is "${CHARACTER_MAP[nw].name}"`
+      : `${nw} is not in the deployed characters.js. Edit the source, run sync:chars, and deploy functions BEFORE renaming.`,
+  );
 
-  add('oldNotInRoster', 'Old ticker is gone from the deployed roster',
+  add(
+    'oldNotInRoster',
+    'Old ticker is gone from the deployed roster',
     !CHARACTER_MAP[old],
-    CHARACTER_MAP[old] ? `${old} is still in the deployed characters.js, so the deploy has not shipped yet.`
-      : 'Confirms sync:chars and the functions deploy already ran.');
+    CHARACTER_MAP[old]
+      ? `${old} is still in the deployed characters.js, so the deploy has not shipped yet.`
+      : 'Confirms sync:chars and the functions deploy already ran.',
+  );
 
-  const etfRefs = CHARACTERS.filter((c) => c.isETF && (
-    (c.constituents || []).includes(old)
-    || (c.trailingFactors || []).some((t) => t.ticker === old)
-  )).map((c) => c.ticker);
-  add('etfRefs', 'No fund still references the old ticker', etfRefs.length === 0,
-    etfRefs.length ? `Still referenced by: ${etfRefs.join(', ')}` : 'Constituents and trailing factors are clean.');
+  const etfRefs = CHARACTERS.filter(
+    (c) => c.isETF && ((c.constituents || []).includes(old) || (c.trailingFactors || []).some((t) => t.ticker === old)),
+  ).map((c) => c.ticker);
+  add(
+    'etfRefs',
+    'No fund still references the old ticker',
+    etfRefs.length === 0,
+    etfRefs.length ? `Still referenced by: ${etfRefs.join(', ')}` : 'Constituents and trailing factors are clean.',
+  );
 
   const crewRefs = Object.values(CREWS)
-    .filter((c) => (c.members || []).includes(old)).map((c) => c.id);
-  add('crewRefs', 'No crew roster still lists the old ticker', crewRefs.length === 0,
-    crewRefs.length ? `Still on: ${crewRefs.join(', ')}` : 'Crew rosters are clean.');
+    .filter((c) => (c.members || []).includes(old))
+    .map((c) => c.id);
+  add(
+    'crewRefs',
+    'No crew roster still lists the old ticker',
+    crewRefs.length === 0,
+    crewRefs.length ? `Still on: ${crewRefs.join(', ')}` : 'Crew rosters are clean.',
+  );
 
   const oldPriced = prices[old] !== undefined;
   const newPriced = prices[nw] !== undefined;
-  add('prices', 'Old ticker has a live price and the new one does not',
+  add(
+    'prices',
+    'Old ticker has a live price and the new one does not',
     oldPriced && !newPriced,
-    !oldPriced ? `${old} has no live price, so there is nothing to rename.`
-      : newPriced ? `${nw} already has a live price. Renaming onto it would merge two stocks.`
-        : `${old} is at ${prices[old]}.`);
+    !oldPriced
+      ? `${old} has no live price, so there is nothing to rename.`
+      : newPriced
+        ? `${nw} already has a live price. Renaming onto it would merge two stocks.`
+        : `${old} is at ${prices[old]}.`,
+  );
 
-  add('alias', 'No alias collision',
+  add(
+    'alias',
+    'No alias collision',
     aliases[nw] === undefined && aliases[old] === undefined,
-    aliases[nw] !== undefined ? `${nw} is a retired ticker that already redirects to ${aliases[nw]}.`
-      : aliases[old] !== undefined ? `${old} already redirects to ${aliases[old]}.`
-        : 'Neither name is already retired.');
+    aliases[nw] !== undefined
+      ? `${nw} is a retired ticker that already redirects to ${aliases[nw]}.`
+      : aliases[old] !== undefined
+        ? `${old} already redirects to ${aliases[old]}.`
+        : 'Neither name is already retired.',
+  );
 
   // Pre-market order document IDs embed the ticker, so a pending one cannot be
   // safely renamed in place — the dedupe key would stop matching.
-  const pendingPre = await db.collection('preMarketOrders')
-    .where('ticker', '==', old).where('status', '==', 'PENDING').limit(1).get();
-  add('preMarket', 'No pending pre-market orders for the old ticker',
+  const pendingPre = await db
+    .collection('preMarketOrders')
+    .where('ticker', '==', old)
+    .where('status', '==', 'PENDING')
+    .limit(1)
+    .get();
+  add(
+    'preMarket',
+    'No pending pre-market orders for the old ticker',
     pendingPre.empty,
-    pendingPre.empty ? 'Nothing queued.'
-      : 'Pending pre-market orders exist. Wait for the opening auction or cancel them first.');
+    pendingPre.empty
+      ? 'Nothing queued.'
+      : 'Pending pre-market orders exist. Wait for the opening auction or cancel them first.',
+  );
 
   const jSnap = await journalRef().get();
   const journal = jSnap.exists ? jSnap.data() : null;
-  const otherOpen = !!journal && journal.status !== 'complete'
-    && !(journal.old === old && journal.new === nw);
-  add('journal', 'No other rename is part-finished', !otherOpen,
-    otherOpen ? `${journal.old} -> ${journal.new} is ${journal.status}. Resume or abort it first.`
-      : 'No conflicting run.');
+  const otherOpen = !!journal && journal.status !== 'complete' && !(journal.old === old && journal.new === nw);
+  add(
+    'journal',
+    'No other rename is part-finished',
+    !otherOpen,
+    otherOpen
+      ? `${journal.old} -> ${journal.new} is ${journal.status}. Resume or abort it first.`
+      : 'No conflicting run.',
+  );
 
   return { checks, blocked: checks.some((c) => !c.pass), journal };
 };
@@ -158,12 +200,11 @@ const PHASES = [
     label: 'Live price history',
     run: async ({ old, nw }) => {
       const snap = await priceHistoryRef().get();
-      const data = snap.exists ? (snap.data() || {}) : {};
+      const data = snap.exists ? snap.data() || {} : {};
       if (data[old] === undefined) return { done: 0, complete: true };
       // Merge rather than overwrite: a crashed run may have written some of the
       // new key already, and losing chart points is not recoverable.
-      const merged = [...(data[nw] || []), ...data[old]]
-        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      const merged = [...(data[nw] || []), ...data[old]].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       await priceHistoryRef().update({ [nw]: merged, [old]: DELETE() });
       return { done: 1, complete: true };
     },
@@ -179,19 +220,22 @@ const PHASES = [
       if (oldDoc.exists) {
         const newDoc = await archive.doc(nw).get();
         const oldHist = (oldDoc.data() || {}).history || [];
-        const newHist = newDoc.exists ? ((newDoc.data() || {}).history || []) : [];
-        const merged = [...newHist, ...oldHist]
-          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        await archive.doc(nw).set({
-          history: merged, lastUpdated: Date.now(), renamedFrom: old,
-        }, { merge: true });
+        const newHist = newDoc.exists ? (newDoc.data() || {}).history || [] : [];
+        const merged = [...newHist, ...oldHist].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        await archive.doc(nw).set(
+          {
+            history: merged,
+            lastUpdated: Date.now(),
+            renamedFrom: old,
+          },
+          { merge: true },
+        );
         await archive.doc(old).delete();
         done++;
       }
 
       // Daily closes are nested closes.<day>.<ticker>, one document per month.
-      const closesSnap = await db.collection('market').doc('current')
-        .collection('daily_closes').get();
+      const closesSnap = await db.collection('market').doc('current').collection('daily_closes').get();
       for (const doc of closesSnap.docs) {
         const closes = (doc.data() || {}).closes || {};
         const updates = {};
@@ -256,8 +300,9 @@ const PHASES = [
         const list = remapObjectArray(d.list, 'ticker', old, nw);
         return list ? { list } : {};
       });
-      await move(db.collection('dividendConfig').doc('tierOverrides'),
-        (d) => mapMoveUpdates('tiers', d.tiers, old, nw));
+      await move(db.collection('dividendConfig').doc('tierOverrides'), (d) =>
+        mapMoveUpdates('tiers', d.tiers, old, nw),
+      );
 
       return { done, complete: true };
     },
@@ -265,33 +310,38 @@ const PHASES = [
   {
     name: 'users',
     label: 'Player documents',
-    run: ({ old, nw, cursor, budget }) => walkCollection(
-      'users', cursor, (data) => buildUserUpdates(data, old, nw), budget
-    ),
+    run: ({ old, nw, cursor, budget }) =>
+      walkCollection('users', cursor, (data) => buildUserUpdates(data, old, nw), budget),
   },
   {
     name: 'priceAlerts',
     label: 'Price alerts',
-    run: ({ old, nw, budget }) => drainQuery(
-      () => db.collectionGroup('priceAlerts').where('ticker', '==', old),
-      () => ({ ticker: nw }), budget
-    ),
+    run: ({ old, nw, budget }) =>
+      drainQuery(
+        () => db.collectionGroup('priceAlerts').where('ticker', '==', old),
+        () => ({ ticker: nw }),
+        budget,
+      ),
   },
   {
     name: 'trades',
     label: 'Trade records',
-    run: ({ old, nw, budget }) => drainQuery(
-      () => db.collection('trades').where('ticker', '==', old),
-      () => ({ ticker: nw }), budget
-    ),
+    run: ({ old, nw, budget }) =>
+      drainQuery(
+        () => db.collection('trades').where('ticker', '==', old),
+        () => ({ ticker: nw }),
+        budget,
+      ),
   },
   {
     name: 'limitOrders',
     label: 'Limit orders',
-    run: ({ old, nw, budget }) => drainQuery(
-      () => db.collection('limitOrders').where('ticker', '==', old),
-      () => ({ ticker: nw }), budget
-    ),
+    run: ({ old, nw, budget }) =>
+      drainQuery(
+        () => db.collection('limitOrders').where('ticker', '==', old),
+        () => ({ ticker: nw }),
+        budget,
+      ),
   },
   {
     name: 'preMarketOrders',
@@ -299,21 +349,25 @@ const PHASES = [
     // Document IDs embed the ticker but are only a per-session dedupe key, so a
     // stale id on a filled order is harmless. Preflight already refused if any
     // were still pending.
-    run: ({ old, nw, budget }) => drainQuery(
-      () => db.collection('preMarketOrders').where('ticker', '==', old),
-      () => ({ ticker: nw }), budget
-    ),
+    run: ({ old, nw, budget }) =>
+      drainQuery(
+        () => db.collection('preMarketOrders').where('ticker', '==', old),
+        () => ({ ticker: nw }),
+        budget,
+      ),
   },
   {
     name: 'ipTracking',
     label: 'IP trade tracking',
     // Expires after 24h, so this is one day of anti-manipulation state. Kept
     // because skipping it hands everyone a fresh daily impact budget.
-    run: ({ old, nw, cursor, budget }) => walkCollection(
-      'ipTracking', cursor,
-      (data) => mapMoveUpdates('tickerTradeHistory', data.tickerTradeHistory, old, nw),
-      budget
-    ),
+    run: ({ old, nw, cursor, budget }) =>
+      walkCollection(
+        'ipTracking',
+        cursor,
+        (data) => mapMoveUpdates('tickerTradeHistory', data.tickerTradeHistory, old, nw),
+        budget,
+      ),
   },
   {
     name: 'feed',
@@ -321,15 +375,17 @@ const PHASES = [
     // Bounded by the feed's own 7-day TTL. The ticker also appears inside the
     // free-text message, and rewriting only the field would leave the sentence
     // players read still saying the old name.
-    run: ({ old, nw, budget }) => drainQuery(
-      () => db.collection('feed').where('ticker', '==', old),
-      (doc) => {
-        const updates = { ticker: nw };
-        const msg = remapMessage((doc.data() || {}).message, old, nw);
-        if (msg) updates.message = msg;
-        return updates;
-      }, budget
-    ),
+    run: ({ old, nw, budget }) =>
+      drainQuery(
+        () => db.collection('feed').where('ticker', '==', old),
+        (doc) => {
+          const updates = { ticker: nw };
+          const msg = remapMessage((doc.data() || {}).message, old, nw);
+          if (msg) updates.message = msg;
+          return updates;
+        },
+        budget,
+      ),
   },
 ];
 
@@ -340,7 +396,9 @@ const PHASES = [
 /** Every place the old ticker could still be hiding. [] means clean. */
 const verifyClean = async (old) => {
   const remaining = [];
-  const note = (where, count) => { if (count) remaining.push({ where, count }); };
+  const note = (where, count) => {
+    if (count) remaining.push({ where, count });
+  };
 
   const market = (await marketRef().get()).data() || {};
   for (const mapName of MARKET_TICKER_MAPS) {
@@ -351,8 +409,7 @@ const verifyClean = async (old) => {
   const hist = (await priceHistoryRef().get()).data() || {};
   note('market/priceHistory', hist[old] !== undefined ? 1 : 0);
 
-  const archived = await db.collection('market').doc('current')
-    .collection('price_history').doc(old).get();
+  const archived = await db.collection('market').doc('current').collection('price_history').doc(old).get();
   note('archived price history', archived.exists ? 1 : 0);
 
   const stats = (await db.collection('market').doc('tickerStats').get()).data() || {};
@@ -398,15 +455,13 @@ const countDryRun = async ({ old, nw }) => {
   const hist = (await priceHistoryRef().get()).data() || {};
   breakdown.priceHistory = hist[old] !== undefined ? 1 : 0;
 
-  const archived = await db.collection('market').doc('current')
-    .collection('price_history').doc(old).get();
+  const archived = await db.collection('market').doc('current').collection('price_history').doc(old).get();
   breakdown.priceArchive = archived.exists ? 1 : 0;
 
   let users = 0;
   let cursor = null;
   for (;;) {
-    let q = db.collection('users').orderBy(admin.firestore.FieldPath.documentId())
-      .limit(RENAME_PAGE_SIZE);
+    let q = db.collection('users').orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (cursor) q = q.startAfter(cursor);
     const snap = await q.get();
     if (snap.empty) break;
@@ -480,8 +535,7 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     if (journal.status === 'complete') return { alreadyComplete: true, journal };
     journal = { ...journal, status: 'running', lastError: null };
   } else {
-    if (journal && journal.status !== 'complete'
-      && journal.old === old && journal.new === nw) {
+    if (journal && journal.status !== 'complete' && journal.old === old && journal.new === nw) {
       journal = { ...journal, status: 'running', lastError: null };
     } else {
       const market = (await marketRef().get()).data() || {};
@@ -528,8 +582,7 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
       journal.lastError = `Verification found ${ctx.old} still present in ${remaining.length} place(s).`;
       journal.remaining = remaining;
       await journalRef().set(journal);
-      throw new functions.https.HttpsError('internal',
-        `${journal.lastError} Market stays halted. Resume to retry.`);
+      throw new functions.https.HttpsError('internal', `${journal.lastError} Market stays halted. Resume to retry.`);
     }
 
     journal.status = 'complete';
@@ -538,7 +591,10 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
 
     if (!journal.haltWasPreexisting) {
       await marketRef().update({
-        marketHalted: false, haltReason: '', haltedAt: null, haltedBy: null,
+        marketHalted: false,
+        haltReason: '',
+        haltedAt: null,
+        haltedBy: null,
       });
     }
 
@@ -562,8 +618,10 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     // to the whole site. The recovery panel reads the journal instead, and
     // shows its own red "resume or abort" banner to the admin.
     await marketRef().update({ marketHalted: true, haltReason: HALT_REASON });
-    throw new functions.https.HttpsError('internal',
-      `Rename failed in progress: ${err.message}. Market stays halted. Resume from the admin panel.`);
+    throw new functions.https.HttpsError(
+      'internal',
+      `Rename failed in progress: ${err.message}. Market stays halted. Resume from the admin panel.`,
+    );
   }
 };
 

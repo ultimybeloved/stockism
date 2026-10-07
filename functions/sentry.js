@@ -35,10 +35,14 @@ const capture = (err, extra) => {
     const Sentry = getSentry();
     if (!Sentry) return;
     Sentry.captureException(err instanceof Error ? err : new Error(String(err)), extra);
-  } catch (_) { /* never let error reporting itself throw */ }
+  } catch (_) {
+    /* never let error reporting itself throw */
+  }
 };
 
-process.on('unhandledRejection', (err) => { capture(err); });
+process.on('unhandledRejection', (err) => {
+  capture(err);
+});
 
 /**
  * Report a handled error that we are NOT rethrowing, so silent failures still
@@ -50,7 +54,9 @@ function reportError(err, context = {}) {
   const tag = context.where ? `[${context.where}] ` : '';
   try {
     console.error(`${tag}${err && err.message ? err.message : err}`);
-  } catch (_) { /* noop */ }
+  } catch (_) {
+    /* noop */
+  }
   capture(err, { extra: context });
 }
 

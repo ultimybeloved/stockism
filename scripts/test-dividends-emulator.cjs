@@ -26,9 +26,15 @@ const db = admin.firestore();
 const { runDividendPayoutNow } = require('../functions/services/dividends');
 const { ADMIN_UID } = require('../functions/constants');
 const {
-  CHARACTERS, computeRarityTiers, getDividendRate, dividendWeightedShares,
-  dividendMultiplierForAgeMs, DIVIDEND_HOLD_MS, DIVIDEND_LOYALTY_LADDER,
-  DIVIDEND_MATURE_MS, DIVIDEND_LADDER_EPOCH,
+  CHARACTERS,
+  computeRarityTiers,
+  getDividendRate,
+  dividendWeightedShares,
+  dividendMultiplierForAgeMs,
+  DIVIDEND_HOLD_MS,
+  DIVIDEND_LOYALTY_LADDER,
+  DIVIDEND_MATURE_MS,
+  DIVIDEND_LADDER_EPOCH,
 } = require('../functions/characters');
 
 let failures = 0;
@@ -53,16 +59,19 @@ const lot = (shares, ageDays) => ({
 });
 
 async function seed(uid, { holdings, cohorts, drip, extra = {} } = {}) {
-  await db.collection('users').doc(uid).set({
-    displayName: uid,
-    cash: 1000,
-    holdings: holdings || {},
-    costBasis: {},
-    shorts: {},
-    ...(cohorts ? { holdingCohorts: cohorts } : {}),
-    ...(drip ? { drip } : {}),
-    ...extra,
-  });
+  await db
+    .collection('users')
+    .doc(uid)
+    .set({
+      displayName: uid,
+      cash: 1000,
+      holdings: holdings || {},
+      costBasis: {},
+      shorts: {},
+      ...(cohorts ? { holdingCohorts: cohorts } : {}),
+      ...(drip ? { drip } : {}),
+      ...extra,
+    });
 }
 const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
 const cashOf = async (uid) => (await getUser(uid)).cash;
@@ -71,9 +80,15 @@ async function main() {
   console.log('\n=== Dividend money-path suite (emulator) ===');
 
   // Payouts price from the pre-halt snapshot, NOT live market prices.
-  await db.collection('market').doc('preHaltSnapshot').set({ prices: { [T]: PRICE } });
+  await db
+    .collection('market')
+    .doc('preHaltSnapshot')
+    .set({ prices: { [T]: PRICE } });
   // Deliberately different, so anything reading the wrong doc shows up.
-  await db.collection('market').doc('current').set({ prices: { [T]: PRICE * 5 } }, { merge: true });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { [T]: PRICE * 5 } }, { merge: true });
 
   const rarityTiers = computeRarityTiers(CHARACTERS, { [T]: PRICE });
   const RATE = getDividendRate(T, rarityTiers, {});
@@ -85,12 +100,14 @@ async function main() {
   console.log('\nA. Who gets paid');
 
   await seed('div_bot', {
-    holdings: { [T]: 1000 }, cohorts: { [T]: { eligible: 1000, pending: [] } },
+    holdings: { [T]: 1000 },
+    cohorts: { [T]: { eligible: 1000, pending: [] } },
     extra: { isBot: true },
   });
   await seed('div_empty', { holdings: {} });
   await seed('div_holder', {
-    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 30)] } },
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 30)] } },
   });
   // Holds a ticker with no price in the snapshot: nothing to value, nothing paid.
   await seed('div_unpriced', {
@@ -104,32 +121,47 @@ async function main() {
   check('a bot is skipped entirely', (await cashOf('div_bot')) === botCashBefore);
   check('an account holding nothing is paid nothing', (await cashOf('div_empty')) === 1000);
   check('a holder is paid', (await cashOf('div_holder')) > 1000);
-  check('a holding with no snapshot price pays nothing',
-    (await cashOf('div_unpriced')) === 1000);
+  check('a holding with no snapshot price pays nothing', (await cashOf('div_unpriced')) === 1000);
 
-  check('a non-admin cannot trigger a payout',
+  check(
+    'a non-admin cannot trigger a payout',
     await (async () => {
-      try { await runDividendPayoutNow.run({}, { auth: { uid: 'div_holder' } }); return false; }
-      catch (e) { return /admin/i.test(e.message); }
-    })());
+      try {
+        await runDividendPayoutNow.run({}, { auth: { uid: 'div_holder' } });
+        return false;
+      } catch (e) {
+        return /admin/i.test(e.message);
+      }
+    })(),
+  );
 
   // ── B. The 10-day hold gate ───────────────────────────────────────────────
   console.log('\nB. The 10-day hold gate');
 
   await seed('div_fresh', {
-    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 2)] } },
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 2)] } },
   });
   await seed('div_justin', {
-    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
   });
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
 
-  check('shares bought two days ago earn nothing', (await cashOf('div_fresh')) === 1000,
-    `cash=${await cashOf('div_fresh')}`);
-  check('shares past the 10-day gate start earning',
-    near((await cashOf('div_justin')) - 1000, expected(100)), `cash=${await cashOf('div_justin')}`);
-  check('a blocked lot is still recorded as pending, not dropped',
-    ((await getUser('div_fresh')).holdingCohorts[T].pending || []).length === 1);
+  check(
+    'shares bought two days ago earn nothing',
+    (await cashOf('div_fresh')) === 1000,
+    `cash=${await cashOf('div_fresh')}`,
+  );
+  check(
+    'shares past the 10-day gate start earning',
+    near((await cashOf('div_justin')) - 1000, expected(100)),
+    `cash=${await cashOf('div_justin')}`,
+  );
+  check(
+    'a blocked lot is still recorded as pending, not dropped',
+    ((await getUser('div_fresh')).holdingCohorts[T].pending || []).length === 1,
+  );
 
   // ── C. Loyalty ladder ─────────────────────────────────────────────────────
   console.log('\nC. Loyalty ladder');
@@ -155,21 +187,28 @@ async function main() {
 
   for (const rung of payoutRungs) {
     const paid = (await cashOf(`div_rung_${rung.minDays}`)) - 1000;
-    check(`a ${rung.minDays}-day lot pays the ${rung.multiplier}x rung`,
+    check(
+      `a ${rung.minDays}-day lot pays the ${rung.multiplier}x rung`,
       near(paid, expected(100 * rung.multiplier)),
-      `paid=${paid} expected=${expected(100 * rung.multiplier)}`);
+      `paid=${paid} expected=${expected(100 * rung.multiplier)}`,
+    );
   }
 
-  check(`the ladder tops out at ${top.multiplier}x for a ${top.minDays}-day lot`,
-    dividendWeightedShares({ eligible: 0, pending: [lot(100, top.minDays + 1)] }, NOW) === 100 * top.multiplier);
-  check('the longest hold earns more than the shortest',
-    expected(100 * top.multiplier) > expected(100 * rungs[0].multiplier));
+  check(
+    `the ladder tops out at ${top.multiplier}x for a ${top.minDays}-day lot`,
+    dividendWeightedShares({ eligible: 0, pending: [lot(100, top.minDays + 1)] }, NOW) === 100 * top.multiplier,
+  );
+  check(
+    'the longest hold earns more than the shortest',
+    expected(100 * top.multiplier) > expected(100 * rungs[0].multiplier),
+  );
 
   const matured = await getUser('div_mature');
-  check('a fully matured lot is folded into eligible',
-    (matured.holdingCohorts[T].eligible || 0) === 100 &&
-    (matured.holdingCohorts[T].pending || []).length === 0,
-    JSON.stringify(matured.holdingCohorts[T]));
+  check(
+    'a fully matured lot is folded into eligible',
+    (matured.holdingCohorts[T].eligible || 0) === 100 && (matured.holdingCohorts[T].pending || []).length === 0,
+    JSON.stringify(matured.holdingCohorts[T]),
+  );
 
   // The sharp edge worth guarding. Folding a matured lot into `eligible` throws
   // its real age away — eligible is aged from DIVIDEND_LADDER_EPOCH instead,
@@ -180,9 +219,11 @@ async function main() {
   // trusted. Move the epoch forward and this fails.
   const eligibleAge = NOW - (DIVIDEND_LADDER_EPOCH - DIVIDEND_HOLD_MS);
   const earliestRealMaturity = DIVIDEND_LADDER_EPOCH + DIVIDEND_MATURE_MS;
-  check('graduating a lot can never demote it: eligible hits the top rung first',
+  check(
+    'graduating a lot can never demote it: eligible hits the top rung first',
     dividendMultiplierForAgeMs(eligibleAge) === top.multiplier || NOW < earliestRealMaturity,
-    `eligible is ${(eligibleAge / DAY).toFixed(0)}d (${dividendMultiplierForAgeMs(eligibleAge)}x) and real lots mature from ${new Date(earliestRealMaturity).toISOString().slice(0, 10)}`);
+    `eligible is ${(eligibleAge / DAY).toFixed(0)}d (${dividendMultiplierForAgeMs(eligibleAge)}x) and real lots mature from ${new Date(earliestRealMaturity).toISOString().slice(0, 10)}`,
+  );
 
   // Mixed lots are weighted per lot, not averaged across the position.
   await seed('div_mixed', {
@@ -191,9 +232,11 @@ async function main() {
   });
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
   const mixedWeighted = 100 * 1.0 + 100 * 1.25;
-  check('a mixed position is weighted lot by lot, not averaged',
+  check(
+    'a mixed position is weighted lot by lot, not averaged',
     near((await cashOf('div_mixed')) - 1000, expected(mixedWeighted)),
-    `paid=${(await cashOf('div_mixed')) - 1000} expected=${expected(mixedWeighted)}`);
+    `paid=${(await cashOf('div_mixed')) - 1000} expected=${expected(mixedWeighted)}`,
+  );
 
   // ── D. Cohort self-heal ───────────────────────────────────────────────────
   console.log('\nD. Cohort self-heal');
@@ -201,11 +244,13 @@ async function main() {
   // Holdings above the cohort sum (an admin edit, or the backfill not yet run):
   // the unexplained shares must enter a FRESH pending bucket, never pay at once.
   await seed('div_extra', {
-    holdings: { [T]: 300 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 30)] } },
+    holdings: { [T]: 300 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 30)] } },
   });
   // Holdings below the cohort sum: trim, and never pay on shares not held.
   await seed('div_short', {
-    holdings: { [T]: 50 }, cohorts: { [T]: { eligible: 200, pending: [] } },
+    holdings: { [T]: 50 },
+    cohorts: { [T]: { eligible: 200, pending: [] } },
   });
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
 
@@ -213,17 +258,21 @@ async function main() {
   const extraCohort = extraUser.holdingCohorts[T];
   const extraSum = (extraCohort.eligible || 0) + (extraCohort.pending || []).reduce((s, p) => s + p.shares, 0);
   check('unexplained shares are added to the cohort', near(extraSum, 300), `sum=${extraSum}`);
-  check('and they earn nothing this run — no retroactive dividends',
+  check(
+    'and they earn nothing this run — no retroactive dividends',
     near((await cashOf('div_extra')) - 1000, expected(100 * 1.25)),
-    `paid=${(await cashOf('div_extra')) - 1000}`);
+    `paid=${(await cashOf('div_extra')) - 1000}`,
+  );
 
   const shortUser = await getUser('div_short');
   const shortCohort = shortUser.holdingCohorts[T];
   const shortSum = (shortCohort.eligible || 0) + (shortCohort.pending || []).reduce((s, p) => s + p.shares, 0);
   check('a cohort larger than the holding is trimmed down to it', near(shortSum, 50), `sum=${shortSum}`);
-  check('and pays only on the shares actually held',
+  check(
+    'and pays only on the shares actually held',
     (await cashOf('div_short')) - 1000 <= expected(50 * 1.5) + 0.01,
-    `paid=${(await cashOf('div_short')) - 1000}`);
+    `paid=${(await cashOf('div_short')) - 1000}`,
+  );
 
   // ── E. DRIP ───────────────────────────────────────────────────────────────
   console.log('\nE. DRIP');
@@ -238,45 +287,66 @@ async function main() {
   const dripUser = await getUser('div_drip');
   const payout = expected(100 * 1.25);
   const sharesAdded = Math.floor((payout / PRICE) * 100) / 100;
-  check('DRIP buys shares instead of paying cash',
-    near(dripUser.holdings[T], 100 + sharesAdded), `holdings=${dripUser.holdings[T]}`);
-  check('the sub-share remainder is still paid as cash',
+  check(
+    'DRIP buys shares instead of paying cash',
+    near(dripUser.holdings[T], 100 + sharesAdded),
+    `holdings=${dripUser.holdings[T]}`,
+  );
+  check(
+    'the sub-share remainder is still paid as cash',
     near(dripUser.cash - 1000, Math.round((payout - sharesAdded * PRICE) * 100) / 100),
-    `cash=${dripUser.cash}`);
+    `cash=${dripUser.cash}`,
+  );
   const dripPending = dripUser.holdingCohorts[T].pending || [];
-  check('reinvested shares enter pending, so they cannot earn again immediately',
-    dripPending.some((p) => near(p.shares, sharesAdded)), JSON.stringify(dripPending));
-  check('the reinvestment is recorded on the trade row',
-    (await db.collection('trades').where('uid', '==', 'div_drip').get())
-      .docs.some((d) => d.data().reinvested), 'no reinvested breakdown found');
+  check(
+    'reinvested shares enter pending, so they cannot earn again immediately',
+    dripPending.some((p) => near(p.shares, sharesAdded)),
+    JSON.stringify(dripPending),
+  );
+  check(
+    'the reinvestment is recorded on the trade row',
+    (await db.collection('trades').where('uid', '==', 'div_drip').get()).docs.some((d) => d.data().reinvested),
+    'no reinvested breakdown found',
+  );
 
   // ── F. Bookkeeping ────────────────────────────────────────────────────────
   console.log('\nF. Bookkeeping');
 
   const holderTrades = await db.collection('trades').where('uid', '==', 'div_holder').get();
-  check('a payout writes a trade row so it shows in trade history',
-    holderTrades.docs.some((d) => d.data().action === 'dividend'));
+  check(
+    'a payout writes a trade row so it shows in trade history',
+    holderTrades.docs.some((d) => d.data().action === 'dividend'),
+  );
   const holderDoc = await getUser('div_holder');
-  check('and a DIVIDEND entry on the transaction log',
-    (holderDoc.transactionLog || []).some((e) => e.type === 'DIVIDEND'));
-  check('the log entry breaks the payout down by ticker',
-    (holderDoc.transactionLog || []).some((e) => e.breakdown && e.breakdown[T] > 0));
+  check(
+    'and a DIVIDEND entry on the transaction log',
+    (holderDoc.transactionLog || []).some((e) => e.type === 'DIVIDEND'),
+  );
+  check(
+    'the log entry breaks the payout down by ticker',
+    (holderDoc.transactionLog || []).some((e) => e.breakdown && e.breakdown[T] > 0),
+  );
 
   const runs = await db.collection('dividendConfig').doc('runs').collection('log').get();
   check('every run is logged for the admin readout', runs.size >= 1, `runs=${runs.size}`);
-  check('the run log records who triggered it',
-    runs.docs.every((d) => d.data().source === 'manual-admin'));
+  check(
+    'the run log records who triggered it',
+    runs.docs.every((d) => d.data().source === 'manual-admin'),
+  );
 
   // market/current is seeded at 5x the snapshot, so a payout that read the wrong
   // doc would be obvious. Checked on a user seeded fresh for this one run —
   // everyone above has been through several by now.
   await seed('div_price', {
-    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
   });
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
-  check('payouts price from the pre-halt snapshot, not the live market',
+  check(
+    'payouts price from the pre-halt snapshot, not the live market',
     near((await cashOf('div_price')) - 1000, expected(100)),
-    `paid=${(await cashOf('div_price')) - 1000}, a live-price read would pay 5x`);
+    `paid=${(await cashOf('div_price')) - 1000}, a live-price read would pay 5x`,
+  );
 
   // ── G. Granted value ──────────────────────────────────────────────────────
   // A dividend is free value, so it has to be booked as granted or the season
@@ -286,7 +356,8 @@ async function main() {
 
   await seed('div_grant_none', { holdings: {} });
   await seed('div_grant_cash', {
-    holdings: { [T]: 100 }, cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 11)] } },
   });
   await seed('div_grant_drip', {
     holdings: { [T]: 100 },
@@ -299,36 +370,46 @@ async function main() {
   const grantCashUser = await getUser('div_grant_cash');
   const grantDripUser = await getUser('div_grant_drip');
 
-  check('a cash payout books granted value equal to the payout',
+  check(
+    'a cash payout books granted value equal to the payout',
     near(grantCashUser.grantedValue || 0, grantPayout),
-    `granted=${grantCashUser.grantedValue}, paid=${grantPayout}`);
-  check('a player paid nothing books nothing',
-    !((await getUser('div_grant_none')).grantedValue));
+    `granted=${grantCashUser.grantedValue}, paid=${grantPayout}`,
+  );
+  check('a player paid nothing books nothing', !(await getUser('div_grant_none')).grantedValue);
 
   // The easy one to get wrong: DRIP pays mostly in SHARES, and booking only
   // the cash remainder would leave reinvestors banking the rest as return.
   const dripGranted = grantDripUser.grantedValue || 0;
   const dripCashPart = grantDripUser.cash - 1000;
-  check('DRIP books the whole payout, not just the cash remainder',
+  check(
+    'DRIP books the whole payout, not just the cash remainder',
     near(dripGranted, grantPayout) && dripGranted > dripCashPart,
-    `granted=${dripGranted}, cash part=${dripCashPart}, payout=${grantPayout}`);
+    `granted=${dripGranted}, cash part=${dripCashPart}, payout=${grantPayout}`,
+  );
 
   // The property the season metric rests on: everything the dividend added to
   // the portfolio is booked, so return net of grants moves by exactly zero.
   const dripSharesAdded = grantDripUser.holdings[T] - 100;
-  check('granted equals the value added, so a dividend nets out to 0% return',
+  check(
+    'granted equals the value added, so a dividend nets out to 0% return',
     near(dripGranted, dripSharesAdded * PRICE + dripCashPart),
-    `granted=${dripGranted}, added=${dripSharesAdded * PRICE + dripCashPart}`);
+    `granted=${dripGranted}, added=${dripSharesAdded * PRICE + dripCashPart}`,
+  );
 
   const grantedBefore = grantCashUser.grantedValue || 0;
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
-  check('and it accumulates across runs rather than overwriting',
+  check(
+    'and it accumulates across runs rather than overwriting',
     ((await getUser('div_grant_cash')).grantedValue || 0) > grantedBefore,
-    `before=${grantedBefore}`);
+    `before=${grantedBefore}`,
+  );
 
   console.log(`\n${checks} checks run.`);
   console.log(failures === 0 ? 'ALL DIVIDEND CHECKS PASSED' : `${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Suite crashed:', err); process.exit(1); });
+main().catch((err) => {
+  console.error('Suite crashed:', err);
+  process.exit(1);
+});

@@ -9,21 +9,21 @@ export const ACHIEVEMENTS = {
     name: 'First Blood',
     emoji: '🎯',
     description: 'Make your first trade',
-    hint: 'Buy or sell any stock'
+    hint: 'Buy or sell any stock',
   },
   SHARK: {
     id: 'SHARK',
     name: 'Shark',
     emoji: '🦈',
     description: 'Execute a single trade worth $1,000+',
-    hint: 'Go big or go home'
+    hint: 'Go big or go home',
   },
   DIVERSIFIED: {
     id: 'DIVERSIFIED',
     name: 'Diversified',
     emoji: '🎨',
     description: 'Hold 5+ different characters at once',
-    hint: 'Don\'t put all your eggs in one basket'
+    hint: "Don't put all your eggs in one basket",
   },
 
   // Profit milestones
@@ -32,21 +32,21 @@ export const ACHIEVEMENTS = {
     name: 'Bull Run',
     emoji: '📈',
     description: 'Sell a stock for 25%+ profit',
-    hint: 'Buy low, sell high'
+    hint: 'Buy low, sell high',
   },
   DIAMOND_HANDS: {
     id: 'DIAMOND_HANDS',
     name: 'Diamond Hands',
     emoji: '🙌',
     description: 'Hold through a 30% dip and recover to profit',
-    hint: 'Hold strong through the storm'
+    hint: 'Hold strong through the storm',
   },
   COLD_BLOODED: {
     id: 'COLD_BLOODED',
     name: 'Cold Blooded',
     emoji: '❄️',
     description: 'Profit from closing a short position',
-    hint: 'Bet against the market and win'
+    hint: 'Bet against the market and win',
   },
 
   // Portfolio milestones
@@ -55,63 +55,63 @@ export const ACHIEVEMENTS = {
     name: 'Breaking Even... Kinda',
     emoji: '💵',
     description: 'Reach $2,500 portfolio value',
-    hint: 'Build your wealth'
+    hint: 'Build your wealth',
   },
   BROKE_5K: {
     id: 'BROKE_5K',
     name: 'High Roller',
     emoji: '🎰',
     description: 'Reach $5,000 portfolio value',
-    hint: 'Keep growing'
+    hint: 'Keep growing',
   },
   BROKE_10K: {
     id: 'BROKE_10K',
     name: 'Big Shot',
     emoji: '🌟',
     description: 'Reach $10,000 portfolio value',
-    hint: 'You\'re getting serious'
+    hint: "You're getting serious",
   },
   BROKE_25K: {
     id: 'BROKE_25K',
     name: 'Tycoon',
     emoji: '🏛️',
     description: 'Reach $25,000 portfolio value',
-    hint: 'Market domination'
+    hint: 'Market domination',
   },
   BROKE_50K: {
     id: 'BROKE_50K',
     name: 'Well Established',
     emoji: '🏦',
     description: 'Reach $50,000 portfolio value',
-    hint: 'You\'re a force to be reckoned with'
+    hint: "You're a force to be reckoned with",
   },
   BROKE_100K: {
     id: 'BROKE_100K',
     name: 'Six Figures',
     emoji: '💎',
     description: 'Reach $100,000 portfolio value',
-    hint: 'Welcome to the big leagues'
+    hint: 'Welcome to the big leagues',
   },
   BROKE_250K: {
     id: 'BROKE_250K',
     name: 'Market Shark',
     emoji: '🐋',
     description: 'Reach $250,000 portfolio value',
-    hint: 'The market fears you'
+    hint: 'The market fears you',
   },
   BROKE_500K: {
     id: 'BROKE_500K',
     name: 'Untouchable',
     emoji: '👑',
     description: 'Reach $500,000 portfolio value',
-    hint: 'Nobody can stop you'
+    hint: 'Nobody can stop you',
   },
   BROKE_1M: {
     id: 'BROKE_1M',
     name: 'First Million',
     emoji: '🏆',
     description: 'Reach $1,000,000 portfolio value',
-    hint: 'You\'ve made it'
+    hint: "You've made it",
   },
 
   // Prediction milestones
@@ -120,21 +120,21 @@ export const ACHIEVEMENTS = {
     name: 'Oracle',
     emoji: '🔮',
     description: 'Win 3 prediction bets',
-    hint: 'See the future'
+    hint: 'See the future',
   },
   PROPHET: {
     id: 'PROPHET',
     name: 'Prophet',
     emoji: '📿',
     description: 'Win 10 prediction bets',
-    hint: 'Your foresight is legendary'
+    hint: 'Your foresight is legendary',
   },
   TRUE_BELIEVER: {
     id: 'TRUE_BELIEVER',
     name: 'True Believer',
     emoji: '🔭',
     description: 'Hold a long-term prediction position until it resolves',
-    hint: 'Conviction pays off'
+    hint: 'Conviction pays off',
   },
 
   // Dedication milestones
@@ -143,28 +143,28 @@ export const ACHIEVEMENTS = {
     name: 'Regular',
     emoji: '📅',
     description: 'Check in 7 days total',
-    hint: 'Keep coming back'
+    hint: 'Keep coming back',
   },
   DEDICATED_14: {
     id: 'DEDICATED_14',
     name: 'Committed',
     emoji: '🔄',
     description: 'Check in 14 days total',
-    hint: 'Two weeks strong'
+    hint: 'Two weeks strong',
   },
   DEDICATED_30: {
     id: 'DEDICATED_30',
     name: 'Devoted',
     emoji: '✨',
     description: 'Check in 30 days total',
-    hint: 'A month of dedication'
+    hint: 'A month of dedication',
   },
   DEDICATED_100: {
     id: 'DEDICATED_100',
     name: 'Legendary',
     emoji: '🏆',
     description: 'Check in 100 days total',
-    hint: 'True commitment'
+    hint: 'True commitment',
   },
 
   // Leaderboard
@@ -173,21 +173,21 @@ export const ACHIEVEMENTS = {
     name: 'Contender',
     emoji: '🥉',
     description: 'Reach the top 10 on the leaderboard',
-    hint: 'Climb the ranks'
+    hint: 'Climb the ranks',
   },
   TOP_3: {
     id: 'TOP_3',
     name: 'Elite',
     emoji: '🥈',
     description: 'Reach the top 3 on the leaderboard',
-    hint: 'Almost at the top'
+    hint: 'Almost at the top',
   },
   TOP_1: {
     id: 'TOP_1',
     name: 'Champion',
     emoji: '🥇',
     description: 'Reach #1 on the leaderboard',
-    hint: 'The very best'
+    hint: 'The very best',
   },
 
   // Special
@@ -196,14 +196,14 @@ export const ACHIEVEMENTS = {
     name: 'Active Trader',
     emoji: '📊',
     description: 'Complete 20 trades',
-    hint: 'Keep trading'
+    hint: 'Keep trading',
   },
   TRADER_100: {
     id: 'TRADER_100',
     name: 'Day Trader',
     emoji: '💹',
     description: 'Complete 100 trades',
-    hint: 'Trading is your life now'
+    hint: 'Trading is your life now',
   },
 
   // Collection
@@ -212,7 +212,7 @@ export const ACHIEVEMENTS = {
     name: 'Unifier of Seoul',
     emoji: '🗺️',
     description: 'Hold a full share of every character',
-    hint: 'Gotta catch \'em all'
+    hint: "Gotta catch 'em all",
   },
 
   // Ladder Game
@@ -221,14 +221,14 @@ export const ACHIEVEMENTS = {
     name: 'Compulsive Gambler',
     emoji: '🎲',
     description: 'Earn $2,500 net profit in the Ladder Game',
-    hint: 'Lady luck is on your side'
+    hint: 'Lady luck is on your side',
   },
   ADDICTED: {
     id: 'ADDICTED',
     name: 'Addicted',
     emoji: '🃏',
     description: 'Place 100 bets of $50+ in the Ladder Game',
-    hint: 'You can stop anytime... right?'
+    hint: 'You can stop anytime... right?',
   },
 
   // Profit - special
@@ -237,7 +237,7 @@ export const ACHIEVEMENTS = {
     name: 'NPC Lover',
     emoji: '💜',
     description: 'Earn $1,000 total profit from non-crew characters',
-    hint: 'The underdogs need love too'
+    hint: 'The underdogs need love too',
   },
 
   // Market impact
@@ -246,7 +246,7 @@ export const ACHIEVEMENTS = {
     name: 'Monopoly',
     emoji: '🏗️',
     description: 'Buy so much stock that you increase its price by 5% (the max)',
-    hint: 'Go all in on a single buy'
+    hint: 'Go all in on a single buy',
   },
 
   // Ladder Game - competitive
@@ -255,7 +255,7 @@ export const ACHIEVEMENTS = {
     name: 'Casino Champion',
     emoji: '🎰',
     description: 'Place 1st on the Ladder Game leaderboard',
-    hint: 'Top of the gambling world'
+    hint: 'Top of the gambling world',
   },
 
   // Weekly profits
@@ -264,7 +264,7 @@ export const ACHIEVEMENTS = {
     name: 'Profit Champion',
     emoji: '💰',
     description: 'Place 1st in weekly portfolio gains',
-    hint: 'Best trader of the week'
+    hint: 'Best trader of the week',
   },
 
   // Prediction - underdog
@@ -273,7 +273,7 @@ export const ACHIEVEMENTS = {
     name: 'Underdog',
     emoji: '🐶',
     description: 'Win a prediction where less than 20% of the pool backed your side',
-    hint: 'Bet against the crowd and win'
+    hint: 'Bet against the crowd and win',
   },
 
   // Profit - special
@@ -282,7 +282,7 @@ export const ACHIEVEMENTS = {
     name: 'Discount Deacon',
     emoji: '🏷️',
     description: 'Make a trade resulting in a dollar profit ending in .99',
-    hint: '$9.99 profit, $24.99 profit...'
+    hint: '$9.99 profit, $24.99 profit...',
   },
 
   // Community
@@ -293,7 +293,7 @@ export const ACHIEVEMENTS = {
     icon: 'discord/discord.png',
     description: 'Link your Discord account to your Stockism profile',
     hint: 'Connect your Discord from the profile page',
-    revocable: false
+    revocable: false,
   },
 
   // Daily Mission milestones
@@ -302,21 +302,21 @@ export const ACHIEVEMENTS = {
     name: 'Task Runner',
     emoji: '📋',
     description: 'Complete 10 daily missions',
-    hint: 'Stay on task'
+    hint: 'Stay on task',
   },
   MISSION_50: {
     id: 'MISSION_50',
     name: 'Mission Master',
     emoji: '🎖️',
     description: 'Complete 50 daily missions',
-    hint: 'Dedicated to the grind'
+    hint: 'Dedicated to the grind',
   },
   MISSION_100: {
     id: 'MISSION_100',
     name: 'Mission Legend',
     emoji: '🎗️',
     description: 'Complete 100 daily missions',
-    hint: 'Never miss a mission'
+    hint: 'Never miss a mission',
   },
 
   // Investor milestones
@@ -325,42 +325,42 @@ export const ACHIEVEMENTS = {
     name: 'Dividend Demon',
     emoji: '😈',
     description: 'Hold any ETF for 50 consecutive days',
-    hint: 'Be patient and let dividends stack up'
+    hint: 'Be patient and let dividends stack up',
   },
   TOPPED_OFF: {
     id: 'TOPPED_OFF',
     name: 'Topped Off',
     emoji: '🎯',
     description: 'Sell a stock at its all-time high',
-    hint: 'Perfect timing'
+    hint: 'Perfect timing',
   },
   JIHOISM: {
     id: 'JIHOISM',
     name: 'Jihoism',
     emoji: '💸',
     description: 'Lose your entire Ladder Game balance',
-    hint: 'You know what you did'
+    hint: 'You know what you did',
   },
   THATS_A_BIG_DEAL: {
     id: 'THATS_A_BIG_DEAL',
     name: "That's a Big Deal",
     emoji: '📉',
     description: 'Buy a bullish stock at its 7-day low',
-    hint: 'Buy the dip while others are scared'
+    hint: 'Buy the dip while others are scared',
   },
   YOURE_A_WORKER: {
     id: 'YOURE_A_WORKER',
     name: "You're a Worker",
     emoji: '💪',
     description: 'Gain 25%+ of your net worth in a single week',
-    hint: 'Put in the work'
+    hint: 'Put in the work',
   },
   ANIMAL_INSTINCT: {
     id: 'ANIMAL_INSTINCT',
     name: 'Animal Instinct',
     emoji: '🐾',
     description: 'Earn $250 combined profit from Ryan, Eden, Miro, or Enu',
-    hint: 'The animals are worth investing in'
+    hint: 'The animals are worth investing in',
   },
 
   // Crew crown — granted by the weekly crew head rotation (backend)
@@ -369,21 +369,21 @@ export const ACHIEVEMENTS = {
     name: 'Crowned',
     emoji: '🫅',
     description: 'Become crew head',
-    hint: 'Have the biggest portfolio among your crew\'s active members'
+    hint: "Have the biggest portfolio among your crew's active members",
   },
   DYNASTY: {
     id: 'DYNASTY',
     name: 'Dynasty',
     emoji: '⚜️',
     description: 'Hold the crew crown 4 weeks in a row',
-    hint: 'Stay on top for a month straight'
+    hint: 'Stay on top for a month straight',
   },
   USURPER: {
     id: 'USURPER',
     name: 'Usurper',
     emoji: '🗡️',
     description: 'Take the crown from a crew head who held it 4+ weeks',
-    hint: 'End a dynasty'
+    hint: 'End a dynasty',
   },
 };
 

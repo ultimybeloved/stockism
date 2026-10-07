@@ -10,17 +10,12 @@ const admin = require('firebase-admin');
 // Modular import — the emulator sandbox strips admin.firestore statics.
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
-const {
-  ADMIN_UID,
-  ADMIN_MEMO_MAX_LENGTH,
-  REINSTATE_CASH_DEFAULT,
-  COSMETIC_CATALOG,
-} = require('../constants');
+const { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } = require('../constants');
 const { grantedValueUpdate } = require('../helpers');
 const { notifyCashGrant } = require('./adminCashNotify');
 
 exports.removeAchievement = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -39,7 +34,7 @@ exports.removeAchievement = cf().https.onCall(async (data, context) => {
   await userRef.update({
     achievements: admin.firestore.FieldValue.arrayRemove(achievementId),
     displayedAchievementPins: admin.firestore.FieldValue.arrayRemove(achievementId),
-    [`achievementDates.${achievementId}`]: admin.firestore.FieldValue.delete()
+    [`achievementDates.${achievementId}`]: admin.firestore.FieldValue.delete(),
   });
 
   return { success: true, removed: achievementId, userId };
@@ -49,7 +44,7 @@ exports.removeAchievement = cf().https.onCall(async (data, context) => {
  * Admin reinstate a bankrupt user - gives them $1000 cash without wiping crew/holdings
  */
 exports.reinstateUser = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -84,7 +79,7 @@ exports.reinstateUser = cf().https.onCall(async (data, context) => {
 });
 
 exports.adminSetCash = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -109,12 +104,17 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
 
   // The memo is the whole point of the log — an unexplained balance change is
   // the thing we are trying to stop having. Legacy set-only callers are exempt.
-  const cleanMemo = String(memo || '').replace(/[\x00-\x1f\x7f]/g, '').trim();
+  const cleanMemo = String(memo || '')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim();
   if (!isLegacySet && !cleanMemo) {
     throw new functions.https.HttpsError('invalid-argument', 'A memo is required — say why the cash is changing.');
   }
   if (cleanMemo.length > ADMIN_MEMO_MAX_LENGTH) {
-    throw new functions.https.HttpsError('invalid-argument', `Memo must be ${ADMIN_MEMO_MAX_LENGTH} characters or less`);
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Memo must be ${ADMIN_MEMO_MAX_LENGTH} characters or less`,
+    );
   }
 
   const userRef = db.collection('users').doc(userId);
@@ -126,9 +126,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   const userData = userSnap.data();
   const prevCash = userData.cash || 0;
   const rounded = Math.round(magnitude * 100) / 100;
-  const rawNew = mode === 'set' ? rounded
-    : mode === 'add' ? prevCash + rounded
-      : prevCash - rounded;
+  const rawNew = mode === 'set' ? rounded : mode === 'add' ? prevCash + rounded : prevCash - rounded;
   const newCash = Math.round(rawNew * 100) / 100;
 
   // Refuse rather than clamp. Silently landing on $0 looks like it worked and
@@ -136,7 +134,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   if (newCash < 0) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      `That would leave $${newCash.toFixed(2)}. They only have $${prevCash.toFixed(2)}.`
+      `That would leave $${newCash.toFixed(2)}. They only have $${prevCash.toFixed(2)}.`,
     );
   }
 
@@ -177,9 +175,13 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   }
 
   return {
-    success: true, userId, mode,
-    notified: delivery.notified, dmSent: delivery.dmSent,
-    previousCash: prevCash, newCash,
+    success: true,
+    userId,
+    mode,
+    notified: delivery.notified,
+    dmSent: delivery.dmSent,
+    previousCash: prevCash,
+    newCash,
     delta: Math.round((newCash - prevCash) * 100) / 100,
   };
 });
@@ -190,7 +192,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
  * the user isn't left displaying something they no longer own.
  */
 exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -237,7 +239,7 @@ exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
  * users is one quick run.
  */
 exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -282,7 +284,7 @@ exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (
  * must link a Discord account before they can trade/bet/play (unless already linked).
  */
 exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -337,7 +339,7 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
 
   await userRef.update({
     discordId: admin.firestore.FieldValue.delete(),
-    discordUsername: admin.firestore.FieldValue.delete()
+    discordUsername: admin.firestore.FieldValue.delete(),
   });
 
   // A self-serve unlink reserves the Discord to its account for a week. An
@@ -387,7 +389,7 @@ exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
     const holder = holderSnap.docs[0];
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Still linked to ${holder.data().displayName || holder.id}. Unlink it from that account first.`
+      `Still linked to ${holder.data().displayName || holder.id}. Unlink it from that account first.`,
     );
   }
 
@@ -397,7 +399,7 @@ exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
 
   const clearedTombstone = tombSnap.exists;
   const clearedBinding = bindSnap.exists;
-  const boundTo = bindSnap.exists ? (bindSnap.data().uid || null) : null;
+  const boundTo = bindSnap.exists ? bindSnap.data().uid || null : null;
 
   await Promise.all([
     clearedTombstone ? tombRef.delete() : Promise.resolve(),
@@ -449,7 +451,7 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Source and target must be different accounts');
   }
   if (sourceUserId === ADMIN_UID || targetUserId === ADMIN_UID) {
-    throw new functions.https.HttpsError('invalid-argument', 'Refusing to move the admin account\'s Discord link');
+    throw new functions.https.HttpsError('invalid-argument', "Refusing to move the admin account's Discord link");
   }
 
   const sourceRef = db.collection('users').doc(sourceUserId);
@@ -470,7 +472,7 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
     if (!discordId) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        'The source account has no Discord linked, so there is nothing to move. Check the two IDs are the right way round.'
+        'The source account has no Discord linked, so there is nothing to move. Check the two IDs are the right way round.',
       );
     }
     if (target.discordId === discordId) {
@@ -485,13 +487,13 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       discordUsername: source.discordUsername || null,
       previousDiscordId: target.discordId || null,
       discordLinkMovedFrom: sourceUserId,
-      discordLinkMovedAt: now
+      discordLinkMovedAt: now,
     });
     transaction.update(sourceRef, {
       discordId: FieldValue.delete(),
       discordUsername: FieldValue.delete(),
       discordLinkMovedTo: targetUserId,
-      discordLinkMovedAt: now
+      discordLinkMovedAt: now,
     });
 
     return {
@@ -499,7 +501,7 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       alreadyMoved: false,
       deadDiscordId: target.discordId || null,
       sourceCash: source.cash || 0,
-      sourcePortfolioValue: source.portfolioValue || 0
+      sourcePortfolioValue: source.portfolioValue || 0,
     };
   });
 
@@ -535,7 +537,9 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
     }
   }
 
-  console.log(`DISCORD LINK MOVED: ${moved.discordId} from ${sourceUserId} to ${targetUserId} (auth deleted: ${authDeleted})`);
+  console.log(
+    `DISCORD LINK MOVED: ${moved.discordId} from ${sourceUserId} to ${targetUserId} (auth deleted: ${authDeleted})`,
+  );
 
   return {
     success: true,
@@ -547,6 +551,6 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
     clearedTombstone,
     authDeleted,
     sourceCash: moved.sourceCash,
-    sourcePortfolioValue: moved.sourcePortfolioValue
+    sourcePortfolioValue: moved.sourcePortfolioValue,
   };
 });

@@ -14,12 +14,14 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
     <div className="mt-6">
       <div className="flex items-center gap-2 mb-3">
         <h3 className={`text-lg font-bold ${textClass}`}>Pending Orders</h3>
-        <span className={`text-sm px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
+        <span
+          className={`text-sm px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}
+        >
           {orders.length}
         </span>
       </div>
       <div className="space-y-3">
-        {orders.map(order => {
+        {orders.map((order) => {
           const character = CHARACTER_MAP[order.ticker];
           const currentPrice = prices[order.ticker] || 0;
           const isClose = order.limitPrice > 0 && Math.abs(currentPrice - order.limitPrice) / order.limitPrice < 0.05;
@@ -32,16 +34,17 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className={`font-bold ${textClass}`}>
-                    <span className={`${
-                      order.type === 'BUY' || order.type === 'COVER'
-                        ? 'text-green-500'
-                        : order.type === 'STOP_LOSS'
-                          ? 'text-orange-500'
-                          : 'text-red-500'
-                    }`}>
+                    <span
+                      className={`${
+                        order.type === 'BUY' || order.type === 'COVER'
+                          ? 'text-green-500'
+                          : order.type === 'STOP_LOSS'
+                            ? 'text-orange-500'
+                            : 'text-red-500'
+                      }`}
+                    >
                       {order.type === 'STOP_LOSS' ? 'STOP LOSS' : order.type}
-                    </span>
-                    {' '}
+                    </span>{' '}
                     {order.shares} ${order.ticker}
                   </div>
                   <div className={`text-xs ${mutedClass}`}>{character?.name}</div>
@@ -49,7 +52,10 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
                 {confirmingId === order.id ? (
                   <div className="flex gap-1">
                     <button
-                      onClick={() => { setConfirmingId(null); onCancel(order.id); }}
+                      onClick={() => {
+                        setConfirmingId(null);
+                        onCancel(order.id);
+                      }}
                       disabled={loadingOrders}
                       className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
                     >

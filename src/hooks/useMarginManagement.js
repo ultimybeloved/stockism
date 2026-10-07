@@ -17,7 +17,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
     setLoadingKey('enableMargin', true);
     try {
       await toggleMarginFunction({ enable: true });
-      setUserData(prev => prev ? { ...prev, marginEnabled: true } : prev);
+      setUserData((prev) => (prev ? { ...prev, marginEnabled: true } : prev));
       showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
     } catch (err) {
       reportUnexpected(err, { where: 'handleEnableMargin' });
@@ -36,7 +36,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
     setLoadingKey('disableMargin', true);
     try {
       await toggleMarginFunction({ enable: false });
-      setUserData(prev => prev ? { ...prev, marginEnabled: false } : prev);
+      setUserData((prev) => (prev ? { ...prev, marginEnabled: false } : prev));
       showNotification('success', 'Margin trading disabled.');
       setShowLending(false);
     } catch (err) {
@@ -47,36 +47,39 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
     }
   }, [user, userData, showNotification, setUserData, setLoadingKey, setShowLending]);
 
-  const handleRepayMargin = useCallback(async (amount) => {
-    if (!user || !userData) return;
-    const marginUsed = userData.marginUsed || 0;
-    if (marginUsed <= 0) {
-      showNotification('error', 'No margin debt to repay!');
-      return;
-    }
-    if (amount > userData.cash) {
-      showNotification('error', 'Insufficient funds!');
-      return;
-    }
-    setLoadingKey('repayMargin', true);
-    try {
-      const result = await repayMarginFunction({ amount });
-      const { repaid, remaining } = result.data;
-      setUserData(prev => prev ? { ...prev, cash: (prev.cash || 0) - repaid, marginUsed: remaining } : prev);
-      if (remaining === 0) {
-        showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repaid)}`);
-      } else {
-        showNotification('success', `Repaid ${formatCurrency(repaid)}. Remaining debt: ${formatCurrency(remaining)}`);
+  const handleRepayMargin = useCallback(
+    async (amount) => {
+      if (!user || !userData) return;
+      const marginUsed = userData.marginUsed || 0;
+      if (marginUsed <= 0) {
+        showNotification('error', 'No margin debt to repay!');
+        return;
       }
-    } catch (err) {
-      // Money leaving the account. A repay that fails after cash moved is the
-      // worst case here, so it is worth seeing every instance.
-      reportUnexpected(err, { where: 'handleRepayMargin', amount });
-      showNotification('error', err?.message || 'Failed to repay margin');
-    } finally {
-      setLoadingKey('repayMargin', false);
-    }
-  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+      if (amount > userData.cash) {
+        showNotification('error', 'Insufficient funds!');
+        return;
+      }
+      setLoadingKey('repayMargin', true);
+      try {
+        const result = await repayMarginFunction({ amount });
+        const { repaid, remaining } = result.data;
+        setUserData((prev) => (prev ? { ...prev, cash: (prev.cash || 0) - repaid, marginUsed: remaining } : prev));
+        if (remaining === 0) {
+          showNotification('success', `Margin fully repaid! Paid ${formatCurrency(repaid)}`);
+        } else {
+          showNotification('success', `Repaid ${formatCurrency(repaid)}. Remaining debt: ${formatCurrency(remaining)}`);
+        }
+      } catch (err) {
+        // Money leaving the account. A repay that fails after cash moved is the
+        // worst case here, so it is worth seeing every instance.
+        reportUnexpected(err, { where: 'handleRepayMargin', amount });
+        showNotification('error', err?.message || 'Failed to repay margin');
+      } finally {
+        setLoadingKey('repayMargin', false);
+      }
+    },
+    [user, userData, showNotification, setUserData, setLoadingKey],
+  );
 
   return { handleEnableMargin, handleDisableMargin, handleRepayMargin };
 }

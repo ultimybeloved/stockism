@@ -20,38 +20,31 @@ describe('deriveSeasonWeeks', () => {
   });
 
   it('strips grants from the cumulative figure too', () => {
-    const out = deriveSeasonWeeks([
-      row(1, { v: 11000, g: 500, x: 1000 }),
-      row(2, { v: 12000, g: 1500, x: 1000 }),
-    ], ctx);
+    const out = deriveSeasonWeeks([row(1, { v: 11000, g: 500, x: 1000 }), row(2, { v: 12000, g: 1500, x: 1000 })], ctx);
     // $500 profit on the $11,500 traded with (the $1,500 granted is capital too).
     expect(out[1].totalReturn).toBeCloseTo((500 / 11500) * 100, 9);
   });
 
   it('chains weeks off the previous row', () => {
-    const out = deriveSeasonWeeks([
-      row(1, { v: 11000, x: 1100 }),
-      row(2, { v: 12100, x: 1210 }),
-    ], ctx);
+    const out = deriveSeasonWeeks([row(1, { v: 11000, x: 1100 }), row(2, { v: 12100, x: 1210 })], ctx);
     expect(out[1].weekReturn).toBeCloseTo(10, 9);
     expect(out[1].weekIndex).toBeCloseTo(10, 9);
     expect(out[1].beat).toBe(false); // matching the market is not beating it
   });
 
   it('sorts out-of-order rows', () => {
-    const out = deriveSeasonWeeks([
-      row(3, { v: 13000, x: 1000 }),
-      row(1, { v: 11000, x: 1000 }),
-      row(2, { v: 12000, x: 1000 }),
-    ], ctx);
+    const out = deriveSeasonWeeks(
+      [row(3, { v: 13000, x: 1000 }), row(1, { v: 11000, x: 1000 }), row(2, { v: 12000, x: 1000 })],
+      ctx,
+    );
     expect(out.map((d) => d.week)).toEqual([1, 2, 3]);
   });
 
   it('ignores rows from another season', () => {
-    const out = deriveSeasonWeeks([
-      { s: 'S0', w: 1, v: 99999, g: 0, x: 1, c: 0, h: 0 },
-      row(1, { v: 11000, x: 1000 }),
-    ], ctx);
+    const out = deriveSeasonWeeks(
+      [{ s: 'S0', w: 1, v: 99999, g: 0, x: 1, c: 0, h: 0 }, row(1, { v: 11000, x: 1000 })],
+      ctx,
+    );
     expect(out).toHaveLength(1);
     expect(out[0].totalReturn).toBeCloseTo(10, 9);
   });
@@ -115,7 +108,8 @@ describe('the $GAP-sitter', () => {
   // index nearly every week, so consistency waves them through. Only the
   // concentration figure separates them, which is why it is recorded.
   const sitter = [1, 2, 3, 4, 5].map((w) =>
-    row(w, { v: 10000 * Math.pow(1.4, w), x: 1000 + w * 8, c: 20000, h: 20000 }));
+    row(w, { v: 10000 * Math.pow(1.4, w), x: 1000 + w * 8, c: 20000, h: 20000 }),
+  );
   const derived = deriveSeasonWeeks(sitter, ctx);
   const summary = summariseSeasonWeeks(derived);
 
@@ -131,10 +125,7 @@ describe('the $GAP-sitter', () => {
 });
 
 describe('buildSeasonSeries', () => {
-  const derived = deriveSeasonWeeks([
-    row(1, { v: 11000, x: 1010 }),
-    row(2, { v: 9000, x: 1020 }),
-  ], ctx);
+  const derived = deriveSeasonWeeks([row(1, { v: 11000, x: 1010 }), row(2, { v: 9000, x: 1020 })], ctx);
 
   it('puts both lines on one shared scale, which is the entire point', () => {
     const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 });

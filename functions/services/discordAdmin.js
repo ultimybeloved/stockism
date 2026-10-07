@@ -11,10 +11,9 @@ const { CHARACTERS } = require('../characters');
 const { ADMIN_UID, STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT } = require('../constants');
 const { writeNotification, sendDiscordMessage, priceHistoryRef } = require('../helpers');
 
-
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
 exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -31,7 +30,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   const marketData = marketSnap.data() || {};
   const currentPrice = (marketData.prices || {})[ticker] || 0;
   const histSnap = await priceHistoryRef().get();
-  const priceHistory = ((histSnap.data() || {})[ticker]) || [];
+  const priceHistory = (histSnap.data() || {})[ticker] || [];
 
   // Find price closest to (but before) startTimestamp
   let priceAtStart = currentPrice;
@@ -40,8 +39,11 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   for (const entry of priceHistory) {
     const entryMs = entry.timestamp?._seconds
       ? entry.timestamp._seconds * 1000
-      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
-        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+      : entry.timestamp?.seconds
+        ? entry.timestamp.seconds * 1000
+        : typeof entry.timestamp === 'number'
+          ? entry.timestamp
+          : 0;
     if (entryMs <= startMs && (!closestBefore || entryMs > closestBefore.ms)) {
       closestBefore = { ms: entryMs, price: entry.price };
     }
@@ -49,17 +51,20 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   if (closestBefore) priceAtStart = closestBefore.price;
 
   // 2. Query all trades for this ticker after startTimestamp
-  const tradesSnap = await db.collection('trades')
+  const tradesSnap = await db
+    .collection('trades')
     .where('ticker', '==', ticker)
     .where('timestamp', '>', startDate)
     .get();
 
   const trades = [];
-  tradesSnap.forEach(doc => {
+  tradesSnap.forEach((doc) => {
     const t = doc.data();
     const ts = t.timestamp?._seconds
       ? t.timestamp._seconds * 1000
-      : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+      : t.timestamp?.seconds
+        ? t.timestamp.seconds * 1000
+        : 0;
     trades.push({ ...t, _ts: ts, id: doc.id });
   });
   trades.sort((a, b) => a._ts - b._ts);
@@ -114,17 +119,18 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
     const cashToCover = covers.reduce((s, t) => s + (t.totalValue || 0), 0);
 
     // Net cash: money in (sells + shorts) minus money out (buys + covers)
-    const netCashFlow = (cashReceived + cashFromShorts) - (cashSpent + cashToCover);
+    const netCashFlow = cashReceived + cashFromShorts - (cashSpent + cashToCover);
     const currentHoldings = (userData.holdings || {})[ticker] || 0;
     const netSharesTraded = sharesBought - sharesSold;
     const giftedShares = Math.max(0, currentHoldings - netSharesTraded);
 
-    const firstSellTs = sells.length > 0 ? Math.min(...sells.map(s => s._ts)) : null;
-    const firstShortTs = shorts.length > 0 ? Math.min(...shorts.map(s => s._ts)) : null;
+    const firstSellTs = sells.length > 0 ? Math.min(...sells.map((s) => s._ts)) : null;
+    const firstShortTs = shorts.length > 0 ? Math.min(...shorts.map((s) => s._ts)) : null;
     // Earliest cash-generating trade (sell or short)
-    const firstCashInTs = [firstSellTs, firstShortTs].filter(Boolean).length > 0
-      ? Math.min(...[firstSellTs, firstShortTs].filter(Boolean))
-      : null;
+    const firstCashInTs =
+      [firstSellTs, firstShortTs].filter(Boolean).length > 0
+        ? Math.min(...[firstSellTs, firstShortTs].filter(Boolean))
+        : null;
 
     const entry = {
       uid,
@@ -144,7 +150,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
       giftedShares,
       totalTrades,
       firstSellTs,
-      firstCashInTs
+      firstCashInTs,
     };
 
     userBreakdowns.push(entry);
@@ -162,7 +168,8 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
 
   for (const p of profiteers) {
     // Get all non-ticker trades after first cash-generating trade
-    const otherTradesSnap = await db.collection('trades')
+    const otherTradesSnap = await db
+      .collection('trades')
       .where('uid', '==', p.uid)
       .where('timestamp', '>', new Date(p.firstCashInTs))
       .get();
@@ -170,7 +177,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
     let spentOnOthers = 0;
     const byTicker = {};
 
-    otherTradesSnap.forEach(doc => {
+    otherTradesSnap.forEach((doc) => {
       const t = doc.data();
       if (t.ticker === ticker) return; // skip same ticker
       const action = (t.action || '').toLowerCase();
@@ -188,7 +195,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
         displayName: p.displayName,
         shroProfit: Math.round(p.netCashFlow * 100) / 100,
         spentOnOtherStocks: Math.round(cappedSpent * 100) / 100,
-        breakdown: {}
+        breakdown: {},
       };
 
       // Scale per-ticker amounts if we capped
@@ -212,44 +219,43 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
     .map(([t, amount]) => ({ ticker: t, amount }));
 
   // 5. Summary
-  const totalCashOut = userBreakdowns
-    .filter(u => u.netCashFlow > 0)
-    .reduce((s, u) => s + u.netCashFlow, 0);
+  const totalCashOut = userBreakdowns.filter((u) => u.netCashFlow > 0).reduce((s, u) => s + u.netCashFlow, 0);
   const totalCashIntoOthers = Object.values(rippleByTicker).reduce((s, v) => s + v, 0);
 
   const summary = {
     ticker,
     priceAtStart: Math.round(priceAtStart * 100) / 100,
     currentPrice: Math.round(currentPrice * 100) / 100,
-    priceInflation: priceAtStart > 0
-      ? Math.round(((currentPrice - priceAtStart) / priceAtStart) * 10000) / 100
-      : 0,
+    priceInflation: priceAtStart > 0 ? Math.round(((currentPrice - priceAtStart) / priceAtStart) * 10000) / 100 : 0,
     totalUsers: userBreakdowns.length,
     totalTrades: trades.length,
     totalCashOut: Math.round(totalCashOut * 100) / 100,
     cashIntoOtherStocks: Math.round(totalCashIntoOthers * 100) / 100,
     cashSittingAsCash: Math.round((totalCashOut - totalCashIntoOthers) * 100) / 100,
-    windowStart: startDate.toISOString()
+    windowStart: startDate.toISOString(),
   };
 
   return {
     summary,
     users: userBreakdowns,
     rippleByTicker: sortedRipple,
-    userRipples
+    userRipples,
   };
 });
 
 // ─── TICKER RECOVERY ────────────────────────────────────────────────────────
 exports.recoverTicker = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 
   const { ticker, startTimestamp, rollbackToTimestamp, dryRun } = data;
   if (!ticker || !startTimestamp || !rollbackToTimestamp) {
-    throw new functions.https.HttpsError('invalid-argument', 'ticker, startTimestamp, and rollbackToTimestamp required');
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'ticker, startTimestamp, and rollbackToTimestamp required',
+    );
   }
 
   // 1. Re-run diagnostic server-side (don't trust client data)
@@ -261,29 +267,34 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
 
   // Look up price at rollback timestamp from priceHistory
   const rollbackHistSnap = await priceHistoryRef().get();
-  const fullHistory = ((rollbackHistSnap.data() || {})[ticker]) || [];
+  const fullHistory = (rollbackHistSnap.data() || {})[ticker] || [];
   let targetPrice = null;
   for (const entry of fullHistory) {
     const entryTs = entry.timestamp?._seconds
       ? entry.timestamp._seconds * 1000
-      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
-        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+      : entry.timestamp?.seconds
+        ? entry.timestamp.seconds * 1000
+        : typeof entry.timestamp === 'number'
+          ? entry.timestamp
+          : 0;
     if (entryTs <= rollbackToTimestamp) {
       targetPrice = entry.price;
     }
   }
   // Fallback: check archived price history if live array had no match
   if (targetPrice === null) {
-    const archiveSnap = await db.collection('market').doc('current')
-      .collection('price_history').doc(ticker).get();
+    const archiveSnap = await db.collection('market').doc('current').collection('price_history').doc(ticker).get();
     if (archiveSnap.exists) {
       const archiveData = archiveSnap.data();
       const archiveHistory = archiveData.history || [];
       for (const entry of archiveHistory) {
         const entryTs = entry.timestamp?._seconds
           ? entry.timestamp._seconds * 1000
-          : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
-            : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+          : entry.timestamp?.seconds
+            ? entry.timestamp.seconds * 1000
+            : typeof entry.timestamp === 'number'
+              ? entry.timestamp
+              : 0;
         if (entryTs <= rollbackToTimestamp) {
           targetPrice = entry.price;
         }
@@ -292,21 +303,27 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   }
 
   if (targetPrice === null) {
-    throw new functions.https.HttpsError('not-found', `No price history found at or before rollback timestamp for ${ticker}`);
+    throw new functions.https.HttpsError(
+      'not-found',
+      `No price history found at or before rollback timestamp for ${ticker}`,
+    );
   }
 
   // Query all trades for this ticker after startTimestamp
-  const tradesSnap = await db.collection('trades')
+  const tradesSnap = await db
+    .collection('trades')
     .where('ticker', '==', ticker)
     .where('timestamp', '>', startDate)
     .get();
 
   const trades = [];
-  tradesSnap.forEach(doc => {
+  tradesSnap.forEach((doc) => {
     const t = doc.data();
     const ts = t.timestamp?._seconds
       ? t.timestamp._seconds * 1000
-      : (t.timestamp?.seconds ? t.timestamp.seconds * 1000 : 0);
+      : t.timestamp?.seconds
+        ? t.timestamp.seconds * 1000
+        : 0;
     trades.push({ ...t, _ts: ts, id: doc.id });
   });
 
@@ -354,7 +371,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
     const cashReceived = sells.reduce((s, t) => s + (t.totalValue || 0), 0);
     const cashFromShorts = shorts.reduce((s, t) => s + (t.totalValue || 0), 0);
     const cashToCover = covers.reduce((s, t) => s + (t.totalValue || 0), 0);
-    const netCashFlow = (cashReceived + cashFromShorts) - (cashSpent + cashToCover);
+    const netCashFlow = cashReceived + cashFromShorts - (cashSpent + cashToCover);
 
     // Track holders who will see value drop from price reset
     const currentHoldings = (userData.holdings || {})[ticker] || 0;
@@ -364,7 +381,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
         uid,
         displayName: userData.displayName || 'Unknown',
         holdings: currentHoldings,
-        valueDrop: Math.round(valueDrop * 100) / 100
+        valueDrop: Math.round(valueDrop * 100) / 100,
       });
     }
 
@@ -373,7 +390,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
 
     // Check for existing recovery log (idempotent)
     const repairLog = userData._repairLog || [];
-    if (repairLog.some(entry => entry.recoveryId === recoveryId)) continue;
+    if (repairLog.some((entry) => entry.recoveryId === recoveryId)) continue;
 
     const previousCash = Math.round((userData.cash || 0) * 100) / 100;
     const clawbackAmount = Math.round(netCashFlow * 100) / 100;
@@ -382,7 +399,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
     const wasFloored = actualClawback < clawbackAmount;
 
     if (wasFloored) {
-      totalUnrecoverable += (clawbackAmount - actualClawback);
+      totalUnrecoverable += clawbackAmount - actualClawback;
     }
     totalClawedBack += actualClawback;
 
@@ -393,7 +410,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
       newCash,
       clawbackAmount,
       actualClawback,
-      wasFloored
+      wasFloored,
     });
   }
 
@@ -406,8 +423,11 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   for (const entry of fullHistory) {
     const entryTs = entry.timestamp?._seconds
       ? entry.timestamp._seconds * 1000
-      : (entry.timestamp?.seconds ? entry.timestamp.seconds * 1000
-        : (typeof entry.timestamp === 'number' ? entry.timestamp : 0));
+      : entry.timestamp?.seconds
+        ? entry.timestamp.seconds * 1000
+        : typeof entry.timestamp === 'number'
+          ? entry.timestamp
+          : 0;
     if (entryTs <= rollbackToTimestamp) {
       keptHistory.push(entry);
     } else {
@@ -417,7 +437,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   // Add flat line anchors
   const newHistoryEntries = [
     { timestamp: rollbackToTimestamp, price: targetPrice },
-    { timestamp: Date.now(), price: targetPrice }
+    { timestamp: Date.now(), price: targetPrice },
   ];
   const newHistory = [...keptHistory, ...newHistoryEntries];
 
@@ -429,7 +449,11 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
     holdersAffected,
     totalClawedBack,
     totalUnrecoverable,
-    historyRewrite: { removedEntries: removedCount, keptEntries: keptHistory.length, newTotalEntries: newHistory.length }
+    historyRewrite: {
+      removedEntries: removedCount,
+      keptEntries: keptHistory.length,
+      newTotalEntries: newHistory.length,
+    },
   };
 
   // If dry run, return preview only
@@ -440,7 +464,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
 
   // Reset price and rewrite price history (history lives in its own doc)
   batch.update(db.collection('market').doc('current'), {
-    [`prices.${ticker}`]: targetPrice
+    [`prices.${ticker}`]: targetPrice,
   });
   batch.set(priceHistoryRef(), { [ticker]: newHistory }, { merge: true });
 
@@ -456,8 +480,8 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
         clawbackAmount: cb.actualClawback,
         previousCash: cb.previousCash,
         newCash: cb.newCash,
-        timestamp: new Date().toISOString()
-      })
+        timestamp: new Date().toISOString(),
+      }),
     });
   }
 

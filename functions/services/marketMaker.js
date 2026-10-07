@@ -15,8 +15,14 @@ const {
 } = require('../constants');
 const {
   liquidityFor,
-  calculateMarginalImpact, isPriceProtected, isTickerPaused, priceHistoryRef,
-  dailyClosesRef, monthIdOf, round2, recordHeartbeat,
+  calculateMarginalImpact,
+  isPriceProtected,
+  isTickerPaused,
+  priceHistoryRef,
+  dailyClosesRef,
+  monthIdOf,
+  round2,
+  recordHeartbeat,
 } = require('../helpers');
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
@@ -30,9 +36,7 @@ const LOOKBACK_DAYS = 7;
 const MIN_CLOSE_DAYS = 3;
 
 // Non-ETF tickers eligible for market maker stabilization
-const NON_ETF_TICKERS = new Set(
-  CHARACTERS.filter((c) => !c.isETF).map((c) => c.ticker)
-);
+const NON_ETF_TICKERS = new Set(CHARACTERS.filter((c) => !c.isETF).map((c) => c.ticker));
 
 /**
  * The reference price each ticker is measured against: the mean of its last
@@ -86,8 +90,8 @@ const buildReferencePrices = async (now) => {
  * either direction. Uses the same marginal-impact formula as real trades so the
  * correction is proportionate and can't overshoot.
  */
-exports.marketMakerCycle = cf().pubsub
-  .schedule('0 * * * *')
+exports.marketMakerCycle = cf()
+  .pubsub.schedule('0 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
     // Never run during the weekly Thursday halt (13:00–21:00 UTC)
@@ -113,7 +117,7 @@ exports.marketMakerCycle = cf().pubsub
 
       const prices = marketData.prices || {};
       const historySnap = await priceHistoryRef().get();
-      const priceHistory = historySnap.exists ? (historySnap.data() || {}) : {};
+      const priceHistory = historySnap.exists ? historySnap.data() || {} : {};
 
       const now = Date.now();
       const referencePrices = await buildReferencePrices(now);
@@ -156,11 +160,13 @@ exports.marketMakerCycle = cf().pubsub
         // Negative deviation → price too low → market maker buys (pushes price up)
         const isSell = deviation > 0;
 
-        const impact = calculateMarginalImpact(currentPrice, INTERVENTION_SHARES * splitFactorOf(ticker), 0, liquidityFor(ticker));
-        const clampedImpact = Math.min(
-          impact,
-          currentPrice * MAX_PRICE_CHANGE_PERCENT
+        const impact = calculateMarginalImpact(
+          currentPrice,
+          INTERVENTION_SHARES * splitFactorOf(ticker),
+          0,
+          liquidityFor(ticker),
         );
+        const clampedImpact = Math.min(impact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
 
         let newPrice;
         if (isSell) {
@@ -196,8 +202,8 @@ exports.marketMakerCycle = cf().pubsub
         interventionCount++;
         console.log(
           `marketMakerCycle: ${ticker} ${isSell ? 'SELL' : 'BUY'} ` +
-          `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
-          `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`
+            `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
+            `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`,
         );
       }
 

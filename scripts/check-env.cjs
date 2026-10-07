@@ -40,9 +40,16 @@ const ROOT = path.join(__dirname, '..');
 
 // Injected by Google/Firebase at runtime, or by the emulator. Never in a .env.
 const PLATFORM = new Set([
-  'GCLOUD_PROJECT', 'GCP_PROJECT', 'K_SERVICE', 'FUNCTION_NAME', 'FUNCTION_TARGET',
-  'FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FUNCTIONS_EMULATOR',
-  'FIREBASE_CONFIG', 'NODE_ENV',
+  'GCLOUD_PROJECT',
+  'GCP_PROJECT',
+  'K_SERVICE',
+  'FUNCTION_NAME',
+  'FUNCTION_TARGET',
+  'FIRESTORE_EMULATOR_HOST',
+  'FIREBASE_AUTH_EMULATOR_HOST',
+  'FUNCTIONS_EMULATOR',
+  'FIREBASE_CONFIG',
+  'NODE_ENV',
 ]);
 
 // Must be present and non-empty or production loses a feature silently.
@@ -100,7 +107,10 @@ function envKeysWithValues(file) {
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    const value = trimmed
+      .slice(eq + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '');
     if (value) keys.add(key);
   }
   return keys;
@@ -121,9 +131,7 @@ function checkEnv({ filesRequired = !process.env.CI } = {}) {
   // a new variable was added without deciding whether prod breaks without it,
   // so it is reported rather than quietly assumed safe.
   const used = envNamesUsedIn(path.join(ROOT, 'functions'), /process\.env\.([A-Z][A-Z_0-9]*)/g);
-  const unclassified = [...used].filter(
-    (n) => !PLATFORM.has(n) && !(n in REQUIRED) && !(n in OPTIONAL)
-  );
+  const unclassified = [...used].filter((n) => !PLATFORM.has(n) && !(n in REQUIRED) && !(n in OPTIONAL));
   if (unclassified.length > 0) {
     problems += unclassified.length;
     console.log('Backend env vars not classified in scripts/check-env.cjs:');
@@ -165,8 +173,9 @@ function checkEnv({ filesRequired = !process.env.CI } = {}) {
 
   // --- 2. .env.local (WARNING) ---------------------------------------------
 
-  const viteUsed = [...envNamesUsedIn(path.join(ROOT, 'src'), /import\.meta\.env\.(VITE_[A-Z_0-9]*)/g)]
-    .filter((n) => !VITE_ELSEWHERE.has(n));
+  const viteUsed = [...envNamesUsedIn(path.join(ROOT, 'src'), /import\.meta\.env\.(VITE_[A-Z_0-9]*)/g)].filter(
+    (n) => !VITE_ELSEWHERE.has(n),
+  );
   const localKeys = envKeysWithValues(path.join(ROOT, '.env.local'));
 
   if (localKeys === null) {

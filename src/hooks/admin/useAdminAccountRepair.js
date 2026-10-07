@@ -20,7 +20,7 @@ export function useAdminAccountRepair({ setMessage, setLoading }) {
           issues.push(`cash was ${data.cash}`);
         }
         if (data.portfolioValue !== undefined && (isNaN(data.portfolioValue) || !isFinite(data.portfolioValue))) {
-          fixes.portfolioValue = fixes.cash !== undefined ? fixes.cash : (data.cash || 0);
+          fixes.portfolioValue = fixes.cash !== undefined ? fixes.cash : data.cash || 0;
           issues.push(`portfolioValue was ${data.portfolioValue}`);
         }
         if (data.marginUsed !== undefined && (isNaN(data.marginUsed) || !isFinite(data.marginUsed))) {
@@ -49,12 +49,19 @@ export function useAdminAccountRepair({ setMessage, setLoading }) {
           const fixedShorts = {};
           for (const [ticker, pos] of Object.entries(data.shorts)) {
             if (!pos || typeof pos !== 'object') continue;
-            const hasNaN = isNaN(pos.shares) || isNaN(pos.entryPrice) || isNaN(pos.margin) ||
-                           !isFinite(pos.shares) || !isFinite(pos.entryPrice) || !isFinite(pos.margin);
+            const hasNaN =
+              isNaN(pos.shares) ||
+              isNaN(pos.entryPrice) ||
+              isNaN(pos.margin) ||
+              !isFinite(pos.shares) ||
+              !isFinite(pos.entryPrice) ||
+              !isFinite(pos.margin);
             if (hasNaN) {
               fixedShorts[ticker] = { shares: 0, entryPrice: 0, margin: 0, costBasis: 0 };
               shortsCorrupted = true;
-              issues.push(`shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`);
+              issues.push(
+                `shorts.${ticker} had NaN (shares=${pos.shares}, entry=${pos.entryPrice}, margin=${pos.margin})`,
+              );
             } else if (pos.shares > 0 && pos.entryPrice && !pos.costBasis) {
               fixedShorts[ticker] = { ...pos, costBasis: pos.entryPrice };
               shortsCorrupted = true;
@@ -105,7 +112,7 @@ export function useAdminAccountRepair({ setMessage, setLoading }) {
         }
         setMessage({
           type: 'success',
-          text: `Fixed ${fixed} account(s): ${corrupted.map(a => `${a.displayName} (${a.issues.join(', ')})`).join(' | ')}`
+          text: `Fixed ${fixed} account(s): ${corrupted.map((a) => `${a.displayName} (${a.issues.join(', ')})`).join(' | ')}`,
         });
       }
     } catch (error) {

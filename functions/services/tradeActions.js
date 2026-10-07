@@ -7,24 +7,53 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const {
-  MIN_PRICE, MAX_PRICE_CHANGE_PERCENT, MAX_DAILY_IMPACT,
-  SHORT_MARGIN_RATIO, SHORT_CONCENTRATION_CAP, MARGIN_SELL_LOCKUP_MS,
-  MAX_SHORTS_BEFORE_COOLDOWN, SHORT_COOLDOWN_WINDOW_MS, TRADE_HOLD_PERIOD_MS,
+  MIN_PRICE,
+  MAX_PRICE_CHANGE_PERCENT,
+  MAX_DAILY_IMPACT,
+  SHORT_MARGIN_RATIO,
+  SHORT_CONCENTRATION_CAP,
+  MARGIN_SELL_LOCKUP_MS,
+  MAX_SHORTS_BEFORE_COOLDOWN,
+  SHORT_COOLDOWN_WINDOW_MS,
+  TRADE_HOLD_PERIOD_MS,
   MIN_EXIT_SHARES,
 } = require('../constants');
-const { calculateMarginalImpact, traderMarginalImpact, liquidityFor, lockedShares, remainingShares, shortsEquity } = require('../helpers');
+const {
+  calculateMarginalImpact,
+  traderMarginalImpact,
+  liquidityFor,
+  lockedShares,
+  remainingShares,
+  shortsEquity,
+} = require('../helpers');
 const { exitLoyaltyDiscount } = require('../characters');
 
 function computeBuy({
-  ticker, amount, now, currentPrice, prices, effectiveSpread, ageImpactFactor,
-  cumulativeVolume, cumulativeDailyImpact, ipCumulativeDailyImpact,
-  cash, holdings, userData, marginEnabled, marginUsed, tierMultiplier, newHoldings,
+  ticker,
+  amount,
+  now,
+  currentPrice,
+  prices,
+  effectiveSpread,
+  ageImpactFactor,
+  cumulativeVolume,
+  cumulativeDailyImpact,
+  ipCumulativeDailyImpact,
+  cash,
+  holdings,
+  userData,
+  marginEnabled,
+  marginUsed,
+  tierMultiplier,
+  newHoldings,
 }) {
   // Two numbers, on purpose. The MARKET move is capped so one order cannot
   // spike a stock; the TRADER pays what moving this much actually costs. They
   // are the same number for any order under the cap — see rawMarginalImpact.
-  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
-  const buyerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const priceImpact =
+    calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const buyerImpact =
+    traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
   const hitMaxImpact = priceImpact >= maxImpact;
 
@@ -33,8 +62,10 @@ function computeBuy({
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-    throw new functions.https.HttpsError('failed-precondition',
-      `Daily trading limit reached for ${ticker}. No more buys today.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Daily trading limit reached for ${ticker}. No more buys today.`,
+    );
   }
 
   const newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
@@ -95,9 +126,20 @@ function computeBuy({
 }
 
 function computeSell({
-  ticker, amount, now, currentPrice, effectiveSpread, ageImpactFactor,
-  cumulativeVolume, cumulativeDailyImpact, ipCumulativeDailyImpact,
-  cash, holdings, userData, marginUsed, newHoldings,
+  ticker,
+  amount,
+  now,
+  currentPrice,
+  effectiveSpread,
+  ageImpactFactor,
+  cumulativeVolume,
+  cumulativeDailyImpact,
+  ipCumulativeDailyImpact,
+  cash,
+  holdings,
+  userData,
+  marginUsed,
+  newHoldings,
 }) {
   // Validate holdings
   const currentHoldings = holdings[ticker] || 0;
@@ -116,8 +158,10 @@ function computeSell({
       const hrs = Math.max(1, Math.ceil((userData.marginLockup[ticker].until - now) / 3600000));
       parts.push(`${locks.margin} margin-locked (~${hrs}h left)`);
     }
-    throw new functions.https.HttpsError('failed-precondition',
-      `Some $${ticker} shares are locked (${parts.join(', ')}). You can sell ${sellable} now.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Some $${ticker} shares are locked (${parts.join(', ')}). You can sell ${sellable} now.`,
+    );
   }
 
   // Enforce 45-second hold period
@@ -130,18 +174,20 @@ function computeSell({
       const remainingMs = TRADE_HOLD_PERIOD_MS - timeSinceBuy;
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+        `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`,
       );
     }
   }
 
   // Calculate marginal price impact (cumulative sell volume-based)
-  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  let priceImpact =
+    calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // What this exit actually costs the seller. Deliberately NOT clamped by the
   // daily allowance: if it were, spending the allowance on small sells first
   // would make a huge dump free, which is a better version of the trade the
   // wash rule exists to stop.
-  const rawSellerImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const rawSellerImpact =
+    traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% DOWN allowance: sells always execute (players must be able to
   // exit), but once it is spent the trade stops moving the price. Buys and
@@ -174,13 +220,35 @@ function computeSell({
     delete newHoldings[ticker];
   }
 
-  return { priceImpact, newPrice, executionPrice, totalCost, newCash, newMarginUsed: marginUsed, marginLockUpdate: null, hitMaxImpact: false };
+  return {
+    priceImpact,
+    newPrice,
+    executionPrice,
+    totalCost,
+    newCash,
+    newMarginUsed: marginUsed,
+    marginLockUpdate: null,
+    hitMaxImpact: false,
+  };
 }
 
 function computeShort({
-  ticker, amount, now, currentPrice, prices, effectiveSpread, ageImpactFactor,
-  cumulativeVolume, cumulativeDailyImpact, ipCumulativeDailyImpact,
-  cash, holdings, shorts, userData, marginUsed, newShorts,
+  ticker,
+  amount,
+  now,
+  currentPrice,
+  prices,
+  effectiveSpread,
+  ageImpactFactor,
+  cumulativeVolume,
+  cumulativeDailyImpact,
+  ipCumulativeDailyImpact,
+  cash,
+  holdings,
+  shorts,
+  userData,
+  marginUsed,
+  newShorts,
 }) {
   // Validate margin requirement
   if (cash < 0) {
@@ -201,26 +269,31 @@ function computeShort({
   });
   portfolioEquity += shortsEquity(shorts, prices);
 
-  const existingShortMargin = Object.values(shorts).reduce((sum, pos) =>
-    sum + (pos && pos.shares > 0 ? (pos.margin || 0) : 0), 0);
+  const existingShortMargin = Object.values(shorts).reduce(
+    (sum, pos) => sum + (pos && pos.shares > 0 ? pos.margin || 0 : 0),
+    0,
+  );
 
   if (portfolioEquity <= 0 || existingShortMargin + marginRequired > portfolioEquity) {
-    throw new functions.https.HttpsError('failed-precondition', 'Short limit reached. Total short positions cannot exceed your portfolio value.');
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'Short limit reached. Total short positions cannot exceed your portfolio value.',
+    );
   }
 
   // Per-ticker concentration cap: one stock's total short value (existing
   // position + this trade) can't exceed half of portfolio equity
-  const existingTickerShortValue = (shorts[ticker]?.shares > 0)
-    ? shorts[ticker].shares * currentPrice
-    : 0;
+  const existingTickerShortValue = shorts[ticker]?.shares > 0 ? shorts[ticker].shares * currentPrice : 0;
   if (existingTickerShortValue + currentPrice * amount > portfolioEquity * SHORT_CONCENTRATION_CAP) {
-    throw new functions.https.HttpsError('failed-precondition',
-      `Concentration limit: your total short on $${ticker} cannot exceed ${SHORT_CONCENTRATION_CAP * 100}% of your portfolio value.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Concentration limit: your total short on $${ticker} cannot exceed ${SHORT_CONCENTRATION_CAP * 100}% of your portfolio value.`,
+    );
   }
 
   // Check short cooldown (8-hour cooldown after 3rd short per ticker)
   const shortHistory = userData.shortHistory?.[ticker] || [];
-  const recentShorts = shortHistory.filter(ts => now - ts < SHORT_COOLDOWN_WINDOW_MS);
+  const recentShorts = shortHistory.filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
 
   if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
     const oldestRecent = Math.min(...recentShorts);
@@ -230,22 +303,26 @@ function computeShort({
     const minutes = Math.ceil((remainingMs % 3600000) / 60000);
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Short limit reached. You can short ${ticker} again in ${hours}h ${minutes}m.`
+      `Short limit reached. You can short ${ticker} again in ${hours}h ${minutes}m.`,
     );
   }
 
   // Calculate marginal price impact (cumulative volume-based)
-  const priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const priceImpact =
+    calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // A short entry is priced against its own impact, so a capped one handed big
   // shorts a better entry than easing in would. Same fix as the other lanes.
-  const shorterImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const shorterImpact =
+    traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% DOWN allowance, shared with sells.
   const impactPercent = currentPrice > 0 ? priceImpact / currentPrice : 0;
   const effectiveDailyImpact = Math.max(cumulativeDailyImpact, ipCumulativeDailyImpact);
   if (effectiveDailyImpact + impactPercent > MAX_DAILY_IMPACT) {
-    throw new functions.https.HttpsError('failed-precondition',
-      `Daily trading limit reached for ${ticker}. No more shorts today.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Daily trading limit reached for ${ticker}. No more shorts today.`,
+    );
   }
 
   const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
@@ -260,13 +337,13 @@ function computeShort({
   if (existingShort && existingShort.shares > 0) {
     const totalShares = existingShort.shares + amount;
     const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
-    const existingMargin = existingShort.margin || (existingShort.costBasis * existingShort.shares * 0.5);
+    const existingMargin = existingShort.margin || existingShort.costBasis * existingShort.shares * 0.5;
     newShorts[ticker] = {
       shares: totalShares,
       costBasis: totalShares > 0 ? totalValue / totalShares : executionPrice,
       margin: existingMargin + marginRequired,
       openedAt: existingShort.openedAt || admin.firestore.Timestamp.now(),
-      system: 'v2'
+      system: 'v2',
     };
   } else {
     newShorts[ticker] = {
@@ -274,17 +351,36 @@ function computeShort({
       costBasis: executionPrice,
       margin: marginRequired,
       openedAt: admin.firestore.Timestamp.now(),
-      system: 'v2'
+      system: 'v2',
     };
   }
 
-  return { priceImpact, newPrice, executionPrice, totalCost, newCash, newMarginUsed: marginUsed, marginLockUpdate: null, hitMaxImpact: false };
+  return {
+    priceImpact,
+    newPrice,
+    executionPrice,
+    totalCost,
+    newCash,
+    newMarginUsed: marginUsed,
+    marginLockUpdate: null,
+    hitMaxImpact: false,
+  };
 }
 
 function computeCover({
-  ticker, amount, now, currentPrice, effectiveSpread, ageImpactFactor,
-  cumulativeVolume, cumulativeDailyImpact, ipCumulativeDailyImpact,
-  cash, shorts, marginUsed, newShorts,
+  ticker,
+  amount,
+  now,
+  currentPrice,
+  effectiveSpread,
+  ageImpactFactor,
+  cumulativeVolume,
+  cumulativeDailyImpact,
+  ipCumulativeDailyImpact,
+  cash,
+  shorts,
+  marginUsed,
+  newShorts,
 }) {
   // Validate short position exists
   const shortPosition = shorts[ticker];
@@ -302,17 +398,19 @@ function computeCover({
       const remainingMs = TRADE_HOLD_PERIOD_MS - timeSinceOpen;
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`
+        `Hold period: ${Math.ceil(remainingMs / 1000)}s remaining`,
       );
     }
   }
 
   // Calculate marginal price impact (cumulative cover volume-based)
-  let priceImpact = calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  let priceImpact =
+    calculateMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
   // Same split as every other lane: the buy-back is priced against its own
   // cost, not the capped move the chart shows. Not clamped by the allowance,
   // for the same reason as the sell lane.
-  const covererImpact = traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
+  const covererImpact =
+    traderMarginalImpact(currentPrice, amount, cumulativeVolume, liquidityFor(ticker)) * ageImpactFactor;
 
   // Daily 10% UP allowance, shared with buys. Covering a short you opened
   // today draws on a full allowance, so the buy-back pushes the price back up
@@ -328,7 +426,7 @@ function computeCover({
 
   // Calculate margin to return (based on entry price, not current price)
   const costBasis = shortPosition.costBasis || shortPosition.entryPrice || executionPrice;
-  const totalPositionMargin = shortPosition.margin || (costBasis * shortPosition.shares * 0.5);
+  const totalPositionMargin = shortPosition.margin || costBasis * shortPosition.shares * 0.5;
   const marginToReturn = shortPosition.shares > 0 ? (totalPositionMargin / shortPosition.shares) * amount : 0;
 
   // Execute cover
@@ -349,13 +447,22 @@ function computeCover({
     costBasis: costBasis,
     margin: totalPositionMargin - marginToReturn,
     openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
-    system: shortPosition.system || 'v2'
+    system: shortPosition.system || 'v2',
   };
   if (!newShorts[ticker].shares) {
     delete newShorts[ticker];
   }
 
-  return { priceImpact, newPrice, executionPrice, totalCost, newCash, newMarginUsed: marginUsed, marginLockUpdate: null, hitMaxImpact: false };
+  return {
+    priceImpact,
+    newPrice,
+    executionPrice,
+    totalCost,
+    newCash,
+    newMarginUsed: marginUsed,
+    marginLockUpdate: null,
+    hitMaxImpact: false,
+  };
 }
 
 module.exports = { computeBuy, computeSell, computeShort, computeCover };

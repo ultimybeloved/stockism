@@ -20,9 +20,17 @@ const db = admin.firestore();
 
 const { ORDERS_PER_TICKER_PER_CYCLE } = require('../constants');
 const {
-  screenOrder, screenUser, isTickerHalted, triggerMet,
-  assertOrderStillActive, assertUserEligible, assertWashRule, assertLimitStillMet,
-  assertTradeLimit, resolveFillShares, readActionHistory,
+  screenOrder,
+  screenUser,
+  isTickerHalted,
+  triggerMet,
+  assertOrderStillActive,
+  assertUserEligible,
+  assertWashRule,
+  assertLimitStillMet,
+  assertTradeLimit,
+  resolveFillShares,
+  readActionHistory,
 } = require('./limitOrderGuards');
 const { computeImpact, applyBuyFill, applySellFill, markOrderFilled } = require('./limitOrderFill');
 const { notifyCanceled, notifyExpired, publishFill } = require('./limitOrderEffects');
@@ -42,10 +50,13 @@ const CANCEL_ON = [
 ];
 
 const closeOrder = (orderId, fields) =>
-  db.collection('limitOrders').doc(orderId).update({
-    ...fields,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  db
+    .collection('limitOrders')
+    .doc(orderId)
+    .update({
+      ...fields,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
 /**
  * Fill one order inside a transaction. Returns what the post-commit effects
@@ -86,30 +97,58 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
 
   const fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });
 
-  const { totalShares: cumVolume, count: tradeCount } =
-    readActionHistory(userData.tickerTradeHistory || {}, order.ticker, action, now);
+  const { totalShares: cumVolume, count: tradeCount } = readActionHistory(
+    userData.tickerTradeHistory || {},
+    order.ticker,
+    action,
+    now,
+  );
   assertTradeLimit(tradeCount, action, order.ticker);
 
-  const { effectiveImpact, traderImpact, impactPercent } =
-    computeImpact({
-      userData, ticker: order.ticker, action, freshPrice, fillShares, cumVolume, now,
-      networkSpent: networkImpactSpent(net, order.ticker, action, now),
-    });
+  const { effectiveImpact, traderImpact, impactPercent } = computeImpact({
+    userData,
+    ticker: order.ticker,
+    action,
+    freshPrice,
+    fillShares,
+    cumVolume,
+    now,
+    networkSpent: networkImpactSpent(net, order.ticker, action, now),
+  });
 
   const ctx = {
-    order, orderId, userRef, marketRef, userData, freshPrice, freshPrices, fillShares, now,
-    effectiveImpact, traderImpact, impactPercent, fillSource,
+    order,
+    orderId,
+    userRef,
+    marketRef,
+    userData,
+    freshPrice,
+    freshPrices,
+    fillShares,
+    now,
+    effectiveImpact,
+    traderImpact,
+    impactPercent,
+    fillSource,
   };
-  const { executedPrice, tradeValue, historyEntry, trailingEntries } = effectiveType === 'BUY'
-    ? applyBuyFill(transaction, ctx)
-    : applySellFill(transaction, ctx);
+  const { executedPrice, tradeValue, historyEntry, trailingEntries } =
+    effectiveType === 'BUY' ? applyBuyFill(transaction, ctx) : applySellFill(transaction, ctx);
 
   writeNetworkFill(transaction, net, {
-    ticker: order.ticker, action, entry: historyEntry, trailingEntries, uid: order.userId, now,
+    ticker: order.ticker,
+    action,
+    entry: historyEntry,
+    trailingEntries,
+    uid: order.userId,
+    now,
   });
 
   markOrderFilled(transaction, orderRef, {
-    freshFilled, fillShares, totalShares, allowPartialFills: order.allowPartialFills, executedPrice,
+    freshFilled,
+    fillShares,
+    totalShares,
+    allowPartialFills: order.allowPartialFills,
+    executedPrice,
   });
 
   return {
@@ -147,7 +186,8 @@ const runLimitOrderCheck = async () => {
     const haltedTickersMap = marketData.haltedTickers || {};
     const launchedTickers = marketData.launchedTickers || [];
 
-    const ordersSnapshot = await db.collection('limitOrders')
+    const ordersSnapshot = await db
+      .collection('limitOrders')
       .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
       .get();
     console.log(`Found ${ordersSnapshot.size} pending limit orders`);
@@ -165,9 +205,12 @@ const runLimitOrderCheck = async () => {
 
         const orderVerdict = screenOrder(order, { now, launchedTickers });
         if (orderVerdict) {
-          await closeOrder(orderId, orderVerdict.status === 'EXPIRED'
-            ? { status: 'EXPIRED' }
-            : { status: 'CANCELED', cancelReason: orderVerdict.reason });
+          await closeOrder(
+            orderId,
+            orderVerdict.status === 'EXPIRED'
+              ? { status: 'EXPIRED' }
+              : { status: 'CANCELED', cancelReason: orderVerdict.reason },
+          );
           if (orderVerdict.status === 'EXPIRED') {
             console.log(`Expired order ${orderId}`);
             await notifyExpired(order, orderId);
@@ -205,12 +248,15 @@ const runLimitOrderCheck = async () => {
           continue; // Will be picked up in the next sweep (every 15 minutes)
         }
 
-        console.log(`Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`);
+        console.log(
+          `Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`,
+        );
 
         let fill;
         try {
           fill = await db.runTransaction((transaction) =>
-            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice }));
+            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice }),
+          );
         } catch (transactionError) {
           const msg = transactionError.message || '';
           if (CANCEL_ON.some((reason) => msg.includes(reason))) {
@@ -227,7 +273,6 @@ const runLimitOrderCheck = async () => {
         tickerExecutionCount[order.ticker] = tickerCount + 1;
         await publishFill(order, orderId, fill);
         executed++;
-
       } catch (error) {
         console.error(`Error processing order ${orderDoc.id}:`, error);
       }
@@ -243,7 +288,6 @@ const runLimitOrderCheck = async () => {
     };
     console.log('Limit order check complete:', result);
     return result;
-
   } catch (error) {
     console.error('Limit order check failed:', error);
     return { success: false, error: error.message };

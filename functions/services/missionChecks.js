@@ -30,7 +30,7 @@ const DAILY_MISSION_CHECKS = {
     if (total <= 0) return false;
     const crewShares = CREW_MEMBERS[crew].reduce((s, t) => s + (holdings[t] || 0), 0);
     return (crewShares / total) * 100 >= 50;
-  }
+  },
 };
 
 const WEEKLY_MISSION_CHECKS = {
@@ -47,18 +47,21 @@ const WEEKLY_MISSION_CHECKS = {
     const crew = userData.crew;
     if (!crew || !CREW_MEMBERS[crew]) return false;
     const holdings = userData.holdings || {};
-    let totalVal = 0, crewVal = 0;
+    let totalVal = 0,
+      crewVal = 0;
     Object.entries(holdings).forEach(([t, s]) => {
-      if (s > 0) { const v = s * ((prices || {})[t] || 0); totalVal += v; if (CREW_MEMBERS[crew].includes(t)) crewVal += v; }
+      if (s > 0) {
+        const v = s * ((prices || {})[t] || 0);
+        totalVal += v;
+        if (CREW_MEMBERS[crew].includes(t)) crewVal += v;
+      }
     });
     return totalVal > 0 && (crewVal / totalVal) * 100 >= WEEKLY_MISSIONS.CREW_MAXIMALIST.requirement;
   },
   // Growth is percentage-based so small accounts aren't locked out by flat
   // dollar targets.
-  PORTFOLIO_BUILDER: (wp, userData) =>
-    earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_BUILDER.requirement,
-  PORTFOLIO_MOONSHOT: (wp, userData) =>
-    earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT.requirement,
+  PORTFOLIO_BUILDER: (wp, userData) => earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_BUILDER.requirement,
+  PORTFOLIO_MOONSHOT: (wp, userData) => earnedGrowthPct(wp, userData) >= WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT.requirement,
 };
 
 /**

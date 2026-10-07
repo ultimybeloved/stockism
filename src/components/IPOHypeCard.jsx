@@ -27,15 +27,15 @@ const IPOHypeCard = ({ ipo }) => {
           ${ipo.ticker} - {character?.name}
         </h3>
 
-        {character?.description && (
-          <p className={`text-sm ${mutedClass} mt-1 line-clamp-2`}>{character.description}</p>
-        )}
+        {character?.description && <p className={`text-sm ${mutedClass} mt-1 line-clamp-2`}>{character.description}</p>}
 
         <div className={`mt-3 p-3 rounded-sm ${subtleClass}`}>
           <div className="grid grid-cols-2 gap-3 text-center">
             <div>
               <p className={`text-xs ${mutedClass}`}>IPO Price</p>
-              <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>{formatCurrency(ipo.basePrice)}</p>
+              <p className={`text-lg font-bold ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
+                {formatCurrency(ipo.basePrice)}
+              </p>
             </div>
             <div>
               <p className={`text-xs ${mutedClass}`}>Shares Available</p>

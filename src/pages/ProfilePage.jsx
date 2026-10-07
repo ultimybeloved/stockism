@@ -30,7 +30,10 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount, onOpenCustomization
   const crewData = userCrew ? CREW_MAP[userCrew] : null;
 
   // Portfolio value
-  const holdingsValue = Object.entries(holdings || {}).reduce((sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares, 0);
+  const holdingsValue = Object.entries(holdings || {}).reduce(
+    (sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares,
+    0,
+  );
   const shortsValue = Object.entries(shorts || {}).reduce((sum, [ticker, position]) => {
     if (!position || typeof position !== 'object') return sum;
     const shares = Number(position.shares) || 0;
@@ -38,22 +41,23 @@ const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount, onOpenCustomization
     const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
     const currentPrice = prices[ticker] || entryPrice;
     const collateral = Number(position.margin) || 0;
-    const value = position.system === 'v2'
-      ? collateral + (entryPrice - currentPrice) * shares
-      : collateral - (currentPrice * shares);
+    const value =
+      position.system === 'v2' ? collateral + (entryPrice - currentPrice) * shares : collateral - currentPrice * shares;
     return sum + (isNaN(value) ? 0 : value);
   }, 0);
   const portfolioValue = (userData?.cash || 0) + holdingsValue + shortsValue;
 
   // Get all predictions user has bet on
-  const userBetHistory = Object.entries(bets).map(([predictionId, betData]) => {
-    const prediction = predictions?.find(p => p.id === predictionId);
-    return {
-      predictionId,
-      ...betData,
-      prediction
-    };
-  }).sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
+  const userBetHistory = Object.entries(bets)
+    .map(([predictionId, betData]) => {
+      const prediction = predictions?.find((p) => p.id === predictionId);
+      return {
+        predictionId,
+        ...betData,
+        prediction,
+      };
+    })
+    .sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
 
   if (!user || !userData) {
     return (

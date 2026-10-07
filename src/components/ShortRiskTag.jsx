@@ -8,13 +8,19 @@ const ShortRiskTag = ({ shortPosition, ticker, price, colorBlindMode }) => {
   const entry = Number(shortPosition.costBasis || shortPosition.entryPrice) || 0;
   const shortPL = (entry - price) * shortPosition.shares;
   const risk = getShortRisk(shortPosition, price);
-  const plColor = shortPL >= 0
-    ? (colorBlindMode ? 'text-teal-500' : 'text-green-500')
-    : (colorBlindMode ? 'text-purple-500' : 'text-red-500');
+  const plColor =
+    shortPL >= 0
+      ? colorBlindMode
+        ? 'text-teal-500'
+        : 'text-green-500'
+      : colorBlindMode
+        ? 'text-purple-500'
+        : 'text-red-500';
 
   return (
     <span className={`text-xs font-semibold ${plColor}`}>
-      {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}{formatCurrency(shortPL)})
+      {shortPosition.shares} short ({shortPL >= 0 ? '+' : ''}
+      {formatCurrency(shortPL)})
       {risk?.isAtRisk && risk.liquidationPrice && (
         <span
           className="text-orange-500 ml-1"

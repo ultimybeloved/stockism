@@ -7,11 +7,26 @@ const { verifyKey, InteractionType, InteractionResponseType } = require('discord
 const db = admin.firestore();
 
 const {
-  BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
-  ADMIN_PRICE_PROTECTION_MS, DIRECT_REPLY_BUDGET_MS, isWeeklyTradingHalt,
-  DROP_CLAIM_WINDOW_MS, DISCORD_EPOCH_MS,
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MAX_PRICE_CHANGE_PERCENT,
+  ADMIN_PRICE_PROTECTION_MS,
+  DIRECT_REPLY_BUDGET_MS,
+  isWeeklyTradingHalt,
+  DROP_CLAIM_WINDOW_MS,
+  DISCORD_EPOCH_MS,
 } = require('../constants');
-const { liquidityFor, writeNotification, sendDiscordMessage, appendPriceHistory, isPriceProtected, priceHistoryRef, reportError, grantedValueUpdate, cohortAddUpdate } = require('../helpers');
+const {
+  liquidityFor,
+  writeNotification,
+  sendDiscordMessage,
+  appendPriceHistory,
+  isPriceProtected,
+  priceHistoryRef,
+  reportError,
+  grantedValueUpdate,
+  cohortAddUpdate,
+} = require('../helpers');
 const { CHARACTER_MAP } = require('../characters');
 const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
 const { rollDailyStock } = require('./dailyDropRoll');
@@ -22,11 +37,9 @@ const { rollDailyStock } = require('./dailyDropRoll');
 // below acknowledges immediately with a "thinking..." (type 5) and then edits
 // the real content in through here.
 const editDeferredReply = (appId, token, payload) =>
-  axios.patch(
-    `https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`,
-    payload,
-    { headers: { 'Content-Type': 'application/json' } }
-  );
+  axios.patch(`https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`, payload, {
+    headers: { 'Content-Type': 'application/json' },
+  });
 
 // Flipped after this instance has served one interaction. Used to decide whether
 // there is enough headroom left in Discord's 3s deadline to answer directly
@@ -46,12 +59,11 @@ function formatDropPicks(picks, priceFor) {
   const line = (p) => `**${p.name}** ($${p.ticker}) x${p.shares} ($${(p.shares * priceFor(p)).toFixed(2)})`;
   // Claims made before the tables split have no group tag — show a flat list
   // rather than dropping them out of every section.
-  if (picks.some(p => !p.group)) return picks.map(line).join('\n');
-  return DROP_SECTIONS
-    .map(({ group, label }) => {
-      const rows = picks.filter(p => p.group === group);
-      return rows.length ? `**${label}**\n${rows.map(line).join('\n')}` : null;
-    })
+  if (picks.some((p) => !p.group)) return picks.map(line).join('\n');
+  return DROP_SECTIONS.map(({ group, label }) => {
+    const rows = picks.filter((p) => p.group === group);
+    return rows.length ? `**${label}**\n${rows.map(line).join('\n')}` : null;
+  })
     .filter(Boolean)
     .join('\n\n');
 }
@@ -116,7 +128,9 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
       let timer;
       payload = await Promise.race([
         work,
-        new Promise((resolve) => { timer = setTimeout(() => resolve(null), DIRECT_REPLY_BUDGET_MS); }),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(null), DIRECT_REPLY_BUDGET_MS);
+        }),
       ]);
       clearTimeout(timer);
     }
@@ -161,8 +175,8 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Could not identify your Discord account.',
-            flags: 64 // Ephemeral
-          }
+            flags: 64, // Ephemeral
+          },
         });
       }
 
@@ -173,16 +187,14 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
       try {
         // Find user with this discordId
-        const usersSnap = await db.collection('users')
-          .where('discordId', '==', discordUserId)
-          .limit(1)
-          .get();
+        const usersSnap = await db.collection('users').where('discordId', '==', discordUserId).limit(1).get();
 
         if (usersSnap.empty) {
           await editOriginal({
-            content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
+            content:
+              "🔗 Your Discord isn't linked to a Stockism account yet!\n\n" +
               '**Link now:** https://stockism.app/link-discord\n\n' +
-              'Once linked, come back and click the button again — this doesn\'t count as your daily claim!',
+              "Once linked, come back and click the button again — this doesn't count as your daily claim!",
           });
           return;
         }
@@ -223,7 +235,9 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
               const keep = freshClaimed.filter((id) => {
                 try {
                   return Date.now() - (Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS) <= DROP_CLAIM_WINDOW_MS;
-                } catch { return false; } // not a snowflake — cannot be re-claimed anyway
+                } catch {
+                  return false;
+                } // not a snowflake — cannot be re-claimed anyway
               });
               tx.update(freshDoc.ref, {
                 claimedDailyStockMessages: [...keep, messageId],
@@ -276,16 +290,16 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           const updates = {
             lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
             lastDailyStockResult: {
-              picks: picks.map(p => ({
+              picks: picks.map((p) => ({
                 ticker: p.ticker,
                 name: p.name,
                 shares: p.shares,
                 currentPrice: p.currentPrice,
-                group: p.group
+                group: p.group,
               })),
               isJackpot,
-              claimedAt: new Date().toISOString()
-            }
+              claimedAt: new Date().toISOString(),
+            },
           };
 
           // Drops are the biggest faucet on the site. Their market value is
@@ -307,15 +321,16 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
             const existingCost = freshCostBasis[pick.ticker] || 0;
             const newShares = existingShares + pick.shares;
             // Weighted average cost basis: free shares have $0 cost
-            const newCostBasis = existingShares > 0
-              ? (existingCost * existingShares) / newShares
-              : 0;
+            const newCostBasis = existingShares > 0 ? (existingCost * existingShares) / newShares : 0;
             updates[`holdings.${pick.ticker}`] = newShares;
             updates[`costBasis.${pick.ticker}`] = newCostBasis;
             grantedMarketValue += (pick.currentPrice || 0) * pick.shares;
 
             const lot = cohortAddUpdate(
-              { holdingCohorts: workingCohorts }, pick.ticker, pick.shares, claimedAt,
+              { holdingCohorts: workingCohorts },
+              pick.ticker,
+              pick.shares,
+              claimedAt,
               !!CHARACTER_MAP[pick.ticker]?.isETF,
             );
             Object.assign(updates, lot);
@@ -342,7 +357,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const halted = isWeeklyTradingHalt() || marketDoc.data()?.marketHalted === true;
 
         const histSnap = await priceHistoryRef().get();
-        const liveHistory = histSnap.exists ? (histSnap.data() || {}) : {};
+        const liveHistory = histSnap.exists ? histSnap.data() || {} : {};
         const timestamp = Date.now();
         const newPrices = { ...prices };
         const marketUpdates = {};
@@ -375,32 +390,31 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
         const priceFor = (p) => newPrices[p.ticker] || p.currentPrice;
         const stockList = formatDropPicks(picks, priceFor);
-        const totalValue = picks.reduce((sum, p) => sum + (p.shares * priceFor(p)), 0);
+        const totalValue = picks.reduce((sum, p) => sum + p.shares * priceFor(p), 0);
 
         // Send web notification
         await writeNotification(uid, {
           type: 'system',
           title: isJackpot ? '🎰 Jackpot! Daily Stock Claim' : '🎁 Daily Stock Claimed',
           message: `You received ${totalShares} free share${totalShares !== 1 ? 's' : ''} worth $${totalValue.toFixed(2)}!`,
-          data: {}
+          data: {},
         });
 
         const embed = isJackpot
           ? {
-            title: '🎰💰 JACKPOT!! 💰🎰',
-            description: `You hit the **JACKPOT**! Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
-            color: 0xFFD700,
-            footer: { text: 'Incredible luck! 🍀' }
-          }
+              title: '🎰💰 JACKPOT!! 💰🎰',
+              description: `You hit the **JACKPOT**! Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
+              color: 0xffd700,
+              footer: { text: 'Incredible luck! 🍀' },
+            }
           : {
-            title: '🎁 Daily Stock Claimed!',
-            description: `Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
-            color: 0x00D166,
-            footer: { text: 'Come back tomorrow for more!' }
-          };
+              title: '🎁 Daily Stock Claimed!',
+              description: `Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+              color: 0x00d166,
+              footer: { text: 'Come back tomorrow for more!' },
+            };
 
         await editOriginal({ embeds: [embed] });
-
       } catch (err) {
         console.error('Daily stock claim error:', err);
         try {
@@ -422,25 +436,23 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Could not identify your Discord account.',
-            flags: 64
-          }
+            flags: 64,
+          },
         });
       }
 
       try {
-        const usersSnap = await db.collection('users')
-          .where('discordId', '==', discordUserId)
-          .limit(1)
-          .get();
+        const usersSnap = await db.collection('users').where('discordId', '==', discordUserId).limit(1).get();
 
         if (usersSnap.empty) {
           return res.json({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: '🔗 Your Discord isn\'t linked to a Stockism account yet!\n\n' +
+              content:
+                "🔗 Your Discord isn't linked to a Stockism account yet!\n\n" +
                 '**Link now:** https://stockism.app/link-discord',
-              flags: 64
-            }
+              flags: 64,
+            },
           });
         }
 
@@ -452,47 +464,50 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: '📋 No daily stock claims on record yet. Click **Claim Free Stock** to get your first!',
-              flags: 64
-            }
+              flags: 64,
+            },
           });
         }
 
         const totalShares = lastResult.picks.reduce((sum, p) => sum + p.shares, 0);
         const stockList = formatDropPicks(lastResult.picks, (p) => p.currentPrice);
-        const totalValue = lastResult.picks.reduce((sum, p) => sum + (p.shares * p.currentPrice), 0);
+        const totalValue = lastResult.picks.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
 
         const claimedDate = lastResult.claimedAt
-          ? new Date(lastResult.claimedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          ? new Date(lastResult.claimedAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
           : 'Unknown date';
 
         const embed = lastResult.isJackpot
           ? {
-            title: '🎰💰 Last Claim — JACKPOT! 💰🎰',
-            description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}**`,
-            color: 0xFFD700
-          }
+              title: '🎰💰 Last Claim — JACKPOT! 💰🎰',
+              description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}**`,
+              color: 0xffd700,
+            }
           : {
-            title: '📋 Your Last Daily Claim',
-            description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
-            color: 0x5865F2
-          };
+              title: '📋 Your Last Daily Claim',
+              description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+              color: 0x5865f2,
+            };
 
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             embeds: [embed],
-            flags: 64
-          }
+            flags: 64,
+          },
         });
-
       } catch (err) {
         console.error('View last claim error:', err);
         return res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Something went wrong. Try again in a moment!',
-            flags: 64
-          }
+            flags: 64,
+          },
         });
       }
     }

@@ -42,10 +42,7 @@ export function useAdminDiscordMessages({ showMessage }) {
   const loadDiscordMessages = useCallback(async () => {
     setBusy(true);
     try {
-      const [chan, msgs] = await Promise.all([
-        adminListDiscordChannelsFunction(),
-        adminListDiscordMessagesFunction(),
-      ]);
+      const [chan, msgs] = await Promise.all([adminListDiscordChannelsFunction(), adminListDiscordMessagesFunction()]);
       setChannels(chan.data.channels || []);
       setChannelNote(chan.data.reason || '');
       setMessages(msgs.data.messages || []);
@@ -58,22 +55,22 @@ export function useAdminDiscordMessages({ showMessage }) {
   }, [showMessage]);
 
   const patchDraft = useCallback((changes) => setDraft((d) => ({ ...d, ...changes })), []);
-  const patchEmbed = useCallback(
-    (changes) => setDraft((d) => ({ ...d, embed: { ...d.embed, ...changes } })),
-    []
-  );
+  const patchEmbed = useCallback((changes) => setDraft((d) => ({ ...d, embed: { ...d.embed, ...changes } })), []);
 
   const addButton = useCallback(
-    () => setDraft((d) => (d.buttons.length >= 5 ? d : { ...d, buttons: [...d.buttons, { label: '', url: '', emoji: '' }] })),
-    []
+    () =>
+      setDraft((d) =>
+        d.buttons.length >= 5 ? d : { ...d, buttons: [...d.buttons, { label: '', url: '', emoji: '' }] },
+      ),
+    [],
   );
   const patchButton = useCallback(
     (i, changes) => setDraft((d) => ({ ...d, buttons: d.buttons.map((b, j) => (j === i ? { ...b, ...changes } : b)) })),
-    []
+    [],
   );
   const removeButton = useCallback(
     (i) => setDraft((d) => ({ ...d, buttons: d.buttons.filter((_, j) => j !== i) })),
-    []
+    [],
   );
 
   const newDraft = useCallback(() => setDraft(emptyDraft()), []);
@@ -85,8 +82,12 @@ export function useAdminDiscordMessages({ showMessage }) {
       showMessage('error', 'Pick a channel first.');
       return;
     }
-    if (draft.allowMentions && !editing
-      && !window.confirm('Pings are ON. Any @role or @everyone in this message will notify people. Send it?')) return;
+    if (
+      draft.allowMentions &&
+      !editing &&
+      !window.confirm('Pings are ON. Any @role or @everyone in this message will notify people. Send it?')
+    )
+      return;
 
     setBusy(true);
     try {
@@ -94,9 +95,9 @@ export function useAdminDiscordMessages({ showMessage }) {
         ? await adminUpdateDiscordMessageFunction({ id: draft.id, ...payload(draft, channels) })
         : await adminSendDiscordMessageFunction(payload(draft, channels));
       const saved = res.data.message;
-      setMessages((prev) => (editing
-        ? prev.map((m) => (m.id === saved.id ? saved : m))
-        : [saved, ...prev.filter((m) => m.id !== saved.id)]));
+      setMessages((prev) =>
+        editing ? prev.map((m) => (m.id === saved.id ? saved : m)) : [saved, ...prev.filter((m) => m.id !== saved.id)],
+      );
       setDraft(draftFromMessage(saved));
       showMessage('success', editing ? 'Message updated in Discord.' : 'Message posted to Discord.');
     } catch (e) {
@@ -106,41 +107,50 @@ export function useAdminDiscordMessages({ showMessage }) {
     }
   }, [draft, channels, showMessage]);
 
-  const deleteMessage = useCallback(async (msg, forget) => {
-    const what = forget
-      ? `Stop tracking "${msg.label || msg.messageId}"? It stays in Discord, you just can't edit it from here any more.`
-      : `Delete "${msg.label || msg.messageId}" from Discord for good? This cannot be undone.`;
-    if (!window.confirm(what)) return;
+  const deleteMessage = useCallback(
+    async (msg, forget) => {
+      const what = forget
+        ? `Stop tracking "${msg.label || msg.messageId}"? It stays in Discord, you just can't edit it from here any more.`
+        : `Delete "${msg.label || msg.messageId}" from Discord for good? This cannot be undone.`;
+      if (!window.confirm(what)) return;
 
-    setBusy(true);
-    try {
-      await adminDeleteDiscordMessageFunction({ id: msg.id, forget: !!forget });
-      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-      setDraft((d) => (d.id === msg.id ? emptyDraft() : d));
-      showMessage('success', forget ? 'Stopped tracking it.' : 'Deleted from Discord.');
-    } catch (e) {
-      showMessage('error', errText(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [showMessage]);
+      setBusy(true);
+      try {
+        await adminDeleteDiscordMessageFunction({ id: msg.id, forget: !!forget });
+        setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        setDraft((d) => (d.id === msg.id ? emptyDraft() : d));
+        showMessage('success', forget ? 'Stopped tracking it.' : 'Deleted from Discord.');
+      } catch (e) {
+        showMessage('error', errText(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [showMessage],
+  );
 
-  const importMessage = useCallback(async ({ channelId, messageId, label }) => {
-    setBusy(true);
-    try {
-      const res = await adminImportDiscordMessageFunction({ channelId, messageId, label });
-      const saved = res.data.message;
-      setMessages((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
-      setDraft(draftFromMessage(saved));
-      showMessage('success', res.data.alreadyTracked ? 'Already tracked, opened it for editing.' : 'Imported. You can edit it now.');
-      return true;
-    } catch (e) {
-      showMessage('error', errText(e));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [showMessage]);
+  const importMessage = useCallback(
+    async ({ channelId, messageId, label }) => {
+      setBusy(true);
+      try {
+        const res = await adminImportDiscordMessageFunction({ channelId, messageId, label });
+        const saved = res.data.message;
+        setMessages((prev) => [saved, ...prev.filter((m) => m.id !== saved.id)]);
+        setDraft(draftFromMessage(saved));
+        showMessage(
+          'success',
+          res.data.alreadyTracked ? 'Already tracked, opened it for editing.' : 'Imported. You can edit it now.',
+        );
+        return true;
+      } catch (e) {
+        showMessage('error', errText(e));
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [showMessage],
+  );
 
   return {
     discordChannels: channels,

@@ -16,9 +16,13 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const {
-  BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT,
-  SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_DAMPENING_FACTOR,
-  SHORT_MARGIN_RATIO, LEGACY_SHORT_MARGIN_RATIO,
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MAX_PRICE_CHANGE_PERCENT,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  SHORT_MARGIN_DAMPENING_FACTOR,
+  SHORT_MARGIN_RATIO,
+  LEGACY_SHORT_MARGIN_RATIO,
   ADMIN_PRICE_PROTECTION_MS,
 } = require('../constants');
 const { appendPriceHistory, isPriceProtected, liquidityFor } = require('../helpers');
@@ -29,9 +33,7 @@ const { appendPriceHistory, isPriceProtected, liquidityFor } = require('../helpe
 // healthy position, so the guess must match the system that opened it.
 const depositedMargin = (position, costBasis) => {
   if (position.margin > 0) return position.margin;
-  const ratio = (position.system || 'v2') === 'v2'
-    ? SHORT_MARGIN_RATIO
-    : LEGACY_SHORT_MARGIN_RATIO;
+  const ratio = (position.system || 'v2') === 'v2' ? SHORT_MARGIN_RATIO : LEGACY_SHORT_MARGIN_RATIO;
   return costBasis * position.shares * ratio;
 };
 
@@ -111,7 +113,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
           costBasis: pos.costBasis || pos.entryPrice || 0,
           margin: pos.margin || 0,
           openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
-          system: pos.system || 'v2'
+          system: pos.system || 'v2',
         };
       }
     }
@@ -119,7 +121,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
     const userUpdates = {
       shorts: updatedShorts,
       hasOpenShorts: Object.keys(updatedShorts).length > 0,
-      cash: newCash
+      cash: newCash,
     };
 
     if (newCash < 0) {
@@ -135,10 +137,10 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
     // adjustment that is meant to stand.
     if (!pricePinned) {
       transaction.update(marketRef, {
-        [`prices.${ticker}`]: newPrice
+        [`prices.${ticker}`]: newPrice,
       });
       appendPriceHistory(transaction, {
-        [ticker]: { timestamp: Date.now(), price: newPrice }
+        [ticker]: { timestamp: Date.now(), price: newPrice },
       });
     }
 
@@ -154,10 +156,12 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
       cashBefore: freshUserData.cash || 0,
       cashAfter: newCash,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      automated: true
+      automated: true,
     });
 
-    console.log(`Liquidated ${uid}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`);
+    console.log(
+      `Liquidated ${uid}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`,
+    );
     // The share count travels back out so the notification can
     // report what actually covered. It used to quote the count from
     // the pre-transaction scan read, which is stale the moment the

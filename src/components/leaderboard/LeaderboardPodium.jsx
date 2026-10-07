@@ -50,9 +50,13 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
   if (shadows.length) style.boxShadow = shadows.join(', ');
   if (crownGlow) style['--cgp'] = crew.color;
 
-  const nameStyle = nameClass ? undefined : {
-    color: nameColor || (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined),
-  };
+  const nameStyle = nameClass
+    ? undefined
+    : {
+        color:
+          nameColor ||
+          (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined),
+      };
   const gain = leader.weeklyGain || 0;
 
   return (
@@ -67,7 +71,9 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
       <div className={isFirst ? 'text-3xl' : 'text-2xl'}>{placeStyle.medal}</div>
       {/* Name gets the full card width; pins/globe live on their own row below
           so they can never squeeze the name into truncating early. */}
-      <div className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} truncate mt-1`}>
+      <div
+        className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} truncate mt-1`}
+      >
         {leader.isPublic ? (
           <Link
             to={`/u/${(leader.displayName || '').toLowerCase()}`}
@@ -83,18 +89,24 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
         )}
       </div>
       {leader.title && (
-        <div className={`text-[11px] font-semibold truncate ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{leader.title.text}</div>
+        <div className={`text-[11px] font-semibold truncate ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+          {leader.title.text}
+        </div>
       )}
       <div className="flex items-center justify-center gap-1 flex-wrap">
         <PinDisplay userData={leader} size="sm" />
-        {leader.isPublic && <span className="text-xs" title="Public profile">🌐</span>}
+        {leader.isPublic && (
+          <span className="text-xs" title="Public profile">
+            🌐
+          </span>
+        )}
       </div>
-      <div className={`text-xs ${mutedClass} truncate`}>
-        {leader.holdingsCount || 0} characters
-      </div>
+      <div className={`text-xs ${mutedClass} truncate`}>{leader.holdingsCount || 0} characters</div>
       {sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent' ? (
         <div className="mt-1">
-          <div className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${gain >= 0 ? gainClass : lossClass}`}>
+          <div
+            className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${gain >= 0 ? gainClass : lossClass}`}
+          >
             {sortBy === 'weeklyGainPercent'
               ? `${(leader.weeklyGainPercent || 0) >= 0 ? '+' : ''}${(leader.weeklyGainPercent || 0).toFixed(1)}%`
               : `${gain >= 0 ? '+' : ''}${formatCompactCurrency(gain)}`}

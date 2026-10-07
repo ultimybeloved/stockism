@@ -33,9 +33,7 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
   const trimmedName = username.trim();
   // Only ask the server about names that already pass the local rules — a name
   // failing format or profanity is rejected anyway, so checking it wastes a call.
-  const locallyValid = trimmedName.length > 0
-    && !validateUsername(trimmedName)
-    && !containsProfanity(trimmedName);
+  const locallyValid = trimmedName.length > 0 && !validateUsername(trimmedName) && !containsProfanity(trimmedName);
 
   useEffect(() => {
     if (!locallyValid) {
@@ -57,7 +55,10 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
       }
     }, CHECK_DEBOUNCE_MS);
 
-    return () => { stale = true; clearTimeout(timer); };
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
   }, [trimmedName, locallyValid]);
 
   const handleSubmit = async (e) => {
@@ -114,15 +115,15 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
 
         {suggestion && !rejectedReason && (
           <p className={`text-sm mb-4 ${mutedClass}`}>
-            We've filled in your Discord name, <span className={`font-semibold ${textClass}`}>{suggestion}</span>.
-            Keep it or pick something else.
+            We've filled in your Discord name, <span className={`font-semibold ${textClass}`}>{suggestion}</span>. Keep
+            it or pick something else.
           </p>
         )}
         {suggestion && rejectedReason && (
           <div className="mb-4 p-3 rounded-sm bg-amber-500/10 border border-amber-500/40">
             <p className="text-sm text-amber-500">
-              Your Discord name <span className="font-semibold">{suggestion}</span> can't be used here:
-              {' '}{rejectedReason.charAt(0).toLowerCase() + rejectedReason.slice(1)}
+              Your Discord name <span className="font-semibold">{suggestion}</span> can't be used here:{' '}
+              {rejectedReason.charAt(0).toLowerCase() + rejectedReason.slice(1)}
             </p>
             <p className={`text-xs mt-1 ${mutedClass}`}>Pick a different one below.</p>
           </div>
@@ -130,9 +131,7 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className={`block text-xs font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>
-              Username
-            </label>
+            <label className={`block text-xs font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Username</label>
             <input
               type="text"
               value={username}
@@ -144,11 +143,15 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
               maxLength={20}
             />
             {availability && (
-              <p className={`text-xs mt-1 font-semibold ${
-                availability === 'available' ? 'text-green-500'
-                  : availability === 'taken' ? 'text-red-500'
-                  : mutedClass
-              }`}>
+              <p
+                className={`text-xs mt-1 font-semibold ${
+                  availability === 'available'
+                    ? 'text-green-500'
+                    : availability === 'taken'
+                      ? 'text-red-500'
+                      : mutedClass
+                }`}
+              >
                 {availability === 'checking' && 'Checking availability...'}
                 {availability === 'available' && '✓ That name is free'}
                 {availability === 'taken' && '✗ That name is taken'}
@@ -160,9 +163,7 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
           </div>
 
           {error && (
-            <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
-              {error}
-            </div>
+            <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">{error}</div>
           )}
 
           <button
@@ -174,17 +175,25 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
           </button>
         </form>
 
-        <p className={`text-xs ${mutedClass} mt-4 text-center`}>
-          🔒 Your account info is never stored or shared
-        </p>
+        <p className={`text-xs ${mutedClass} mt-4 text-center`}>🔒 Your account info is never stored or shared</p>
 
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>
           By creating an account, you agree to our{' '}
-          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">
+          <a
+            href="/terms.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-500 hover:text-orange-400 underline"
+          >
             Terms of Service
           </a>
           {' and '}
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-400 underline">
+          <a
+            href="/privacy.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-orange-500 hover:text-orange-400 underline"
+          >
             Privacy Policy
           </a>
         </p>

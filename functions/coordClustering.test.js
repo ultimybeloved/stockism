@@ -15,10 +15,15 @@ const {
 const T0 = Date.parse('2026-09-17T12:00:00Z');
 const at = (mins) => T0 + mins * 60 * 1000;
 
-const sell = (uid, impact, mins = 0, extra = {}) =>
-  ({ uid, ticker: 'SHNG', action: 'sell', priceImpact: impact, ts: at(mins), ...extra });
-const buy = (uid, impact, mins = 0) =>
-  ({ uid, ticker: 'SHNG', action: 'buy', priceImpact: impact, ts: at(mins) });
+const sell = (uid, impact, mins = 0, extra = {}) => ({
+  uid,
+  ticker: 'SHNG',
+  action: 'sell',
+  priceImpact: impact,
+  ts: at(mins),
+  ...extra,
+});
+const buy = (uid, impact, mins = 0) => ({ uid, ticker: 'SHNG', action: 'buy', priceImpact: impact, ts: at(mins) });
 
 describe('clusterTrades', () => {
   it('flags several accounts pushing the same way past the combined threshold', () => {
@@ -26,16 +31,16 @@ describe('clusterTrades', () => {
     expect(out).toHaveLength(1);
     expect(out[0].ticker).toBe('SHNG');
     expect(out[0].direction).toBe('down');
-    expect(out[0].combined).toBeCloseTo(0.10, 10);
+    expect(out[0].combined).toBeCloseTo(0.1, 10);
     expect(out[0].uids.sort()).toEqual(['a', 'b']);
   });
 
   it('ignores one account moving a stock alone, however hard', () => {
-    expect(clusterTrades([sell('a', 0.10, 0), sell('a', 0.10, 30)])).toHaveLength(0);
+    expect(clusterTrades([sell('a', 0.1, 0), sell('a', 0.1, 30)])).toHaveLength(0);
   });
 
   it('ignores several accounts whose combined pressure is small', () => {
-    const tiny = (COORD_MIN_COMBINED_IMPACT / 2) / 2;
+    const tiny = COORD_MIN_COMBINED_IMPACT / 2 / 2;
     expect(clusterTrades([sell('a', tiny, 0), sell('b', tiny, 1)])).toHaveLength(0);
   });
 
@@ -46,19 +51,13 @@ describe('clusterTrades', () => {
   });
 
   it('keeps opposite directions in separate clusters', () => {
-    const out = clusterTrades([
-      sell('a', 0.05, 0), sell('b', 0.05, 1),
-      buy('c', 0.05, 2), buy('d', 0.05, 3),
-    ]);
+    const out = clusterTrades([sell('a', 0.05, 0), sell('b', 0.05, 1), buy('c', 0.05, 2), buy('d', 0.05, 3)]);
     expect(out).toHaveLength(2);
     expect(out.map((c) => c.direction).sort()).toEqual(['down', 'up']);
   });
 
   it('skips automated fills, so a stop loss never implicates its owner', () => {
-    const out = clusterTrades([
-      sell('a', 0.05, 0, { source: 'stop_loss' }),
-      sell('b', 0.05, 1, { source: 'limit' }),
-    ]);
+    const out = clusterTrades([sell('a', 0.05, 0, { source: 'stop_loss' }), sell('b', 0.05, 1, { source: 'limit' })]);
     expect(out).toHaveLength(0);
   });
 
@@ -78,9 +77,7 @@ describe('clusterTrades', () => {
   it('one account grinding on afterwards does not hide a shared start', () => {
     // Both start together; 'a' keeps going for hours. Tightness reads the
     // starts, so this stays high.
-    const out = clusterTrades([
-      sell('a', 0.03, 0), sell('a', 0.03, 300), sell('b', 0.04, 3),
-    ]);
+    const out = clusterTrades([sell('a', 0.03, 0), sell('a', 0.03, 300), sell('b', 0.04, 3)]);
     expect(out[0].tight).toBe(true);
   });
 
@@ -95,8 +92,10 @@ describe('clusterTrades', () => {
   it('splits the same ticker across UTC days', () => {
     const nextDay = 24 * 60;
     const out = clusterTrades([
-      sell('a', 0.05, 0), sell('b', 0.05, 1),
-      sell('a', 0.05, nextDay), sell('b', 0.05, nextDay + 1),
+      sell('a', 0.05, 0),
+      sell('b', 0.05, 1),
+      sell('a', 0.05, nextDay),
+      sell('b', 0.05, nextDay + 1),
     ]);
     expect(out).toHaveLength(2);
     expect(new Set(out.map((c) => c.day)).size).toBe(2);
@@ -104,7 +103,8 @@ describe('clusterTrades', () => {
 
   it('ranks the heaviest cluster first', () => {
     const out = clusterTrades([
-      sell('a', 0.05, 0), sell('b', 0.05, 1),
+      sell('a', 0.05, 0),
+      sell('b', 0.05, 1),
       { uid: 'c', ticker: 'GOO', action: 'short', priceImpact: 0.15, ts: at(0) },
       { uid: 'd', ticker: 'GOO', action: 'short', priceImpact: 0.15, ts: at(1) },
     ]);
@@ -119,11 +119,15 @@ describe('clusterTrades', () => {
 
   it('survives junk rows without throwing', () => {
     const out = clusterTrades([
-      null, undefined, {}, { uid: 'a' },
+      null,
+      undefined,
+      {},
+      { uid: 'a' },
       { uid: 'a', ticker: 'SHNG', action: 'dividend', priceImpact: 0.5, ts: at(0) },
       { uid: 'b', ticker: 'SHNG', action: 'sell', priceImpact: NaN, ts: at(0) },
       { uid: 'c', ticker: 'SHNG', action: 'sell', priceImpact: 0.05, ts: 0 },
-      sell('d', 0.06, 0), sell('e', 0.06, 1),
+      sell('d', 0.06, 0),
+      sell('e', 0.06, 1),
     ]);
     expect(out).toHaveLength(1);
     expect(out[0].uids.sort()).toEqual(['d', 'e']);

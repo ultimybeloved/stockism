@@ -35,13 +35,27 @@ const {
   lastHaltStart,
 } = require('./seasonTiers');
 const {
-  ADMIN_UID, ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, SEASON_MIN_BASELINE, isWeeklyTradingHalt,
+  ADMIN_UID,
+  ONE_WEEK_MS,
+  LEADERBOARD_CACHE_TTL,
+  SEASON_MIN_BASELINE,
+  isWeeklyTradingHalt,
 } = require('../constants');
 const {
-  writeNotification, recordHeartbeat, exitEquityAt, readIndexNow, round2, getLadderWithdrawable,
+  writeNotification,
+  recordHeartbeat,
+  exitEquityAt,
+  readIndexNow,
+  round2,
+  getLadderWithdrawable,
 } = require('../helpers');
 const {
-  buildWeekRecord, appendWeekRecord, latestWeekRecord, weeksElapsed, isSeasonParticipant, boardEntry,
+  buildWeekRecord,
+  appendWeekRecord,
+  latestWeekRecord,
+  weeksElapsed,
+  isSeasonParticipant,
+  boardEntry,
 } = require('./seasonRecords');
 
 const seasonRef = () => db.collection('market').doc('season');
@@ -58,7 +72,8 @@ const RESULTS_PER_DIVISION = 50;
  * and take it back out afterwards. One read of the ladder collection.
  */
 const readLadderCash = async () => {
-  const snap = await db.collection('ladderGameUsers')
+  const snap = await db
+    .collection('ladderGameUsers')
     .select('balance', 'nonWithdrawable', 'chipsMigrated', 'totalLost')
     .get();
   const cash = new Map();
@@ -79,8 +94,10 @@ const assertPricesFrozen = async (action) => {
   if (isWeeklyTradingHalt()) return;
   const marketSnap = await db.collection('market').doc('current').get();
   if (marketSnap.data()?.marketHalted === true) return;
-  throw new functions.https.HttpsError('failed-precondition',
-    `${action} while the market is halted: during the Thursday halt, or halt it first in Admin -> Market.`);
+  throw new functions.https.HttpsError(
+    'failed-precondition',
+    `${action} while the market is halted: during the Thursday halt, or halt it first in Admin -> Market.`,
+  );
 };
 
 /** The first `n` of each division, keeping the input's (ranked) order. */
@@ -120,8 +137,10 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
 
   const existing = await seasonRef().get();
   if (existing.exists && existing.data().status === 'active') {
-    throw new functions.https.HttpsError('failed-precondition',
-      `Season "${existing.data().name}" is still running. End it first.`);
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Season "${existing.data().name}" is still running. End it first.`,
+    );
   }
 
   // Both counters carry over from whatever ran last, so a preseason never shifts
@@ -139,8 +158,20 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
   // each player's last login and counts margin loans as value.
   const [{ prices, value: indexAtStart }, ladderCash] = await Promise.all([readIndexNow(), readLadderCash()]);
 
-  const snap = await db.collection('users')
-    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue', 'predictionFlowValue', 'isBot', 'lastActive')
+  const snap = await db
+    .collection('users')
+    .select(
+      'cash',
+      'holdings',
+      'shorts',
+      'marginUsed',
+      'grantedValue',
+      'grantedDays',
+      'ladderFlowValue',
+      'predictionFlowValue',
+      'isBot',
+      'lastActive',
+    )
     .get();
 
   let pinned = 0;
@@ -165,13 +196,18 @@ exports.adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data,
       seasonMargin: freshMarginTally(id, u.marginUsed, now),
       // Cleared rather than deleted so last season's tier can't leak forward.
       seasonTier: FieldValue.delete(),
-      seasonActiveWeeks: (countThisWeek && (u.lastActive || 0) >= activeCutoff)
-        ? { seasonId: id, weeks: 1, lastWeek: 1 }
-        : FieldValue.delete(),
+      seasonActiveWeeks:
+        countThisWeek && (u.lastActive || 0) >= activeCutoff
+          ? { seasonId: id, weeks: 1, lastWeek: 1 }
+          : FieldValue.delete(),
       seasonWeeks: FieldValue.delete(),
     });
     pinned++;
-    if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
+    if (++ops >= BATCH_LIMIT) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
   }
   if (ops > 0) await batch.commit();
 
@@ -224,10 +260,26 @@ const runSeasonCheckpoint = async () => {
   // player and every value and concentration figure lines up with one market.
   const [{ prices, value: indexValue }, ladderCash] = await Promise.all([readIndexNow(), readLadderCash()]);
 
-  const snap = await db.collection('users')
-    .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue', 'predictionFlowValue',
-      'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks', 'seasonMargin',
-      'lastActive')
+  const snap = await db
+    .collection('users')
+    .select(
+      'cash',
+      'holdings',
+      'shorts',
+      'marginUsed',
+      'grantedValue',
+      'grantedDays',
+      'ladderFlowValue',
+      'predictionFlowValue',
+      'isBot',
+      'isBanned',
+      'seasonBaseline',
+      'seasonTier',
+      'seasonActiveWeeks',
+      'seasonWeeks',
+      'seasonMargin',
+      'lastActive',
+    )
     .get();
 
   let promoted = 0;
@@ -255,8 +307,8 @@ const runSeasonCheckpoint = async () => {
     // a late signup.
     const ladder = ladderCash.get(doc.id) || 0;
     const noBaseline = !u.seasonBaseline || u.seasonBaseline.seasonId !== season.id;
-    const grewPastFloor = !noBaseline && seasonAccountSize(u.seasonBaseline) < SEASON_MIN_BASELINE
-      && value + ladder >= SEASON_MIN_BASELINE;
+    const grewPastFloor =
+      !noBaseline && seasonAccountSize(u.seasonBaseline) < SEASON_MIN_BASELINE && value + ladder >= SEASON_MIN_BASELINE;
     if (noBaseline || grewPastFloor) {
       const pinnedAt = Date.now();
       batch.update(doc.ref, {
@@ -274,7 +326,11 @@ const runSeasonCheckpoint = async () => {
         seasonMargin: freshMarginTally(season.id, u.marginUsed, pinnedAt),
       });
       pinned++;
-      if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
+      if (++ops >= BATCH_LIMIT) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
       continue;
     }
 
@@ -287,20 +343,20 @@ const runSeasonCheckpoint = async () => {
     // Thursday after the scheduled run would otherwise count that week twice and
     // hand Bronze, and a shot at a Platinum place, to a one-week player.
     const wasActive = (u.lastActive || 0) >= activeCutoff;
-    const prior = (u.seasonActiveWeeks?.seasonId === season.id) ? u.seasonActiveWeeks : null;
+    const prior = u.seasonActiveWeeks?.seasonId === season.id ? u.seasonActiveWeeks : null;
     const alreadyCounted = prior?.lastWeek === weeks;
     const activeWeeks = (prior?.weeks || 0) + (wasActive && !alreadyCounted ? 1 : 0);
 
     // Only Bronze banks here. Silver and Gold are judged on where the player
     // finishes, so one lucky Thursday can't lock them in.
     const earned = checkpointTier({ activeWeeks }, rules);
-    const held = (u.seasonTier?.seasonId === season.id) ? u.seasonTier.tier : null;
+    const held = u.seasonTier?.seasonId === season.id ? u.seasonTier.tier : null;
 
     const update = {
       seasonActiveWeeks: {
         seasonId: season.id,
         weeks: activeWeeks,
-        lastWeek: (wasActive || alreadyCounted) ? weeks : (prior?.lastWeek ?? null),
+        lastWeek: wasActive || alreadyCounted ? weeks : (prior?.lastWeek ?? null),
       },
       // The raw week record. Diamond is judged from it when the season ends, so
       // it is written for every scored player whether or not they moved a tier.
@@ -309,7 +365,7 @@ const runSeasonCheckpoint = async () => {
       ...seasonMarginUpdate(u, u.marginUsed, now),
       seasonWeeks: appendWeekRecord(
         u.seasonWeeks,
-        buildWeekRecord({ season, weeks, userData: { ...u, portfolioValue: value }, prices, indexValue, now })
+        buildWeekRecord({ season, weeks, userData: { ...u, portfolioValue: value }, prices, indexValue, now }),
       ),
     };
     if (earned && tierRank(earned) > tierRank(held)) {
@@ -318,7 +374,11 @@ const runSeasonCheckpoint = async () => {
     }
 
     batch.update(doc.ref, update);
-    if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
+    if (++ops >= BATCH_LIMIT) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
   }
   if (ops > 0) await batch.commit();
 
@@ -330,15 +390,17 @@ const runSeasonCheckpoint = async () => {
     checkpointWeeks: FieldValue.arrayUnion(weeks),
   });
 
-  console.log(`SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned, index ${indexValue.toFixed(2)}`);
+  console.log(
+    `SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned, index ${indexValue.toFixed(2)}`,
+  );
   return { ran: true, seasonId: season.id, weeks, scored, promoted, pinned, indexValue };
 };
 
 exports.runSeasonCheckpoint = runSeasonCheckpoint;
 
 // Thursday 14:00 UTC — an hour into the halt, so prices are settled and frozen.
-exports.seasonCheckpoint = cf({ timeoutSeconds: 540 }).pubsub
-  .schedule('0 14 * * 4')
+exports.seasonCheckpoint = cf({ timeoutSeconds: 540 })
+  .pubsub.schedule('0 14 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     await runSeasonCheckpoint();
@@ -386,10 +448,24 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
   const rules = rulesFor(season);
   const weeks = weeksElapsed(season.startedAt);
 
-  const snap = await db.collection('users')
-    .select('isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
-      'seasonMargin', 'marginUsed', 'displayName', 'seasonTopTierExclusion',
-      'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
+  const snap = await db
+    .collection('users')
+    .select(
+      'isBot',
+      'isBanned',
+      'seasonBaseline',
+      'seasonTier',
+      'seasonActiveWeeks',
+      'seasonWeeks',
+      'seasonMargin',
+      'marginUsed',
+      'displayName',
+      'seasonTopTierExclusion',
+      'lastSynced',
+      'lastActive',
+      'lastTradeTime',
+      'lastCheckin',
+    )
     .get();
 
   // Everyone is scored off the record the final checkpoint just wrote, so the
@@ -402,7 +478,12 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     const latest = latestWeekRecord(u.seasonWeeks, season.id);
     if (!latest) continue;
     const entry = boardEntry(doc.id, u, season, {
-      value: latest.v, indexNow: latest.x, granted: latest.g, grantedDays: latest.a, sideFlows: latest.f, at: latest.t,
+      value: latest.v,
+      indexNow: latest.x,
+      granted: latest.g,
+      grantedDays: latest.a,
+      sideFlows: latest.f,
+      at: latest.t,
       margin: recordMargin(latest, u.seasonBaseline?.pinnedAt),
     });
     if (!entry) continue;
@@ -437,34 +518,41 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
     // dated. Tiers outside the season's titledTiers get none.
     const titles = seasonTitles(season, tier);
     const update = {
-      ...(titles.length ? { ownedTitles: FieldValue.arrayUnion(...titles.map(t => t.id)) } : {}),
-      ...Object.fromEntries(titles.map(t => [`titleMeta.${t.id}`, t.text])),
+      ...(titles.length ? { ownedTitles: FieldValue.arrayUnion(...titles.map((t) => t.id)) } : {}),
+      ...Object.fromEntries(titles.map((t) => [`titleMeta.${t.id}`, t.text])),
       // Silver, Gold, Platinum and Diamond are only decided now, so they are written here.
       ...(tier !== entry.tier ? { seasonTier: { seasonId: season.id, tier, lockedAt: endedAt } } : {}),
     };
     awarded++;
     if (!Object.keys(update).length) continue;
     batch.update(ref, update);
-    if (++ops >= BATCH_LIMIT) { await batch.commit(); batch = db.batch(); ops = 0; }
+    if (++ops >= BATCH_LIMIT) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
   }
   if (ops > 0) await batch.commit();
 
   standings.sort((a, b) => b.excess - a.excess);
   const divisionLabel = Object.fromEntries((rules.divisions || []).map((d) => [d.id, d.label]));
 
-  await db.collection('seasonResults').doc(season.id).set({
-    ...season,
-    status: 'ended',
-    endedAt,
-    weeks,
-    // Full standings would be unbounded; the top of each division is what anyone looks at.
-    standings: topPerDivision(standings, RESULTS_PER_DIVISION),
-    divisions: divisionSlots(field, rules),
-    totalScored: standings.length,
-    boardSize: field.length,
-    tierCounts,
-    awarded,
-  });
+  await db
+    .collection('seasonResults')
+    .doc(season.id)
+    .set({
+      ...season,
+      status: 'ended',
+      endedAt,
+      weeks,
+      // Full standings would be unbounded; the top of each division is what anyone looks at.
+      standings: topPerDivision(standings, RESULTS_PER_DIVISION),
+      divisions: divisionSlots(field, rules),
+      totalScored: standings.length,
+      boardSize: field.length,
+      tierCounts,
+      awarded,
+    });
   await seasonRef().update({ status: 'ended', endedAt, awarded, totalScored: standings.length });
 
   // Tell the top 3 of each division. Best-effort — the season is already filed.
@@ -479,11 +567,24 @@ exports.adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, c
         title: 'Season over',
         message: `${season.name} is over. You finished #${place[row.division]} in the ${divisionLabel[row.division] || ''} division, ${Math.abs(row.excess)}% ${row.excess >= 0 ? 'ahead of' : 'behind'} the market.`,
       });
-    } catch (err) { /* never block the close on a notification */ }
+    } catch (err) {
+      /* never block the close on a notification */
+    }
   }
 
-  console.log(`SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`, tierCounts);
-  return { success: true, seasonId: season.id, weeks, totalScored: standings.length, awarded, tierCounts, top: standings.slice(0, 10) };
+  console.log(
+    `SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`,
+    tierCounts,
+  );
+  return {
+    success: true,
+    seasonId: season.id,
+    weeks,
+    totalScored: standings.length,
+    awarded,
+    tierCounts,
+    top: standings.slice(0, 10),
+  };
 });
 
 // ── Standings ────────────────────────────────────────────────────────────────
@@ -501,7 +602,7 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
 
   const cacheRef = db.collection('leaderboard').doc('season');
   const cached = await cacheRef.get();
-  if (cached.exists && (Date.now() - (cached.data().generatedAt || 0)) < LEADERBOARD_CACHE_TTL) {
+  if (cached.exists && Date.now() - (cached.data().generatedAt || 0) < LEADERBOARD_CACHE_TTL) {
     return cached.data();
   }
 
@@ -514,12 +615,34 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
 
   const [{ prices, value: indexValue }, snap] = await Promise.all([
     readIndexNow(),
-    db.collection('users')
-      .select('cash', 'holdings', 'shorts', 'marginUsed', 'grantedValue', 'grantedDays', 'ladderFlowValue', 'predictionFlowValue',
-        'isBot', 'isBanned', 'seasonBaseline', 'seasonTier', 'seasonActiveWeeks', 'seasonWeeks',
-        'seasonMargin', 'marginUsed', 'displayName', 'crew', 'seasonTopTierExclusion',
+    db
+      .collection('users')
+      .select(
+        'cash',
+        'holdings',
+        'shorts',
+        'marginUsed',
+        'grantedValue',
+        'grantedDays',
+        'ladderFlowValue',
+        'predictionFlowValue',
+        'isBot',
+        'isBanned',
+        'seasonBaseline',
+        'seasonTier',
+        'seasonActiveWeeks',
+        'seasonWeeks',
+        'seasonMargin',
+        'marginUsed',
+        'displayName',
+        'crew',
+        'seasonTopTierExclusion',
         // Activity, for isSeasonParticipant — same fields getLastActiveMs reads.
-        'lastSynced', 'lastActive', 'lastTradeTime', 'lastCheckin')
+        'lastSynced',
+        'lastActive',
+        'lastTradeTime',
+        'lastCheckin',
+      )
       .get(),
   ]);
 
@@ -565,9 +688,8 @@ exports.getSeasonStandings = cf({ timeoutSeconds: 300 }).https.onCall(async (dat
     startedAt: season.startedAt,
     weeks: weeksElapsed(season.startedAt),
     rules,
-    marketPercent: season.indexAtStart > 0
-      ? round1(((indexValue - season.indexAtStart) / season.indexAtStart) * 100)
-      : null,
+    marketPercent:
+      season.indexAtStart > 0 ? round1(((indexValue - season.indexAtStart) / season.indexAtStart) * 100) : null,
     // Players and Platinum/Diamond places in each size division.
     divisions: divisionSlots(field, rules),
     entries: topPerDivision(entries, BOARD_PER_DIVISION),

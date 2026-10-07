@@ -4,12 +4,20 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
-const { ADMIN_UID, ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } = require('../constants');
+const {
+  ADMIN_UID,
+  ONE_WEEK_MS,
+  TWENTY_FOUR_HOURS_MS,
+  MARGIN_INTEREST_RATE,
+  PRICE_HISTORY_LIVE_MAX,
+} = require('../constants');
 const { priceHistoryRef, writeNotification, recordHeartbeat, reportError } = require('../helpers');
 const { seasonMarginUpdate } = require('./seasonTiers');
 const {
-  loyaltyTierFor, LOYALTY_TIER_LABEL,
-  dividendMultiplierForAgeMs, exitDiscountForAgeMs,
+  loyaltyTierFor,
+  LOYALTY_TIER_LABEL,
+  dividendMultiplierForAgeMs,
+  exitDiscountForAgeMs,
 } = require('../characters');
 
 // ─── Loyalty tier-up detection ───────────────────────────────────────────────
@@ -38,9 +46,10 @@ const diffLoyaltyTiers = (userData, now) => {
     }
   }
 
-  const changed = !previous
-    || Object.keys(current).length !== Object.keys(previous).length
-    || Object.entries(current).some(([t, v]) => previous[t] !== v);
+  const changed =
+    !previous ||
+    Object.keys(current).length !== Object.keys(previous).length ||
+    Object.entries(current).some(([t, v]) => previous[t] !== v);
 
   // No previous map means this user has never been scanned. Record where they
   // stand without announcing it, otherwise the first run after deploy fires at
@@ -72,9 +81,7 @@ const buildLoyaltyNotification = (upgrades) => {
   return {
     type: 'loyalty',
     title: `${upgrades.length} holdings levelled up`,
-    message: upgrades
-      .map((u) => `$${u.ticker} → ${LOYALTY_TIER_LABEL[u.tier]}`)
-      .join(', ') + '.',
+    message: upgrades.map((u) => `$${u.ticker} → ${LOYALTY_TIER_LABEL[u.tier]}`).join(', ') + '.',
     data: { tiers },
   };
 };
@@ -130,7 +137,7 @@ async function doArchivePriceHistory(ticker = null) {
 
       await archiveRef.set({
         history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
-        lastUpdated: FieldValue.serverTimestamp()
+        lastUpdated: FieldValue.serverTimestamp(),
       });
 
       liveRemovals[t] = toArchive;
@@ -190,7 +197,7 @@ async function doCleanupAlertedThresholds() {
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Admin-only: prevents unauthorized users from modifying market data
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only.');
@@ -209,8 +216,8 @@ exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
 // only be doing the same job a few hours early.
 
 // Scheduled function: Auto-archive every 24 hours
-exports.scheduledArchiving = cf().pubsub
-  .schedule('every 24 hours')
+exports.scheduledArchiving = cf()
+  .pubsub.schedule('every 24 hours')
   .timeZone('America/New_York')
   .onRun(async (context) => {
     console.log('Running scheduled archiving...');
@@ -241,8 +248,8 @@ exports.scheduledArchiving = cf().pubsub
  * Runs every 24 hours to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
-exports.syncAllPortfolios = cf().pubsub
-  .schedule('every 24 hours')
+exports.syncAllPortfolios = cf()
+  .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
@@ -282,7 +289,7 @@ exports.syncAllPortfolios = cf().pubsub
           const holdingsValue = Object.entries(holdings).reduce((sum, [ticker, shares]) => {
             if (!shares || shares <= 0) return sum;
             const currentPrice = prices[ticker] || 0;
-            return sum + (shares * currentPrice);
+            return sum + shares * currentPrice;
           }, 0);
 
           // Calculate shorts value
@@ -298,7 +305,7 @@ exports.syncAllPortfolios = cf().pubsub
               value = collateral + (entryPrice - currentPrice) * position.shares;
             } else {
               // Legacy: margin collateral - cost to buy back shares
-              value = collateral - (currentPrice * position.shares);
+              value = collateral - currentPrice * position.shares;
             }
             return sum + (isNaN(value) ? 0 : value);
           }, 0);
@@ -308,7 +315,7 @@ exports.syncAllPortfolios = cf().pubsub
           const portfolioValue = Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
 
           // Charge margin interest if due (piggybacks on the daily sync)
-          
+
           let marginInterest = 0;
           const marginUsed = userData.marginUsed || 0;
           if (userData.marginEnabled && marginUsed > 0) {
@@ -333,7 +340,7 @@ exports.syncAllPortfolios = cf().pubsub
             const userRef = db.collection('users').doc(userId);
             const updateFields = {
               portfolioValue: portfolioValue,
-              lastSyncedAt: admin.firestore.FieldValue.serverTimestamp()
+              lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
             if (marginInterest > 0) {
               updateFields.marginUsed = marginUsed + marginInterest;
@@ -350,8 +357,9 @@ exports.syncAllPortfolios = cf().pubsub
               // frozen the moment this handler returns, which would drop the
               // write. Awaited together after the loop.
               loyaltyWrites.push(
-                writeNotification(userId, buildLoyaltyNotification(loyalty.upgrades))
-                  .catch(err => console.error('Loyalty notification failed for', userId, err))
+                writeNotification(userId, buildLoyaltyNotification(loyalty.upgrades)).catch((err) =>
+                  console.error('Loyalty notification failed for', userId, err),
+                ),
               );
               loyaltyNotified++;
             }
@@ -392,13 +400,12 @@ exports.syncAllPortfolios = cf().pubsub
         skipped: usersSnapshot.size - syncedCount - errorCount,
         errors: errorCount,
         loyaltyNotified,
-        elapsedSeconds: elapsed
+        elapsedSeconds: elapsed,
       };
 
       console.log('Portfolio sync complete:', result);
       await recordHeartbeat('syncAllPortfolios');
       return result;
-
     } catch (error) {
       reportError(error, { where: 'syncAllPortfolios' });
       return { success: false, error: error.message };
@@ -409,4 +416,3 @@ exports.syncAllPortfolios = cf().pubsub
  * Create a Limit Order (server-side validation)
  * Replaces direct client addDoc() to enforce business logic
  */
-

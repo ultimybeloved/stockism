@@ -80,19 +80,17 @@ const STAFF = [
 // Link buttons sit in a row under the embed. Add more objects for more buttons.
 const BUTTONS = [
   { label: 'Trade on Stockism', emoji: { name: 'STOCKISM', id: '1466671436843454555' }, url: 'https://stockism.app' },
-  { label: 'Chat Leaderboard', emoji: { name: 'document', id: '1552569661592313858' }, url: 'https://arcane.bot/leaderboard/stockism' },
+  {
+    label: 'Chat Leaderboard',
+    emoji: { name: 'document', id: '1552569661592313858' },
+    url: 'https://arcane.bot/leaderboard/stockism',
+  },
 ];
 
 // Reactions the bot adds to the rules message. Custom emoji use `name:id`.
 // Re-running is harmless: adding a reaction that is already there is a no-op,
 // and it restores any that got cleared.
-const REACTIONS = [
-  'STOCKISM:1466671436843454555',
-  '💯',
-  '📈',
-  '😭',
-  'Stare:1469817892110336061',
-];
+const REACTIONS = ['STOCKISM:1466671436843454555', '💯', '📈', '😭', 'Stare:1469817892110336061'];
 
 // Discord rate limits reaction adds fairly tightly. Same spacing the backend
 // uses for role writes.
@@ -102,17 +100,38 @@ const REACTION_SPACING_MS = 300;
 // reordering or dropping a rule renumbers itself. Don't put asterisks in here.
 const RULES = [
   ["Follow Discord's [Terms of Service (TOS)](https://discord.com/terms).", ''],
-  ['Protect your account.', 'Keep your login to yourself. Staff will never DM you asking for one. No scam links, phishing, or fake Stockism sites.'],
+  [
+    'Protect your account.',
+    'Keep your login to yourself. Staff will never DM you asking for one. No scam links, phishing, or fake Stockism sites.',
+  ],
   ['One Stockism account per person.', "Don't buy, sell, or share them. No ban evasion."],
-  ['No doxxing.', "Don't post anyone's personal info without their okay. Public figures in their public role are fine. If you have to ask, don't post it."],
+  [
+    'No doxxing.',
+    "Don't post anyone's personal info without their okay. Public figures in their public role are fine. If you have to ask, don't post it.",
+  ],
   ['No threats of violence.', "Don't threaten anyone or push others to."],
   ['No bigotry.', 'No slurs aimed at people. No hate speech.'],
-  ['Criticize arguments, not people.', 'Disagreeing with anyone, staff included, is fine. Insults and dogpiling are not.'],
-  ['No harassment campaigns.', "Don't send people after a member, server, or creator. No brigading, no mass reporting, no bringing drama in from other servers."],
-  ['No NSFW.', 'No porn or adult content. No sexual comments about members. Sexualizing minors is an instant, permanent ban.'],
+  [
+    'Criticize arguments, not people.',
+    'Disagreeing with anyone, staff included, is fine. Insults and dogpiling are not.',
+  ],
+  [
+    'No harassment campaigns.',
+    "Don't send people after a member, server, or creator. No brigading, no mass reporting, no bringing drama in from other servers.",
+  ],
+  [
+    'No NSFW.',
+    'No porn or adult content. No sexual comments about members. Sexualizing minors is an instant, permanent ban.',
+  ],
   ['Keep chat usable.', "No raids, mass pings, or spam floods. Don't spam-ping staff."],
-  ['Raise concerns in good faith.', "Feedback on the rules or the game is welcome. Say what's wrong and why. Doom posting helps nobody."],
-  ["Don't trust anyone, they are out to get you.", 'This is a competitive game. Every other player wants your money. Tips, deals, and "trust me" calls are often traps.'],
+  [
+    'Raise concerns in good faith.',
+    "Feedback on the rules or the game is welcome. Say what's wrong and why. Doom posting helps nobody.",
+  ],
+  [
+    "Don't trust anyone, they are out to get you.",
+    'This is a competitive game. Every other player wants your money. Tips, deals, and "trust me" calls are often traps.',
+  ],
 ];
 
 const COLOR = 0xf97316; // site orange
@@ -142,17 +161,19 @@ function buildEmbed() {
 
 function buildComponents() {
   if (!BUTTONS.length) return [];
-  return [{
-    type: 1, // action row
-    components: BUTTONS.map((b) => ({
-      type: 2,    // button
-      style: 5,   // link button, needs no custom_id and fires no interaction
-      label: b.label,
-      // A plain string is a unicode emoji; custom ones are passed as { name, id }.
-      emoji: typeof b.emoji === 'string' ? { name: b.emoji } : b.emoji,
-      url: b.url,
-    })),
-  }];
+  return [
+    {
+      type: 1, // action row
+      components: BUTTONS.map((b) => ({
+        type: 2, // button
+        style: 5, // link button, needs no custom_id and fires no interaction
+        label: b.label,
+        // A plain string is a unicode emoji; custom ones are passed as { name, id }.
+        emoji: typeof b.emoji === 'string' ? { name: b.emoji } : b.emoji,
+        url: b.url,
+      })),
+    },
+  ];
 }
 
 function readBotToken() {
@@ -163,7 +184,10 @@ function readBotToken() {
   for (const line of fs.readFileSync(ENV_PATH, 'utf8').split(/\r?\n/)) {
     const i = line.indexOf('=');
     if (i > 0 && line.slice(0, i).trim() === 'DISCORD_BOT_TOKEN') {
-      return line.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+      return line
+        .slice(i + 1)
+        .trim()
+        .replace(/^["']|["']$/g, '');
     }
   }
   throw new Error(`DISCORD_BOT_TOKEN not found in ${ENV_PATH}`);
@@ -239,25 +263,25 @@ async function main() {
     channelId,
     state.linkMessageId,
     { content: INVITE_URL, allowed_mentions: { parse: [] } },
-    'invite'
+    'invite',
   );
   const rulesMessageId = await upsert(
     channelId,
     state.rulesMessageId,
     { embeds: [buildEmbed()], components: buildComponents(), allowed_mentions: { parse: [] } },
-    'rules '
+    'rules ',
   );
 
   for (const emoji of REACTIONS) {
-    await discord('PUT', `/channels/${channelId}/messages/${rulesMessageId}/reactions/${encodeURIComponent(emoji)}/@me`);
+    await discord(
+      'PUT',
+      `/channels/${channelId}/messages/${rulesMessageId}/reactions/${encodeURIComponent(emoji)}/@me`,
+    );
     console.log(`  reacted ${emoji}`);
     await new Promise((r) => setTimeout(r, REACTION_SPACING_MS));
   }
 
-  fs.writeFileSync(
-    STATE_PATH,
-    JSON.stringify({ channelId, linkMessageId, rulesMessageId }, null, 2) + '\n'
-  );
+  fs.writeFileSync(STATE_PATH, JSON.stringify({ channelId, linkMessageId, rulesMessageId }, null, 2) + '\n');
   console.log(`Saved ids to ${path.relative(process.cwd(), STATE_PATH)}. Commit it.`);
 }
 

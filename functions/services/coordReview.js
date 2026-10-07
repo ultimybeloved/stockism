@@ -26,7 +26,9 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 
 const {
-  ADMIN_UID, LONG_MARGIN_LIQUIDATION_THRESHOLD, LONG_MARGIN_CALL_THRESHOLD,
+  ADMIN_UID,
+  LONG_MARGIN_LIQUIDATION_THRESHOLD,
+  LONG_MARGIN_CALL_THRESHOLD,
   ADMIN_MEMO_MAX_LENGTH,
 } = require('../constants');
 const { toMs, round2, writeNotification, remainingShares, cohortRemoveUpdate } = require('../helpers');
@@ -54,31 +56,53 @@ const requireAdmin = (context) => {
 async function coordProfitFor(uid) {
   const since = Date.now() - LOOKBACK_MS;
   const [tradeSnap, marketSnap] = await Promise.all([
-    db.collection('trades')
+    db
+      .collection('trades')
       .where('timestamp', '>=', admin.firestore.Timestamp.fromMillis(since - WEEK_MS))
       .select('uid', 'ticker', 'action', 'priceImpact', 'source', 'timestamp', 'amount', 'totalValue')
       .get(),
     db.collection('market').doc('current').get(),
   ]);
   const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
-  const rows = tradeSnap.docs.map((d) => { const t = d.data(); return { ...t, ts: toMs(t.timestamp) }; });
+  const rows = tradeSnap.docs.map((d) => {
+    const t = d.data();
+    return { ...t, ts: toMs(t.timestamp) };
+  });
 
   const clusters = clusterTrades(rows.filter((r) => r.ts >= since)).filter((c) => c.uids.includes(uid));
-  const trades = rows.filter((r) => r.uid === uid).map((t) => ({
-    ticker: t.ticker, action: t.action, ts: t.ts,
-    shares: Number(t.amount) || 0, value: Number(t.totalValue) || 0,
-  })).filter((t) => t.shares > 0);
+  const trades = rows
+    .filter((r) => r.uid === uid)
+    .map((t) => ({
+      ticker: t.ticker,
+      action: t.action,
+      ts: t.ts,
+      shares: Number(t.amount) || 0,
+      value: Number(t.totalValue) || 0,
+    }))
+    .filter((t) => t.shares > 0);
 
-  const pushes = pushWindows(clusters).map((w) => ({
-    ticker: w.ticker,
-    days: [...new Set(w.days)].sort(),
-    ...windowProfit(trades.filter((t) => t.ticker === w.ticker), w, prices[w.ticker] || 0),
-  })).filter((p) => p.trades > 0);
+  const pushes = pushWindows(clusters)
+    .map((w) => ({
+      ticker: w.ticker,
+      days: [...new Set(w.days)].sort(),
+      ...windowProfit(
+        trades.filter((t) => t.ticker === w.ticker),
+        w,
+        prices[w.ticker] || 0,
+      ),
+    }))
+    .filter((p) => p.trades > 0);
 
   const total = pushes.reduce((s, p) => s + p.lockedIn + p.gainSince, 0);
   // Stocks the profit was made on, most profitable first: shares come from these first.
-  const preferTickers = [...new Set(pushes.filter((p) => p.lockedIn + p.gainSince > 0)
-    .sort((x, y) => (y.lockedIn + y.gainSince) - (x.lockedIn + x.gainSince)).map((p) => p.ticker))];
+  const preferTickers = [
+    ...new Set(
+      pushes
+        .filter((p) => p.lockedIn + p.gainSince > 0)
+        .sort((x, y) => y.lockedIn + y.gainSince - (x.lockedIn + x.gainSince))
+        .map((p) => p.ticker),
+    ),
+  ];
   return { pushes, suggested: round2(Math.max(0, total)), preferTickers, prices };
 }
 
@@ -90,8 +114,14 @@ exports.getCoordProfit = cf({ timeoutSeconds: 120 }).https.onCall(async (data, c
   if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
   const { pushes, suggested, preferTickers, prices } = await coordProfitFor(uid);
   return {
-    uid, pushes, suggested, preferTickers,
-    preview: { ...planRemoval(userDoc.data(), suggested, prices, preferTickers), marginCallLine: LONG_MARGIN_CALL_THRESHOLD },
+    uid,
+    pushes,
+    suggested,
+    preferTickers,
+    preview: {
+      ...planRemoval(userDoc.data(), suggested, prices, preferTickers),
+      marginCallLine: LONG_MARGIN_CALL_THRESHOLD,
+    },
   };
 });
 
@@ -105,15 +135,23 @@ exports.adminRemoveCoordProfit = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
   const { uid, preview } = data || {};
   const amount = round2(Number(data?.amount));
-  const memo = String(data?.memo || '').replace(/[\x00-\x1f\x7f]/g, '').trim();
+  const memo = String(data?.memo || '')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim();
   // Only decides which holdings go first, so it is taken from the caller (the
   // panel passes what getCoordProfit found) rather than re-reading every trade.
   const preferTickers = (Array.isArray(data?.preferTickers) ? data.preferTickers : [])
-    .filter((t) => typeof t === 'string' && /^[A-Z0-9]{1,10}$/.test(t)).slice(0, 10);
+    .filter((t) => typeof t === 'string' && /^[A-Z0-9]{1,10}$/.test(t))
+    .slice(0, 10);
   if (!uid || typeof uid !== 'string') throw new functions.https.HttpsError('invalid-argument', 'uid is required');
-  if (!(amount > 0) || !Number.isFinite(amount)) throw new functions.https.HttpsError('invalid-argument', 'Amount must be above 0');
+  if (!(amount > 0) || !Number.isFinite(amount))
+    throw new functions.https.HttpsError('invalid-argument', 'Amount must be above 0');
   if (!preview && !memo) throw new functions.https.HttpsError('invalid-argument', 'A memo is required — say why.');
-  if (memo.length > ADMIN_MEMO_MAX_LENGTH) throw new functions.https.HttpsError('invalid-argument', `Memo must be ${ADMIN_MEMO_MAX_LENGTH} characters or less`);
+  if (memo.length > ADMIN_MEMO_MAX_LENGTH)
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Memo must be ${ADMIN_MEMO_MAX_LENGTH} characters or less`,
+    );
 
   const userRef = db.collection('users').doc(uid);
   const marketRef = db.collection('market').doc('current');
@@ -124,12 +162,16 @@ exports.adminRemoveCoordProfit = cf().https.onCall(async (data, context) => {
     const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
     const plan = planRemoval(u, amount, prices, preferTickers);
     if (plan.toDebt > 0 && !u.marginEnabled) {
-      throw new functions.https.HttpsError('failed-precondition',
-        `They don't hold enough to cover it and margin is off: $${plan.toDebt.toLocaleString('en-US')} would be left over. Take less.`);
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `They don't hold enough to cover it and margin is off: $${plan.toDebt.toLocaleString('en-US')} would be left over. Take less.`,
+      );
     }
     if (plan.toDebt > 0 && plan.equityRatioAfter <= LONG_MARGIN_LIQUIDATION_THRESHOLD) {
-      throw new functions.https.HttpsError('failed-precondition',
-        `That would put them at ${Math.round(plan.equityRatioAfter * 100)}% equity, below the ${Math.round(LONG_MARGIN_LIQUIDATION_THRESHOLD * 100)}% forced-sale line. Take less.`);
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `That would put them at ${Math.round(plan.equityRatioAfter * 100)}% equity, below the ${Math.round(LONG_MARGIN_LIQUIDATION_THRESHOLD * 100)}% forced-sale line. Take less.`,
+      );
     }
     if (preview) return { preview: true, ...plan, marginCallLine: LONG_MARGIN_CALL_THRESHOLD };
 
@@ -160,7 +202,12 @@ exports.adminRemoveCoordProfit = cf().https.onCall(async (data, context) => {
       displayName: u.displayName || null,
       mode: 'remove_coord_profit',
       amount,
-      sharesRemoved: plan.shares.map(({ ticker, shares, value }) => ({ ticker, shares, value, price: prices[ticker] || 0 })),
+      sharesRemoved: plan.shares.map(({ ticker, shares, value }) => ({
+        ticker,
+        shares,
+        value,
+        price: prices[ticker] || 0,
+      })),
       previousCash: u.cash || 0,
       newCash: update.cash,
       addedDebt: plan.toDebt,
@@ -180,11 +227,11 @@ exports.adminRemoveCoordProfit = cf().https.onCall(async (data, context) => {
     await writeNotification(uid, {
       type: 'system',
       title: 'Profit removed',
-      message: `$${amount.toLocaleString('en-US')} was removed from your account (${taken}): profit from planning trades with other players to move a price, which is against the rules.`
-        + (result.toDebt > 0 ? ` $${result.toDebt.toLocaleString('en-US')} of it was added to your margin balance.` : ''),
+      message:
+        `$${amount.toLocaleString('en-US')} was removed from your account (${taken}): profit from planning trades with other players to move a price, which is against the rules.` +
+        (result.toDebt > 0 ? ` $${result.toDebt.toLocaleString('en-US')} of it was added to your margin balance.` : ''),
     });
     console.log(`COORD PROFIT REMOVED: ${uid} $${amount} (debt ${result.toDebt})`);
   }
   return { uid, amount, ...result };
 });
-

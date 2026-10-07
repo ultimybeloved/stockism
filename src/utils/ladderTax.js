@@ -19,9 +19,12 @@ import {
 // Timestamp on the client; an unreadable date means full access, same as server.
 export const getLadderDepositFactor = (createdAt) => {
   if (!createdAt) return 1;
-  const createdMs = typeof createdAt.toMillis === 'function'
-    ? createdAt.toMillis()
-    : typeof createdAt === 'number' ? createdAt : Date.parse(createdAt);
+  const createdMs =
+    typeof createdAt.toMillis === 'function'
+      ? createdAt.toMillis()
+      : typeof createdAt === 'number'
+        ? createdAt
+        : Date.parse(createdAt);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / (24 * 60 * 60 * 1000);
   if (ageDays >= LADDER_RAMP_DAYS) return 1;
@@ -51,7 +54,13 @@ const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;
 // Principal (the user's own deposits coming back) pays a flat fee; profit pays
 // lifetime-progressive bracket rates over cumulative profit withdrawn; a rush
 // surcharge on the whole amount applies if any deposit landed within the window.
-export const calculateLadderWithdrawTax = ({ amount, totalDeposited, principalWithdrawn, profitWithdrawn, hasRecentDeposit }) => {
+export const calculateLadderWithdrawTax = ({
+  amount,
+  totalDeposited,
+  principalWithdrawn,
+  profitWithdrawn,
+  hasRecentDeposit,
+}) => {
   const deposited = totalDeposited || 0;
   const principalSoFar = principalWithdrawn || 0;
   const profitSoFar = profitWithdrawn || 0;
@@ -76,5 +85,14 @@ export const calculateLadderWithdrawTax = ({ amount, totalDeposited, principalWi
   const totalTax = Math.round((principalFee + profitTax + rushSurcharge) * 100) / 100;
   const netReceived = Math.round((amount - totalTax) * 100) / 100;
 
-  return { grossAmount: amount, principalPart, profitPart, principalFee, profitTax, rushSurcharge, totalTax, netReceived };
+  return {
+    grossAmount: amount,
+    principalPart,
+    profitPart,
+    principalFee,
+    profitTax,
+    rushSurcharge,
+    totalTax,
+    netReceived,
+  };
 };

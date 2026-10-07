@@ -8,16 +8,22 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const {
-  ADMIN_UID, TWENTY_FOUR_HOURS_MS,
-  MARGIN_INTEREST_RATE, MARGIN_CASH_MINIMUM, CREW_REJOIN_LOCKOUT_MS, BAILOUT_CASH,
-  MARGIN_MIN_CHECKINS, MARGIN_MIN_TRADES, MARGIN_MIN_PEAK_PORTFOLIO,
+  ADMIN_UID,
+  TWENTY_FOUR_HOURS_MS,
+  MARGIN_INTEREST_RATE,
+  MARGIN_CASH_MINIMUM,
+  CREW_REJOIN_LOCKOUT_MS,
+  BAILOUT_CASH,
+  MARGIN_MIN_CHECKINS,
+  MARGIN_MIN_TRADES,
+  MARGIN_MIN_PEAK_PORTFOLIO,
 } = require('../constants');
 const { checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../helpers');
 // Seasons average margin owed over time, so every change to marginUsed logs it.
 const { seasonMarginUpdate } = require('./seasonTiers');
 
 exports.repayMargin = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -67,7 +73,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
  * Bankruptcy bailout - wipes every position and resets cash to BAILOUT_CASH
  */
 exports.bailout = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -84,11 +90,14 @@ exports.bailout = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
     checkDiscordWall(userData);
     if (!userData.isBankrupt) {
-      throw new functions.https.HttpsError('failed-precondition', 'You can still recover. Sell or close a position to clear your debt. A bailout is only for a fully wiped out account.');
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'You can still recover. Sell or close a position to clear your debt. A bailout is only for a fully wiped out account.',
+      );
     }
 
     // Enforce 24-hour cooldown between bailouts
-    if (userData.lastBailout && (Date.now() - userData.lastBailout) < TWENTY_FOUR_HOURS_MS) {
+    if (userData.lastBailout && Date.now() - userData.lastBailout < TWENTY_FOUR_HOURS_MS) {
       throw new functions.https.HttpsError('failed-precondition', 'Bailout available once per 24 hours.');
     }
 
@@ -128,7 +137,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
       lastBailout: Date.now(),
       shortHistory: {},
       lowestWhileHolding: {},
-      tickerTradeHistory: {}
+      tickerTradeHistory: {},
     };
     // A bailout kicks you from your crew; lock rejoining it for 30 days.
     if (currentCrew) {
@@ -144,7 +153,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
  * Toggle margin trading (enable/disable)
  */
 exports.toggleMargin = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -166,7 +175,10 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
       const isAdmin = uid === ADMIN_UID;
       if (!isAdmin) {
         if ((userData.cash || 0) < MARGIN_CASH_MINIMUM) {
-          throw new functions.https.HttpsError('failed-precondition', `Need $${MARGIN_CASH_MINIMUM.toLocaleString()} minimum cash.`);
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Need $${MARGIN_CASH_MINIMUM.toLocaleString()} minimum cash.`,
+          );
         }
         // The same three requirements MarginModal displays. Mirrors
         // checkMarginEligibility in src/utils/calculations.js. If either side
@@ -178,13 +190,16 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
           throw new functions.https.HttpsError('failed-precondition', `Need ${MARGIN_MIN_TRADES} total trades.`);
         }
         if ((userData.peakPortfolioValue || 0) < MARGIN_MIN_PEAK_PORTFOLIO) {
-          throw new functions.https.HttpsError('failed-precondition', `Need a $${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()} peak portfolio.`);
+          throw new functions.https.HttpsError(
+            'failed-precondition',
+            `Need a $${MARGIN_MIN_PEAK_PORTFOLIO.toLocaleString()} peak portfolio.`,
+          );
         }
       }
       transaction.update(userRef, {
         marginEnabled: true,
         marginUsed: 0,
-        marginEnabledAt: Date.now()
+        marginEnabledAt: Date.now(),
       });
     } else {
       // Check no outstanding margin
@@ -193,7 +208,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
       }
       transaction.update(userRef, {
         marginEnabled: false,
-        marginUsed: 0
+        marginUsed: 0,
       });
     }
 
@@ -205,7 +220,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
  * Charge daily margin interest
  */
 exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }

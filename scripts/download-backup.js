@@ -7,7 +7,7 @@ const serviceAccount = require('../service-account.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: 'stockism-abb28.firebasestorage.app'
+  storageBucket: 'stockism-abb28.firebasestorage.app',
 });
 
 const bucket = admin.storage().bucket();
@@ -20,7 +20,7 @@ async function downloadBackup() {
 
   try {
     await bucket.file(filePath).download({
-      destination: destPath
+      destination: destPath,
     });
     console.log(`✅ Downloaded to: ${destPath}`);
   } catch (err) {

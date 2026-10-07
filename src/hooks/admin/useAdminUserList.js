@@ -51,11 +51,11 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       // Deliberately trimmed to these fields — this loads the whole collection,
       // so rows stay small. selectUser fetches the full document on click.
       const users = [];
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         users.push({ id: doc.id, ...withUserDefaults(doc.data()) });
       });
 
@@ -104,7 +104,7 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
     let holdingsValue = 0;
     for (const [ticker, holdingData] of Object.entries(holdings)) {
       const currentPrice = prices[ticker] || 0;
-      const shares = typeof holdingData === 'number' ? holdingData : (holdingData?.shares || 0);
+      const shares = typeof holdingData === 'number' ? holdingData : holdingData?.shares || 0;
       holdingsValue += currentPrice * shares;
     }
 
@@ -122,7 +122,7 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
         shortsValue += collateral + (entryPrice - currentPrice) * shares;
       } else {
         // Legacy: margin collateral - cost to buy back shares
-        shortsValue += collateral - (currentPrice * shares);
+        shortsValue += collateral - currentPrice * shares;
       }
     }
 
@@ -155,11 +155,12 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
     }
 
     const q = query.toLowerCase();
-    const filtered = allUsers.filter(u =>
-      (u.displayName || '').toLowerCase().includes(q) ||
-      u.id.toLowerCase().includes(q) ||
-      (u.discordId || '').toLowerCase().includes(q) ||
-      (u.discordUsername || '').toLowerCase().includes(q)
+    const filtered = allUsers.filter(
+      (u) =>
+        (u.displayName || '').toLowerCase().includes(q) ||
+        u.id.toLowerCase().includes(q) ||
+        (u.discordId || '').toLowerCase().includes(q) ||
+        (u.discordUsername || '').toLowerCase().includes(q),
     );
     setUserSearchResults(sortUsers(filtered));
   };
@@ -172,9 +173,21 @@ export function useAdminUserList({ showMessage, setLoading, prices }) {
   };
 
   return {
-    userSearchQuery, handleUserSearch, userSearchResults, setUserSearchResults,
-    userSortBy, handleUserSortChange,
-    handleLoadAllUsers, allUsers, setAllUsers, usersPage, setUsersPage, USERS_PER_PAGE,
-    selectedUser, setSelectedUser, selectUser, calculateLivePortfolioValue,
+    userSearchQuery,
+    handleUserSearch,
+    userSearchResults,
+    setUserSearchResults,
+    userSortBy,
+    handleUserSortChange,
+    handleLoadAllUsers,
+    allUsers,
+    setAllUsers,
+    usersPage,
+    setUsersPage,
+    USERS_PER_PAGE,
+    selectedUser,
+    setSelectedUser,
+    selectUser,
+    calculateLivePortfolioValue,
   };
 }

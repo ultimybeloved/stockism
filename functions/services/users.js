@@ -11,8 +11,25 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const db = admin.firestore();
 
-const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, MAX_ACCOUNTS_PER_IP, IP_ACCOUNT_CAP_ENABLED, IP_SLOT_RELEASE_MS } = require('../constants');
-const { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat, checkBanned, isDiscordBindingLocked, grantedValueUpdate, readIndexNow, networkKey } = require('../helpers');
+const {
+  ADMIN_UID,
+  STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
+  MAX_ACCOUNTS_PER_IP,
+  IP_ACCOUNT_CAP_ENABLED,
+  IP_SLOT_RELEASE_MS,
+} = require('../constants');
+const {
+  isBannedUsername,
+  isTargetedHarassment,
+  containsProfanity,
+  validateUsernameFormat,
+  checkBanned,
+  isDiscordBindingLocked,
+  grantedValueUpdate,
+  readIndexNow,
+  networkKey,
+} = require('../helpers');
 const { buildSeasonBaseline } = require('./seasonTiers');
 const { isDisposableEmailLive } = require('../disposableEmail');
 const { countIpAccounts } = require('../ipCap');
@@ -68,26 +85,26 @@ const applyPendingDiscordLink = async (uid) => {
   if (!taken.empty && taken.docs[0].id !== uid) return false;
   if (await isDiscordBindingLocked(discordId, uid)) return false;
 
-  await db.collection('users').doc(uid).update({
-    discordId,
-    discordUsername: discordUsername || null,
-    cash: admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
-    startingCashUnlocked: true,
-    achievements: admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED'),
-    'achievementDates.DISCORD_LINKED': Date.now(),
-    ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
-  });
+  await db
+    .collection('users')
+    .doc(uid)
+    .update({
+      discordId,
+      discordUsername: discordUsername || null,
+      cash: admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+      startingCashUnlocked: true,
+      achievements: admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED'),
+      'achievementDates.DISCORD_LINKED': Date.now(),
+      ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+    });
   return true;
 };
 
 exports.createUser = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Must be logged in to create a user profile.'
-    );
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to create a user profile.');
   }
 
   const uid = context.auth.uid;
@@ -95,10 +112,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
 
   // Validate displayName
   if (!displayName || typeof displayName !== 'string') {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Display name is required.'
-    );
+    throw new functions.https.HttpsError('invalid-argument', 'Display name is required.');
   }
 
   const trimmed = displayName.trim();
@@ -109,17 +123,14 @@ exports.createUser = cf().https.onCall(async (data, context) => {
 
   // Check if username is banned
   if (isBannedUsername(displayNameLower)) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'This username is not allowed.'
-    );
+    throw new functions.https.HttpsError('invalid-argument', 'This username is not allowed.');
   }
 
   // Check for profanity
   if (containsProfanity(trimmed)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Username contains inappropriate language. Please choose a different name.'
+      'Username contains inappropriate language. Please choose a different name.',
     );
   }
 
@@ -128,7 +139,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
   if (isTargetedHarassment(trimmed)) {
     throw new functions.https.HttpsError(
       'invalid-argument',
-      'Username targets another player. Please choose a different name.'
+      'Username targets another player. Please choose a different name.',
     );
   }
 
@@ -147,12 +158,12 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       ip: context.rawRequest?.ip || null,
       action: 'blocked',
       details: `Blocked signup "${trimmed}" — disposable email domain (${emailDomain})`,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
     await cleanupBlockedAuthUser(uid);
     throw new functions.https.HttpsError(
       'permission-denied',
-      'Disposable email addresses are not allowed. Please sign up with a permanent email.'
+      'Disposable email addresses are not allowed. Please sign up with a permanent email.',
     );
   }
 
@@ -202,13 +213,13 @@ exports.createUser = cf().https.onCall(async (data, context) => {
               ip: signupIp,
               action: 'blocked',
               details: `Blocked signup "${trimmed}" — ${activeAccounts} active accounts already exist from watched IP`,
-              timestamp: admin.firestore.FieldValue.serverTimestamp()
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
             });
 
             await cleanupBlockedAuthUser(uid);
             throw new functions.https.HttpsError(
               'permission-denied',
-              'Account creation temporarily restricted from this network.'
+              'Account creation temporarily restricted from this network.',
             );
           } else {
             // Under limit — flag for auto-link after transaction succeeds
@@ -218,7 +229,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
               sanitizedSignupIp,
               signupIp,
               activeAccounts,
-              maxAccounts
+              maxAccounts,
             };
           }
         }
@@ -251,19 +262,13 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       // Check if username is already taken (including deleted usernames)
       const usernameDoc = await transaction.get(usernameRef);
       if (usernameDoc.exists) {
-        throw new functions.https.HttpsError(
-          'already-exists',
-          'This username is already taken.'
-        );
+        throw new functions.https.HttpsError('already-exists', 'This username is already taken.');
       }
 
       // Check if user already has a profile
       const userDoc = await transaction.get(userRef);
       if (userDoc.exists) {
-        throw new functions.https.HttpsError(
-          'already-exists',
-          'User profile already exists.'
-        );
+        throw new functions.https.HttpsError('already-exists', 'User profile already exists.');
       }
 
       // Fallback for legacy accounts that predate the reservation system and have no
@@ -272,27 +277,27 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       // even when no reservation doc exists. Relies on displayNameLower being set on old
       // docs, which the username backfill (migrateUsernames) populates.
       const dupSnap = await transaction.get(
-        db.collection('users').where('displayNameLower', '==', displayNameLower).limit(1)
+        db.collection('users').where('displayNameLower', '==', displayNameLower).limit(1),
       );
       if (!dupSnap.empty && dupSnap.docs[0].id !== uid) {
-        throw new functions.https.HttpsError(
-          'already-exists',
-          'This username is already taken.'
-        );
+        throw new functions.https.HttpsError('already-exists', 'This username is already taken.');
       }
 
       // IP cap (atomic). Read the IP's account history inside the transaction so
       // the count-and-reserve can't race. Reserving this account's slot below is
       // part of the same transaction as the user doc, so concurrent burst
       // signups on one IP serialize and the cap holds exactly.
-      const ipTrackingRef = (uid !== ADMIN_UID && sanitizedSignupIp)
-        ? db.collection('ipTracking').doc(sanitizedSignupIp)
-        : null;
+      const ipTrackingRef =
+        uid !== ADMIN_UID && sanitizedSignupIp ? db.collection('ipTracking').doc(sanitizedSignupIp) : null;
       if (ipTrackingRef) {
         const ipTrackDoc = await transaction.get(ipTrackingRef);
         const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
-        const { liveAccounts, recentlyDeleted, effectiveAccounts } =
-          countIpAccounts(ipTrackData, uid, Date.now(), IP_SLOT_RELEASE_MS);
+        const { liveAccounts, recentlyDeleted, effectiveAccounts } = countIpAccounts(
+          ipTrackData,
+          uid,
+          Date.now(),
+          IP_SLOT_RELEASE_MS,
+        );
 
         // Another live account already on this network → require Discord link.
         if (liveAccounts >= 1) requiresDiscordLink = true;
@@ -301,7 +306,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
           capBlockInfo = { effectiveAccounts, liveAccounts, recentlyDeleted };
           throw new functions.https.HttpsError(
             'permission-denied',
-            `Account creation is limited to ${MAX_ACCOUNTS_PER_IP} accounts per network.`
+            `Account creation is limited to ${MAX_ACCOUNTS_PER_IP} accounts per network.`,
           );
         }
       }
@@ -315,16 +320,14 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       // moment they start. Their starting cash is the baseline; the $2,000 the
       // Discord unlock adds later is booked as granted value and nets back out.
       const seasonSnap = await transaction.get(db.collection('market').doc('season'));
-      const activeSeason = (seasonSnap.exists && seasonSnap.data().status === 'active')
-        ? seasonSnap.data()
-        : null;
+      const activeSeason = seasonSnap.exists && seasonSnap.data().status === 'active' ? seasonSnap.data() : null;
 
       const now = admin.firestore.FieldValue.serverTimestamp();
 
       // Reserve the username
       transaction.set(usernameRef, {
         uid: uid,
-        createdAt: now
+        createdAt: now,
       });
 
       // Create the user document
@@ -350,35 +353,41 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         startingCashUnlocked: false,
         signupIp: sanitizedSignupIp || null,
         requiresDiscordLink,
-        ...(activeSeason ? {
-          seasonBaseline: buildSeasonBaseline({
-            seasonId: activeSeason.id,
-            value: UNVERIFIED_STARTING_CASH,
-            granted: 0,
-            grantedDays: 0,
-            ladderFlow: 0,
-            // Zero only if the season started mid-signup; scoring then falls back
-            // to the season's opening index.
-            index: signupIndex,
-            pinnedAt: Date.now(),
-          })
-        } : {})
+        ...(activeSeason
+          ? {
+              seasonBaseline: buildSeasonBaseline({
+                seasonId: activeSeason.id,
+                value: UNVERIFIED_STARTING_CASH,
+                granted: 0,
+                grantedDays: 0,
+                ladderFlow: 0,
+                // Zero only if the season started mid-signup; scoring then falls back
+                // to the season's opening index.
+                index: signupIndex,
+                pinnedAt: Date.now(),
+              }),
+            }
+          : {}),
       });
 
       // Seed the permanent history subcollection with the starting point
       transaction.set(userRef.collection('portfolioHistory').doc(), {
         timestamp: Date.now(),
-        value: UNVERIFIED_STARTING_CASH
+        value: UNVERIFIED_STARTING_CASH,
       });
 
       // Reserve this account's per-IP slot in the SAME transaction, so the cap
       // count above and this write commit together (replaces the old post-commit
       // ipTracking write that allowed the race).
       if (ipTrackingRef) {
-        transaction.set(ipTrackingRef, {
-          accounts: { [uid]: Date.now() },
-          lastUpdated: Date.now()
-        }, { merge: true });
+        transaction.set(
+          ipTrackingRef,
+          {
+            accounts: { [uid]: Date.now() },
+            lastUpdated: Date.now(),
+          },
+          { merge: true },
+        );
       }
     });
 
@@ -397,7 +406,8 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       try {
         // Re-check for duplicates before linking (prevents duplicate entries from concurrent requests)
         const watchedSnap = await db.collection('watchedUsers').doc(autoLinkData.watchedUserId).get();
-        const alreadyLinked = watchedSnap.exists && (watchedSnap.data().linkedAccounts || []).some(a => a.uid === uid);
+        const alreadyLinked =
+          watchedSnap.exists && (watchedSnap.data().linkedAccounts || []).some((a) => a.uid === uid);
 
         if (!alreadyLinked) {
           const newLinked = {
@@ -405,14 +415,17 @@ exports.createUser = cf().https.onCall(async (data, context) => {
             displayName: trimmed,
             linkedVia: 'ip',
             ip: autoLinkData.signupIp,
-            linkedAt: Date.now()
+            linkedAt: Date.now(),
           };
 
-          await db.collection('watchedUsers').doc(autoLinkData.watchedUserId).update({
-            linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
-            [`knownIPs.${autoLinkData.sanitizedSignupIp}.lastSeen`]: Date.now(),
-            [`knownIPs.${autoLinkData.sanitizedSignupIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid)
-          });
+          await db
+            .collection('watchedUsers')
+            .doc(autoLinkData.watchedUserId)
+            .update({
+              linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+              [`knownIPs.${autoLinkData.sanitizedSignupIp}.lastSeen`]: Date.now(),
+              [`knownIPs.${autoLinkData.sanitizedSignupIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+            });
 
           await db.collection('watchlist_alerts').add({
             type: 'account_linked',
@@ -421,9 +434,8 @@ exports.createUser = cf().https.onCall(async (data, context) => {
             ip: autoLinkData.signupIp,
             action: 'linked',
             details: `Auto-linked new account "${trimmed}" from watched IP`,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
           });
-
         }
       } catch (linkError) {
         console.error('Auto-link after signup failed:', linkError);
@@ -448,7 +460,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
           ip: signupIp !== 'unknown' ? signupIp : null,
           action: 'blocked',
           details: `Blocked signup "${trimmed}" — network already has ${capBlockInfo.effectiveAccounts} account(s) (${capBlockInfo.liveAccounts} active, ${capBlockInfo.recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (alertErr) {
         console.error('Failed to write cap-block alert:', alertErr.message);
@@ -461,10 +473,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
     }
     // Wrap other errors
     console.error('Error creating user:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to create user profile. Please try again.'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to create user profile. Please try again.');
   }
 });
 
@@ -480,13 +489,10 @@ exports.createUser = cf().https.onCall(async (data, context) => {
  * @returns {Object} - { success: true } or throws error
  */
 exports.deleteAccount = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Must be logged in to delete your account.'
-    );
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to delete your account.');
   }
 
   const uid = context.auth.uid;
@@ -494,10 +500,7 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
 
   // Validate confirmation username is provided
   if (!confirmUsername || typeof confirmUsername !== 'string') {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Username confirmation is required.'
-    );
+    throw new functions.https.HttpsError('invalid-argument', 'Username confirmation is required.');
   }
 
   try {
@@ -506,10 +509,7 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      throw new functions.https.HttpsError(
-        'not-found',
-        'User profile not found.'
-      );
+      throw new functions.https.HttpsError('not-found', 'User profile not found.');
     }
 
     const userData = userDoc.data();
@@ -523,21 +523,21 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
 
     // Verify the confirmation username matches (case-insensitive)
     if (confirmUsername.toLowerCase() !== displayName.toLowerCase()) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Username confirmation does not match.'
-      );
+      throw new functions.https.HttpsError('invalid-argument', 'Username confirmation does not match.');
     }
 
     // Mark username as deleted (but keep reserved) first, so the name stays
     // claimed even if a later step fails.
     if (displayNameLower) {
       const usernameRef = db.collection('usernames').doc(displayNameLower);
-      await usernameRef.set({
-        deleted: true,
-        deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-        deletedUid: uid
-      }, { merge: true });
+      await usernameRef.set(
+        {
+          deleted: true,
+          deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          deletedUid: uid,
+        },
+        { merge: true },
+      );
     }
 
     // Recursively delete the user document AND its subcollections
@@ -552,7 +552,9 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     // top-50 slot. Best-effort — a failure here must not block the deletion.
     try {
       await db.collection('ladderGameUsers').doc(uid).delete();
-    } catch (e) { /* nothing to remove, or already gone */ }
+    } catch (e) {
+      /* nothing to remove, or already gone */
+    }
 
     // Release this account's per-IP slot, but only after IP_SLOT_RELEASE_MS. We drop
     // it from the live `accounts` map and tombstone it in `deletedAccounts` with the
@@ -561,11 +563,16 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     // locking out genuine deleters.
     if (userData.signupIp) {
       try {
-        await db.collection('ipTracking').doc(userData.signupIp).update({
-          [`accounts.${uid}`]: admin.firestore.FieldValue.delete(),
-          [`deletedAccounts.${uid}`]: Date.now()
-        });
-      } catch (e) { /* IP tracking doc may not exist */ }
+        await db
+          .collection('ipTracking')
+          .doc(userData.signupIp)
+          .update({
+            [`accounts.${uid}`]: admin.firestore.FieldValue.delete(),
+            [`deletedAccounts.${uid}`]: Date.now(),
+          });
+      } catch (e) {
+        /* IP tracking doc may not exist */
+      }
     }
 
     // Tombstone the linked Discord account so it can't immediately verify a fresh
@@ -574,11 +581,16 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     // again later just resets the clock (merge overwrites deletedAt).
     if (userData.discordId) {
       try {
-        await db.collection('discordTombstones').doc(String(userData.discordId)).set({
-          deletedAt: Date.now(),
-          lastUid: uid
-        }, { merge: true });
-      } catch (e) { /* best-effort — never block deletion on this */ }
+        await db.collection('discordTombstones').doc(String(userData.discordId)).set(
+          {
+            deletedAt: Date.now(),
+            lastUid: uid,
+          },
+          { merge: true },
+        );
+      } catch (e) {
+        /* best-effort — never block deletion on this */
+      }
     }
 
     // Delete the Firebase Auth account
@@ -592,9 +604,6 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
     }
     // Wrap other errors
     console.error('Error deleting account:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to delete account. Please try again.'
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to delete account. Please try again.');
   }
 });

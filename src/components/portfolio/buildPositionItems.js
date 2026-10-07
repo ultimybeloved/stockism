@@ -9,7 +9,7 @@ import { getShortRisk } from '../../utils/calculations';
 const price24hAgoOf = (priceHistory, ticker, currentPrice) => {
   const history = priceHistory?.[ticker] || [];
   if (history.length === 0) return currentPrice;
-  const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i].timestamp <= dayAgo) {
       return history[i].price;
@@ -18,7 +18,15 @@ const price24hAgoOf = (priceHistory, ticker, currentPrice) => {
   return history[0].price;
 };
 
-export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides, rarityTiers }) => {
+export const buildPortfolioItems = ({
+  holdings,
+  prices,
+  priceHistory,
+  costBasis,
+  holdingCohorts,
+  dividendTierOverrides,
+  rarityTiers,
+}) => {
   const now = Date.now();
   return Object.entries(holdings)
     .filter(([_, shares]) => shares > 0)
@@ -48,7 +56,7 @@ export const buildPortfolioItems = ({ holdings, prices, priceHistory, costBasis,
       let soonestReadyMs = null;
       if (cohort) {
         eligibleShares = cohort.eligible || 0;
-        for (const p of (cohort.pending || [])) {
+        for (const p of cohort.pending || []) {
           if ((p.availableAt || 0) <= now) {
             eligibleShares += p.shares || 0;
           } else if (soonestReadyMs === null || p.availableAt < soonestReadyMs) {
@@ -115,7 +123,7 @@ export const buildShortItems = ({ shorts, prices }) => {
         positionValue,
         value: positionValue, // alias so sortHoldings('value') works on shorts too
         liquidationPrice: risk.liquidationPrice ?? null,
-        openedAt: position.openedAt
+        openedAt: position.openedAt,
       };
     })
     .sort((a, b) => b.positionValue - a.positionValue);

@@ -22,11 +22,11 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
     try {
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
-      
+
       const bets = [];
       const optionsFound = new Set();
-      
-      snapshot.forEach(doc => {
+
+      snapshot.forEach((doc) => {
         const userData = doc.data();
         const userBet = userData.bets?.[recoveryPredictionId.trim()];
         if (userBet) {
@@ -39,7 +39,7 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
             payout: userBet.payout || 0,
             cash: userData.cash || 0,
             predictionWins: userData.predictionWins || 0,
-            achievements: userData.achievements || []
+            achievements: userData.achievements || [],
           });
           optionsFound.add(userBet.option);
         }
@@ -47,7 +47,7 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
 
       setRecoveryBets(bets);
       setRecoveryOptions(Array.from(optionsFound));
-      
+
       if (bets.length === 0) {
         showMessage('error', `No bets found for prediction "${recoveryPredictionId}"`);
       } else {
@@ -74,7 +74,7 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
     const predId = recoveryPredictionId.trim();
     const totalPool = recoveryBets.reduce((sum, bet) => sum + bet.amount, 0);
     const winningPool = recoveryBets
-      .filter(b => b.option === recoveryWinner)
+      .filter((b) => b.option === recoveryWinner)
       .reduce((sum, bet) => sum + bet.amount, 0);
 
     if (winningPool === 0) {
@@ -82,12 +82,15 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
       return;
     }
 
-    if (!window.confirm(
-      `Pay correct winners for "${recoveryWinner}"?\n\n` +
-      `Total pool: $${totalPool.toFixed(2)}\nWinning pool: $${winningPool.toFixed(2)}\n` +
-      `${recoveryBets.filter(b => b.option === recoveryWinner).length} winners will be paid.\n\n` +
-      `This ignores any previous payout. Losers are NOT touched.`
-    )) return;
+    if (
+      !window.confirm(
+        `Pay correct winners for "${recoveryWinner}"?\n\n` +
+          `Total pool: $${totalPool.toFixed(2)}\nWinning pool: $${winningPool.toFixed(2)}\n` +
+          `${recoveryBets.filter((b) => b.option === recoveryWinner).length} winners will be paid.\n\n` +
+          `This ignores any previous payout. Losers are NOT touched.`,
+      )
+    )
+      return;
 
     setLoading(true);
     try {
@@ -102,7 +105,13 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
         const newAchievements = [];
         if (newPredictionWins >= 3 && !currentAchievements.includes('ORACLE')) newAchievements.push('ORACLE');
         if (newPredictionWins >= 10 && !currentAchievements.includes('PROPHET')) newAchievements.push('PROPHET');
-        if (winningPool > 0 && totalPool > 0 && (winningPool / totalPool) < 0.20 && !currentAchievements.includes('UNDERDOG')) newAchievements.push('UNDERDOG');
+        if (
+          winningPool > 0 &&
+          totalPool > 0 &&
+          winningPool / totalPool < 0.2 &&
+          !currentAchievements.includes('UNDERDOG')
+        )
+          newAchievements.push('UNDERDOG');
 
         const updateData = {
           cash: bet.cash + payout,
@@ -130,8 +139,8 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
       const snap = await getDoc(predictionsRef);
       if (snap.exists()) {
         const currentList = snap.data().list || [];
-        const updatedList = currentList.map(p =>
-          p.id === predId ? { ...p, resolved: true, outcome: recoveryWinner } : p
+        const updatedList = currentList.map((p) =>
+          p.id === predId ? { ...p, resolved: true, outcome: recoveryWinner } : p,
         );
         await updateDoc(predictionsRef, { list: updatedList });
       }
@@ -149,8 +158,15 @@ export function useAdminBetRecovery({ showMessage, setLoading }) {
   };
 
   return {
-    recoveryPredictionId, setRecoveryPredictionId, recoveryBets, setRecoveryBets,
-    recoveryOptions, setRecoveryOptions, recoveryWinner, setRecoveryWinner,
-    handleScanForBets, handleOverridePayout,
+    recoveryPredictionId,
+    setRecoveryPredictionId,
+    recoveryBets,
+    setRecoveryBets,
+    recoveryOptions,
+    setRecoveryOptions,
+    recoveryWinner,
+    setRecoveryWinner,
+    handleScanForBets,
+    handleOverridePayout,
   };
 }

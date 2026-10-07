@@ -7,9 +7,15 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
-  PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE, WEEKLY_HALT_END_MINUTE, PRE_MARKET_MAX_BUY_BUFFER,
-  MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
-  formatWait, msUntilWeekly,
+  PRE_MARKET_START_MINUTE,
+  PRE_MARKET_LOCK_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+  PRE_MARKET_MAX_BUY_BUFFER,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  TRADE_SHARE_DECIMALS,
+  formatWait,
+  msUntilWeekly,
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, maxTradeSharesFor } = require('../helpers');
 const { claimNetworkForOrder } = require('./orderNetwork');
@@ -31,7 +37,7 @@ const getThisWeeksPreMarketStart = () => {
 };
 
 exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -39,7 +45,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   if (!isPreMarketWindow()) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`
+      `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`,
     );
   }
 
@@ -47,7 +53,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'preMarket');
   const { ticker, action, shares, allowPartialFills = false } = data;
 
-  if (!ticker || !CHARACTERS.some(c => c.ticker === ticker)) {
+  if (!ticker || !CHARACTERS.some((c) => c.ticker === ticker)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
   }
 
@@ -59,8 +65,13 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   // stay on whole-cent share counts.
   const minShares = action === 'sell' ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
   const entryStep = 10 ** TRADE_SHARE_DECIMALS;
-  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > maxTradeSharesFor(ticker) ||
-      (action !== 'sell' && Math.round(shares * entryStep) / entryStep !== shares)) {
+  if (
+    !shares ||
+    !Number.isFinite(shares) ||
+    shares < minShares ||
+    shares > maxTradeSharesFor(ticker) ||
+    (action !== 'sell' && Math.round(shares * entryStep) / entryStep !== shares)
+  ) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }
 
@@ -85,7 +96,8 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   const preMarketStart = getThisWeeksPreMarketStart();
 
   // Max 1 active buy and 1 active sell per ticker per user per session
-  const duplicate = await db.collection('preMarketOrders')
+  const duplicate = await db
+    .collection('preMarketOrders')
     .where('userId', '==', uid)
     .where('ticker', '==', ticker)
     .where('action', '==', action)
@@ -97,7 +109,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   if (!duplicate.empty) {
     throw new functions.https.HttpsError(
       'already-exists',
-      `You already have a pending ${action} order for $${ticker}. Cancel it first to replace it.`
+      `You already have a pending ${action} order for $${ticker}. Cancel it first to replace it.`,
     );
   }
 
@@ -110,7 +122,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   if (CHARACTER_MAP[ticker]?.ipoRequired && !launchedTickers.includes(ticker)) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+      `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`,
     );
   }
 
@@ -118,13 +130,14 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
   if (action === 'sell' && (userData.shorts?.[ticker]?.shares || 0) > 0) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'Cannot place a sell order while you have an active short on this stock.'
+      'Cannot place a sell order while you have an active short on this stock.',
     );
   }
 
   if (action === 'buy') {
     // Sum up cash already committed to other pending buy orders this session
-    const pendingBuys = await db.collection('preMarketOrders')
+    const pendingBuys = await db
+      .collection('preMarketOrders')
       .where('userId', '==', uid)
       .where('action', '==', 'buy')
       .where('status', '==', 'PENDING')
@@ -134,12 +147,16 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
     // Cost estimates include headroom for auction impact + spread, so a
     // passing order can't become unaffordable at the opening ask.
     const allPrices = marketSnap.data()?.prices || {};
-    const reservedCash = Math.round(
-      pendingBuys.docs.reduce((sum, doc) => {
-        const o = doc.data();
-        return sum + o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0) * PRE_MARKET_MAX_BUY_BUFFER;
-      }, 0) * 100
-    ) / 100;
+    const reservedCash =
+      Math.round(
+        pendingBuys.docs.reduce((sum, doc) => {
+          const o = doc.data();
+          return (
+            sum +
+            o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0) * PRE_MARKET_MAX_BUY_BUFFER
+          );
+        }, 0) * 100,
+      ) / 100;
 
     const estimatedCost = Math.round(shares * currentPrice * PRE_MARKET_MAX_BUY_BUFFER * 100) / 100;
     const availableCash = Math.round(((userData.cash || 0) - reservedCash) * 100) / 100;
@@ -149,14 +166,15 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
         'failed-precondition',
         reservedCash > 0
           ? `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, reserved by other orders: $${reservedCash.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
-          : `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
+          : `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`,
       );
     }
   } else {
     const currentHoldings = userData.holdings?.[ticker] || 0;
 
     // Account for shares already reserved by other pending pre-market sells on this ticker
-    const pendingSells = await db.collection('preMarketOrders')
+    const pendingSells = await db
+      .collection('preMarketOrders')
       .where('userId', '==', uid)
       .where('ticker', '==', ticker)
       .where('action', '==', 'sell')
@@ -173,7 +191,7 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
     if (availableShares < shares) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Insufficient sellable shares. Holdings: ${currentHoldings}, reserved: ${reservedShares}, locked: ${locked}, available: ${availableShares}.`
+        `Insufficient sellable shares. Holdings: ${currentHoldings}, reserved: ${reservedShares}, locked: ${locked}, available: ${availableShares}.`,
       );
     }
   }
@@ -196,14 +214,14 @@ exports.createPreMarketOrder = cf().https.onCall(async (data, context) => {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     executedAt: null,
     executedPrice: null,
-    filledShares: null
+    filledShares: null,
   });
 
   return { success: true };
 });
 
 exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -215,7 +233,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
     if (utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Orders are locked in the final 5 minutes before market open. Your order will execute when the market opens in ${formatWait(msUntilWeekly(WEEKLY_HALT_END_MINUTE))}.`
+        `Orders are locked in the final 5 minutes before market open. Your order will execute when the market opens in ${formatWait(msUntilWeekly(WEEKLY_HALT_END_MINUTE))}.`,
       );
     }
   }
@@ -235,7 +253,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
 
   const order = orderDoc.data();
   if (order.userId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', 'Cannot cancel another user\'s order.');
+    throw new functions.https.HttpsError('permission-denied', "Cannot cancel another user's order.");
   }
   if (order.status !== 'PENDING') {
     throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be cancelled.');
@@ -243,7 +261,7 @@ exports.cancelPreMarketOrder = cf().https.onCall(async (data, context) => {
 
   await db.collection('preMarketOrders').doc(orderId).update({
     status: 'CANCELED',
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true };

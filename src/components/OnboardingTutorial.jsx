@@ -1,50 +1,49 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { getThemeClasses } from '../utils/theme';
 import { marketTimes } from '../utils/localTime';
 
 const STEPS = [
   {
-    title: "Welcome to Stockism!",
-    emoji: "📈",
+    title: 'Welcome to Stockism!',
+    emoji: '📈',
     description:
-      "You start with $1,000 in cash, raised to $3,000 when you link Discord. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.",
+      'You start with $1,000 in cash, raised to $3,000 when you link Discord. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.',
     spotlight: false,
   },
   {
-    title: "Join a Crew",
+    title: 'Join a Crew',
     emoji: null,
-    emojiImg: "/crews/wtjc.png",
+    emojiImg: '/crews/wtjc.png',
     description:
-      "Pick a crew to join! Each crew gives you unique missions and bonus rewards. Work together with your crewmates to climb the leaderboard and earn extra cash.",
-    spotlight: "down",
+      'Pick a crew to join! Each crew gives you unique missions and bonus rewards. Work together with your crewmates to climb the leaderboard and earn extra cash.',
+    spotlight: 'down',
   },
   {
-    title: "Start Trading",
-    emoji: "💰",
+    title: 'Start Trading',
+    emoji: '💰',
     description:
-      "Tap any character card to see their price chart. Hit the Trade button, choose Buy or Sell, and pick how many shares you want. Prices go up when people buy and down when they sell. Timing is everything.",
+      'Tap any character card to see their price chart. Hit the Trade button, choose Buy or Sell, and pick how many shares you want. Prices go up when people buy and down when they sell. Timing is everything.',
     spotlight: false,
   },
   {
-    title: "Complete Missions",
-    emoji: "🎯",
+    title: 'Complete Missions',
+    emoji: '🎯',
     description:
       "Check your missions daily! You'll get daily and weekly challenges that earn you bonus cash when completed. Missions reset on a timer so keep coming back.",
     spotlight: false,
   },
   {
-    title: "Thursday Halt & Pre-Market",
-    emoji: "⏸️",
-    description:
-      `Every week the market closes (${marketTimes().halt}) while new chapter events get priced in. Near the end (${marketTimes().preMarket}) you can queue pre-market buy and sell orders. They all execute together the moment the market reopens.`,
+    title: 'Thursday Halt & Pre-Market',
+    emoji: '⏸️',
+    description: `Every week the market closes (${marketTimes().halt}) while new chapter events get priced in. Near the end (${marketTimes().preMarket}) you can queue pre-market buy and sell orders. They all execute together the moment the market reopens.`,
     spotlight: false,
   },
   {
     title: "You're Ready!",
-    emoji: "🚀",
+    emoji: '🚀',
     description:
-      "Explore the leaderboard to see top traders, unlock achievements as you play, try the ladder game, and bet on what happens next in the story. Good luck out there!",
+      'Explore the leaderboard to see top traders, unlock achievements as you play, try the ladder game, and bet on what happens next in the story. Good luck out there!',
     spotlight: false,
     isFinal: true,
   },
@@ -68,14 +67,12 @@ export default function OnboardingTutorial({ onComplete }) {
         setAnimating(false);
       }, 200);
     },
-    [step, animating]
+    [step, animating],
   );
 
   const { textClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
-  const subtleText = darkMode ? "text-zinc-400" : "text-slate-600";
-  const subtleBtn = darkMode
-    ? "text-zinc-400 hover:text-zinc-200"
-    : "text-slate-500 hover:text-slate-700";
+  const subtleText = darkMode ? 'text-zinc-400' : 'text-slate-600';
+  const subtleBtn = darkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-500 hover:text-slate-700';
 
   return (
     <div className={`${overlayHeavyClass} z-[100]`}>
@@ -84,9 +81,9 @@ export default function OnboardingTutorial({ onComplete }) {
         className={`relative ${modalShellClass} ${textClass} max-w-md mx-auto p-6 transition-all duration-200 ${
           animating
             ? direction > 0
-              ? "opacity-0 translate-x-4"
-              : "opacity-0 -translate-x-4"
-            : "opacity-100 translate-x-0"
+              ? 'opacity-0 translate-x-4'
+              : 'opacity-0 -translate-x-4'
+            : 'opacity-100 translate-x-0'
         }`}
       >
         {/* Skip button — inside the card so it never overlaps the header */}
@@ -103,7 +100,7 @@ export default function OnboardingTutorial({ onComplete }) {
             <div
               key={i}
               className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-                i === step ? "bg-orange-600" : darkMode ? "bg-zinc-700" : "bg-slate-300"
+                i === step ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
               }`}
             />
           ))}
@@ -122,16 +119,14 @@ export default function OnboardingTutorial({ onComplete }) {
         <h2 className="text-xl font-bold text-center mb-2">{current.title}</h2>
 
         {/* Spotlight hint */}
-        {current.spotlight === "down" && (
+        {current.spotlight === 'down' && (
           <div className="flex justify-center mb-2">
             <span className={`text-xs ${subtleText}`}>↓ You can pick one below after the tutorial</span>
           </div>
         )}
 
         {/* Description */}
-        <p className={`text-sm text-center leading-relaxed mb-6 ${subtleText}`}>
-          {current.description}
-        </p>
+        <p className={`text-sm text-center leading-relaxed mb-6 ${subtleText}`}>{current.description}</p>
 
         {/* Navigation buttons */}
         <div className="flex items-center justify-between">

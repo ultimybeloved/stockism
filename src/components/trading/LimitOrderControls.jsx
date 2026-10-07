@@ -7,10 +7,14 @@ import { formatCurrency } from '../../utils/formatters';
 const LimitOrderControls = ({
   action,
   price,
-  isLimitOrder, setIsLimitOrder,
-  isStopLoss, setIsStopLoss,
-  limitPrice, setLimitPrice,
-  allowPartialFills, setAllowPartialFills,
+  isLimitOrder,
+  setIsLimitOrder,
+  isStopLoss,
+  setIsStopLoss,
+  limitPrice,
+  setLimitPrice,
+  allowPartialFills,
+  setAllowPartialFills,
 }) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
@@ -66,9 +70,7 @@ const LimitOrderControls = ({
           <div>
             <label className={`block text-sm font-semibold mb-1 ${textClass}`}>
               {isStopLoss ? 'Stop Price' : 'Limit Price'}
-              <span className={`ml-2 text-xs ${mutedClass}`}>
-                (Current: {formatCurrency(price)})
-              </span>
+              <span className={`ml-2 text-xs ${mutedClass}`}>(Current: {formatCurrency(price)})</span>
             </label>
             <input
               type="number"

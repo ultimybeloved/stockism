@@ -59,13 +59,22 @@ describe('LadderGame', () => {
     };
     h.docs = {
       ladderGameUsers: {
-        balance: 100, gamesPlayed: 10, wins: 6, currentStreak: 2, bestStreak: 4,
-        totalDeposited: 100, principalWithdrawn: 0, profitWithdrawn: 0, recentDeposits: [],
+        balance: 100,
+        gamesPlayed: 10,
+        wins: 6,
+        currentStreak: 2,
+        bestStreak: 4,
+        totalDeposited: 100,
+        principalWithdrawn: 0,
+        profitWithdrawn: 0,
+        recentDeposits: [],
       },
-      ladderGame: { history: [
-        { result: 'odd', oddPct: 60, evenPct: 40 },
-        { result: 'even', oddPct: 45, evenPct: 55 },
-      ] },
+      ladderGame: {
+        history: [
+          { result: 'odd', oddPct: 60, evenPct: 40 },
+          { result: 'even', oddPct: 45, evenPct: 55 },
+        ],
+      },
       users: { cash: 2500 },
     };
   });
@@ -127,14 +136,18 @@ describe('LadderGame', () => {
 
     fireEvent.click(screen.getAllByText('X')[0]); // left side
     fireEvent.click(screen.getByText('ODD'));
-    await act(async () => { await Promise.resolve(); });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(playLadderGameFunction).toHaveBeenCalledWith({ startSide: 'left', bet: 'odd', amount: 1 });
     expect(screen.getByText('$99')).toBeInTheDocument(); // bet deducted up front
 
     // Walk the animation forward until the result banner appears
     for (let i = 0; i < 60 && !screen.queryByText('+$2'); i++) {
-      await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
     }
     expect(screen.getByText('+$2')).toBeInTheDocument();
     // Once the round ends, the balance re-syncs from the Firestore listener
@@ -157,7 +170,9 @@ describe('LadderGame', () => {
     fireEvent.click(screen.getByText('Transfer'));
     expect(screen.getByText(/Available: \$2,500\.00/)).toBeInTheDocument();
     // invested = 10 shares * $50 basis = $500; cap = min(10000, 500) - 100 balance = 400
-    expect(screen.getByText(/You can add up to \$400\.00 more\. Deposits are capped at your \$500\.00 invested\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/You can add up to \$400\.00 more\. Deposits are capped at your \$500\.00 invested\./),
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('Amount'), { target: { value: '50' } });
     fireEvent.click(screen.getByText('Deposit'));
@@ -183,7 +198,10 @@ describe('LadderGame', () => {
     fireEvent.click(screen.getByText('Withdraw'));
     await waitFor(() => {
       expect(withdrawFromLadderGameFunction).toHaveBeenCalledWith({ amount: 100 });
-      expect(h.ctx.showNotification).toHaveBeenCalledWith('success', 'Withdrew $100.00. Tax was $5.00. You received $95.00.');
+      expect(h.ctx.showNotification).toHaveBeenCalledWith(
+        'success',
+        'Withdrew $100.00. Tax was $5.00. You received $95.00.',
+      );
     });
   });
 

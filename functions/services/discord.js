@@ -9,9 +9,26 @@ const db = admin.firestore();
 
 const { CHARACTERS } = require('../characters');
 const crypto = require('crypto');
-const { ADMIN_UID, STARTING_CASH, UNVERIFIED_STARTING_CASH, BASE_IMPACT, BASE_LIQUIDITY, MAX_PRICE_CHANGE_PERCENT, DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS } = require('../constants');
-const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscordBinding, isDiscordBindingLocked, bindDiscordToUid, grantedValueUpdate, recordHeartbeat } = require('../helpers');
-
+const {
+  ADMIN_UID,
+  STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MAX_PRICE_CHANGE_PERCENT,
+  DISCORD_DAILY_DROP_CHANNEL,
+  DISCORD_LINK_NONCE_TTL_MS,
+} = require('../constants');
+const {
+  writeNotification,
+  sendDiscordMessage,
+  isDiscordRelinkBlocked,
+  getDiscordBinding,
+  isDiscordBindingLocked,
+  bindDiscordToUid,
+  grantedValueUpdate,
+  recordHeartbeat,
+} = require('../helpers');
 
 /**
  * Park a new signup's Discord details until they have picked a name.
@@ -29,11 +46,14 @@ const { writeNotification, sendDiscordMessage, isDiscordRelinkBlocked, getDiscor
  */
 const DISCORD_PENDING = 'discordPending';
 const stashPendingDiscord = (uid, discordId, discordUsername) =>
-  db.collection(DISCORD_PENDING).doc(uid).set({
-    discordId,
-    discordUsername: discordUsername || null,
-    createdAt: Date.now(),
-  });
+  db
+    .collection(DISCORD_PENDING)
+    .doc(uid)
+    .set({
+      discordId,
+      discordUsername: discordUsername || null,
+      createdAt: Date.now(),
+    });
 
 // Discord OAuth Authentication
 exports.discordAuth = cf().https.onRequest(async (req, res) => {
@@ -56,24 +76,25 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth';
 
     // Exchange code for access token
-    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
+    const tokenResponse = await axios.post(
+      'https://discord.com/api/oauth2/token',
       new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
       }),
       {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      },
     );
 
     const accessToken = tokenResponse.data.access_token;
 
     // Get Discord user info
     const userResponse = await axios.get('https://discord.com/api/users/@me', {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const discordUser = userResponse.data;
@@ -90,10 +111,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     let needsName = false;
 
     // First, check if a Firestore user already has this discordId
-    const discordSnap = await db.collection('users')
-      .where('discordId', '==', discordId)
-      .limit(1)
-      .get();
+    const discordSnap = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
 
     // Nobody holds this Discord right now, but it may still belong to someone:
     // self-serve unlink leaves a binding behind. Honour it at ANY age — the
@@ -117,7 +135,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
       firebaseUid = boundUid;
       await db.collection('users').doc(boundUid).update({
         discordId: discordId,
-        discordUsername: username
+        discordUsername: username,
       });
     } else if (await isDiscordRelinkBlocked(discordId)) {
       // No live account for this Discord, and it was on a recently-deleted one.
@@ -161,7 +179,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
         const newUser = await admin.auth().createUser({
           email: email,
           displayName: username,
-          photoURL: avatarURL
+          photoURL: avatarURL,
         });
         firebaseUid = newUser.uid;
         await stashPendingDiscord(firebaseUid, discordId, username);
@@ -171,7 +189,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
       // No email from Discord — same deal, auth user only.
       const newUser = await admin.auth().createUser({
         displayName: username,
-        photoURL: avatarURL
+        photoURL: avatarURL,
       });
       firebaseUid = newUser.uid;
       await stashPendingDiscord(firebaseUid, discordId, username);
@@ -186,7 +204,6 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     // nothing here is trusted.
     const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
     return res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
-
   } catch (error) {
     console.error('Discord auth error:', error);
     return res.redirect('https://stockism.app/?discord_error=true');
@@ -214,12 +231,12 @@ exports.startDiscordLink = cf().https.onCall(async (data, context) => {
   // Drop this user's earlier codes so abandoned flows don't pile up. Only ever
   // a handful, and it keeps the collection self-cleaning without a schedule.
   const stale = await db.collection(DISCORD_LINK_NONCES).where('uid', '==', uid).get();
-  await Promise.all(stale.docs.map(d => d.ref.delete()));
+  await Promise.all(stale.docs.map((d) => d.ref.delete()));
 
   const state = crypto.randomBytes(16).toString('hex');
   await db.collection(DISCORD_LINK_NONCES).doc(state).set({
     uid,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   });
 
   return { state };
@@ -258,22 +275,23 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordLink';
 
     // Exchange code for access token
-    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
+    const tokenResponse = await axios.post(
+      'https://discord.com/api/oauth2/token',
       new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
 
     const accessToken = tokenResponse.data.access_token;
 
     // Get Discord user info
     const userResponse = await axios.get('https://discord.com/api/users/@me', {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const discordId = userResponse.data.id;
@@ -306,10 +324,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     }
 
     // Check if this Discord is already linked to another account
-    const existingSnap = await db.collection('users')
-      .where('discordId', '==', discordId)
-      .limit(1)
-      .get();
+    const existingSnap = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
 
     if (!existingSnap.empty && existingSnap.docs[0].id !== uid) {
       return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
@@ -334,7 +349,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     // Link Discord to the existing account
     const linkUpdate = {
       discordId: discordId,
-      discordUsername: discordUsername
+      discordUsername: discordUsername,
     };
 
     // One-time: unlock full starting cash on first Discord verification (anti-alt gate).
@@ -359,9 +374,8 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
 
     return res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {
-    const discordError = error.response && error.response.data
-      ? JSON.stringify(error.response.data)
-      : error.message || 'unknown';
+    const discordError =
+      error.response && error.response.data ? JSON.stringify(error.response.data) : error.message || 'unknown';
     console.error('Discord link error:', discordError);
     return res.redirect(`https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(discordError)}`);
   }
@@ -404,38 +418,41 @@ exports.unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
   if (owner !== uid) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      'This Discord is reserved to a different account. Contact an admin.'
+      'This Discord is reserved to a different account. Contact an admin.',
     );
   }
 
   await userRef.update({
     discordId: admin.firestore.FieldValue.delete(),
-    discordUsername: admin.firestore.FieldValue.delete()
+    discordUsername: admin.firestore.FieldValue.delete(),
   });
 
   return {
     success: true,
     alreadyUnlinked: false,
     // The wall re-engages the moment the Discord comes off, so the UI can warn.
-    walled: !!userData.requiresDiscordLink
+    walled: !!userData.requiresDiscordLink,
   };
 });
 
 // Builds the drop post. Shared by the schedule and the admin re-run so a
 // manually posted drop is byte-for-byte the same message players normally get.
 const buildDailyDropMessage = () => ({
-  embeds: [{
-    title: '🎁 Daily Free Stock Drop!',
-    description: 'Click the button below to claim your free daily stock(s)!\n\n' +
-      '**How it works:**\n' +
-      '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
-      '• On top of that you get **bonus shares** of cheaper characters\n' +
-      '• Small chance of a **legendary bonus** share on any roll\n' +
-      '• Hit the **jackpot** (3% chance) for a full legendary haul\n\n' +
-      '*Your Discord must be linked to your Stockism account to claim.*',
-    color: 0x00D166,
-    footer: { text: 'Resets daily • One claim per user' }
-  }],
+  embeds: [
+    {
+      title: '🎁 Daily Free Stock Drop!',
+      description:
+        'Click the button below to claim your free daily stock(s)!\n\n' +
+        '**How it works:**\n' +
+        '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
+        '• On top of that you get **bonus shares** of cheaper characters\n' +
+        '• Small chance of a **legendary bonus** share on any roll\n' +
+        '• Hit the **jackpot** (3% chance) for a full legendary haul\n\n' +
+        '*Your Discord must be linked to your Stockism account to claim.*',
+      color: 0x00d166,
+      footer: { text: 'Resets daily • One claim per user' },
+    },
+  ],
   components: [
     {
       type: 1, // Action Row
@@ -444,16 +461,16 @@ const buildDailyDropMessage = () => ({
           type: 2, // Button
           style: 1, // Primary (blurple)
           label: '🎲 Claim Free Stock',
-          custom_id: 'claim_daily_stock'
+          custom_id: 'claim_daily_stock',
         },
         {
           type: 2, // Button
           style: 2, // Secondary (gray)
           label: '📋 View Last Claim',
-          custom_id: 'view_last_claim'
-        }
-      ]
-    }
+          custom_id: 'view_last_claim',
+        },
+      ],
+    },
   ],
 });
 
@@ -466,8 +483,8 @@ const postDailyDrop = async () => {
  * Daily scheduled function — posts the claim button to Discord.
  * Runs at 10 AM Eastern (14:00 UTC) every day.
  */
-exports.dailyFreeStock = cf().pubsub
-  .schedule('0 14 * * *')
+exports.dailyFreeStock = cf()
+  .pubsub.schedule('0 14 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     await postDailyDrop();

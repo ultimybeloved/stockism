@@ -26,7 +26,8 @@ const { priceHistoryRef, remapAliasedKeys, recordHeartbeat, reportError } = requ
  * list.
  */
 const topUserBackups = async () => {
-  const usersSnap = await db.collection('users')
+  const usersSnap = await db
+    .collection('users')
     .orderBy('portfolioValue', 'desc')
     .limit(BACKUP_TOP_USERS * 2)
     .get();
@@ -45,7 +46,7 @@ const topUserBackups = async () => {
       shorts: data.shorts || {},
       costBasis: data.costBasis || {},
       totalTrades: data.totalTrades || 0,
-      crew: data.crew || null
+      crew: data.crew || null,
     });
   }
   return backups;
@@ -55,8 +56,8 @@ const topUserBackups = async () => {
  * Automated Backup System
  * Runs every 24 hours to back up critical market data
  */
-exports.backupMarketData = cf().pubsub
-  .schedule('every 24 hours')
+exports.backupMarketData = cf()
+  .pubsub.schedule('every 24 hours')
   .onRun(async (context) => {
     try {
       const bucket = admin.storage().bucket();
@@ -76,12 +77,12 @@ exports.backupMarketData = cf().pubsub
         const marketBackup = {
           timestamp,
           prices: marketData.prices || {},
-          priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
+          priceHistory: histSnap.exists ? histSnap.data() || {} : {},
           liquidity: marketData.liquidity || {},
           metadata: {
             backupDate: timestamp,
-            totalTickers: Object.keys(marketData.prices || {}).length
-          }
+            totalTickers: Object.keys(marketData.prices || {}).length,
+          },
         };
 
         const marketFile = bucket.file(`backups/market/${dateStr}_${timeStr}_market.json`);
@@ -89,8 +90,8 @@ exports.backupMarketData = cf().pubsub
           contentType: 'application/json',
           metadata: {
             backupType: 'market',
-            timestamp
-          }
+            timestamp,
+          },
         });
         console.log('Market data backed up successfully');
       }
@@ -103,8 +104,8 @@ exports.backupMarketData = cf().pubsub
         topUsers: userBackups,
         metadata: {
           backupDate: timestamp,
-          userCount: userBackups.length
-        }
+          userCount: userBackups.length,
+        },
       };
 
       const leaderboardFile = bucket.file(`backups/users/${dateStr}_${timeStr}_leaderboard.json`);
@@ -112,8 +113,8 @@ exports.backupMarketData = cf().pubsub
         contentType: 'application/json',
         metadata: {
           backupType: 'leaderboard',
-          timestamp
-        }
+          timestamp,
+        },
       });
       console.log('Leaderboard backed up successfully');
 
@@ -145,18 +146,14 @@ exports.backupMarketData = cf().pubsub
     }
   });
 
-
 /**
  * Manual Backup - Admin can trigger this from Admin Panel
  */
 exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can trigger manual backups.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can trigger manual backups.');
   }
 
   try {
@@ -179,13 +176,13 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
       timestamp,
       manual: true,
       prices: marketData.prices || {},
-      priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
+      priceHistory: histSnap.exists ? histSnap.data() || {} : {},
       liquidity: marketData.liquidity || {},
       metadata: {
         backupDate: timestamp,
         totalTickers: Object.keys(marketData.prices || {}).length,
-        triggeredBy: context.auth.uid
-      }
+        triggeredBy: context.auth.uid,
+      },
     };
 
     const marketFile = bucket.file(`backups/manual/${dateStr}_${timeStr}_manual_market.json`);
@@ -194,37 +191,30 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
       metadata: {
         backupType: 'manual_market',
         timestamp,
-        triggeredBy: context.auth.uid
-      }
+        triggeredBy: context.auth.uid,
+      },
     });
 
     return {
       success: true,
       message: 'Manual backup created successfully',
       timestamp,
-      filename: `${dateStr}_${timeStr}_manual_market.json`
+      filename: `${dateStr}_${timeStr}_manual_market.json`,
     };
   } catch (error) {
     console.error('Error in manual backup:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to create manual backup: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + error.message);
   }
 });
-
 
 /**
  * List Available Backups - Admin can see all available backups
  */
 exports.listBackups = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can list backups.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can list backups.');
   }
 
   try {
@@ -241,7 +231,7 @@ exports.listBackups = cf().https.onCall(async (data, context) => {
         name: file.name,
         size: metadata.size,
         created: metadata.timeCreated,
-        type: metadata.metadata?.backupType || 'unknown'
+        type: metadata.metadata?.backupType || 'unknown',
       });
     }
 
@@ -251,35 +241,25 @@ exports.listBackups = cf().https.onCall(async (data, context) => {
     return {
       success: true,
       backups,
-      total: backups.length
+      total: backups.length,
     };
   } catch (error) {
     console.error('Error listing backups:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to list backups: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to list backups: ' + error.message);
   }
 });
 
-
 exports.restoreBackup = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can restore backups.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can restore backups.');
   }
 
   const { backupName } = data;
 
   if (!backupName) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Backup name is required'
-    );
+    throw new functions.https.HttpsError('invalid-argument', 'Backup name is required');
   }
 
   try {
@@ -302,7 +282,7 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
     // retired name back and drop the current one, leaving a stock priced under
     // a name no player can see. That is how the DOTS orphan happened.
     const aliasSnap = await db.collection('market').doc('current').get();
-    const aliases = aliasSnap.exists ? (aliasSnap.data().tickerAliases || {}) : {};
+    const aliases = aliasSnap.exists ? aliasSnap.data().tickerAliases || {} : {};
     const restored = remapAliasedKeys(backupData.priceHistory, aliases);
     const remapped = Object.keys(aliases).filter((t) => backupData.priceHistory?.[t] !== undefined);
     if (remapped.length) {
@@ -316,25 +296,21 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
       success: true,
       message: 'Price history restored successfully',
       tickersRestored: Object.keys(backupData.priceHistory || {}).length,
-      backupFile: backupName
+      backupFile: backupName,
     };
   } catch (error) {
     console.error('Error restoring backup:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to restore backup: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to restore backup: ' + error.message);
   }
 });
-
 
 /**
  * Monthly Permanent Backup
  * Runs at midnight UTC on the 1st of every month
  * Keeps one permanent snapshot per month for historical records
  */
-exports.monthlyPermanentBackup = cf().pubsub
-  .schedule('0 0 1 * *')
+exports.monthlyPermanentBackup = cf()
+  .pubsub.schedule('0 0 1 * *')
   .timeZone('UTC')
   .onRun(async (context) => {
     try {
@@ -359,14 +335,14 @@ exports.monthlyPermanentBackup = cf().pubsub
           yearMonth,
           permanent: true,
           prices: marketData.prices || {},
-          priceHistory: histSnap.exists ? (histSnap.data() || {}) : {},
+          priceHistory: histSnap.exists ? histSnap.data() || {} : {},
           liquidity: marketData.liquidity || {},
           metadata: {
             backupDate: timestamp,
             backupType: 'monthly_permanent',
             totalTickers: Object.keys(marketData.prices || {}).length,
-            totalTrades: marketData.totalTrades || 0
-          }
+            totalTrades: marketData.totalTrades || 0,
+          },
         };
 
         const marketFile = bucket.file(`backups/monthly/${yearMonth}_market.json`);
@@ -375,8 +351,8 @@ exports.monthlyPermanentBackup = cf().pubsub
           metadata: {
             backupType: 'monthly_permanent',
             yearMonth,
-            timestamp
-          }
+            timestamp,
+          },
         });
         console.log(`Monthly market backup saved: ${yearMonth}_market.json`);
       }
@@ -392,8 +368,8 @@ exports.monthlyPermanentBackup = cf().pubsub
         metadata: {
           backupDate: timestamp,
           backupType: 'monthly_permanent',
-          userCount: userBackups.length
-        }
+          userCount: userBackups.length,
+        },
       };
 
       const leaderboardFile = bucket.file(`backups/monthly/${yearMonth}_leaderboard.json`);
@@ -402,8 +378,8 @@ exports.monthlyPermanentBackup = cf().pubsub
         metadata: {
           backupType: 'monthly_permanent',
           yearMonth,
-          timestamp
-        }
+          timestamp,
+        },
       });
       console.log(`Monthly leaderboard backup saved: ${yearMonth}_leaderboard.json`);
 

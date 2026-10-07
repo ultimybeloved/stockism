@@ -26,7 +26,7 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
       let entriesRemoved = 0;
 
       // For each ticker, remove recent entries that match base price
-      CHARACTERS.forEach(char => {
+      CHARACTERS.forEach((char) => {
         const history = priceHistory[char.ticker];
         if (history && history.length > 1) {
           const filtered = history.filter((entry, i) => {
@@ -83,7 +83,7 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
 
       // Update all prices at once
       await updateDoc(marketRef, {
-        prices: updatedPrices
+        prices: updatedPrices,
       });
 
       showMessage('success', `✅ Synced ${Object.keys(updatedPrices).length} prices to match latest history!`);
@@ -108,7 +108,7 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
       const resetPrices = {};
       const resetHistory = {};
 
-      CHARACTERS.forEach(char => {
+      CHARACTERS.forEach((char) => {
         resetPrices[char.ticker] = char.basePrice;
         // APPEND a reset point — never wipe the chart record (history is the
         // permanent story of the market; a reset is just another event in it)
@@ -126,12 +126,15 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
     setLoading(false);
   };
 
-
   // Drop a chart's first point when it sits >2% away from the second one.
   // Data loss can leave a ticker starting at its base price with a jump to the
   // first real price, which reads as a cliff on the chart that never happened.
   const handleFixPriceCliffs = async () => {
-    if (!window.confirm('Scan charts for base-price cliffs and remove them?\n\nThis drops the first history point on any ticker that jumps more than 2% to its second point.')) {
+    if (
+      !window.confirm(
+        'Scan charts for base-price cliffs and remove them?\n\nThis drops the first history point on any ticker that jumps more than 2% to its second point.',
+      )
+    ) {
       return;
     }
 
@@ -141,7 +144,7 @@ export function useAdminPriceMaintenance({ showMessage, setLoading }) {
       if (data.tickersFixed === 0) {
         showMessage('info', `No cliffs found — all ${data.tickersSkipped} charts look clean.`);
       } else {
-        const names = (data.fixed || []).map(f => `${f.ticker} (${f.percentChange}%)`).join(', ');
+        const names = (data.fixed || []).map((f) => `${f.ticker} (${f.percentChange}%)`).join(', ');
         showMessage('success', `✅ Fixed ${data.tickersFixed} chart${data.tickersFixed === 1 ? '' : 's'}: ${names}`);
       }
     } catch (err) {

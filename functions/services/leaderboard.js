@@ -5,7 +5,15 @@ const { cf, requireAppCheck } = require('../fnConfig');
 const admin = require('firebase-admin');
 const db = admin.firestore();
 
-const { LEADERBOARD_CACHE_TTL, ADMIN_UID, FOURTEEN_DAYS_MS, THIRTY_DAYS_MS, ONE_WEEK_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS, LEADERBOARD_PERCENT_MIN_BASELINE } = require('../constants');
+const {
+  LEADERBOARD_CACHE_TTL,
+  ADMIN_UID,
+  FOURTEEN_DAYS_MS,
+  THIRTY_DAYS_MS,
+  ONE_WEEK_MS,
+  PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
+  LEADERBOARD_PERCENT_MIN_BASELINE,
+} = require('../constants');
 
 // In-memory cache — persists across invocations on same instance
 const leaderboardCache = {};
@@ -13,17 +21,33 @@ const leaderboardCache = {};
 // Fields the leaderboard actually displays — projected with .select() so we
 // never pull heavy unused maps (holdings is needed for holdingsCount).
 const LEADERBOARD_FIELDS = [
-  'displayName', 'portfolioValue', 'crew', 'isCrewHead', 'crewHeadColor',
-  'holdings', 'displayCrewPin', 'displayedAchievementPins', 'achievements',
-  'displayedShopPins', 'previousDisplayName', 'nameChangedAt',
-  'activeCosmetics', 'isPublic', 'isBot', 'portfolioSnapshot7d',
+  'displayName',
+  'portfolioValue',
+  'crew',
+  'isCrewHead',
+  'crewHeadColor',
+  'holdings',
+  'displayCrewPin',
+  'displayedAchievementPins',
+  'achievements',
+  'displayedShopPins',
+  'previousDisplayName',
+  'nameChangedAt',
+  'activeCosmetics',
+  'isPublic',
+  'isBot',
+  'portfolioSnapshot7d',
   // Season title: the equipped id plus the label it resolves to.
   'activeTitle',
   // Needed to net free money out of the percent board — see grantedSince.
-  'grantedValue', 'grantedSamples',
+  'grantedValue',
+  'grantedSamples',
   // Ownership lists — fetched only to validate the display fields below;
   // never included in the payload sent to clients.
-  'ownedShopPins', 'ownedCosmetics', 'ownedTitles', 'titleMeta',
+  'ownedShopPins',
+  'ownedCosmetics',
+  'ownedTitles',
+  'titleMeta',
 ];
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
@@ -53,10 +77,11 @@ const sanitizeDisplayFields = (userData) => {
   // ownedTitles and the titleMeta label at the same moment).
   const ownedTitles = asArray(userData.ownedTitles);
   const activeTitle = userData.activeTitle;
-  const titleMeta = (userData.titleMeta && typeof userData.titleMeta === 'object') ? userData.titleMeta : {};
-  const title = (typeof activeTitle === 'string' && ownedTitles.includes(activeTitle))
-    ? { id: activeTitle, text: titleMeta[activeTitle] || activeTitle }
-    : null;
+  const titleMeta = userData.titleMeta && typeof userData.titleMeta === 'object' ? userData.titleMeta : {};
+  const title =
+    typeof activeTitle === 'string' && ownedTitles.includes(activeTitle)
+      ? { id: activeTitle, text: titleMeta[activeTitle] || activeTitle }
+      : null;
 
   return {
     displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
@@ -70,12 +95,12 @@ const sanitizeDisplayFields = (userData) => {
 const { countRankAbove, grantedSince, netReturnPercent } = require('../helpers');
 
 exports.getLeaderboard = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   try {
     const { crew, sortBy = 'value' } = data || {};
     // Two weekly-gain sorts: 'weeklyGain' (dollars) and 'weeklyGainPercent'.
     const gainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
-    const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : (gainSort ? sortBy : 'global');
+    const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : gainSort ? sortBy : 'global';
     const docRef = db.collection('leaderboard').doc(cacheKey);
 
     // Layer 1: in-memory cache (this warm instance). Layer 2: the shared
@@ -83,12 +108,12 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     // instances) can read the same result directly without recomputing.
     let leaderboard;
     const cached = leaderboardCache[cacheKey];
-    if (cached && (Date.now() - cached.timestamp) < LEADERBOARD_CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < LEADERBOARD_CACHE_TTL) {
       leaderboard = cached.data;
     }
     if (!leaderboard) {
       const docSnap = await docRef.get();
-      if (docSnap.exists && (Date.now() - (docSnap.data().generatedAt || 0)) < LEADERBOARD_CACHE_TTL) {
+      if (docSnap.exists && Date.now() - (docSnap.data().generatedAt || 0) < LEADERBOARD_CACHE_TTL) {
         leaderboard = docSnap.data().entries || [];
         leaderboardCache[cacheKey] = { data: leaderboard, timestamp: docSnap.data().generatedAt };
       }
@@ -111,7 +136,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         const twoWeeksAgo = Date.now() - FOURTEEN_DAYS_MS;
 
         const allUsers = [];
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc) => {
           const userData = doc.data();
           // Banned accounts stay in Firestore (the ban record is evidence) but
           // must not keep a board slot — a wiped account otherwise shows up as a
@@ -137,7 +162,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
           const weeklyGainPercent = netReturnPercent(currentValue, valueSevenDaysAgo, granted);
 
           const holdingsCount = userData.holdings
-            ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+            ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
             : 0;
 
           allUsers.push({
@@ -160,9 +185,9 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         });
 
         // Sort by weekly gain descending (dollars or percent)
-        allUsers.sort((a, b) => sortBy === 'weeklyGainPercent'
-          ? b.weeklyGainPercent - a.weeklyGainPercent
-          : b.weeklyGain - a.weeklyGain);
+        allUsers.sort((a, b) =>
+          sortBy === 'weeklyGainPercent' ? b.weeklyGainPercent - a.weeklyGainPercent : b.weeklyGain - a.weeklyGain,
+        );
         leaderboard = allUsers.slice(0, 50);
       } else {
         // Build query - use composite index for crew filtering
@@ -172,13 +197,16 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
           query = query.where('crew', '==', crew);
         }
 
-        query = query.orderBy('portfolioValue', 'desc').limit(100).select(...LEADERBOARD_FIELDS);
+        query = query
+          .orderBy('portfolioValue', 'desc')
+          .limit(100)
+          .select(...LEADERBOARD_FIELDS);
 
         const snapshot = await query.get();
 
         // Filter out bots and return only safe fields
         leaderboard = [];
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc) => {
           const userData = doc.data();
 
           // Skip bots and banned accounts
@@ -189,7 +217,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
 
           // Count holdings (only non-zero positions)
           const holdingsCount = userData.holdings
-            ? Object.keys(userData.holdings).filter(k => userData.holdings[k] > 0).length
+            ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
             : 0;
 
           leaderboard.push({
@@ -224,7 +252,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     // Find caller's rank if authenticated (always per-request)
     let callerRank = null;
     if (context.auth) {
-      const callerIndex = leaderboard.findIndex(entry => entry.userId === context.auth.uid);
+      const callerIndex = leaderboard.findIndex((entry) => entry.userId === context.auth.uid);
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
       } else if (!gainSort) {
@@ -246,7 +274,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     return {
       leaderboard,
       callerRank,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
@@ -258,7 +286,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
  * Get public profile by username
  */
 exports.getPublicProfile = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   const { username } = data || {};
   if (!username || typeof username !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Username required');
@@ -270,7 +298,8 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
   if (usernameDoc.exists) {
     uid = usernameDoc.data().uid;
   } else {
-    const fallbackSnap = await db.collection('users')
+    const fallbackSnap = await db
+      .collection('users')
       .where('displayNameLower', '==', username.toLowerCase())
       .limit(1)
       .get();
@@ -293,48 +322,52 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
   }
 
   const marketSnap = await db.collection('market').doc('current').get();
-  const prices = marketSnap.exists ? (marketSnap.data().prices || {}) : {};
+  const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
 
   // Compute global rank (count aggregation — cheap regardless of rank)
   let rank = null;
   try {
     rank = await countRankAbove(userData.portfolioValue || 0, null);
-  } catch (e) { /* leave null */ }
+  } catch (e) {
+    /* leave null */
+  }
 
   // Holdings tickers only (no share counts exposed), sorted by share count for top holdings
   const holdingsRaw = userData.holdings || {};
-  const holdingTickers = Object.keys(holdingsRaw).filter(k => (holdingsRaw[k] || 0) > 0);
-  const topHoldings = [...holdingTickers]
-    .sort((a, b) => (holdingsRaw[b] || 0) - (holdingsRaw[a] || 0))
-    .slice(0, 5);
+  const holdingTickers = Object.keys(holdingsRaw).filter((k) => (holdingsRaw[k] || 0) > 0);
+  const topHoldings = [...holdingTickers].sort((a, b) => (holdingsRaw[b] || 0) - (holdingsRaw[a] || 0)).slice(0, 5);
 
   // Crew rank (count aggregation)
   let crewRank = null;
   if (userData.crew) {
     try {
       crewRank = await countRankAbove(userData.portfolioValue || 0, userData.crew);
-    } catch (e) { /* leave null */ }
+    } catch (e) {
+      /* leave null */
+    }
   }
 
   // Short positions (tickers only, no share counts)
   const shortsRaw = userData.shorts || {};
-  const shortTickers = Object.keys(shortsRaw).filter(t => {
+  const shortTickers = Object.keys(shortsRaw).filter((t) => {
     const pos = shortsRaw[t];
     return pos && pos.shares > 0;
   });
   const totalShortValue = shortTickers.reduce((sum, t) => {
-    return sum + (shortsRaw[t].shares * (prices[t] || 0));
+    return sum + shortsRaw[t].shares * (prices[t] || 0);
   }, 0);
 
   // Portfolio history for sparkline — last 30 days, capped so a very active
   // account can't turn one profile view into thousands of doc reads.
-  const histSnap = await db.collection('users').doc(uid)
+  const histSnap = await db
+    .collection('users')
+    .doc(uid)
     .collection('portfolioHistory')
     .where('timestamp', '>=', Date.now() - THIRTY_DAYS_MS)
     .orderBy('timestamp', 'desc')
     .limit(PUBLIC_PROFILE_SPARKLINE_MAX_POINTS)
     .get();
-  const portfolioHistory = histSnap.docs.map(d => d.data()).reverse();
+  const portfolioHistory = histSnap.docs.map((d) => d.data()).reverse();
 
   // Admin-only: weekly gain + full financial data
   let adminData = null;
@@ -342,9 +375,7 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     const currentValue = userData.portfolioValue || 0;
     const valueSevenDaysAgo = userData.portfolioSnapshot7d?.value ?? currentValue;
     const weeklyGain = currentValue - valueSevenDaysAgo;
-    const weeklyGainPercent = valueSevenDaysAgo > 0
-      ? Math.round((weeklyGain / valueSevenDaysAgo) * 10000) / 100
-      : 0;
+    const weeklyGainPercent = valueSevenDaysAgo > 0 ? Math.round((weeklyGain / valueSevenDaysAgo) * 10000) / 100 : 0;
 
     adminData = {
       uid,
@@ -415,11 +446,10 @@ exports.getLeaderboardMargins = cf().https.onCall(async (data, context) => {
   }
   // The board shows 50 at a time; the cap stops a caller asking for everyone.
   const ids = userIds.filter((id) => typeof id === 'string').slice(0, 100);
-  const docs = await db.getAll(
-    ...ids.map((id) => db.collection('users').doc(id)),
-    { fieldMask: ['marginUsed'] }
-  );
+  const docs = await db.getAll(...ids.map((id) => db.collection('users').doc(id)), { fieldMask: ['marginUsed'] });
   const margins = {};
-  docs.forEach((d) => { if (d.exists) margins[d.id] = d.data().marginUsed || 0; });
+  docs.forEach((d) => {
+    if (d.exists) margins[d.id] = d.data().marginUsed || 0;
+  });
   return { margins };
 });

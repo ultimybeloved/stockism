@@ -21,10 +21,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
   if (!crewData) return null;
 
   return (
-    <div
-      className={`rounded-sm border ${borderClass} overflow-hidden`}
-      style={{ borderColor: crewData.color }}
-    >
+    <div className={`rounded-sm border ${borderClass} overflow-hidden`} style={{ borderColor: crewData.color }}>
       <button
         onClick={() => setShowCrewSection(!showCrewSection)}
         className={`w-full p-3 flex items-center justify-between ${darkMode ? 'bg-zinc-800/50 hover:bg-zinc-800' : 'bg-amber-50 hover:bg-amber-100'}`}
@@ -35,12 +32,13 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
           ) : (
             <span className="text-xl">{crewData.emblem}</span>
           )}
-          <span className={`font-semibold ${textClass}`} style={{ color: getReadableCrewColor(crewData.color, darkMode) }}>
+          <span
+            className={`font-semibold ${textClass}`}
+            style={{ color: getReadableCrewColor(crewData.color, darkMode) }}
+          >
             {crewData.name}
           </span>
-          {userData.isCrewHead && (
-            <span title="Crew Head">🔱</span>
-          )}
+          {userData.isCrewHead && <span title="Crew Head">🔱</span>}
         </div>
         <span className={mutedClass}>{showCrewSection ? '▼' : '▶'}</span>
       </button>

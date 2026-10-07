@@ -9,9 +9,18 @@
 // The selected user is the ORIGINAL account. The ID pasted here is the new
 // throwaway one.
 const DiscordLinkTransfer = ({
-  darkMode, mutedClass, loading, selectedUser,
-  moveSourceId, setMoveSourceId, moveSource, handleLookupMoveSource, handleMoveDiscordLink,
-  freeDiscordId, setFreeDiscordId, handleFreeDiscord,
+  darkMode,
+  mutedClass,
+  loading,
+  selectedUser,
+  moveSourceId,
+  setMoveSourceId,
+  moveSource,
+  handleLookupMoveSource,
+  handleMoveDiscordLink,
+  freeDiscordId,
+  setFreeDiscordId,
+  handleFreeDiscord,
 }) => {
   const targetName = selectedUser.displayName || selectedUser.username;
   const sameAccount = moveSource && moveSource.id === selectedUser.id;
@@ -26,9 +35,7 @@ const DiscordLinkTransfer = ({
           onChange={(e) => setMoveSourceId(e.target.value)}
           placeholder="New account: name, Discord, or user ID"
           className={`flex-1 px-2 py-1 text-sm rounded border ${
-            darkMode
-              ? 'bg-slate-700 border-slate-600 text-white'
-              : 'bg-white border-slate-300 text-slate-900'
+            darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
           }`}
         />
         <button
@@ -58,9 +65,8 @@ const DiscordLinkTransfer = ({
           {!sameAccount && moveSource.discordId && (
             <>
               <div className={`mt-2 ${mutedClass}`}>
-                This Discord starts logging in as <span className="font-semibold">{targetName}</span>.
-                No cash or shares move. <span className="font-semibold">{moveSource.displayName}</span> loses
-                its login permanently.
+                This Discord starts logging in as <span className="font-semibold">{targetName}</span>. No cash or shares
+                move. <span className="font-semibold">{moveSource.displayName}</span> loses its login permanently.
               </div>
               <button
                 onClick={() => handleMoveDiscordLink(selectedUser.id, targetName)}
@@ -84,9 +90,7 @@ const DiscordLinkTransfer = ({
           onChange={(e) => setFreeDiscordId(e.target.value)}
           placeholder="Discord ID (numbers only)"
           className={`flex-1 px-2 py-1 text-sm rounded border ${
-            darkMode
-              ? 'bg-slate-700 border-slate-600 text-white'
-              : 'bg-white border-slate-300 text-slate-900'
+            darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
           }`}
         />
         <button
@@ -98,8 +102,8 @@ const DiscordLinkTransfer = ({
         </button>
       </div>
       <p className={`text-xs ${mutedClass} mt-1`}>
-        For "you deleted the account this Discord was on" or "you unlinked it from the wrong account".
-        Not for a Discord still attached to a live account — unlink that one instead.
+        For "you deleted the account this Discord was on" or "you unlinked it from the wrong account". Not for a Discord
+        still attached to a live account — unlink that one instead.
       </p>
     </div>
   );

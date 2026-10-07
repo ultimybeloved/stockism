@@ -17,7 +17,8 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
   const nameChangedAt = userData?.nameChangedAt?.toDate?.() || null;
   const cooldownMs = 14 * 24 * 60 * 60 * 1000;
   const msSinceChange = nameChangedAt ? Date.now() - nameChangedAt.getTime() : Infinity;
-  const daysUntilChange = msSinceChange < cooldownMs ? Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000)) : 0;
+  const daysUntilChange =
+    msSinceChange < cooldownMs ? Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000)) : 0;
   const canChangeName = daysUntilChange === 0;
 
   const handleNameSave = async () => {
@@ -38,19 +39,25 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
     setNameSaving(false);
   };
 
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(userData?.activeCosmetics, userData?.ownedCosmetics);
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(
+    userData?.activeCosmetics,
+    userData?.ownedCosmetics,
+  );
   const activeTitle = getActiveTitle(userData);
 
   return (
     <div
       className={`relative p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} ${rowClass}`}
       style={{
-        ...(glowColor     ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
+        ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
         ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
       }}
     >
       <h2 className={`text-lg font-semibold ${textClass}`}>
-        👤 <span className={nameClass} style={{ color: nameColor }}>{userData?.displayName}</span>
+        👤{' '}
+        <span className={nameClass} style={{ color: nameColor }}>
+          {userData?.displayName}
+        </span>
       </h2>
       {activeTitle && (
         <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{activeTitle.text}</p>
@@ -69,13 +76,19 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
           )}
           {canChangeName ? (
             <button
-              onClick={() => { setEditingName(true); setNewName(userData?.displayName || ''); setNameError(''); }}
+              onClick={() => {
+                setEditingName(true);
+                setNewName(userData?.displayName || '');
+                setNameError('');
+              }}
               className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
             >
               ✏️ Change name ($10,000)
             </button>
           ) : (
-            <p className={`text-xs ${mutedClass}`}>Name change available in {daysUntilChange} day{daysUntilChange === 1 ? '' : 's'}</p>
+            <p className={`text-xs ${mutedClass}`}>
+              Name change available in {daysUntilChange} day{daysUntilChange === 1 ? '' : 's'}
+            </p>
           )}
         </div>
       ) : (
@@ -83,7 +96,7 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
           <input
             type="text"
             value={newName}
-            onChange={e => setNewName(e.target.value)}
+            onChange={(e) => setNewName(e.target.value)}
             maxLength={20}
             placeholder="New username"
             className={`w-full px-3 py-1.5 text-sm rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-300 text-slate-900'} focus:outline-none focus:border-orange-500`}
@@ -98,13 +111,18 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
               {nameSaving ? 'Saving…' : 'Confirm ($10,000)'}
             </button>
             <button
-              onClick={() => { setEditingName(false); setNameError(''); }}
+              onClick={() => {
+                setEditingName(false);
+                setNameError('');
+              }}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
             >
               Cancel
             </button>
           </div>
-          <p className={`text-xs ${mutedClass}`}>3-20 chars, at least 3 letters/numbers, up to 2 underscores. Once every 2 weeks.</p>
+          <p className={`text-xs ${mutedClass}`}>
+            3-20 chars, at least 3 letters/numbers, up to 2 underscores. Once every 2 weeks.
+          </p>
         </div>
       )}
     </div>

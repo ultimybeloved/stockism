@@ -21,7 +21,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -29,9 +32,18 @@ const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/constants');
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const pct = (n) => (n * 100).toFixed(0) + '%';
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
 
 function networkKey(ip) {
@@ -42,23 +54,34 @@ function networkKey(ip) {
   if (g.length < ALT_IPV6_PREFIX_GROUPS) return a;
   return g.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
 }
-const isVpn = (n) => /^104\.2[0-9]\./.test(n || '') || /^2a09:bac/.test(n || '')
-  || /^172\.6[4-9]\./.test(n || '') || /^162\.15[89]\./.test(n || '');
+const isVpn = (n) =>
+  /^104\.2[0-9]\./.test(n || '') ||
+  /^2a09:bac/.test(n || '') ||
+  /^172\.6[4-9]\./.test(n || '') ||
+  /^162\.15[89]\./.test(n || '');
 
 async function main() {
   const target = process.argv[2];
   const days = Number(process.argv[3]) || 180;
-  if (!target) { console.error('Usage: node scripts/link-detail.cjs <displayName> [days]'); process.exit(1); }
+  if (!target) {
+    console.error('Usage: node scripts/link-detail.cjs <displayName> [days]');
+    process.exit(1);
+  }
 
-  const users = await db.collection('users')
-    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt').get();
+  const users = await db
+    .collection('users')
+    .select('displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt')
+    .get();
   const U = new Map();
   let uid = null;
   users.forEach((d) => {
     U.set(d.id, d.data());
     if ((d.data().displayName || '').toLowerCase() === target.toLowerCase()) uid = d.id;
   });
-  if (!uid) { console.error(`No account named "${target}".`); process.exit(1); }
+  if (!uid) {
+    console.error(`No account named "${target}".`);
+    process.exit(1);
+  }
 
   const mkt = await db.collection('market').doc('current').get();
   const prices = (mkt.data() || {}).prices || {};
@@ -72,14 +95,17 @@ async function main() {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const snap = await db.collection('trades').where('timestamp', '>', cutoff).select('uid', 'ip').get();
 
-  const netsOf = new Map();          // uid -> Map(net -> trades)
-  const usersOn = new Map();         // net -> Set(uid)
+  const netsOf = new Map(); // uid -> Map(net -> trades)
+  const usersOn = new Map(); // net -> Set(uid)
   let vpnSkipped = 0;
   snap.forEach((d) => {
     const t = d.data();
     const n = networkKey(t.ip);
     if (!t.uid || !n) return;
-    if (isVpn(n)) { vpnSkipped++; return; }
+    if (isVpn(n)) {
+      vpnSkipped++;
+      return;
+    }
     if (!netsOf.has(t.uid)) netsOf.set(t.uid, new Map());
     netsOf.get(t.uid).set(n, (netsOf.get(t.uid).get(n) || 0) + 1);
     if (!usersOn.has(n)) usersOn.set(n, new Set());
@@ -104,12 +130,17 @@ async function main() {
     const myOnShared = shared.reduce((s, n) => s + mine.get(n), 0);
     const priv = shared.filter((n) => usersOn.get(n).size === 2).length;
     rows.push({
-      other, name: nm(other), value: valueOf(U.get(other)),
-      shared: shared.length, priv,
+      other,
+      name: nm(other),
+      value: valueOf(U.get(other)),
+      shared: shared.length,
+      priv,
       theirShare: theirTotal ? theirOnShared / theirTotal : 0,
       myShare: myTotal ? myOnShared / myTotal : 0,
-      theirTotal, discord: !!U.get(other).discordId,
-      created: toMs(U.get(other).createdAt), banned: !!U.get(other).isBanned,
+      theirTotal,
+      discord: !!U.get(other).discordId,
+      created: toMs(U.get(other).createdAt),
+      banned: !!U.get(other).isBanned,
     });
   }
   rows.sort((a, b) => b.theirShare - a.theirShare || b.priv - a.priv);
@@ -119,16 +150,19 @@ async function main() {
   console.log('"you there"  = share of YOUR trades that happened on those same ones\n');
   console.log('  ACCOUNT                  VALUE       THEIR TRADES  LIVES HERE  YOU THERE  SHARED  PRIVATE  DISCORD');
   for (const r of rows) {
-    console.log(`  ${r.name.padEnd(24)} ${money(r.value).padStart(11)}  ${String(r.theirTotal).padStart(12)}  `
-      + `${pct(r.theirShare).padStart(10)}  ${pct(r.myShare).padStart(9)}  ${String(r.shared).padStart(6)}  `
-      + `${String(r.priv).padStart(7)}  ${r.discord ? 'yes' : 'NO'}${r.banned ? '  [BANNED]' : ''}`);
+    console.log(
+      `  ${r.name.padEnd(24)} ${money(r.value).padStart(11)}  ${String(r.theirTotal).padStart(12)}  ` +
+        `${pct(r.theirShare).padStart(10)}  ${pct(r.myShare).padStart(9)}  ${String(r.shared).padStart(6)}  ` +
+        `${String(r.priv).padStart(7)}  ${r.discord ? 'yes' : 'NO'}${r.banned ? '  [BANNED]' : ''}`,
+    );
   }
 
   const belongs = rows.filter((r) => r.theirShare >= 0.8);
   console.log('\n---');
   if (belongs.length) {
     console.log(`Accounts that did 80%+ of their trading on ${me.displayName}'s connections:`);
-    for (const r of belongs) console.log(`  ${r.name}  ${money(r.value)}  (${pct(r.theirShare)} of their ${r.theirTotal} trades)`);
+    for (const r of belongs)
+      console.log(`  ${r.name}  ${money(r.value)}  (${pct(r.theirShare)} of their ${r.theirTotal} trades)`);
     console.log('\nThese effectively only exist at this location.');
   } else {
     console.log(`No account did most of its trading on ${me.displayName}'s connections.`);
@@ -138,4 +172,9 @@ async function main() {
   console.log('');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

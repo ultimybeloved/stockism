@@ -31,11 +31,15 @@ export default function NotificationRow({
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const meta = getNotificationMeta(notification);
   const data = notification.data || {};
-  const accent = expanded || !notification.read ? (ACCENT[meta.colorKey] || ACCENT.gray) : 'border-l-transparent';
+  const accent = expanded || !notification.read ? ACCENT[meta.colorKey] || ACCENT.gray : 'border-l-transparent';
 
   const rowBg = !notification.read
-    ? darkMode ? 'bg-zinc-800/50 hover:bg-zinc-800' : 'bg-orange-50/50 hover:bg-orange-50'
-    : darkMode ? 'hover:bg-zinc-800/50' : 'hover:bg-zinc-50';
+    ? darkMode
+      ? 'bg-zinc-800/50 hover:bg-zinc-800'
+      : 'bg-orange-50/50 hover:bg-orange-50'
+    : darkMode
+      ? 'hover:bg-zinc-800/50'
+      : 'hover:bg-zinc-50';
 
   const breakdown = data.breakdown && Object.entries(data.breakdown);
   const reinvested = data.reinvestedBreakdown && Object.entries(data.reinvestedBreakdown);
@@ -47,7 +51,12 @@ export default function NotificationRow({
       role="button"
       tabIndex={0}
       onClick={() => onClick(notification)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(notification); } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(notification);
+        }
+      }}
       className={`w-full text-left px-4 py-3 transition-colors border-l-2 cursor-pointer ${accent} ${rowBg}`}
     >
       <div className="flex items-start gap-3">
@@ -61,7 +70,10 @@ export default function NotificationRow({
             <div className="flex items-center gap-1 shrink-0">
               <span className={`text-[10px] ${mutedClass}`}>{formatTimeAgo(notification.createdAt)}</span>
               <button
-                onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(notification.id);
+                }}
                 className={`text-sm leading-none px-1 ${mutedClass} hover:text-red-500 transition-colors`}
                 title="Delete"
               >
@@ -70,9 +82,7 @@ export default function NotificationRow({
             </div>
           </div>
 
-          <p className={`text-xs mt-0.5 ${expanded ? '' : 'line-clamp-2'} ${mutedClass}`}>
-            {notification.message}
-          </p>
+          <p className={`text-xs mt-0.5 ${expanded ? '' : 'line-clamp-2'} ${mutedClass}`}>{notification.message}</p>
 
           {expanded && (breakdown?.length > 0 || reinvested?.length > 0 || tiers?.length > 0) && (
             <div className={`mt-2 space-y-0.5 text-[11px] ${mutedClass}`}>
@@ -99,7 +109,10 @@ export default function NotificationRow({
 
           {canExpand && (
             <button
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(notification.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(notification.id);
+              }}
               className="mt-1 text-[11px] text-orange-500 hover:text-orange-500 font-semibold"
             >
               {expanded ? 'Show less' : 'Show details'}

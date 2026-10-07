@@ -30,7 +30,11 @@ describe('windowProfit', () => {
   });
 
   it('counts shares bought beyond what was sold as gain since (Callmebot)', () => {
-    const trades = [tr('short', 400, 1631.64, T0 + 24 * 60000), tr('cover', 400, 1472.72, T0 + 23 * H), tr('buy', 1000, 1683.23, T0 + 24 * H)];
+    const trades = [
+      tr('short', 400, 1631.64, T0 + 24 * 60000),
+      tr('cover', 400, 1472.72, T0 + 23 * H),
+      tr('buy', 1000, 1683.23, T0 + 24 * H),
+    ];
     const p = windowProfit(trades, { start: T0, end: T0 + 48 * H }, 2190.92);
     expect(Math.round(p.lockedIn)).toBe(63568);
     expect(Math.round(p.gainSince)).toBe(507690);
@@ -52,11 +56,15 @@ describe('windowProfit', () => {
   });
 
   it('ignores trades outside the window', () => {
-    const p = windowProfit([tr('buy', 10, 100, T0 - H), tr('sell', 10, 200, T0 + 49 * H)], { start: T0, end: T0 + 48 * H }, 150);
+    const p = windowProfit(
+      [tr('buy', 10, 100, T0 - H), tr('sell', 10, 200, T0 + 49 * H)],
+      { start: T0, end: T0 + 48 * H },
+      150,
+    );
     expect(p).toEqual({ trades: 0, lockedIn: 0, gainSince: 0 });
   });
 
-  it('values a pump still held at today\'s price', () => {
+  it("values a pump still held at today's price", () => {
     const p = windowProfit([tr('buy', 4800, 288.03, T0)], { start: T0, end: T0 + 48 * H }, 329.01);
     expect(Math.round(p.gainSince)).toBe(196704);
   });
@@ -101,7 +109,11 @@ describe('planRemoval', () => {
     const u = { cash: 100, holdings: { A: 10, B: 1, C: 5 }, portfolioValue: 1100, marginUsed: 0 };
     const out = planRemoval(u, 1300, { A: 50, B: 100, C: 100 }, ['A']);
     // A first (preferred), then C ($500) before B ($100).
-    expect(out.shares.map((s) => [s.ticker, s.shares, s.closes])).toEqual([['A', 10, true], ['C', 5, true], ['B', 1, true]]);
+    expect(out.shares.map((s) => [s.ticker, s.shares, s.closes])).toEqual([
+      ['A', 10, true],
+      ['C', 5, true],
+      ['B', 1, true],
+    ]);
     expect(out.fromCash).toBe(100);
     expect(out.toDebt).toBe(100);
   });

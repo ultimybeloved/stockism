@@ -44,7 +44,7 @@ async function claimNetworkForOrder({ context, uid, isBuy, now = Date.now() }) {
   if (!key || !isBuy) return key;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ipRef(key));
-    const recentTraders = snap.exists ? (snap.data().recentTraders || {}) : {};
+    const recentTraders = snap.exists ? snap.data().recentTraders || {} : {};
     assertIpAccountCap({ ip: key, uid, action: 'buy', ipRecentTraders: recentTraders, now });
     tx.set(ipRef(key), { recentTraders: { [uid]: now } }, { merge: true });
   });
@@ -53,7 +53,7 @@ async function claimNetworkForOrder({ context, uid, isBuy, now = Date.now() }) {
 
 /** Remember which connection placed a limit order, for its fill. */
 const recordOrderOrigin = (orderId, { uid, key }) =>
-  (key ? originRef(orderId).set({ uid, ipKey: key, createdAt: Date.now() }) : Promise.resolve());
+  key ? originRef(orderId).set({ uid, ipKey: key, createdAt: Date.now() }) : Promise.resolve();
 
 /**
  * Inside a fill transaction, READ phase. Returns the order's network state, or
@@ -76,7 +76,7 @@ async function readOrderNetwork(transaction, orderId) {
 
 /** Allowance the whole connection has spent on this ticker in this action's direction. */
 const networkImpactSpent = (net, ticker, action, now) =>
-  (net ? sumDirectionalImpact(net.tickerTradeHistory[ticker], now)[impactDirectionOf(action)] : 0);
+  net ? sumDirectionalImpact(net.tickerTradeHistory[ticker], now)[impactDirectionOf(action)] : 0;
 
 /** The accounts-per-connection rule, re-checked at fill time. Buys only. */
 const assertNetworkSlot = (net, uid, action, now) => {
@@ -86,10 +86,20 @@ const assertNetworkSlot = (net, uid, action, now) => {
 /** WRITE phase: add the fill to the connection's shared history, as executeTrade does. */
 const writeNetworkFill = (transaction, net, { ticker, action, entry, trailingEntries, uid, now }) => {
   if (!net) return;
-  transaction.set(net.ref, buildIpTrackingUpdate({
-    ipTickerTradeHistory: net.tickerTradeHistory, ipRecentTraders: net.recentTraders,
-    ticker, action, newTradeEntry: entry, trailingEntries, uid, now,
-  }), { merge: true });
+  transaction.set(
+    net.ref,
+    buildIpTrackingUpdate({
+      ipTickerTradeHistory: net.tickerTradeHistory,
+      ipRecentTraders: net.recentTraders,
+      ticker,
+      action,
+      newTradeEntry: entry,
+      trailingEntries,
+      uid,
+      now,
+    }),
+    { merge: true },
+  );
 };
 
 module.exports = {

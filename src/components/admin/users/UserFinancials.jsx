@@ -1,5 +1,14 @@
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
-const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, selectedUser, calculateLivePortfolioValue, handleSyncSingleUser }) => (
+const UserFinancials = ({
+  darkMode,
+  textClass,
+  mutedClass,
+  loading,
+  prices,
+  selectedUser,
+  calculateLivePortfolioValue,
+  handleSyncSingleUser,
+}) => (
   <>
     {/* Sync Status */}
     {(() => {
@@ -29,7 +38,9 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
             </div>
             <div>
               <div className={`text-xs ${mutedClass}`}>Calculated Value</div>
-              <div className={`font-bold ${liveValue !== null ? (isOutOfSync ? 'text-orange-500' : 'text-green-500') : mutedClass}`}>
+              <div
+                className={`font-bold ${liveValue !== null ? (isOutOfSync ? 'text-orange-500' : 'text-green-500') : mutedClass}`}
+              >
                 {liveValue !== null ? `$${liveValue.toFixed(2)}` : 'N/A'}
               </div>
             </div>
@@ -48,8 +59,13 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
           </div>
 
           {lastSynced && (
-            <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'} text-xs ${mutedClass}`}>
-              Last synced: {lastSynced instanceof Date ? lastSynced.toLocaleString() : new Date(lastSynced.seconds * 1000).toLocaleString()}
+            <div
+              className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'} text-xs ${mutedClass}`}
+            >
+              Last synced:{' '}
+              {lastSynced instanceof Date
+                ? lastSynced.toLocaleString()
+                : new Date(lastSynced.seconds * 1000).toLocaleString()}
             </div>
           )}
         </div>
@@ -68,7 +84,7 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
       let totalBets = 0;
       let wonBets = 0;
 
-      txLog.forEach(tx => {
+      txLog.forEach((tx) => {
         if (tx.type === 'SELL') {
           totalTrades++;
           const profit = (tx.totalRevenue || 0) - (tx.totalCost || 0);
@@ -89,9 +105,9 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
         }
       });
 
-      Object.values(selectedUser.bets || {}).forEach(bet => {
+      Object.values(selectedUser.bets || {}).forEach((bet) => {
         if (bet.paid && bet.payout > 0) {
-          betProfit += (bet.payout - bet.amount);
+          betProfit += bet.payout - bet.amount;
           wonBets++;
         } else if (bet.paid) {
           betProfit -= bet.amount;
@@ -99,13 +115,13 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
       });
 
       const holdingsValue = Object.entries(selectedUser.holdings || {}).reduce((sum, [ticker, shares]) => {
-        const shareCount = typeof shares === 'number' ? shares : (shares?.shares || 0);
+        const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
         return sum + (prices[ticker] || 0) * shareCount;
       }, 0);
 
       const totalCostBasis = Object.entries(selectedUser.costBasis || {}).reduce((sum, [ticker, cost]) => {
         const h = selectedUser.holdings || {};
-        const shareCount = typeof h[ticker] === 'number' ? h[ticker] : (h[ticker]?.shares || 0);
+        const shareCount = typeof h[ticker] === 'number' ? h[ticker] : h[ticker]?.shares || 0;
         if (shareCount > 0 && typeof cost === 'number' && !isNaN(cost)) return sum + cost;
         return sum;
       }, 0);
@@ -126,11 +142,10 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
             {totalTrades > 0 && (
               <div className="flex justify-between pl-4">
                 <span className={`text-xs ${mutedClass}`}>
-                  {totalTrades} trades • {profitableTrades} wins ({((profitableTrades / totalTrades) * 100).toFixed(0)}%)
+                  {totalTrades} trades • {profitableTrades} wins ({((profitableTrades / totalTrades) * 100).toFixed(0)}
+                  %)
                 </span>
-                <span className={`text-xs ${mutedClass}`}>
-                  avg: ${(tradingProfit / totalTrades).toFixed(2)}/trade
-                </span>
+                <span className={`text-xs ${mutedClass}`}>avg: ${(tradingProfit / totalTrades).toFixed(2)}/trade</span>
               </div>
             )}
 
@@ -171,8 +186,11 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
 
             <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
               <span className={`font-semibold ${textClass}`}>Total Income:</span>
-              <span className={`font-bold ${(tradingProfit + betProfit + checkinBonus) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {(tradingProfit + betProfit + checkinBonus) >= 0 ? '+' : ''}${(tradingProfit + betProfit + checkinBonus).toFixed(2)}
+              <span
+                className={`font-bold ${tradingProfit + betProfit + checkinBonus >= 0 ? 'text-green-500' : 'text-red-500'}`}
+              >
+                {tradingProfit + betProfit + checkinBonus >= 0 ? '+' : ''}$
+                {(tradingProfit + betProfit + checkinBonus).toFixed(2)}
               </span>
             </div>
 
@@ -213,7 +231,6 @@ const UserFinancials = ({ darkMode, textClass, mutedClass, loading, prices, sele
         )}
       </div>
     )}
-
   </>
 );
 

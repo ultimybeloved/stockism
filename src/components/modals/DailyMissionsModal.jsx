@@ -3,17 +3,33 @@ import CrewMissionsTab from '../missions/CrewMissionsTab';
 import { CREW_MAP, getWeekId, getCrewWeeklyMissions, getDailyMissions, getCrewMultiplier } from '../../crews';
 import { formatCurrency } from '../../utils/formatters';
 import { getTodayDateString } from '../../utils/date';
-import { getDailyMissionProgress, getWeeklyMissionProgress, getDaysUntilWeeklyReset } from '../../utils/missionProgress';
+import {
+  getDailyMissionProgress,
+  getWeeklyMissionProgress,
+  getDaysUntilWeeklyReset,
+} from '../../utils/missionProgress';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
-const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRerollMissions, onOpenCrewSelection, portfolioValue, isGuest, claimLoading, claimWeeklyLoading, rerollLoading }) => {
+const DailyMissionsModal = ({
+  onClose,
+  onClaimReward,
+  onClaimWeeklyReward,
+  onRerollMissions,
+  onOpenCrewSelection,
+  portfolioValue,
+  isGuest,
+  claimLoading,
+  claimWeeklyLoading,
+  rerollLoading,
+}) => {
   useEscapeKey(onClose);
   const { darkMode, userData, prices, crewStats } = useAppContext();
   const [activeTab, setActiveTab] = useState('daily');
 
-  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } =
+    getThemeClasses(darkMode);
 
   const today = getTodayDateString();
   const weekId = getWeekId();
@@ -32,16 +48,16 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
 
   const todaysMissions = getDailyMissions(today, userCrew, rerollSeed);
 
-  const missions = todaysMissions.map(mission => ({
+  const missions = todaysMissions.map((mission) => ({
     ...mission,
     reward: Math.round(mission.reward * crewMultiplier),
     ...getDailyMissionProgress(mission, { holdings: userData?.holdings || {}, dailyProgress, crewMembers }),
-    claimed: dailyProgress.claimed?.[mission.id] || false
+    claimed: dailyProgress.claimed?.[mission.id] || false,
   }));
 
   const totalRewards = missions.reduce((sum, m) => sum + m.reward, 0);
-  const earnedRewards = missions.filter(m => m.complete && m.claimed).reduce((sum, m) => sum + m.reward, 0);
-  const claimableRewards = missions.filter(m => m.complete && !m.claimed).reduce((sum, m) => sum + m.reward, 0);
+  const earnedRewards = missions.filter((m) => m.complete && m.claimed).reduce((sum, m) => sum + m.reward, 0);
+  const claimableRewards = missions.filter((m) => m.complete && !m.claimed).reduce((sum, m) => sum + m.reward, 0);
 
   // ============================================
   // WEEKLY MISSIONS
@@ -50,34 +66,41 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
   // Get this crew's 2 weekly missions
   const thisWeeksMissions = userCrew ? getCrewWeeklyMissions(userCrew, weekId, rerollSeed) : [];
 
-  const weeklyMissions = thisWeeksMissions.map(mission => ({
+  const weeklyMissions = thisWeeksMissions.map((mission) => ({
     ...mission,
     reward: Math.round(mission.reward * crewMultiplier),
     ...getWeeklyMissionProgress(mission, {
-      holdings: userData?.holdings || {}, weeklyProgress, prices, crewMembers, portfolioValue,
+      holdings: userData?.holdings || {},
+      weeklyProgress,
+      prices,
+      crewMembers,
+      portfolioValue,
       grantedValue: userData?.grantedValue || 0,
     }),
-    claimed: weeklyProgress.claimed?.[mission.id] || false
+    claimed: weeklyProgress.claimed?.[mission.id] || false,
   }));
 
   const weeklyTotalRewards = weeklyMissions.reduce((sum, m) => sum + m.reward, 0);
-  const weeklyEarnedRewards = weeklyMissions.filter(m => m.complete && m.claimed).reduce((sum, m) => sum + m.reward, 0);
-  const weeklyClaimableRewards = weeklyMissions.filter(m => m.complete && !m.claimed).reduce((sum, m) => sum + m.reward, 0);
-
+  const weeklyEarnedRewards = weeklyMissions
+    .filter((m) => m.complete && m.claimed)
+    .reduce((sum, m) => sum + m.reward, 0);
+  const weeklyClaimableRewards = weeklyMissions
+    .filter((m) => m.complete && !m.claimed)
+    .reduce((sum, m) => sum + m.reward, 0);
 
   // Check if user has no crew
   const noCrew = !userCrew;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-md overflow-hidden`}
-        onClick={e => e.stopPropagation()}>
-
+      <div className={`${modalShellClass} max-w-md overflow-hidden`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>📋 Missions</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>×</button>
+            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              ×
+            </button>
           </div>
         </div>
 
@@ -91,7 +114,10 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                 : `${mutedClass} hover:bg-slate-500/10`
             }`}
           >
-            Daily {claimableRewards > 0 && <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>}
+            Daily{' '}
+            {claimableRewards > 0 && (
+              <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('weekly')}
@@ -101,7 +127,10 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                 : `${mutedClass} hover:bg-slate-500/10`
             }`}
           >
-            Weekly {weeklyClaimableRewards > 0 && <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>}
+            Weekly{' '}
+            {weeklyClaimableRewards > 0 && (
+              <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('crew')}
@@ -120,14 +149,17 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
           <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} flex items-center justify-between`}>
             {activeTab === 'daily' ? (
               <p className={`text-xs ${mutedClass}`}>
-                Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> / {formatCurrency(totalRewards)}
+                Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> /{' '}
+                {formatCurrency(totalRewards)}
               </p>
             ) : (
               <p className={`text-xs ${mutedClass}`}>
-                Resets Monday • {getDaysUntilWeeklyReset()} days left • Earned: <span className="text-purple-500">{formatCurrency(weeklyEarnedRewards)}</span> / {formatCurrency(weeklyTotalRewards)}
+                Resets Monday • {getDaysUntilWeeklyReset()} days left • Earned:{' '}
+                <span className="text-purple-500">{formatCurrency(weeklyEarnedRewards)}</span> /{' '}
+                {formatCurrency(weeklyTotalRewards)}
               </p>
             )}
-            {!hasRerolled && (earnedRewards === 0 && weeklyEarnedRewards === 0) && (userData?.cash || 0) >= 50 && (
+            {!hasRerolled && earnedRewards === 0 && weeklyEarnedRewards === 0 && (userData?.cash || 0) >= 50 && (
               <button
                 onClick={onRerollMissions}
                 disabled={rerollLoading}
@@ -143,15 +175,15 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                 {rerollLoading ? '...' : '🎲 Reroll $50'}
               </button>
             )}
-            {hasRerolled && (
-              <span className={`text-xs ${mutedClass} italic`}>Rerolled ✓</span>
-            )}
+            {hasRerolled && <span className={`text-xs ${mutedClass} italic`}>Rerolled ✓</span>}
           </div>
         )}
 
         {/* Underdog bonus banner */}
         {!isGuest && !noCrew && crewMultiplier > 1 && (
-          <div className={`px-4 py-1.5 ${darkMode ? 'bg-orange-900/30' : 'bg-orange-100'} border-b border-orange-500/30`}>
+          <div
+            className={`px-4 py-1.5 ${darkMode ? 'bg-orange-900/30' : 'bg-orange-100'} border-b border-orange-500/30`}
+          >
             <p className="text-orange-500 text-xs text-center font-semibold">
               🔥 Underdog bonus: all mission rewards x{crewMultiplier} this week
             </p>
@@ -172,7 +204,10 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
               <p className={`text-xs ${mutedClass} mb-3`}>Crew missions give you bonus cash rewards.</p>
               {onOpenCrewSelection && (
                 <button
-                  onClick={() => { onClose(); onOpenCrewSelection(); }}
+                  onClick={() => {
+                    onClose();
+                    onOpenCrewSelection();
+                  }}
                   className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
                 >
                   🏴 Choose a Crew
@@ -181,7 +216,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
             </div>
           ) : activeTab === 'daily' ? (
             <>
-              {missions.map(mission => (
+              {missions.map((mission) => (
                 <div
                   key={mission.id}
                   className={`p-3 rounded-sm border ${
@@ -207,7 +242,9 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                     <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                       <div
                         className={`h-full rounded-full transition-all ${mission.complete ? 'bg-orange-500' : 'bg-amber-500'}`}
-                        style={{ width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%` }}
+                        style={{
+                          width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%`,
+                        }}
                       />
                     </div>
                     <span className={`text-xs ${mutedClass} w-12 text-right`}>
@@ -225,9 +262,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                       {claimLoading ? 'Claiming...' : 'Claim Reward'}
                     </button>
                   )}
-                  {mission.claimed && (
-                    <p className="text-xs text-orange-500 mt-2 text-center">✓ Claimed</p>
-                  )}
+                  {mission.claimed && <p className="text-xs text-orange-500 mt-2 text-center">✓ Claimed</p>}
                 </div>
               ))}
 
@@ -237,9 +272,14 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
                   ) : (
-                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.emblem}</span>
+                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
+                      {CREW_MAP[userCrew]?.emblem}
+                    </span>
                   )}
-                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
+                    {CREW_MAP[userCrew]?.name}
+                  </span>{' '}
+                  members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>
@@ -251,7 +291,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                   <p className={`${mutedClass}`}>No weekly missions available</p>
                 </div>
               ) : (
-                weeklyMissions.map(mission => (
+                weeklyMissions.map((mission) => (
                   <div
                     key={mission.id}
                     className={`p-3 rounded-sm border ${
@@ -277,11 +317,14 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                       <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                         <div
                           className={`h-full rounded-full transition-all ${mission.complete ? 'bg-purple-500' : 'bg-purple-400'}`}
-                          style={{ width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%` }}
+                          style={{
+                            width: `${Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0)}%`,
+                          }}
                         />
                       </div>
                       <span className={`text-xs ${mutedClass} w-16 text-right`}>
-                        {mission.progress >= 1000 ? `${(mission.progress/1000).toFixed(1)}k` : mission.progress}/{mission.target >= 1000 ? `${(mission.target/1000).toFixed(0)}k` : mission.target}
+                        {mission.progress >= 1000 ? `${(mission.progress / 1000).toFixed(1)}k` : mission.progress}/
+                        {mission.target >= 1000 ? `${(mission.target / 1000).toFixed(0)}k` : mission.target}
                       </span>
                     </div>
 
@@ -295,9 +338,7 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                         {claimWeeklyLoading ? 'Claiming...' : 'Claim Reward'}
                       </button>
                     )}
-                    {mission.claimed && (
-                      <p className="text-xs text-purple-500 mt-2 text-center">✓ Claimed</p>
-                    )}
+                    {mission.claimed && <p className="text-xs text-purple-500 mt-2 text-center">✓ Claimed</p>}
                   </div>
                 ))
               )}
@@ -308,9 +349,14 @@ const DailyMissionsModal = ({ onClose, onClaimReward, onClaimWeeklyReward, onRer
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
                   ) : (
-                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.emblem}</span>
+                    <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
+                      {CREW_MAP[userCrew]?.emblem}
+                    </span>
                   )}
-                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>{CREW_MAP[userCrew]?.name}</span> members: {crewMembers.join(', ')}
+                  <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
+                    {CREW_MAP[userCrew]?.name}
+                  </span>{' '}
+                  members: {crewMembers.join(', ')}
                 </p>
               </div>
             </>

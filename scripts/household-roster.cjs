@@ -27,7 +27,10 @@ const path = require('path');
 const admin = require('firebase-admin');
 
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
-if (!fs.existsSync(KEY_PATH)) { console.error('No service-account-key.json in the repo root.'); process.exit(1); }
+if (!fs.existsSync(KEY_PATH)) {
+  console.error('No service-account-key.json in the repo root.');
+  process.exit(1);
+}
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
@@ -38,10 +41,25 @@ const DISCORD_EPOCH = 1420070400000n;
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '?');
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts
-  : ts._seconds ? ts._seconds * 1000 : ts.seconds ? ts.seconds * 1000
-    : typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
-const discordMade = (id) => { try { return Number((BigInt(id) >> 22n) + DISCORD_EPOCH); } catch { return 0; } };
+const toMs = (ts) =>
+  !ts
+    ? 0
+    : typeof ts === 'number'
+      ? ts
+      : ts._seconds
+        ? ts._seconds * 1000
+        : ts.seconds
+          ? ts.seconds * 1000
+          : typeof ts.toMillis === 'function'
+            ? ts.toMillis()
+            : 0;
+const discordMade = (id) => {
+  try {
+    return Number((BigInt(id) >> 22n) + DISCORD_EPOCH);
+  } catch {
+    return 0;
+  }
+};
 
 function networkKey(ip) {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
@@ -52,15 +70,17 @@ function networkKey(ip) {
   return g.slice(0, ALT_IPV6_PREFIX_GROUPS).join(':') + '::/64';
 }
 // Cloudflare WARP and similar consumer VPNs. A shared exit proves nothing.
-const isVpn = (n) => /^104\.2[0-9]\./.test(n || '') || /^2a09:bac/.test(n || '')
-  || /^172\.6[4-9]\./.test(n || '') || /^162\.15[89]\./.test(n || '');
+const isVpn = (n) =>
+  /^104\.2[0-9]\./.test(n || '') ||
+  /^2a09:bac/.test(n || '') ||
+  /^172\.6[4-9]\./.test(n || '') ||
+  /^162\.15[89]\./.test(n || '');
 
 async function main() {
   const days = Number(process.argv[2]) || 180;
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  const snap = await db.collection('trades')
-    .where('timestamp', '>', cutoff).select('uid', 'ip', 'timestamp').get();
+  const snap = await db.collection('trades').where('timestamp', '>', cutoff).select('uid', 'ip', 'timestamp').get();
 
   const byNetwork = new Map();
   const netsOf = new Map();
@@ -71,7 +91,10 @@ async function main() {
     const t = d.data();
     const n = networkKey(t.ip);
     if (!t.uid || !n) return;
-    if (isVpn(n)) { vpnTrades++; return; }
+    if (isVpn(n)) {
+      vpnTrades++;
+      return;
+    }
     if (!byNetwork.has(n)) byNetwork.set(n, new Set());
     byNetwork.get(n).add(t.uid);
     if (!netsOf.has(t.uid)) netsOf.set(t.uid, new Set());
@@ -81,8 +104,19 @@ async function main() {
   });
 
   const parent = new Map();
-  const find = (x) => { if (!parent.has(x)) parent.set(x, x); while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  const union = (a, b) => { const ra = find(a); const rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+  const find = (x) => {
+    if (!parent.has(x)) parent.set(x, x);
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
+    return x;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
   for (const [, uids] of byNetwork) {
     if (uids.size < 2 || uids.size > ALT_CROWDED_NETWORK_LIMIT) continue;
     const l = [...uids];
@@ -101,7 +135,9 @@ async function main() {
     fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'cash', 'holdings', 'marginUsed', 'discordId', 'createdAt'],
   });
   const U = new Map();
-  docs.forEach((d) => { if (d.exists && !d.data().isBot) U.set(d.id, d.data()); });
+  docs.forEach((d) => {
+    if (d.exists && !d.data().isBot) U.set(d.id, d.data());
+  });
 
   const mkt = await db.collection('market').doc('current').get();
   const prices = (mkt.data() || {}).prices || {};
@@ -117,11 +153,15 @@ async function main() {
     const nb = netsOf.get(b) || new Set();
     const shared = [...na].filter((n) => nb.has(n));
     const priv = shared.filter((n) => byNetwork.get(n).size === 2);
-    const merged = [...(evOf.get(a) || []).map((e) => ({ ...e, w: 'a' })),
-      ...(evOf.get(b) || []).map((e) => ({ ...e, w: 'b' }))]
-      .filter((e) => shared.includes(e.net)).sort((x, y) => x.ts - y.ts);
+    const merged = [
+      ...(evOf.get(a) || []).map((e) => ({ ...e, w: 'a' })),
+      ...(evOf.get(b) || []).map((e) => ({ ...e, w: 'b' })),
+    ]
+      .filter((e) => shared.includes(e.net))
+      .sort((x, y) => x.ts - y.ts);
     let fastest = Infinity;
-    for (let i = 1; i < merged.length; i++) if (merged[i].w !== merged[i - 1].w) fastest = Math.min(fastest, merged[i].ts - merged[i - 1].ts);
+    for (let i = 1; i < merged.length; i++)
+      if (merged[i].w !== merged[i - 1].w) fastest = Math.min(fastest, merged[i].ts - merged[i - 1].ts);
     return { shared: shared.length, priv: priv.length, fastest };
   }
 
@@ -141,7 +181,8 @@ async function main() {
   out.push('  Discord date is when the DISCORD account was made. Same week as the game');
   out.push('  signup means it was made to clear the wall and proves nothing.\n');
 
-  const ranked = [...groups.values()].map((m) => m.filter((u) => U.has(u)))
+  const ranked = [...groups.values()]
+    .map((m) => m.filter((u) => U.has(u)))
     .filter((m) => m.length > 1)
     .sort((a, b) => b.reduce((s, u) => s + valueOf(U.get(u)), 0) - a.reduce((s, u) => s + valueOf(U.get(u)), 0));
 
@@ -150,18 +191,20 @@ async function main() {
     out.push('='.repeat(96));
     out.push(`HOUSE ${i + 1} — ${members.length} accounts, ${money(worth)}`);
     out.push('='.repeat(96));
-    out.push('  ACCOUNT                  VALUE      CREW            JOINED      DISCORD ID            DISCORD MADE  FLAG');
+    out.push(
+      '  ACCOUNT                  VALUE      CREW            JOINED      DISCORD ID            DISCORD MADE  FLAG',
+    );
     for (const u of [...members].sort((a, b) => valueOf(U.get(b)) - valueOf(U.get(a)))) {
       const d = U.get(u);
       const joined = toMs(d.createdAt);
       const made = d.discordId ? discordMade(d.discordId) : 0;
       const gap = made ? Math.round((joined - made) / 86400000) : null;
-      const flag = !d.discordId ? 'NO DISCORD'
-        : (gap !== null && gap < 7 && gap > -7) ? 'DISCORD MADE FOR THIS'
-          : '';
-      out.push(`  ${nm(u).padEnd(24)} ${money(valueOf(d)).padStart(10)}  ${(d.crew || 'no crew').padEnd(15)} `
-        + `${day(joined)}  ${(d.discordId || '-').padEnd(20)}  ${(made ? day(made) : '-').padEnd(12)}  ${flag}`
-        + `${d.isBanned ? ' [BANNED]' : ''}`);
+      const flag = !d.discordId ? 'NO DISCORD' : gap !== null && gap < 7 && gap > -7 ? 'DISCORD MADE FOR THIS' : '';
+      out.push(
+        `  ${nm(u).padEnd(24)} ${money(valueOf(d)).padStart(10)}  ${(d.crew || 'no crew').padEnd(15)} ` +
+          `${day(joined)}  ${(d.discordId || '-').padEnd(20)}  ${(made ? day(made) : '-').padEnd(12)}  ${flag}` +
+          `${d.isBanned ? ' [BANNED]' : ''}`,
+      );
     }
     out.push('');
     const sorted = [...members].sort((a, b) => valueOf(U.get(b)) - valueOf(U.get(a)));
@@ -169,12 +212,18 @@ async function main() {
       for (let y = x + 1; y < sorted.length; y++) {
         const info = pairInfo(sorted[x], sorted[y]);
         if (!info.shared) continue;
-        const verdict = info.fastest === Infinity ? 'ONE PERSON? never overlapped'
-          : info.fastest < CONCURRENT_MS ? `TWO PEOPLE  live ${(info.fastest / 1000).toFixed(1)}s apart`
-            : info.fastest < 60000 ? `TWO PEOPLE? closest ${Math.round(info.fastest / 1000)}s`
-              : `ONE PERSON? never within ${info.fastest < 3600000 ? Math.round(info.fastest / 60000) + ' min' : Math.round(info.fastest / 3600000) + ' hr'}`;
-        out.push(`    ${verdict.padEnd(34)} ${nm(sorted[x])} + ${nm(sorted[y])}`
-          + `   (${info.shared} connections${info.priv ? `, ${info.priv} private` : ''})`);
+        const verdict =
+          info.fastest === Infinity
+            ? 'ONE PERSON? never overlapped'
+            : info.fastest < CONCURRENT_MS
+              ? `TWO PEOPLE  live ${(info.fastest / 1000).toFixed(1)}s apart`
+              : info.fastest < 60000
+                ? `TWO PEOPLE? closest ${Math.round(info.fastest / 1000)}s`
+                : `ONE PERSON? never within ${info.fastest < 3600000 ? Math.round(info.fastest / 60000) + ' min' : Math.round(info.fastest / 3600000) + ' hr'}`;
+        out.push(
+          `    ${verdict.padEnd(34)} ${nm(sorted[x])} + ${nm(sorted[y])}` +
+            `   (${info.shared} connections${info.priv ? `, ${info.priv} private` : ''})`,
+        );
       }
     }
     out.push('');
@@ -185,4 +234,9 @@ async function main() {
   fs.writeFileSync(path.join(__dirname, '..', 'household-roster.txt'), text, 'utf8');
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

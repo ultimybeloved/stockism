@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getDynamicPrices, getMaxShares, getCumulativeVolume } from './tradeLimits';
 import { estimateTradeTotal } from './calculations';
-import {
-  MAX_TRADE_SHARES,
-  SHORT_MARGIN_REQUIREMENT,
-  BID_ASK_SPREAD,
-} from '../constants/economy';
+import { MAX_TRADE_SHARES, SHORT_MARGIN_REQUIREMENT, BID_ASK_SPREAD } from '../constants/economy';
 
 // The trade form and the confirmation dialog quote the player a price, and the
 // server then charges them. All three have to agree. They did not: the form

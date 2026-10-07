@@ -9,8 +9,11 @@ const db = admin.firestore();
 
 const { CHARACTERS, CHARACTER_MAP } = require('../characters');
 const {
-  isWeeklyTradingHalt, NINETY_DAYS_MS,
-  MIN_TRADE_SHARES, MIN_EXIT_SHARES, TRADE_SHARE_DECIMALS,
+  isWeeklyTradingHalt,
+  NINETY_DAYS_MS,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  TRADE_SHARE_DECIMALS,
   chapterReviewHaltMsg,
 } = require('../constants');
 const { touchLastActive, lockedShares, checkDiscordWall, recordHeartbeat, maxTradeSharesFor } = require('../helpers');
@@ -18,17 +21,14 @@ const { runLimitOrderCheck } = require('./limitOrderMatching');
 const { claimNetworkForOrder, recordOrderOrigin } = require('./orderNetwork');
 
 exports.createLimitOrder = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
   // Block during weekly halt
   if (isWeeklyTradingHalt()) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      chapterReviewHaltMsg()
-    );
+    throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
   }
 
   const uid = context.auth.uid;
@@ -36,7 +36,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   const { ticker, type, shares, limitPrice, allowPartialFills } = data;
 
   // Validate ticker against character whitelist
-  if (!ticker || !CHARACTERS.some(c => c.ticker === ticker)) {
+  if (!ticker || !CHARACTERS.some((c) => c.ticker === ticker)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
   }
 
@@ -51,8 +51,13 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   const isExitOrder = type === 'SELL' || type === 'STOP_LOSS';
   const minShares = isExitOrder ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
   const entryStep = 10 ** TRADE_SHARE_DECIMALS;
-  if (!shares || !Number.isFinite(shares) || shares < minShares || shares > maxTradeSharesFor(ticker) ||
-      (!isExitOrder && Math.round(shares * entryStep) / entryStep !== shares)) {
+  if (
+    !shares ||
+    !Number.isFinite(shares) ||
+    shares < minShares ||
+    shares > maxTradeSharesFor(ticker) ||
+    (!isExitOrder && Math.round(shares * entryStep) / entryStep !== shares)
+  ) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
   }
 
@@ -93,7 +98,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     if (!launchedTickers.includes(ticker)) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`
+        `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`,
       );
     }
   }
@@ -101,7 +106,8 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   // Fetch active orders early (needed for validation checks below).
   // PARTIALLY_FILLED orders are still live, so they count toward the cap,
   // reserved shares, and the duplicate check just like PENDING ones.
-  const pendingOrders = await db.collection('limitOrders')
+  const pendingOrders = await db
+    .collection('limitOrders')
     .where('userId', '==', uid)
     .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
     .get();
@@ -117,7 +123,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings to sell.');
     }
     const pendingSellShares = pendingOrders.docs
-      .filter(doc => {
+      .filter((doc) => {
         const o = doc.data();
         return o.ticker === ticker && (o.type === 'SELL' || o.type === 'STOP_LOSS');
       })
@@ -126,7 +132,10 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
         return sum + (o.shares - (o.filledShares || 0)); // only the unfilled remainder is still reserved
       }, 0);
     if (currentHoldings < shares + pendingSellShares) {
-      throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings (some shares reserved by pending orders).');
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Insufficient holdings (some shares reserved by pending orders).',
+      );
     }
 
     // Lockups: can't queue a sell / stop-loss against IPO- or margin-locked shares
@@ -138,8 +147,10 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
         const parts = [];
         if (locks.ipo > 0) parts.push(`${locks.ipo} IPO-locked`);
         if (locks.margin > 0) parts.push(`${locks.margin} margin-locked`);
-        throw new functions.https.HttpsError('failed-precondition',
-          `Some $${ticker} shares are locked (${parts.join(', ')}). You can place a sell for up to ${freeShares} now.`);
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Some $${ticker} shares are locked (${parts.join(', ')}). You can place a sell for up to ${freeShares} now.`,
+        );
       }
     }
   }
@@ -156,8 +167,10 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   if (type === 'SELL' || type === 'STOP_LOSS') {
     const shortShares = userData.shorts?.[ticker]?.shares || 0;
     if (shortShares > 0) {
-      throw new functions.https.HttpsError('failed-precondition',
-        'Cannot place a sell order while you have an active short on this stock.');
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Cannot place a sell order while you have an active short on this stock.',
+      );
     }
   }
 
@@ -165,14 +178,16 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   // Treat SELL and STOP_LOSS as equivalent to prevent double-selling
   const sellTypes = ['SELL', 'STOP_LOSS'];
   const isSellType = sellTypes.includes(type);
-  const existingOrderOnTicker = pendingOrders.docs.some(doc => {
+  const existingOrderOnTicker = pendingOrders.docs.some((doc) => {
     const o = doc.data();
     const isExistingSellType = sellTypes.includes(o.type);
     return o.ticker === ticker && (isSellType ? isExistingSellType : o.type === type);
   });
   if (existingOrderOnTicker) {
-    throw new functions.https.HttpsError('already-exists',
-      `You already have a pending sell or stop-loss order on ${ticker}. Cancel it first.`);
+    throw new functions.https.HttpsError(
+      'already-exists',
+      `You already have a pending sell or stop-loss order on ${ticker}. Cancel it first.`,
+    );
   }
 
   // Accounts-per-connection rule, same as executeTrade. Last, so an order that
@@ -192,7 +207,7 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
     filledShares: 0,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   // Kept off the order doc on purpose: see orderNetwork.js.
   await recordOrderOrigin(orderRef.id, { uid, key: networkKey });
@@ -200,8 +215,8 @@ exports.createLimitOrder = cf().https.onCall(async (data, context) => {
   return { success: true, orderId: orderRef.id };
 });
 
-exports.checkLimitOrders = cf().pubsub
-  .schedule('every 15 minutes')
+exports.checkLimitOrders = cf()
+  .pubsub.schedule('every 15 minutes')
   .timeZone('UTC')
   .onRun(async () => {
     // Skip during weekly halt — don't execute pending orders. The time gate

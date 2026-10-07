@@ -29,8 +29,14 @@ const WEIGHT_TOLERANCE = 0.02;
 // Which fund holds which crew. There is no link in the data itself, so it lives
 // here; a crew missing from this map is reported, not silently skipped.
 const CREW_ETF = {
-  ALLIED: 'ALLY', BIG_DEAL: 'DEAL', FIST_GANG: 'FIST', SECRET_FRIENDS: 'SCRT',
-  HOSTEL: 'HSTL', WTJC: 'WTJC', WORKERS: 'VVIP', YAMAZAKI: 'YAMA',
+  ALLIED: 'ALLY',
+  BIG_DEAL: 'DEAL',
+  FIST_GANG: 'FIST',
+  SECRET_FRIENDS: 'SCRT',
+  HOSTEL: 'HSTL',
+  WTJC: 'WTJC',
+  WORKERS: 'VVIP',
+  YAMAZAKI: 'YAMA',
   KITAE_UNION: 'SHDW',
   GOD_DOG: null, // 3 members, deliberately has no fund
 };
@@ -65,7 +71,9 @@ for (const c of CHARACTERS) {
   if (c.status !== undefined) {
     if (c.isETF) errors.push(`${c.ticker}: ETFs do not have a status`);
     else if (!STORED_STATUS_IDS.includes(c.status)) {
-      errors.push(`${c.ticker}: unknown status "${c.status}" — expected one of ${STORED_STATUS_IDS.join(', ')} (omit the field for alive)`);
+      errors.push(
+        `${c.ticker}: unknown status "${c.status}" — expected one of ${STORED_STATUS_IDS.join(', ')} (omit the field for alive)`,
+      );
     }
   }
 }
@@ -96,8 +104,10 @@ for (const etf of CHARACTERS.filter((c) => c.isETF)) {
   const sum = tf.reduce((s, t) => s + t.coefficient, 0);
   if (Math.abs(sum - WEIGHT_TARGET) > WEIGHT_TOLERANCE) {
     const ideal = (WEIGHT_TARGET / tf.length).toFixed(3);
-    errors.push(`${etf.ticker}: trailing weights sum to ${sum.toFixed(3)}, target ${WEIGHT_TARGET}`
-      + ` — re-weight all ${tf.length} members to ${ideal}`);
+    errors.push(
+      `${etf.ticker}: trailing weights sum to ${sum.toFixed(3)}, target ${WEIGHT_TARGET}` +
+        ` — re-weight all ${tf.length} members to ${ideal}`,
+    );
   }
   // Members are equally weighted by convention; an odd one out is usually a
   // half-finished re-weight rather than a deliberate tilt.
@@ -123,7 +133,10 @@ for (const crew of Object.values(CREWS)) {
   if (!etfTicker) continue;
 
   const etf = CHARACTER_MAP[etfTicker];
-  if (!etf) { errors.push(`crew ${crew.id}: fund ${etfTicker} does not exist`); continue; }
+  if (!etf) {
+    errors.push(`crew ${crew.id}: fund ${etfTicker} does not exist`);
+    continue;
+  }
 
   const cons = new Set(etf.constituents || []);
   const missing = crew.members.filter((m) => !cons.has(m));

@@ -80,8 +80,7 @@ const walkCollection = async (collection, cursor, buildUpdates, budget) => {
   let last = cursor || null;
   for (;;) {
     if (budget.expired()) return { done, cursor: last, complete: false };
-    let q = db.collection(collection).orderBy(admin.firestore.FieldPath.documentId())
-      .limit(RENAME_PAGE_SIZE);
+    let q = db.collection(collection).orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (last) q = q.startAfter(last);
     const snap = await q.get();
     if (snap.empty) return { done, cursor: last, complete: true };

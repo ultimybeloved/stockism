@@ -27,14 +27,12 @@ const cancelOpenOrders = async (userId) => {
   const stamp = admin.firestore.FieldValue.serverTimestamp();
 
   const [limitSnap, preMarketSnap] = await Promise.all([
-    db.collection('limitOrders')
+    db
+      .collection('limitOrders')
       .where('userId', '==', userId)
       .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
       .get(),
-    db.collection('preMarketOrders')
-      .where('userId', '==', userId)
-      .where('status', '==', 'PENDING')
-      .get()
+    db.collection('preMarketOrders').where('userId', '==', userId).where('status', '==', 'PENDING').get(),
   ]);
 
   if (limitSnap.empty && preMarketSnap.empty) return counts;
@@ -60,22 +58,16 @@ const cancelOpenOrders = async (userId) => {
  * @param {string} reason - Reason for ban
  */
 exports.banUser = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Verify admin
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can ban users.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can ban users.');
   }
 
   const { userId, rollbackCash = 1000, reason } = data;
 
   if (!userId) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'User ID is required.'
-    );
+    throw new functions.https.HttpsError('invalid-argument', 'User ID is required.');
   }
 
   try {
@@ -98,7 +90,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       reason,
       originalCash: userData.cash,
       originalPortfolio: userData.portfolioValue,
-      rollbackCash
+      rollbackCash,
     });
 
     // Reset user to starting state
@@ -123,7 +115,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       marginUsed: 0,
       isBanned: true,
       bannedAt: admin.firestore.FieldValue.serverTimestamp(),
-      banReason: reason
+      banReason: reason,
     });
 
     // Record the rollback in the permanent history subcollection
@@ -141,14 +133,19 @@ exports.banUser = cf().https.onCall(async (data, context) => {
     }
 
     // Log to console
-    console.log(`USER BANNED: ${displayName} (${userId}) - Reason: ${reason} - cancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`);
+    console.log(
+      `USER BANNED: ${displayName} (${userId}) - Reason: ${reason} - cancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`,
+    );
 
     // Send Discord alert
     try {
-      const orderNote = (cancelled.limit + cancelled.preMarket) > 0
-        ? `\nCancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`
-        : '';
-      await sendDiscordMessage(`🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`);
+      const orderNote =
+        cancelled.limit + cancelled.preMarket > 0
+          ? `\nCancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`
+          : '';
+      await sendDiscordMessage(
+        `🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
+      );
     } catch (err) {
       console.error('Failed to send Discord alert:', err);
     }
@@ -157,34 +154,26 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       success: true,
       message: `User ${displayName} has been banned and reset to $${rollbackCash}`,
       previousCash: userData.cash,
-      previousPortfolio: userData.portfolioValue
+      previousPortfolio: userData.portfolioValue,
     };
-
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
     console.error('Ban user error:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to ban user: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to ban user: ' + error.message);
   }
 });
-
 
 /**
  * Fix Base Price Cliffs - Removes first data point if >2% jump to second
  * Admin only - fixes chart artifacts from data loss
  */
 exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Check admin permission
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can fix price cliffs.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can fix price cliffs.');
   }
 
   try {
@@ -218,7 +207,7 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
           firstPrice,
           secondPrice,
           percentChange: percentChange.toFixed(2),
-          firstTimestamp: new Date(history[0].timestamp).toISOString()
+          firstTimestamp: new Date(history[0].timestamp).toISOString(),
         });
 
         // Remove the first element
@@ -234,7 +223,7 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
         success: true,
         tickersFixed: 0,
         tickersSkipped,
-        message: 'No cliffs found - all data looks good!'
+        message: 'No cliffs found - all data looks good!',
       };
     }
 
@@ -246,26 +235,19 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
       tickersFixed,
       tickersSkipped,
       fixed: fixedTickers,
-      message: `Fixed ${tickersFixed} tickers with base price cliffs`
+      message: `Fixed ${tickersFixed} tickers with base price cliffs`,
     };
   } catch (error) {
     console.error('Error fixing base price cliffs:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to fix price cliffs: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to fix price cliffs: ' + error.message);
   }
 });
 
-
 exports.createBots = cf().https.onCall(async (data, context) => {
-    requireAppCheck(context);
+  requireAppCheck(context);
   // Verify admin
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admin can create bots.'
-    );
+    throw new functions.https.HttpsError('permission-denied', 'Only admin can create bots.');
   }
 
   const BOT_PROFILES = [
@@ -297,7 +279,7 @@ exports.createBots = cf().https.onCall(async (data, context) => {
     { name: 'Momentum Amplifier Mia', personality: 'market_follower', cash: 2000 },
     { name: 'Surge Sarah', personality: 'market_follower', cash: 3500 },
     { name: 'Flow Follower Fred', personality: 'market_follower', cash: 2500 },
-    { name: 'Velocity Vicky', personality: 'market_follower', cash: 3000 }
+    { name: 'Velocity Vicky', personality: 'market_follower', cash: 3000 },
   ];
 
   let created = 0;
@@ -336,7 +318,7 @@ exports.createBots = cf().https.onCall(async (data, context) => {
         dailyMissions: {},
         transactionLog: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastActive: Date.now()
+        lastActive: Date.now(),
       });
 
       created++;
@@ -346,14 +328,11 @@ exports.createBots = cf().https.onCall(async (data, context) => {
       success: true,
       created,
       skipped,
-      message: `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`
+      message: `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`,
     };
   } catch (error) {
     console.error('Error creating bots:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to create bots: ' + error.message
-    );
+    throw new functions.https.HttpsError('internal', 'Failed to create bots: ' + error.message);
   }
 });
 

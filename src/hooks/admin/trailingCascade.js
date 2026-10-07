@@ -43,7 +43,10 @@ export const buildTrailingCascade = ({ ticker, oldPrice, newPrice, prices }) => 
       const from = current[linked];
       if (from == null) continue;
       const to = Math.max(MIN_PRICE, Math.round(from * (1 + change) * 100) / 100);
-      if (to === from) { settled.add(linked); continue; }
+      if (to === from) {
+        settled.add(linked);
+        continue;
+      }
       current[linked] = to;
       moves.push({ ticker: linked, from, to });
       settled.add(linked);

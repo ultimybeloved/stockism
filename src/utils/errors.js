@@ -8,7 +8,9 @@
 
 /** 'functions/resource-exhausted' → 'resource-exhausted'; '' when there is no code. */
 export const callableErrorCode = (error) =>
-  String(error?.code || '').replace(/^functions\//, '').toLowerCase();
+  String(error?.code || '')
+    .replace(/^functions\//, '')
+    .toLowerCase();
 
 const messageOf = (error) => String(error?.message || '');
 
@@ -28,8 +30,7 @@ export const isContentionError = (error) => {
  * instead of retrying on their behalf.
  */
 export const isCapacityError = (error) =>
-  callableErrorCode(error) === 'resource-exhausted' ||
-  messageOf(error).includes('RESOURCE_EXHAUSTED');
+  callableErrorCode(error) === 'resource-exhausted' || messageOf(error).includes('RESOURCE_EXHAUSTED');
 
 // Callable codes the backend uses to mean "you cannot do that": insufficient
 // cash, mission not finished, IPO sold out, trade cooldown still running. These
@@ -62,8 +63,7 @@ const EXPECTED_REJECTION_CODES = [
  *   resource-exhausted — capacity, which is exactly what needs to be visible
  *   internal / unknown / unavailable / deadline-exceeded / data-loss
  */
-export const isExpectedRejection = (error) =>
-  EXPECTED_REJECTION_CODES.includes(callableErrorCode(error));
+export const isExpectedRejection = (error) => EXPECTED_REJECTION_CODES.includes(callableErrorCode(error));
 
 /**
  * A failure on the infrastructure side. The raw message means nothing to a
@@ -75,6 +75,10 @@ export const isInfraError = (error) => {
     return true;
   }
   const msg = messageOf(error);
-  return msg.includes('INTERNAL') || msg.includes('DEADLINE_EXCEEDED') ||
-         msg.includes('UNAVAILABLE') || msg.includes('PERMISSION_DENIED');
+  return (
+    msg.includes('INTERNAL') ||
+    msg.includes('DEADLINE_EXCEEDED') ||
+    msg.includes('UNAVAILABLE') ||
+    msg.includes('PERMISSION_DENIED')
+  );
 };

@@ -4,8 +4,14 @@ import { formatDateTime } from '../../../utils/localTime';
 // posted through the panel or imported — the bot's automated posts (daily drop,
 // market alerts) are not tracked and are not meant to be hand-edited.
 export default function TrackedMessageList({
-  darkMode, textClass, mutedClass,
-  messages, activeId, busy, onEdit, onDelete,
+  darkMode,
+  textClass,
+  mutedClass,
+  messages,
+  activeId,
+  busy,
+  onEdit,
+  onDelete,
 }) {
   if (!messages.length) {
     return (
@@ -23,9 +29,7 @@ export default function TrackedMessageList({
           <div
             key={m.id}
             className={`p-3 rounded-sm border ${
-              active
-                ? 'border-teal-500'
-                : darkMode ? 'border-slate-700' : 'border-slate-200'
+              active ? 'border-teal-500' : darkMode ? 'border-slate-700' : 'border-slate-200'
             } ${darkMode ? 'bg-slate-800' : 'bg-white'}`}
           >
             <div className="flex items-start justify-between gap-3">

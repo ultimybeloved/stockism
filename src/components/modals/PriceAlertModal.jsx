@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { getThemeClasses } from "../../utils/theme";
+import { useState, useMemo } from 'react';
+import { getThemeClasses } from '../../utils/theme';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 export default function PriceAlertModal({
@@ -12,8 +12,8 @@ export default function PriceAlertModal({
   onDeleteAlert,
 }) {
   useEscapeKey(onClose);
-  const [direction, setDirection] = useState("above");
-  const [targetPrice, setTargetPrice] = useState("");
+  const [direction, setDirection] = useState('above');
+  const [targetPrice, setTargetPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -32,7 +32,7 @@ export default function PriceAlertModal({
     setSubmitting(true);
     try {
       const ok = await onCreateAlert({ ticker, targetPrice: parsedTarget, direction });
-      if (ok) setTargetPrice("");
+      if (ok) setTargetPrice('');
     } finally {
       setSubmitting(false);
     }
@@ -51,58 +51,46 @@ export default function PriceAlertModal({
   };
 
   const getPctFromCurrent = (price) => {
-    if (!currentPrice) return "0.00";
+    if (!currentPrice) return '0.00';
     return (((price - currentPrice) / currentPrice) * 100).toFixed(2);
   };
 
   return (
-    <div
-      className={`${overlayClass} z-50`}
-      onClick={onClose}
-    >
-      <div
-        className={`${modalShellClass} ${textClass} p-4 max-w-md`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div className={`${modalShellClass} ${textClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold">Price Alert</h2>
             <span className={`text-sm ${mutedClass}`}>{ticker}</span>
           </div>
-          <button
-            onClick={onClose}
-            className={`${mutedClass} hover:text-orange-500 text-xl`}
-          >
+          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500 text-xl`}>
             ✕
           </button>
         </div>
 
         {/* Current Price */}
         <div className={`text-sm ${mutedClass} mb-4`}>
-          Current Price:{" "}
-          <span className="text-orange-500 font-semibold">
-            ${currentPrice?.toFixed(2) ?? "—"}
-          </span>
+          Current Price: <span className="text-orange-500 font-semibold">${currentPrice?.toFixed(2) ?? '—'}</span>
         </div>
 
         {/* Direction Selector */}
         <div className="flex gap-2 mb-3">
           <button
-            onClick={() => setDirection("above")}
+            onClick={() => setDirection('above')}
             className={`flex-1 py-1.5 rounded-sm text-sm font-medium border transition-colors ${
-              direction === "above"
-                ? "bg-orange-600 text-white border-orange-600"
+              direction === 'above'
+                ? 'bg-orange-600 text-white border-orange-600'
                 : `${inputClass} border hover:border-orange-600`
             }`}
           >
             Above
           </button>
           <button
-            onClick={() => setDirection("below")}
+            onClick={() => setDirection('below')}
             className={`flex-1 py-1.5 rounded-sm text-sm font-medium border transition-colors ${
-              direction === "below"
-                ? "bg-orange-600 text-white border-orange-600"
+              direction === 'below'
+                ? 'bg-orange-600 text-white border-orange-600'
                 : `${inputClass} border hover:border-orange-600`
             }`}
           >
@@ -123,7 +111,7 @@ export default function PriceAlertModal({
           />
           {isValid && pctDiff !== null && (
             <div className={`text-xs mt-1 ${mutedClass}`}>
-              {pctDiff > 0 ? "+" : ""}
+              {pctDiff > 0 ? '+' : ''}
               {pctDiff}% from current price
             </div>
           )}
@@ -135,11 +123,11 @@ export default function PriceAlertModal({
           disabled={!isValid || submitting}
           className={`w-full py-2 rounded-sm text-sm font-medium transition-colors ${
             isValid && !submitting
-              ? "bg-orange-600 text-white hover:bg-orange-700"
-              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+              ? 'bg-orange-600 text-white hover:bg-orange-700'
+              : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
           }`}
         >
-          {submitting ? "Creating..." : "Create Alert"}
+          {submitting ? 'Creating...' : 'Create Alert'}
         </button>
 
         {/* Max alerts info */}
@@ -150,33 +138,23 @@ export default function PriceAlertModal({
         {/* Existing Alerts */}
         {existingAlerts.length > 0 && (
           <div className="mt-4">
-            <div className={`text-xs font-medium ${mutedClass} mb-2`}>
-              Active Alerts
-            </div>
+            <div className={`text-xs font-medium ${mutedClass} mb-2`}>Active Alerts</div>
             <div className="space-y-1.5">
               {existingAlerts.map((alert, i) => {
                 const pct = getPctFromCurrent(alert.targetPrice);
-                const isAbove = alert.direction === "above";
+                const isAbove = alert.direction === 'above';
                 return (
                   <div
                     key={alert.id || i}
                     className={`flex items-center justify-between px-3 py-2 rounded-sm border text-sm ${
-                      darkMode
-                        ? "border-zinc-800 bg-zinc-950"
-                        : "border-amber-200 bg-amber-50"
+                      darkMode ? 'border-zinc-800 bg-zinc-950' : 'border-amber-200 bg-amber-50'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span
-                        className={isAbove ? "text-green-500" : "text-red-500"}
-                      >
-                        {isAbove ? "▲" : "▼"}
-                      </span>
-                      <span className="font-medium">
-                        ${alert.targetPrice.toFixed(2)}
-                      </span>
+                      <span className={isAbove ? 'text-green-500' : 'text-red-500'}>{isAbove ? '▲' : '▼'}</span>
+                      <span className="font-medium">${alert.targetPrice.toFixed(2)}</span>
                       <span className={`text-xs ${mutedClass}`}>
-                        {pct > 0 ? "+" : ""}
+                        {pct > 0 ? '+' : ''}
                         {pct}%
                       </span>
                     </div>
@@ -185,7 +163,7 @@ export default function PriceAlertModal({
                       disabled={deletingId === alert.id}
                       className="text-red-500 hover:text-red-400 text-xs font-bold disabled:opacity-40"
                     >
-                      {deletingId === alert.id ? "…" : "✕"}
+                      {deletingId === alert.id ? '…' : '✕'}
                     </button>
                   </div>
                 );

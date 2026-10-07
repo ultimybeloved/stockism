@@ -33,20 +33,21 @@ const PortfolioAnalytics = ({
       const value = price * shares;
       const pnl = (price - cost) * shares;
       const pnlPct = cost > 0 ? ((price - cost) / cost) * 100 : 0;
-      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : (CREW_TICKER_MAP[ticker] || OTHER_GROUP);
+      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : CREW_TICKER_MAP[ticker] || OTHER_GROUP;
       positions.push({ ticker, shares, price, cost, value, pnl, pnlPct, crew, type: 'long' });
     });
 
     // Shorts
     Object.entries(shorts).forEach(([ticker, shortData]) => {
       const shares = typeof shortData === 'number' ? shortData : shortData?.shares || 0;
-      const entryPrice = typeof shortData === 'number' ? (costBasis?.[ticker] || 0) : (shortData?.entryPrice || costBasis?.[ticker] || 0);
+      const entryPrice =
+        typeof shortData === 'number' ? costBasis?.[ticker] || 0 : shortData?.entryPrice || costBasis?.[ticker] || 0;
       if (!shares) return;
       const price = prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
       const value = price * shares;
       const pnl = (entryPrice - price) * shares;
       const pnlPct = entryPrice > 0 ? ((entryPrice - price) / entryPrice) * 100 : 0;
-      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : (CREW_TICKER_MAP[ticker] || OTHER_GROUP);
+      const crew = CHARACTER_MAP[ticker]?.isETF ? ETF_GROUP : CREW_TICKER_MAP[ticker] || OTHER_GROUP;
       positions.push({ ticker, shares, price, cost: entryPrice, value, pnl, pnlPct, crew, type: 'short' });
     });
 
@@ -56,9 +57,11 @@ const PortfolioAnalytics = ({
   // ---- Crew allocation ----
   const crewData = useMemo(() => {
     const crewValues = {};
-    positionData.filter(p => p.type === 'long').forEach(p => {
-      crewValues[p.crew] = (crewValues[p.crew] || 0) + p.value;
-    });
+    positionData
+      .filter((p) => p.type === 'long')
+      .forEach((p) => {
+        crewValues[p.crew] = (crewValues[p.crew] || 0) + p.value;
+      });
     return Object.entries(crewValues)
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1])
@@ -71,15 +74,16 @@ const PortfolioAnalytics = ({
 
   // ---- Diversification score (HHI-based) ----
   const diversification = useMemo(() => {
-    const longPositions = positionData.filter(p => p.type === 'long' && p.value > 0);
+    const longPositions = positionData.filter((p) => p.type === 'long' && p.value > 0);
     if (longPositions.length === 0) return { score: 0, hhi: 10000 };
     const totalValue = longPositions.reduce((s, p) => s + p.value, 0);
     if (totalValue === 0) return { score: 0, hhi: 10000 };
 
-    const hhi = longPositions.reduce((s, p) => {
-      const w = p.value / totalValue;
-      return s + w * w;
-    }, 0) * 10000;
+    const hhi =
+      longPositions.reduce((s, p) => {
+        const w = p.value / totalValue;
+        return s + w * w;
+      }, 0) * 10000;
 
     const score = Math.max(0, 100 - hhi / 100);
     return { score: Math.round(score), hhi: Math.round(hhi) };
@@ -96,10 +100,10 @@ const PortfolioAnalytics = ({
 
   // ---- Summary stats ----
   const stats = useMemo(() => {
-    const longs = positionData.filter(p => p.type === 'long');
-    const shortPos = positionData.filter(p => p.type === 'short');
+    const longs = positionData.filter((p) => p.type === 'long');
+    const shortPos = positionData.filter((p) => p.type === 'short');
     const totalPnl = positionData.reduce((s, p) => s + p.pnl, 0);
-    const winners = positionData.filter(p => p.pnl > 0).length;
+    const winners = positionData.filter((p) => p.pnl > 0).length;
     const winRate = positionData.length > 0 ? (winners / positionData.length) * 100 : 0;
 
     return {
@@ -181,7 +185,9 @@ const PortfolioAnalytics = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Crew Allocation */}
                 <div className={cardClass}>
-                  <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  <h3
+                    className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
+                  >
                     Crew Allocation
                   </h3>
                   <DonutChart data={crewData} size={180} darkMode={darkMode} />
@@ -189,18 +195,20 @@ const PortfolioAnalytics = ({
 
                 {/* Diversification Score */}
                 <div className={cardClass}>
-                  <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  <h3
+                    className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
+                  >
                     Diversification Score
                   </h3>
                   <div className="flex flex-col items-center gap-3 py-2">
                     <span className={`text-4xl font-bold ${scoreTextColor(diversification.score)}`}>
                       {diversification.score}
                     </span>
-                    <span className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                      out of 100
-                    </span>
+                    <span className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>out of 100</span>
                     {/* Progress bar */}
-                    <div className={`w-full h-3 rounded-full overflow-hidden ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}>
+                    <div
+                      className={`w-full h-3 rounded-full overflow-hidden ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
+                    >
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${scoreColor(diversification.score)}`}
                         style={{ width: `${diversification.score}%` }}
@@ -219,7 +227,9 @@ const PortfolioAnalytics = ({
 
               {/* Row 2: Best/Worst Positions */}
               <div className={cardClass}>
-                <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <h3
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
+                >
                   Best & Worst Positions
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -237,7 +247,8 @@ const PortfolioAnalytics = ({
                           <div className="flex items-center gap-2">
                             <span className={pnlColor(p.pnl)}>{fmtMoney(p.pnl)}</span>
                             <span className={`${pnlColor(p.pnlPct)} opacity-60`}>
-                              ({p.pnlPct >= 0 ? '+' : ''}{p.pnlPct.toFixed(1)}%)
+                              ({p.pnlPct >= 0 ? '+' : ''}
+                              {p.pnlPct.toFixed(1)}%)
                             </span>
                           </div>
                         </div>
@@ -258,7 +269,8 @@ const PortfolioAnalytics = ({
                           <div className="flex items-center gap-2">
                             <span className={pnlColor(p.pnl)}>{fmtMoney(p.pnl)}</span>
                             <span className={`${pnlColor(p.pnlPct)} opacity-60`}>
-                              ({p.pnlPct >= 0 ? '+' : ''}{p.pnlPct.toFixed(1)}%)
+                              ({p.pnlPct >= 0 ? '+' : ''}
+                              {p.pnlPct.toFixed(1)}%)
                             </span>
                           </div>
                         </div>
@@ -270,15 +282,13 @@ const PortfolioAnalytics = ({
 
               {/* Row 3: Summary Stats */}
               <div className={cardClass}>
-                <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <h3
+                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
+                >
                   Portfolio Summary
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <StatBox
-                    label="Total Positions"
-                    value={stats.totalPositions}
-                    darkMode={darkMode}
-                  />
+                  <StatBox label="Total Positions" value={stats.totalPositions} darkMode={darkMode} />
                   <StatBox
                     label="Long Positions"
                     value={`${stats.longCount} ($${stats.longValue.toFixed(0)})`}
@@ -300,8 +310,12 @@ const PortfolioAnalytics = ({
                     value={`${stats.winRate}%`}
                     valueColor={
                       stats.winRate >= 50
-                        ? (colorBlindMode ? 'text-teal-400' : 'text-green-400')
-                        : (colorBlindMode ? 'text-purple-400' : 'text-red-400')
+                        ? colorBlindMode
+                          ? 'text-teal-400'
+                          : 'text-green-400'
+                        : colorBlindMode
+                          ? 'text-purple-400'
+                          : 'text-red-400'
                     }
                     darkMode={darkMode}
                   />

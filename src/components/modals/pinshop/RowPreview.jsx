@@ -16,11 +16,12 @@ const RowPreview = ({ portfolioValue, tryOn }) => {
   // `tryOn` is a shop item being browsed: layer it over the equipped set so the
   // row previews it before purchase. The owned filter is skipped for try-ons
   // (they aren't owned yet — that's the point); display-only, nothing persists.
-  const actives = tryOn
-    ? { ...(userData?.activeCosmetics || {}), [tryOn.type]: tryOn.id }
-    : userData?.activeCosmetics;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(actives, tryOn ? null : userData?.ownedCosmetics);
-  const holdingsCount = Object.values(holdings || {}).filter(s => s > 0).length;
+  const actives = tryOn ? { ...(userData?.activeCosmetics || {}), [tryOn.type]: tryOn.id } : userData?.activeCosmetics;
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(
+    actives,
+    tryOn ? null : userData?.ownedCosmetics,
+  );
+  const holdingsCount = Object.values(holdings || {}).filter((s) => s > 0).length;
   // Crew heads see their crew-colored crown aura here too, unless a glow
   // cosmetic is equipped (or being tried on) — purchased glows always win.
   const crew = userData?.crew ? CREW_MAP[userData.crew] : null;
@@ -29,7 +30,13 @@ const RowPreview = ({ portfolioValue, tryOn }) => {
   return (
     <div className="px-4 pt-3">
       <p className={`text-[10px] uppercase tracking-wide font-semibold ${mutedClass} mb-1`}>
-        {tryOn ? <>Previewing: <span className="text-orange-500">{tryOn.name}</span></> : 'Your row on the leaderboard'}
+        {tryOn ? (
+          <>
+            Previewing: <span className="text-orange-500">{tryOn.name}</span>
+          </>
+        ) : (
+          'Your row on the leaderboard'
+        )}
       </p>
       <div
         className={`relative p-3 flex items-center gap-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}

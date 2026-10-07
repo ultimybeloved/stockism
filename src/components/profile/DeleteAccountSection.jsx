@@ -109,7 +109,10 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
               Cancel
             </button>
             <button
-              onClick={() => { setDeleteStep(5); setConfirmUsername(''); }}
+              onClick={() => {
+                setDeleteStep(5);
+                setConfirmUsername('');
+              }}
               className="flex-1 py-2 text-sm font-bold rounded-sm bg-rose-700 hover:bg-rose-800 text-white"
             >
               Proceed to Final Step
@@ -119,7 +122,9 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
       )}
 
       {deleteStep === 5 && (
-        <div className={`p-3 rounded-sm border-2 ${darkMode ? 'border-white bg-zinc-950' : 'border-zinc-800 bg-white'}`}>
+        <div
+          className={`p-3 rounded-sm border-2 ${darkMode ? 'border-white bg-zinc-950' : 'border-zinc-800 bg-white'}`}
+        >
           <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Final Confirmation</h4>
           <p className={`text-sm mb-3 ${darkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
             Type your username <span className="font-bold">{userData?.displayName}</span> to confirm deletion:
@@ -137,7 +142,10 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
           />
           <div className="flex gap-2">
             <button
-              onClick={() => { setDeleteStep(0); setConfirmUsername(''); }}
+              onClick={() => {
+                setDeleteStep(0);
+                setConfirmUsername('');
+              }}
               className={`flex-1 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
             >
               Cancel
@@ -154,9 +162,7 @@ const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
               }}
               disabled={deleting || confirmUsername.toLowerCase() !== userData?.displayName?.toLowerCase()}
               className={`flex-1 py-2 text-sm font-bold rounded-sm disabled:opacity-50 ${
-                darkMode
-                  ? 'bg-white hover:bg-zinc-200 text-zinc-900'
-                  : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                darkMode ? 'bg-white hover:bg-zinc-200 text-zinc-900' : 'bg-zinc-900 hover:bg-zinc-800 text-white'
               }`}
             >
               {deleting ? 'Deleting...' : 'Delete My Account'}

@@ -6,7 +6,7 @@ const serviceAccount = require('../service-account.json');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: 'stockism-abb28.firebasestorage.app',
-  databaseURL: 'https://stockism-abb28.firebaseio.com'
+  databaseURL: 'https://stockism-abb28.firebaseio.com',
 });
 
 const db = admin.firestore();
@@ -45,7 +45,7 @@ async function restoreFromLatestBackup() {
     console.log('\n🔄 Restoring price history to Firestore...');
 
     await marketRef.update({
-      priceHistory: backupData.priceHistory
+      priceHistory: backupData.priceHistory,
     });
 
     console.log('✅ Price history restored successfully!');

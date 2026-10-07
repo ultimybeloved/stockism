@@ -62,27 +62,53 @@ const getHist = async () => (await db.collection('market').doc('priceHistory').g
 
 async function seed() {
   const now = Date.now();
-  await db.collection('market').doc('current').set({
-    prices: { [NORMAL]: 25 },
-    launchedTickers: [NORMAL],
-    marketHalted: false,
-    haltedTickers: {},
-  });
-  await db.collection('market').doc('priceHistory').set({
-    [NORMAL]: [{ timestamp: now - DAY, price: 24 }, { timestamp: now - 1000, price: 25 }],
-  });
-  await db.collection('market').doc('ipos').set({
-    list: [{
-      ticker: IPO, basePrice: 10,
-      ipoStartsAt: now - 2 * DAY, ipoEndsAt: now - DAY, // already ended → jump due
-      sharesRemaining: 100, totalShares: 150, priceJumped: false,
-    }],
-  });
-  await db.collection('users').doc('trader1').set({
-    displayName: 'trader1', cash: 5000, holdings: {}, costBasis: {},
-    portfolioValue: 5000, totalTrades: 0, achievements: [],
-    createdAt: Date.now() - 90 * DAY,
-  });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({
+      prices: { [NORMAL]: 25 },
+      launchedTickers: [NORMAL],
+      marketHalted: false,
+      haltedTickers: {},
+    });
+  await db
+    .collection('market')
+    .doc('priceHistory')
+    .set({
+      [NORMAL]: [
+        { timestamp: now - DAY, price: 24 },
+        { timestamp: now - 1000, price: 25 },
+      ],
+    });
+  await db
+    .collection('market')
+    .doc('ipos')
+    .set({
+      list: [
+        {
+          ticker: IPO,
+          basePrice: 10,
+          ipoStartsAt: now - 2 * DAY,
+          ipoEndsAt: now - DAY, // already ended → jump due
+          sharesRemaining: 100,
+          totalShares: 150,
+          priceJumped: false,
+        },
+      ],
+    });
+  await db
+    .collection('users')
+    .doc('trader1')
+    .set({
+      displayName: 'trader1',
+      cash: 5000,
+      holdings: {},
+      costBasis: {},
+      portfolioValue: 5000,
+      totalTrades: 0,
+      achievements: [],
+      createdAt: Date.now() - 90 * DAY,
+    });
 }
 
 async function testTradeAppends() {
@@ -93,17 +119,36 @@ async function testTradeAppends() {
   let market = await getMarket();
   let hist = await getHist();
   check('buy moved the price on market/current', market.prices[NORMAL] > 25, `price=${market.prices[NORMAL]}`);
-  check('buy appended a chart point to market/priceHistory', hist[NORMAL].length === histBefore + 1, `len=${hist[NORMAL].length}`);
-  check('market/current has NO priceHistory field', market.priceHistory === undefined, JSON.stringify(Object.keys(market)));
+  check(
+    'buy appended a chart point to market/priceHistory',
+    hist[NORMAL].length === histBefore + 1,
+    `len=${hist[NORMAL].length}`,
+  );
+  check(
+    'market/current has NO priceHistory field',
+    market.priceHistory === undefined,
+    JSON.stringify(Object.keys(market)),
+  );
 
-  await new Promise(r => setTimeout(r, 3500)); // per-user trade cooldown
+  await new Promise((r) => setTimeout(r, 3500)); // per-user trade cooldown
   // Backdate the buy so the 45s hold period doesn't block the sell
-  await db.collection('users').doc('trader1').update({ [`lastBuyTime.${NORMAL}`]: Date.now() - 60000 });
+  await db
+    .collection('users')
+    .doc('trader1')
+    .update({ [`lastBuyTime.${NORMAL}`]: Date.now() - 60000 });
   await ok(executeTrade, { ticker: NORMAL, action: 'sell', amount: 5 }, 'trader1');
   hist = await getHist();
   market = await getMarket();
-  check('sell appended another point (nothing removed)', hist[NORMAL].length === histBefore + 2, `len=${hist[NORMAL].length}`);
-  check('points are the permanent record (monotonic growth)', hist[NORMAL].every((p, i, a) => i === 0 || a[i - 1].timestamp <= p.timestamp), 'out of order');
+  check(
+    'sell appended another point (nothing removed)',
+    hist[NORMAL].length === histBefore + 2,
+    `len=${hist[NORMAL].length}`,
+  );
+  check(
+    'points are the permanent record (monotonic growth)',
+    hist[NORMAL].every((p, i, a) => i === 0 || a[i - 1].timestamp <= p.timestamp),
+    'out of order',
+  );
   check('old field still absent after sell', market.priceHistory === undefined);
 }
 
@@ -114,7 +159,11 @@ async function testIPOJump() {
   const hist = await getHist();
   check('IPO launched', (market.launchedTickers || []).includes(IPO), JSON.stringify(market.launchedTickers));
   check('IPO price set on market/current', market.prices[IPO] === 11.5, `price=${market.prices[IPO]}`);
-  check('IPO jump point in market/priceHistory', (hist[IPO] || []).length === 1 && hist[IPO][0].price === 11.5, JSON.stringify(hist[IPO]));
+  check(
+    'IPO jump point in market/priceHistory',
+    (hist[IPO] || []).length === 1 && hist[IPO][0].price === 11.5,
+    JSON.stringify(hist[IPO]),
+  );
   check('old field still absent', market.priceHistory === undefined);
 }
 
@@ -126,23 +175,32 @@ async function testArchivePreservesEverything() {
   console.log('\n5 — archiving moves overflow points, total count preserved');
   const now = Date.now();
   const many = [];
-  for (let i = 0; i < SEEDED_POINTS; i++) many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 20 + (i % 10) });
+  for (let i = 0; i < SEEDED_POINTS; i++)
+    many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 20 + (i % 10) });
   await db.collection('market').doc('priceHistory').update({ BIGT: many });
 
   await ok(archivePriceHistory, {}, ADMIN_UID);
 
   const hist = await getHist();
-  const archive = (await db.collection('market').doc('current')
-    .collection('price_history').doc('BIGT').get()).data() || {};
+  const archive =
+    (await db.collection('market').doc('current').collection('price_history').doc('BIGT').get()).data() || {};
   const liveCount = (hist.BIGT || []).length;
   const archCount = (archive.history || []).length;
   // Read the cap from constants rather than hardcoding it: it was 1000 until
   // the doc hit Firestore's 40k index-entry limit and took trading down on
   // 2026-07-22, and this check still expected 1000 long after it became 60.
   const overflow = SEEDED_POINTS - PRICE_HISTORY_LIVE_MAX;
-  check(`live doc trimmed to the cap (${PRICE_HISTORY_LIVE_MAX})`, liveCount === PRICE_HISTORY_LIVE_MAX, `live=${liveCount}`);
+  check(
+    `live doc trimmed to the cap (${PRICE_HISTORY_LIVE_MAX})`,
+    liveCount === PRICE_HISTORY_LIVE_MAX,
+    `live=${liveCount}`,
+  );
   check(`overflow moved to permanent archive (${overflow} points)`, archCount === overflow, `arch=${archCount}`);
-  check('TOTAL points preserved (nothing deleted)', liveCount + archCount === SEEDED_POINTS, `${liveCount}+${archCount}`);
+  check(
+    'TOTAL points preserved (nothing deleted)',
+    liveCount + archCount === SEEDED_POINTS,
+    `${liveCount}+${archCount}`,
+  );
 }
 
 // The archive run reads the live doc, then spends a while writing per-ticker
@@ -158,19 +216,25 @@ async function testArchiveKeepsConcurrentAppends() {
   console.log('\n6 — a point written DURING an archive run survives it');
   const now = Date.now();
   const many = [];
-  for (let i = 0; i < SEEDED_POINTS; i++) many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 30 + (i % 7) });
+  for (let i = 0; i < SEEDED_POINTS; i++)
+    many.push({ timestamp: now - (SEEDED_POINTS - i) * 60000, price: 30 + (i % 7) });
   await db.collection('market').doc('priceHistory').update({ RACET: many });
 
   const midRunPoint = { timestamp: now + 5000, price: 999.99 };
   const archiving = ok(archivePriceHistory, {}, ADMIN_UID);
-  await db.collection('market').doc('priceHistory')
+  await db
+    .collection('market')
+    .doc('priceHistory')
     .set({ RACET: admin.firestore.FieldValue.arrayUnion(midRunPoint) }, { merge: true });
   await archiving;
 
   const live = (await getHist()).RACET || [];
   const survived = live.some((p) => p.timestamp === midRunPoint.timestamp && p.price === midRunPoint.price);
-  check('point appended mid-archive is still in the live doc', survived,
-    `live has ${live.length} points, newest ts ${Math.max(...live.map((p) => p.timestamp))}`);
+  check(
+    'point appended mid-archive is still in the live doc',
+    survived,
+    `live has ${live.length} points, newest ts ${Math.max(...live.map((p) => p.timestamp))}`,
+  );
 }
 
 async function main() {

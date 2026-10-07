@@ -12,36 +12,36 @@ expect.extend(matchers);
 vi.mock('./firebase', () => {
   const fn = () => vi.fn(async () => ({ data: {} }));
   return {
-  db: {},
-  broadcastNotificationFunction: fn(),
-  triggerManualBackupFunction: fn(),
-  listBackupsFunction: fn(),
-  restoreBackupFunction: fn(),
-  banUserFunction: fn(),
-  ipoAnnouncementAlertFunction: fn(),
-  removeAchievementFunction: fn(),
-  reinstateUserFunction: fn(),
-  adminSetCashFunction: fn(),
-  adminTransferToLadderFunction: fn(),
-  adminSetDiscordWallFunction: fn(),
-  repairSpikeVictimsFunction: fn(),
-  renameTickerFunction: fn(),
-  setMarketHaltFunction: fn(),
-  addWatchedUserFunction: fn(),
-  removeWatchedUserFunction: fn(),
-  linkAltAccountFunction: fn(),
-  addWatchedIPFunction: fn(),
-  getWatchlistFunction: fn(),
-  getRecentSignupReportFunction: fn(),
-  diagnoseTickerRollbackFunction: fn(),
-  recoverTickerFunction: fn(),
-  auditUserDropsFunction: fn(),
-  runDividendPayoutNowFunction: fn(),
-  auditUsernamesFunction: fn(),
-  reconstructPortfolioHistoryFunction: fn(),
-  triggerEventSettlementsFunction: fn(),
-  cancelEventMarketFunction: fn(),
-  initNewCharacterPricesFunction: fn(),
+    db: {},
+    broadcastNotificationFunction: fn(),
+    triggerManualBackupFunction: fn(),
+    listBackupsFunction: fn(),
+    restoreBackupFunction: fn(),
+    banUserFunction: fn(),
+    ipoAnnouncementAlertFunction: fn(),
+    removeAchievementFunction: fn(),
+    reinstateUserFunction: fn(),
+    adminSetCashFunction: fn(),
+    adminTransferToLadderFunction: fn(),
+    adminSetDiscordWallFunction: fn(),
+    repairSpikeVictimsFunction: fn(),
+    renameTickerFunction: fn(),
+    setMarketHaltFunction: fn(),
+    addWatchedUserFunction: fn(),
+    removeWatchedUserFunction: fn(),
+    linkAltAccountFunction: fn(),
+    addWatchedIPFunction: fn(),
+    getWatchlistFunction: fn(),
+    getRecentSignupReportFunction: fn(),
+    diagnoseTickerRollbackFunction: fn(),
+    recoverTickerFunction: fn(),
+    auditUserDropsFunction: fn(),
+    runDividendPayoutNowFunction: fn(),
+    auditUsernamesFunction: fn(),
+    reconstructPortfolioHistoryFunction: fn(),
+    triggerEventSettlementsFunction: fn(),
+    cancelEventMarketFunction: fn(),
+    initNewCharacterPricesFunction: fn(),
   };
 });
 
@@ -81,7 +81,7 @@ const renderPanel = (overrides = {}) =>
       marketData={{ marketHalted: false }}
       onClose={vi.fn()}
       {...overrides}
-    />
+    />,
   );
 
 afterEach(cleanup);
@@ -98,8 +98,21 @@ describe('AdminPanel', () => {
     renderPanel();
     expect(screen.getByText(/Admin Panel/)).toBeInTheDocument();
     expect(screen.getByText(/Adjust Prices/)).toBeInTheDocument();
-    for (const label of ['Users', 'Trades', 'Holders', 'Market', 'Stats', 'IPO',
-      'Bets', 'Dividends', 'Bots', 'Badges', 'Watchlist', 'Diagnostics', 'Recovery']) {
+    for (const label of [
+      'Users',
+      'Trades',
+      'Holders',
+      'Market',
+      'Stats',
+      'IPO',
+      'Bets',
+      'Dividends',
+      'Bots',
+      'Badges',
+      'Watchlist',
+      'Diagnostics',
+      'Recovery',
+    ]) {
       expect(screen.getByRole('button', { name: new RegExp(label) })).toBeInTheDocument();
     }
   });
@@ -109,7 +122,7 @@ describe('AdminPanel', () => {
     expect(screen.getByPlaceholderText(/Search by name, ID, or Discord/)).toBeInTheDocument();
   });
 
-  it('renders each tab\'s signature content when its pill is clicked', async () => {
+  it("renders each tab's signature content when its pill is clicked", async () => {
     renderPanel();
     const cases = [
       ['Trades', /Trade Feed/],

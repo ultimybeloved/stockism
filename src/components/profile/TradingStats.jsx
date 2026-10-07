@@ -10,10 +10,7 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
   const joinDate = userData?.createdAt?.toDate?.() || null;
   // The stored peak only updates on backend sync, so never show it below the
   // live current value — a "peak" under the current number reads as broken.
-  const peakPortfolio = Math.max(
-    userData?.peakPortfolioValue || 1000,
-    calculatePortfolioValue(userData, prices || {})
-  );
+  const peakPortfolio = Math.max(userData?.peakPortfolioValue || 1000, calculatePortfolioValue(userData, prices || {}));
 
   // Find biggest holding by value
   let biggestHolding = null;
@@ -83,13 +80,17 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
       </div>
 
       {/* Trading Stats */}
-      <div className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+      <div
+        className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
+      >
         <h3 className={`font-semibold ${textClass} mb-3`}>📊 Trading Stats</h3>
         <div className="space-y-2 text-sm">
           {joinDate && (
             <div className="flex justify-between">
               <span className={mutedClass}>Joined:</span>
-              <span className={textClass}>{joinDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span className={textClass}>
+                {joinDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
             </div>
           )}
           <div className="flex justify-between">
@@ -115,16 +116,22 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
           {bestStock && bestStock.returnPercent !== 0 && (
             <div className="flex justify-between">
               <span className={mutedClass}>Best Performer:</span>
-              <span className={`font-semibold ${bestStock.returnPercent >= 0 ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
-                ${bestStock.ticker} ({bestStock.returnPercent >= 0 ? '+' : ''}{bestStock.returnPercent.toFixed(1)}%)
+              <span
+                className={`font-semibold ${bestStock.returnPercent >= 0 ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
+              >
+                ${bestStock.ticker} ({bestStock.returnPercent >= 0 ? '+' : ''}
+                {bestStock.returnPercent.toFixed(1)}%)
               </span>
             </div>
           )}
           {worstStock && worstStock.returnPercent !== 0 && worstStock.ticker !== bestStock?.ticker && (
             <div className="flex justify-between">
               <span className={mutedClass}>Worst Performer:</span>
-              <span className={`font-semibold ${worstStock.returnPercent >= 0 ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : (userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500')}`}>
-                ${worstStock.ticker} ({worstStock.returnPercent >= 0 ? '+' : ''}{worstStock.returnPercent.toFixed(1)}%)
+              <span
+                className={`font-semibold ${worstStock.returnPercent >= 0 ? (userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500') : userData?.colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
+              >
+                ${worstStock.ticker} ({worstStock.returnPercent >= 0 ? '+' : ''}
+                {worstStock.returnPercent.toFixed(1)}%)
               </span>
             </div>
           )}

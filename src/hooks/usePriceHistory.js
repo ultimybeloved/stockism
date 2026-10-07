@@ -20,7 +20,9 @@ export const usePriceHistory = (ticker, { loadReviewDetail = false, showReviewDe
     if (!ticker) return;
     setLoading(true);
     getDoc(doc(db, 'market', 'current', 'price_history', ticker))
-      .then(snap => { if (snap.exists()) setArchivedHistory(snap.data().history || []); })
+      .then((snap) => {
+        if (snap.exists()) setArchivedHistory(snap.data().history || []);
+      })
       .catch((e) => Sentry.captureException(e))
       .finally(() => setLoading(false));
   }, [ticker]);
@@ -28,7 +30,7 @@ export const usePriceHistory = (ticker, { loadReviewDetail = false, showReviewDe
   useEffect(() => {
     if (!(loadReviewDetail || showReviewDetail) || reviewDetail) return;
     getDoc(doc(db, 'market', 'reviewDetail'))
-      .then(snap => setReviewDetail(snap.exists() ? (snap.data().detail || {}) : {}))
+      .then((snap) => setReviewDetail(snap.exists() ? snap.data().detail || {} : {}))
       .catch((e) => Sentry.captureException(e));
   }, [loadReviewDetail, showReviewDetail, reviewDetail]);
 
@@ -39,13 +41,18 @@ export const usePriceHistory = (ticker, { loadReviewDetail = false, showReviewDe
     }
     const seen = new Set();
     return [...archivedHistory, ...mainHistory]
-      .filter(p => { if (seen.has(p.timestamp)) return false; seen.add(p.timestamp); return true; })
+      .filter((p) => {
+        if (seen.has(p.timestamp)) return false;
+        seen.add(p.timestamp);
+        return true;
+      })
       .sort((a, b) => a.timestamp - b.timestamp);
   }, [priceHistory, ticker, archivedHistory]);
 
-  const shownHistory = useMemo(() => (
-    showReviewDetail ? spliceReviewDetail(fullHistory, reviewDetail?.[ticker]) : fullHistory
-  ), [showReviewDetail, fullHistory, reviewDetail, ticker]);
+  const shownHistory = useMemo(
+    () => (showReviewDetail ? spliceReviewDetail(fullHistory, reviewDetail?.[ticker]) : fullHistory),
+    [showReviewDetail, fullHistory, reviewDetail, ticker],
+  );
 
   // True once the stash is loaded and actually has steps for this stock, so the
   // toggle can hide itself on a stock whose review was never collapsed.

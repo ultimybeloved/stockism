@@ -9,10 +9,10 @@
 // dodge the cap. Returns { liveAccounts, recentlyDeleted, effectiveAccounts }.
 function countIpAccounts(ipTrackData, excludeUid, now, slotReleaseMs) {
   const data = ipTrackData || {};
-  const liveAccounts = Object.keys(data.accounts || {})
-    .filter(a => a !== excludeUid).length;
-  const recentlyDeleted = Object.entries(data.deletedAccounts || {})
-    .filter(([a, deletedAt]) => a !== excludeUid && now - deletedAt < slotReleaseMs).length;
+  const liveAccounts = Object.keys(data.accounts || {}).filter((a) => a !== excludeUid).length;
+  const recentlyDeleted = Object.entries(data.deletedAccounts || {}).filter(
+    ([a, deletedAt]) => a !== excludeUid && now - deletedAt < slotReleaseMs,
+  ).length;
   return { liveAccounts, recentlyDeleted, effectiveAccounts: liveAccounts + recentlyDeleted };
 }
 

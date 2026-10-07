@@ -31,22 +31,26 @@ const COMMANDS = [
   {
     name: 'profile',
     description: 'View a Stockism profile',
-    options: [{
-      type: USER,
-      name: 'user',
-      description: 'Whose profile to show (defaults to you)',
-      required: false,
-    }],
+    options: [
+      {
+        type: USER,
+        name: 'user',
+        description: 'Whose profile to show (defaults to you)',
+        required: false,
+      },
+    ],
   },
   {
     name: 'price',
     description: 'Check the current price of a stock',
-    options: [{
-      type: STRING,
-      name: 'stock',
-      description: 'Ticker or character name, e.g. DG or James Lee',
-      required: true,
-    }],
+    options: [
+      {
+        type: STRING,
+        name: 'stock',
+        description: 'Ticker or character name, e.g. DG or James Lee',
+        required: true,
+      },
+    ],
   },
   {
     name: 'portfolio',
@@ -59,12 +63,14 @@ const COMMANDS = [
   {
     name: 'buy',
     description: 'Get a link to trade a stock on the website',
-    options: [{
-      type: STRING,
-      name: 'stock',
-      description: 'Ticker or character name, e.g. DG or James Lee',
-      required: true,
-    }],
+    options: [
+      {
+        type: STRING,
+        name: 'stock',
+        description: 'Ticker or character name, e.g. DG or James Lee',
+        required: true,
+      },
+    ],
   },
 ];
 
@@ -93,15 +99,15 @@ async function main() {
   if (!app.bot_public) {
     console.log(
       '\nNOTE: this bot is currently PRIVATE, so only you can add it to a server.\n' +
-      'To let partner servers install it, turn on "Public Bot" at\n' +
-      `https://discord.com/developers/applications/${app.id}/bot`
+        'To let partner servers install it, turn on "Public Bot" at\n' +
+        `https://discord.com/developers/applications/${app.id}/bot`,
     );
   }
 
   console.log(
     '\nGlobal commands can take up to an hour to appear the first time.\n' +
       'Install link for partner servers:\n' +
-      `https://discord.com/oauth2/authorize?client_id=${app.id}&scope=applications.commands+bot&permissions=0`
+      `https://discord.com/oauth2/authorize?client_id=${app.id}&scope=applications.commands+bot&permissions=0`,
   );
 }
 

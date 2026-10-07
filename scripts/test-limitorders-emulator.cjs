@@ -67,93 +67,238 @@ async function main() {
   const prices = marketSnap.data().prices || {};
 
   // Pick 6 distinct non-ETF, non-IPO tickers so each scenario's price math is isolated
-  const usable = Object.keys(prices).filter(t => {
+  const usable = Object.keys(prices).filter((t) => {
     const c = CHARACTER_MAP[t];
     return c && !c.isETF && !c.ipoRequired && prices[t] > 1;
   });
   if (usable.length < 7) throw new Error(`Only ${usable.length} usable tickers — re-seed the emulator`);
   const [T_BUY, T_SELL, T_STOP, T_DEFER, T_LIMITCAP, T_THROTTLE, T_LOYAL] = usable;
   const P = (t) => prices[t];
-  console.log(`Tickers: buy=${T_BUY}($${P(T_BUY)}) sell=${T_SELL}($${P(T_SELL)}) stop=${T_STOP} defer=${T_DEFER} cap=${T_LIMITCAP} throttle=${T_THROTTLE}`);
+  console.log(
+    `Tickers: buy=${T_BUY}($${P(T_BUY)}) sell=${T_SELL}($${P(T_SELL)}) stop=${T_STOP} defer=${T_DEFER} cap=${T_LIMITCAP} throttle=${T_THROTTLE}`,
+  );
 
   // ── Seed users ─────────────────────────────────────────────────────────
   const now = Date.now();
-  const tenRecentBuys = Array.from({ length: MAX_TRADES_PER_TICKER_24H }, () => ({ ts: now - 60000, shares: 1, impact: 0.001 }));
+  const tenRecentBuys = Array.from({ length: MAX_TRADES_PER_TICKER_24H }, () => ({
+    ts: now - 60000,
+    shares: 1,
+    impact: 0.001,
+  }));
   const users = {
-    lo_buyer:      { cash: 100000, holdings: {} },
+    lo_buyer: { cash: 100000, holdings: {} },
     // Seeded WITH a lot ledger on purpose: without one, "the lot is gone after
     // the sale" passes whether or not the sell lane maintains the ledger. The
     // lot is brand new (nothing matured), so it earns no exit-loyalty discount
     // and the bid-price check below stays a pure test of the fill math.
-    lo_seller:     { cash: 0, holdings: { [T_SELL]: 30 },
-      holdingCohorts: { [T_SELL]: { eligible: 0, pending: [{ shares: 30, availableAt: now + DIVIDEND_HOLD_MS }] } } },
-    lo_stopper:    { cash: 0, holdings: { [T_STOP]: 20 } },
-    lo_deferrer:   { cash: 100000, holdings: {} },
-    lo_walled:     { cash: 100000, holdings: {}, requiresDiscordLink: true },
+    lo_seller: {
+      cash: 0,
+      holdings: { [T_SELL]: 30 },
+      holdingCohorts: { [T_SELL]: { eligible: 0, pending: [{ shares: 30, availableAt: now + DIVIDEND_HOLD_MS }] } },
+    },
+    lo_stopper: { cash: 0, holdings: { [T_STOP]: 20 } },
+    lo_deferrer: { cash: 100000, holdings: {} },
+    lo_walled: { cash: 100000, holdings: {}, requiresDiscordLink: true },
     // Banned AFTER placing the order: createLimitOrder blocks new orders, but
     // orders already on the book used to keep filling every cycle.
-    lo_banned:     { cash: 100000, holdings: { [T_BUY]: 50 }, isBanned: true },
-    lo_bankrupt:   { cash: 5000, holdings: {}, isBankrupt: true },
-    lo_expired:    { cash: 5000, holdings: {} },
-    lo_shorter:    { cash: 5000, holdings: {} },
-    lo_ipoBuyer:   { cash: 5000, holdings: {} },
-    lo_capped:     { cash: 100000, holdings: {}, tickerTradeHistory: { [T_LIMITCAP]: { buy: tenRecentBuys } } },
+    lo_banned: { cash: 100000, holdings: { [T_BUY]: 50 }, isBanned: true },
+    lo_bankrupt: { cash: 5000, holdings: {}, isBankrupt: true },
+    lo_expired: { cash: 5000, holdings: {} },
+    lo_shorter: { cash: 5000, holdings: {} },
+    lo_ipoBuyer: { cash: 5000, holdings: {} },
+    lo_capped: { cash: 100000, holdings: {}, tickerTradeHistory: { [T_LIMITCAP]: { buy: tenRecentBuys } } },
     // 10 held, 6 locked by an "IPO lockup" that started after the order was placed
-    lo_lockedHard: { cash: 0, holdings: { [T_SELL]: 10 }, ipoLockup: { [T_SELL]: { shares: 6, until: now + 3600000 } } },
-    lo_lockedSoft: { cash: 0, holdings: { [T_STOP]: 10 }, marginLockup: { [T_STOP]: { shares: 6, until: now + 3600000 } } },
+    lo_lockedHard: {
+      cash: 0,
+      holdings: { [T_SELL]: 10 },
+      ipoLockup: { [T_SELL]: { shares: 6, until: now + 3600000 } },
+    },
+    lo_lockedSoft: {
+      cash: 0,
+      holdings: { [T_STOP]: 10 },
+      marginLockup: { [T_STOP]: { shares: 6, until: now + 3600000 } },
+    },
     // 8-week-old lot: the fill must price against a reduced impact while the
     // market still takes the full one.
-    lo_loyal: { cash: 0, holdings: { [T_LOYAL]: 30 },
-      holdingCohorts: { [T_LOYAL]: { eligible: 0, pending: [{ shares: 30, availableAt: now - 60 * 86400000 + DIVIDEND_HOLD_MS }] } } },
+    lo_loyal: {
+      cash: 0,
+      holdings: { [T_LOYAL]: 30 },
+      holdingCohorts: {
+        [T_LOYAL]: { eligible: 0, pending: [{ shares: 30, availableAt: now - 60 * 86400000 + DIVIDEND_HOLD_MS }] },
+      },
+    },
     lo_th1: { cash: 100000, holdings: {} },
     lo_th2: { cash: 100000, holdings: {} },
     lo_th3: { cash: 100000, holdings: {} },
     lo_th4: { cash: 100000, holdings: {} },
   };
   for (const [uid, data] of Object.entries(users)) {
-    await db.collection('users').doc(uid).set({ displayName: uid, ...data });
+    await db
+      .collection('users')
+      .doc(uid)
+      .set({ displayName: uid, ...data });
   }
 
   // ── Seed limit orders ──────────────────────────────────────────────────
   // Generous limits so triggers/fills are deterministic; tight ones where the
   // scenario needs the fill to be rejected.
   const orders = [
-    { id: 'lo_a_buy',    userId: 'lo_buyer',      ticker: T_BUY,      type: 'BUY',       shares: 10, limitPrice: round2(P(T_BUY) * 1.2) },
-    { id: 'lo_b_sell',   userId: 'lo_seller',     ticker: T_SELL,     type: 'SELL',      shares: 30, limitPrice: round2(P(T_SELL) * 0.5) },
-    { id: 'lo_c_stop',   userId: 'lo_stopper',    ticker: T_STOP,     type: 'STOP_LOSS', shares: 20, limitPrice: round2(P(T_STOP) * 1.1) }, // above current -> triggers now
-    { id: 'lo_d_defer',  userId: 'lo_deferrer',   ticker: T_DEFER,    type: 'BUY',       shares: 50, limitPrice: P(T_DEFER) }, // triggers, but ask after impact+spread > limit
-    { id: 'lo_e_wall',   userId: 'lo_walled',     ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
+    { id: 'lo_a_buy', userId: 'lo_buyer', ticker: T_BUY, type: 'BUY', shares: 10, limitPrice: round2(P(T_BUY) * 1.2) },
+    {
+      id: 'lo_b_sell',
+      userId: 'lo_seller',
+      ticker: T_SELL,
+      type: 'SELL',
+      shares: 30,
+      limitPrice: round2(P(T_SELL) * 0.5),
+    },
+    {
+      id: 'lo_c_stop',
+      userId: 'lo_stopper',
+      ticker: T_STOP,
+      type: 'STOP_LOSS',
+      shares: 20,
+      limitPrice: round2(P(T_STOP) * 1.1),
+    }, // above current -> triggers now
+    { id: 'lo_d_defer', userId: 'lo_deferrer', ticker: T_DEFER, type: 'BUY', shares: 50, limitPrice: P(T_DEFER) }, // triggers, but ask after impact+spread > limit
+    { id: 'lo_e_wall', userId: 'lo_walled', ticker: T_BUY, type: 'BUY', shares: 1, limitPrice: round2(P(T_BUY) * 1.2) },
     // Both directions: a ban must stop the queued lane whichever way it points
-    { id: 'lo_e2_banB',  userId: 'lo_banned',     ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
-    { id: 'lo_e3_banS',  userId: 'lo_banned',     ticker: T_BUY,      type: 'SELL',      shares: 50, limitPrice: round2(P(T_BUY) * 0.5) },
-    { id: 'lo_f_bank',   userId: 'lo_bankrupt',   ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
-    { id: 'lo_g_exp',    userId: 'lo_expired',    ticker: T_BUY,      type: 'BUY',       shares: 1,  limitPrice: round2(P(T_BUY) * 1.2), expiresAt: now - 1000 },
-    { id: 'lo_h_short',  userId: 'lo_shorter',    ticker: T_BUY,      type: 'SHORT',     shares: 1,  limitPrice: round2(P(T_BUY) * 1.2) },
-    { id: 'lo_i_ipo',    userId: 'lo_ipoBuyer',   ticker: IPO_TICKER, type: 'BUY',       shares: 1,  limitPrice: 10000 },
-    { id: 'lo_j_cap',    userId: 'lo_capped',     ticker: T_LIMITCAP, type: 'BUY',       shares: 1,  limitPrice: round2(P(T_LIMITCAP) * 1.2) },
-    { id: 'lo_k_lockH',  userId: 'lo_lockedHard', ticker: T_SELL,     type: 'SELL',      shares: 10, limitPrice: round2(P(T_SELL) * 0.5) },
-    { id: 'lo_l_lockS',  userId: 'lo_lockedSoft', ticker: T_STOP,     type: 'SELL',      shares: 10, limitPrice: round2(P(T_STOP) * 0.5), allowPartialFills: true },
-    { id: 'lo_q_loyal',  userId: 'lo_loyal',      ticker: T_LOYAL,    type: 'SELL',      shares: 30, limitPrice: round2(P(T_LOYAL) * 0.5) },
-    { id: 'lo_m_th1',    userId: 'lo_th1',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
-    { id: 'lo_n_th2',    userId: 'lo_th2',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
-    { id: 'lo_o_th3',    userId: 'lo_th3',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
-    { id: 'lo_p_th4',    userId: 'lo_th4',        ticker: T_THROTTLE, type: 'BUY',       shares: 2,  limitPrice: round2(P(T_THROTTLE) * 1.5) },
+    {
+      id: 'lo_e2_banB',
+      userId: 'lo_banned',
+      ticker: T_BUY,
+      type: 'BUY',
+      shares: 1,
+      limitPrice: round2(P(T_BUY) * 1.2),
+    },
+    {
+      id: 'lo_e3_banS',
+      userId: 'lo_banned',
+      ticker: T_BUY,
+      type: 'SELL',
+      shares: 50,
+      limitPrice: round2(P(T_BUY) * 0.5),
+    },
+    {
+      id: 'lo_f_bank',
+      userId: 'lo_bankrupt',
+      ticker: T_BUY,
+      type: 'BUY',
+      shares: 1,
+      limitPrice: round2(P(T_BUY) * 1.2),
+    },
+    {
+      id: 'lo_g_exp',
+      userId: 'lo_expired',
+      ticker: T_BUY,
+      type: 'BUY',
+      shares: 1,
+      limitPrice: round2(P(T_BUY) * 1.2),
+      expiresAt: now - 1000,
+    },
+    {
+      id: 'lo_h_short',
+      userId: 'lo_shorter',
+      ticker: T_BUY,
+      type: 'SHORT',
+      shares: 1,
+      limitPrice: round2(P(T_BUY) * 1.2),
+    },
+    { id: 'lo_i_ipo', userId: 'lo_ipoBuyer', ticker: IPO_TICKER, type: 'BUY', shares: 1, limitPrice: 10000 },
+    {
+      id: 'lo_j_cap',
+      userId: 'lo_capped',
+      ticker: T_LIMITCAP,
+      type: 'BUY',
+      shares: 1,
+      limitPrice: round2(P(T_LIMITCAP) * 1.2),
+    },
+    {
+      id: 'lo_k_lockH',
+      userId: 'lo_lockedHard',
+      ticker: T_SELL,
+      type: 'SELL',
+      shares: 10,
+      limitPrice: round2(P(T_SELL) * 0.5),
+    },
+    {
+      id: 'lo_l_lockS',
+      userId: 'lo_lockedSoft',
+      ticker: T_STOP,
+      type: 'SELL',
+      shares: 10,
+      limitPrice: round2(P(T_STOP) * 0.5),
+      allowPartialFills: true,
+    },
+    {
+      id: 'lo_q_loyal',
+      userId: 'lo_loyal',
+      ticker: T_LOYAL,
+      type: 'SELL',
+      shares: 30,
+      limitPrice: round2(P(T_LOYAL) * 0.5),
+    },
+    {
+      id: 'lo_m_th1',
+      userId: 'lo_th1',
+      ticker: T_THROTTLE,
+      type: 'BUY',
+      shares: 2,
+      limitPrice: round2(P(T_THROTTLE) * 1.5),
+    },
+    {
+      id: 'lo_n_th2',
+      userId: 'lo_th2',
+      ticker: T_THROTTLE,
+      type: 'BUY',
+      shares: 2,
+      limitPrice: round2(P(T_THROTTLE) * 1.5),
+    },
+    {
+      id: 'lo_o_th3',
+      userId: 'lo_th3',
+      ticker: T_THROTTLE,
+      type: 'BUY',
+      shares: 2,
+      limitPrice: round2(P(T_THROTTLE) * 1.5),
+    },
+    {
+      id: 'lo_p_th4',
+      userId: 'lo_th4',
+      ticker: T_THROTTLE,
+      type: 'BUY',
+      shares: 2,
+      limitPrice: round2(P(T_THROTTLE) * 1.5),
+    },
   ];
   for (const o of orders) {
     const { id, ...rest } = o;
-    await db.collection('limitOrders').doc(id).set({
-      allowPartialFills: false, ...rest,
-      status: 'PENDING', filledShares: 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    await db
+      .collection('limitOrders')
+      .doc(id)
+      .set({
+        allowPartialFills: false,
+        ...rest,
+        status: 'PENDING',
+        filledShares: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
   }
 
   // ── 1. Emergency halt skips everything ─────────────────────────────────
   await marketRef.update({ marketHalted: true });
   const haltRun = await runLimitOrderCheck();
-  check('emergency halt skips the run', haltRun.skipped === true && haltRun.reason === 'emergency_halt', JSON.stringify(haltRun));
+  check(
+    'emergency halt skips the run',
+    haltRun.skipped === true && haltRun.reason === 'emergency_halt',
+    JSON.stringify(haltRun),
+  );
   const stillPending = await db.collection('limitOrders').where('status', '==', 'PENDING').get();
-  check('no orders touched during halt', stillPending.size === orders.length, `${stillPending.size}/${orders.length} pending`);
+  check(
+    'no orders touched during halt',
+    stillPending.size === orders.length,
+    `${stillPending.size}/${orders.length} pending`,
+  );
   await marketRef.update({ marketHalted: false });
 
   // ── Run the real pass ──────────────────────────────────────────────────
@@ -169,23 +314,40 @@ async function main() {
   const newBuyPrice = round2(P(T_BUY) + impactBuy);
   const expectedAsk = round2(newBuyPrice * (1 + BID_ASK_SPREAD / 2));
   const a = await get('lo_a_buy');
-  check(`BUY filled at ask ($${expectedAsk})`, a.status === 'FILLED' && Math.abs(a.executedPrice - expectedAsk) < 0.011, JSON.stringify(a));
+  check(
+    `BUY filled at ask ($${expectedAsk})`,
+    a.status === 'FILLED' && Math.abs(a.executedPrice - expectedAsk) < 0.011,
+    JSON.stringify(a),
+  );
   const buyer = await getUser('lo_buyer');
-  check('BUY holdings=10 and cash deducted', buyer.holdings[T_BUY] === 10 && Math.abs(buyer.cash - (100000 - expectedAsk * 10)) < 0.25, `cash=${buyer.cash} holdings=${JSON.stringify(buyer.holdings)}`);
+  check(
+    'BUY holdings=10 and cash deducted',
+    buyer.holdings[T_BUY] === 10 && Math.abs(buyer.cash - (100000 - expectedAsk * 10)) < 0.25,
+    `cash=${buyer.cash} holdings=${JSON.stringify(buyer.holdings)}`,
+  );
   // A limit fill has to leave the same bookkeeping behind as a manual trade.
   // It did not: no lot was opened, so the next dividend run saw holdings it
   // could not account for and opened a FRESH lot — restarting the buyer's
   // 10-day dividend clock from that run instead of from this fill.
   const buyerLot = buyer.holdingCohorts?.[T_BUY];
-  check('BUY opened a dividend lot for the filled shares',
+  check(
+    'BUY opened a dividend lot for the filled shares',
     !!buyerLot && (buyerLot.pending || []).reduce((s, p) => s + p.shares, 0) === 10,
-    JSON.stringify(buyerLot));
+    JSON.stringify(buyerLot),
+  );
   // The 45-second hold gate. executeTrade and the pre-market auction both stamp
   // this; the limit lane was the one way to acquire shares without it.
-  check('BUY stamped lastBuyTime (45s hold gate applies)',
-    !!buyer.lastBuyTime?.[T_BUY], JSON.stringify(buyer.lastBuyTime || null));
+  check(
+    'BUY stamped lastBuyTime (45s hold gate applies)',
+    !!buyer.lastBuyTime?.[T_BUY],
+    JSON.stringify(buyer.lastBuyTime || null),
+  );
   const postMarket = (await marketRef.get()).data().prices;
-  check(`market price moved up by impact ($${P(T_BUY)} -> $${newBuyPrice})`, Math.abs(postMarket[T_BUY] - newBuyPrice) < 0.011, `got ${postMarket[T_BUY]}`);
+  check(
+    `market price moved up by impact ($${P(T_BUY)} -> $${newBuyPrice})`,
+    Math.abs(postMarket[T_BUY] - newBuyPrice) < 0.011,
+    `got ${postMarket[T_BUY]}`,
+  );
 
   // ── 3. Deferred BUY (ask exceeds limit) stays PENDING ──────────────────
   const d = await get('lo_d_defer');
@@ -196,54 +358,110 @@ async function main() {
   const newSellPrice = round2(Math.max(0.01, P(T_SELL) - impactSell));
   const expectedBid = round2(newSellPrice * (1 - BID_ASK_SPREAD / 2));
   const b = await get('lo_b_sell');
-  check(`SELL filled at bid ($${expectedBid})`, b.status === 'FILLED' && Math.abs(b.executedPrice - expectedBid) < 0.011, JSON.stringify(b));
+  check(
+    `SELL filled at bid ($${expectedBid})`,
+    b.status === 'FILLED' && Math.abs(b.executedPrice - expectedBid) < 0.011,
+    JSON.stringify(b),
+  );
   const seller = await getUser('lo_seller');
-  check('SELL position cleared and cash credited', !seller.holdings?.[T_SELL] && seller.cash > 0, `cash=${seller.cash}`);
+  check(
+    'SELL position cleared and cash credited',
+    !seller.holdings?.[T_SELL] && seller.cash > 0,
+    `cash=${seller.cash}`,
+  );
   // Closing the position drops the lot ledger with it. While this lane left the
   // ledger behind, the matured lots survived the sale and handed the seller's
   // NEXT sell an exit-loyalty discount on shares they no longer owned.
-  check('SELL dropped the dividend lot with the position',
+  check(
+    'SELL dropped the dividend lot with the position',
     seller.holdingCohorts?.[T_SELL] === undefined,
-    JSON.stringify(seller.holdingCohorts?.[T_SELL] ?? null));
+    JSON.stringify(seller.holdingCohorts?.[T_SELL] ?? null),
+  );
 
   // ── 5. STOP_LOSS fills even below its limit ────────────────────────────
   const c = await get('lo_c_stop');
-  check('STOP_LOSS filled (exempt from bid>=limit rule)', c.status === 'FILLED' && c.filledShares === 20, JSON.stringify(c));
+  check(
+    'STOP_LOSS filled (exempt from bid>=limit rule)',
+    c.status === 'FILLED' && c.filledShares === 20,
+    JSON.stringify(c),
+  );
 
   // ── 6-11. Cancellations ────────────────────────────────────────────────
   const e = await get('lo_e_wall');
-  check('walled user order CANCELED', e.status === 'CANCELED' && /Discord/.test(e.cancelReason || ''), JSON.stringify(e));
+  check(
+    'walled user order CANCELED',
+    e.status === 'CANCELED' && /Discord/.test(e.cancelReason || ''),
+    JSON.stringify(e),
+  );
   const e2 = await get('lo_e2_banB');
-  check('banned user BUY order CANCELED', e2.status === 'CANCELED' && /banned/i.test(e2.cancelReason || ''), JSON.stringify(e2));
+  check(
+    'banned user BUY order CANCELED',
+    e2.status === 'CANCELED' && /banned/i.test(e2.cancelReason || ''),
+    JSON.stringify(e2),
+  );
   const e3 = await get('lo_e3_banS');
-  check('banned user SELL order CANCELED', e3.status === 'CANCELED' && /banned/i.test(e3.cancelReason || ''), JSON.stringify(e3));
+  check(
+    'banned user SELL order CANCELED',
+    e3.status === 'CANCELED' && /banned/i.test(e3.cancelReason || ''),
+    JSON.stringify(e3),
+  );
   const bannedUser = await getUser('lo_banned');
-  check('banned user cash and holdings untouched by the sweep',
+  check(
+    'banned user cash and holdings untouched by the sweep',
     bannedUser.cash === 100000 && bannedUser.holdings[T_BUY] === 50,
-    `cash=${bannedUser.cash} holdings=${JSON.stringify(bannedUser.holdings)}`);
+    `cash=${bannedUser.cash} holdings=${JSON.stringify(bannedUser.holdings)}`,
+  );
   const bannedTrades = (await db.collection('trades').where('uid', '==', 'lo_banned').get()).size;
   check('banned user fill wrote no trade record', bannedTrades === 0, `${bannedTrades} records`);
 
   const f = await get('lo_f_bank');
-  check('bankrupt user order CANCELED', f.status === 'CANCELED' && /bankrupt/i.test(f.cancelReason || ''), JSON.stringify(f));
+  check(
+    'bankrupt user order CANCELED',
+    f.status === 'CANCELED' && /bankrupt/i.test(f.cancelReason || ''),
+    JSON.stringify(f),
+  );
   const g = await get('lo_g_exp');
   check('past-expiry order EXPIRED', g.status === 'EXPIRED', JSON.stringify(g));
   const h = await get('lo_h_short');
-  check('SHORT order CANCELED (unsupported)', h.status === 'CANCELED' && /not supported/.test(h.cancelReason || ''), JSON.stringify(h));
+  check(
+    'SHORT order CANCELED (unsupported)',
+    h.status === 'CANCELED' && /not supported/.test(h.cancelReason || ''),
+    JSON.stringify(h),
+  );
   const i = await get('lo_i_ipo');
-  check('unlaunched IPO ticker order CANCELED', i.status === 'CANCELED' && /IPO/.test(i.cancelReason || ''), JSON.stringify(i));
+  check(
+    'unlaunched IPO ticker order CANCELED',
+    i.status === 'CANCELED' && /IPO/.test(i.cancelReason || ''),
+    JSON.stringify(i),
+  );
   const j = await get('lo_j_cap');
-  check('24h trade-cap order CANCELED with Trade limit reached', j.status === 'CANCELED' && /Trade limit reached/.test(j.cancelReason || ''), JSON.stringify(j));
+  check(
+    '24h trade-cap order CANCELED with Trade limit reached',
+    j.status === 'CANCELED' && /Trade limit reached/.test(j.cancelReason || ''),
+    JSON.stringify(j),
+  );
 
   // ── 12. Fill-time lock enforcement ─────────────────────────────────────
   const k = await get('lo_k_lockH');
   check('locked shares, no partials -> DEFERRED (stays PENDING)', k.status === 'PENDING', JSON.stringify(k));
   const lockedHardUser = await getUser('lo_lockedHard');
-  check('locked-hard user still holds all 10 shares', lockedHardUser.holdings[T_SELL] === 10, JSON.stringify(lockedHardUser.holdings));
+  check(
+    'locked-hard user still holds all 10 shares',
+    lockedHardUser.holdings[T_SELL] === 10,
+    JSON.stringify(lockedHardUser.holdings),
+  );
   const l = await get('lo_l_lockS');
-  check('locked shares, partials allowed -> clamped to 4 unlocked', l.status === 'PARTIALLY_FILLED' && l.filledShares === 4, JSON.stringify(l));
+  check(
+    'locked shares, partials allowed -> clamped to 4 unlocked',
+    l.status === 'PARTIALLY_FILLED' && l.filledShares === 4,
+    JSON.stringify(l),
+  );
   const lockedSoftUser = await getUser('lo_lockedSoft');
-  check('locked-soft user keeps the 6 locked shares', lockedSoftUser.holdings[T_STOP] === 6, JSON.stringify(lockedSoftUser.holdings));
+  check(
+    'locked-soft user keeps the 6 locked shares',
+    lockedSoftUser.holdings[T_STOP] === 6,
+    JSON.stringify(lockedSoftUser.holdings),
+  );
 
   // ── 12b. Exit loyalty on a limit fill ──────────────────────────────────
   // Same rule as the regular sell path: the market takes the full impact, the
@@ -252,51 +470,74 @@ async function main() {
   // exits through.
   const impactLoyal = calculateMarginalImpact(P(T_LOYAL), 30, 0);
   const fullPriceLoyal = round2(Math.max(0.01, P(T_LOYAL) - impactLoyal));
-  const sellerMidLoyal = round2(Math.max(0.01, P(T_LOYAL) - impactLoyal * (1 - 0.40)));
+  const sellerMidLoyal = round2(Math.max(0.01, P(T_LOYAL) - impactLoyal * (1 - 0.4)));
   const expectedLoyalBid = round2(sellerMidLoyal * (1 - BID_ASK_SPREAD / 2));
   const q = await get('lo_q_loyal');
-  check(`8-week holder fills at the discounted bid ($${expectedLoyalBid})`,
-    q.status === 'FILLED' && Math.abs(q.executedPrice - expectedLoyalBid) < 0.011, JSON.stringify(q));
+  check(
+    `8-week holder fills at the discounted bid ($${expectedLoyalBid})`,
+    q.status === 'FILLED' && Math.abs(q.executedPrice - expectedLoyalBid) < 0.011,
+    JSON.stringify(q),
+  );
   const postLoyal = (await marketRef.get()).data().prices[T_LOYAL];
-  check(`market still took the FULL impact ($${P(T_LOYAL)} -> $${fullPriceLoyal})`,
-    Math.abs(postLoyal - fullPriceLoyal) < 0.011, `got ${postLoyal}, seller mid was ${sellerMidLoyal}`);
-  check('discounted fill pays more than the undiscounted one would',
+  check(
+    `market still took the FULL impact ($${P(T_LOYAL)} -> $${fullPriceLoyal})`,
+    Math.abs(postLoyal - fullPriceLoyal) < 0.011,
+    `got ${postLoyal}, seller mid was ${sellerMidLoyal}`,
+  );
+  check(
+    'discounted fill pays more than the undiscounted one would',
     expectedLoyalBid > round2(fullPriceLoyal * (1 - BID_ASK_SPREAD / 2)),
-    `${expectedLoyalBid} vs ${round2(fullPriceLoyal * (1 - BID_ASK_SPREAD / 2))}`);
+    `${expectedLoyalBid} vs ${round2(fullPriceLoyal * (1 - BID_ASK_SPREAD / 2))}`,
+  );
 
   // ── 13. Per-ticker throttle ────────────────────────────────────────────
   const th = await Promise.all(['lo_m_th1', 'lo_n_th2', 'lo_o_th3', 'lo_p_th4'].map(get));
-  const thFilled = th.filter(o => o.status === 'FILLED').length;
-  const thPending = th.filter(o => o.status === 'PENDING').length;
-  check('per-ticker throttle: exactly 3 filled, 1 deferred', thFilled === 3 && thPending === 1, th.map(o => o.status).join(','));
+  const thFilled = th.filter((o) => o.status === 'FILLED').length;
+  const thPending = th.filter((o) => o.status === 'PENDING').length;
+  check(
+    'per-ticker throttle: exactly 3 filled, 1 deferred',
+    thFilled === 3 && thPending === 1,
+    th.map((o) => o.status).join(','),
+  );
 
   // ── 14. Fills write trade records ──────────────────────────────────────
   // These fills used to move money without leaving anything in the trades
   // collection, so they were invisible in the player's own trade history and in
   // the daily/weekly market reports.
-  const tradesFor = async (uid) => (await db.collection('trades').where('uid', '==', uid).get()).docs.map(x => x.data());
+  const tradesFor = async (uid) =>
+    (await db.collection('trades').where('uid', '==', uid).get()).docs.map((x) => x.data());
 
   const buyTrades = await tradesFor('lo_buyer');
   const buyTrade = buyTrades[0] || {};
-  check('BUY fill wrote one trade record',
+  check(
+    'BUY fill wrote one trade record',
     buyTrades.length === 1 && buyTrade.action === 'buy' && buyTrade.amount === 10,
-    JSON.stringify(buyTrades));
-  check('BUY record tagged source=limit with matching price',
+    JSON.stringify(buyTrades),
+  );
+  check(
+    'BUY record tagged source=limit with matching price',
     buyTrade.source === 'limit' && Math.abs((buyTrade.price || 0) - expectedAsk) < 0.011,
-    JSON.stringify(buyTrade));
-  check('BUY record carries cashAfter (portfolio rebuild needs it)',
+    JSON.stringify(buyTrade),
+  );
+  check(
+    'BUY record carries cashAfter (portfolio rebuild needs it)',
     typeof buyTrade.cashAfter === 'number' && Math.abs(buyTrade.cashAfter - buyer.cash) < 0.25,
-    `record=${buyTrade.cashAfter} user=${buyer.cash}`);
+    `record=${buyTrade.cashAfter} user=${buyer.cash}`,
+  );
 
   const sellTrades = await tradesFor('lo_seller');
-  check('SELL fill wrote a sell record tagged source=limit',
+  check(
+    'SELL fill wrote a sell record tagged source=limit',
     sellTrades.length === 1 && sellTrades[0].action === 'sell' && sellTrades[0].source === 'limit',
-    JSON.stringify(sellTrades));
+    JSON.stringify(sellTrades),
+  );
 
   const stopTrades = await tradesFor('lo_stopper');
-  check('STOP_LOSS fill tagged source=stop_loss, not limit',
+  check(
+    'STOP_LOSS fill tagged source=stop_loss, not limit',
     stopTrades.length === 1 && stopTrades[0].source === 'stop_loss' && stopTrades[0].action === 'sell',
-    JSON.stringify(stopTrades));
+    JSON.stringify(stopTrades),
+  );
 
   const deferredTrades = await tradesFor('lo_deferrer');
   check('deferred order wrote no trade record', deferredTrades.length === 0, JSON.stringify(deferredTrades));
@@ -307,28 +548,37 @@ async function main() {
   const tradeCountBefore = (await db.collection('trades').get()).size;
   const firstPass = await runFillBackfill();
   const afterFirst = (await db.collection('trades').get()).size;
-  check('backfill skips fills already recorded live',
+  check(
+    'backfill skips fills already recorded live',
     afterFirst === tradeCountBefore && firstPass.limitOrders.written === 0,
-    `${tradeCountBefore} -> ${afterFirst}, ${JSON.stringify(firstPass)}`);
-  check('buyer still has exactly one record after backfill',
-    (await tradesFor('lo_buyer')).length === 1, 'duplicate written');
+    `${tradeCountBefore} -> ${afterFirst}, ${JSON.stringify(firstPass)}`,
+  );
+  check(
+    'buyer still has exactly one record after backfill',
+    (await tradesFor('lo_buyer')).length === 1,
+    'duplicate written',
+  );
 
   // An old fill with no record: strip the live one, then the backfill restores it.
   const legacy = (await db.collection('trades').where('uid', '==', 'lo_seller').get()).docs[0];
   await legacy.ref.delete();
   const secondPass = await runFillBackfill();
   const restored = await tradesFor('lo_seller');
-  check('backfill restores a fill that has no record',
+  check(
+    'backfill restores a fill that has no record',
     secondPass.limitOrders.written === 1 && restored.length === 1 && restored[0].source === 'limit',
-    JSON.stringify(restored));
+    JSON.stringify(restored),
+  );
   const thirdPass = await runFillBackfill();
-  check('re-running after a backfill adds nothing',
+  check(
+    're-running after a backfill adds nothing',
     thirdPass.limitOrders.written === 0 && (await tradesFor('lo_seller')).length === 1,
-    JSON.stringify(thirdPass));
+    JSON.stringify(thirdPass),
+  );
 
   // ── 16. Only the intentional deferrals remain PENDING ──────────────────
   const leftover = await db.collection('limitOrders').where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']).get();
-  const leftoverIds = leftover.docs.map(x => x.id).sort();
+  const leftoverIds = leftover.docs.map((x) => x.id).sort();
   // Expected: lo_d_defer, lo_k_lockH, one throttled order. lo_l_lockS stays
   // PARTIALLY_FILLED (6 locked shares outstanding) by design.
   check('exactly the intentional deferrals remain live', leftover.size === 4, leftoverIds.join(','));
@@ -338,10 +588,10 @@ async function main() {
   // member through a limit order left the fund sitting still. Run this as its
   // own isolated pass so no other scenario's fill pollutes the ETF price.
   const etfCase = (() => {
-    for (const etf of CHARACTERS.filter(c => c.isETF && c.trailingFactors?.length && prices[c.ticker] > 0)) {
+    for (const etf of CHARACTERS.filter((c) => c.isETF && c.trailingFactors?.length && prices[c.ticker] > 0)) {
       // A member with no trailingFactors of its own keeps the expected move
       // exact — nothing else can reach the fund in the same pass.
-      const member = etf.trailingFactors.find(tf => {
+      const member = etf.trailingFactors.find((tf) => {
         const c = CHARACTER_MAP[tf.ticker];
         return c && !c.isETF && !c.ipoRequired && !c.trailingFactors && prices[tf.ticker] > 1;
       });
@@ -352,12 +602,20 @@ async function main() {
   if (!etfCase) throw new Error('No ETF/constituent pair available — re-seed the emulator');
 
   await db.collection('users').doc('lo_etf').set({ displayName: 'lo_etf', cash: 100000, holdings: {} });
-  await db.collection('limitOrders').doc('lo_r_etf').set({
-    userId: 'lo_etf', ticker: etfCase.member.ticker, type: 'BUY', shares: 10,
-    limitPrice: round2(prices[etfCase.member.ticker] * 1.5),
-    allowPartialFills: false, status: 'PENDING', filledShares: 0,
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
-  });
+  await db
+    .collection('limitOrders')
+    .doc('lo_r_etf')
+    .set({
+      userId: 'lo_etf',
+      ticker: etfCase.member.ticker,
+      type: 'BUY',
+      shares: 10,
+      limitPrice: round2(prices[etfCase.member.ticker] * 1.5),
+      allowPartialFills: false,
+      status: 'PENDING',
+      filledShares: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
   const before = (await marketRef.get()).data().prices;
   await runLimitOrderCheck();
@@ -370,16 +628,21 @@ async function main() {
   const stockChange = (after[mT] - before[mT]) / before[mT];
   const expectedEtf = round2(before[eT] * (1 + stockChange * etfCase.member.coefficient));
   check(`parent ETF ${eT} trailed the fill`, after[eT] > before[eT], `${before[eT]} -> ${after[eT]}`);
-  check(`${eT} moved by its trailing coefficient (${etfCase.member.coefficient})`,
-    Math.abs(after[eT] - expectedEtf) < 0.011, `expected ~${expectedEtf}, got ${after[eT]}`);
+  check(
+    `${eT} moved by its trailing coefficient (${etfCase.member.coefficient})`,
+    Math.abs(after[eT] - expectedEtf) < 0.011,
+    `expected ~${expectedEtf}, got ${after[eT]}`,
+  );
 
   // The trailing move must also be charged to the filler's daily impact
   // allowance, or a limit order is a free way to push a fund around.
   const etfHistory = (await db.collection('users').doc('lo_etf').get()).data().tickerTradeHistory || {};
   const etfEntries = etfHistory[eT]?.buy || [];
-  check(`${eT} trailing impact charged to the filler`,
+  check(
+    `${eT} trailing impact charged to the filler`,
     etfEntries.length === 1 && etfEntries[0].shares === 0 && etfEntries[0].impact > 0,
-    JSON.stringify(etfEntries));
+    JSON.stringify(etfEntries),
+  );
 
   // ── 18. Network (IP) rules reach queued orders ──────────────────────────
   // Until 2026-09-28 a limit order never looked at the connection that placed
@@ -391,20 +654,35 @@ async function main() {
   const netNow = Date.now();
   const netOrder = async (id, uid, ticker, net) => {
     await db.collection('users').doc(uid).set({ displayName: uid, cash: 100000, holdings: {} });
-    await db.collection('limitOrders').doc(id).set({
-      userId: uid, ticker, type: 'BUY', shares: 2, limitPrice: round2(prices[ticker] * 1.5),
-      allowPartialFills: false, status: 'PENDING', filledShares: 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    await db
+      .collection('limitOrders')
+      .doc(id)
+      .set({
+        userId: uid,
+        ticker,
+        type: 'BUY',
+        shares: 2,
+        limitPrice: round2(prices[ticker] * 1.5),
+        allowPartialFills: false,
+        status: 'PENDING',
+        filledShares: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     await db.collection('orderOrigins').doc(id).set({ uid, ipKey: net, createdAt: netNow });
   };
   // Two other accounts already bought from this connection in the last hour.
-  await db.collection('ipTracking').doc('net_full').set({ recentTraders: { ringA: netNow - 60000, ringB: netNow - 60000 } });
+  await db
+    .collection('ipTracking')
+    .doc('net_full')
+    .set({ recentTraders: { ringA: netNow - 60000, ringB: netNow - 60000 } });
   await netOrder('lo_s_netfull', 'lo_ring3', T_NETFULL, 'net_full');
   // The connection has already spent its whole upward allowance on this ticker.
-  await db.collection('ipTracking').doc('net_capped').set({
-    tickerTradeHistory: { [T_NETCAP]: { buy: [{ ts: netNow - 60000, shares: 5, impact: 0.10 }] } },
-  });
+  await db
+    .collection('ipTracking')
+    .doc('net_capped')
+    .set({
+      tickerTradeHistory: { [T_NETCAP]: { buy: [{ ts: netNow - 60000, shares: 5, impact: 0.1 }] } },
+    });
   await netOrder('lo_t_netcap', 'lo_netcap', T_NETCAP, 'net_capped');
   await netOrder('lo_u_netok', 'lo_netok', T_NETOK, 'net_clean');
 
@@ -413,19 +691,33 @@ async function main() {
   const netAfter = (await marketRef.get()).data().prices;
   const orderStatus = async (id) => (await db.collection('limitOrders').doc(id).get()).data().status;
 
-  check('third account on a full connection is deferred, not filled',
-    (await orderStatus('lo_s_netfull')) === 'PENDING', await orderStatus('lo_s_netfull'));
-  check('connection at its daily allowance: order still fills',
-    (await orderStatus('lo_t_netcap')) === 'FILLED', await orderStatus('lo_t_netcap'));
-  check('connection at its daily allowance: fill does not move the price',
-    netAfter[T_NETCAP] === netBefore[T_NETCAP], `${netBefore[T_NETCAP]} -> ${netAfter[T_NETCAP]}`);
-  check('order on a clean connection fills and moves the price',
+  check(
+    'third account on a full connection is deferred, not filled',
+    (await orderStatus('lo_s_netfull')) === 'PENDING',
+    await orderStatus('lo_s_netfull'),
+  );
+  check(
+    'connection at its daily allowance: order still fills',
+    (await orderStatus('lo_t_netcap')) === 'FILLED',
+    await orderStatus('lo_t_netcap'),
+  );
+  check(
+    'connection at its daily allowance: fill does not move the price',
+    netAfter[T_NETCAP] === netBefore[T_NETCAP],
+    `${netBefore[T_NETCAP]} -> ${netAfter[T_NETCAP]}`,
+  );
+  check(
+    'order on a clean connection fills and moves the price',
     (await orderStatus('lo_u_netok')) === 'FILLED' && netAfter[T_NETOK] > netBefore[T_NETOK],
-    `${await orderStatus('lo_u_netok')} ${netBefore[T_NETOK]} -> ${netAfter[T_NETOK]}`);
+    `${await orderStatus('lo_u_netok')} ${netBefore[T_NETOK]} -> ${netAfter[T_NETOK]}`,
+  );
   const cleanNet = (await db.collection('ipTracking').doc('net_clean').get()).data() || {};
-  check('the fill is written to the connection\'s shared history',
-    (cleanNet.tickerTradeHistory?.[T_NETOK]?.buy || []).length === 1 && typeof cleanNet.recentTraders?.lo_netok === 'number',
-    JSON.stringify(cleanNet));
+  check(
+    "the fill is written to the connection's shared history",
+    (cleanNet.tickerTradeHistory?.[T_NETOK]?.buy || []).length === 1 &&
+      typeof cleanNet.recentTraders?.lo_netok === 'number',
+    JSON.stringify(cleanNet),
+  );
 
   // Placement: a BUY takes one of the connection's slots, a third account is refused.
   const { claimNetworkForOrder } = require('../functions/services/orderNetwork');
@@ -435,17 +727,27 @@ async function main() {
   let placementRefused = null;
   try {
     await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_c', isBuy: true });
-  } catch (err) { placementRefused = err.message; }
-  check('third account placing a buy from one connection is refused',
-    /Too many accounts/.test(placementRefused || ''), String(placementRefused));
+  } catch (err) {
+    placementRefused = err.message;
+  }
+  check(
+    'third account placing a buy from one connection is refused',
+    /Too many accounts/.test(placementRefused || ''),
+    String(placementRefused),
+  );
   let exitRefused = null;
   try {
     await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_c', isBuy: false });
-  } catch (err) { exitRefused = err.message; }
+  } catch (err) {
+    exitRefused = err.message;
+  }
   check('a sell order from that connection is still allowed', exitRefused === null, String(exitRefused));
 
   console.log(failures === 0 ? '\nALL LIMIT-ORDER E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => { console.error('Test crashed:', err); process.exit(1); });
+main().catch((err) => {
+  console.error('Test crashed:', err);
+  process.exit(1);
+});

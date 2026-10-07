@@ -15,7 +15,7 @@ export function useLadderAnimation({ setDisplayBalance }) {
   // Cleanup all timeout refs on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
-      animationTimeoutsRef.current.forEach(id => clearTimeout(id));
+      animationTimeoutsRef.current.forEach((id) => clearTimeout(id));
       animationTimeoutsRef.current = [];
     };
   }, []);
@@ -78,7 +78,7 @@ export function useLadderAnimation({ setDisplayBalance }) {
     if (!tracksRef.current) return;
 
     const elements = tracksRef.current.querySelectorAll('.ladder-rung, .ladder-path-segment');
-    elements.forEach(el => el.remove());
+    elements.forEach((el) => el.remove());
 
     // Clear button classes
     const leftBtn = document.getElementById('leftXBtn');
@@ -103,7 +103,13 @@ export function useLadderAnimation({ setDisplayBalance }) {
     setActiveResult(null);
   };
 
-  const animatePath = createAnimatePath({ tracksRef, trackTimeout, setActiveButton, setActiveResult, setDisplayBalance });
+  const animatePath = createAnimatePath({
+    tracksRef,
+    trackTimeout,
+    setActiveButton,
+    setActiveResult,
+    setDisplayBalance,
+  });
 
   return { tracksRef, activeButton, activeResult, trackTimeout, createRungs, revealRungs, animatePath, clearLadder };
 }

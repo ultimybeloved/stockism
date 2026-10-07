@@ -15,9 +15,17 @@ describe('buildRow', () => {
   const prices = { GAP: 100, SHNG: 50 };
 
   it('records net equity and the biggest holding', () => {
-    const r = buildRow('u1', {
-      displayName: 'One', cash: 1000, holdings: { GAP: 10, SHNG: 20 }, marginUsed: 500, grantedValue: 250,
-    }, prices);
+    const r = buildRow(
+      'u1',
+      {
+        displayName: 'One',
+        cash: 1000,
+        holdings: { GAP: 10, SHNG: 20 },
+        marginUsed: 500,
+        grantedValue: 250,
+      },
+      prices,
+    );
     expect(r.v).toBe(2500); // 1000 cash + 1000 + 1000 holdings - 500 loan
     expect(r.c).toBe(1000);
     expect(r.h).toBe(2000);
@@ -88,9 +96,21 @@ describe('scoreDryRuns', () => {
     // Fourteen on the board, so there are two Platinum places and one Diamond.
     // The twelve fillers go nowhere, which is what leaves the places to be won.
     const fillers = Array.from({ length: 12 }, (_, i) => row(`f${i}`, 10000 + i, { c: 1000, h: 10000 }));
-    const rows1 = [row('sitter', 10000, { c: 10000, h: 10000 }), row('spread', 10000, { c: 4000, h: 10000 }), ...fillers];
-    const rows2 = [row('sitter', 30000, { c: 10000, h: 10000 }), row('spread', 15000, { c: 4000, h: 10000 }), ...fillers];
-    const rows3 = [row('sitter', 40000, { c: 10000, h: 10000 }), row('spread', 20000, { c: 4000, h: 10000 }), ...fillers];
+    const rows1 = [
+      row('sitter', 10000, { c: 10000, h: 10000 }),
+      row('spread', 10000, { c: 4000, h: 10000 }),
+      ...fillers,
+    ];
+    const rows2 = [
+      row('sitter', 30000, { c: 10000, h: 10000 }),
+      row('spread', 15000, { c: 4000, h: 10000 }),
+      ...fillers,
+    ];
+    const rows3 = [
+      row('sitter', 40000, { c: 10000, h: 10000 }),
+      row('spread', 20000, { c: 4000, h: 10000 }),
+      ...fillers,
+    ];
     const out = scoreDryRuns([week('w1', 1, 1000, rows1), week('w2', 2, 1000, rows2), week('w3', 3, 1000, rows3)]);
     const tier = (uid) => out.scored.find((p) => p.uid === uid).tier;
     expect(tier('sitter')).toBe('platinum');
@@ -108,10 +128,7 @@ describe('scoreDryRuns', () => {
   });
 
   it('reads reports in any order and reports the market move', () => {
-    const out = scoreDryRuns([
-      week('w2', 2, 1100, [row('a', 11000)]),
-      week('w1', 1, 1000, [row('a', 10000)]),
-    ]);
+    const out = scoreDryRuns([week('w2', 2, 1100, [row('a', 11000)]), week('w1', 1, 1000, [row('a', 10000)])]);
     expect(out.from).toBe('w1');
     expect(out.to).toBe('w2');
     expect(out.marketPercent).toBe(10);

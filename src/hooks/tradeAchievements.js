@@ -18,7 +18,11 @@ export const checkAndAwardAchievements = async () => {
 
 export const sendAchievementAlert = (id, achievement) => {
   try {
-    achievementAlertFunction({ achievementId: id, achievementName: achievement.name, achievementDescription: achievement.description }).catch((e) => Sentry.captureException(e));
+    achievementAlertFunction({
+      achievementId: id,
+      achievementName: achievement.name,
+      achievementDescription: achievement.description,
+    }).catch((e) => Sentry.captureException(e));
   } catch (e) {
     Sentry.captureException(e);
   }

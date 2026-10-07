@@ -9,12 +9,12 @@ const RETRY_LIMIT = 3;
 const RETRY_DELAY_MS = 15000;
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getFunctionNames() {
   const servicesDir = path.join(__dirname, '..', 'functions', 'services');
-  const files = fs.readdirSync(servicesDir).filter(f => f.endsWith('.js'));
+  const files = fs.readdirSync(servicesDir).filter((f) => f.endsWith('.js'));
   const names = new Set();
 
   for (const file of files) {
@@ -52,10 +52,11 @@ function runDeploy(only) {
   return new Promise((resolve) => {
     const child = spawn(`firebase deploy --only "${only}"`, { shell: true });
     let output = '';
-    const tap = (stream, target) => stream.on('data', (chunk) => {
-      target.write(chunk);
-      output += chunk.toString();
-    });
+    const tap = (stream, target) =>
+      stream.on('data', (chunk) => {
+        target.write(chunk);
+        output += chunk.toString();
+      });
     tap(child.stdout, process.stdout);
     tap(child.stderr, process.stderr);
     child.on('close', (code) => resolve({ code: code === null ? 1 : code, output }));
@@ -81,7 +82,7 @@ async function deployBatch(names, batchNum, total) {
 
   let pending = [...names];
   for (let attempt = 1; attempt <= RETRY_LIMIT; attempt++) {
-    const only = pending.map(n => `functions:${n}`).join(',');
+    const only = pending.map((n) => `functions:${n}`).join(',');
     const { code, output } = await runDeploy(only);
     const refused = failedFunctions(output);
 
@@ -102,7 +103,9 @@ async function deployBatch(names, batchNum, total) {
     }
 
     if (attempt < RETRY_LIMIT) {
-      console.log(`[Batch ${batchNum}/${total}] Retrying ${pending.length} in ${RETRY_DELAY_MS / 1000}s (attempt ${attempt}/${RETRY_LIMIT})...`);
+      console.log(
+        `[Batch ${batchNum}/${total}] Retrying ${pending.length} in ${RETRY_DELAY_MS / 1000}s (attempt ${attempt}/${RETRY_LIMIT})...`,
+      );
       await sleep(RETRY_DELAY_MS);
     } else {
       console.error(`[Batch ${batchNum}/${total}] FAILED after ${RETRY_LIMIT} attempts: ${pending.join(', ')}`);
@@ -123,13 +126,15 @@ function requestedNames(allNames) {
   if (flag === -1) return allNames;
 
   const asked = (process.argv[flag + 1] || '')
-    .split(',').map(s => s.trim().replace(/^functions:/, '')).filter(Boolean);
+    .split(',')
+    .map((s) => s.trim().replace(/^functions:/, ''))
+    .filter(Boolean);
   if (asked.length === 0) {
     console.error('--only needs a comma-separated list of function names');
     process.exit(1);
   }
 
-  const unknown = asked.filter(n => !allNames.includes(n));
+  const unknown = asked.filter((n) => !allNames.includes(n));
   if (unknown.length > 0) {
     console.error(`Unknown function name(s): ${unknown.join(', ')}`);
     console.error('Check spelling against functions/services/*.js exports.');
@@ -159,7 +164,7 @@ async function main() {
 
   const failed = [];
   for (let i = 0; i < batches.length; i++) {
-    failed.push(...await deployBatch(batches[i], i + 1, batches.length));
+    failed.push(...(await deployBatch(batches[i], i + 1, batches.length)));
   }
 
   console.log('\n=== Deploy Summary ===');
@@ -180,5 +185,8 @@ async function main() {
 module.exports = { failedFunctions };
 
 if (require.main === module) {
-  main().catch(err => { console.error(err); process.exit(1); });
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 }

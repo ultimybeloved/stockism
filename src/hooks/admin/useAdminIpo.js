@@ -20,17 +20,17 @@ export function useAdminIpo({ showMessage, setLoading }) {
 
   // Characters eligible for IPO: those with ipoRequired flag OR not yet in the market
   // We'll track which characters have completed IPOs in Firestore
-  const ipoEligibleCharacters = CHARACTERS.filter(c => {
+  const ipoEligibleCharacters = CHARACTERS.filter((c) => {
     // Check if there's already an active IPO for this character
-    const hasActiveIPO = activeIPOs.some(ipo => ipo.ticker === c.ticker && !ipo.priceJumped);
+    const hasActiveIPO = activeIPOs.some((ipo) => ipo.ticker === c.ticker && !ipo.priceJumped);
     if (hasActiveIPO) return false;
-    
+
     // Check if character has ipoRequired flag (new characters)
     if (c.ipoRequired) return true;
-    
+
     // Don't show characters that have already completed IPO or are established
     if (completedIPOTickers.includes(c.ticker)) return false;
-    
+
     // For now, only show characters explicitly marked as needing IPO
     return c.ipoRequired === true;
   });
@@ -44,7 +44,7 @@ export function useAdminIpo({ showMessage, setLoading }) {
         const list = snap.data().list || [];
         setActiveIPOs(list);
         // Track which tickers have completed IPOs
-        const completed = list.filter(ipo => ipo.priceJumped).map(ipo => ipo.ticker);
+        const completed = list.filter((ipo) => ipo.priceJumped).map((ipo) => ipo.ticker);
         setCompletedIPOTickers(completed);
       } else {
         setActiveIPOs([]);
@@ -69,9 +69,9 @@ export function useAdminIpo({ showMessage, setLoading }) {
     try {
       const ipoRef = doc(db, 'market', 'ipos');
       const snap = await getDoc(ipoRef);
-      const currentList = snap.exists() ? (snap.data().list || []) : [];
+      const currentList = snap.exists() ? snap.data().list || [] : [];
 
-      const ipoEndsAt = ipoStartsAt + (ipoDurationHours * 60 * 60 * 1000);
+      const ipoEndsAt = ipoStartsAt + ipoDurationHours * 60 * 60 * 1000;
 
       const newIPO = {
         ticker: ipoTicker,
@@ -82,16 +82,16 @@ export function useAdminIpo({ showMessage, setLoading }) {
         totalShares: ipoTotalShares,
         maxPerUser: ipoMaxPerUser,
         priceJumped: false,
-        createdAt: now
+        createdAt: now,
       };
 
       if (snap.exists()) {
         await updateDoc(ipoRef, {
-          list: [...currentList, newIPO]
+          list: [...currentList, newIPO],
         });
       } else {
         await setDoc(ipoRef, {
-          list: [newIPO]
+          list: [newIPO],
         });
       }
 
@@ -105,14 +105,17 @@ export function useAdminIpo({ showMessage, setLoading }) {
           startsAt: ipoStartsAt,
           endsAt: ipoEndsAt,
           totalShares: ipoTotalShares,
-          maxPerUser: ipoMaxPerUser
+          maxPerUser: ipoMaxPerUser,
         });
       } catch (discordErr) {
         console.error('Failed to send IPO announcement to Discord:', discordErr);
         // Don't block IPO creation if Discord fails
       }
 
-      showMessage('success', `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatDateTime(ipoStartsAt)}`);
+      showMessage(
+        'success',
+        `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatDateTime(ipoStartsAt)}`,
+      );
       setIpoTicker('');
       loadIPOs();
     } catch (err) {
@@ -125,14 +128,14 @@ export function useAdminIpo({ showMessage, setLoading }) {
   // Cancel/Delete IPO
   const handleCancelIPO = async (ticker) => {
     if (!window.confirm(`Cancel IPO for $${ticker}? This cannot be undone.`)) return;
-    
+
     setLoading(true);
     try {
       const ipoRef = doc(db, 'market', 'ipos');
       const snap = await getDoc(ipoRef);
       if (snap.exists()) {
         const currentList = snap.data().list || [];
-        const updatedList = currentList.filter(ipo => ipo.ticker !== ticker);
+        const updatedList = currentList.filter((ipo) => ipo.ticker !== ticker);
         await updateDoc(ipoRef, { list: updatedList });
         showMessage('success', `Cancelled IPO for $${ticker}`);
         loadIPOs();
@@ -149,9 +152,22 @@ export function useAdminIpo({ showMessage, setLoading }) {
   const setIpoStartToNextOpen = () => setIpoStartAtInput(toLocalInputValue(getNextMarketOpen()));
 
   return {
-    ipoTicker, setIpoTicker, ipoStartAtInput, setIpoStartAtInput,
-    setIpoStartToNow, setIpoStartToNextOpen, ipoDurationHours, setIpoDurationHours,
-    ipoTotalShares, setIpoTotalShares, ipoMaxPerUser, setIpoMaxPerUser,
-    ipoEligibleCharacters, activeIPOs, loadIPOs, handleCreateIPO, handleCancelIPO,
+    ipoTicker,
+    setIpoTicker,
+    ipoStartAtInput,
+    setIpoStartAtInput,
+    setIpoStartToNow,
+    setIpoStartToNextOpen,
+    ipoDurationHours,
+    setIpoDurationHours,
+    ipoTotalShares,
+    setIpoTotalShares,
+    ipoMaxPerUser,
+    setIpoMaxPerUser,
+    ipoEligibleCharacters,
+    activeIPOs,
+    loadIPOs,
+    handleCreateIPO,
+    handleCancelIPO,
   };
 }

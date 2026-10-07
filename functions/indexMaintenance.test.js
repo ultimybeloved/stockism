@@ -6,15 +6,17 @@ const require = createRequire(import.meta.url);
 // Pure maths, no Firestore handle. Lives at the functions root because the
 // backend lint predeploy hook parses services/ as CommonJS.
 const {
-  indexConstituents, sumRatios, sameConstituents, reconcileDivisor, computeIndexValue,
+  indexConstituents,
+  sumRatios,
+  sameConstituents,
+  reconcileDivisor,
+  computeIndexValue,
 } = require('./services/indexMaintenance');
 const { INDEX_BASE_VALUE } = require('./constants');
 
 // A small synthetic roster keeps the arithmetic checkable by hand.
-const roster = (n, base = 10) =>
-  Array.from({ length: n }, (_, i) => ({ t: `T${i}`, b: base }));
-const flat = (constituents, multiplier = 1) =>
-  Object.fromEntries(constituents.map((c) => [c.t, c.b * multiplier]));
+const roster = (n, base = 10) => Array.from({ length: n }, (_, i) => ({ t: `T${i}`, b: base }));
+const flat = (constituents, multiplier = 1) => Object.fromEntries(constituents.map((c) => [c.t, c.b * multiplier]));
 
 describe('index value', () => {
   it('reads the base value when every character sits at its base price', () => {
@@ -44,8 +46,7 @@ describe('divisor bootstrap', () => {
     const c = roster(150);
     const prices = flat(c, 1.8);
     const lastIndexValue = 1800;
-    const { divisor, adjusted, reason } =
-      reconcileDivisor({ prices, constituents: c, stored: {}, lastIndexValue });
+    const { divisor, adjusted, reason } = reconcileDivisor({ prices, constituents: c, stored: {}, lastIndexValue });
     expect(adjusted).toBe(true);
     expect(reason).toBe('bootstrap-continuous');
     expect(computeIndexValue(prices, c, divisor)).toBeCloseTo(lastIndexValue, 6);
@@ -53,8 +54,7 @@ describe('divisor bootstrap', () => {
 
   it('bootstraps to the genesis divisor when there is no history at all', () => {
     const c = roster(150);
-    const { divisor, reason } =
-      reconcileDivisor({ prices: flat(c), constituents: c, stored: {}, lastIndexValue: 0 });
+    const { divisor, reason } = reconcileDivisor({ prices: flat(c), constituents: c, stored: {}, lastIndexValue: 0 });
     expect(reason).toBe('bootstrap-genesis');
     expect(divisor).toBeCloseTo(150 / INDEX_BASE_VALUE, 9);
   });
@@ -80,8 +80,12 @@ describe('divisor on a roster change', () => {
 
   it('holds the index steady across the change', () => {
     const valueBefore = computeIndexValue(prices, before, stored.divisor);
-    const { divisor, adjusted, reason } =
-      reconcileDivisor({ prices, constituents: after, stored, lastIndexValue: valueBefore });
+    const { divisor, adjusted, reason } = reconcileDivisor({
+      prices,
+      constituents: after,
+      stored,
+      lastIndexValue: valueBefore,
+    });
     expect(adjusted).toBe(true);
     expect(reason).toBe('roster-change');
     expect(computeIndexValue(prices, after, divisor)).toBeCloseTo(valueBefore, 6);
@@ -97,8 +101,7 @@ describe('divisor on a roster change', () => {
   it('holds steady when a character LEAVES the roster too', () => {
     const valueBefore = computeIndexValue(prices, before, stored.divisor);
     const shrunk = before.slice(0, 140);
-    const { divisor, reason } =
-      reconcileDivisor({ prices, constituents: shrunk, stored, lastIndexValue: valueBefore });
+    const { divisor, reason } = reconcileDivisor({ prices, constituents: shrunk, stored, lastIndexValue: valueBefore });
     expect(reason).toBe('roster-change');
     expect(computeIndexValue(prices, shrunk, divisor)).toBeCloseTo(valueBefore, 6);
   });
@@ -115,7 +118,10 @@ describe('divisor on a roster change', () => {
 
   it('leaves the divisor alone when it cannot compute a sane rescale', () => {
     const { divisor, adjusted, reason } = reconcileDivisor({
-      prices: {}, constituents: [], stored, lastIndexValue: 1800,
+      prices: {},
+      constituents: [],
+      stored,
+      lastIndexValue: 1800,
     });
     expect(adjusted).toBe(false);
     expect(reason).toBe('degenerate-sum');
@@ -124,8 +130,12 @@ describe('divisor on a roster change', () => {
 
   it('does not adjust when the set is unchanged, whatever the order', () => {
     const shuffled = [...before].reverse();
-    const { adjusted, reason, divisor } =
-      reconcileDivisor({ prices, constituents: shuffled, stored, lastIndexValue: 1800 });
+    const { adjusted, reason, divisor } = reconcileDivisor({
+      prices,
+      constituents: shuffled,
+      stored,
+      lastIndexValue: 1800,
+    });
     expect(adjusted).toBe(false);
     expect(reason).toBe('unchanged');
     expect(divisor).toBe(stored.divisor);
