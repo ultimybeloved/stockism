@@ -21,13 +21,19 @@ import { isExpectedRejection } from './utils/errors';
  * Report a handled error that is NOT being rethrown, so silent failures surface
  * instead of vanishing. Use at any swallow point.
  *
- * @param {*} err - the caught error
- * @param {object} context - extra context, e.g. { where: 'handleBuyIPO', ticker }
+ * `context` is extra detail for the report, e.g. { where: 'handleBuyIPO', ticker }.
  */
-export function reportError(err, context = {}) {
+export interface ErrorContext {
+  where?: string;
+  [key: string]: unknown;
+}
+
+const messageOf = (err: unknown): unknown => (err as { message?: string } | null)?.message || err;
+
+export function reportError(err: unknown, context: ErrorContext = {}): void {
   const tag = context.where ? `[${context.where}] ` : '';
   try {
-    console.error(`${tag}${err?.message || err}`, context);
+    console.error(`${tag}${messageOf(err)}`, context);
   } catch {
     /* noop */
   }
@@ -47,11 +53,11 @@ export function reportError(err, context = {}) {
  * plain reportError above when a failure is known to be a fault regardless of
  * its code.
  */
-export function reportUnexpected(err, context = {}) {
+export function reportUnexpected(err: unknown, context: ErrorContext = {}): void {
   if (isExpectedRejection(err)) {
     const tag = context.where ? `[${context.where}] ` : '';
     try {
-      console.error(`${tag}${err?.message || err}`);
+      console.error(`${tag}${messageOf(err)}`);
     } catch {
       /* noop */
     }

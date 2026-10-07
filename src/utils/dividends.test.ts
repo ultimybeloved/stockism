@@ -15,7 +15,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_800_000_000_000;
 
 // A lot bought `daysAgo` days ago, as the trade path stamps it.
-const lot = (shares, daysAgo) => ({ shares, availableAt: NOW - daysAgo * DAY + DIVIDEND_HOLD_MS });
+const lot = (shares: number, daysAgo: number) => ({ shares, availableAt: NOW - daysAgo * DAY + DIVIDEND_HOLD_MS });
 
 describe('dividendMultiplierForAgeMs (loyalty ladder)', () => {
   it('pays nothing inside the 10-day hold gate', () => {
@@ -44,7 +44,7 @@ describe('dividendWeightedShares', () => {
   });
 
   it('climbs legacy eligible shares from the ladder epoch instead of granting 1.5x', () => {
-    const cohort = { eligible: 10, pending: [] };
+    const cohort = { eligible: 10, pending: [] as { shares: number; availableAt: number }[] };
     // At the epoch they are exactly 10 days old (minimum provable age): 1.0x.
     expect(dividendWeightedShares(cohort, DIVIDEND_LADDER_EPOCH)).toBe(10 * 1.0);
     // 28-day rung hits 18 days after the epoch.

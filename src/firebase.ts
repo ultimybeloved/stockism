@@ -44,7 +44,8 @@ if (!USE_EMULATOR) {
   // debug tokens. Pinning a fixed token (instead of `true`) prevents the SDK
   // from regenerating a new unregistered token on every reload.
   if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+    (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
+      import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
   }
 
   if (!import.meta.env.VITE_RECAPTCHA_SITE_KEY) {

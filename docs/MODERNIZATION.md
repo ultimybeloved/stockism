@@ -41,15 +41,16 @@ parameter, no `any` (lint rejects it), use `!` only where an index is proven in
 range. Tests convert with their subject. Add fields to `src/types/index.ts` as
 code needs them.
 
+Done also: all of `src/constants/` and `src/utils/` (except `dividends.test.js`).
+Tests typecheck under `tsconfig.test.json` (no strict null checks; implicit
+any still an error). `npm run typecheck` runs both configs.
+
 Remaining, in order:
-1. `src/constants/` (economy, seasons, cosmetics, achievements)
-2. Remaining `src/utils/` (theme, formatters, date, marketIndex, missionProgress,
-   tradeLimits, marketFilters, seasonWeeks, marketHours, calculations, profanity)
-   and `rarity.test.js` (left as JS until its subject's types settled; it can go now)
-3. `src/firebase.js`, `src/monitoring.js`, `src/context/`
-4. `src/hooks/` (incl. admin/, ladder/)
-5. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
-6. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
+1. `src/utils/dividends.test.js`
+2. `src/firebase.js`, `src/monitoring.js`, `src/context/`
+3. `src/hooks/` (incl. admin/, ladder/)
+4. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
+5. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 
 ## Phase 3: Backend restructure + TypeScript
 
