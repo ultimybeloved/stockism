@@ -8,4 +8,4 @@
 export { RARITY_ORDER, computeRarityTiers } from '../characters';
 
 /** Class name for a tier (or '' when the ticker has none, e.g. ETFs). */
-export const rarityClassFor = (tier) => (tier ? `rarity-${tier}` : '');
+export const rarityClassFor = (tier: string | null | undefined): string => (tier ? `rarity-${tier}` : '');

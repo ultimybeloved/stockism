@@ -12,19 +12,27 @@ import {
   LADDER_RAMP_DAYS,
   LADDER_RAMP_MIN_FACTOR,
 } from '../constants/economy';
+import type { TimestampLike } from '../types';
 
 // How much of the ladder deposit caps a new account has unlocked, 0..1.
 // Mirror of getLadderDepositFactor in functions/helpers.js — keep both in sync.
 // Takes createdAt straight off the user doc, which arrives as a Firestore
 // Timestamp on the client; an unreadable date means full access, same as server.
-export const getLadderDepositFactor = (createdAt) => {
+export interface LadderData {
+  nonWithdrawable?: number;
+  chipsMigrated?: boolean;
+  totalLost?: number;
+  balance?: number;
+}
+
+export const getLadderDepositFactor = (createdAt: TimestampLike): number => {
   if (!createdAt) return 1;
   const createdMs =
-    typeof createdAt.toMillis === 'function'
+    typeof createdAt === 'object' && 'toMillis' in createdAt && typeof createdAt.toMillis === 'function'
       ? createdAt.toMillis()
       : typeof createdAt === 'number'
         ? createdAt
-        : Date.parse(createdAt);
+        : Date.parse(createdAt as string);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / (24 * 60 * 60 * 1000);
   if (ageDays >= LADDER_RAMP_DAYS) return 1;
@@ -35,7 +43,7 @@ export const getLadderDepositFactor = (createdAt) => {
 // They are staked before real balance, so losses burn them and winnings on top
 // of them belong to the player. Mirror of getLadderChips in functions/helpers.js
 // — keep both in sync. The server is the source of truth.
-export const getLadderChips = (ladderData) => {
+export const getLadderChips = (ladderData: LadderData | null | undefined): number => {
   const granted = ladderData?.nonWithdrawable || 0;
   if (ladderData?.chipsMigrated) return granted;
   const lost = ladderData?.totalLost || 0;
@@ -44,12 +52,12 @@ export const getLadderChips = (ladderData) => {
 };
 
 // What the player can actually move back to their main cash right now.
-export const getLadderWithdrawable = (ladderData) =>
+export const getLadderWithdrawable = (ladderData: LadderData | null | undefined): number =>
   Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
 
 // Round up to the cent (house favor). The epsilon guards against FP noise
 // (e.g. 50.000000000001) charging a phantom extra cent.
-const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;
+const roundUpToCent = (x: number) => Math.ceil((x - 1e-9) * 100) / 100;
 
 // Principal (the user's own deposits coming back) pays a flat fee; profit pays
 // lifetime-progressive bracket rates over cumulative profit withdrawn; a rush
@@ -60,6 +68,12 @@ export const calculateLadderWithdrawTax = ({
   principalWithdrawn,
   profitWithdrawn,
   hasRecentDeposit,
+}: {
+  amount: number;
+  totalDeposited?: number;
+  principalWithdrawn?: number;
+  profitWithdrawn?: number;
+  hasRecentDeposit?: boolean;
 }) => {
   const deposited = totalDeposited || 0;
   const principalSoFar = principalWithdrawn || 0;

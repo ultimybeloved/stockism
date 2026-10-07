@@ -52,7 +52,7 @@ describe('getCosmeticStyles', () => {
   });
 
   it('survives malformed activeCosmetics values', () => {
-    expect(() => getCosmeticStyles('junk-string', ['name_gold'])).not.toThrow();
-    expect(getCosmeticStyles('junk-string').nameColor).toBeUndefined();
+    expect(() => getCosmeticStyles('junk-string' as never, ['name_gold'])).not.toThrow();
+    expect(getCosmeticStyles('junk-string' as never).nameColor).toBeUndefined();
   });
 });

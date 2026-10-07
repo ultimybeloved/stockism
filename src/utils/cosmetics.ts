@@ -1,4 +1,5 @@
 import { COSMETIC_MAP } from '../constants/cosmetics';
+import type { ActiveCosmetics, SeasonTitle, UserData } from '../types';
 
 // Resolve a user's equipped cosmetics into ready-to-apply pieces. Centralizes the
 // COSMETIC_MAP lookups and the animated-vs-static logic that used to be copy-pasted
@@ -12,8 +13,11 @@ import { COSMETIC_MAP } from '../constants/cosmetics';
 // arrive pre-filtered to owned items, so callers rendering them pass nothing.
 // Callers with the full user doc (own profile header) pass the owned list so
 // an unowned equip never renders, even for the owner.
-export const getCosmeticStyles = (activeCosmetics = {}, ownedCosmetics = null) => {
-  let ac = activeCosmetics && typeof activeCosmetics === 'object' ? activeCosmetics : {};
+export const getCosmeticStyles = (
+  activeCosmetics: ActiveCosmetics | null | undefined = {},
+  ownedCosmetics: string[] | null | undefined = null,
+) => {
+  let ac: ActiveCosmetics = activeCosmetics && typeof activeCosmetics === 'object' ? activeCosmetics : {};
   if (Array.isArray(ownedCosmetics)) {
     ac = Object.fromEntries(Object.entries(ac).filter(([, id]) => id == null || ownedCosmetics.includes(id)));
   }
@@ -41,10 +45,10 @@ export const getCosmeticStyles = (activeCosmetics = {}, ownedCosmetics = null) =
 // instead, where activeTitle is client-writable — so an unowned equip is dropped
 // here the same way the server drops it, and the label comes from titleMeta,
 // which only adminEndSeason writes.
-export const getActiveTitle = (userData) => {
+export const getActiveTitle = (userData: UserData | null | undefined): SeasonTitle | null => {
   if (userData?.title) return userData.title;
   const id = userData?.activeTitle;
   if (typeof id !== 'string' || !id) return null;
-  if (!Array.isArray(userData.ownedTitles) || !userData.ownedTitles.includes(id)) return null;
-  return { id, text: userData.titleMeta?.[id] || id };
+  if (!Array.isArray(userData?.ownedTitles) || !userData.ownedTitles.includes(id)) return null;
+  return { id, text: userData?.titleMeta?.[id] || id };
 };

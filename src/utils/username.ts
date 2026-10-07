@@ -5,11 +5,8 @@
 // Returns a user-facing error string, or null if the name is valid.
 // Does NOT check uniqueness, bans, or profanity — those are handled separately.
 
-/**
- * @param {string} name - Trimmed display name
- * @returns {string|null} Error message, or null if valid
- */
-export function validateUsername(name) {
+/** `name` is the trimmed display name. Returns an error message, or null if valid. */
+export function validateUsername(name: string): string | null {
   if (name.length < 3) return 'Username must be at least 3 characters';
   if (name.length > 20) return 'Username must be 20 characters or less';
   if (!/^[a-zA-Z0-9_]+$/.test(name)) return 'Username can only contain letters, numbers, and underscores';

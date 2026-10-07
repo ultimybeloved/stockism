@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 const BUY_COLORS = ['#22c55e', '#16a34a', '#4ade80'];
 const SELL_COLORS = ['#ef4444', '#dc2626', '#f87171'];
 
-export function fireTradeConfetti(totalValue, action) {
+export function fireTradeConfetti(totalValue: number, action: string) {
   const colors = action === 'buy' ? BUY_COLORS : SELL_COLORS;
 
   if (totalValue >= 10000) {

@@ -6,19 +6,24 @@
 // text, so anything the backend didn't phrase exactly as expected fell through
 // and the player saw a raw gRPC string. Both code and message are checked here.
 
+import type { CallableErrorLike } from '../types';
+
+// Callers pass whatever a catch block caught, so every helper takes `unknown`.
+const asError = (error: unknown) => (error ?? {}) as CallableErrorLike;
+
 /** 'functions/resource-exhausted' → 'resource-exhausted'; '' when there is no code. */
-export const callableErrorCode = (error) =>
-  String(error?.code || '')
+export const callableErrorCode = (error: unknown): string =>
+  String(asError(error).code || '')
     .replace(/^functions\//, '')
     .toLowerCase();
 
-const messageOf = (error) => String(error?.message || '');
+const messageOf = (error: unknown) => String(asError(error).message || '');
 
 /**
  * Transaction contention: another write touched the same documents at the same
  * moment. Nothing is broken and the identical request is worth retrying.
  */
-export const isContentionError = (error) => {
+export const isContentionError = (error: unknown): boolean => {
   if (callableErrorCode(error) === 'aborted') return true;
   const msg = messageOf(error);
   return msg.includes('busy') || msg.includes('try again') || msg.includes('contention');
@@ -29,7 +34,7 @@ export const isContentionError = (error) => {
  * immediately just hits the same wall, so callers should ask the player to wait
  * instead of retrying on their behalf.
  */
-export const isCapacityError = (error) =>
+export const isCapacityError = (error: unknown): boolean =>
   callableErrorCode(error) === 'resource-exhausted' || messageOf(error).includes('RESOURCE_EXHAUSTED');
 
 // Callable codes the backend uses to mean "you cannot do that": insufficient
@@ -63,13 +68,14 @@ const EXPECTED_REJECTION_CODES = [
  *   resource-exhausted — capacity, which is exactly what needs to be visible
  *   internal / unknown / unavailable / deadline-exceeded / data-loss
  */
-export const isExpectedRejection = (error) => EXPECTED_REJECTION_CODES.includes(callableErrorCode(error));
+export const isExpectedRejection = (error: unknown): boolean =>
+  EXPECTED_REJECTION_CODES.includes(callableErrorCode(error));
 
 /**
  * A failure on the infrastructure side. The raw message means nothing to a
  * player, so callers substitute their own wording.
  */
-export const isInfraError = (error) => {
+export const isInfraError = (error: unknown): boolean => {
   const code = callableErrorCode(error);
   if (['internal', 'deadline-exceeded', 'unavailable', 'permission-denied'].includes(code)) {
     return true;

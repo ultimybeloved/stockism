@@ -20,7 +20,7 @@ export const ETF_GROUP = 'ETF';
 
 // ticker -> crew display name, first crew wins.
 export const CREW_TICKER_MAP = (() => {
-  const map = {};
+  const map: Record<string, string> = {};
   for (const crew of Object.values(CREWS)) {
     for (const ticker of crew.members) {
       if (!map[ticker]) map[ticker] = crew.name;

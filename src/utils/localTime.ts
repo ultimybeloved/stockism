@@ -15,7 +15,7 @@ import { HALT_START_MINUTE, HALT_END_MINUTE, PRE_MARKET_START_MINUTE, PRE_MARKET
 const THURSDAY = 4;
 
 /** The next moment (or today's, if still ahead) at `minuteUTC` on UTC weekday `day`. */
-const nextUtcMoment = (minuteUTC, day = null, now = new Date()) => {
+const nextUtcMoment = (minuteUTC: number, day: number | null = null, now: Date = new Date()) => {
   const d = new Date(now);
   d.setUTCHours(Math.floor(minuteUTC / 60), minuteUTC % 60, 0, 0);
   if (day !== null) {
@@ -24,14 +24,14 @@ const nextUtcMoment = (minuteUTC, day = null, now = new Date()) => {
   return d;
 };
 
-const timePart = (d) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-const dayPart = (d) => d.toLocaleDateString(undefined, { weekday: 'short' });
+const timePart = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const dayPart = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short' });
 
 /** The viewer's zone abbreviation right now, e.g. "CDT". */
 export const zoneName = (d = new Date()) => d.toLocaleTimeString(undefined, { timeZoneName: 'short' }).split(' ').pop();
 
 /** "Sep 23, 4:00 PM CDT" — any timestamp, in the viewer's zone. */
-export const formatDateTime = (ms) => {
+export const formatDateTime = (ms: number | string): string => {
   const d = new Date(ms);
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString(undefined, {
@@ -44,13 +44,13 @@ export const formatDateTime = (ms) => {
 };
 
 /** "4:00 PM CDT" — a daily UTC time in the viewer's zone. */
-export const localDailyTime = (minuteUTC) => {
+export const localDailyTime = (minuteUTC: number): string => {
   const d = nextUtcMoment(minuteUTC);
   return `${timePart(d)} ${zoneName(d)}`;
 };
 
 /** "Thu 4:00 PM CDT" — a weekly UTC time (default Thursday) in the viewer's zone. */
-export const localWeeklyTime = (minuteUTC, day = THURSDAY) => {
+export const localWeeklyTime = (minuteUTC: number, day: number = THURSDAY): string => {
   const d = nextUtcMoment(minuteUTC, day);
   return `${dayPart(d)} ${timePart(d)} ${zoneName(d)}`;
 };
@@ -59,7 +59,7 @@ export const localWeeklyTime = (minuteUTC, day = THURSDAY) => {
  * "Thu 8:00 AM–4:00 PM CDT", or "Thu 10:00 PM – Fri 6:00 AM JST" when the
  * window crosses midnight for the viewer.
  */
-export const localWeeklyRange = (startMinuteUTC, endMinuteUTC, day = THURSDAY) => {
+export const localWeeklyRange = (startMinuteUTC: number, endMinuteUTC: number, day: number = THURSDAY): string => {
   const a = nextUtcMoment(startMinuteUTC, day);
   const b = new Date(a.getTime() + (endMinuteUTC - startMinuteUTC) * 60000);
   const sameDay = a.toDateString() === b.toDateString();

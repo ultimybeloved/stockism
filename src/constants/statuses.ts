@@ -16,7 +16,14 @@
 // `npm run check:data` rejects any value that is not an id here, so a typo in a
 // batch fails loudly instead of quietly inventing a fourth state.
 
-export const STATUSES = [
+export interface Status {
+  id: string;
+  label: string;
+  badge: string;
+  hint: string;
+}
+
+export const STATUSES: Status[] = [
   { id: 'alive', label: 'Alive', badge: '', hint: 'Alive in the current story' },
   { id: 'dead', label: 'Dead', badge: '💀', hint: 'Dead in the current story' },
   { id: 'flashback', label: 'Flashback', badge: '⏳', hint: 'Dead in the present, active in a flashback arc' },
@@ -27,10 +34,11 @@ export const STATUS_IDS = STATUSES.map((s) => s.id);
 // The stored ids. `alive` is never written to a character, only inferred.
 export const STORED_STATUS_IDS = STATUS_IDS.filter((id) => id !== 'alive');
 
-export const STATUS_MAP = Object.fromEntries(STATUSES.map((s) => [s.id, s]));
+export const STATUS_MAP: Record<string, Status> = Object.fromEntries(STATUSES.map((s) => [s.id, s]));
 
 // A missing field means alive. Everything reading status goes through this so
 // the default lives in one place.
-export const statusOf = (character) => character?.status || 'alive';
+export const statusOf = (character?: { status?: string } | null): string => character?.status || 'alive';
 
-export const statusBadge = (character) => STATUS_MAP[statusOf(character)]?.badge || '';
+export const statusBadge = (character?: { status?: string } | null): string =>
+  STATUS_MAP[statusOf(character)]?.badge || '';

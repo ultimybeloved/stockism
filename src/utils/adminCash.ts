@@ -9,19 +9,19 @@
 // authority — this exists so the admin sees the outcome first, not to be trusted.
 // Mirror of the math in adminSetCash (functions/services/adminOps.js).
 
-const round2 = (n) => Math.round(n * 100) / 100;
+export type CashMode = 'add' | 'subtract' | 'set';
 
-/**
- * @param {string} input - Raw text from the prompt
- * @param {number} currentCash - The balance now
- * @returns {{ok: true, mode: string, amount: number, before: number, after: number}
- *          | {ok: false, error: string}}
- */
-export function parseCashInput(input, currentCash) {
+export type CashParseResult =
+  { ok: true; mode: CashMode; amount: number; before: number; after: number } | { ok: false; error: string };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** `input` is the raw text from the prompt; `currentCash` the balance now. */
+export function parseCashInput(input: unknown, currentCash: unknown): CashParseResult {
   const raw = String(input ?? '').trim();
   if (!raw) return { ok: false, error: 'Enter an amount' };
 
-  const mode = raw[0] === '+' ? 'add' : raw[0] === '-' ? 'subtract' : 'set';
+  const mode: CashMode = raw[0] === '+' ? 'add' : raw[0] === '-' ? 'subtract' : 'set';
   const body = mode === 'set' ? raw : raw.slice(1).trim();
 
   // Reject anything that is not plainly a number, so "5o0" or "+ +5" cannot
@@ -49,7 +49,7 @@ export function parseCashInput(input, currentCash) {
 }
 
 /** One line describing what is about to happen, for the confirm dialog. */
-export function describeCashChange({ mode, amount }, displayName) {
+export function describeCashChange({ mode, amount }: { mode: CashMode; amount: number }, displayName: string) {
   if (mode === 'set') return `Set ${displayName}'s cash to $${amount.toFixed(2)}`;
   const verb = mode === 'add' ? 'Add' : 'Subtract';
   const prep = mode === 'add' ? 'to' : 'from';

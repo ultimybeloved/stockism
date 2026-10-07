@@ -2,18 +2,21 @@
 // No side effects, no Firebase, no React — see CLAUDE.md utils rules.
 
 import { CHARACTER_MAP } from '../characters';
+import type { PriceHistory, PriceMap, PricePoint, Ticker } from '../types';
 
 // Price at-or-before a timestamp, falling back to the oldest point.
-const priceAt = (history, cutoff, fallback) => {
+const priceAt = (history: PricePoint[], cutoff: number, fallback: number): number => {
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].timestamp <= cutoff) return history[i].price;
+    const point = history[i]!;
+    if (point.timestamp <= cutoff) return point.price;
   }
-  return history.length > 0 ? history[0].price : fallback;
+  return history.length > 0 ? history[0]!.price : fallback;
 };
 
 // 24h percent change for a ticker.
-export const get24hChange = (ticker, prices, priceHistory) => {
-  const currentPrice = prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+export const get24hChange = (ticker: Ticker, prices: PriceMap, priceHistory: PriceHistory): number => {
+  const currentPrice =
+    prices[ticker] || (CHARACTER_MAP as Record<Ticker, { basePrice?: number }>)[ticker]?.basePrice || 0;
   const history = priceHistory[ticker] || [];
   if (history.length === 0) return 0;
   const price24hAgo = priceAt(history, Date.now() - 24 * 60 * 60 * 1000, currentPrice);
@@ -21,7 +24,7 @@ export const get24hChange = (ticker, prices, priceHistory) => {
 };
 
 // Sentiment label from weighted 24h (60%) + 7d (40%) change.
-export const getSentiment = (ticker, prices, priceHistory) => {
+export const getSentiment = (ticker: Ticker, prices: PriceMap, priceHistory: PriceHistory): string => {
   const currentPrice = prices[ticker];
   if (!currentPrice) return 'Neutral';
 
@@ -42,7 +45,7 @@ export const getSentiment = (ticker, prices, priceHistory) => {
 };
 
 // Trade activity proxy: price-history entry counts in the last day/week.
-export const getTradeActivity = (history = []) => {
+export const getTradeActivity = (history: PricePoint[] = []) => {
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   const dayAgo = now - 24 * 60 * 60 * 1000;

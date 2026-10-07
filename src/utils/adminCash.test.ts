@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { parseCashInput, describeCashChange } from './adminCash';
 
+// Narrow to the success shape, failing the test if the parse was rejected.
+const parsedOk = (input: string, cash: number) => {
+  const r = parseCashInput(input, cash);
+  if (!r.ok) throw new Error(r.error);
+  return r;
+};
+// Narrow to the success shape, failing the test if the parse was rejected.const parsedOk = (input: string, cash: number) => {  const r = parseCashInput(input, cash);  if (!r.ok) throw new Error(r.error);  return r;};
+
 describe('parseCashInput', () => {
   it('adds on a leading +', () => {
     expect(parseCashInput('+500', 1000)).toEqual({
@@ -33,8 +41,8 @@ describe('parseCashInput', () => {
   });
 
   it('is the difference between set and add that matters most', () => {
-    expect(parseCashInput('500', 1000).after).toBe(500);
-    expect(parseCashInput('+500', 1000).after).toBe(1500);
+    expect(parsedOk('500', 1000).after).toBe(500);
+    expect(parsedOk('+500', 1000).after).toBe(1500);
   });
 
   it('handles decimals and whitespace', () => {
@@ -43,12 +51,13 @@ describe('parseCashInput', () => {
   });
 
   it('rounds to cents rather than drifting', () => {
-    expect(parseCashInput('+0.1', 0.2).after).toBe(0.3);
+    expect(parsedOk('+0.1', 0.2).after).toBe(0.3);
   });
 
   it('refuses to go negative instead of clamping to zero', () => {
     const r = parseCashInput('-2000', 1000);
     expect(r.ok).toBe(false);
+    if (r.ok) return;
     expect(r.error).toContain('only have $1000.00');
   });
 
