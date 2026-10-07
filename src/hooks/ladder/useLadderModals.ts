@@ -8,10 +8,18 @@ import {
 } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { getLadderWithdrawable } from '../../utils/ladderTax';
+import { errorMessage } from '../../utils/errors';
+import type { LadderData } from '../../utils/ladderTax';
 
 // Everything modal-shaped around the game: transfer (deposit/withdraw),
 // leaderboard, stats, and the tutorial gate.
-export function useLadderModals({ userLadderData, userStockismCash }) {
+export function useLadderModals({
+  userLadderData,
+  userStockismCash,
+}: {
+  userLadderData: LadderData | null;
+  userStockismCash: number;
+}) {
   const { user, userData, showNotification } = useAppContext();
 
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -21,7 +29,7 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboard, setLeaderboard] = useState<{ [key: string]: unknown }[]>([]);
   const [depositLoading, setDepositLoading] = useState(false);
 
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -62,7 +70,7 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
       showNotification('success', `Successfully deposited $${amount}`);
     } catch (error) {
       console.error('Deposit error:', error);
-      showNotification('error', error.message || 'Deposit failed');
+      showNotification('error', errorMessage(error) || 'Deposit failed');
     } finally {
       setDepositLoading(false);
     }
@@ -90,14 +98,15 @@ export function useLadderModals({ userLadderData, userStockismCash }) {
       const { grossAmount, totalTax, netReceived } = result.data || {};
       setWithdrawAmount('');
       setShowTransferModal(false);
-      const money = (n) => (n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const money = (n: number | undefined) =>
+        (n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       showNotification(
         'success',
         `Withdrew $${money(grossAmount ?? amount)}. Tax was $${money(totalTax)}. You received $${money(netReceived)}.`,
       );
     } catch (error) {
       console.error('Withdrawal error:', error);
-      showNotification('error', error.message || 'Withdrawal failed');
+      showNotification('error', errorMessage(error) || 'Withdrawal failed');
     } finally {
       setWithdrawLoading(false);
     }

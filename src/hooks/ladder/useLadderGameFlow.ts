@@ -3,22 +3,35 @@ import { playLadderGameFunction } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
 import { useLadderAnimation } from './useLadderAnimation';
 import { useLadderBanners } from './useLadderBanners';
+import { errorMessage } from '../../utils/errors';
+import type { LadderOutcome, LadderSide } from '../../api/types';
+import type { LadderData } from '../../utils/ladderTax';
+import type { LadderHistoryEntry } from './useLadderData';
 
 // Core game flow: side selection, bet validation, the server round, and the
 // animation kickoff. Composes useLadderAnimation and useLadderBanners and
 // re-exports what the board needs to render.
-export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadderTutorial }) {
+export function useLadderGameFlow({
+  userLadderData,
+  globalHistory,
+  setShowLadderTutorial,
+}: {
+  userLadderData: LadderData | null;
+  globalHistory: LadderHistoryEntry[];
+  setShowLadderTutorial: (show: boolean) => void;
+}) {
   const { user, userData, showNotification } = useAppContext();
 
-  const [selectedStart, setSelectedStart] = useState(null);
-  const [_selectedBet, setSelectedBet] = useState(null); // write-only: kept for setter call sites in the game flow
+  const [selectedStart, setSelectedStart] = useState<LadderSide | null>(null);
+  const [_selectedBet, setSelectedBet] = useState<LadderOutcome | null>(null); // write-only: kept for setter call sites in the game flow
   const [playing, setPlaying] = useState(false);
   const [complete, setComplete] = useState(false);
-  const [betAmount, setBetAmount] = useState(1);
-  const [_currentLadder, setCurrentLadder] = useState(null); // write-only: kept for setter call sites in the game flow
-  const [displayBalance, setDisplayBalance] = useState(null); // For immediate balance updates
+  // The bet input stores what was typed, so this is a string once edited.
+  const [betAmount, setBetAmount] = useState<number | string>(1);
+  const [_currentLadder, setCurrentLadder] = useState<Record<string, unknown> | null>(null); // write-only: kept for setter call sites in the game flow
+  const [displayBalance, setDisplayBalance] = useState<number | null>(null); // For immediate balance updates
   const [instruction, setInstruction] = useState('Choose a ladder');
-  const [frozenHistory, setFrozenHistory] = useState(null); // Freeze history during gameplay
+  const [frozenHistory, setFrozenHistory] = useState<LadderHistoryEntry[] | null>(null); // Freeze history during gameplay
 
   const { tracksRef, activeButton, activeResult, trackTimeout, createRungs, revealRungs, animatePath, clearLadder } =
     useLadderAnimation({ setDisplayBalance });
@@ -45,7 +58,7 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
     }
   }, [playing, complete, selectedStart]);
 
-  const selectStart = (side) => {
+  const selectStart = (side: LadderSide) => {
     if (playing) return;
 
     if (!user) {
@@ -75,10 +88,10 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
     }
   };
 
-  const selectBetAndPlay = async (bet) => {
+  const selectBetAndPlay = async (bet: LadderOutcome) => {
     if (playing || !selectedStart) return;
 
-    const amount = parseInt(betAmount);
+    const amount = parseInt(String(betAmount));
     if (isNaN(amount) || amount <= 0 || amount > (userLadderData?.balance || 0)) {
       showNotification('error', 'Invalid bet amount.');
       return;
@@ -88,7 +101,9 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
     await startGame(bet, amount);
   };
 
-  const startGame = async (bet, amount) => {
+  const startGame = async (bet: LadderOutcome, amount: number) => {
+    // Only reached from selectBetAndPlay, which checks selectedStart first.
+    const startSide = selectedStart as LadderSide;
     dismissBanner();
     setPlaying(true);
     setComplete(false);
@@ -101,7 +116,7 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
     try {
       // Call server function
       const result = await playLadderGameFunction({
-        startSide: selectedStart,
+        startSide,
         bet,
         amount,
       });
@@ -129,22 +144,22 @@ export function useLadderGameFlow({ userLadderData, globalHistory, setShowLadder
       trackTimeout(() => {
         revealRungs()
           .then(() => {
-            return animatePath(rungs, selectedStart, gameResult, newBalance);
+            return animatePath(rungs, startSide, gameResult, newBalance);
           })
           .then(() => {
-            showResult(gameResult, won, amount, payout, currentStreak);
+            showResult(gameResult, won, amount, payout);
           });
       }, 250);
     } catch (error) {
       console.error('Game error:', error);
-      showNotification('error', error.message || 'Failed to play game');
+      showNotification('error', errorMessage(error) || 'Failed to play game');
       setPlaying(false);
       setSelectedStart(null);
       setSelectedBet(null);
     }
   };
 
-  const showResult = (gameResult, won, betAmt, payout) => {
+  const showResult = (gameResult: LadderOutcome, won: boolean, betAmt: number, payout: number) => {
     presentResult(gameResult, won, betAmt, payout);
     setFrozenHistory(null); // Unfreeze history to show new result
 

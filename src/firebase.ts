@@ -102,10 +102,12 @@ export const banUserFunction = callable('banUser');
 // Daily checkin
 export const dailyCheckinFunction = callable<Record<string, never>, Api.DailyCheckinResponse>('dailyCheckin');
 // Ladder game
-export const playLadderGameFunction = callable('playLadderGame');
-export const depositToLadderGameFunction = callable('depositToLadderGame');
-export const withdrawFromLadderGameFunction = callable('withdrawFromLadderGame');
-export const getLadderLeaderboardFunction = callable('getLadderLeaderboard');
+export const playLadderGameFunction = callable<Api.PlayLadderRequest, Api.PlayLadderResponse>('playLadderGame');
+export const depositToLadderGameFunction = callable<{ amount: number }>('depositToLadderGame');
+export const withdrawFromLadderGameFunction = callable<{ amount: number }, Api.LadderWithdrawResponse>(
+  'withdrawFromLadderGame',
+);
+export const getLadderLeaderboardFunction = callable<void, Api.LadderLeaderboardResponse>('getLadderLeaderboard');
 export const triggerDailyMarketSummaryFunction = callable('triggerDailyMarketSummary');
 export const triggerReviewChangesFunction = callable('triggerReviewChanges');
 export const triggerCollapseReviewHistoryFunction = callable('triggerCollapseReviewHistory');

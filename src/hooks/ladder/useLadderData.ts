@@ -2,13 +2,17 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAppContext } from '../../context/AppContext';
+import type { LadderData } from '../../utils/ladderTax';
+
+/** One game in ladderGame/global.history. */
+export type LadderHistoryEntry = { [key: string]: unknown };
 
 // Firestore listeners for the ladder game: the player's ladder doc, the
 // global result history, and the player's main Stockism cash.
 export function useLadderData() {
   const { user } = useAppContext();
-  const [userLadderData, setUserLadderData] = useState(null);
-  const [globalHistory, setGlobalHistory] = useState([]);
+  const [userLadderData, setUserLadderData] = useState<LadderData | null>(null);
+  const [globalHistory, setGlobalHistory] = useState<LadderHistoryEntry[]>([]);
   const [userStockismCash, setUserStockismCash] = useState(0);
 
   // Real-time listeners

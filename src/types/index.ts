@@ -121,6 +121,7 @@ export interface UserData {
   watchlist?: Ticker[];
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
+  ladderTutorial2Completed?: boolean;
   portfolioValue?: number;
   grantedValue?: number;
   grantedDays?: number;

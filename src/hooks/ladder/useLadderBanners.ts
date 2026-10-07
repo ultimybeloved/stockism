@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 // per-round result banner, each with its 300ms fade-out. presentResult is the
 // banner half of finishing a round; the game-state half lives in
 // useLadderGameFlow's showResult.
-export function useLadderBanners({ trackTimeout }) {
+import type { TrackTimeout } from './animatePath';
+
+export function useLadderBanners({ trackTimeout }: { trackTimeout: TrackTimeout }) {
   const [showResultBanner, setShowResultBanner] = useState(false);
   const [resultText, setResultText] = useState('');
   const [resultOutcome, setResultOutcome] = useState('');
@@ -13,7 +15,7 @@ export function useLadderBanners({ trackTimeout }) {
   const [initBannerFading, setInitBannerFading] = useState(false);
   const [resultBannerFading, setResultBannerFading] = useState(false);
 
-  const bannerTimeoutRef = useRef(null);
+  const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-dismiss init banner
   useEffect(() => {
@@ -45,7 +47,7 @@ export function useLadderBanners({ trackTimeout }) {
     }, 300); // Wait for fade animation
   };
 
-  const presentResult = (gameResult, won, betAmt, payout) => {
+  const presentResult = (gameResult: string, won: boolean, betAmt: number, payout: number) => {
     setResultText(gameResult.toUpperCase());
     if (won) {
       setResultOutcome(`+$${payout.toLocaleString()}`);

@@ -3,9 +3,28 @@
 // timing, then colors the buttons and updates the balance via the setters
 // provided by useLadderAnimation. Timing values here are load-bearing — the
 // game feel breaks if they drift.
-export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, setActiveResult, setDisplayBalance }) => {
-  const animatePath = (rungs, side, result, newBalance) => {
-    return new Promise((resolve) => {
+import type { RefObject } from 'react';
+import type { LadderOutcome, LadderSide } from '../../api/types';
+
+export type TrackTimeout = (fn: () => void, delay: number) => ReturnType<typeof setTimeout>;
+
+interface AnimatePathDeps {
+  tracksRef: RefObject<HTMLDivElement | null>;
+  trackTimeout: TrackTimeout;
+  setActiveButton: (side: LadderSide | null) => void;
+  setActiveResult: (result: LadderOutcome | null) => void;
+  setDisplayBalance: (balance: number | null) => void;
+}
+
+export const createAnimatePath = ({
+  tracksRef,
+  trackTimeout,
+  setActiveButton,
+  setActiveResult,
+  setDisplayBalance,
+}: AnimatePathDeps) => {
+  const animatePath = (rungs: number[], side: LadderSide, result: LadderOutcome, newBalance: number) => {
+    return new Promise<void>((resolve) => {
       if (!tracksRef.current) {
         resolve();
         return;
@@ -21,7 +40,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
       const pathColor = result === 'odd' ? '#2286f6' : '#f22431';
       const points = [{ x, y }];
 
-      rungs.forEach((rungPos) => {
+      rungs.forEach((rungPos: number) => {
         const rY = (rungPos / 10) * height;
         points.push({ x, y: rY });
         x = x === leftX ? rightX : leftX;
@@ -50,7 +69,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
           z-index: 5;
           transition: top 0.25s cubic-bezier(0.33, 1, 0.68, 1), height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
-        tracksRef.current.appendChild(topSeg);
+        tracksRef.current?.appendChild(topSeg);
 
         const bottomSeg = document.createElement('div');
         bottomSeg.className = 'ladder-path-segment';
@@ -64,7 +83,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
           z-index: 5;
           transition: height 0.25s cubic-bezier(0.33, 1, 0.68, 1);
         `;
-        tracksRef.current.appendChild(bottomSeg);
+        tracksRef.current?.appendChild(bottomSeg);
 
         // Trigger with slight delay for smoother visual
         requestAnimationFrame(() => {
@@ -95,8 +114,9 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
           return;
         }
 
-        const from = points[idx];
-        const to = points[idx + 1];
+        // idx < points.length - 1, so both exist.
+        const from = points[idx]!;
+        const to = points[idx + 1]!;
         const seg = document.createElement('div');
         seg.className = 'ladder-path-segment';
 
@@ -130,7 +150,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
           `;
         }
 
-        tracksRef.current.appendChild(seg);
+        tracksRef.current?.appendChild(seg);
         idx++;
 
         // Smooth progressive slow-down using easing curve

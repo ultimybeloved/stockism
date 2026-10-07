@@ -18,11 +18,17 @@ import type { TimestampLike } from '../types';
 // Mirror of getLadderDepositFactor in functions/helpers.js — keep both in sync.
 // Takes createdAt straight off the user doc, which arrives as a Firestore
 // Timestamp on the client; an unreadable date means full access, same as server.
+/** ladderGameUsers/{uid}. */
 export interface LadderData {
   nonWithdrawable?: number;
   chipsMigrated?: boolean;
   totalLost?: number;
   balance?: number;
+  gamesPlayed?: number;
+  wins?: number;
+  currentStreak?: number;
+  bestStreak?: number;
+  [key: string]: unknown;
 }
 
 export const getLadderDepositFactor = (createdAt: TimestampLike): number => {

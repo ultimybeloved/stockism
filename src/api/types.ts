@@ -134,6 +134,34 @@ export interface ExecuteTradeResponse {
   shortWarning?: string;
 }
 
+export type LadderSide = 'left' | 'right';
+export type LadderOutcome = 'odd' | 'even';
+
+export interface PlayLadderRequest {
+  startSide: LadderSide;
+  bet: LadderOutcome;
+  amount: number;
+}
+
+export interface PlayLadderResponse {
+  rungs: number[];
+  result: LadderOutcome;
+  won: boolean;
+  payout: number;
+  newBalance: number;
+  currentStreak: number;
+}
+
+export interface LadderWithdrawResponse {
+  grossAmount?: number;
+  totalTax?: number;
+  netReceived?: number;
+}
+
+export interface LadderLeaderboardResponse {
+  leaderboard?: { [key: string]: unknown }[];
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }

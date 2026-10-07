@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { createAnimatePath } from './animatePath';
+import type { TrackTimeout } from './animatePath';
+import type { LadderOutcome, LadderSide } from '../../api/types';
 
 // Ladder DOM animation: rung creation/reveal, the path draw (see
 // animatePath.js), clearing the board, and post-game button coloring.
 // Every setTimeout goes through trackTimeout so unmounting mid-animation
 // can't leak timers.
-export function useLadderAnimation({ setDisplayBalance }) {
-  const [activeButton, setActiveButton] = useState(null); // 'left' or 'right' - stays colored after game
-  const [activeResult, setActiveResult] = useState(null); // 'odd' or 'even' - result color for active button
+export function useLadderAnimation({ setDisplayBalance }: { setDisplayBalance: (balance: number | null) => void }) {
+  const [activeButton, setActiveButton] = useState<LadderSide | null>(null); // 'left' or 'right' - stays colored after game
+  const [activeResult, setActiveResult] = useState<LadderOutcome | null>(null); // 'odd' or 'even' - result color for active button
 
-  const tracksRef = useRef(null);
-  const animationTimeoutsRef = useRef([]);
+  const tracksRef = useRef<HTMLDivElement | null>(null);
+  const animationTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Cleanup all timeout refs on unmount to prevent memory leaks
   useEffect(() => {
@@ -21,17 +23,17 @@ export function useLadderAnimation({ setDisplayBalance }) {
   }, []);
 
   // Helper to track setTimeout IDs for cleanup
-  const trackTimeout = (fn, delay) => {
+  const trackTimeout: TrackTimeout = (fn, delay) => {
     const id = setTimeout(fn, delay);
     animationTimeoutsRef.current.push(id);
     return id;
   };
 
-  const createRungs = (rungs) => {
+  const createRungs = (rungs: number[]) => {
     if (!tracksRef.current) return;
 
     const height = 140;
-    rungs.forEach((rungPos, index) => {
+    rungs.forEach((rungPos: number, index: number) => {
       const y = (rungPos / 10) * height;
       const rung = document.createElement('div');
       rung.className = 'ladder-rung';
@@ -45,19 +47,19 @@ export function useLadderAnimation({ setDisplayBalance }) {
         transition: opacity 0.3s ease;
         top: ${y}px;
       `;
-      rung.setAttribute('data-index', index);
-      tracksRef.current.appendChild(rung);
+      rung.setAttribute('data-index', String(index));
+      tracksRef.current?.appendChild(rung);
     });
   };
 
   const revealRungs = () => {
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       if (!tracksRef.current) {
         resolve();
         return;
       }
 
-      const rungs = tracksRef.current.querySelectorAll('.ladder-rung');
+      const rungs = tracksRef.current.querySelectorAll<HTMLElement>('.ladder-rung');
       if (rungs.length === 0) {
         resolve();
         return;
