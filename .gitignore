@@ -43,3 +43,6 @@ review-detail-*.json
 
 # Local backups written before destructive cleanups
 cleanup-backup-*.json
+
+# Personal working area: archived one-off scripts, local reports. Never committed.
+local/

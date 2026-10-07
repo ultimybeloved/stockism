@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -44,7 +44,11 @@ jobs:
       - name: Cloud Function export purity
         run: npm run check:functions
 
+      - run: npm run format:check
+
       - run: npm run lint
+
+      - run: npm run lint:functions
 
       - run: npm test
 
@@ -65,7 +69,7 @@ jobs:
       # engines), so this job exercises the same version production runs.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # The Firebase emulators are Java processes.
@@ -130,6 +134,21 @@ jobs:
 
       - name: Review collapse
         run: npm run test:collapse
+
+      - name: Seasons
+        run: npm run test:season
+
+      - name: Coordination detection
+        run: npm run test:coord
+
+      - name: Stock split
+        run: npm run test:split
+
+      - name: Ticker rename
+        run: npm run test:rename
+
+      - name: Discord endpoint
+        run: npm run test:discord:endpoint
 
       # Last because it is the only suite that boots the functions emulator,
       # which loads every function and is much slower than the rest.

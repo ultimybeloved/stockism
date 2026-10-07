@@ -65,34 +65,6 @@ Run it after adding a character, and before assuming anything about IPO state.
 
 ---
 
-### migrate-ticker.js
-Migrate a character from one ticker to another.
-
-**Usage:**
-```bash
-node scripts/migrate-ticker.js <oldTicker> <newTicker>
-```
-
-**Example:**
-```bash
-node scripts/migrate-ticker.js DOTS CROW
-```
-
-**What it does:**
-- ✅ Creates backup of all data
-- ✅ Migrates market prices and history
-- ✅ Updates all user holdings, cost basis, shorts
-- ✅ Archives old price history
-- ✅ Cleans up old ticker data
-
-**After running:**
-- Update `src/characters.js` - change the ticker
-- Update any `trailingFactors` that reference the old ticker
-- Update `src/crews.js` if the character is in a crew
-- Deploy: `npm run build && firebase deploy`
-
----
-
 ### spam-name-audit.cjs / spam-name-detail.cjs / spam-name-purge.cjs
 
 Finds and removes harassment usernames — accounts named to insult another

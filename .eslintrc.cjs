@@ -26,12 +26,34 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
     // `_` is the convention for intentionally-ignored params/destructure slots.
-    'no-unused-vars': ['warn', {
-      argsIgnorePattern: '^_',
-      varsIgnorePattern: '^_$',
-      destructuredArrayIgnorePattern: '^_',
-    }],
+    'no-unused-vars': [
+      'warn',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_$',
+        destructuredArrayIgnorePattern: '^_',
+      },
+    ],
     'no-empty': 'warn',
     'react/no-unescaped-entities': 'off',
   },
+  // File-size limits from CLAUDE.md, enforced. Split the file rather than raise these.
+  overrides: [
+    {
+      files: ['src/components/**/*.{js,jsx}'],
+      excludedFiles: ['**/*.test.*'],
+      rules: { 'max-lines': ['error', 400] },
+    },
+    {
+      files: ['src/pages/**/*.{js,jsx}'],
+      excludedFiles: ['**/*.test.*'],
+      rules: { 'max-lines': ['error', 300] },
+    },
+    {
+      files: ['src/hooks/**/*.{js,jsx}'],
+      excludedFiles: ['**/*.test.*'],
+      rules: { 'max-lines': ['error', 200] },
+    },
+    { files: ['src/App.jsx'], rules: { 'max-lines': ['error', 500] } },
+  ],
 };

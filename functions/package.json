@@ -6,7 +6,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "lint": "eslint services/ helpers.js constants.js"
+    "lint": "eslint services/ helpers.js constants.js index.js"
   },
   "dependencies": {
     "@google-cloud/billing": "^5.1.2",
