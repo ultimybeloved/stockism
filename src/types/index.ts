@@ -10,7 +10,8 @@ export type TimestampLike =
   | number
   | string
   | Date
-  | { toMillis: () => number; seconds?: number }
+  | { toMillis: () => number; toDate?: () => Date; seconds?: number }
+  | { toDate: () => Date; seconds?: number }
   | { seconds: number; nanoseconds?: number }
   | null
   | undefined;

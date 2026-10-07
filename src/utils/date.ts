@@ -7,15 +7,22 @@
  * Used for daily mission tracking
  * @returns {string} Today's date string
  */
-export const getTodayDateString = () => {
-  return new Date().toISOString().split('T')[0];
+import type { TimestampLike } from '../types';
+
+/** Anything `new Date(...)` accepts. */
+type DateInput = number | string | Date;
+
+const isoDay = (d: Date): string => d.toISOString().split('T')[0]!;
+
+export const getTodayDateString = (): string => {
+  return isoDay(new Date());
 };
 
 /**
  * Get yesterday's date as a string (YYYY-MM-DD format)
  * @returns {string} Yesterday's date string
  */
-export const getYesterdayDateString = () => {
+export const getYesterdayDateString = (): string => {
   const now = new Date();
   now.setDate(now.getDate() - 1);
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -26,7 +33,7 @@ export const getYesterdayDateString = () => {
  * @param {number} timestamp - Unix timestamp in milliseconds
  * @returns {boolean} True if timestamp is from today
  */
-export const isToday = (timestamp) => {
+export const isToday = (timestamp: DateInput): boolean => {
   const date = new Date(timestamp);
   const today = new Date();
   return date.toDateString() === today.toDateString();
@@ -37,7 +44,7 @@ export const isToday = (timestamp) => {
  * @param {number} timestamp - Unix timestamp in milliseconds
  * @returns {boolean} True if timestamp is from yesterday
  */
-export const isYesterday = (timestamp) => {
+export const isYesterday = (timestamp: DateInput): boolean => {
   const date = new Date(timestamp);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -48,7 +55,7 @@ export const isYesterday = (timestamp) => {
  * Get the start of today (midnight) as a timestamp
  * @returns {number} Unix timestamp for start of today
  */
-export const getStartOfToday = () => {
+export const getStartOfToday = (): number => {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return now.getTime();
@@ -59,7 +66,7 @@ export const getStartOfToday = () => {
  * @param {number} timestamp - Unix timestamp in milliseconds
  * @returns {string} Relative time string
  */
-export const getRelativeTime = (timestamp) => {
+export const getRelativeTime = (timestamp: number): string => {
   const now = Date.now();
   const diff = now - timestamp;
 
@@ -79,7 +86,7 @@ export const getRelativeTime = (timestamp) => {
  * @param {number} timestamp - Unix timestamp in milliseconds
  * @returns {string} Formatted date string (e.g., "Jan 15")
  */
-export const formatShortDate = (timestamp) => {
+export const formatShortDate = (timestamp: DateInput): string => {
   return new Date(timestamp).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -91,7 +98,7 @@ export const formatShortDate = (timestamp) => {
  * @param {number} timestamp - Unix timestamp in milliseconds
  * @returns {string} Formatted date string (e.g., "Jan 15, 2024, 3:30 PM")
  */
-export const formatFullDate = (timestamp) => {
+export const formatFullDate = (timestamp: DateInput): string => {
   return new Date(timestamp).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -107,11 +114,14 @@ export const formatFullDate = (timestamp) => {
  * @param {Object|number} timestamp - Firestore Timestamp object or number
  * @returns {number} Unix timestamp in milliseconds
  */
-export const toMillis = (timestamp) => {
+export const toMillis = (timestamp: TimestampLike): number => {
   if (!timestamp) return 0;
   if (typeof timestamp === 'number') return timestamp;
-  if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
-  if (timestamp.seconds) return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
+  if (typeof timestamp !== 'object' || timestamp instanceof Date) return 0;
+  if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+  if ('nanoseconds' in timestamp && timestamp.seconds)
+    return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
+  if (timestamp.seconds) return timestamp.seconds * 1000;
   return 0;
 };
 
@@ -121,11 +131,12 @@ export const toMillis = (timestamp) => {
  * @param {Object|string|Date} timestamp - Firestore Timestamp, Date, or string
  * @returns {string|null} Date string in format like "Mon Jan 27 2025"
  */
-export const toDateString = (timestamp) => {
+export const toDateString = (timestamp: TimestampLike): string | null => {
   if (!timestamp) return null;
   if (typeof timestamp === 'string') return timestamp;
-  if (typeof timestamp.toDate === 'function') return timestamp.toDate().toDateString();
+  if (typeof timestamp === 'number') return null;
   if (timestamp instanceof Date) return timestamp.toDateString();
+  if ('toDate' in timestamp && typeof timestamp.toDate === 'function') return timestamp.toDate().toDateString();
   if (timestamp.seconds) return new Date(timestamp.seconds * 1000).toDateString();
   return null;
 };
@@ -134,17 +145,17 @@ export const toDateString = (timestamp) => {
  * Convert any timestamp to UTC YYYY-MM-DD string (matches server format)
  * Used for check-in comparisons to avoid timezone mismatch
  */
-export const toUTCDateString = (timestamp) => {
+export const toUTCDateString = (timestamp: TimestampLike): string | null => {
   if (!timestamp) return null;
   if (typeof timestamp === 'string') {
     const parsed = new Date(timestamp);
-    if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    if (!isNaN(parsed.getTime())) return isoDay(parsed);
     return null;
   }
-  if (typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString().split('T')[0];
-  if (timestamp instanceof Date) return timestamp.toISOString().split('T')[0];
-  if (typeof timestamp === 'number') return new Date(timestamp).toISOString().split('T')[0];
-  if (timestamp.seconds) return new Date(timestamp.seconds * 1000).toISOString().split('T')[0];
+  if (typeof timestamp === 'number') return isoDay(new Date(timestamp));
+  if (timestamp instanceof Date) return isoDay(timestamp);
+  if ('toDate' in timestamp && typeof timestamp.toDate === 'function') return isoDay(timestamp.toDate());
+  if (timestamp.seconds) return isoDay(new Date(timestamp.seconds * 1000));
   return null;
 };
 
@@ -153,7 +164,7 @@ export const toUTCDateString = (timestamp) => {
  * on Wednesday. Used for "new this week" boards and weekly persistence keys.
  * @returns {Date} Most recent Wednesday at 00:00 local time
  */
-export const getWeekStart = () => {
+export const getWeekStart = (): Date => {
   const now = new Date();
   const day = now.getDay();
   // Wednesday = 3, so we need to go back to the most recent Wednesday
@@ -167,7 +178,7 @@ export const getWeekStart = () => {
 /**
  * Get milliseconds until next UTC midnight
  */
-export const msUntilUTCMidnight = () => {
+export const msUntilUTCMidnight = (): number => {
   const now = new Date();
   const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   return tomorrow.getTime() - now.getTime();

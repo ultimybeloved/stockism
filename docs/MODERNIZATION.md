@@ -13,7 +13,7 @@ Delete it when the last phase ships.
 - Commit at small working checkpoints and update this file as you go, so work can
   resume mid-phase.
 
-## Phase 1: Guardrails (done; formatting commit pending push)
+## Phase 1: Guardrails (done)
 
 Prettier, editorconfig, `.nvmrc` (Node 22), husky + lint-staged pre-commit,
 backend lint and `format:check` in CI, the 5 missing emulator suites in CI,
@@ -24,16 +24,32 @@ Open item: 8 frontend files exceed their limit after reformatting and are
 warn-only in `.eslintrc.cjs`. They get split in Phase 4. Remove each from that
 list as it is split.
 
-## Phase 2: TypeScript foundation (next)
+## Phase 2: Frontend TypeScript (in progress)
 
-1. Frontend: `typescript`, `@types/react`, `@types/react-dom`; `tsconfig.json`
-   with `strict`, `allowJs` (temporary), `noEmit`, `moduleResolution: bundler`;
-   `npm run typecheck` in CI. Convert leaf-first: `src/utils` →
-   `src/constants` → characters/crews → hooks → components → pages → App.
-2. Upgrade ESLint 8 → 9 (flat config) with `typescript-eslint`, one config for
-   frontend and backend.
-3. Domain types in `src/types/` (User doc, Market doc, Holding, Order, Season).
-   These become the shared contract with the backend.
+Done: `tsconfig.json` (strict, `noUncheckedIndexedAccess`, `allowJs` until the
+last file converts), `npm run typecheck` in CI, ESLint 9 flat config
+(`eslint.config.js`, one config for src + functions), `src/types/` domain
+types, 19 small utils/constants, and `src/characters.ts` + `src/crews.ts`.
+
+The roster files are TypeScript now; `npm run sync:chars` strips the types into
+`functions/*.js` via `scripts/lib/sharedSource.cjs`, and Node scripts read the
+roster through its `load()`. Any script that needs a converted `src/` file must
+go through `load()` too (`check-data.cjs` is the example).
+
+Conversion rule: rename `.js`→`.ts` (`.jsx`→`.tsx`) with `git mv`, type every
+parameter, no `any` (lint rejects it), use `!` only where an index is proven in
+range. Tests convert with their subject. Add fields to `src/types/index.ts` as
+code needs them.
+
+Remaining, in order:
+1. `src/constants/` (economy, seasons, cosmetics, achievements)
+2. Remaining `src/utils/` (theme, formatters, date, marketIndex, missionProgress,
+   tradeLimits, marketFilters, seasonWeeks, marketHours, calculations, profanity)
+   and `rarity.test.js` (left as JS until its subject's types settled; it can go now)
+3. `src/firebase.js`, `src/monitoring.js`, `src/context/`
+4. `src/hooks/` (incl. admin/, ladder/)
+5. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
+6. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 
 ## Phase 3: Backend restructure + TypeScript
 

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
-import * as frontendSeasons from '../src/constants/seasons.js';
-import { calculateExitValue } from '../src/utils/calculations.js';
-import * as frontendSeasonWeeks from '../src/utils/seasonWeeks.js';
+import * as frontendSeasons from '../src/constants/seasons';
+import { calculateExitValue } from '../src/utils/calculations';
+import * as frontendSeasonWeeks from '../src/utils/seasonWeeks';
 
 const require = createRequire(import.meta.url);
 

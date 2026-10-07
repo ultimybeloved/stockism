@@ -14,7 +14,7 @@ describe('buildTrailingCascade', () => {
   it('moves both direct links by their own coefficient, not by list order', () => {
     // The 2026-08-20 bug: $SHNG was reached through $GAP (0.4 x 0.4) and then
     // skipped when $JIN's own 0.4 link to it came up, so it moved 0.48% instead
-    // of 1.20% purely because $GAP is typed first in src/characters.js.
+    // of 1.20% purely because $GAP is typed first in src/characters.ts.
     const moves = buildTrailingCascade({ ticker: 'JIN', oldPrice: 100, newPrice: 103, prices });
 
     const gap = moveOf(moves, 'GAP');

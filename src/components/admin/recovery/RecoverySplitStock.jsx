@@ -34,7 +34,7 @@ const RecoverySplitStock = ({ darkMode, textClass, mutedClass, showMessage }) =>
         className={`p-2.5 rounded-sm mb-3 text-xs ${darkMode ? 'bg-amber-900/30 border border-amber-700 text-amber-200' : 'bg-amber-50 border border-amber-300 text-amber-900'}`}
       >
         <strong>In this order.</strong> 1) Halt the market. 2) Add <code>splitFactor: N</code> to the stock in
-        src/characters.js (times any earlier factor), run <code>npm run sync:chars</code>, push, and deploy functions.
+        src/characters.ts (times any earlier factor), run <code>npm run sync:chars</code>, push, and deploy functions.
         3) Dry run, then Execute. 4) Check the stock, then reopen the market yourself.
       </div>
 

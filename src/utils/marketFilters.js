@@ -165,7 +165,7 @@ export const sortCharacters = (list, sortBy, ctx) => {
 // SHARED ROSTER LOOKUPS
 // ============================================
 // Small queries over CHARACTERS that were each written out twice. Duplicated
-// logic is how src/characters.js and functions/characters.js drifted apart in
+// logic is how src/characters.ts and functions/characters.js drifted apart in
 // the first place, so these live in one place now.
 
 /**

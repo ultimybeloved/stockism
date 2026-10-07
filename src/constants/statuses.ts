@@ -4,7 +4,7 @@
 // Whether a character is alive in the story right now. Independent of crews and
 // generations, and set by hand rather than derived from anything.
 //
-// A character carries this as an optional `status` field in src/characters.js
+// A character carries this as an optional `status` field in src/characters.ts
 // holding one of the ids below. No field means alive, which is the common case,
 // so the roster does not need annotating for the majority. ETFs never get one.
 //

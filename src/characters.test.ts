@@ -17,14 +17,15 @@ import {
   DIVIDEND_HOLD_DAYS,
   DIVIDEND_LADDER_EPOCH,
 } from './characters';
+import type { HoldingCohort } from './characters';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2027, 0, 1);
 const LEGACY_ACQUIRED_AT = DIVIDEND_LADDER_EPOCH - DIVIDEND_HOLD_MS;
 
 // A pending lot that is `ageDays` old at NOW
-const lot = (shares, ageDays) => ({ shares, availableAt: NOW - ageDays * DAY + DIVIDEND_HOLD_MS });
-const cohort = (eligible, pending = []) => ({ eligible, pending });
+const lot = (shares: number, ageDays: number) => ({ shares, availableAt: NOW - ageDays * DAY + DIVIDEND_HOLD_MS });
+const cohort = (eligible: number, pending: { shares: number; availableAt: number }[] = []) => ({ eligible, pending });
 
 describe('exitDiscountForAgeMs', () => {
   it('pays nothing below the dividend hold gate', () => {
@@ -91,8 +92,8 @@ describe('exitLoyaltyDiscount', () => {
     // 50 eligible @ 30d old = 0.25, then 50 pending — at `at` that lot is not
     // yet created, so build the expectation from the walk itself.
     const lots = cohortLots(withEligible, at);
-    expect(lots[0].shares).toBe(50);
-    expect(lots[0].ageMs).toBe(at - LEGACY_ACQUIRED_AT);
+    expect(lots[0]!.shares).toBe(50);
+    expect(lots[0]!.ageMs).toBe(at - LEGACY_ACQUIRED_AT);
   });
 
   it('earns nothing on shares the cohort does not cover', () => {
@@ -152,9 +153,9 @@ describe('loyaltyTierFor', () => {
 describe('dividendWeightedShares still matches the pre-refactor walk', () => {
   // Both readers now share cohortLots; this pins the dividend result so the
   // shared walk can't quietly change payouts.
-  const reference = (c, now) => {
+  const reference = (c: HoldingCohort | null, now: number) => {
     if (!c) return 0;
-    const mult = (ageMs) => {
+    const mult = (ageMs: number) => {
       const d = ageMs / DAY;
       if (d >= 56) return 1.5;
       if (d >= 28) return 1.25;

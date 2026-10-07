@@ -1,15 +1,11 @@
-// Copies src/characters.js → functions/characters.js
-// and     src/crews.js      → functions/crews.js
-// Run before deploying functions: npm run sync:chars
+'use strict';
+// Generates functions/characters.js and functions/crews.js from the TypeScript
+// sources in src/ (types stripped, code unchanged). Run after editing either:
+//   npm run sync:chars
 const fs = require('fs');
-const path = require('path');
+const { SHARED, generatedPath, generate } = require('./lib/sharedSource.cjs');
 
-const files = [
-  ['../src/characters.js', '../functions/characters.js'],
-  ['../src/crews.js', '../functions/crews.js'],
-];
-
-files.forEach(([from, to]) => {
-  fs.copyFileSync(path.join(__dirname, from), path.join(__dirname, to));
-  console.log(`Synced ${from.replace('../', '')} → ${to.replace('../', '')}`);
-});
+for (const name of SHARED) {
+  fs.writeFileSync(generatedPath(name), generate(name));
+  console.log(`Synced src/${name}.ts → functions/${name}.js`);
+}

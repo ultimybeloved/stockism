@@ -210,11 +210,11 @@ A closed position leaves nothing behind: delete `holdings`, `costBasis`,
 `lowestWhileHolding`, `holdingCohorts` and any lockups together. `drip` is a
 preference and survives on purpose.
 
-**Characters & crews** (`src/characters.js` + `src/crews.js` and their `functions/` copies)
-- `src/characters.js` and `src/crews.js` are the **only files you ever edit**. Never touch `functions/characters.js` or `functions/crews.js` directly — both are generated.
+**Characters & crews** (`src/characters.ts` + `src/crews.ts` and their `functions/` copies)
+- `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/characters.js` or `functions/crews.js` directly — both are generated.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.
 - Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
-- Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.js`; `functions/constants.js` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
+- Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.ts`; `functions/constants.js` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
 
 ### The Anti-Patterns That Created the Original Mess
 
@@ -230,7 +230,7 @@ These specific patterns are banned. If you catch yourself writing any of them, s
 
 5. **Magic numbers** — `0.005`, `0.15`, `500`, `10000` scattered across backend files with no explanation. Every economy value needs a named constant.
 
-6. **Copy-paste across frontend/backend** — `src/characters.js` and `functions/characters.js` were allowed to diverge and caused trade bugs. Any logic that needs to exist in both places needs a sync mechanism or a single source of truth.
+6. **Copy-paste across frontend/backend** — `src/characters.ts` and `functions/characters.js` were allowed to diverge and caused trade bugs. Any logic that needs to exist in both places needs a sync mechanism or a single source of truth.
 
 ### When Adding a New Feature
 
@@ -281,7 +281,7 @@ Quick reference so you know where to look and where to add things.
 | `src/constants/economy.js` | Frontend economy constants (dividend rates, hold times) |
 | `src/constants/achievements.js` | Achievement definitions |
 | `src/constants/cosmetics.js` | Cosmetic item definitions |
-| `src/characters.js` | **Source of truth** for all character/ETF data — edit here only |
+| `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
 | `src/components/admin/` | Admin panel split into focused components |
 | `src/components/ladder/` | Ladder game UI: board, side panel, modals, shared style constants |
 | `src/hooks/ladder/` | Ladder game logic: data listeners, game flow, banners, DOM animation |
@@ -354,8 +354,8 @@ Running the migration first makes `initNewCharacterPrices` see the old ticker
 still in the roster with no price and re-seed it at base price, creating a
 duplicate stock at the wrong price.
 
-1. Edit `src/characters.js` (the `ticker`, plus **every** ETF `constituents` and
-   `trailingFactors` reference) and `src/crews.js` `members`.
+1. Edit `src/characters.ts` (the `ticker`, plus **every** ETF `constituents` and
+   `trailingFactors` reference) and `src/crews.ts` `members`.
 2. `npm run check:data` then `npm run sync:chars`
 3. `npm test` and `npm run build`
 4. **HALT THE MARKET** by hand (Admin -> Market) before pushing. See "Why you
@@ -425,7 +425,7 @@ and player and IP trade-history share counts. Feed entries stay as history.
    until the split runs, the code already carries the new factor while the data
    still has the old price: the index would read the stock 10x too high and a
    trade would get 10x the liquidity. Preflight refuses unless halted.
-2. Add `splitFactor: N` to the character in `src/characters.js`. It is the
+2. Add `splitFactor: N` to the character in `src/characters.ts`. It is the
    TOTAL factor: a second 2-for-1 on a stock already at 10 means `20`. Leave
    `basePrice` alone — characters.js divides it by the factor on load, and
    `liquidityFor` multiplies liquidity by it, so a dollar trade moves the stock
@@ -491,4 +491,4 @@ Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`p
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
 - **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.js`. The backend uses `calculateMarginalImpact` in `functions/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
-- **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.js` (there is no `type` field).
+- **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.ts` (there is no `type` field).

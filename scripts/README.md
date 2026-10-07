@@ -37,7 +37,7 @@ npm run check:data
   exist
 - Duplicate tickers or names, missing basePrice / dateAdded
 
-Run it after editing `src/characters.js` or `src/crews.js`, before `sync:chars`.
+Run it after editing `src/characters.ts` or `src/crews.ts`, before `sync:chars`.
 
 ---
 

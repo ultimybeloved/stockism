@@ -12,14 +12,15 @@
 // Minsik Choi was on the Fist Gang crew roster but missing from the Fist Gang
 // fund. Both are invisible by inspection and both change how a live stock moves.
 //
-// Run it after touching src/characters.js or src/crews.js, before sync:chars.
+// Run it after touching src/characters.ts or src/crews.ts, before sync:chars.
 
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const { CHARACTERS, CHARACTER_MAP } = require(path.join(ROOT, 'src/characters.js'));
-const { CREWS } = require(path.join(ROOT, 'src/crews.js'));
-const { GENERATION_IDS } = require(path.join(ROOT, 'src/constants/generations.js'));
-const { STORED_STATUS_IDS } = require(path.join(ROOT, 'src/constants/statuses.js'));
+const { load } = require('./lib/sharedSource.cjs');
+const { CHARACTERS, CHARACTER_MAP } = load('characters');
+const { CREWS } = load('crews');
+const { GENERATION_IDS } = load('constants/generations');
+const { STORED_STATUS_IDS } = load('constants/statuses');
 
 // Every ETF trails its members at this combined weight. Individual coefficients
 // are ~TARGET/N, rounded to 3 decimals, so the sum lands slightly off.

@@ -2,7 +2,43 @@
 // CREWS SYSTEM
 // ============================================
 
-export const CREWS = {
+export interface Crew {
+  id: string;
+  name: string;
+  color: string;
+  emblem: string;
+  icon: string;
+  members: string[];
+}
+
+export interface Mission {
+  id: string;
+  name: string;
+  description: string;
+  reward: number;
+  checkType: string;
+  requirement?: number;
+}
+
+export interface ShopPin {
+  id: string;
+  name: string;
+  image: string;
+  description: string;
+  price: number;
+  collection: string;
+}
+
+export interface PinCollection {
+  id: string;
+  name: string;
+  active: boolean;
+  limited: boolean;
+  expiresAt: number | null;
+  pins: string[];
+}
+
+export const CREWS: Record<string, Crew> = {
   ALLIED: {
     id: 'ALLIED',
     name: 'Allied',
@@ -168,7 +204,7 @@ export const CREWS = {
 };
 
 // Create a map for quick lookup
-export const CREW_MAP = {};
+export const CREW_MAP: Record<string, Crew> = {};
 Object.values(CREWS).forEach((crew) => {
   CREW_MAP[crew.id] = crew;
 });
@@ -177,7 +213,7 @@ Object.values(CREWS).forEach((crew) => {
 // SHOP PINS - LOOKISM THEMED
 // ============================================
 
-export const PIN_COLLECTIONS = {
+export const PIN_COLLECTIONS: Record<string, PinCollection> = {
   alpha_rewards: {
     id: 'alpha_rewards',
     name: 'Alpha Tester Rewards',
@@ -190,7 +226,7 @@ export const PIN_COLLECTIONS = {
   // were refunded (base price + 50%) via the one-time refundJHighPins admin op.
 };
 
-export const SHOP_PINS = {
+export const SHOP_PINS: Record<string, ShopPin> = {
   alpha_tester: {
     id: 'alpha_tester',
     name: 'Alpha Tester',
@@ -219,7 +255,7 @@ export const getActiveShopPins = () => {
 // portfolio COMPOSITION you actively maintain (percentage in crew). Missions
 // that paid out for a static holding you already had were removed - they were
 // free recurring income for zero effort.
-export const DAILY_MISSIONS = {
+export const DAILY_MISSIONS: Record<string, Mission> = {
   // ============================================
   // TRADING ACTIONS
   // ============================================
@@ -306,7 +342,7 @@ export const DAILY_MISSIONS = {
 // COMPOSITION (percentage of value in crew). Static-snapshot missions that paid
 // out just for holding a position were removed - they auto-completed every week
 // with no effort and favoured big established accounts.
-export const WEEKLY_MISSIONS = {
+export const WEEKLY_MISSIONS: Record<string, Mission> = {
   // ============================================
   // TRADING VOLUME
   // ============================================
@@ -441,29 +477,31 @@ export const CREW_BUY_MIN = 300;
 export const CREW_SELL_MIN = 300;
 export const CREW_VOLUME_MIN = 6000;
 
-export const getCrewBuyTarget = (memberCount) => Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
-export const getCrewSellTarget = (memberCount) => Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
-export const getCrewVolumeTarget = (memberCount) =>
+export const getCrewBuyTarget = (memberCount: number | null | undefined): number =>
+  Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
+export const getCrewSellTarget = (memberCount: number | null | undefined): number =>
+  Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
+export const getCrewVolumeTarget = (memberCount: number | null | undefined): number =>
   Math.max(CREW_VOLUME_MIN, CREW_VOLUME_PER_MEMBER * (memberCount || 0));
 
 // Helper function to get current week identifier (Monday 12:00am start)
-export const getWeekId = (date = new Date()) => {
+export const getWeekId = (date: Date | number | string = new Date()): string => {
   const d = new Date(date);
   // Get Monday of current week (UTC to match server)
   const day = d.getUTCDay();
   const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
   d.setUTCDate(diff);
   d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0]; // Returns "YYYY-MM-DD" of Monday
+  return d.toISOString().split('T')[0]!; // Returns "YYYY-MM-DD" of Monday
 };
 
 // Helper to check if we're in a new week
-export const isNewWeek = (lastWeekId) => {
+export const isNewWeek = (lastWeekId: string | null | undefined): boolean => {
   return getWeekId() !== lastWeekId;
 };
 
 // Deterministic random selection based on crew ID and week
-export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
+export const getCrewWeeklyMissions = (crewId: string, weekId: string, rerollSeed = 0): Mission[] => {
   const seed = `${crewId}-${weekId}`;
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -480,11 +518,11 @@ export const getCrewWeeklyMissions = (crewId, weekId, rerollSeed = 0) => {
   const idx2 = Math.abs(hash * 31) % count;
   const finalIdx2 = idx2 === idx1 ? (idx2 + 1) % count : idx2;
 
-  return [WEEKLY_MISSIONS[missionKeys[idx1]], WEEKLY_MISSIONS[missionKeys[finalIdx2]]];
+  return [WEEKLY_MISSIONS[missionKeys[idx1]!]!, WEEKLY_MISSIONS[missionKeys[finalIdx2]!]!];
 };
 
 // Deterministic daily mission selection based on date and crew
-export const getDailyMissions = (today, crewId, rerollSeed = 0) => {
+export const getDailyMissions = (today: string, crewId: string | null | undefined, rerollSeed = 0): Mission[] => {
   const allMissions = Object.values(DAILY_MISSIONS);
 
   const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
@@ -500,7 +538,7 @@ export const getDailyMissions = (today, crewId, rerollSeed = 0) => {
 
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(seededRandom() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
   }
 
   return shuffled.slice(0, 3);
@@ -531,7 +569,10 @@ export const CREW_UNDERDOG_MULT_MAX = 2;
 
 // Read a crew's current multiplier off the market/crewStats doc.
 // Falls back to 1x when the doc hasn't been computed yet.
-export const getCrewMultiplier = (crewStats, crewId) => {
+export const getCrewMultiplier = (
+  crewStats: { multipliers?: Record<string, unknown> } | null | undefined,
+  crewId: string,
+): number => {
   const m = crewStats?.multipliers?.[crewId];
   return typeof m === 'number' && m >= 1 ? Math.min(m, CREW_UNDERDOG_MULT_MAX) : 1;
 };
@@ -571,5 +612,5 @@ export const CREW_SWITCH_EVENT = {
   endsAt: Date.UTC(2026, 7, 14, 21, 0), // 2026-08-14 21:00 UTC
 };
 
-export const isFreeSwitchTarget = (crewId, now = Date.now()) =>
+export const isFreeSwitchTarget = (crewId: string, now: number = Date.now()): boolean =>
   !!CREW_SWITCH_EVENT && crewId === CREW_SWITCH_EVENT.crewId && now < CREW_SWITCH_EVENT.endsAt;

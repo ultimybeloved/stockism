@@ -31,7 +31,7 @@ const path = require('path');
 const { readEnv, readBotToken, discord, getApp } = require('./discord-api.cjs');
 
 const ROOT = path.join(__dirname, '..');
-const { CREWS } = require(path.join(ROOT, 'src/crews.js'));
+const { CREWS } = require('./lib/sharedSource.cjs').load('crews');
 const CONSTANTS_PATH = path.join(ROOT, 'functions', 'constants.js');
 
 // Discord caps an emoji image at 256 KB. The crew icons are ~15-35 KB, so this

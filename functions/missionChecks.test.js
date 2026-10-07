@@ -2,8 +2,8 @@
 // Free money (check-ins, dividends, drops, rewards) must not count as growth.
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
-import { getWeeklyMissionProgress } from '../src/utils/missionProgress.js';
-import { WEEKLY_MISSIONS } from '../src/crews.js';
+import { getWeeklyMissionProgress } from '../src/utils/missionProgress';
+import { WEEKLY_MISSIONS } from '../src/crews';
 
 const require = createRequire(import.meta.url);
 const { WEEKLY_MISSION_CHECKS } = require('./services/missionChecks');

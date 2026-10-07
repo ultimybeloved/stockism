@@ -91,7 +91,7 @@ const BLOCKED_WORDS = [
 ];
 
 // Normalize text for comparison (remove special chars, numbers that look like letters)
-const normalize = (text) => {
+const normalize = (text: string): string => {
   return text
     .toLowerCase()
     .replace(/0/g, 'o')
@@ -108,7 +108,7 @@ const normalize = (text) => {
     .replace(/[^a-z]/g, '');
 };
 
-export const containsProfanity = (text) => {
+export const containsProfanity = (text: string | null | undefined): boolean => {
   if (!text) return false;
 
   const normalized = normalize(text);

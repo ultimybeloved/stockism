@@ -26,7 +26,7 @@ export const SOURCE_LABELS: Record<string, string> = {
 // Firestore hands back a Timestamp; older records are already plain dates.
 export const getTimestampDate = (ts: TradeRecord['timestamp']): Date | null => {
   if (!ts) return null;
-  if (typeof ts === 'object' && 'toDate' in ts) return ts.toDate();
+  if (typeof ts === 'object' && 'toDate' in ts && ts.toDate) return ts.toDate();
   return new Date(ts as number | string);
 };
 

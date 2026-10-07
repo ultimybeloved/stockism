@@ -138,7 +138,7 @@ const RecoveryRenameTicker = ({
       <div
         className={`p-2.5 rounded-sm mb-3 text-xs ${darkMode ? 'bg-amber-900/30 border border-amber-700 text-amber-200' : 'bg-amber-50 border border-amber-300 text-amber-900'}`}
       >
-        <strong>Do this first.</strong> Edit src/characters.js and src/crews.js, run <code>npm run check:data</code>,{' '}
+        <strong>Do this first.</strong> Edit src/characters.ts and src/crews.ts, run <code>npm run check:data</code>,{' '}
         <code>npm run sync:chars</code>, then deploy functions. Preflight refuses until the new name is live in the
         deployed roster. Renaming before deploying can re-seed the old ticker as a duplicate stock.
       </div>

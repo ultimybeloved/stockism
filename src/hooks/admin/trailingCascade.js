@@ -11,7 +11,7 @@ import { MIN_PRICE, TRAILING_MAX_DEPTH } from '../../constants';
 // fired (0.4 x 0.4 = 0.16), $SHNG got marked as done, and $JIN's own 0.4 link to
 // $SHNG was then skipped. On 2026-08-20 that moved $SHNG 0.48% where it should
 // have moved 1.20%, purely because $GAP is typed before $SHNG in
-// src/characters.js. Going level by level makes every direct link fire at full
+// src/characters.ts. Going level by level makes every direct link fire at full
 // strength before an indirect one can claim the stock.
 //
 // A stock is only moved once per adjustment, at the shortest distance from the

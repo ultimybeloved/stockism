@@ -16,7 +16,7 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // DIVIDEND SYSTEM CONSTANTS
 // ============================================
 // Rates, hold gate, and loyalty ladder live in characters.js (synced from
-// src/characters.js) so frontend and backend always agree.
+// src/characters.ts) so frontend and backend always agree.
 const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS, CHARACTERS, CHARACTER_MAP, splitFactorOf } = require('./characters');
 
 // ============================================

@@ -2,7 +2,7 @@
 // PORTFOLIO ANALYTICS GROUPINGS
 // ============================================
 // How the analytics donut buckets a portfolio. Derived from the real crew
-// roster in src/crews.js, so it can never disagree with the crew filters, the
+// roster in src/crews.ts, so it can never disagree with the crew filters, the
 // crew badges, or crew missions.
 //
 // This used to be a hand-written ticker -> group map. It drifted badly: it

@@ -362,7 +362,7 @@ const runPreflight = async ({ ticker, ratio, marketData }) => {
     `characters.js has splitFactor ${want}, deployed`,
     (c?.splitFactor || 1) === want,
     `Deployed splitFactor is ${c?.splitFactor || 1}; this split needs ${want} (${before} so far x ${ratio}). ` +
-      'Add it to src/characters.js, run sync:chars, and deploy functions — with the market already halted.',
+      'Add it to src/characters.ts, run sync:chars, and deploy functions — with the market already halted.',
   );
   add(
     'halted',

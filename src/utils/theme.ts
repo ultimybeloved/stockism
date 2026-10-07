@@ -1,7 +1,7 @@
 // Central theme class definitions.
 // All components call getThemeClasses(darkMode) instead of repeating these ternaries.
 
-export const getThemeClasses = (darkMode) => {
+export const getThemeClasses = (darkMode: boolean) => {
   // Shared building block: card surface (also the modal shell surface).
   const card = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
 
@@ -78,7 +78,7 @@ export const SPACING = {
 // Legendary frames tick once per 6s cycle (legendaryTick in index.css).
 // Stagger each card by a hash of its ticker so several legendaries on screen
 // never tick at the same moment (ambient motion must never move in unison).
-export const getRarityStagger = (ticker = '') => {
+export const getRarityStagger = (ticker = ''): string => {
   let hash = 0;
   for (let i = 0; i < ticker.length; i++) {
     hash = (hash * 31 + ticker.charCodeAt(i)) >>> 0; // simple string hash
@@ -92,13 +92,13 @@ export const getRarityStagger = (ticker = '') => {
 // the page background. This blends a too-dark color toward white in dark mode
 // (and a too-light color toward black in light mode) just enough to read,
 // while keeping the crew's hue recognizable.
-export const getReadableCrewColor = (hex, darkMode) => {
+export const getReadableCrewColor = <T extends string | null | undefined>(hex: T, darkMode: boolean): T | string => {
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
   let r = parseInt(hex.slice(1, 3), 16);
   let g = parseInt(hex.slice(3, 5), 16);
   let b = parseInt(hex.slice(5, 7), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const mix = (v, target, t) => Math.round(v + (target - v) * t);
+  const mix = (v: number, target: number, t: number) => Math.round(v + (target - v) * t);
   if (darkMode && luminance < 0.45) {
     const t = ((0.45 - luminance) / 0.45) * 0.85;
     r = mix(r, 255, t);

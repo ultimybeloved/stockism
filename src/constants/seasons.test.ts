@@ -42,8 +42,8 @@ describe('seasonTierRule', () => {
 
 describe('nextSeasonTier', () => {
   it('walks up the ladder and stops at the top', () => {
-    expect(nextSeasonTier(null).id).toBe('bronze');
-    expect(nextSeasonTier('gold').id).toBe('platinum');
+    expect(nextSeasonTier(null)?.id).toBe('bronze');
+    expect(nextSeasonTier('gold')?.id).toBe('platinum');
     expect(nextSeasonTier('diamond')).toBeNull();
   });
 });

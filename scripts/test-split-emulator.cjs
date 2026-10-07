@@ -11,7 +11,7 @@
 // never be applied twice.
 //
 // The deploy is simulated in-process: CHARACTER_MAP.SOPH gets the splitFactor
-// that src/characters.js would carry after the edit.
+// that src/characters.ts would carry after the edit.
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';

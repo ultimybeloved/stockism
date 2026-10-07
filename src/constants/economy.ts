@@ -150,7 +150,7 @@ export const ADMIN_UIDS = ['4usiVxPmHLhmitEKH2HfCpbx4Yi1'];
 // ============================================
 
 // The dividend system (rates, hold gate, loyalty ladder) lives in
-// src/characters.js so the backend gets the identical math via
+// src/characters.ts so the backend gets the identical math via
 // npm run sync:chars. Re-exported here for frontend convenience.
 export {
   DIVIDEND_HOLD_DAYS,

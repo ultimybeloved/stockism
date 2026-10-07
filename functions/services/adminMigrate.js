@@ -4,7 +4,7 @@
 //
 // These change the character roster itself rather than any one player: renaming a
 // ticker across every collection, and seeding prices for newly added characters.
-// Both are run once, by hand, after src/characters.js changes and npm run
+// Both are run once, by hand, after src/characters.ts changes and npm run
 // sync:chars — see the "adding characters" playbook.
 const functions = require('firebase-functions');
 const { cf, requireAppCheck } = require('../fnConfig');
@@ -29,7 +29,7 @@ const split = require('./stockSplit');
  *             market, because a half-renamed database is not something to
  *             resume trading against.
  *
- * ORDER MATTERS: edit src/characters.js and src/crews.js, run check:data and
+ * ORDER MATTERS: edit src/characters.ts and src/crews.ts, run check:data and
  * sync:chars, and DEPLOY FUNCTIONS before running this. Preflight refuses
  * otherwise. Migrating first makes initNewCharacterPrices see the old ticker
  * still in the roster with no price and re-seed it at base price, which
@@ -106,7 +106,7 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
  *
  * Modes: dryRun (checks and counts, writes nothing), execute, resume, abort.
  * Abort does NOT roll back. The market must already be halted and this never
- * reopens it. ORDER: halt, add splitFactor to src/characters.js, sync:chars,
+ * reopens it. ORDER: halt, add splitFactor to src/characters.ts, sync:chars,
  * deploy functions, then run this — see "Splitting a Stock" in CLAUDE.md.
  */
 exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {

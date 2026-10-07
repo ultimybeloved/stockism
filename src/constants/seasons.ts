@@ -10,7 +10,42 @@
 // can't say what a whole arc will do, so fixed return targets would be trivial in
 // one arc and impossible in the next.
 
-export const SEASON_TIERS = [
+export type SeasonTierId = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+
+export interface SeasonTier {
+  id: SeasonTierId;
+  name: string;
+  order: number;
+  color: string;
+}
+
+export interface SeasonDivision {
+  id: string;
+  label: string;
+  min: number;
+  max: number | null;
+}
+
+export interface SeasonRules {
+  bronzeActiveWeeks: number;
+  platinumTopShare: number;
+  diamondTopShare: number;
+  diamondBeatShare: number;
+  diamondMaxConcentration: number;
+  diamondConcentrationMinInvested: number;
+  titledTiers: readonly string[];
+  divisions: readonly SeasonDivision[];
+}
+
+/** The parts of a season doc these helpers read. */
+export interface SeasonLike {
+  number?: number;
+  preseason?: boolean;
+  preseasons?: number;
+  rules?: Partial<SeasonRules>;
+}
+
+export const SEASON_TIERS: SeasonTier[] = [
   { id: 'bronze', name: 'Bronze', order: 1, color: '#CD7F32' },
   { id: 'silver', name: 'Silver', order: 2, color: '#C0C0C0' },
   { id: 'gold', name: 'Gold', order: 3, color: '#FFD700' },
@@ -18,7 +53,7 @@ export const SEASON_TIERS = [
   { id: 'diamond', name: 'Diamond', order: 5, color: '#5FC9F3' },
 ];
 
-export const SEASON_TIER_MAP = Object.fromEntries(SEASON_TIERS.map((t) => [t.id, t]));
+export const SEASON_TIER_MAP: Record<string, SeasonTier> = Object.fromEntries(SEASON_TIERS.map((t) => [t.id, t]));
 
 // Bronze is not a return threshold. It is for turning up: a player active at this
 // many weekly checkpoints earns it regardless of performance, so a losing season
@@ -48,19 +83,19 @@ export const SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED = 0.25;
 // Tiers that give a permanent title when the season ends. Mirror of
 // SEASON_TITLED_TIERS in functions/constants.js. The rest still show, they just
 // don't pay a title.
-export const SEASON_TITLED_TIERS = Object.freeze(['gold', 'platinum', 'diamond']);
+export const SEASON_TITLED_TIERS: readonly string[] = Object.freeze(['gold', 'platinum', 'diamond']);
 
 // Size divisions, by value when your season baseline was pinned. Platinum and
 // Diamond are ranked within a division so small accounts, which swing further,
 // don't take every top place. Mirror of SEASON_DIVISIONS in functions/constants.js.
-export const SEASON_DIVISIONS = Object.freeze([
+export const SEASON_DIVISIONS: readonly SeasonDivision[] = Object.freeze([
   Object.freeze({ id: 'rookie', label: 'Rookie', min: 0, max: 10000 }),
   Object.freeze({ id: 'trader', label: 'Trader', min: 10000, max: 50000 }),
   Object.freeze({ id: 'whale', label: 'Whale', min: 50000, max: 200000 }),
   Object.freeze({ id: 'titan', label: 'Titan', min: 200000, max: null }),
 ]);
 
-export const DEFAULT_SEASON_RULES = Object.freeze({
+export const DEFAULT_SEASON_RULES: Readonly<SeasonRules> = Object.freeze({
   bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
   platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
@@ -72,22 +107,30 @@ export const DEFAULT_SEASON_RULES = Object.freeze({
 });
 
 /** The rules a season is scored by: whatever it was started with, over the defaults. */
-export const seasonRulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season?.rules || {}) });
+export const seasonRulesFor = (season: SeasonLike | null | undefined): SeasonRules => ({
+  ...DEFAULT_SEASON_RULES,
+  ...(season?.rules || {}),
+});
 
-const asPercent = (share) => `${Math.round(share * 100)}%`;
+const asPercent = (share: number) => `${Math.round(share * 100)}%`;
 
 /** One plain sentence per tier, for the card, the board and the admin panel. */
-export const seasonTierRule = (tierId, rules = DEFAULT_SEASON_RULES) =>
-  ({
-    bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
-    silver: "Earn Bronze and finish the season up. Free stock and bonuses don't count.",
-    gold: 'Earn Silver and finish the season ahead of the market.',
-    platinum: `Earn Gold and finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
-    diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included) at a checkpoint where at least ${asPercent(rules.diamondConcentrationMinInvested)} of their money was invested.`,
-  })[tierId] || '';
+export const seasonTierRule = (tierId: string, rules: SeasonRules = DEFAULT_SEASON_RULES): string =>
+  (
+    ({
+      bronze: `Be active in ${rules.bronzeActiveWeeks} weeks of the season.`,
+      silver: "Earn Bronze and finish the season up. Free stock and bonuses don't count.",
+      gold: 'Earn Silver and finish the season ahead of the market.',
+      platinum: `Earn Gold and finish in the top ${asPercent(rules.platinumTopShare)} of your division against the market.`,
+      diamond: `The best Platinum finishers, up to ${asPercent(rules.diamondTopShare)} of your division, who beat the market in ${asPercent(rules.diamondBeatShare)} of weeks and never had more than ${asPercent(rules.diamondMaxConcentration)} of their invested money on one character (shorts and crew funds included) at a checkpoint where at least ${asPercent(rules.diamondConcentrationMinInvested)} of their money was invested.`,
+    }) as Record<string, string>
+  )[tierId] || '';
 
 /** The size division a baseline value falls in. Mirror of divisionFor in seasonTiers.js. */
-export const seasonDivisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
+export const seasonDivisionFor = (
+  baselineValue: number | null | undefined,
+  rules: Pick<SeasonRules, 'divisions'> = DEFAULT_SEASON_RULES,
+): SeasonDivision | null => {
   const divisions = rules.divisions || [];
   const v = baselineValue || 0;
   return (
@@ -96,18 +139,19 @@ export const seasonDivisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) =
 };
 
 /** "$10k to $50k", "$200k and up". */
-export const divisionRange = (d) => {
-  const k = (n) => `$${(n / 1000).toLocaleString()}k`;
+export const divisionRange = (d: SeasonDivision | null | undefined): string => {
+  const k = (n: number) => `$${(n / 1000).toLocaleString()}k`;
   if (!d) return '';
   if (d.max === null || d.max === undefined) return `${k(d.min)} and up`;
   return d.min > 0 ? `${k(d.min)} to ${k(d.max)}` : `under ${k(d.max)}`;
 };
 
 /** Whether finishing on `tierId` earns a title this season. */
-export const tierGivesTitle = (tierId, rules = DEFAULT_SEASON_RULES) => rules.titledTiers.includes(tierId);
+export const tierGivesTitle = (tierId: string, rules: SeasonRules = DEFAULT_SEASON_RULES): boolean =>
+  rules.titledTiers.includes(tierId);
 
 /** "Season 2", or "Preseason" for a trial run that doesn't use up a number. */
-export const seasonLabel = (season) => {
+export const seasonLabel = (season: SeasonLike | null | undefined): string => {
   if (!season?.preseason) return `Season ${season?.number}`;
   const n = season.preseasons || 1;
   return n > 1 ? `Preseason ${n}` : 'Preseason';
@@ -118,13 +162,19 @@ export const seasonLabel = (season) => {
  * too: beating a falling market while down is not Gold. Mirror of standingTier
  * in seasonTiers.js.
  */
-export const seasonStandingTier = ({ returnPercent, marketPercent }) => {
+export const seasonStandingTier = ({
+  returnPercent,
+  marketPercent,
+}: {
+  returnPercent: number;
+  marketPercent: number;
+}): 'gold' | 'silver' | null => {
   if (!(returnPercent > 0)) return null;
   return returnPercent > marketPercent ? 'gold' : 'silver';
 };
 
 /** The tier above `tierId`, or null at the top. Drives "next up" in the UI. */
-export const nextSeasonTier = (tierId) => {
+export const nextSeasonTier = (tierId: string | null | undefined): SeasonTier | null => {
   const order = tierId ? SEASON_TIER_MAP[tierId]?.order || 0 : 0;
   return SEASON_TIERS.find((t) => t.order === order + 1) || null;
 };

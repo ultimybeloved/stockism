@@ -145,7 +145,7 @@ async function main() {
   console.log(`  Still IPO-gated                    : ${list(gated.map((c) => c.ticker))}`);
   if (staleFlag.length) {
     console.log(`  Flagged ipoRequired but launched   : ${list(staleFlag.map((c) => c.ticker))}`);
-    console.log('  -> the flag no longer gates them. Drop it in src/characters.js:');
+    console.log('  -> the flag no longer gates them. Drop it in src/characters.ts:');
     console.log('     left on, it reads as gated and the admin IPO panel keeps');
     console.log('     offering them as candidates for another launch.');
   }

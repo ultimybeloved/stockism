@@ -6,6 +6,8 @@
 // ABSOLUTE value, so a -22% is as emphatic as a +22%. Anything under the
 // lowest rung gets no punctuation at all — most moves are unremarkable and
 // should look it.
+import type { TimestampLike } from '../types';
+
 export const EMPHASIS_LADDER = [
   { minPercent: 20, marks: '!!!' },
   { minPercent: 10, marks: '!!' },
@@ -17,7 +19,7 @@ export const EMPHASIS_LADDER = [
  * @param {number} percent - Signed percentage change
  * @returns {string} '', '!', '!!' or '!!!'
  */
-export const emphasisMarks = (percent) => {
+export const emphasisMarks = (percent: unknown): string => {
   const magnitude = Math.abs(Number(percent) || 0);
   const rung = EMPHASIS_LADDER.find((r) => magnitude >= r.minPercent);
   return rung ? rung.marks : '';
@@ -28,7 +30,7 @@ export const emphasisMarks = (percent) => {
  * @param {number} value - The value to format
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (value) => {
+export const formatCurrency = (value: unknown): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -43,11 +45,11 @@ export const formatCurrency = (value) => {
  * @param {number} value - The value to format
  * @returns {string} Compact currency string
  */
-export const formatCompactCurrency = (value) => {
+export const formatCompactCurrency = (value: unknown): string => {
   const n = Number(value) || 0;
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  const trim = (s) => s.replace(/\.?0+$/, '');
+  const trim = (s: string) => s.replace(/\.?0+$/, '');
   if (abs >= 1e6) return `${sign}$${trim((abs / 1e6).toFixed(2))}M`;
   if (abs >= 1e3) return `${sign}$${trim((abs / 1e3).toFixed(1))}K`;
   return formatCurrency(n);
@@ -58,10 +60,10 @@ export const formatCompactCurrency = (value) => {
  * @param {number} change - The percentage change value
  * @returns {string} Formatted change string with + or - prefix
  */
-export const formatChange = (change) => {
-  change = Number(change) || 0;
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(2)}%`;
+export const formatChange = (change: unknown): string => {
+  const n = Number(change) || 0;
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}${n.toFixed(2)}%`;
 };
 
 /**
@@ -70,7 +72,7 @@ export const formatChange = (change) => {
  * @param {number} value - The multiplier
  * @returns {string} Formatted multiplier string
  */
-export const formatMultiplier = (value) => {
+export const formatMultiplier = (value: unknown): string => {
   const x = Number(value);
   if (!Number.isFinite(x) || x < 0) return '0x';
   if (x < 10) return `${x.toFixed(2)}x`;
@@ -83,8 +85,8 @@ export const formatMultiplier = (value) => {
  * @param {number} num - The number to format
  * @returns {string} Formatted number string
  */
-export const formatNumber = (num) => {
-  num = Number(num) || 0;
+export const formatNumber = (value: unknown): string => {
+  const num = Number(value) || 0;
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
   return num.toString();
@@ -95,7 +97,7 @@ export const formatNumber = (num) => {
  * @param {number} ms - Milliseconds remaining
  * @returns {string} Human-readable time remaining
  */
-export const formatTimeRemaining = (ms) => {
+export const formatTimeRemaining = (ms: number): string => {
   if (ms <= 0) return 'Ended';
   const days = Math.floor(ms / (1000 * 60 * 60 * 24));
   const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -111,9 +113,14 @@ export const formatTimeRemaining = (ms) => {
  * @param {*} ts - The timestamp to format
  * @returns {string} Human-readable relative time
  */
-export const formatTimeAgo = (ts) => {
+export const formatTimeAgo = (ts: TimestampLike): string => {
   if (!ts) return '';
-  const date = ts.toDate ? ts.toDate() : ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+  const date =
+    typeof ts === 'object' && 'toDate' in ts && ts.toDate
+      ? ts.toDate()
+      : typeof ts === 'object' && 'seconds' in ts && ts.seconds
+        ? new Date(ts.seconds * 1000)
+        : new Date(ts as number | string | Date);
   const diff = Date.now() - date.getTime();
   if (diff < 0) return 'just now';
   const seconds = Math.floor(diff / 1000);
@@ -136,8 +143,8 @@ export const formatTimeAgo = (ts) => {
  * @param {{kilo?: boolean}} [opts] - kilo: render as "$3.0k" style
  * @returns {string[]} One label per input value ('' = skip rendering)
  */
-export const formatAxisLabels = (values, { kilo = false } = {}) => {
-  const fmt = (v, d) => (kilo ? `$${(v / 1000).toFixed(d)}k` : `$${v.toFixed(d)}`);
+export const formatAxisLabels = (values: number[], { kilo = false }: { kilo?: boolean } = {}): string[] => {
+  const fmt = (v: number, d: number) => (kilo ? `$${(v / 1000).toFixed(d)}k` : `$${v.toFixed(d)}`);
   for (let d = kilo ? 1 : 0; d <= 2; d++) {
     const labels = values.map((v) => fmt(v, d));
     if (new Set(labels).size === labels.length) return labels;
@@ -151,7 +158,7 @@ export const formatAxisLabels = (values, { kilo = false } = {}) => {
  * @param {number} ms - Epoch milliseconds
  * @returns {string} UTC date-time string
  */
-export const formatUTCDateTime = (ms) => {
+export const formatUTCDateTime = (ms: number): string => {
   const d = new Date(ms);
   if (isNaN(d.getTime())) return '';
   return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
@@ -162,11 +169,11 @@ export const formatUTCDateTime = (ms) => {
  * @param {number} value - The value to round
  * @returns {number} Rounded value
  */
-export const round2 = (value) => Math.round(value * 100) / 100;
+export const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 /**
  * Round a number to 3 decimal places
  * @param {number} value - The value to round
  * @returns {number} Rounded value
  */
-export const round3 = (value) => Math.round(value * 1000) / 1000;
+export const round3 = (value: number): number => Math.round(value * 1000) / 1000;

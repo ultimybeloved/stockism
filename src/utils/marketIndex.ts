@@ -14,9 +14,19 @@
 
 import { CHARACTERS } from '../characters';
 import { INDEX_BASE_VALUE } from '../constants/economy';
+import type { Character } from '../characters';
+import type { PriceMap } from '../types';
 
-const valueFrom = (sum, count, divisor) => {
-  if (divisor > 0) return sum / divisor;
+/** A chart point; Firestore may hand back a Timestamp instead of epoch ms. */
+interface IndexHistoryPoint {
+  price: number;
+  timestamp?: number | { seconds?: number } | null;
+}
+
+type IndexHistory = Record<string, IndexHistoryPoint[]>;
+
+const valueFrom = (sum: number, count: number, divisor: number | null | undefined): number => {
+  if (divisor && divisor > 0) return sum / divisor;
   return count > 0 ? INDEX_BASE_VALUE * (sum / count) : INDEX_BASE_VALUE;
 };
 
@@ -30,13 +40,17 @@ export const TIME_RANGES = [
   { key: 'all', label: 'All Time', hours: Infinity },
 ];
 
-export const getTimestamp = (entry) => {
+export const getTimestamp = (entry: IndexHistoryPoint): number | null => {
   if (typeof entry.timestamp === 'number') return entry.timestamp;
   if (entry.timestamp?.seconds) return entry.timestamp.seconds * 1000;
   return null;
 };
 
-export const computeIndex = (prices, characters, divisor) => {
+export const computeIndex = (
+  prices: PriceMap | null | undefined,
+  characters: Pick<Character, 'ticker' | 'basePrice'>[],
+  divisor: number | null | undefined,
+): number => {
   let sum = 0;
   let count = 0;
   for (const char of characters) {
@@ -50,7 +64,11 @@ export const computeIndex = (prices, characters, divisor) => {
   return valueFrom(sum, count, divisor);
 };
 
-export const computeIndexAtTime = (priceHistory, t, divisor) => {
+export const computeIndexAtTime = (
+  priceHistory: IndexHistory | null | undefined,
+  t: number,
+  divisor: number | null | undefined,
+): number => {
   let sum = 0;
   let count = 0;
   for (const char of nonETFCharacters) {
@@ -62,11 +80,12 @@ export const computeIndexAtTime = (priceHistory, t, divisor) => {
       count++;
       continue;
     }
-    let nearest = null;
+    let nearest: number | null = null;
     for (let j = history.length - 1; j >= 0; j--) {
-      const ts = getTimestamp(history[j]);
+      const point = history[j]!;
+      const ts = getTimestamp(point);
       if (ts != null && ts <= t) {
-        nearest = history[j].price;
+        nearest = point.price;
         break;
       }
     }
@@ -76,14 +95,19 @@ export const computeIndexAtTime = (priceHistory, t, divisor) => {
   return valueFrom(sum, count, divisor);
 };
 
-export const buildIndexSeries = (priceHistory, currentIndex, hours, divisor) => {
+export const buildIndexSeries = (
+  priceHistory: IndexHistory | null | undefined,
+  currentIndex: number,
+  hours: number,
+  divisor: number | null | undefined,
+): { timestamp: number; price: number }[] => {
   if (!priceHistory || Object.keys(priceHistory).length === 0) return [];
 
   const now = Date.now();
   const cutoff = hours === Infinity ? 0 : now - hours * 60 * 60 * 1000;
 
   // Determine interval based on time range for ~100-150 points
-  let interval;
+  let interval: number;
   if (hours <= 24)
     interval = 30 * 60 * 1000; // 30 min
   else if (hours <= 168)
@@ -100,7 +124,7 @@ export const buildIndexSeries = (priceHistory, currentIndex, hours, divisor) => 
     for (const char of nonETFCharacters) {
       const history = priceHistory?.[char.ticker];
       if (history && history.length > 0) {
-        const ts = getTimestamp(history[0]);
+        const ts = getTimestamp(history[0]!);
         if (ts && ts < start) start = ts;
       }
     }
@@ -108,7 +132,7 @@ export const buildIndexSeries = (priceHistory, currentIndex, hours, divisor) => 
     start = cutoff;
   }
 
-  const points = [];
+  const points: { timestamp: number; price: number }[] = [];
   for (let t = start; t <= now; t += interval) {
     points.push({ timestamp: t, price: computeIndexAtTime(priceHistory, t, divisor) });
   }

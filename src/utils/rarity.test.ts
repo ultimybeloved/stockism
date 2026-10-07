@@ -3,8 +3,10 @@ import { computeRarityTiers, rarityClassFor, RARITY_ORDER } from './rarity';
 
 // Build a characters array + prices map from [ticker, price] pairs (descending
 // order not required — computeRarityTiers sorts internally).
-const roster = (pairs) => ({
-  characters: pairs.map(([ticker]) => ({ ticker })),
+type TestCharacter = { ticker: string; isETF?: boolean; basePrice?: number; splitFactor?: number };
+
+const roster = (pairs: [string, number][]) => ({
+  characters: pairs.map(([ticker]): TestCharacter => ({ ticker })),
   prices: Object.fromEntries(pairs),
 });
 
@@ -12,7 +14,7 @@ const roster = (pairs) => ({
 // cutoff (nominal boundary after the 11th character). Mirrors the live-market
 // case: $JAY 40.78 ended the blue tier while $SHKO/$XIAO sat just below it,
 // with the real divide at $PYNG 39.90.
-const clusterPairs = [
+const clusterPairs: [string, number][] = [
   ['T00', 60],
   ['T01', 58],
   ['T02', 56],
@@ -141,11 +143,14 @@ describe('computeRarityTiers gap snapping', () => {
   });
 
   it('keeps every boundary on its rank cutoff when gaps are uniform', () => {
-    const pairs = Array.from({ length: 25 }, (_, i) => [`T${String(i).padStart(2, '0')}`, 100 * 0.97 ** i]);
+    const pairs: [string, number][] = Array.from({ length: 25 }, (_, i) => [
+      `T${String(i).padStart(2, '0')}`,
+      100 * 0.97 ** i,
+    ]);
     const { characters, prices } = roster(pairs);
     const tiers = computeRarityTiers(characters, prices);
 
-    const counts = {};
+    const counts: Record<string, number> = {};
     Object.values(tiers).forEach((t) => {
       counts[t] = (counts[t] || 0) + 1;
     });
@@ -154,7 +159,7 @@ describe('computeRarityTiers gap snapping', () => {
   });
 
   it('handles equal prices deterministically via the ticker tie-break', () => {
-    const pairs = 'ABCDEFGHIJ'.split('').map((t) => [t, 10]);
+    const pairs: [string, number][] = 'ABCDEFGHIJ'.split('').map((t) => [t, 10]);
     const { characters, prices } = roster(pairs);
     const tiers = computeRarityTiers(characters, prices);
 
@@ -192,7 +197,7 @@ describe('computeRarityTiers gap snapping', () => {
 
 describe('computeRarityTiers with stock splits', () => {
   it('ranks a split stock on its pre-split price, so a split never moves its tier', () => {
-    const pairs = clusterPairs.map(([t, p]) => [t, p]);
+    const pairs: [string, number][] = clusterPairs.map(([t, p]) => [t, p]);
     const before = computeRarityTiers(
       pairs.map(([ticker]) => ({ ticker })),
       Object.fromEntries(pairs),

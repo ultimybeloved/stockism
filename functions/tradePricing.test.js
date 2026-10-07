@@ -30,7 +30,7 @@ describe('computePriceUpdates trailing effects', () => {
     // to $SHNG fired (0.2 x 0.2), $SHNG was marked visited, and $JIN's own 0.2
     // link to $SHNG was then skipped. $SHNG moved +0.20% where $GAP moved
     // +1.00%, off identical coefficients, purely because $GAP is typed first in
-    // src/characters.js.
+    // src/characters.ts.
     const updates = computePriceUpdates({
       ticker: 'JIN',
       currentPrice: 100,

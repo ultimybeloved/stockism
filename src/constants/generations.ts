@@ -6,7 +6,7 @@
 // stacks on top of the crew filter.
 //
 // A character carries this as an optional `generation` field in
-// src/characters.js holding one of the ids below. No field means unassigned,
+// src/characters.ts holding one of the ids below. No field means unassigned,
 // which is a normal state: the roster is being classified in batches, and the
 // "Unassigned" pill exists to show what is left. ETFs never get one.
 //

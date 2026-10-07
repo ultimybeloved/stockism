@@ -1,7 +1,39 @@
 // All Lookism characters with their base stats
 // dateAdded: used for "Newest" / "Oldest" sorting - includes time for unique ordering
 // Strongest characters = oldest (added first), Weakest = newest (added last)
-export const CHARACTERS = [
+export interface TrailingFactor {
+  ticker: string;
+  coefficient: number;
+}
+
+export interface Character {
+  name: string;
+  ticker: string;
+  basePrice: number;
+  dateAdded: string;
+  generation?: string;
+  status?: string;
+  altNames?: string[];
+  /** Total N-for-1 split factor; see "Splitting a Stock" in CLAUDE.md. */
+  splitFactor?: number;
+  /** basePrice before splits; set below at load time. */
+  unsplitBasePrice?: number;
+  trailingFactors?: TrailingFactor[];
+  isETF?: boolean;
+  description?: string;
+  constituents?: string[];
+  ipoRequired?: boolean;
+}
+
+export type RarityTier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+/** A lot ledger for one ticker (users/{uid}.holdingCohorts[ticker]). */
+export interface HoldingCohort {
+  eligible?: number;
+  pending?: { shares?: number; availableAt?: number }[];
+}
+
+export const CHARACTERS: Character[] = [
   {
     name: 'James Lee',
     ticker: 'DG',
@@ -889,14 +921,14 @@ export const CHARACTERS = [
 // `basePrice` above stays the original figure. The factor is added BEFORE the
 // split is run, with the market halted: see "Splitting a Stock" in CLAUDE.md.
 CHARACTERS.forEach((c) => {
-  if (c.splitFactor > 1) {
+  if (c.splitFactor && c.splitFactor > 1) {
     c.unsplitBasePrice = c.basePrice;
     c.basePrice = c.basePrice / c.splitFactor;
   }
 });
 
 // Create a map for quick lookup
-export const CHARACTER_MAP = {};
+export const CHARACTER_MAP: Record<string, Character> = {};
 CHARACTERS.forEach((c) => {
   CHARACTER_MAP[c.ticker] = c;
 });
@@ -907,7 +939,7 @@ CHARACTERS.forEach((c) => {
  * maker orders, drop payouts, rarity rank) scales by it, so a split changes
  * nothing but the share count and the price per share.
  */
-export const splitFactorOf = (ticker) => CHARACTER_MAP[ticker]?.splitFactor || 1;
+export const splitFactorOf = (ticker: string): number => CHARACTER_MAP[ticker]?.splitFactor || 1;
 
 // ============================================
 // MARKET STANDING (rarity tiers)
@@ -922,10 +954,15 @@ export const splitFactorOf = (ticker) => CHARACTER_MAP[ticker]?.splitFactor || 1
 // tiers by position, then nudge each tier boundary onto the nearest natural
 // price gap so a boundary never cuts through a tight price cluster.
 
-export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export const RARITY_ORDER: RarityTier[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 // Cumulative share of the roster, counting from the most expensive character down.
-const TIER_CUTOFFS = [
+interface RankedEntry {
+  ticker: string;
+  price: number;
+}
+
+const TIER_CUTOFFS: { tier: RarityTier; maxFraction: number }[] = [
   { tier: 'legendary', maxFraction: 0.04 },
   { tier: 'epic', maxFraction: 0.16 },
   { tier: 'rare', maxFraction: 0.41 },
@@ -941,9 +978,9 @@ const GAP_BREAK_RATIO = 1.2; // a break must beat every gap it skips over by thi
 const MIN_BREAK_GAP = 0.008; // ...and be at least a 0.8% relative price drop (ignores cluster noise)
 
 // Relative price drop between rank c-1 and rank c (prices are sorted descending).
-const relativeGap = (ranked, c) => {
-  const above = ranked[c - 1].price;
-  return above > 0 ? (above - ranked[c].price) / above : 0;
+const relativeGap = (ranked: RankedEntry[], c: number): number => {
+  const above = ranked[c - 1]!.price;
+  return above > 0 ? (above - ranked[c]!.price) / above : 0;
 };
 
 // Slide one tier boundary from its nominal rank cutoff onto a natural price gap.
@@ -951,7 +988,13 @@ const relativeGap = (ranked, c) => {
 // tier) and stop at the first clear break; if the cluster runs past the window,
 // fall back to walking up to the break above. `prev` (the boundary of the tier
 // above) is a hard floor so tiers can never overlap or reorder.
-const snapBoundary = (ranked, nominal, prev, upperSize, lowerSize) => {
+const snapBoundary = (
+  ranked: RankedEntry[],
+  nominal: number,
+  prev: number,
+  upperSize: number,
+  lowerSize: number,
+): number => {
   const n = ranked.length;
   const base = Math.min(Math.max(nominal, prev + 1), n);
   if (base >= n) return base;
@@ -964,7 +1007,7 @@ const snapBoundary = (ranked, nominal, prev, upperSize, lowerSize) => {
   // clears the noise floor and beats every gap skipped so far by the ratio.
   // After a break is found, keep sliding only while the very next candidate is
   // an even clearer break; stop at the first that isn't.
-  const scanForBreak = (from, to, step) => {
+  const scanForBreak = (from: number, to: number, step: number): number => {
     let maxSkipped = relativeGap(ranked, base);
     let breakAt = 0;
     let breakGap = 0;
@@ -997,7 +1040,10 @@ const snapBoundary = (ranked, nominal, prev, upperSize, lowerSize) => {
  * Ranked on the pre-split price (price x splitFactor), so a split never moves a
  * stock's tier or its dividend rate.
  */
-export const computeRarityTiers = (characters, prices) => {
+export const computeRarityTiers = (
+  characters: { ticker: string; basePrice?: number; isETF?: boolean; splitFactor?: number }[],
+  prices: Record<string, number> | null | undefined,
+): Record<string, RarityTier> => {
   const ranked = characters
     .filter((c) => !c.isETF)
     .map((c) => ({
@@ -1008,23 +1054,23 @@ export const computeRarityTiers = (characters, prices) => {
     .sort((a, b) => b.price - a.price || (a.ticker < b.ticker ? -1 : 1));
 
   const n = ranked.length;
-  const tiers = {};
+  const tiers: Record<string, RarityTier> = {};
   if (!n) return tiers;
 
   const nominals = TIER_CUTOFFS.slice(0, -1).map((t) => Math.ceil(t.maxFraction * n));
 
-  const bounds = [];
+  const bounds: number[] = [];
   let prev = 0;
   nominals.forEach((nominal, i) => {
-    const upperSize = nominal - (i ? nominals[i - 1] : 0);
-    const lowerSize = (i + 1 < nominals.length ? nominals[i + 1] : n) - nominal;
+    const upperSize = nominal - (i ? nominals[i - 1]! : 0);
+    const lowerSize = (i + 1 < nominals.length ? nominals[i + 1]! : n) - nominal;
     prev = snapBoundary(ranked, nominal, prev, upperSize, lowerSize);
     bounds.push(prev);
   });
 
   ranked.forEach((entry, idx) => {
     const k = bounds.findIndex((b) => idx < b);
-    tiers[entry.ticker] = (k === -1 ? TIER_CUTOFFS[TIER_CUTOFFS.length - 1] : TIER_CUTOFFS[k]).tier;
+    tiers[entry.ticker] = (k === -1 ? TIER_CUTOFFS[TIER_CUTOFFS.length - 1]! : TIER_CUTOFFS[k]!).tier;
   });
   return tiers;
 };
@@ -1049,7 +1095,9 @@ export const DIVIDEND_HOLD_DAYS = 10;
 export const DIVIDEND_HOLD_MS = DIVIDEND_HOLD_DAYS * 24 * 60 * 60 * 1000;
 
 // Weekly base yield per tier, applied to (eligible shares × snapshot price).
-export const DIVIDEND_RATES = {
+export type DividendTier = RarityTier | 'etf' | 'none';
+
+export const DIVIDEND_RATES: Record<DividendTier, number> = {
   legendary: 0.01, // 1.00% / week
   epic: 0.008, // 0.80% / week
   rare: 0.006, // 0.60% / week
@@ -1060,7 +1108,7 @@ export const DIVIDEND_RATES = {
 };
 
 // Admin override values written before the tier revamp map onto the new tiers.
-const LEGACY_TIER_ALIASES = {
+const LEGACY_TIER_ALIASES: Record<string, DividendTier> = {
   'blue-chip': 'legendary',
   dividend: 'uncommon',
   growth: 'none',
@@ -1073,8 +1121,8 @@ export const DIVIDEND_LOYALTY_LADDER = [
   { minDays: 28, multiplier: 1.25 }, // 4-8 weeks
   { minDays: DIVIDEND_HOLD_DAYS, multiplier: 1.0 },
 ];
-export const DIVIDEND_MAX_MULTIPLIER = DIVIDEND_LOYALTY_LADDER[0].multiplier;
-export const DIVIDEND_MATURE_MS = DIVIDEND_LOYALTY_LADDER[0].minDays * 24 * 60 * 60 * 1000;
+export const DIVIDEND_MAX_MULTIPLIER = DIVIDEND_LOYALTY_LADDER[0]!.multiplier;
+export const DIVIDEND_MATURE_MS = DIVIDEND_LOYALTY_LADDER[0]!.minDays * 24 * 60 * 60 * 1000;
 
 // When the loyalty ladder launched. `eligible` shares from before this date
 // have unknown exact ages (the old system only tracked the 10-day gate), so
@@ -1085,7 +1133,7 @@ export const DIVIDEND_MATURE_MS = DIVIDEND_LOYALTY_LADDER[0].minDays * 24 * 60 *
 export const DIVIDEND_LADDER_EPOCH = Date.UTC(2026, 6, 19); // 2026-07-19 00:00 UTC
 const LEGACY_ELIGIBLE_ACQUIRED_AT = DIVIDEND_LADDER_EPOCH - DIVIDEND_HOLD_MS;
 
-export const dividendMultiplierForAgeMs = (ageMs) => {
+export const dividendMultiplierForAgeMs = (ageMs: number): number => {
   const days = ageMs / (24 * 60 * 60 * 1000);
   const rung = DIVIDEND_LOYALTY_LADDER.find((r) => days >= r.minDays);
   return rung ? rung.multiplier : 0;
@@ -1104,9 +1152,9 @@ export const EXIT_LOYALTY_LADDER = [
   { minDays: 28, discount: 0.25 }, // 4-8 weeks
   { minDays: DIVIDEND_HOLD_DAYS, discount: 0.1 },
 ];
-export const EXIT_LOYALTY_MAX_DISCOUNT = EXIT_LOYALTY_LADDER[0].discount;
+export const EXIT_LOYALTY_MAX_DISCOUNT = EXIT_LOYALTY_LADDER[0]!.discount;
 
-export const exitDiscountForAgeMs = (ageMs) => {
+export const exitDiscountForAgeMs = (ageMs: number): number => {
   const days = ageMs / (24 * 60 * 60 * 1000);
   const rung = EXIT_LOYALTY_LADDER.find((r) => days >= r.minDays);
   return rung ? rung.discount : 0;
@@ -1116,7 +1164,11 @@ export const exitDiscountForAgeMs = (ageMs) => {
 // always crossing the other at the same moment. Notifications treat that as one
 // event and quote both rewards.
 export const LOYALTY_TIERS = [56, 28, DIVIDEND_HOLD_DAYS]; // descending
-export const LOYALTY_TIER_LABEL = { 56: '8 weeks', 28: '4 weeks', [DIVIDEND_HOLD_DAYS]: '10 days' };
+export const LOYALTY_TIER_LABEL: Record<number, string> = {
+  56: '8 weeks',
+  28: '4 weeks',
+  [DIVIDEND_HOLD_DAYS]: '10 days',
+};
 // Below this, a levelled-up position isn't worth telling anyone about.
 export const LOYALTY_NOTIFY_MIN_SHARES = 1;
 
@@ -1125,17 +1177,24 @@ export const LOYALTY_NOTIFY_MIN_SHARES = 1;
  * computeRarityTiers for whatever price set applies (live or snapshot);
  * `overrides` is the admin map from dividendConfig/tierOverrides.
  */
-export const getDividendTier = (ticker, rarityTiers = {}, overrides = {}) => {
+export const getDividendTier = (
+  ticker: string,
+  rarityTiers: Record<string, string> | null = {},
+  overrides: Record<string, string> | null = {},
+): DividendTier => {
   const char = CHARACTER_MAP[ticker];
   if (!char) return 'none';
   const override = overrides && overrides[ticker];
-  if (override) return LEGACY_TIER_ALIASES[override] || override;
+  if (override) return LEGACY_TIER_ALIASES[override] || (override as DividendTier);
   if (char.isETF) return 'etf';
-  return rarityTiers[ticker] || 'common';
+  return (rarityTiers?.[ticker] as DividendTier | undefined) || 'common';
 };
 
-export const getDividendRate = (ticker, rarityTiers, overrides) =>
-  DIVIDEND_RATES[getDividendTier(ticker, rarityTiers, overrides)] || 0;
+export const getDividendRate = (
+  ticker: string,
+  rarityTiers?: Record<string, string> | null,
+  overrides?: Record<string, string> | null,
+): number => DIVIDEND_RATES[getDividendTier(ticker, rarityTiers, overrides)] || 0;
 
 /**
  * One cohort's lots as {shares, ageMs}, oldest first — the same order
@@ -1151,16 +1210,19 @@ export const getDividendRate = (ticker, rarityTiers, overrides) =>
  * Both the dividend weighting and the exit discount read ages through here.
  * Two walks would eventually disagree about the same shares.
  */
-export const cohortLots = (cohort, now) => {
+export const cohortLots = (
+  cohort: HoldingCohort | null | undefined,
+  now: number,
+): { shares: number; ageMs: number }[] => {
   if (!cohort) return [];
-  const lots = [];
+  const lots: { shares: number; ageMs: number }[] = [];
   if ((cohort.eligible || 0) > 0) {
-    lots.push({ shares: cohort.eligible, ageMs: now - LEGACY_ELIGIBLE_ACQUIRED_AT });
+    lots.push({ shares: cohort.eligible!, ageMs: now - LEGACY_ELIGIBLE_ACQUIRED_AT });
   }
   const pending = [...(cohort.pending || [])].sort((a, b) => (a.availableAt || 0) - (b.availableAt || 0));
   for (const p of pending) {
     if (!((p.shares || 0) > 0)) continue;
-    lots.push({ shares: p.shares, ageMs: now - ((p.availableAt || 0) - DIVIDEND_HOLD_MS) });
+    lots.push({ shares: p.shares!, ageMs: now - ((p.availableAt || 0) - DIVIDEND_HOLD_MS) });
   }
   return lots;
 };
@@ -1169,7 +1231,7 @@ export const cohortLots = (cohort, now) => {
  * Multiplier-weighted share count for one holding cohort at `now`.
  * Weekly dividend = weightedShares × price × rate.
  */
-export const dividendWeightedShares = (cohort, now) =>
+export const dividendWeightedShares = (cohort: HoldingCohort | null | undefined, now: number): number =>
   cohortLots(cohort, now).reduce((sum, lot) => sum + lot.shares * dividendMultiplierForAgeMs(lot.ageMs), 0);
 
 /**
@@ -1181,7 +1243,7 @@ export const dividendWeightedShares = (cohort, now) =>
  * and nothing on the rest. Shares with no cohort record (a self-heal gap, or an
  * admin edit) count as brand new and earn nothing, which is the safe direction.
  */
-export const exitLoyaltyDiscount = (cohort, shares, now) => {
+export const exitLoyaltyDiscount = (cohort: HoldingCohort | null | undefined, shares: number, now: number): number => {
   if (!(shares > 0)) return 0;
   let remaining = shares;
   let weighted = 0;
@@ -1202,7 +1264,10 @@ export const exitLoyaltyDiscount = (cohort, shares, now) => {
  * Reads ages through cohortLots for the same reason everything else does — a
  * second age walk would eventually disagree with the rewards it announces.
  */
-export const loyaltyTierFor = (cohort, now) => {
+export const loyaltyTierFor = (
+  cohort: HoldingCohort | null | undefined,
+  now: number,
+): { tier: number; shares: number } => {
   const lots = cohortLots(cohort, now);
   const day = 24 * 60 * 60 * 1000;
   for (const tier of LOYALTY_TIERS) {

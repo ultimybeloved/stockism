@@ -14,25 +14,21 @@
 // in June 2026, which is why this is a check and not a convention.
 
 const fs = require('fs');
-const path = require('path');
 
-const ROOT = path.join(__dirname, '..');
-const PAIRS = [
-  ['src/characters.js', 'functions/characters.js'],
-  ['src/crews.js', 'functions/crews.js'],
-];
+const { SHARED, generatedPath, generate } = require('./lib/sharedSource.cjs');
 
 const problems = [];
 
-for (const [from, to] of PAIRS) {
-  const toPath = path.join(ROOT, to);
+for (const name of SHARED) {
+  const from = `src/${name}.ts`;
+  const to = `functions/${name}.js`;
+  const toPath = generatedPath(name);
   if (!fs.existsSync(toPath)) {
     problems.push(`${to} does not exist`);
     continue;
   }
-  const source = fs.readFileSync(path.join(ROOT, from), 'utf8');
-  const generated = fs.readFileSync(toPath, 'utf8');
-  if (source !== generated) {
+  const unixLines = (s) => s.split('\r\n').join('\n');
+  if (unixLines(generate(name)) !== unixLines(fs.readFileSync(toPath, 'utf8'))) {
     problems.push(`${to} is out of date with ${from}`);
   }
 }
