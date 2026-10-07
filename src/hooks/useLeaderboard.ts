@@ -2,20 +2,35 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, getLeaderboardFunction } from '../firebase';
 import { LEADERBOARD_DOC_FRESH_MS } from '../constants';
+import type { User } from 'firebase/auth';
+import type { LeaderRow } from '../types';
+
+export interface RankedLeader extends LeaderRow {
+  rank: number;
+  crewRank: number;
+  id: string;
+}
+
+interface CachedBoard {
+  leaders: RankedLeader[];
+  callerRank: number | null;
+  callerRankUid: string | null;
+  fetchedAt: number;
+}
 
 // Session cache shared by the leaderboard page and the ladder modal, so
 // switching between them (or re-visiting) within the freshness window costs
 // zero reads. Module-level: survives unmounts, cleared on page reload.
 // callerRank is tagged with the uid it was computed for, so switching
 // accounts mid-session can never show the previous account's rank.
-const sessionCache = {}; // key -> { leaders, callerRank, callerRankUid, fetchedAt }
+const sessionCache: Record<string, CachedBoard> = {}; // key -> { leaders, callerRank, callerRankUid, fetchedAt }
 
 // Must mirror the backend cacheKey in functions/services/leaderboard.js
-const isGainSort = (sortBy) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
-const docKey = (sortBy, crew) =>
+const isGainSort = (sortBy: string) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
+const docKey = (sortBy: string, crew: string | null) =>
   crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew) : isGainSort(sortBy) ? sortBy : 'global';
 
-const decorate = (entries) =>
+const decorate = (entries: LeaderRow[]): RankedLeader[] =>
   entries.map((u, i) => ({
     rank: i + 1,
     crewRank: i + 1,
@@ -28,9 +43,14 @@ const decorate = (entries) =>
 // instantly and, for players outside the top 50, their rank fills in from a
 // background call. Slow path (doc stale/missing): the getLeaderboard callable
 // recomputes and republishes the doc for everyone else.
-export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
-  const [leaders, setLeaders] = useState([]);
-  const [userRank, setUserRank] = useState(null);
+export function useLeaderboard(
+  sortBy: string,
+  crewFilter: string | null | undefined,
+  user: User | null,
+  userCrew: string | null | undefined,
+) {
+  const [leaders, setLeaders] = useState<RankedLeader[]>([]);
+  const [userRank, setUserRank] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,13 +59,13 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
     const key = docKey(sortBy, crew);
     const params = crew ? { sortBy, crew } : { sortBy };
 
-    const rankFromList = (list) => {
+    const rankFromList = (list: RankedLeader[]) => {
       if (!user) return null;
       const idx = list.findIndex((e) => e.id === user.uid);
       return idx === -1 ? null : idx + 1;
     };
 
-    const fetchRankInBackground = (list) => {
+    const fetchRankInBackground = (list: RankedLeader[]) => {
       // Rank only exists server-side for the net-worth sort; in-list rank is
       // handled locally, so this is only for signed-in users outside the top 50.
       if (!user || sortBy !== 'value' || rankFromList(list) !== null) return;
@@ -85,7 +105,7 @@ export function useLeaderboard(sortBy, crewFilter, user, userCrew) {
         const snap = await getDoc(doc(db, 'leaderboard', key));
         if (snap.exists() && Date.now() - (snap.data().generatedAt || 0) < LEADERBOARD_DOC_FRESH_MS) {
           if (cancelled) return;
-          const leaderData = decorate(snap.data().entries || []);
+          const leaderData = decorate((snap.data().entries as LeaderRow[] | undefined) || []);
           setLeaders(leaderData);
           setUserRank(rankFromList(leaderData));
           setLoading(false);

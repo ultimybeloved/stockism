@@ -11,6 +11,7 @@ import {
   seasonDivisionFor,
   seasonRulesFor,
 } from '../constants/seasons';
+import type { SeasonDoc } from '../types';
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -20,12 +21,12 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // same way the server scores it, so the card matches the standings board.
 export function useSeason() {
   const { userData, prices } = useAppContext();
-  const [season, setSeason] = useState(null);
+  const [season, setSeason] = useState<SeasonDoc | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, 'market', 'season'),
-      (snap) => setSeason(snap.exists() ? snap.data() : null),
+      (snap) => setSeason(snap.exists() ? (snap.data() as SeasonDoc) : null),
       (err) => {
         console.error('Season subscription failed:', err);
         setSeason(null);
@@ -34,8 +35,7 @@ export function useSeason() {
     return unsub;
   }, []);
 
-  const active = !!season && season.status === 'active';
-  if (!active) return { season, active: false };
+  if (!season || season.status !== 'active') return { season, active: false as const };
 
   const weeks = Math.max(1, Math.ceil((Date.now() - season.startedAt) / ONE_WEEK_MS));
   const rules = seasonRulesFor(season);
@@ -53,13 +53,14 @@ export function useSeason() {
 
   // The market reading this player is measured from. Someone who joined
   // mid-season is compared with the market from when they joined.
-  const baselineIndex = baseline?.index > 0 ? baseline.index : season.indexAtStart || 0;
+  const baselineIndex = baseline?.index && baseline.index > 0 ? baseline.index : season.indexAtStart || 0;
 
   // Signed on purpose — a ladder deposit books a negative flow, so clamping to
   // zero would read as a trading loss. Mirrors seasonScore on the server.
-  let returnPercent = null;
-  let returnWithLadder = null;
-  if (inSeason) {
+  let returnPercent: number | null = null;
+  let returnWithLadder: number | null = null;
+  // inSeason implies hasBaseline, so baseline and userData are set below.
+  if (inSeason && baseline && userData) {
     // What the account would sell for at live prices, the figure the server
     // scores (exitEquityAt). The stored portfolioValue lags until the next sync.
     const current =
@@ -84,12 +85,13 @@ export function useSeason() {
       ),
       margin: seasonAverageMargin(userData, season.id, now),
     });
-    returnPercent = ((current - granted - baseline.value) / capital) * 100;
+    const baselineValue = baseline.value as number;
+    returnPercent = ((current - granted - baselineValue) / capital) * 100;
     // What it would have been if ladder winnings counted. Shown, never ranked.
-    returnWithLadder = ((current - (granted - ladderNet) - baseline.value) / capital) * 100;
+    returnWithLadder = ((current - (granted - ladderNet) - baselineValue) / capital) * 100;
   }
 
-  const lockedTier = userData?.seasonTier?.seasonId === season.id ? userData.seasonTier.tier : null;
+  const lockedTier = userData?.seasonTier?.seasonId === season.id ? userData.seasonTier.tier || null : null;
   const activeWeeks = userData?.seasonActiveWeeks?.seasonId === season.id ? userData.seasonActiveWeeks.weeks || 0 : 0;
 
   return {
@@ -122,7 +124,9 @@ export function useSeason() {
     // With it, being up on the season means Silver if they finish there, so
     // point at Gold next.
     nextTier: nextSeasonTier(
-      lockedTier && returnPercent > 0 && (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver.order
+      lockedTier &&
+        (returnPercent ?? 0) > 0 &&
+        (SEASON_TIER_MAP[lockedTier]?.order || 0) < SEASON_TIER_MAP.silver!.order
         ? 'silver'
         : lockedTier,
     ),

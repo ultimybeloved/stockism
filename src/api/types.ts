@@ -109,6 +109,16 @@ export interface EventSharesResponse {
   [key: string]: unknown;
 }
 
+export interface GetLeaderboardRequest {
+  sortBy: string;
+  crew?: string;
+}
+
+export interface GetLeaderboardResponse {
+  leaderboard?: import('../types').LeaderRow[];
+  callerRank?: number | null;
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }

@@ -4,6 +4,30 @@
 // not listed yet is reachable through the index signatures on the doc types.
 
 import type { HoldingCohort } from '../characters';
+import type { SeasonBaseline, SeasonWeekRecord } from '../utils/seasonWeeks';
+
+/** users/{uid}.seasonBaseline: the player's numbers when the season pinned them. */
+export interface SeasonBaselineDoc extends SeasonBaseline {
+  seasonId?: string;
+  index?: number;
+  granted?: number;
+  ladderFlow?: number;
+  grantedDays?: number;
+  predictionFlow?: number;
+}
+
+/** market/season. */
+export interface SeasonDoc {
+  id: string;
+  status: string;
+  startedAt: number;
+  indexAtStart?: number;
+  number?: number;
+  preseason?: boolean;
+  preseasons?: number;
+  rules?: Partial<import('../constants/seasons').SeasonRules>;
+  [key: string]: unknown;
+}
 
 export type Ticker = string;
 
@@ -97,6 +121,17 @@ export interface UserData {
   watchlist?: Ticker[];
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
+  portfolioValue?: number;
+  grantedValue?: number;
+  grantedDays?: number;
+  ladderFlowValue?: number;
+  predictionFlowValue?: number;
+  seasonBaseline?: SeasonBaselineDoc;
+  seasonMargin?: { seasonId?: string; dd?: number; amount?: number; at?: number };
+  seasonTier?: { seasonId?: string; tier?: string };
+  seasonActiveWeeks?: { seasonId?: string; weeks?: number };
+  seasonWeeks?: SeasonWeekRecord[];
+  seasonTopTierExclusion?: { seasonId?: string };
   ownedShopPins?: string[];
   isCrewHead?: boolean;
   holdingCohorts?: Record<Ticker, HoldingCohort>;

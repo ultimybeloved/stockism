@@ -111,7 +111,7 @@ export const triggerReviewChangesFunction = callable('triggerReviewChanges');
 export const triggerCollapseReviewHistoryFunction = callable('triggerCollapseReviewHistory');
 export const triggerDailyFreeStockFunction = callable('triggerDailyFreeStock');
 // Leaderboard
-export const getLeaderboardFunction = callable('getLeaderboard');
+export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.GetLeaderboardResponse>('getLeaderboard');
 // Admin only: margin debt for the accounts on the board, kept out of the
 // world-readable leaderboard cache.
 export const getLeaderboardMarginsFunction = callable<Api.LeaderboardMarginsRequest, Api.LeaderboardMarginsResponse>(
