@@ -365,14 +365,22 @@ export const buildReviewSections = <C extends ReviewCharacter>(
  * the honest version back. Returns the history unchanged when there is no
  * stashed detail for the stock.
  */
-export const spliceReviewDetail = (
+export function spliceReviewDetail(
+  history: ReviewPoint[],
+  detailPoints: ReviewPoint[] | null | undefined,
+): ReviewPoint[];
+export function spliceReviewDetail(
   history: ReviewPoint[] | null | undefined,
   detailPoints: ReviewPoint[] | null | undefined,
-): ReviewPoint[] | null | undefined => {
+): ReviewPoint[] | null | undefined;
+export function spliceReviewDetail(
+  history: ReviewPoint[] | null | undefined,
+  detailPoints: ReviewPoint[] | null | undefined,
+): ReviewPoint[] | null | undefined {
   if (!Array.isArray(detailPoints) || detailPoints.length === 0) return history;
   const withoutPlaceholder = (history || []).filter((p) => !p?.collapsed);
   return [...withoutPlaceholder, ...detailPoints].sort((a, b) => a.timestamp - b.timestamp);
-};
+}
 
 /**
  * Next weekly market open (Thursday 21:00 UTC).

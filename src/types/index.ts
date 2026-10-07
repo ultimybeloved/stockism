@@ -94,6 +94,36 @@ export interface SeasonTitle {
   text: string;
 }
 
+/** One entry in a user's legacy transactionLog (kept for admin analytics). */
+export interface LoggedTransaction {
+  type: string;
+  ticker?: string;
+  timestamp: number;
+  shares?: number;
+  amount?: number;
+  pricePerShare?: number;
+  price?: number;
+  entryPrice?: number;
+  totalCost?: number;
+  totalRevenue?: number;
+  marginRequired?: number;
+  cashBack?: number;
+  priceImpact?: number;
+  newPrice?: number;
+  profit?: number;
+}
+
+/** users/{uid}.bets[predictionId]. */
+export interface UserBet {
+  option?: string;
+  amount?: number;
+  placedAt?: number;
+  question?: string;
+  paid?: boolean;
+  payout?: number;
+  [key: string]: unknown;
+}
+
 /** users/{uid}.dailyMissions[date] / weeklyMissions[weekId]. */
 export interface MissionDayState {
   claimed?: Record<string, boolean>;
@@ -115,13 +145,17 @@ export interface UserData {
   totalTrades?: number;
   createdAt?: TimestampLike;
   achievements?: string[];
-  bets?: Record<string, { paid?: boolean; [key: string]: unknown }>;
+  bets?: Record<string, UserBet>;
+  transactionLog?: LoggedTransaction[];
+  isBot?: boolean;
+  lastSyncedAt?: TimestampLike;
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;
   watchlist?: Ticker[];
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;
+  predictionWins?: number;
   portfolioValue?: number;
   grantedValue?: number;
   grantedDays?: number;
@@ -163,6 +197,17 @@ export interface UserData {
   [key: string]: unknown;
 }
 
+/** One entry in predictions/current.list: a weekly bet pool, or an event market (type 'event'). */
+export interface PredictionDoc {
+  id: string;
+  type?: string;
+  question?: string;
+  options?: string[];
+  resolved?: boolean;
+  endsAt?: number;
+  [key: string]: unknown;
+}
+
 /** One entry in market/ipos.list. */
 export interface IPO {
   ticker: string;
@@ -172,6 +217,7 @@ export interface IPO {
   totalShares?: number;
   maxPerUser?: number;
   basePrice: number;
+  priceJumped?: boolean;
   [key: string]: unknown;
 }
 

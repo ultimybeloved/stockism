@@ -1,9 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "strictNullChecks": false,
-    "noUncheckedIndexedAccess": false
-  },
+  // Tests index fixture arrays and maps freely, and an out-of-range read fails
+  // the assertion anyway, so the per-index undefined check is relaxed here only.
+  "compilerOptions": { "noUncheckedIndexedAccess": false },
   "include": ["src"],
   "exclude": []
 }

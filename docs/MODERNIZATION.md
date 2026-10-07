@@ -42,21 +42,23 @@ range. Tests convert with their subject. Add fields to `src/types/index.ts` as
 code needs them.
 
 Done also: all of `src/constants/` and `src/utils/` (except `dividends.test.js`).
-Tests typecheck under `tsconfig.test.json` (no strict null checks; implicit
-any still an error). `npm run typecheck` runs both configs.
+`npm run typecheck` runs both tsconfigs.
 
 Also done: `firebase.ts`, `monitoring.ts`, `context/AppContext.tsx` (typed
-`AppContextValue`), and 17 of 29 top-level hooks. Callables are typed in
+`AppContextValue`), all top-level hooks, `src/hooks/ladder/`. Callables are typed in
 `src/firebase.ts` via `callable<Req, Res>('name')` with shapes in
 `src/api/types.ts`; type a callable when converting the code that reads it.
 Action hooks take `ActionHookDeps` from `src/hooks/types.ts`.
 
+All of `src/hooks/` is done, admin included (shared admin types in
+`hooks/admin/adminShared.ts`: `AdminHookDeps`, `AdminUser`). Admin callable
+results that only the admin tabs render are typed `AdminReport` for now;
+tighten each one when its tab converts.
+
+Tests typecheck under `tsconfig.test.json`, which only relaxes
+`noUncheckedIndexedAccess`.
+
 Remaining, in order:
-1. Top-level hooks still `.js`: useSeason, useTradeManagement,
-   usePredictionManagement, useLeaderboard, useCrewManagement, usePinShop,
-   useMissionManagement, useMarketBrowser, useUserAlerts, useUserActions,
-   useMarginManagement, useStockPageData
-2. `src/hooks/admin/` (48 files), `src/hooks/ladder/` (6)
 3. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
 4. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 

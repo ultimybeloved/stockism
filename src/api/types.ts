@@ -123,6 +123,8 @@ export interface ExecuteTradeRequest {
   ticker: string;
   action: string;
   amount: number;
+  /** Admin only: place the trade on this player's account. */
+  actAsUid?: string;
 }
 
 export interface ExecuteTradeResponse {
@@ -161,6 +163,235 @@ export interface LadderWithdrawResponse {
 export interface LadderLeaderboardResponse {
   leaderboard?: { [key: string]: unknown }[];
 }
+
+export interface AltScanResponse {
+  scanned: number;
+  candidates: number;
+  reported: number;
+  [key: string]: unknown;
+}
+
+export interface SeasonCoordPlayer {
+  uid: string;
+  name: string;
+  excluded?: boolean;
+  [key: string]: unknown;
+}
+
+// ---- Admin tools ----
+// Admin results are shown field-by-field in the admin tabs; each type lists the
+// fields code reads, and the index signature covers the rest until those tabs
+// are converted.
+
+export interface CashLogEntry {
+  userId?: string;
+  displayName?: string;
+  memo?: string;
+  delta: number;
+  [key: string]: unknown;
+}
+
+export interface CashLogResponse {
+  entries?: CashLogEntry[];
+  totals?: { [key: string]: unknown } | null;
+}
+
+export interface DropAuditResponse {
+  totalClaims: number;
+  [key: string]: unknown;
+}
+
+export interface TickerDiagnosticResponse {
+  summary: { totalTrades: number; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+export interface TickerRecoveryRequest {
+  ticker: string;
+  startTimestamp: number;
+  rollbackToTimestamp: number;
+  dryRun: boolean;
+}
+
+export interface TickerRecoveryResponse {
+  totalClawedBack: number;
+  priceReset: { to: number; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+export interface CoordProfitResponse {
+  suggested: number;
+  preview?: CoordRemovalPreview | null;
+  preferTickers?: string[];
+  [key: string]: unknown;
+}
+
+export type CoordRemovalPreview = { [key: string]: unknown };
+
+export interface RemoveCoordProfitRequest {
+  uid: string;
+  amount: number;
+  memo?: string;
+  preview?: boolean;
+  preferTickers?: string[];
+}
+
+export interface CreateBotsResponse {
+  created: number;
+  skipped: number;
+}
+
+export interface SpikeVictim {
+  userId: string;
+  displayName: string;
+  currentCash?: number;
+  correctedCash?: number;
+  [key: string]: unknown;
+}
+
+export interface SpikeRepairRequest {
+  mode: 'scan' | 'repair' | 'repairAll' | 'diagnose';
+  userId?: string;
+  userIds?: string[];
+  victims?: SpikeVictim | SpikeVictim[];
+}
+
+export interface SpikeRepairResponse {
+  victims?: SpikeVictim[];
+  results?: { success?: boolean; [key: string]: unknown }[];
+}
+
+export interface AdminSetCashRequest {
+  userId: string;
+  mode: 'add' | 'subtract' | 'set';
+  amount: number;
+  memo: string;
+}
+
+export interface IpoAnnouncementRequest {
+  ticker: string;
+  characterName: string;
+  ipoPrice: number;
+  postIpoPrice: number;
+  startsAt: number;
+  endsAt: number;
+  totalShares: number;
+  maxPerUser: number;
+}
+
+export interface DividendRunResponse {
+  usersPaid: number;
+  usersConsidered: number;
+  totalPaid?: number;
+  [key: string]: unknown;
+}
+
+export interface FixCliffsResponse {
+  tickersFixed: number;
+  tickersSkipped: number;
+  fixed?: { ticker: string; percentChange: number }[];
+}
+
+export interface SplitStockRequest {
+  ticker: string;
+  ratio: number;
+  mode: 'dryRun' | 'execute' | 'resume' | 'abort';
+}
+
+export interface SplitStockResponse {
+  ticker?: string;
+  ratio?: number;
+  priceNow?: number;
+  dryRun?: boolean;
+  blocked?: boolean;
+  success?: boolean;
+  paused?: boolean;
+  nextPhase?: string;
+  alreadyComplete?: boolean;
+  [key: string]: unknown;
+}
+
+export interface StartSeasonResponse {
+  preseason?: boolean;
+  number?: number;
+  name: string;
+  playersPinned: number;
+  [key: string]: unknown;
+}
+
+export interface EndSeasonResponse {
+  tierCounts?: Record<string, number>;
+  totalScored: number;
+  awarded: number;
+}
+
+export interface SeasonCheckpointResponse {
+  ran: boolean;
+  weeks?: number;
+  scored?: number;
+  promoted?: number;
+  reason?: string;
+}
+
+/** Shape-only results the admin tabs render; fields typed as the tabs convert. */
+export type AdminReport = { [key: string]: unknown };
+
+export interface WatchlistResponse {
+  watchedUsers?: AdminReport[];
+  alerts?: AdminReport[];
+}
+
+export interface AuditUsernamesResponse {
+  reservationsWritten: number;
+  usersUpdated: number;
+  conflicts: unknown[];
+}
+
+export interface ReconstructHistoryResponse {
+  usersProcessed?: number;
+  usersSkipped?: number;
+  totalPointsWritten?: number;
+  errors?: number;
+  done?: boolean;
+  nextCursor?: string | null;
+}
+
+/** What the manual-trigger callables for scheduled jobs return. */
+export interface JobResult {
+  success?: boolean;
+  error?: string;
+}
+
+export interface CrewRankingsResponse {
+  multipliers?: Record<string, number>;
+  configured?: boolean;
+  problems?: string[];
+  configuredCount?: number;
+  added?: number;
+  removed?: number;
+}
+
+export interface DiscordChannel {
+  id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface DiscordMessagePayload {
+  channelId: string;
+  channelName: string;
+  label: string;
+  content: string;
+  embed: import('../hooks/admin/discordDraft').DraftEmbed | null;
+  buttons: import('../hooks/admin/discordDraft').DraftButton[];
+  allowMentions: boolean;
+}
+
+/** A tracked bot message as the server returns it. */
+export type TrackedDiscordMessage = import('../hooks/admin/discordDraft').StoredDiscordMessage & {
+  messageId?: string;
+  [key: string]: unknown;
+};
 
 export interface LeaderboardMarginsRequest {
   userIds: string[];

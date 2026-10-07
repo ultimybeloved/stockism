@@ -79,7 +79,7 @@ describe('summariseSeasonWeeks', () => {
     row(2, { v: 10500, x: 1050, c: 5000, h: 10000 }),
     row(3, { v: 12000, x: 1060, c: 8000, h: 10000 }),
   ];
-  const summary = summariseSeasonWeeks(deriveSeasonWeeks(weeks, ctx));
+  const summary = summariseSeasonWeeks(deriveSeasonWeeks(weeks, ctx))!;
 
   it('counts the weeks that beat the market', () => {
     expect(summary.weeks).toBe(3);
@@ -115,7 +115,7 @@ describe('the $GAP-sitter', () => {
     row(w, { v: 10000 * Math.pow(1.4, w), x: 1000 + w * 8, c: 20000, h: 20000 }),
   );
   const derived = deriveSeasonWeeks(sitter, ctx);
-  const summary = summariseSeasonWeeks(derived);
+  const summary = summariseSeasonWeeks(derived)!;
 
   it('sails past a beat-the-market test', () => {
     expect(summary.beatCount).toBe(5);
@@ -132,20 +132,20 @@ describe('buildSeasonSeries', () => {
   const derived = deriveSeasonWeeks([row(1, { v: 11000, x: 1010 }), row(2, { v: 9000, x: 1020 })], ctx);
 
   it('puts both lines on one shared scale, which is the entire point', () => {
-    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 });
+    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 })!;
     const ys = [...s.you.split(' '), ...s.market.split(' ')].map((p) => Number(p.split(',')[1]));
     expect(Math.min(...ys)).toBeCloseTo(0, 6);
     expect(Math.max(...ys)).toBeCloseTo(50, 6);
   });
 
   it('starts both lines at the season opening, not the first checkpoint', () => {
-    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 });
+    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 })!;
     expect(s.you.split(' ')).toHaveLength(3); // week 0 plus two checkpoints
     expect(s.you.split(' ')[0].split(',')[0]).toBe('0.00');
   });
 
   it('locates the zero line inside the drawing area when the range crosses it', () => {
-    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 });
+    const s = buildSeasonSeries(derived, { width: 100, height: 50, pad: 0 })!;
     expect(s.min).toBeLessThan(0);
     expect(s.max).toBeGreaterThan(0);
     expect(s.zeroY).toBeGreaterThan(0);
@@ -154,7 +154,7 @@ describe('buildSeasonSeries', () => {
 
   it('does not divide by zero on a single flat week', () => {
     const flat = deriveSeasonWeeks([row(1, { v: 10000, x: 1000 })], ctx);
-    const s = buildSeasonSeries(flat, { width: 100, height: 50, pad: 0 });
+    const s = buildSeasonSeries(flat, { width: 100, height: 50, pad: 0 })!;
     expect(s.you.split(' ').every((p) => p.split(',').every((n) => Number.isFinite(Number(n))))).toBe(true);
   });
 

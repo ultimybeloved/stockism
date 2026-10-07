@@ -121,7 +121,7 @@ export function useLadderGameFlow({
         amount,
       });
 
-      const { rungs, result: gameResult, won, payout, newBalance, currentStreak } = result.data;
+      const { rungs, result: gameResult, won, payout, newBalance } = result.data;
 
       // Store ladder data for animation
       setCurrentLadder({

@@ -211,7 +211,7 @@ describe('getReviewChanges — the real $GAP tape from 2026-08-20', () => {
     vi.useFakeTimers();
     at('2026-08-20T20:00:00Z');
     const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
-    const compounded = ((1 + c.directChange / 100) * (1 + c.trailingChange / 100) - 1) * 100;
+    const compounded = ((1 + c.directChange! / 100) * (1 + c.trailingChange! / 100) - 1) * 100;
     expect(compounded).toBeCloseTo(c.percentChange, 6);
   });
 });
@@ -274,7 +274,7 @@ describe('buildReviewSections', () => {
   });
 
   it('puts a directly adjusted fund in the fund section, not with the stocks', () => {
-    const adjusted = buildReviewSections(chars, changes).find((s) => s.id === 'adjusted');
+    const adjusted = buildReviewSections(chars, changes).find((s) => s.id === 'adjusted')!;
     expect(adjusted.characters.map((c) => c.ticker)).not.toContain('FIST');
   });
 
@@ -382,7 +382,7 @@ describe('getReviewChanges — the opening auction is not part of the review', (
       ],
     };
     const c = getReviewChanges(history, [{ ticker: 'GAP' }]).GAP;
-    const compounded = ((1 + c.directChange / 100) * (1 + c.trailingChange / 100) - 1) * 100;
+    const compounded = ((1 + c.directChange! / 100) * (1 + c.trailingChange! / 100) - 1) * 100;
     expect(compounded).toBeCloseTo(c.percentChange, 6);
   });
 });
