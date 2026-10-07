@@ -17,33 +17,92 @@
 import { SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED } from '../constants/seasons';
 
 /** Account size at pinning: value plus ladder cash. Mirror of seasonAccountSize in seasonTiers.js. */
-export const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladder || 0);
+/**
+ * One weekly checkpoint record (users/{uid}.seasonWeeks[]). Short keys keep the
+ * user doc small; see seasonRecords.js on the backend for how each is written.
+ */
+export interface SeasonWeekRecord {
+  /** season id */
+  s?: string;
+  /** week number, 1-based */
+  w: number;
+  /** net value at the checkpoint */
+  v: number;
+  /** market index at the checkpoint */
+  x: number;
+  /** checkpoint time, epoch ms */
+  t: number;
+  /** granted value to date */
+  g?: number;
+  /** granted dollar-days to date */
+  a?: number;
+  /** side-game flows to date */
+  f?: number;
+  /** margin dollar-days to date */
+  d?: number;
+  /** invested dollars */
+  h?: number;
+  /** dollars in the largest single position */
+  c?: number;
+}
+
+export interface SeasonBaseline {
+  value?: number;
+  ladder?: number;
+  pinnedAt?: number;
+}
+
+interface SeasonUserData {
+  seasonMargin?: { seasonId?: string; dd?: number; amount?: number; at?: number };
+  seasonBaseline?: SeasonBaseline;
+}
+
+export interface DerivedSeasonWeek {
+  week: number;
+  totalReturn: number;
+  totalIndex: number;
+  weekReturn: number;
+  weekIndex: number;
+  beat: boolean;
+  concentration: number;
+}
+
+export const seasonAccountSize = (baseline: SeasonBaseline | null | undefined): number =>
+  (baseline?.value || 0) + (baseline?.ladder || 0);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Margin owed, averaged over the season. Mirrors of the margin tally helpers in
 // seasonTiers.js: `seasonMargin` on the user is { dd dollar-days up to `at`,
 // amount owed since `at` }.
-const marginTally = (userData, seasonId) => {
+const marginTally = (userData: SeasonUserData | null | undefined, seasonId: string) => {
   const t = userData?.seasonMargin;
   if (t && t.seasonId === seasonId) return t;
   return { seasonId, dd: 0, amount: 0, at: userData?.seasonBaseline?.pinnedAt || 0 };
 };
 
 /** Dollar-days owed on margin from pinning up to `now`. */
-export const marginDollarDays = (userData, seasonId, now = Date.now()) => {
+export const marginDollarDays = (
+  userData: SeasonUserData | null | undefined,
+  seasonId: string,
+  now: number = Date.now(),
+): number => {
   const t = marginTally(userData, seasonId);
-  const since = t.at > 0 ? Math.max(0, now - t.at) : 0;
+  const since = t.at && t.at > 0 ? Math.max(0, now - t.at) : 0;
   return (t.dd || 0) + (t.amount || 0) * (since / DAY_MS);
 };
 
-const averageOwed = (dollarDays, fromMs, toMs, fallback = 0) => {
+const averageOwed = (dollarDays: number, fromMs: number, toMs: number, fallback = 0): number => {
   const days = (toMs - fromMs) / DAY_MS;
   return days > 0 ? Math.max(0, dollarDays) / days : fallback;
 };
 
 /** What the player has owed on average since they were pinned. */
-export const seasonAverageMargin = (userData, seasonId, now = Date.now()) =>
+export const seasonAverageMargin = (
+  userData: SeasonUserData | null | undefined,
+  seasonId: string,
+  now: number = Date.now(),
+): number =>
   averageOwed(
     marginDollarDays(userData, seasonId, now),
     userData?.seasonBaseline?.pinnedAt || now,
@@ -52,18 +111,23 @@ export const seasonAverageMargin = (userData, seasonId, now = Date.now()) =>
   );
 
 /** Average owed between two week records. Older records count as nothing owed. */
-export const weekMargin = (r, prev) =>
-  r.d === undefined || !(prev?.t > 0) ? 0 : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
+export const weekMargin = (r: SeasonWeekRecord, prev: SeasonWeekRecord | null | undefined): number =>
+  r.d === undefined || !prev || !(prev.t > 0) ? 0 : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
 
 /** Amount x day it landed: what the server adds to grantedDays for a booking. */
-export const grantedDaysFor = (amount, now = Date.now()) => amount * (now / DAY_MS);
+export const grantedDaysFor = (amount: number, now: number = Date.now()): number => amount * (now / DAY_MS);
 
 /**
  * Money in since pinning, averaged over the time held. Undefined grantedDays
  * (an old baseline or record) counts it in full. Mirror of averageGranted in
  * seasonTiers.js.
  */
-export const averageGranted = (granted, grantedDays, fromMs, toMs) => {
+export const averageGranted = (
+  granted: number | null | undefined,
+  grantedDays: number | null | undefined,
+  fromMs: number,
+  toMs: number,
+): number => {
   if (grantedDays === undefined || grantedDays === null) return granted || 0;
   const days = (toMs - fromMs) / DAY_MS;
   if (!(days > 0)) return 0;
@@ -78,13 +142,19 @@ export const averageGranted = (granted, grantedDays, fromMs, toMs) => {
  * All money in as it counts toward capital: grants averaged over the time held,
  * ladder and prediction flows in full. Mirror of moneyIn in seasonTiers.js.
  */
-export const moneyIn = (granted, grantedDays, sideFlows, fromMs, toMs) => {
+export const moneyIn = (
+  granted: number | null | undefined,
+  grantedDays: number | null | undefined,
+  sideFlows: number | null | undefined,
+  fromMs: number,
+  toMs: number,
+): number => {
   const side = sideFlows || 0;
   return averageGranted((granted || 0) - side, grantedDays, fromMs, toMs) + side;
 };
 
 /** Money in between two week records. Mirror of weekGranted. */
-export const weekGranted = (r, prev) => {
+export const weekGranted = (r: SeasonWeekRecord, prev: SeasonWeekRecord): number => {
   const g = (r.g || 0) - (prev.g || 0);
   if (r.a === undefined || prev.a === undefined || !(prev.t > 0)) return g;
   return moneyIn(g, r.a - prev.a, (r.f || 0) - (prev.f || 0), prev.t, r.t);
@@ -97,7 +167,10 @@ export const weekGranted = (r, prev) => {
  * percentage, so borrowing can't make a return look bigger. Mirror of
  * seasonCapital in seasonTiers.js.
  */
-export const seasonCapital = (baseline, { granted, margin } = {}) => {
+export const seasonCapital = (
+  baseline: SeasonBaseline | null | undefined,
+  { granted, margin }: { granted?: number; margin?: number } = {},
+): number => {
   const ladder = baseline?.ladder || 0;
   return (baseline?.value || 0) + ladder + Math.max(0, margin || 0) + Math.max(0, (granted || 0) - ladder);
 };
@@ -113,23 +186,49 @@ export const seasonCapital = (baseline, { granted, margin } = {}) => {
  * player's money was invested for it to count. Mirror of weekConcentration in
  * functions/services/seasonTiers.js.
  */
-export const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED) => {
-  if (!(r?.h > 0)) return 0;
+export const weekConcentration = (
+  r: SeasonWeekRecord | null | undefined,
+  minInvested: number = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
+): number => {
+  if (!r || r.h === undefined || !(r.h > 0)) return 0;
   if (r.v > 0 && r.h < r.v * minInvested) return 0;
-  return r.c / r.h;
+  return (r.c as number) / r.h;
 };
 
 export const deriveSeasonWeeks = (
-  seasonWeeks,
-  { seasonId, baselineValue, baselineLadder = 0, pinnedAt = 0, indexAtStart },
-) => {
+  seasonWeeks: (SeasonWeekRecord | null)[] | null | undefined,
+  {
+    seasonId,
+    baselineValue,
+    baselineLadder = 0,
+    pinnedAt = 0,
+    indexAtStart,
+  }: {
+    seasonId: string;
+    baselineValue: number;
+    baselineLadder?: number;
+    pinnedAt?: number;
+    indexAtStart: number;
+  },
+): DerivedSeasonWeek[] => {
   if (!(baselineValue > 0) || !(indexAtStart > 0)) return [];
 
-  const rows = (seasonWeeks || []).filter((r) => r && r.s === seasonId && r.w > 0).sort((a, b) => a.w - b.w);
+  const rows = (seasonWeeks || [])
+    .filter((r): r is SeasonWeekRecord => !!r && r.s === seasonId && r.w > 0)
+    .sort((a, b) => a.w - b.w);
   if (!rows.length) return [];
 
-  const derived = [];
-  let prev = { v: baselineValue, g: 0, a: 0, f: 0, x: indexAtStart, t: pinnedAt, d: 0 };
+  const derived: DerivedSeasonWeek[] = [];
+  let prev: SeasonWeekRecord = {
+    w: 0,
+    v: baselineValue,
+    g: 0,
+    a: 0,
+    f: 0,
+    x: indexAtStart,
+    t: pinnedAt,
+    d: 0,
+  };
 
   const baseline = { value: baselineValue, ladder: baselineLadder };
 
@@ -171,9 +270,9 @@ export const deriveSeasonWeeks = (
  * up being "never went above X" or "averaged under X", and this way the screen
  * already shows whichever one gets picked.
  */
-export const summariseSeasonWeeks = (derived) => {
+export const summariseSeasonWeeks = (derived: DerivedSeasonWeek[] | null | undefined) => {
   if (!derived || !derived.length) return null;
-  const last = derived[derived.length - 1];
+  const last = derived[derived.length - 1]!;
   const beatCount = derived.filter((d) => d.beat).length;
   const concentrations = derived.map((d) => d.concentration);
 
@@ -196,7 +295,10 @@ export const summariseSeasonWeeks = (derived) => {
  * only mean anything next to each other. Week 0 is prepended at 0% so both lines
  * start from the season's opening instead of from the first checkpoint.
  */
-export const buildSeasonSeries = (derived, { width = 300, height = 90, pad = 4 } = {}) => {
+export const buildSeasonSeries = (
+  derived: DerivedSeasonWeek[] | null | undefined,
+  { width = 300, height = 90, pad = 4 }: { width?: number; height?: number; pad?: number } = {},
+) => {
   if (!derived || !derived.length) return null;
 
   const you = [0, ...derived.map((d) => d.totalReturn)];
@@ -206,7 +308,7 @@ export const buildSeasonSeries = (derived, { width = 300, height = 90, pad = 4 }
   const max = Math.max(...all);
   const span = max - min || 1;
 
-  const toPoints = (values) =>
+  const toPoints = (values: number[]) =>
     values
       .map((v, i) => {
         const x = pad + (i / Math.max(1, values.length - 1)) * (width - pad * 2);

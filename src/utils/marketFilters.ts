@@ -16,6 +16,36 @@ import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constant
 import { statusOf } from '../constants/statuses';
 import { getCurrentPrice } from './calculations';
 import { getTradeActivity } from './marketStats';
+import type { Character } from '../characters';
+import type { ReviewChanges } from './marketHours';
+import type { PriceHistory, PriceMap } from '../types';
+
+export interface MarketFilters {
+  tab: string;
+  crew: string;
+  generation: string;
+  statusHidden: string[];
+  search: string;
+}
+
+/** Live data the filters and sorts read, gathered once per render. */
+export interface FilterContext {
+  reviewChanges: ReviewChanges;
+  watchlist?: string[];
+  crewMembership: Record<string, string[]>;
+  launchedTickers: string[];
+  ipoRestrictedTickers: string[];
+}
+
+export interface SortContext {
+  prices: PriceMap;
+  priceHistory: PriceHistory;
+  priceChanges: Record<string, number>;
+  reviewChanges: ReviewChanges;
+  tab: string;
+}
+
+const dateMs = (iso: string) => new Date(iso).getTime();
 
 export const CREW_FILTER_ALL = 'ALL';
 
@@ -23,7 +53,7 @@ export const CREW_FILTER_ALL = 'ALL';
 // tab switcher and the sort logic agree on what to clear when you leave.
 export const REVIEW_SORTS = ['review-change', 'review-since'];
 
-export const DEFAULT_FILTERS = {
+export const DEFAULT_FILTERS: MarketFilters = {
   tab: 'stocks', // 'stocks' | 'etfs' | 'watchlist' | 'review'
   crew: CREW_FILTER_ALL,
   generation: GENERATION_FILTER_ALL,
@@ -32,19 +62,19 @@ export const DEFAULT_FILTERS = {
 };
 
 /** ticker -> [crewId], built once and reused across renders. */
-export const buildCrewMembership = () => {
-  const map = {};
+export const buildCrewMembership = (): Record<string, string[]> => {
+  const map: Record<string, string[]> = {};
   Object.values(CREWS).forEach((crew) => {
     crew.members.forEach((ticker) => {
       if (!map[ticker]) map[ticker] = [];
-      map[ticker].push(crew.id);
+      map[ticker]!.push(crew.id);
     });
   });
   return map;
 };
 
 /** How many filters are actually narrowing the list, for the panel's badge. */
-export const activeFilterCount = (filters) => {
+export const activeFilterCount = (filters: MarketFilters): number => {
   let n = 0;
   if (filters.crew !== CREW_FILTER_ALL) n++;
   if (filters.generation !== GENERATION_FILTER_ALL) n++;
@@ -52,21 +82,21 @@ export const activeFilterCount = (filters) => {
   return n;
 };
 
-const matchesTab = (c, filters, ctx) => {
+const matchesTab = (c: Character, filters: MarketFilters, ctx: FilterContext) => {
   if (filters.tab === 'review') return !!ctx.reviewChanges[c.ticker];
   if (filters.tab === 'watchlist') return (ctx.watchlist || []).includes(c.ticker);
   if (filters.tab === 'etfs') return !!c.isETF;
   return !c.isETF; // 'stocks'
 };
 
-const matchesCrew = (c, filters, ctx) => {
+const matchesCrew = (c: Character, filters: MarketFilters, ctx: FilterContext) => {
   if (filters.crew === CREW_FILTER_ALL) return true;
   return (ctx.crewMembership[c.ticker] || []).includes(filters.crew);
 };
 
 // ETFs have no generation, so any generation choice (including Unassigned)
 // hides them rather than lumping them together.
-const matchesGeneration = (c, filters) => {
+const matchesGeneration = (c: Character, filters: MarketFilters) => {
   if (filters.generation === GENERATION_FILTER_ALL) return true;
   if (c.isETF) return false;
   if (filters.generation === GENERATION_FILTER_UNASSIGNED) return !c.generation;
@@ -75,13 +105,13 @@ const matchesGeneration = (c, filters) => {
 
 // ETFs are never hidden by a status filter: a fund is not alive or dead, and
 // hiding it because one of its members died would be wrong.
-const matchesStatus = (c, filters) => {
+const matchesStatus = (c: Character, filters: MarketFilters) => {
   const hidden = filters.statusHidden || [];
   if (!hidden.length || c.isETF) return true;
   return !hidden.includes(statusOf(c));
 };
 
-const matchesSearch = (c, filters) => {
+const matchesSearch = (c: Character, filters: MarketFilters) => {
   const q = (filters.search || '').toLowerCase();
   if (!q) return true;
   return (
@@ -93,12 +123,12 @@ const matchesSearch = (c, filters) => {
 
 // An unlaunched IPO character does not exist yet as far as the board is
 // concerned, and one mid-IPO is bought through the IPO panel, not the grid.
-const isTradeableHere = (c, ctx) => {
+const isTradeableHere = (c: Character, ctx: FilterContext) => {
   if (c.ipoRequired && !ctx.launchedTickers.includes(c.ticker)) return false;
   return !ctx.ipoRestrictedTickers.includes(c.ticker);
 };
 
-export const matchesFilters = (c, filters, ctx) =>
+export const matchesFilters = (c: Character, filters: MarketFilters, ctx: FilterContext): boolean =>
   matchesTab(c, filters, ctx) &&
   matchesCrew(c, filters, ctx) &&
   matchesGeneration(c, filters) &&
@@ -113,18 +143,18 @@ export const matchesFilters = (c, filters, ctx) =>
  * price there. 'review-change' used to piggyback on 'price-high', which made
  * picking "Price: High" in that tab silently do nothing.
  */
-export const sortCharacters = (list, sortBy, ctx) => {
+export const sortCharacters = (list: Character[], sortBy: string, ctx: SortContext): Character[] => {
   const { prices, priceHistory, priceChanges, reviewChanges, tab } = ctx;
   const effective = REVIEW_SORTS.includes(sortBy) && tab !== 'review' ? 'price-high' : sortBy;
 
   // How far trading has carried a stock away from the price the admin set in
   // the review. Same figure the card's badge shows.
-  const driftSinceReview = (ticker) => {
+  const driftSinceReview = (ticker: string) => {
     const setPrice = reviewChanges[ticker]?.newPrice;
-    if (!(setPrice > 0)) return 0;
+    if (setPrice === undefined || !(setPrice > 0)) return 0;
     return ((getCurrentPrice(ticker, priceHistory, prices) - setPrice) / setPrice) * 100;
   };
-  const priceOf = (t) => getCurrentPrice(t, priceHistory, prices);
+  const priceOf = (t: string) => getCurrentPrice(t, priceHistory, prices);
 
   switch (effective) {
     case 'review-change':
@@ -153,9 +183,9 @@ export const sortCharacters = (list, sortBy, ctx) => {
     case 'ticker':
       return list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     case 'newest':
-      return list.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+      return list.sort((a, b) => dateMs(b.dateAdded) - dateMs(a.dateAdded));
     case 'oldest':
-      return list.sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
+      return list.sort((a, b) => dateMs(a.dateAdded) - dateMs(b.dateAdded));
     default:
       return list;
   }
@@ -174,10 +204,10 @@ export const sortCharacters = (list, sortBy, ctx) => {
  * Was implemented separately in NewCharactersBoard and App.jsx, which meant the
  * board and the header banner could disagree about what counts as new.
  */
-export const newThisWeek = (characters, launchedTickers, weekStart) =>
+export const newThisWeek = (characters: Character[], launchedTickers: string[], weekStart: Date): Character[] =>
   characters
     .filter((c) => new Date(c.dateAdded) >= weekStart && (!c.ipoRequired || launchedTickers.includes(c.ticker)))
-    .sort((a, b) => new Date(a.dateAdded) - new Date(b.dateAdded));
+    .sort((a, b) => dateMs(a.dateAdded) - dateMs(b.dateAdded));
 
 /**
  * The funds a character belongs to. Empty for a fund itself.
@@ -185,5 +215,5 @@ export const newThisWeek = (characters, launchedTickers, weekStart) =>
  * A character can be in several (Minsik Choi is in both Fist Gang and WTJC), so
  * this always returns every match rather than the first.
  */
-export const fundsContaining = (characters, ticker, isETF) =>
+export const fundsContaining = (characters: Character[], ticker: string, isETF?: boolean): Character[] =>
   isETF ? [] : characters.filter((c) => c.isETF && c.constituents?.includes(ticker));

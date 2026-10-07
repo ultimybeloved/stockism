@@ -50,7 +50,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "@sentry/react": "^10.52.0",

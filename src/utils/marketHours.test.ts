@@ -11,9 +11,10 @@ import {
   spliceReviewDetail,
   formatCountdown,
 } from './marketHours';
+import type { ReviewPoint, ReviewSection } from './marketHours';
 
 // 2026-01-01 is a Thursday (the weekly halt day). 2026-01-02 is a Friday.
-const at = (iso) => vi.setSystemTime(new Date(iso));
+const at = (iso: string) => vi.setSystemTime(new Date(iso));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -90,10 +91,14 @@ describe('getMostRecentHaltWindow', () => {
 describe('getReviewChanges', () => {
   const start = Date.parse('2026-01-01T13:00:00Z');
   const during = Date.parse('2026-01-01T22:00:00Z');
-  const before = (price) => ({ timestamp: start - 60 * 60 * 1000, price });
-  const inside = (mins, price, source) => ({ timestamp: start + mins * 60 * 1000, price, source });
+  const before = (price: number) => ({ timestamp: start - 60 * 60 * 1000, price });
+  const inside = (mins: number, price: number, source?: string) => ({
+    timestamp: start + mins * 60 * 1000,
+    price,
+    source,
+  });
 
-  const run = (points, ticker = 'JAKE') => {
+  const run = (points: ReviewPoint[], ticker = 'JAKE') => {
     vi.useFakeTimers();
     at(new Date(during).toISOString());
     return getReviewChanges({ [ticker]: points }, [{ ticker }])[ticker];
@@ -178,7 +183,7 @@ describe('getReviewChanges — the real $GAP tape from 2026-08-20', () => {
   // it. Players read the difference as trading during the halt. Every price here
   // is the live one. Must stay identical to getReviewWindowChanges in
   // functions/helpers.js, verified against the same tape.
-  const t = (iso) => Date.parse(`2026-08-20T${iso}Z`);
+  const t = (iso: string) => Date.parse(`2026-08-20T${iso}Z`);
   const history = {
     GAP: [
       { timestamp: t('11:40:23'), price: 1615.32 },
@@ -254,9 +259,10 @@ describe('buildReviewSections', () => {
     KTAE: { percentChange: 0.77, directChange: 0, trailingChange: 0.77, drivers: ['GAP'] },
     // Dragged by the fund it belongs to.
     KWON: { percentChange: 0.5, directChange: 0, trailingChange: 0.5, drivers: ['FIST'] },
-    FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0, drivers: [] },
+    FIST: { percentChange: 5.75, directChange: 5.75, trailingChange: 0, drivers: [] as string[] },
   };
-  const byId = (sections) => Object.fromEntries(sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]));
+  const byId = (sections: ReviewSection<{ ticker: string }>[]) =>
+    Object.fromEntries(sections.map((s) => [s.id, s.characters.map((c) => c.ticker)]));
 
   it('separates hand-set stocks, funds, fund trailers and character trailers', () => {
     expect(byId(buildReviewSections(chars, changes))).toEqual({
@@ -325,7 +331,7 @@ describe('buildReviewSections', () => {
 
 describe('getReviewChanges — the opening auction is not part of the review', () => {
   const start = Date.parse('2026-01-01T13:00:00Z');
-  const at20 = (hhmm) => Date.parse(`2026-01-01T${hhmm}:00Z`);
+  const at20 = (hhmm: string) => Date.parse(`2026-01-01T${hhmm}:00Z`);
 
   it('stops at the pre-market lock, so a 20:56 fill does not eat the review', () => {
     // The live $VIN case from 2026-08-20: knock-on carried it up through the

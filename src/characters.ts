@@ -939,7 +939,8 @@ CHARACTERS.forEach((c) => {
  * maker orders, drop payouts, rarity rank) scales by it, so a split changes
  * nothing but the share count and the price per share.
  */
-export const splitFactorOf = (ticker: string): number => CHARACTER_MAP[ticker]?.splitFactor || 1;
+export const splitFactorOf = (ticker: string | null | undefined): number =>
+  (ticker ? CHARACTER_MAP[ticker]?.splitFactor : undefined) || 1;
 
 // ============================================
 // MARKET STANDING (rarity tiers)

@@ -10,10 +10,21 @@ import {
   getBidAskPrices,
   calculateMarginStatus,
 } from './calculations';
+import type { Character } from '../characters';
+import type {
+  PriceHistory,
+  PriceMap,
+  ShareLock,
+  ShortPosition,
+  Ticker,
+  TradeAction,
+  TradeLogEntry,
+  UserData,
+} from '../types';
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
-export const pruneAndSumTradeHistory = (entries, now) => {
+export const pruneAndSumTradeHistory = (entries: TradeLogEntry[] | null | undefined, now: number) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
   const recent = (entries || []).filter((e) => e.ts > cutoff);
   const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
@@ -25,13 +36,17 @@ export const pruneAndSumTradeHistory = (entries, now) => {
 };
 
 // Cumulative volume for this ticker+action from rolling 24h history
-export const getCumulativeVolume = (userData, ticker, act) => {
+export const getCumulativeVolume = (
+  userData: UserData | null | undefined,
+  ticker: Ticker,
+  act: TradeAction,
+): number => {
   const history = userData?.tickerTradeHistory?.[ticker]?.[act] || [];
   return pruneAndSumTradeHistory(history, Date.now()).totalShares;
 };
 
 // Trade count for this ticker+action from rolling 24h history
-export const getTradeCount = (userData, ticker, act) => {
+export const getTradeCount = (userData: UserData | null | undefined, ticker: Ticker, act: TradeAction): number => {
   const history = userData?.tickerTradeHistory?.[ticker]?.[act] || [];
   return pruneAndSumTradeHistory(history, Date.now()).count;
 };
@@ -44,7 +59,13 @@ export const getTradeCount = (userData, ticker, act) => {
 // With the market number here, an oversized order was quoted cheaper than it
 // would actually fill. calculatePriceImpactDollars stays the market-move number
 // and is what the pre-market indicative open uses.
-export const getDynamicPrices = (character, price, amt, act, userData) => {
+export const getDynamicPrices = (
+  character: Pick<Character, 'ticker' | 'isETF'>,
+  price: number,
+  amt: number,
+  act: TradeAction,
+  userData: UserData | null | undefined,
+) => {
   const liquidity = liquidityFor(character.ticker);
   const cumVol = getCumulativeVolume(userData, character.ticker, act);
   const impact = calculateTraderImpactDollars(price, amt, liquidity, cumVol);
@@ -57,7 +78,13 @@ export const getDynamicPrices = (character, price, amt, act, userData) => {
 
 // Cash plus any available margin (margin only when includeMargin is true —
 // the trade modal keeps it opt-in so Max defaults to cash)
-export const getBuyingPower = (userCash, userData, prices, priceHistory, includeMargin = true) => {
+export const getBuyingPower = (
+  userCash: number,
+  userData: UserData | null | undefined,
+  prices: PriceMap | null | undefined,
+  priceHistory?: PriceHistory,
+  includeMargin = true,
+): number => {
   let buyingPower = userCash;
   if (includeMargin && userData && prices) {
     const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
@@ -77,7 +104,21 @@ export const getBuyingPower = (userCash, userData, prices, priceHistory, include
 // The order cap (maxTradeSharesFor: MAX_TRADE_SHARES x splitFactor) is applied once, here, for every action. Only the short
 // branch used to carry the ceiling, so a large holder pressing Max on a sell or
 // a well-funded buy handed the server an order it rejects out of hand.
-export const getMaxShares = (args) => Math.min(maxSharesForAction(args), maxTradeSharesFor(args.character?.ticker));
+export interface MaxSharesArgs {
+  action: string;
+  character: Pick<Character, 'ticker' | 'isETF'>;
+  price: number;
+  holdings?: number;
+  shortPosition?: ShortPosition | null;
+  userCash: number;
+  userData?: UserData | null;
+  prices?: PriceMap | null;
+  priceHistory?: PriceHistory;
+  includeMargin?: boolean;
+}
+
+export const getMaxShares = (args: MaxSharesArgs): number =>
+  Math.min(maxSharesForAction(args), maxTradeSharesFor(args.character?.ticker));
 
 const maxSharesForAction = ({
   action,
@@ -90,7 +131,7 @@ const maxSharesForAction = ({
   prices,
   priceHistory,
   includeMargin = true,
-}) => {
+}: MaxSharesArgs): number => {
   const ticker = character.ticker;
   if (action === 'buy') {
     // Check trade count limit first
@@ -128,7 +169,7 @@ const maxSharesForAction = ({
     if (getTradeCount(userData, ticker, 'sell') >= MAX_TRADES_PER_TICKER_24H) return 0;
     // Locked shares (IPO / margin holds) aren't sellable; mirror the server.
     const lockNow = Date.now();
-    const lockedOf = (lock) => (lock && lockNow < (lock.until || 0) ? lock.shares || 0 : 0);
+    const lockedOf = (lock: ShareLock | undefined) => (lock && lockNow < (lock.until || 0) ? lock.shares || 0 : 0);
     const lockedSell = lockedOf(userData?.ipoLockup?.[ticker]) + lockedOf(userData?.marginLockup?.[ticker]);
     return Math.max(0, (holdings || 0) - lockedSell);
   }
@@ -166,10 +207,10 @@ const maxSharesForAction = ({
 // closed in full. Mirror of MIN_EXIT_SHARES / EXIT_SHARE_DECIMALS in
 // functions/constants.js — the server rejects anything finer.
 const EXIT_SHARE_STEP = 1 / MIN_EXIT_SHARES;
-export const roundShares = (n, isExit) =>
+export const roundShares = (n: number, isExit?: boolean): number =>
   isExit ? Math.round(n * EXIT_SHARE_STEP) / EXIT_SHARE_STEP : Math.round(n * 100) / 100;
 
-export const formatShares = (n) => {
+export const formatShares = (n: number | null | undefined): string => {
   if (!n) return '0';
   // Dust (dividend remainders, partial fills) all renders as "0.00" at two
   // decimals, which reads as owning nothing. Show what is actually there.

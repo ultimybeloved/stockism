@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getDynamicPrices, getMaxShares, getCumulativeVolume } from './tradeLimits';
 import { estimateTradeTotal } from './calculations';
 import { MAX_TRADE_SHARES, SHORT_MARGIN_REQUIREMENT, BID_ASK_SPREAD } from '../constants/economy';
+import type { TradeAction } from '../types';
 
 // The trade form and the confirmation dialog quote the player a price, and the
 // server then charges them. All three have to agree. They did not: the form
@@ -13,7 +14,7 @@ const CHAR = { ticker: 'TEST', isETF: false, basePrice: 100 };
 const PRICE = 100;
 
 // A user who has already sold 200 shares of TEST in the rolling window.
-const userWithVolume = (action, shares) => ({
+const userWithVolume = (action: TradeAction, shares: number) => ({
   tickerTradeHistory: {
     TEST: { [action]: [{ ts: Date.now(), shares, impact: 0.01 }] },
   },

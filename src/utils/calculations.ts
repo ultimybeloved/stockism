@@ -27,6 +27,7 @@ import {
   MARGIN_MIN_PEAK_PORTFOLIO,
 } from '../constants/economy';
 import { CHARACTER_MAP, splitFactorOf } from '../characters';
+import type { PriceHistory, PriceMap, ShareMap, ShortMap, ShortPosition, Ticker, UserData } from '../types';
 
 /**
  * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
@@ -35,10 +36,14 @@ import { CHARACTER_MAP, splitFactorOf } from '../characters';
  * @param {Object} prices - ticker → price map
  * @returns {number}
  */
-export const getCurrentPrice = (ticker, priceHistory, prices) => {
+export const getCurrentPrice = (
+  ticker: Ticker,
+  priceHistory: PriceHistory | null | undefined,
+  prices: PriceMap | null | undefined,
+): number => {
   const history = priceHistory?.[ticker];
   if (history && history.length > 0) {
-    return history[history.length - 1].price;
+    return history[history.length - 1]!.price;
   }
   return prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
 };
@@ -48,7 +53,7 @@ export const getCurrentPrice = (ticker, priceHistory, prices) => {
  * @param {number} midPrice - The current mid price
  * @returns {{ bid: number, ask: number }} Bid and ask prices
  */
-export const getBidAskPrices = (midPrice, isETF = false) => {
+export const getBidAskPrices = (midPrice: number, isETF: boolean | undefined = false) => {
   const spread = isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
   const halfSpread = midPrice * (spread / 2);
   return {
@@ -72,12 +77,18 @@ export const getBidAskPrices = (midPrice, isETF = false) => {
  * so the same dollar trade moves a split stock the same percent as before.
  * Mirror of liquidityFor in functions/helpers.js.
  */
-export const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
+export const liquidityFor = (ticker: Ticker): number => BASE_LIQUIDITY * splitFactorOf(ticker);
 
 /** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/helpers.js. */
-export const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
+export const maxTradeSharesFor = (ticker: Ticker | null | undefined): number =>
+  MAX_TRADE_SHARES * splitFactorOf(ticker);
 
-export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BASE_LIQUIDITY, cumulativeVolume = 0) => {
+export const calculatePriceImpactDollars = (
+  currentPrice: number,
+  shares: number,
+  liquidity: number = BASE_LIQUIDITY,
+  cumulativeVolume = 0,
+): number => {
   const rawImpact =
     currentPrice *
     BASE_IMPACT *
@@ -98,11 +109,11 @@ export const calculatePriceImpactDollars = (currentPrice, shares, liquidity = BA
  * one, change both, and re-run `npm test` plus `npm run test:trading`.
  */
 export const calculateTraderImpactDollars = (
-  currentPrice,
-  shares,
-  liquidity = BASE_LIQUIDITY,
+  currentPrice: number,
+  shares: number,
+  liquidity: number = BASE_LIQUIDITY,
   cumulativeVolume = 0,
-) => {
+): number => {
   const rawImpact =
     currentPrice *
     BASE_IMPACT *
@@ -141,7 +152,17 @@ export const estimateTradeTotal = ({
   exitDiscount = 0,
   cumulativeVolume = 0,
   liquidity = BASE_LIQUIDITY,
-}) => {
+}: {
+  action: string;
+  price: number;
+  amount: number;
+  isETF?: boolean;
+  ageFactor?: number;
+  shortPosition?: ShortPosition | null;
+  exitDiscount?: number;
+  cumulativeVolume?: number;
+  liquidity?: number;
+}): number => {
   // The preview quotes what the player will actually be charged, so it uses the
   // TRADER impact. calculatePriceImpactDollars stays the market-move number.
   const priceImpact = calculateTraderImpactDollars(price, amount, liquidity, cumulativeVolume) * ageFactor;
@@ -176,7 +197,7 @@ export const estimateTradeTotal = ({
   return price * amount;
 };
 
-export const getShortLiquidationPrice = (margin, entryPrice, shares) => {
+export const getShortLiquidationPrice = (margin: number, entryPrice: number, shares: number): number | null => {
   if (!shares || shares <= 0) return null;
   return (margin + entryPrice * shares) / (shares * (1 + SHORT_MARGIN_CALL_THRESHOLD));
 };
@@ -189,7 +210,7 @@ export const getShortLiquidationPrice = (margin, entryPrice, shares) => {
  * @param {Object} position - short position ({ shares, margin, costBasis/entryPrice, system })
  * @returns {number}
  */
-export const getShortMargin = (position) => {
+export const getShortMargin = (position: ShortPosition | null | undefined): number => {
   const stored = Number(position?.margin) || 0;
   if (stored > 0) return stored;
   const shares = Number(position?.shares) || 0;
@@ -205,7 +226,7 @@ export const getShortMargin = (position) => {
  * @param {number} currentPrice
  * @returns {{equityRatio:number, equity:number, margin:number, liquidationPrice:number|null, isAtRisk:boolean, isCritical:boolean}|null}
  */
-export const getShortRisk = (position, currentPrice) => {
+export const getShortRisk = (position: ShortPosition | null | undefined, currentPrice: number) => {
   if (!position || !(Number(position.shares) > 0)) return null;
   const shares = Number(position.shares) || 0;
   const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
@@ -229,12 +250,15 @@ export const getShortRisk = (position, currentPrice) => {
  * @param {Object} prices - Current prices by ticker
  * @returns {number} Total portfolio value
  */
-export const calculatePortfolioValue = (userData, prices) => {
+export const calculatePortfolioValue = (
+  userData: UserData | null | undefined,
+  prices: PriceMap | null | undefined,
+): number => {
   if (!userData || !prices) return 0;
 
   const cash = userData.cash || 0;
-  const holdings = userData.holdings || {};
-  const shorts = userData.shorts || {};
+  const holdings: ShareMap = userData.holdings || {};
+  const shorts: ShortMap = userData.shorts || {};
 
   // Calculate holdings value
   const holdingsValue = Object.entries(holdings).reduce((sum, [ticker, shares]) => {
@@ -249,7 +273,7 @@ export const calculatePortfolioValue = (userData, prices) => {
     const entryPrice = Number(position.costBasis || position.entryPrice) || 0;
     const currentPrice = Number(prices[ticker]) || Number(entryPrice) || 0;
     const collateral = Number(position.margin) || 0;
-    let value;
+    let value: number;
     if (position.system === 'v2') {
       // v2: margin + unrealized P&L (no proceeds in cash)
       value = collateral + (entryPrice - currentPrice) * shares;
@@ -272,7 +296,10 @@ export const calculatePortfolioValue = (userData, prices) => {
  * @param {Object} prices - Current prices by ticker
  * @returns {number} Exit value
  */
-export const calculateExitValue = (userData, prices) => {
+export const calculateExitValue = (
+  userData: UserData | null | undefined,
+  prices: PriceMap | null | undefined,
+): number => {
   if (!userData || !prices) return 0;
   const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
     const price = prices[ticker] || 0;
@@ -301,7 +328,7 @@ export const calculateExitValue = (userData, prices) => {
  * @param {Object} prices - Current prices by ticker
  * @returns {Object} Margin status including available margin, equity ratio, etc.
  */
-export const getMarginTierMultiplier = (peakPortfolioValue) => {
+export const getMarginTierMultiplier = (peakPortfolioValue: number | null | undefined): number => {
   const peak = peakPortfolioValue || 0;
   if (peak >= 30000) return 0.75;
   if (peak >= 15000) return 0.5;
@@ -309,7 +336,7 @@ export const getMarginTierMultiplier = (peakPortfolioValue) => {
   return 0.25;
 };
 
-export const getMarginTierName = (peakPortfolioValue) => {
+export const getMarginTierName = (peakPortfolioValue: number | null | undefined): string => {
   const peak = peakPortfolioValue || 0;
   if (peak >= 30000) return 'Platinum (0.75x)';
   if (peak >= 15000) return 'Gold (0.50x)';
@@ -317,7 +344,30 @@ export const getMarginTierName = (peakPortfolioValue) => {
   return 'Bronze (0.25x)';
 };
 
-export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
+export type MarginStatusLevel = 'disabled' | 'safe' | 'warning' | 'danger' | 'margin_call' | 'liquidation';
+
+export interface MarginStatus {
+  enabled: boolean;
+  marginUsed: number;
+  availableMargin: number;
+  maxBorrowable: number;
+  borrowBase?: number;
+  tierMultiplier: number;
+  tierName: string;
+  portfolioValue: number;
+  grossValue?: number;
+  holdingsValue?: number;
+  totalMaintenanceRequired: number;
+  equityRatio: number;
+  status: MarginStatusLevel;
+  marginCallAt?: UserData['marginCallAt'];
+}
+
+export const calculateMarginStatus = (
+  userData: UserData | null | undefined,
+  prices: PriceMap | null | undefined,
+  priceHistory: PriceHistory = {},
+): MarginStatus => {
   if (!userData || !userData.marginEnabled) {
     return {
       enabled: false,
@@ -369,7 +419,7 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
   const maxBorrowable = Math.max(0, borrowBase * tierMultiplier);
   const availableMargin = Math.max(0, maxBorrowable - marginUsed);
 
-  let status = 'safe';
+  let status: MarginStatusLevel = 'safe';
   if (marginUsed > 0) {
     if (equityRatio <= MARGIN_LIQUIDATION_THRESHOLD) {
       status = 'liquidation';
@@ -411,7 +461,17 @@ export const calculateMarginStatus = (userData, prices, priceHistory = {}) => {
  * @param {boolean} isAdmin - Whether user is admin (always eligible)
  * @returns {Object} Eligibility status and requirements
  */
-export const checkMarginEligibility = (userData, isAdmin = false) => {
+export interface MarginRequirement {
+  met: boolean;
+  label: string;
+  current: number | string;
+  required: number;
+}
+
+export const checkMarginEligibility = (
+  userData: UserData | null | undefined,
+  isAdmin = false,
+): { eligible: boolean; requirements: MarginRequirement[] } => {
   if (!userData) return { eligible: false, requirements: [] };
 
   const labels = [
@@ -428,7 +488,7 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
         met: true,
         label,
         current: '∞',
-        required: thresholds[i],
+        required: thresholds[i]!,
       })),
     };
   }
@@ -439,10 +499,10 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
 
   const currents = [totalCheckins, totalTrades, peakPortfolio];
   const requirements = labels.map((label, i) => ({
-    met: currents[i] >= thresholds[i],
+    met: currents[i]! >= thresholds[i]!,
     label,
-    current: currents[i],
-    required: thresholds[i],
+    current: currents[i]!,
+    required: thresholds[i]!,
   }));
 
   return {
@@ -455,7 +515,11 @@ export const checkMarginEligibility = (userData, isAdmin = false) => {
  * Total a user has "invested" in stocks: cost basis of holdings + open short margin.
  * Used to cap prediction bets and ladder-game deposits. Mirrors functions/helpers.js.
  */
-export const getTotalInvested = (holdings = {}, costBasis = {}, shorts = {}) => {
+export const getTotalInvested = (
+  holdings: ShareMap | null | undefined = {},
+  costBasis: Record<Ticker, number> | null | undefined = {},
+  shorts: ShortMap | null | undefined = {},
+): number => {
   const holdingsValue = Object.entries(holdings || {}).reduce(
     (sum, [ticker, shares]) => sum + (costBasis?.[ticker] || 0) * (shares || 0),
     0,
@@ -468,26 +532,26 @@ export const getTotalInvested = (holdings = {}, costBasis = {}, shorts = {}) => 
 // Logarithmic Market Scoring Rule for long-term event share markets.
 // `q` = array of shares outstanding per outcome, `b` = liquidity parameter.
 // Prices always sum to 1 and stay in (0,1). Mirror of functions/helpers.js — keep in sync.
-const _lse = (xs) => {
+const _lse = (xs: number[]): number => {
   const m = Math.max(...xs);
   return m + Math.log(xs.reduce((s, x) => s + Math.exp(x - m), 0));
 };
-export const lmsrCost = (q, b) => b * _lse(q.map((x) => x / b));
-export const lmsrPrices = (q, b) => {
+export const lmsrCost = (q: number[], b: number): number => b * _lse(q.map((x) => x / b));
+export const lmsrPrices = (q: number[], b: number): number[] => {
   const xs = q.map((x) => x / b);
   const m = Math.max(...xs);
   const ex = xs.map((x) => Math.exp(x - m));
   const sum = ex.reduce((a, c) => a + c, 0);
   return ex.map((e) => e / sum);
 };
-export const lmsrBuyCost = (q, b, idx, shares) => {
+export const lmsrBuyCost = (q: number[], b: number, idx: number, shares: number): number => {
   const after = q.slice();
-  after[idx] += shares;
+  after[idx]! += shares;
   return lmsrCost(after, b) - lmsrCost(q, b);
 };
-export const lmsrSellRefund = (q, b, idx, shares) => {
+export const lmsrSellRefund = (q: number[], b: number, idx: number, shares: number): number => {
   const after = q.slice();
-  after[idx] -= shares;
+  after[idx]! -= shares;
   return lmsrCost(q, b) - lmsrCost(after, b);
 };
 // Seed quantities that make a new market open at the given odds (percent per
@@ -495,7 +559,7 @@ export const lmsrSellRefund = (q, b, idx, shares) => {
 // the admin panel. Shifted so the smallest entry is 0 — player holdings of
 // outcome i equal q[i] - seed[i], so q can never fall below the seed and the
 // sell-side zero clamp in functions/services/eventMarket.js stays inert.
-export const lmsrSeedQ = (pcts, b) => {
+export const lmsrSeedQ = (pcts: number[], b: number): number[] => {
   const min = Math.min(...pcts);
   return pcts.map((p) => Math.round(b * Math.log(p / min) * 100) / 100);
 };
@@ -503,7 +567,7 @@ export const lmsrSeedQ = (pcts, b) => {
 // A "nice" round increment for +/- steppers: ~5% of `limit`, snapped to 1/2/5 × a
 // power of ten (1, 2, 5, 10, 20, 50, ...). Always at least `min`. Lets the +/-
 // buttons scale to the player's actual limit instead of fixed amounts.
-export const niceStep = (limit, min = 1) => {
+export const niceStep = (limit: unknown, min = 1): number => {
   const target = Math.max(min, (Number(limit) || 0) / 20);
   const mag = Math.pow(10, Math.floor(Math.log10(target)));
   const norm = target / mag;
@@ -514,7 +578,7 @@ export const niceStep = (limit, min = 1) => {
 // Largest whole number of shares whose LMSR buy cost stays within `budget`.
 // Powers the "Max" button on long-term event markets (cost is non-linear, so we
 // can't just divide). Exponential search for a bound, then binary search.
-export const maxAffordableShares = (q, b, idx, budget) => {
+export const maxAffordableShares = (q: number[], b: number, idx: number, budget: number): number => {
   if (!(budget > 0)) return 0;
   let hi = 1;
   while (hi < 1e7 && lmsrBuyCost(q, b, idx, hi) <= budget) hi *= 2;
@@ -533,14 +597,15 @@ export const maxAffordableShares = (q, b, idx, budget) => {
  * @param {Object} userData
  * @returns {number} multiplier in [NEW_ACCOUNT_MIN_IMPACT_FACTOR, 1]
  */
-export const getAccountAgeImpactFactor = (userData) => {
-  if (!userData?.createdAt) return 1;
+export const getAccountAgeImpactFactor = (userData: UserData | null | undefined): number => {
+  const createdAt = userData?.createdAt;
+  if (!createdAt) return 1;
   const createdMs =
-    typeof userData.createdAt?.toMillis === 'function'
-      ? userData.createdAt.toMillis()
-      : typeof userData.createdAt === 'number'
-        ? userData.createdAt
-        : Date.parse(userData.createdAt);
+    typeof createdAt === 'object' && 'toMillis' in createdAt && typeof createdAt.toMillis === 'function'
+      ? createdAt.toMillis()
+      : typeof createdAt === 'number'
+        ? createdAt
+        : Date.parse(createdAt as string);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;

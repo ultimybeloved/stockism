@@ -31,6 +31,31 @@ export type ShareMap = Record<Ticker, number>;
 
 export type TradeAction = 'buy' | 'sell' | 'short' | 'cover';
 
+/** users/{uid}.shorts[ticker]. Legacy (pre-v2) shorts have no `system`. */
+export interface ShortPosition {
+  shares: number;
+  costBasis?: number;
+  entryPrice?: number;
+  margin?: number;
+  system?: string;
+  [key: string]: unknown;
+}
+
+export type ShortMap = Record<Ticker, ShortPosition>;
+
+/** One fill in the rolling 24h per-ticker trade log. */
+export interface TradeLogEntry {
+  ts: number;
+  shares?: number;
+  impact?: number;
+}
+
+/** A share lockup (IPO or margin) that blocks selling until `until`. */
+export interface ShareLock {
+  shares?: number;
+  until?: number;
+}
+
 export interface ActiveCosmetics {
   nameColor?: string | null;
   rowGlow?: string | null;
@@ -49,6 +74,20 @@ export interface UserData {
   cash?: number;
   holdings?: ShareMap;
   costBasis?: Record<Ticker, number>;
+  shorts?: ShortMap;
+  marginEnabled?: boolean;
+  marginUsed?: number;
+  marginCallAt?: TimestampLike;
+  peakPortfolioValue?: number;
+  totalCheckins?: number;
+  totalTrades?: number;
+  createdAt?: TimestampLike;
+  achievements?: string[];
+  tickerTradeHistory?: Record<Ticker, Partial<Record<TradeAction, TradeLogEntry[]>>>;
+  ipoLockup?: Record<Ticker, ShareLock>;
+  marginLockup?: Record<Ticker, ShareLock>;
+  extraAchievementSlot?: boolean;
+  extraShopSlot?: boolean;
   crew?: string | null;
   isAdmin?: boolean;
   activeCosmetics?: ActiveCosmetics;

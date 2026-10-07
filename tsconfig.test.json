@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strictNullChecks": false,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src"],
+  "exclude": []
+}

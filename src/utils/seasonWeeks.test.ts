@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { deriveSeasonWeeks, summariseSeasonWeeks, buildSeasonSeries } from './seasonWeeks';
+import type { SeasonWeekRecord } from './seasonWeeks';
 
 const ctx = { seasonId: 'S1', baselineValue: 10000, indexAtStart: 1000 };
-const row = (w, { v, g = 0, x, c = 0, h = 0 }) => ({ s: 'S1', w, t: w, v, g, x, c, h });
+const row = (
+  w: number,
+  { v, g = 0, x, c = 0, h = 0 }: { v: number; g?: number; x: number; c?: number; h?: number },
+): SeasonWeekRecord => ({ s: 'S1', w, t: w, v, g, x, c, h });
 
 describe('deriveSeasonWeeks', () => {
   it('measures week 1 from the season baseline, not from the first checkpoint', () => {
@@ -42,7 +46,7 @@ describe('deriveSeasonWeeks', () => {
 
   it('ignores rows from another season', () => {
     const out = deriveSeasonWeeks(
-      [{ s: 'S0', w: 1, v: 99999, g: 0, x: 1, c: 0, h: 0 }, row(1, { v: 11000, x: 1000 })],
+      [{ s: 'S0', w: 1, v: 99999, g: 0, x: 1, c: 0, h: 0 } as SeasonWeekRecord, row(1, { v: 11000, x: 1000 })],
       ctx,
     );
     expect(out).toHaveLength(1);

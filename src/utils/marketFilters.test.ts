@@ -6,12 +6,14 @@ import {
   activeFilterCount,
   buildCrewMembership,
 } from './marketFilters';
+import type { FilterContext, MarketFilters } from './marketFilters';
+import type { Character } from '../characters';
 import { GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../constants/generations';
 
 // Extracted from useMarketBrowser, so these lock in the behaviour that was
 // already shipping as much as they cover the new status filter.
 
-const ctx = (over = {}) => ({
+const ctx = (over: Partial<FilterContext> = {}): FilterContext => ({
   reviewChanges: {},
   crewMembership: {},
   watchlist: [],
@@ -20,8 +22,14 @@ const ctx = (over = {}) => ({
   ...over,
 });
 
-const f = (over = {}) => ({ ...DEFAULT_FILTERS, ...over });
-const char = (over = {}) => ({ ticker: 'AAA', name: 'Test Person', dateAdded: '2026-01-01T00:00:00', ...over });
+const f = (over: Partial<MarketFilters> = {}): MarketFilters => ({ ...DEFAULT_FILTERS, ...over });
+const char = (over: Partial<Character> = {}): Character => ({
+  ticker: 'AAA',
+  name: 'Test Person',
+  basePrice: 10,
+  dateAdded: '2026-01-01T00:00:00',
+  ...over,
+});
 
 describe('tab filter', () => {
   it('shows characters and hides funds on the stocks tab', () => {
@@ -40,7 +48,13 @@ describe('tab filter', () => {
   });
 
   it('shows only changed tickers on the review tab', () => {
-    expect(matchesFilters(char(), f({ tab: 'review' }), ctx({ reviewChanges: { AAA: {} } }))).toBe(true);
+    expect(
+      matchesFilters(
+        char(),
+        f({ tab: 'review' }),
+        ctx({ reviewChanges: { AAA: { oldPrice: 10, newPrice: 11, percentChange: 10 } } }),
+      ),
+    ).toBe(true);
     expect(matchesFilters(char(), f({ tab: 'review' }), ctx())).toBe(false);
   });
 });
@@ -165,7 +179,7 @@ describe('sorting', () => {
     tab: 'stocks',
     ...over,
   });
-  const tickers = (sorted) => sorted.map((c) => c.ticker);
+  const tickers = (sorted: Character[]) => sorted.map((c) => c.ticker);
 
   it('sorts by price in both directions', () => {
     expect(tickers(sortCharacters(list(), 'price-high', sctx()))).toEqual(['BBB', 'CCC', 'AAA']);

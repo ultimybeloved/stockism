@@ -232,8 +232,8 @@ describe('getCurrentPrice', () => {
   it('prefers the latest price-history entry', () => {
     const history = {
       JAKE: [
-        { price: 10, ts: 1 },
-        { price: 12, ts: 2 },
+        { price: 10, timestamp: 1 },
+        { price: 12, timestamp: 2 },
       ],
     };
     expect(getCurrentPrice('JAKE', history, {})).toBe(12);
@@ -296,7 +296,7 @@ describe('LMSR event-market pricing', () => {
   it('starts at even odds summing to 1', () => {
     const p = lmsrPrices([0, 0], b);
     expect(p[0]).toBeCloseTo(0.5, 6);
-    expect(p[0] + p[1]).toBeCloseTo(1, 9);
+    expect(p[0]! + p[1]!).toBeCloseTo(1, 9);
   });
 
   it('keeps multi-outcome prices summing to 1', () => {
@@ -305,8 +305,8 @@ describe('LMSR event-market pricing', () => {
   });
 
   it('raises an outcome price when it is bought', () => {
-    const before = lmsrPrices([0, 0], b)[0];
-    const after = lmsrPrices([100, 0], b)[0];
+    const before = lmsrPrices([0, 0], b)[0]!;
+    const after = lmsrPrices([100, 0], b)[0]!;
     expect(after).toBeGreaterThan(before);
   });
 

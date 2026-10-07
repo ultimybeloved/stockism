@@ -4,10 +4,9 @@ import { parseCashInput, describeCashChange } from './adminCash';
 // Narrow to the success shape, failing the test if the parse was rejected.
 const parsedOk = (input: string, cash: number) => {
   const r = parseCashInput(input, cash);
-  if (!r.ok) throw new Error(r.error);
+  if (r.ok === false) throw new Error(r.error);
   return r;
 };
-// Narrow to the success shape, failing the test if the parse was rejected.const parsedOk = (input: string, cash: number) => {  const r = parseCashInput(input, cash);  if (!r.ok) throw new Error(r.error);  return r;};
 
 describe('parseCashInput', () => {
   it('adds on a leading +', () => {
@@ -57,7 +56,7 @@ describe('parseCashInput', () => {
   it('refuses to go negative instead of clamping to zero', () => {
     const r = parseCashInput('-2000', 1000);
     expect(r.ok).toBe(false);
-    if (r.ok) return;
+    if (r.ok === true) return;
     expect(r.error).toContain('only have $1000.00');
   });
 

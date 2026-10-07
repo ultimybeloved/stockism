@@ -6,6 +6,39 @@ import { localDailyTime } from './localTime';
  * Every Thursday 13:00–21:00 UTC (chapter review window)
  */
 import { CHARACTER_MAP } from '../characters';
+import type { Character } from '../characters';
+
+/** A chart point as the review math reads it. */
+export interface ReviewPoint {
+  price: number;
+  timestamp: number;
+  source?: string;
+  collapsed?: boolean;
+}
+
+export interface ReviewChange {
+  oldPrice: number;
+  newPrice: number;
+  percentChange: number;
+  directChange?: number;
+  trailingChange?: number;
+  drivers?: string[];
+}
+
+export type ReviewChanges = Record<string, ReviewChange>;
+
+type ReviewHistory = Record<string, ReviewPoint[] | undefined>;
+
+/** The fields buildReviewSections reads from a character. */
+type ReviewCharacter = { ticker: string; isETF?: boolean };
+
+export interface ReviewSection<C extends ReviewCharacter = Character> {
+  id: string;
+  short: string;
+  title: string;
+  blurb: string;
+  characters: C[];
+}
 
 export const isWeeklyHalt = () => {
   const now = new Date();
@@ -99,12 +132,18 @@ export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  *
  * Keep in sync with getReviewWindowChanges in functions/helpers.js.
  */
-export const computeReviewChange = (history, start, end, fallbackOpen = null, rootByTimestamp = null) => {
+export const computeReviewChange = (
+  history: ReviewPoint[] | null | undefined,
+  start: number,
+  end: number,
+  fallbackOpen: number | null = null,
+  rootByTimestamp: Map<number, string> | null = null,
+): ReviewChange | null => {
   if (!Array.isArray(history) || history.length === 0) return null;
 
   // The price carried into the review, plus every point the review moved it.
   let openPrice = fallbackOpen;
-  const moves = [];
+  const moves: ReviewPoint[] = [];
   for (const entry of history) {
     if (!entry || typeof entry.price !== 'number') continue;
     if (entry.timestamp < start) {
@@ -114,7 +153,7 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null, ro
     if (entry.timestamp > end) break;
     moves.push(entry);
   }
-  if (moves.length === 0 || !(openPrice > 0)) return null;
+  if (moves.length === 0 || openPrice === null || !(openPrice > 0)) return null;
 
   // Each move is measured against the price right before it, so the two causes
   // compound the same way the prices actually did.
@@ -124,7 +163,7 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null, ro
   // Which stocks dragged this one. A knock-on move carries no record of what
   // caused it, but every stock the same cascade touched shares one timestamp
   // with the adjustment that started it, so the root is recoverable.
-  const drivers = new Set();
+  const drivers = new Set<string>();
   for (const entry of moves) {
     // A collapsed point is the review's whole move rolled into one, so the
     // detail it was built from is gone and the split cannot be recovered here.
@@ -168,8 +207,12 @@ export const computeReviewChange = (history, start, end, fallbackOpen = null, ro
  * it this way means old price history attributes correctly too, with nothing
  * extra stored.
  */
-export const rootAdjustmentsByTimestamp = (priceHistory, start, end) => {
-  const roots = new Map();
+export const rootAdjustmentsByTimestamp = (
+  priceHistory: ReviewHistory | null | undefined,
+  start: number,
+  end: number,
+): Map<number, string> => {
+  const roots = new Map<number, string>();
   for (const [ticker, history] of Object.entries(priceHistory || {})) {
     if (!Array.isArray(history)) continue;
     for (const entry of history) {
@@ -191,14 +234,17 @@ export const rootAdjustmentsByTimestamp = (priceHistory, start, end) => {
  * from the oldest end. If the pre-review point survived, so did everything
  * after it.
  */
-export const getReviewChanges = (priceHistory, characters) => {
+export const getReviewChanges = (
+  priceHistory: ReviewHistory | null | undefined,
+  characters: Pick<Character, 'ticker'>[],
+): ReviewChanges => {
   const { start, end, reviewEnd } = getMostRecentHaltWindow();
 
   // Hide if the review is older than a week
   if (Date.now() - end > REVIEW_MAX_AGE_MS) return {};
 
   const roots = rootAdjustmentsByTimestamp(priceHistory, start, reviewEnd);
-  const changes = {};
+  const changes: ReviewChanges = {};
   for (const char of characters) {
     const change = computeReviewChange((priceHistory || {})[char.ticker], start, reviewEnd, null, roots);
     if (change) changes[char.ticker] = change;
@@ -217,7 +263,10 @@ export const getReviewChanges = (priceHistory, characters) => {
  * in the stocks whose pre-review price has already been trimmed out of the live
  * history, which is most of the actively traded ones within a day.
  */
-export const mergeReviewChanges = (derived, stored) => ({
+export const mergeReviewChanges = (
+  derived: ReviewChanges | null | undefined,
+  stored: ReviewChanges | null | undefined,
+): ReviewChanges => ({
   ...(stored || {}),
   ...(derived || {}),
 });
@@ -241,22 +290,25 @@ export const mergeReviewChanges = (derived, stored) => ({
  * Empty sections are dropped, so a review with no knock-on looks exactly like
  * the old flat list.
  */
-export const buildReviewSections = (characters, changes = {}) => {
-  const moved = (n) => typeof n === 'number' && Math.abs(n) >= 0.01;
+export const buildReviewSections = <C extends ReviewCharacter>(
+  characters: C[],
+  changes: Record<string, Partial<ReviewChange>> = {},
+): ReviewSection<C>[] => {
+  const moved = (n: unknown) => typeof n === 'number' && Math.abs(n) >= 0.01;
   // Moved because a fund THIS character belongs to moved. Membership matters:
   // a fund adjustment also ripples on through its members into stocks outside
   // the fund, and calling those fund trailers would be wrong. $KTAE is not in
   // the Fist Gang fund, it only caught a second-order push through $GAP.
-  const movedWithItsFund = (ticker, drivers = []) =>
+  const movedWithItsFund = (ticker: string, drivers: string[] = []) =>
     drivers.some((driver) => {
       const fund = CHARACTER_MAP[driver];
       return fund?.isETF === true && (fund.constituents || []).includes(ticker);
     });
 
-  const adjusted = [];
-  const funds = [];
-  const fundTrailers = [];
-  const dragged = [];
+  const adjusted: C[] = [];
+  const funds: C[] = [];
+  const fundTrailers: C[] = [];
+  const dragged: C[] = [];
 
   for (const character of characters) {
     const change = changes[character.ticker];
@@ -313,7 +365,10 @@ export const buildReviewSections = (characters, changes = {}) => {
  * the honest version back. Returns the history unchanged when there is no
  * stashed detail for the stock.
  */
-export const spliceReviewDetail = (history, detailPoints) => {
+export const spliceReviewDetail = (
+  history: ReviewPoint[] | null | undefined,
+  detailPoints: ReviewPoint[] | null | undefined,
+): ReviewPoint[] | null | undefined => {
   if (!Array.isArray(detailPoints) || detailPoints.length === 0) return history;
   const withoutPlaceholder = (history || []).filter((p) => !p?.collapsed);
   return [...withoutPlaceholder, ...detailPoints].sort((a, b) => a.timestamp - b.timestamp);
@@ -397,7 +452,9 @@ export const isMarketOpenGracePeriod = () => {
  * and take priority over this market-wide state.
  * Returns { closed, preMarket, label }.
  */
-export const getMarketClosedState = (marketData) => {
+export const getMarketClosedState = (
+  marketData: { marketHalted?: boolean } | null | undefined,
+): { closed: boolean; preMarket: boolean; label: string } => {
   if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
   if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
   // Weekly halt: say when orders can go in again, not just that it's closed
@@ -406,7 +463,7 @@ export const getMarketClosedState = (marketData) => {
   return { closed: false, preMarket: false, label: 'Trade' };
 };
 
-export const formatCountdown = (ms) => {
+export const formatCountdown = (ms: number): string => {
   if (ms <= 0) return '0m';
   const hours = Math.floor(ms / (1000 * 60 * 60));
   const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));

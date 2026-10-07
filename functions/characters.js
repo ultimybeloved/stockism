@@ -888,7 +888,7 @@ CHARACTERS.forEach((c) => {
  * maker orders, drop payouts, rarity rank) scales by it, so a split changes
  * nothing but the share count and the price per share.
  */
-export const splitFactorOf = (ticker) => CHARACTER_MAP[ticker]?.splitFactor || 1;
+export const splitFactorOf = (ticker) => (ticker ? CHARACTER_MAP[ticker]?.splitFactor : undefined) || 1;
 // ============================================
 // MARKET STANDING (rarity tiers)
 // ============================================
@@ -1073,7 +1073,11 @@ export const exitDiscountForAgeMs = (ageMs) => {
 // always crossing the other at the same moment. Notifications treat that as one
 // event and quote both rewards.
 export const LOYALTY_TIERS = [56, 28, DIVIDEND_HOLD_DAYS]; // descending
-export const LOYALTY_TIER_LABEL = { 56: '8 weeks', 28: '4 weeks', [DIVIDEND_HOLD_DAYS]: '10 days' };
+export const LOYALTY_TIER_LABEL = {
+    56: '8 weeks',
+    28: '4 weeks',
+    [DIVIDEND_HOLD_DAYS]: '10 days',
+};
 // Below this, a levelled-up position isn't worth telling anyone about.
 export const LOYALTY_NOTIFY_MIN_SHARES = 1;
 /**
