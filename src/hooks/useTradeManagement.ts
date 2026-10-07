@@ -1,47 +1,18 @@
 import { useCallback } from 'react';
+import type { HttpsCallableResult } from 'firebase/functions';
 import { executeTradeFunction } from '../firebase';
 import { fireTradeConfetti } from '../utils/confetti';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../constants/achievements';
-import { errorMessage } from '../utils/errors';
-import type { HttpsCallableResult } from 'firebase/functions';
-import type { ExecuteTradeResponse } from '../api/types';
-import type { ActionHookDeps } from './types';
-import type { IPO, PriceMap } from '../types';
-
-export interface TradeConfirmation {
-  ticker: string;
-  action: string;
-  amount: number;
-  price: number;
-  total: number;
-  name?: string;
-  exitDiscount: number;
-}
-
-export interface TradeAnimation {
-  ticker: string;
-  action: string;
-  big: boolean;
-  timestamp: number;
-}
-
-type TradeHookDeps = Omit<ActionHookDeps, 'setUserData'> & {
-  prices: PriceMap;
-  activeIPOs: IPO[];
-  launchedTickers: string[];
-  setTradeConfirmation: (confirmation: TradeConfirmation | null) => void;
-  setTradeAnimation: (animation: TradeAnimation | null) => void;
-};
-import { CHARACTER_MAP, exitLoyaltyDiscount } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
-import { estimateTradeTotal, getAccountAgeImpactFactor, liquidityFor } from '../utils/calculations';
-import { getCumulativeVolume } from '../utils/tradeLimits';
-import { isCapacityError, isContentionError, isInfraError } from '../utils/errors';
+import { errorMessage, isCapacityError, isContentionError, isInfraError } from '../utils/errors';
 import { reportError, reportUnexpected } from '../monitoring';
 import { marketTimes } from '../utils/localTime';
 import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
+import { useTradeRequest } from './useTradeRequest';
+import type { ExecuteTradeResponse } from '../api/types';
 import type { TradeAction } from '../types';
+import type { TradeHookDeps } from './types';
 
 // Trade execution (with contention retry + result toasts) and the
 // pre-execution confirmation request with estimated totals.
@@ -211,57 +182,15 @@ export function useTradeManagement({
     [user, userData, prices, marketData, setLoadingKey, showNotification, setTradeAnimation],
   );
 
-  // Opens the confirmation dialog with an estimated total.
-  const requestTrade = useCallback(
-    (ticker: string, action: TradeAction, amount: number) => {
-      if (!user || !userData) {
-        showNotification('info', 'Sign in to start trading!');
-        return;
-      }
-
-      // Characters in an IPO phase aren't tradeable normally
-      const now = Date.now();
-      const activeIPO = activeIPOs.find((ipo) => ipo.ticker === ticker && !ipo.priceJumped && now < ipo.ipoEndsAt);
-      if (activeIPO) {
-        const inHypePhase = now < activeIPO.ipoStartsAt;
-        showNotification(
-          'error',
-          inHypePhase
-            ? `$${ticker} is in IPO hype phase - trading opens soon!`
-            : `$${ticker} is in IPO - buy through the IPO section above!`,
-        );
-        return;
-      }
-
-      const asset = CHARACTER_MAP[ticker];
-      if (asset?.ipoRequired && !launchedTickers.includes(ticker)) {
-        showNotification('error', `$${ticker} requires an IPO before trading`);
-        return;
-      }
-
-      const price = prices[ticker] || asset?.basePrice || 0;
-
-      // Estimated total (with new-account impact reduction and exit loyalty)
-      const exitDiscount =
-        action === 'sell' ? exitLoyaltyDiscount(userData.holdingCohorts?.[ticker], amount, Date.now()) : 0;
-      const total = estimateTradeTotal({
-        action,
-        price,
-        amount,
-        isETF: asset?.isETF || false,
-        ageFactor: getAccountAgeImpactFactor(userData),
-        shortPosition: userData.shorts?.[ticker],
-        exitDiscount,
-        // Same rolling-24h volume the trade form prices against, so the quote on
-        // the confirmation matches the one the player just saw.
-        cumulativeVolume: getCumulativeVolume(userData, ticker, action),
-        liquidity: liquidityFor(ticker),
-      });
-
-      setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name, exitDiscount });
-    },
-    [user, userData, prices, activeIPOs, launchedTickers, showNotification, setTradeConfirmation],
-  );
+  const requestTrade = useTradeRequest({
+    user,
+    userData,
+    prices,
+    activeIPOs,
+    launchedTickers,
+    showNotification,
+    setTradeConfirmation,
+  });
 
   return { handleTrade, requestTrade };
 }

@@ -71,14 +71,13 @@ export default tseslint.config(
   // restructure splits them (docs/MODERNIZATION.md). Remove entries as they're split.
   {
     files: [
-      'src/App.jsx',
-      'src/components/MarketIndex.jsx',
-      'src/components/admin/UsersTab.jsx',
-      'src/components/admin/WatchlistTab.jsx',
-      'src/components/modals/AboutModal.jsx',
-      'src/hooks/useTradeManagement.js',
-      'src/pages/LeaderboardPage.jsx',
-      'src/pages/StockPage.jsx',
+      'src/App.{jsx,tsx}',
+      'src/components/MarketIndex.{jsx,tsx}',
+      'src/components/admin/UsersTab.{jsx,tsx}',
+      'src/components/admin/WatchlistTab.{jsx,tsx}',
+      'src/components/modals/AboutModal.{jsx,tsx}',
+      'src/pages/LeaderboardPage.{jsx,tsx}',
+      'src/pages/StockPage.{jsx,tsx}',
     ],
     rules: { 'max-lines': 'warn' },
   },

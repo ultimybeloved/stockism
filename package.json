@@ -87,7 +87,16 @@
     "vitest": "^4.1.5"
   },
   "lint-staged": {
-    "*.{js,jsx,cjs,mjs,ts,tsx}": "prettier --write",
+    "src/**/*.{js,jsx,ts,tsx}": [
+      "eslint --no-warn-ignored",
+      "prettier --write"
+    ],
+    "functions/**/*.js": [
+      "eslint --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{cjs,mjs}": "prettier --write",
+    "scripts/**/*.{js,cjs,mjs}": "prettier --write",
     "*.{json,css,yml,yaml,html}": "prettier --write"
   }
 }

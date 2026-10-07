@@ -4,7 +4,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
 import type { AppContextValue, MarketData } from '../context/AppContext';
-import type { UserData } from '../types';
+import type { IPO, PriceMap, UserData } from '../types';
 
 export type SetUserData = Dispatch<SetStateAction<UserData | null>>;
 
@@ -19,3 +19,28 @@ export interface ActionHookDeps {
   setLoadingKey: SetLoadingKey;
   marketData?: MarketData | null;
 }
+
+export interface TradeConfirmation {
+  ticker: string;
+  action: string;
+  amount: number;
+  price: number;
+  total: number;
+  name?: string;
+  exitDiscount: number;
+}
+
+export interface TradeAnimation {
+  ticker: string;
+  action: string;
+  big: boolean;
+  timestamp: number;
+}
+
+export type TradeHookDeps = Omit<ActionHookDeps, 'setUserData'> & {
+  prices: PriceMap;
+  activeIPOs: IPO[];
+  launchedTickers: string[];
+  setTradeConfirmation: (confirmation: TradeConfirmation | null) => void;
+  setTradeAnimation: (animation: TradeAnimation | null) => void;
+};
