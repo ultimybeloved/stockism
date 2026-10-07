@@ -86,7 +86,7 @@ export function useAdminBackups({ showMessage, setMessage, setLoading, handleSyn
     setReconstructingHistory(true);
     setReconstructionResult(null);
 
-    let totals = { usersProcessed: 0, usersSkipped: 0, totalPointsWritten: 0, errors: 0 };
+    const totals = { usersProcessed: 0, usersSkipped: 0, totalPointsWritten: 0, errors: 0 };
     let cursor = null;
     let batchNum = 0;
 

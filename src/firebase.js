@@ -44,7 +44,6 @@ if (!USE_EMULATOR) {
   // debug tokens. Pinning a fixed token (instead of `true`) prevents the SDK
   // from regenerating a new unregistered token on every reload.
   if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
-    // eslint-disable-next-line no-undef
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
   }
 
@@ -71,7 +70,7 @@ if (USE_EMULATOR) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
-  // eslint-disable-next-line no-console
+
   console.warn('🧪 SANDBOX MODE — connected to local Firebase emulators, not production.');
 }
 

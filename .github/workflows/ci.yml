@@ -50,6 +50,8 @@ jobs:
 
       - run: npm run lint:functions
 
+      - run: npm run typecheck
+
       - run: npm test
 
       # No env vars needed: firebase.js validates its config at runtime, not at

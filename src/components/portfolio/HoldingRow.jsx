@@ -216,7 +216,7 @@ const HoldingRow = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onLimitSell && onLimitSell(item.ticker, 'sell');
+                onLimitSell?.(item.ticker, 'sell');
               }}
               className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
                 darkMode
@@ -229,7 +229,7 @@ const HoldingRow = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onLimitSell && onLimitSell(item.ticker, 'sell', 'stopLoss');
+                onLimitSell?.(item.ticker, 'sell', 'stopLoss');
               }}
               className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
                 darkMode

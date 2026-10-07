@@ -48,7 +48,7 @@ const TradeHistoryModal = ({ onClose }) => {
         ];
 
         if (afterDoc) {
-          let q = query(
+          const q = query(
             collection(db, 'trades'),
             where('uid', '==', user.uid),
             orderBy('timestamp', 'desc'),
@@ -66,7 +66,7 @@ const TradeHistoryModal = ({ onClose }) => {
           return newTrades;
         }
 
-        let q = query(...constraints);
+        const q = query(...constraints);
         const snap = await getDocs(q);
         const newTrades = snap.docs.map((doc) => ({
           id: doc.id,

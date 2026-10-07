@@ -16,7 +16,7 @@ export const createAnimatePath = ({ tracksRef, trackTimeout, setActiveButton, se
       const rightX = 220 - 22;
       const startX = side === 'left' ? leftX : rightX;
       let x = startX;
-      let y = 0;
+      const y = 0;
 
       const pathColor = result === 'odd' ? '#2286f6' : '#f22431';
       const points = [{ x, y }];
