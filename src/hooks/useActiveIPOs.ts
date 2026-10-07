@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { IPO_TOTAL_SHARES } from '../constants';
+import type { IPO } from '../types';
 
 /**
  * IPOs currently in their hype or buying phase.
@@ -16,8 +17,8 @@ import { IPO_TOTAL_SHARES } from '../constants';
  * wrote to the doc or the player reloaded. The raw list is kept as state and
  * the phase windows are re-evaluated on a slow tick instead.
  */
-export function useActiveIPOs() {
-  const [allIPOs, setAllIPOs] = useState([]);
+export function useActiveIPOs(): IPO[] {
+  const [allIPOs, setAllIPOs] = useState<IPO[]>([]);
   const [clock, setClock] = useState(Date.now());
 
   useEffect(() => {

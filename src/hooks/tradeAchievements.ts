@@ -16,7 +16,7 @@ export const checkAndAwardAchievements = async () => {
   }
 };
 
-export const sendAchievementAlert = (id, achievement) => {
+export const sendAchievementAlert = (id: string, achievement: { name: string; description: string }) => {
   try {
     achievementAlertFunction({
       achievementId: id,

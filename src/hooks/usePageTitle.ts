@@ -24,7 +24,7 @@ export function usePageTitle() {
     } else if (pathname.startsWith('/u/')) {
       page = decodeURIComponent(pathname.split('/')[2] || '');
     } else {
-      page = PAGE_NAMES[pathname] || '';
+      page = (PAGE_NAMES as Record<string, string>)[pathname] || '';
     }
     document.title = page ? `${page} · Stockism` : BASE_TITLE;
   }, [pathname]);

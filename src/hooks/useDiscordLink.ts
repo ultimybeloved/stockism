@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { startDiscordLinkFunction, unlinkOwnDiscordFunction } from '../firebase';
+import { errorMessage } from '../utils/errors';
 
 const DISCORD_CLIENT_ID = '1467420774477467752';
 const DISCORD_LINK_REDIRECT = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordLink';
@@ -11,7 +12,7 @@ const DISCORD_LINK_REDIRECT = 'https://us-central1-stockism-abb28.cloudfunctions
 // the client ID and redirect URI only exist in one place.
 export function useDiscordLink() {
   const [linking, setLinking] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const beginDiscordLink = async () => {
     setLinking(true);
@@ -31,7 +32,7 @@ export function useDiscordLink() {
   // Disconnecting is self-serve, but the Discord stays reserved to this account
   // so it can't be used to verify a second one. Re-linking the same Discord
   // later works; linking it to another account doesn't.
-  const unlinkDiscord = async ({ walled } = {}) => {
+  const unlinkDiscord = async ({ walled }: { walled?: boolean } = {}): Promise<boolean> => {
     const warning = walled
       ? '\n\nYour account needs a linked Discord to trade, so you will be locked out of trading until you link one again.'
       : '';
@@ -52,7 +53,7 @@ export function useDiscordLink() {
       return true;
     } catch (err) {
       console.error('Failed to unlink Discord:', err);
-      setError(err.message || 'Could not disconnect Discord. Try again in a moment.');
+      setError(errorMessage(err) || 'Could not disconnect Discord. Try again in a moment.');
       return false;
     } finally {
       setLinking(false);

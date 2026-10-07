@@ -3,10 +3,13 @@ import { claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfo
 import { formatCurrency } from '../utils/formatters';
 import { BAILOUT_CASH, PORTFOLIO_SYNC_MIN_INTERVAL_MS } from '../constants';
 import { reportUnexpected } from '../monitoring';
+import type { AppContextValue } from '../context/AppContext';
 
 // Background upkeep for the signed-in account: prediction payout claims,
 // debounced portfolio sync, daily margin interest, and bankruptcy reminders.
-export function useAccountMaintenance({ user, userData, prices, predictions, showNotification }) {
+type MaintenanceArgs = Pick<AppContextValue, 'user' | 'userData' | 'prices' | 'predictions' | 'showNotification'>;
+
+export function useAccountMaintenance({ user, userData, prices, predictions, showNotification }: MaintenanceArgs) {
   // Auto-process payouts when prediction is resolved
   useEffect(() => {
     const processPayouts = async () => {

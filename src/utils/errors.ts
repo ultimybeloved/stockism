@@ -19,6 +19,9 @@ export const callableErrorCode = (error: unknown): string =>
 
 const messageOf = (error: unknown) => String(asError(error).message || '');
 
+/** The error's message, or '' when it has none. For `errorMessage(err) || 'fallback'`. */
+export const errorMessage = (error: unknown): string => messageOf(error);
+
 /**
  * Transaction contention: another write touched the same documents at the same
  * moment. Nothing is broken and the identical request is worth retrying.

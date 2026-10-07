@@ -19,9 +19,9 @@ const readSeenAt = () => {
 // every copy holds its own state. Opening the page has to clear the badge in the
 // nav immediately, so writes fan out to every mounted copy — the `storage` event
 // alone doesn't do it, that only fires in OTHER tabs.
-const subscribers = new Set();
+const subscribers = new Set<(value: number) => void>();
 
-const writeSeenAt = (value) => {
+const writeSeenAt = (value: number) => {
   try {
     window.localStorage.setItem(SEEN_KEY, String(value));
   } catch {
@@ -37,7 +37,7 @@ export function useNewPredictions() {
   useEffect(() => {
     subscribers.add(setSeenAt);
     // Another tab opening Predictions should clear the badge here too.
-    const onStorage = (e) => {
+    const onStorage = (e: StorageEvent) => {
       if (e.key === SEEN_KEY) setSeenAt(readSeenAt());
     };
     window.addEventListener('storage', onStorage);
@@ -53,7 +53,7 @@ export function useNewPredictions() {
   // prediction as new, which is the point.
   const now = Date.now();
   const newCount = (predictions || []).filter(
-    (p) => !p.resolved && (!p.endsAt || p.endsAt > now) && (p.createdAt || 0) > seenAt,
+    (p) => !p.resolved && (!p.endsAt || (p.endsAt as number) > now) && ((p.createdAt as number) || 0) > seenAt,
   ).length;
 
   return { newCount, markSeen };

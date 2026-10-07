@@ -76,158 +76,173 @@ if (USE_EMULATOR) {
 }
 
 // Cloud Functions
-export const createUserFunction = httpsCallable(functions, 'createUser');
-export const checkUsernameFunction = httpsCallable(functions, 'checkUsername');
-export const deleteAccountFunction = httpsCallable(functions, 'deleteAccount');
-export const changeDisplayNameFunction = httpsCallable(functions, 'changeDisplayName');
-export const purchaseCosmeticFunction = httpsCallable(functions, 'purchaseCosmetic');
-export const createBotsFunction = httpsCallable(functions, 'createBots');
-export const fixBasePriceCliffsFunction = httpsCallable(functions, 'fixBasePriceCliffs');
-export const triggerManualBackupFunction = httpsCallable(functions, 'triggerManualBackup');
-export const listBackupsFunction = httpsCallable(functions, 'listBackups');
-export const restoreBackupFunction = httpsCallable(functions, 'restoreBackup');
-export const broadcastNotificationFunction = httpsCallable(functions, 'broadcastNotification');
+//
+// Each callable is typed as callable<Request, Response>('name'). The shapes live in
+// src/api/types.ts; a callable left as callable('name') has an untyped response
+// until the code that reads it is converted.
+import type * as Api from './api/types';
+
+const callable = <Req = unknown, Res = unknown>(name: string) => httpsCallable<Req, Res>(functions, name);
+
+export const createUserFunction = callable('createUser');
+export const checkUsernameFunction = callable('checkUsername');
+export const deleteAccountFunction = callable('deleteAccount');
+export const changeDisplayNameFunction = callable('changeDisplayName');
+export const purchaseCosmeticFunction = callable('purchaseCosmetic');
+export const createBotsFunction = callable('createBots');
+export const fixBasePriceCliffsFunction = callable('fixBasePriceCliffs');
+export const triggerManualBackupFunction = callable('triggerManualBackup');
+export const listBackupsFunction = callable('listBackups');
+export const restoreBackupFunction = callable('restoreBackup');
+export const broadcastNotificationFunction = callable('broadcastNotification');
 // Trade execution & anti-exploit
-export const executeTradeFunction = httpsCallable(functions, 'executeTrade');
-export const sweepDustPositionsFunction = httpsCallable(functions, 'sweepDustPositions');
-export const banUserFunction = httpsCallable(functions, 'banUser');
+export const executeTradeFunction = callable('executeTrade');
+export const sweepDustPositionsFunction = callable<void, Api.SweepDustResponse>('sweepDustPositions');
+export const banUserFunction = callable('banUser');
 // Daily checkin
-export const dailyCheckinFunction = httpsCallable(functions, 'dailyCheckin');
+export const dailyCheckinFunction = callable('dailyCheckin');
 // Ladder game
-export const playLadderGameFunction = httpsCallable(functions, 'playLadderGame');
-export const depositToLadderGameFunction = httpsCallable(functions, 'depositToLadderGame');
-export const withdrawFromLadderGameFunction = httpsCallable(functions, 'withdrawFromLadderGame');
-export const getLadderLeaderboardFunction = httpsCallable(functions, 'getLadderLeaderboard');
-export const triggerDailyMarketSummaryFunction = httpsCallable(functions, 'triggerDailyMarketSummary');
-export const triggerReviewChangesFunction = httpsCallable(functions, 'triggerReviewChanges');
-export const triggerCollapseReviewHistoryFunction = httpsCallable(functions, 'triggerCollapseReviewHistory');
-export const triggerDailyFreeStockFunction = httpsCallable(functions, 'triggerDailyFreeStock');
+export const playLadderGameFunction = callable('playLadderGame');
+export const depositToLadderGameFunction = callable('depositToLadderGame');
+export const withdrawFromLadderGameFunction = callable('withdrawFromLadderGame');
+export const getLadderLeaderboardFunction = callable('getLadderLeaderboard');
+export const triggerDailyMarketSummaryFunction = callable('triggerDailyMarketSummary');
+export const triggerReviewChangesFunction = callable('triggerReviewChanges');
+export const triggerCollapseReviewHistoryFunction = callable('triggerCollapseReviewHistory');
+export const triggerDailyFreeStockFunction = callable('triggerDailyFreeStock');
 // Leaderboard
-export const getLeaderboardFunction = httpsCallable(functions, 'getLeaderboard');
+export const getLeaderboardFunction = callable('getLeaderboard');
 // Admin only: margin debt for the accounts on the board, kept out of the
 // world-readable leaderboard cache.
-export const getLeaderboardMarginsFunction = httpsCallable(functions, 'getLeaderboardMargins');
-export const getPublicProfileFunction = httpsCallable(functions, 'getPublicProfile');
+export const getLeaderboardMarginsFunction = callable<Api.LeaderboardMarginsRequest, Api.LeaderboardMarginsResponse>(
+  'getLeaderboardMargins',
+);
+export const getPublicProfileFunction = callable('getPublicProfile');
 // Discord alert functions
-export const achievementAlertFunction = httpsCallable(functions, 'achievementAlert');
-export const ipoAnnouncementAlertFunction = httpsCallable(functions, 'ipoAnnouncementAlert');
+export const achievementAlertFunction = callable<Api.AchievementAlertRequest>('achievementAlert');
+export const ipoAnnouncementAlertFunction = callable('ipoAnnouncementAlert');
 // Data archiving functions
-export const archivePriceHistoryFunction = httpsCallable(functions, 'archivePriceHistory');
+export const archivePriceHistoryFunction = callable('archivePriceHistory');
 // Secure operations
-export const claimMissionRewardFunction = httpsCallable(functions, 'claimMissionReward');
-export const rerollMissionsFunction = httpsCallable(functions, 'rerollMissions');
-export const purchasePinFunction = httpsCallable(functions, 'purchasePin');
-export const placeBetFunction = httpsCallable(functions, 'placeBet');
-export const claimPredictionPayoutFunction = httpsCallable(functions, 'claimPredictionPayout');
-export const createLimitOrderFunction = httpsCallable(functions, 'createLimitOrder');
-export const createPreMarketOrderFunction = httpsCallable(functions, 'createPreMarketOrder');
-export const cancelPreMarketOrderFunction = httpsCallable(functions, 'cancelPreMarketOrder');
-export const buyIPOSharesFunction = httpsCallable(functions, 'buyIPOShares');
+export const claimMissionRewardFunction = callable('claimMissionReward');
+export const rerollMissionsFunction = callable('rerollMissions');
+export const purchasePinFunction = callable('purchasePin');
+export const placeBetFunction = callable('placeBet');
+export const claimPredictionPayoutFunction = callable<
+  Api.ClaimPredictionPayoutRequest,
+  Api.ClaimPredictionPayoutResponse
+>('claimPredictionPayout');
+export const createLimitOrderFunction = callable('createLimitOrder');
+export const createPreMarketOrderFunction = callable('createPreMarketOrder');
+export const cancelPreMarketOrderFunction = callable('cancelPreMarketOrder');
+export const buyIPOSharesFunction = callable('buyIPOShares');
 // Event prediction markets (long-term, AMM-priced)
-export const buyEventSharesFunction = httpsCallable(functions, 'buyEventShares');
-export const sellEventSharesFunction = httpsCallable(functions, 'sellEventShares');
-export const triggerEventSettlementsFunction = httpsCallable(functions, 'triggerEventSettlements');
-export const cancelEventMarketFunction = httpsCallable(functions, 'cancelEventMarket');
-export const repayMarginFunction = httpsCallable(functions, 'repayMargin');
-export const bailoutFunction = httpsCallable(functions, 'bailout');
-export const leaveCrewFunction = httpsCallable(functions, 'leaveCrew');
-export const switchCrewFunction = httpsCallable(functions, 'switchCrew');
-export const toggleMarginFunction = httpsCallable(functions, 'toggleMargin');
-export const chargeMarginInterestFunction = httpsCallable(functions, 'chargeMarginInterest');
+export const buyEventSharesFunction = callable('buyEventShares');
+export const sellEventSharesFunction = callable('sellEventShares');
+export const triggerEventSettlementsFunction = callable('triggerEventSettlements');
+export const cancelEventMarketFunction = callable('cancelEventMarket');
+export const repayMarginFunction = callable('repayMargin');
+export const bailoutFunction = callable('bailout');
+export const leaveCrewFunction = callable('leaveCrew');
+export const switchCrewFunction = callable('switchCrew');
+export const toggleMarginFunction = callable('toggleMargin');
+export const chargeMarginInterestFunction = callable<Record<string, never>, Api.ChargeMarginInterestResponse>(
+  'chargeMarginInterest',
+);
 // Server-side portfolio sync
-export const syncPortfolioFunction = httpsCallable(functions, 'syncPortfolio');
+export const syncPortfolioFunction = callable<void, Api.SyncPortfolioResponse>('syncPortfolio');
 // Admin: remove achievement from user
-export const removeAchievementFunction = httpsCallable(functions, 'removeAchievement');
+export const removeAchievementFunction = callable('removeAchievement');
 // Admin: reinstate bankrupt user
-export const reinstateUserFunction = httpsCallable(functions, 'reinstateUser');
+export const reinstateUserFunction = callable('reinstateUser');
 // Admin: directly set user cash (for account repairs)
-export const adminSetCashFunction = httpsCallable(functions, 'adminSetCash');
+export const adminSetCashFunction = callable('adminSetCash');
 // Admin: force-transfer cash <-> ladder game balance
-export const adminTransferToLadderFunction = httpsCallable(functions, 'adminTransferToLadder');
+export const adminTransferToLadderFunction = callable('adminTransferToLadder');
 // Admin: flag/clear the Discord-link wall on a user
-export const adminSetDiscordWallFunction = httpsCallable(functions, 'adminSetDiscordWall');
+export const adminSetDiscordWallFunction = callable('adminSetDiscordWall');
 // Admin: clear a user's Discord link so they can link a different one
-export const adminUnlinkDiscordFunction = httpsCallable(functions, 'adminUnlinkDiscord');
+export const adminUnlinkDiscordFunction = callable('adminUnlinkDiscord');
 // Admin: move a Discord link off a throwaway account onto the player's original one
-export const adminMoveDiscordLinkFunction = httpsCallable(functions, 'adminMoveDiscordLink');
+export const adminMoveDiscordLinkFunction = callable('adminMoveDiscordLink');
 // Admin: clear the delete-tombstone / unlink-binding holding a Discord ID hostage
-export const adminFreeDiscordFunction = httpsCallable(functions, 'adminFreeDiscord');
+export const adminFreeDiscordFunction = callable('adminFreeDiscord');
 // Mints the single-use code that starts the Discord link flow (see useDiscordLink)
-export const startDiscordLinkFunction = httpsCallable(functions, 'startDiscordLink');
+export const startDiscordLinkFunction = callable<void, Api.StartDiscordLinkResponse>('startDiscordLink');
 // Disconnect your own Discord (Profile → Discord → Unlink)
-export const unlinkOwnDiscordFunction = httpsCallable(functions, 'unlinkOwnDiscord');
+export const unlinkOwnDiscordFunction = callable<void>('unlinkOwnDiscord');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
-export const adminGrantCosmeticFunction = httpsCallable(functions, 'adminGrantCosmetic');
+export const adminGrantCosmeticFunction = callable('adminGrantCosmetic');
 // Admin: direct edits to one user's game state (see functions/services/adminUserEdit.js)
-export const adminChangeDisplayNameFunction = httpsCallable(functions, 'adminChangeDisplayName');
+export const adminChangeDisplayNameFunction = callable('adminChangeDisplayName');
 // Admin: 30-day return distribution, for calibrating season tier thresholds
-export const adminReturnDistributionFunction = httpsCallable(functions, 'adminReturnDistribution');
+export const adminReturnDistributionFunction = callable('adminReturnDistribution');
 // Seasons — standings are public; the rest are admin-only
-export const getSeasonStandingsFunction = httpsCallable(functions, 'getSeasonStandings');
-export const adminStartSeasonFunction = httpsCallable(functions, 'adminStartSeason');
-export const adminEndSeasonFunction = httpsCallable(functions, 'adminEndSeason');
-export const triggerSeasonCheckpointFunction = httpsCallable(functions, 'triggerSeasonCheckpoint');
+export const getSeasonStandingsFunction = callable('getSeasonStandings');
+export const adminStartSeasonFunction = callable('adminStartSeason');
+export const adminEndSeasonFunction = callable('adminEndSeason');
+export const triggerSeasonCheckpointFunction = callable('triggerSeasonCheckpoint');
 // Keeping repeat coordinators out of Platinum/Diamond — admin-only
-export const getSeasonCoordFlagsFunction = httpsCallable(functions, 'getSeasonCoordFlags');
-export const setSeasonTopTierExclusionFunction = httpsCallable(functions, 'setSeasonTopTierExclusion');
-export const getCoordProfitFunction = httpsCallable(functions, 'getCoordProfit');
-export const adminRemoveCoordProfitFunction = httpsCallable(functions, 'adminRemoveCoordProfit');
+export const getSeasonCoordFlagsFunction = callable('getSeasonCoordFlags');
+export const setSeasonTopTierExclusionFunction = callable('setSeasonTopTierExclusion');
+export const getCoordProfitFunction = callable('getCoordProfit');
+export const adminRemoveCoordProfitFunction = callable('adminRemoveCoordProfit');
 // Season dry runs — the weekly rehearsal that runs while no season is on
-export const triggerSeasonDryRunFunction = httpsCallable(functions, 'triggerSeasonDryRun');
-export const adminSeasonDryRunReportFunction = httpsCallable(functions, 'adminSeasonDryRunReport');
-export const adminSetCrewFunction = httpsCallable(functions, 'adminSetCrew');
-export const adminGrantAchievementFunction = httpsCallable(functions, 'adminGrantAchievement');
-export const adminSetMarginFunction = httpsCallable(functions, 'adminSetMargin');
-export const adminSetHoldingFunction = httpsCallable(functions, 'adminSetHolding');
+export const triggerSeasonDryRunFunction = callable('triggerSeasonDryRun');
+export const adminSeasonDryRunReportFunction = callable('adminSeasonDryRunReport');
+export const adminSetCrewFunction = callable('adminSetCrew');
+export const adminGrantAchievementFunction = callable('adminGrantAchievement');
+export const adminSetMarginFunction = callable('adminSetMargin');
+export const adminSetHoldingFunction = callable('adminSetHolding');
 // Admin: repair spike victim accounts
-export const repairSpikeVictimsFunction = httpsCallable(functions, 'repairSpikeVictims');
+export const repairSpikeVictimsFunction = callable('repairSpikeVictims');
 // Admin: rename ticker across all data
-export const renameTickerFunction = httpsCallable(functions, 'renameTicker');
-export const splitStockFunction = httpsCallable(functions, 'splitStock');
-export const setMarketHaltFunction = httpsCallable(functions, 'setMarketHalt');
+export const renameTickerFunction = callable('renameTicker');
+export const splitStockFunction = callable('splitStock');
+export const setMarketHaltFunction = callable('setMarketHalt');
 // Admin: watchlist management
-export const addWatchedUserFunction = httpsCallable(functions, 'addWatchedUser');
-export const removeWatchedUserFunction = httpsCallable(functions, 'removeWatchedUser');
-export const linkAltAccountFunction = httpsCallable(functions, 'linkAltAccount');
-export const addWatchedIPFunction = httpsCallable(functions, 'addWatchedIP');
-export const getWatchlistFunction = httpsCallable(functions, 'getWatchlist');
-export const getIpTrackingHealthFunction = httpsCallable(functions, 'getIpTrackingHealth');
-export const getRecentSignupReportFunction = httpsCallable(functions, 'getRecentSignupReport');
+export const addWatchedUserFunction = callable('addWatchedUser');
+export const removeWatchedUserFunction = callable('removeWatchedUser');
+export const linkAltAccountFunction = callable('linkAltAccount');
+export const addWatchedIPFunction = callable('addWatchedIP');
+export const getWatchlistFunction = callable('getWatchlist');
+export const getIpTrackingHealthFunction = callable('getIpTrackingHealth');
+export const getRecentSignupReportFunction = callable('getRecentSignupReport');
 // Admin: proactive alt detection
-export const triggerAltScanFunction = httpsCallable(functions, 'triggerAltScan');
-export const reviewWatchlistAlertFunction = httpsCallable(functions, 'reviewWatchlistAlert');
+export const triggerAltScanFunction = callable('triggerAltScan');
+export const reviewWatchlistAlertFunction = callable('reviewWatchlistAlert');
 // Price alerts
-export const createPriceAlertFunction = httpsCallable(functions, 'createPriceAlert');
-export const deletePriceAlertFunction = httpsCallable(functions, 'deletePriceAlert');
+export const createPriceAlertFunction = callable('createPriceAlert');
+export const deletePriceAlertFunction = callable('deletePriceAlert');
 // Admin: ticker rollback diagnostic
-export const diagnoseTickerRollbackFunction = httpsCallable(functions, 'diagnoseTickerRollback');
+export const diagnoseTickerRollbackFunction = callable('diagnoseTickerRollback');
 // Admin: ticker recovery (clawback + price reset)
-export const recoverTickerFunction = httpsCallable(functions, 'recoverTicker');
+export const recoverTickerFunction = callable('recoverTicker');
 // Admin: drop audit
-export const auditUserDropsFunction = httpsCallable(functions, 'auditUserDrops');
+export const auditUserDropsFunction = callable('auditUserDrops');
 // Dividends
-export const runDividendPayoutNowFunction = httpsCallable(functions, 'runDividendPayoutNow');
+export const runDividendPayoutNowFunction = callable('runDividendPayoutNow');
 // Username reservation audit + portfolio-history repair
-export const auditUsernamesFunction = httpsCallable(functions, 'migrateUsernames');
-export const reconstructPortfolioHistoryFunction = httpsCallable(functions, 'reconstructPortfolioHistory');
+export const auditUsernamesFunction = callable('migrateUsernames');
+export const reconstructPortfolioHistoryFunction = callable('reconstructPortfolioHistory');
 // Admin: initialize prices for new characters
-export const initNewCharacterPricesFunction = httpsCallable(functions, 'initNewCharacterPrices');
+export const initNewCharacterPricesFunction = callable('initNewCharacterPrices');
 // Admin: recompute crew underdog multipliers (+ optionally re-post Discord rankings)
-export const triggerWeeklyCrewRankingsFunction = httpsCallable(functions, 'triggerWeeklyCrewRankings');
+export const triggerWeeklyCrewRankingsFunction = callable('triggerWeeklyCrewRankings');
 // Admin: re-post the weekly market report to Discord now
-export const triggerWeeklyMarketSummaryFunction = httpsCallable(functions, 'triggerWeeklyMarketSummary');
+export const triggerWeeklyMarketSummaryFunction = callable('triggerWeeklyMarketSummary');
 // Admin: write the trade records that old limit/stop-loss/pre-market fills never wrote
-export const backfillFillTradeRecordsFunction = httpsCallable(functions, 'backfillFillTradeRecords');
+export const backfillFillTradeRecordsFunction = callable('backfillFillTradeRecords');
 
 // Admin: Discord message manager (post / edit / delete bot messages from the panel)
-export const adminListDiscordChannelsFunction = httpsCallable(functions, 'adminListDiscordChannels');
-export const adminListDiscordMessagesFunction = httpsCallable(functions, 'adminListDiscordMessages');
-export const adminSendDiscordMessageFunction = httpsCallable(functions, 'adminSendDiscordMessage');
-export const adminUpdateDiscordMessageFunction = httpsCallable(functions, 'adminUpdateDiscordMessage');
-export const adminDeleteDiscordMessageFunction = httpsCallable(functions, 'adminDeleteDiscordMessage');
-export const adminImportDiscordMessageFunction = httpsCallable(functions, 'adminImportDiscordMessage');
+export const adminListDiscordChannelsFunction = callable('adminListDiscordChannels');
+export const adminListDiscordMessagesFunction = callable('adminListDiscordMessages');
+export const adminSendDiscordMessageFunction = callable('adminSendDiscordMessage');
+export const adminUpdateDiscordMessageFunction = callable('adminUpdateDiscordMessage');
+export const adminDeleteDiscordMessageFunction = callable('adminDeleteDiscordMessage');
+export const adminImportDiscordMessageFunction = callable('adminImportDiscordMessage');
 
 // Admin: read the cash adjustment audit log
-export const adminListCashLogFunction = httpsCallable(functions, 'adminListCashLog');
+export const adminListCashLogFunction = callable('adminListCashLog');
 
 export default app;

@@ -83,6 +83,10 @@ export interface UserData {
   totalTrades?: number;
   createdAt?: TimestampLike;
   achievements?: string[];
+  bets?: Record<string, { paid?: boolean; [key: string]: unknown }>;
+  lastMarginInterestCharge?: number;
+  isBankrupt?: boolean;
+  colorBlindMode?: boolean;
   tickerTradeHistory?: Record<Ticker, Partial<Record<TradeAction, TradeLogEntry[]>>>;
   ipoLockup?: Record<Ticker, ShareLock>;
   marginLockup?: Record<Ticker, ShareLock>;
@@ -100,6 +104,24 @@ export interface UserData {
   lastActive?: TimestampLike;
   lastTradeTime?: TimestampLike;
   lastCheckin?: TimestampLike;
+  [key: string]: unknown;
+}
+
+/** One entry in market/ipos.list. */
+export interface IPO {
+  ticker: string;
+  ipoStartsAt: number;
+  ipoEndsAt: number;
+  sharesRemaining?: number;
+  totalShares?: number;
+  [key: string]: unknown;
+}
+
+/** One row of a leaderboard. */
+export interface LeaderRow {
+  userId: string;
+  portfolioValue?: number;
+  marginUsed?: number;
   [key: string]: unknown;
 }
 

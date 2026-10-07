@@ -7,10 +7,12 @@ import { useState, useEffect, useRef } from 'react';
 // Split out of LeaderboardPage.jsx, which was past the 300-line page limit.
 // Returns the refs to attach plus the current position; 'unknown' means the row
 // is not rendered at all (e.g. the player is not on the filtered board).
-export const useUserRowPosition = (deps = []) => {
-  const scrollContainerRef = useRef(null);
-  const userRowRef = useRef(null);
-  const [userRowPosition, setUserRowPosition] = useState('unknown');
+export type UserRowPosition = 'unknown' | 'visible' | 'above' | 'below';
+
+export const useUserRowPosition = (deps: unknown[] = []) => {
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const userRowRef = useRef<HTMLElement | null>(null);
+  const [userRowPosition, setUserRowPosition] = useState<UserRowPosition>('unknown');
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -23,11 +25,13 @@ export const useUserRowPosition = (deps = []) => {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (!entry) return;
         if (entry.isIntersecting) {
           setUserRowPosition('visible');
         } else {
           const rowRect = entry.boundingClientRect;
-          const containerRect = entry.rootBounds;
+          // rootBounds is always set when the observer has an element root.
+          const containerRect = entry.rootBounds!;
           setUserRowPosition(rowRect.bottom < containerRect.top ? 'above' : 'below');
         }
       },

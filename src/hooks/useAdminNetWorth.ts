@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getLeaderboardMarginsFunction } from '../firebase';
 import { ADMIN_UIDS } from '../constants';
+import type { User } from 'firebase/auth';
+import type { LeaderRow } from '../types';
 
 // Admin-only leaderboard view: subtract margin debt so the board ranks what
 // players actually own rather than what they are holding with borrowed money.
@@ -9,9 +11,9 @@ import { ADMIN_UIDS } from '../constants';
 // getLeaderboard, because that result is cached in a world-readable Firestore
 // doc — anything added to it would be public to every player. This fetches only
 // when the admin actually turns the view on, and only for the rows on screen.
-export function useAdminNetWorth(leaders, user) {
+export function useAdminNetWorth(leaders: LeaderRow[] | null | undefined, user: User | null) {
   const [netMode, setNetMode] = useState(false);
-  const [margins, setMargins] = useState(null);
+  const [margins, setMargins] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
 
   const isAdmin = !!user && ADMIN_UIDS.includes(user.uid);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ADMIN_UIDS } from '../constants';
+import type { User } from 'firebase/auth';
 
 // Unreviewed watchlist alerts, so the admin button can carry a badge instead of
 // the admin having to remember to go look at the Watchlist tab. Alerts written
@@ -13,7 +14,7 @@ import { ADMIN_UIDS } from '../constants';
 // skipped entirely for everyone else, so this costs nothing for normal players.
 const ALERT_QUERY_LIMIT = 50;
 
-export function useAdminAlerts(user) {
+export function useAdminAlerts(user: User | null) {
   const [unreviewedCount, setUnreviewedCount] = useState(0);
   const [highSeverityCount, setHighSeverityCount] = useState(0);
 

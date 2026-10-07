@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
 import type { ReviewChanges } from '../utils/marketHours';
-import type { PriceHistory, PriceMap, ShareMap, ShortMap, UserData } from '../types';
+import type { IPO, PriceHistory, PriceMap, ShareMap, ShortMap, UserData } from '../types';
 
 /** market/current. Fields are added as typed code reads them. */
 export interface MarketData {
@@ -39,7 +39,7 @@ export interface AppContextValue {
   marketData: MarketData | null;
   getColorBlindColors: (isPositive: boolean) => ChangeColors;
   showNotification: (type: NotificationKind, message: string, image?: string | null) => void;
-  activeIPOs: LooseDoc[];
+  activeIPOs: IPO[];
   ipoRestrictedTickers: string[];
   launchedTickers: string[];
   rarityTiers: Record<string, string>;

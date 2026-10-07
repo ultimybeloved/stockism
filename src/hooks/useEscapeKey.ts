@@ -4,14 +4,14 @@ import { useEffect, useRef } from 'react';
 // order, and Escape closes only the top-most open modal — so pressing Escape
 // with Trade History open over the Portfolio modal closes Trade History,
 // not both. One document listener total.
-const stack = [];
+const stack: (() => void)[] = [];
 
-const onKeyDown = (e) => {
+const onKeyDown = (e: KeyboardEvent) => {
   if (e.key !== 'Escape' || stack.length === 0) return;
-  stack[stack.length - 1]();
+  stack[stack.length - 1]!();
 };
 
-export function useEscapeKey(onClose, enabled = true) {
+export function useEscapeKey(onClose: (() => void) | null | undefined, enabled = true): void {
   // Stable wrapper so re-renders don't reorder the stack; the ref keeps the
   // latest callback without re-registering.
   const closeRef = useRef(onClose);
