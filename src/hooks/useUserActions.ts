@@ -2,13 +2,35 @@ import { useCallback } from 'react';
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, deleteAccountFunction } from '../firebase';
 import { ADMIN_UIDS } from '../constants';
+import { errorMessage as messageOf } from '../utils/errors';
+import type { User } from 'firebase/auth';
+import type { AppContextValue, LooseDoc } from '../context/AppContext';
+import type { UserData } from '../types';
+
+export interface LimitOrderRequest {
+  ticker: string;
+  action: string;
+  mode: string;
+}
 
 // Small one-shot user actions: watchlist, DRIP, limit-order requests,
 // onboarding/tutorial completion, admin prediction hiding, account deletion.
-export function useUserActions({ user, userData, showNotification, setLimitOrderRequest, setShowPortfolio }) {
+export function useUserActions({
+  user,
+  userData,
+  showNotification,
+  setLimitOrderRequest,
+  setShowPortfolio,
+}: {
+  user: User | null;
+  userData: UserData | null;
+  showNotification: AppContextValue['showNotification'];
+  setLimitOrderRequest: (request: LimitOrderRequest | null) => void;
+  setShowPortfolio: (show: boolean) => void;
+}) {
   // Watchlist toggle
   const toggleWatchlist = useCallback(
-    async (ticker) => {
+    async (ticker: string) => {
       if (!user || !userData) return;
       const current = userData.watchlist || [];
       const updated = current.includes(ticker) ? current.filter((t) => t !== ticker) : [...current, ticker];
@@ -23,7 +45,7 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
 
   // Handle limit order request from portfolio
   const handleLimitOrderRequest = useCallback(
-    (ticker, action, mode) => {
+    (ticker: string, action: string, mode?: string) => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to start trading!');
         return;
@@ -36,7 +58,7 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
 
   // Hide prediction from feed (admin only)
   const handleHidePrediction = useCallback(
-    async (predictionId) => {
+    async (predictionId: string) => {
       if (!user || !ADMIN_UIDS.includes(user.uid)) return;
 
       try {
@@ -44,7 +66,9 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
         const snap = await getDoc(predictionsRef);
         if (snap.exists()) {
           const data = snap.data();
-          const updatedList = (data.list || []).map((p) => (p.id === predictionId ? { ...p, hidden: true } : p));
+          const updatedList = ((data.list as LooseDoc[] | undefined) || []).map((p) =>
+            p.id === predictionId ? { ...p, hidden: true } : p,
+          );
           await updateDoc(predictionsRef, { list: updatedList });
           showNotification('success', 'Prediction hidden from feed');
         }
@@ -58,7 +82,7 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
 
   // DRIP toggle
   const handleToggleDrip = useCallback(
-    async (ticker) => {
+    async (ticker: string) => {
       if (!user) return;
       const userRef = doc(db, 'users', user.uid);
       const isEnabled = !!userData?.drip?.[ticker];
@@ -69,7 +93,7 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
 
   // Delete account
   const handleDeleteAccount = useCallback(
-    async (confirmUsername) => {
+    async (confirmUsername: string) => {
       if (!user) return;
 
       try {
@@ -78,7 +102,7 @@ export function useUserActions({ user, userData, showNotification, setLimitOrder
         showNotification('success', 'Account deleted successfully');
       } catch (err) {
         console.error('Failed to delete account:', err);
-        const errorMessage = err?.message || 'Failed to delete account. Please try again.';
+        const errorMessage = messageOf(err) || 'Failed to delete account. Please try again.';
         showNotification('error', errorMessage);
         throw err;
       }

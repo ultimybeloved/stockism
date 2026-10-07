@@ -86,6 +86,9 @@ export interface UserData {
   bets?: Record<string, { paid?: boolean; [key: string]: unknown }>;
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;
+  watchlist?: Ticker[];
+  drip?: Record<Ticker, boolean>;
+  crewSwitchCooldown?: number;
   checkinStreak?: number;
   crewLockouts?: Record<string, number>;
   darkMode?: boolean;
@@ -128,6 +131,16 @@ export interface LeaderRow {
   userId: string;
   portfolioValue?: number;
   marginUsed?: number;
+  [key: string]: unknown;
+}
+
+/** users/{uid}/priceAlerts/{id}. */
+export interface PriceAlert {
+  id: string;
+  ticker?: string;
+  targetPrice?: number;
+  direction?: string;
+  triggered?: boolean;
   [key: string]: unknown;
 }
 

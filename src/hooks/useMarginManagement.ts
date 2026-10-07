@@ -4,8 +4,17 @@ import { checkMarginEligibility } from '../utils/calculations';
 import { ADMIN_UIDS } from '../constants';
 import { formatCurrency } from '../utils/formatters';
 import { reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
 
-export function useMarginManagement({ user, userData, showNotification, setUserData, setLoadingKey, setShowLending }) {
+export function useMarginManagement({
+  user,
+  userData,
+  showNotification,
+  setUserData,
+  setLoadingKey,
+  setShowLending,
+}: ActionHookDeps & { setShowLending: (show: boolean) => void }) {
   const handleEnableMargin = useCallback(async () => {
     if (!user || !userData) return;
     const isAdmin = ADMIN_UIDS.includes(user.uid);
@@ -21,7 +30,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
       showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
     } catch (err) {
       reportUnexpected(err, { where: 'handleEnableMargin' });
-      showNotification('error', err?.message || 'Failed to enable margin');
+      showNotification('error', errorMessage(err) || 'Failed to enable margin');
     } finally {
       setLoadingKey('enableMargin', false);
     }
@@ -41,21 +50,21 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
       setShowLending(false);
     } catch (err) {
       reportUnexpected(err, { where: 'handleDisableMargin' });
-      showNotification('error', err?.message || 'Failed to disable margin');
+      showNotification('error', errorMessage(err) || 'Failed to disable margin');
     } finally {
       setLoadingKey('disableMargin', false);
     }
   }, [user, userData, showNotification, setUserData, setLoadingKey, setShowLending]);
 
   const handleRepayMargin = useCallback(
-    async (amount) => {
+    async (amount: number) => {
       if (!user || !userData) return;
       const marginUsed = userData.marginUsed || 0;
       if (marginUsed <= 0) {
         showNotification('error', 'No margin debt to repay!');
         return;
       }
-      if (amount > userData.cash) {
+      if (amount > (userData.cash ?? 0)) {
         showNotification('error', 'Insufficient funds!');
         return;
       }
@@ -73,7 +82,7 @@ export function useMarginManagement({ user, userData, showNotification, setUserD
         // Money leaving the account. A repay that fails after cash moved is the
         // worst case here, so it is worth seeing every instance.
         reportUnexpected(err, { where: 'handleRepayMargin', amount });
-        showNotification('error', err?.message || 'Failed to repay margin');
+        showNotification('error', errorMessage(err) || 'Failed to repay margin');
       } finally {
         setLoadingKey('repayMargin', false);
       }

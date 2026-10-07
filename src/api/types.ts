@@ -50,6 +50,27 @@ export interface BailoutResponse {
   hadCrew?: boolean;
 }
 
+export interface CreatePriceAlertRequest {
+  ticker: string;
+  targetPrice: number;
+  direction: 'above' | 'below' | string;
+}
+
+export interface SwitchCrewRequest {
+  crewId: string;
+  isSwitch: boolean;
+}
+
+export interface CrewPenaltyResponse {
+  totalTaken: number;
+  freeSwitch?: boolean;
+}
+
+export interface RepayMarginResponse {
+  repaid: number;
+  remaining: number;
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }

@@ -14,6 +14,9 @@ export interface NotificationMeta {
 }
 
 export interface AppNotification {
+  id?: string;
+  read?: boolean;
+  title?: string;
   type?: string;
   message?: string;
   data?: {

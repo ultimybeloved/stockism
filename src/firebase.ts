@@ -86,7 +86,7 @@ const callable = <Req = unknown, Res = unknown>(name: string) => httpsCallable<R
 
 export const createUserFunction = callable('createUser');
 export const checkUsernameFunction = callable('checkUsername');
-export const deleteAccountFunction = callable('deleteAccount');
+export const deleteAccountFunction = callable<{ confirmUsername: string }>('deleteAccount');
 export const changeDisplayNameFunction = callable('changeDisplayName');
 export const purchaseCosmeticFunction = callable('purchaseCosmetic');
 export const createBotsFunction = callable('createBots');
@@ -141,11 +141,11 @@ export const buyEventSharesFunction = callable('buyEventShares');
 export const sellEventSharesFunction = callable('sellEventShares');
 export const triggerEventSettlementsFunction = callable('triggerEventSettlements');
 export const cancelEventMarketFunction = callable('cancelEventMarket');
-export const repayMarginFunction = callable('repayMargin');
+export const repayMarginFunction = callable<{ amount: number }, Api.RepayMarginResponse>('repayMargin');
 export const bailoutFunction = callable<Record<string, never>, Api.BailoutResponse>('bailout');
-export const leaveCrewFunction = callable('leaveCrew');
-export const switchCrewFunction = callable('switchCrew');
-export const toggleMarginFunction = callable('toggleMargin');
+export const leaveCrewFunction = callable<Record<string, never>, Api.CrewPenaltyResponse>('leaveCrew');
+export const switchCrewFunction = callable<Api.SwitchCrewRequest, Api.CrewPenaltyResponse>('switchCrew');
+export const toggleMarginFunction = callable<{ enable: boolean }>('toggleMargin');
 export const chargeMarginInterestFunction = callable<Record<string, never>, Api.ChargeMarginInterestResponse>(
   'chargeMarginInterest',
 );
@@ -212,8 +212,8 @@ export const getRecentSignupReportFunction = callable('getRecentSignupReport');
 export const triggerAltScanFunction = callable('triggerAltScan');
 export const reviewWatchlistAlertFunction = callable('reviewWatchlistAlert');
 // Price alerts
-export const createPriceAlertFunction = callable('createPriceAlert');
-export const deletePriceAlertFunction = callable('deletePriceAlert');
+export const createPriceAlertFunction = callable<Api.CreatePriceAlertRequest>('createPriceAlert');
+export const deletePriceAlertFunction = callable<{ alertId: string }>('deletePriceAlert');
 // Admin: ticker rollback diagnostic
 export const diagnoseTickerRollbackFunction = callable('diagnoseTickerRollback');
 // Admin: ticker recovery (clawback + price reset)

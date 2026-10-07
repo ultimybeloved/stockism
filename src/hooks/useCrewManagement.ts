@@ -3,13 +3,15 @@ import { switchCrewFunction, leaveCrewFunction } from '../firebase';
 import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../crews';
 import { formatCurrency } from '../utils/formatters';
 import { reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
 
-export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }) {
+export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   // Returns true on success so the modal can wait for the round-trip before
   // closing (and stay open on failure). Without this the modal closed the instant
   // you confirmed, with no sign anything happened until a toast popped a beat later.
   const handleCrewSelect = useCallback(
-    async (crewId, isSwitch) => {
+    async (crewId: string, isSwitch?: boolean): Promise<boolean> => {
       if (!user || !userData) return false;
       setLoadingKey('selectCrew', true);
       try {
@@ -35,7 +37,8 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
                 }
               : prev,
           );
-          const crew = CREW_MAP[crewId];
+          // The server just accepted crewId, so it is a real crew.
+          const crew = CREW_MAP[crewId]!;
           showNotification(
             'success',
             freeSwitch
@@ -45,13 +48,14 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
         } else {
           await switchCrewFunction({ crewId, isSwitch: false });
           setUserData((prev) => (prev ? { ...prev, crew: crewId } : prev));
-          const crew = CREW_MAP[crewId];
+          const crew = CREW_MAP[crewId]!;
           showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
         }
         return true;
       } catch (err) {
         reportUnexpected(err, { where: 'handleCrewSelect', crewId, isSwitch });
-        showNotification('error', err?.message || err?.details || 'Failed to join crew');
+        const details = (err as { details?: string } | null)?.details;
+        showNotification('error', errorMessage(err) || details || 'Failed to join crew');
         return false;
       } finally {
         setLoadingKey('selectCrew', false);

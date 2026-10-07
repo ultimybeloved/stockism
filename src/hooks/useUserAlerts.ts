@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { doc, collection, query, where, orderBy, limit, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, createPriceAlertFunction, deletePriceAlertFunction } from '../firebase';
+import { errorMessage } from '../utils/errors';
+import type { User } from 'firebase/auth';
+import type { AppContextValue } from '../context/AppContext';
+import type { AppNotification } from '../utils/notifications';
+import type { PriceAlert } from '../types';
 
 // The user's bell notifications and price alerts: live subscriptions plus
 // the read/clear/delete and create/delete handlers.
-export function useUserAlerts({ user, showNotification }) {
-  const [userNotifications, setUserNotifications] = useState([]);
-  const [priceAlerts, setPriceAlerts] = useState([]); // user's active price alerts
+export function useUserAlerts({
+  user,
+  showNotification,
+}: {
+  user: User | null;
+  showNotification: AppContextValue['showNotification'];
+}) {
+  const [userNotifications, setUserNotifications] = useState<AppNotification[]>([]);
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]); // user's active price alerts
 
   // Subscribe to user notifications
   useEffect(() => {
@@ -52,7 +63,7 @@ export function useUserAlerts({ user, showNotification }) {
   }, [user]);
 
   const handleMarkNotificationRead = useCallback(
-    async (notificationId) => {
+    async (notificationId: string) => {
       if (!user) return;
       try {
         await updateDoc(doc(db, 'users', user.uid, 'notifications', notificationId), { read: true });
@@ -66,7 +77,7 @@ export function useUserAlerts({ user, showNotification }) {
   // Both act on the exact ids the panel passes (scoped to the active filter tab),
   // so "Clear" / "Mark Read" only touch what the user is actually looking at.
   const handleMarkAllNotificationsRead = useCallback(
-    async (ids) => {
+    async (ids: string[] | null | undefined) => {
       if (!user || !ids?.length) return;
       try {
         await Promise.all(ids.map((id) => updateDoc(doc(db, 'users', user.uid, 'notifications', id), { read: true })));
@@ -78,7 +89,7 @@ export function useUserAlerts({ user, showNotification }) {
   );
 
   const handleClearAllNotifications = useCallback(
-    async (ids) => {
+    async (ids: string[] | null | undefined) => {
       if (!user || !ids?.length) return;
       try {
         await Promise.all(ids.map((id) => deleteDoc(doc(db, 'users', user.uid, 'notifications', id))));
@@ -90,7 +101,7 @@ export function useUserAlerts({ user, showNotification }) {
   );
 
   const handleDeleteNotification = useCallback(
-    async (notificationId) => {
+    async (notificationId: string) => {
       if (!user) return;
       try {
         await deleteDoc(doc(db, 'users', user.uid, 'notifications', notificationId));
@@ -102,13 +113,13 @@ export function useUserAlerts({ user, showNotification }) {
   );
 
   const handleCreatePriceAlert = useCallback(
-    async ({ ticker, targetPrice, direction }) => {
+    async ({ ticker, targetPrice, direction }: { ticker: string; targetPrice: number; direction: string }) => {
       try {
         await createPriceAlertFunction({ ticker, targetPrice, direction });
         showNotification('success', `Price alert set for $${ticker}`);
         return true;
       } catch (err) {
-        showNotification('error', err.message || 'Failed to create alert');
+        showNotification('error', errorMessage(err) || 'Failed to create alert');
         return false;
       }
     },
@@ -116,11 +127,11 @@ export function useUserAlerts({ user, showNotification }) {
   );
 
   const handleDeletePriceAlert = useCallback(
-    async (alertId) => {
+    async (alertId: string) => {
       try {
         await deletePriceAlertFunction({ alertId });
       } catch (err) {
-        showNotification('error', err.message || 'Failed to delete alert');
+        showNotification('error', errorMessage(err) || 'Failed to delete alert');
       }
     },
     [showNotification],
