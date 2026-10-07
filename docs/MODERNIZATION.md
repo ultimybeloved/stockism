@@ -45,12 +45,20 @@ Done also: all of `src/constants/` and `src/utils/` (except `dividends.test.js`)
 Tests typecheck under `tsconfig.test.json` (no strict null checks; implicit
 any still an error). `npm run typecheck` runs both configs.
 
+Also done: `firebase.ts`, `monitoring.ts`, `context/AppContext.tsx` (typed
+`AppContextValue`), and 17 of 29 top-level hooks. Callables are typed in
+`src/firebase.ts` via `callable<Req, Res>('name')` with shapes in
+`src/api/types.ts`; type a callable when converting the code that reads it.
+Action hooks take `ActionHookDeps` from `src/hooks/types.ts`.
+
 Remaining, in order:
-1. `src/utils/dividends.test.js`
-2. `src/firebase.js`, `src/monitoring.js`, `src/context/`
-3. `src/hooks/` (incl. admin/, ladder/)
-4. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
-5. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
+1. Top-level hooks still `.js`: useSeason, useTradeManagement,
+   usePredictionManagement, useLeaderboard, useCrewManagement, usePinShop,
+   useMissionManagement, useMarketBrowser, useUserAlerts, useUserActions,
+   useMarginManagement, useStockPageData
+2. `src/hooks/admin/` (48 files), `src/hooks/ladder/` (6)
+3. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
+4. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 
 ## Phase 3: Backend restructure + TypeScript
 
