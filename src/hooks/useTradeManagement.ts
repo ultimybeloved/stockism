@@ -1,7 +1,37 @@
 import { useCallback } from 'react';
 import { executeTradeFunction } from '../firebase';
 import { fireTradeConfetti } from '../utils/confetti';
-import { ACHIEVEMENTS } from '../constants/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../constants/achievements';
+import { errorMessage } from '../utils/errors';
+import type { HttpsCallableResult } from 'firebase/functions';
+import type { ExecuteTradeResponse } from '../api/types';
+import type { ActionHookDeps } from './types';
+import type { IPO, PriceMap } from '../types';
+
+export interface TradeConfirmation {
+  ticker: string;
+  action: string;
+  amount: number;
+  price: number;
+  total: number;
+  name?: string;
+  exitDiscount: number;
+}
+
+export interface TradeAnimation {
+  ticker: string;
+  action: string;
+  big: boolean;
+  timestamp: number;
+}
+
+type TradeHookDeps = Omit<ActionHookDeps, 'setUserData'> & {
+  prices: PriceMap;
+  activeIPOs: IPO[];
+  launchedTickers: string[];
+  setTradeConfirmation: (confirmation: TradeConfirmation | null) => void;
+  setTradeAnimation: (animation: TradeAnimation | null) => void;
+};
 import { CHARACTER_MAP, exitLoyaltyDiscount } from '../characters';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
@@ -11,6 +41,7 @@ import { isCapacityError, isContentionError, isInfraError } from '../utils/error
 import { reportError, reportUnexpected } from '../monitoring';
 import { marketTimes } from '../utils/localTime';
 import { checkAndAwardAchievements, sendAchievementAlert } from './tradeAchievements';
+import type { TradeAction } from '../types';
 
 // Trade execution (with contention retry + result toasts) and the
 // pre-execution confirmation request with estimated totals.
@@ -25,10 +56,10 @@ export function useTradeManagement({
   setLoadingKey,
   setTradeConfirmation,
   setTradeAnimation,
-}) {
+}: TradeHookDeps) {
   // Executes after confirmation.
   const handleTrade = useCallback(
-    async (ticker, action, amount) => {
+    async (ticker: string, action: TradeAction, amount: number) => {
       console.log(`[TRADE START] ticker=${ticker}, action=${action}, amount=${amount}`);
       if (!user || !userData) {
         showNotification('info', 'Sign in to start trading!');
@@ -49,12 +80,12 @@ export function useTradeManagement({
       }
 
       setLoadingKey('trade', true);
-      let result;
+      let result: HttpsCallableResult<ExecuteTradeResponse>;
       try {
         result = await executeTradeFunction({ ticker, action, amount });
         console.log('[TRADE EXECUTED]', result.data);
       } catch (firstError) {
-        const firstMsg = firstError.message || 'Trade execution failed';
+        const firstMsg = errorMessage(firstError) || 'Trade execution failed';
         // Capacity is checked before contention: hitting the instance cap also
         // reads as "try again", but retrying goes straight back into the same
         // wall and adds load at exactly the wrong moment.
@@ -94,18 +125,19 @@ export function useTradeManagement({
         const { executionPrice, priceImpact, totalCost, remainingDailyImpact, isLastTrade, shortWarning } = result.data;
 
         const earnedAchievements = await checkAndAwardAchievements();
-        const impactPercent = (prices[ticker] > 0 ? (priceImpact / prices[ticker]) * 100 : 0).toFixed(2);
+        const tickerPrice = prices[ticker] ?? 0;
+        const impactPercent = (tickerPrice > 0 ? (priceImpact / tickerPrice) * 100 : 0).toFixed(2);
 
         if (action === 'buy') {
           if (earnedAchievements.length > 0) {
-            const achievement = ACHIEVEMENTS[earnedAchievements[0]];
+            const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
             showNotification(
               'achievement',
               `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`,
             );
-            sendAchievementAlert(earnedAchievements[0], achievement);
+            sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
-            let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent > 0 ? '+' : ''}${impactPercent}% impact)`;
+            let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${Number(impactPercent) > 0 ? '+' : ''}${impactPercent}% impact)`;
             if (isLastTrade) message += ` • This was your last trade on ${ticker} today`;
             else if (remainingDailyImpact <= 0) message += ` • 1 trade remaining on ${ticker} today`;
             else if (remainingDailyImpact < 0.03)
@@ -117,9 +149,9 @@ export function useTradeManagement({
           const profitPercent = costBasis > 0 ? ((executionPrice - costBasis) / costBasis) * 100 : 0;
           const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
           if (earnedAchievements.length > 0) {
-            const achievement = ACHIEVEMENTS[earnedAchievements[0]];
+            const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
             showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-            sendAchievementAlert(earnedAchievements[0], achievement);
+            sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             showNotification(
               'success',
@@ -128,9 +160,9 @@ export function useTradeManagement({
           }
         } else if (action === 'short') {
           if (earnedAchievements.length > 0) {
-            const achievement = ACHIEVEMENTS[earnedAchievements[0]];
+            const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
             showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-            sendAchievementAlert(earnedAchievements[0], achievement);
+            sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
             if (isLastTrade) message += ` • This was your last trade on ${ticker} today`;
@@ -141,7 +173,7 @@ export function useTradeManagement({
             if (shortWarning) setTimeout(() => showNotification('warning', shortWarning), 1500);
           }
         } else if (action === 'cover') {
-          const shortPosition = userData.shorts?.[ticker] || {};
+          const shortPosition: { costBasis?: number; entryPrice?: number } = userData.shorts?.[ticker] || {};
           const costBasis = Number(shortPosition.costBasis || shortPosition.entryPrice) || 0;
           const profit = (costBasis - executionPrice) * amount;
           const safeProfitMsg = isNaN(profit)
@@ -157,9 +189,9 @@ export function useTradeManagement({
               `🏆 ${ACHIEVEMENTS['COLD_BLOODED'].emoji} ${ACHIEVEMENTS['COLD_BLOODED'].name} unlocked!`,
             );
           } else if (earnedAchievements.length > 0) {
-            const achievement = ACHIEVEMENTS[earnedAchievements[0]];
+            const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
             showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
-            sendAchievementAlert(earnedAchievements[0], achievement);
+            sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             showNotification(
               profit >= 0 ? 'success' : 'error',
@@ -181,7 +213,7 @@ export function useTradeManagement({
 
   // Opens the confirmation dialog with an estimated total.
   const requestTrade = useCallback(
-    (ticker, action, amount) => {
+    (ticker: string, action: TradeAction, amount: number) => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to start trading!');
         return;

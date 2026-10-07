@@ -2,6 +2,16 @@
 // ACHIEVEMENTS SYSTEM
 // ============================================
 
+export interface Achievement {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  hint: string;
+  icon?: string;
+  revocable?: boolean;
+}
+
 export const ACHIEVEMENTS = {
   // Trading milestones
   FIRST_BLOOD: {
@@ -385,7 +395,10 @@ export const ACHIEVEMENTS = {
     description: 'Take the crown from a crew head who held it 4+ weeks',
     hint: 'End a dynasty',
   },
-};
+} satisfies Record<string, Achievement>;
+
+/** Lookup by an id that arrived as a plain string (from the server or a user doc). */
+export const ACHIEVEMENT_MAP: Record<string, Achievement> = ACHIEVEMENTS;
 
 // Achievement IDs for easy checking
 export const ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENTS);

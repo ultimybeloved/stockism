@@ -18,6 +18,10 @@ import {
   REVIEW_SORTS,
 } from '../utils/marketFilters';
 
+import type { MarketFilters } from '../utils/marketFilters';
+import type { AppContextValue } from '../context/AppContext';
+import type { UserData } from '../types';
+
 export { REVIEW_SORTS };
 
 // State and wiring for browsing the market grid. The filter and sort RULES live
@@ -26,16 +30,16 @@ export { REVIEW_SORTS };
 //
 // Filters live in the URL so a filtered view can be linked and survives a
 // refresh. LeaderboardPage already does this with ?board=season.
-const readFilters = (params) => ({
+const readFilters = (params: URLSearchParams): MarketFilters => ({
   tab: params.get('tab') || DEFAULT_FILTERS.tab,
   crew: params.get('crew') || DEFAULT_FILTERS.crew,
   generation: params.get('gen') || DEFAULT_FILTERS.generation,
-  statusHidden: params.get('hide') ? params.get('hide').split(',').filter(Boolean) : [],
+  statusHidden: (params.get('hide') || '').split(',').filter(Boolean),
   search: params.get('q') || '',
 });
 
-const writeFilters = (filters) => {
-  const next = {};
+const writeFilters = (filters: MarketFilters): Record<string, string> => {
+  const next: Record<string, string> = {};
   if (filters.tab !== DEFAULT_FILTERS.tab) next.tab = filters.tab;
   if (filters.crew !== DEFAULT_FILTERS.crew) next.crew = filters.crew;
   if (filters.generation !== DEFAULT_FILTERS.generation) next.gen = filters.generation;
@@ -51,7 +55,10 @@ export function useMarketBrowser({
   launchedTickers,
   ipoRestrictedTickers,
   storedReviewChanges,
-}) {
+}: Pick<
+  AppContextValue,
+  'prices' | 'priceHistory' | 'launchedTickers' | 'ipoRestrictedTickers' | 'storedReviewChanges'
+> & { userData: UserData | null }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState('price-high');
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,7 +69,7 @@ export function useMarketBrowser({
   // Every filter change resets to page one: staying on page 7 of a list that
   // just shrank to two pages shows an empty grid.
   const setFilter = useCallback(
-    (key, value) => {
+    <K extends keyof MarketFilters>(key: K, value: MarketFilters[K]) => {
       setCurrentPage(1);
       setSearchParams(
         (prev) => {
@@ -81,7 +88,7 @@ export function useMarketBrowser({
       (prev) => {
         // Search is a separate act from filtering, so Clear All leaves it alone.
         const q = prev.get('q');
-        return q ? { q } : {};
+        return q ? { q } : ({} as Record<string, string>);
       },
       { replace: true },
     );
@@ -96,12 +103,12 @@ export function useMarketBrowser({
     const { end } = getMostRecentHaltWindow();
     const storedIsCurrent = storedReviewChanges?.windowEnd === end && Date.now() - end <= REVIEW_MAX_AGE_MS;
     if (!storedIsCurrent) return derived;
-    return mergeReviewChanges(derived, storedReviewChanges.changes);
+    return mergeReviewChanges(derived, storedReviewChanges?.changes);
   }, [priceHistory, storedReviewChanges]);
 
   const crewMembership = useMemo(buildCrewMembership, []);
 
-  const change24h = useCallback((ticker) => get24hChange(ticker, prices, priceHistory), [prices, priceHistory]);
+  const change24h = useCallback((ticker: string) => get24hChange(ticker, prices, priceHistory), [prices, priceHistory]);
 
   const filteredCharacters = useMemo(() => {
     const ctx = {
@@ -113,7 +120,7 @@ export function useMarketBrowser({
     };
     const matched = CHARACTERS.filter((c) => matchesFilters(c, filters, ctx));
 
-    const priceChanges = {};
+    const priceChanges: Record<string, number> = {};
     CHARACTERS.forEach((c) => {
       priceChanges[c.ticker] = change24h(c.ticker);
     });

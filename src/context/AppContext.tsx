@@ -45,7 +45,8 @@ export interface AppContextValue {
   launchedTickers: string[];
   rarityTiers: Record<string, string>;
   crewStats: { multipliers?: Record<string, number>; [key: string]: unknown } | null;
-  storedReviewChanges: (ReviewChanges & { windowEnd?: number }) | null;
+  /** market/reviewChanges: the last chapter review's moves, rebuilt server-side. */
+  storedReviewChanges: { windowEnd?: number; changes?: ReviewChanges } | null;
   siteMessages: LooseDoc[];
 }
 

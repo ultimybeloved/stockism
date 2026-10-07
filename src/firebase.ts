@@ -96,7 +96,7 @@ export const listBackupsFunction = callable('listBackups');
 export const restoreBackupFunction = callable('restoreBackup');
 export const broadcastNotificationFunction = callable('broadcastNotification');
 // Trade execution & anti-exploit
-export const executeTradeFunction = callable('executeTrade');
+export const executeTradeFunction = callable<Api.ExecuteTradeRequest, Api.ExecuteTradeResponse>('executeTrade');
 export const sweepDustPositionsFunction = callable<void, Api.SweepDustResponse>('sweepDustPositions');
 export const banUserFunction = callable('banUser');
 // Daily checkin

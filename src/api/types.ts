@@ -119,6 +119,21 @@ export interface GetLeaderboardResponse {
   callerRank?: number | null;
 }
 
+export interface ExecuteTradeRequest {
+  ticker: string;
+  action: string;
+  amount: number;
+}
+
+export interface ExecuteTradeResponse {
+  executionPrice: number;
+  priceImpact: number;
+  totalCost?: number;
+  remainingDailyImpact: number;
+  isLastTrade?: boolean;
+  shortWarning?: string;
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }
