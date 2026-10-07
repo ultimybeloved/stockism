@@ -85,6 +85,10 @@ export interface UserData {
   achievements?: string[];
   bets?: Record<string, { paid?: boolean; [key: string]: unknown }>;
   lastMarginInterestCharge?: number;
+  ipoPurchases?: Record<Ticker, number>;
+  checkinStreak?: number;
+  crewLockouts?: Record<string, number>;
+  darkMode?: boolean;
   isBankrupt?: boolean;
   colorBlindMode?: boolean;
   tickerTradeHistory?: Record<Ticker, Partial<Record<TradeAction, TradeLogEntry[]>>>;
@@ -114,6 +118,8 @@ export interface IPO {
   ipoEndsAt: number;
   sharesRemaining?: number;
   totalShares?: number;
+  maxPerUser?: number;
+  basePrice: number;
   [key: string]: unknown;
 }
 

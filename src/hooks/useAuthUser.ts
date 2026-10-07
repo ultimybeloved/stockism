@@ -3,12 +3,22 @@ import * as Sentry from '@sentry/react';
 import { onAuthStateChanged, applyActionCode, signInWithCustomToken } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import type { User } from 'firebase/auth';
+import type { Unsubscribe } from 'firebase/firestore';
+import type { AppContextValue } from '../context/AppContext';
+import type { UserData } from '../types';
 
 // Auth state, the user-doc subscription, and the auth-adjacent URL flows
 // (Discord OAuth redirect, email verification action codes).
-export function useAuthUser({ setDarkMode, showNotification }) {
-  const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
+export function useAuthUser({
+  setDarkMode,
+  showNotification,
+}: {
+  setDarkMode: (dark: boolean) => void;
+  showNotification: AppContextValue['showNotification'];
+}) {
+  const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [needsUsername, setNeedsUsername] = useState(false);
   // Discord signups come back with their Discord name as a starting suggestion
   // for the name picker. Only a prefill — createUser re-validates server-side.
@@ -17,7 +27,7 @@ export function useAuthUser({ setDarkMode, showNotification }) {
   const [loading, setLoading] = useState(true);
 
   // Ref to store user data listener unsubscribe function
-  const userDataUnsubscribeRef = useRef(null);
+  const userDataUnsubscribeRef = useRef<Unsubscribe | null>(null);
 
   // Handle Discord OAuth redirect
   useEffect(() => {
@@ -52,7 +62,7 @@ export function useAuthUser({ setDarkMode, showNotification }) {
       }
 
       setUser(firebaseUser);
-      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email } : null);
+      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email ?? undefined } : null);
       if (firebaseUser) {
         // Check if email is verified (only for email/password providers)
         const isEmailProvider = firebaseUser.providerData.some((p) => p.providerId === 'password');
@@ -77,18 +87,18 @@ export function useAuthUser({ setDarkMode, showNotification }) {
           setUserData(null);
         } else {
           setNeedsUsername(false);
-          const data = userSnap.data();
+          const data = userSnap.data() as UserData;
           setUserData(data);
 
           // Sync dark mode from Firestore if user has a saved preference
           if (data.darkMode !== undefined) {
             setDarkMode(data.darkMode);
-            localStorage.setItem('stockism_darkMode', data.darkMode);
+            localStorage.setItem('stockism_darkMode', String(data.darkMode));
           }
 
           // Subscribe to user data changes - store unsubscribe for cleanup
           userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
-            if (snap.exists()) setUserData(snap.data());
+            if (snap.exists()) setUserData(snap.data() as UserData);
           });
         }
       } else {
@@ -139,16 +149,16 @@ export function useAuthUser({ setDarkMode, showNotification }) {
 
   // After the UsernameModal creates the user doc: fetch it, adopt it, and
   // (re)subscribe to changes. Used as the modal's onComplete.
-  const adoptUserDoc = useCallback(async (uid) => {
+  const adoptUserDoc = useCallback(async (uid: string) => {
     setNeedsUsername(false);
     const userDocRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userDocRef);
     if (userSnap.exists()) {
-      setUserData(userSnap.data());
+      setUserData(userSnap.data() as UserData);
       // Subscribe to changes (clean up any existing listener first)
       userDataUnsubscribeRef.current?.();
       userDataUnsubscribeRef.current = onSnapshot(userDocRef, (snap) => {
-        if (snap.exists()) setUserData(snap.data());
+        if (snap.exists()) setUserData(snap.data() as UserData);
       });
     }
   }, []);

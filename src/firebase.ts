@@ -100,7 +100,7 @@ export const executeTradeFunction = callable('executeTrade');
 export const sweepDustPositionsFunction = callable<void, Api.SweepDustResponse>('sweepDustPositions');
 export const banUserFunction = callable('banUser');
 // Daily checkin
-export const dailyCheckinFunction = callable('dailyCheckin');
+export const dailyCheckinFunction = callable<Record<string, never>, Api.DailyCheckinResponse>('dailyCheckin');
 // Ladder game
 export const playLadderGameFunction = callable('playLadderGame');
 export const depositToLadderGameFunction = callable('depositToLadderGame');
@@ -135,14 +135,14 @@ export const claimPredictionPayoutFunction = callable<
 export const createLimitOrderFunction = callable('createLimitOrder');
 export const createPreMarketOrderFunction = callable('createPreMarketOrder');
 export const cancelPreMarketOrderFunction = callable('cancelPreMarketOrder');
-export const buyIPOSharesFunction = callable('buyIPOShares');
+export const buyIPOSharesFunction = callable<Api.BuyIPOSharesRequest>('buyIPOShares');
 // Event prediction markets (long-term, AMM-priced)
 export const buyEventSharesFunction = callable('buyEventShares');
 export const sellEventSharesFunction = callable('sellEventShares');
 export const triggerEventSettlementsFunction = callable('triggerEventSettlements');
 export const cancelEventMarketFunction = callable('cancelEventMarket');
 export const repayMarginFunction = callable('repayMargin');
-export const bailoutFunction = callable('bailout');
+export const bailoutFunction = callable<Record<string, never>, Api.BailoutResponse>('bailout');
 export const leaveCrewFunction = callable('leaveCrew');
 export const switchCrewFunction = callable('switchCrew');
 export const toggleMarginFunction = callable('toggleMargin');

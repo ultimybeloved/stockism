@@ -7,14 +7,24 @@ import { isWeeklyHalt } from '../utils/marketHours';
 import { formatCurrency } from '../utils/formatters';
 import { marketTimes } from '../utils/localTime';
 import { reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
+import type { IPO } from '../types';
 
-export function useIPOManagement({ user, userData, marketData, showNotification, setUserData, setLoadingKey }) {
+export function useIPOManagement({
+  user,
+  userData,
+  marketData,
+  showNotification,
+  setUserData,
+  setLoadingKey,
+}: ActionHookDeps) {
   // Resolves true only when shares actually changed hands. Every other exit
   // resolves false, including the validation bail-outs, so the buy button can
   // tell "bought" from "rejected" rather than flashing success at a promise
   // that always resolved.
   const handleBuyIPO = useCallback(
-    async (ticker, quantity) => {
+    async (ticker: string, quantity: number): Promise<boolean> => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to participate in IPO!');
         return false;
@@ -35,7 +45,7 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
         return false;
       }
       const ipoData = ipoSnap.data();
-      const ipo = ipoData.list?.find((i) => i.ticker === ticker);
+      const ipo = (ipoData.list as IPO[] | undefined)?.find((i) => i.ticker === ticker);
       if (!ipo) {
         showNotification('error', 'IPO not found');
         return false;
@@ -65,7 +75,7 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
         return false;
       }
       const totalCost = ipo.basePrice * quantity;
-      if (userData.cash < totalCost) {
+      if ((userData.cash ?? 0) < totalCost) {
         showNotification('error', 'Insufficient funds!');
         return false;
       }
@@ -89,7 +99,7 @@ export function useIPOManagement({ user, userData, marketData, showNotification,
         return true;
       } catch (err) {
         reportUnexpected(err, { where: 'handleBuyIPO', ticker, quantity });
-        showNotification('error', err?.message || 'IPO purchase failed!');
+        showNotification('error', errorMessage(err) || 'IPO purchase failed!');
         return false;
       } finally {
         setLoadingKey('buyIPO', false);

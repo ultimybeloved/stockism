@@ -34,6 +34,22 @@ export interface SweepDustResponse {
   proceeds?: number;
 }
 
+export interface BuyIPOSharesRequest {
+  ticker: string;
+  quantity: number;
+}
+
+export interface DailyCheckinResponse {
+  reward: number;
+  newStreak: number;
+  ladderTopUpAmount: number;
+  totalCheckins: number;
+}
+
+export interface BailoutResponse {
+  hadCrew?: boolean;
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }

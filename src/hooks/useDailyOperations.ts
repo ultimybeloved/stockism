@@ -7,8 +7,10 @@ import { getTodayDateString, toUTCDateString } from '../utils/date';
 import { BAILOUT_CASH } from '../constants';
 import { callableErrorCode } from '../utils/errors';
 import { reportError, reportUnexpected } from '../monitoring';
+import { errorMessage } from '../utils/errors';
+import type { ActionHookDeps } from './types';
 
-export function useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey }) {
+export function useDailyOperations({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handleDailyCheckin = useCallback(async () => {
     if (!user || !userData) {
       showNotification('info', 'Sign in to claim your daily bonus!');
@@ -44,7 +46,7 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
       // Codes arrive prefixed ('functions/failed-precondition'), so the bare
       // comparison this replaced never matched and a duplicate check-in showed
       // the generic failure message instead of the real reason.
-      if (callableErrorCode(error) === 'failed-precondition' && error.message?.includes('Already checked in')) {
+      if (callableErrorCode(error) === 'failed-precondition' && errorMessage(error).includes('Already checked in')) {
         showNotification('error', 'Already checked in today!');
       } else {
         showNotification('error', 'Failed to check in. Please try again.');
@@ -80,7 +82,7 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
         };
       });
       if (result.data.hadCrew) {
-        const crewName = CREW_MAP[currentCrew]?.name || 'your crew';
+        const crewName = (currentCrew && CREW_MAP[currentCrew]?.name) || 'your crew';
         showNotification(
           'warning',
           `Bailout accepted. You can't rejoin ${crewName} for ${CREW_REJOIN_LOCKOUT_DAYS} days. Starting fresh with ${formatCurrency(BAILOUT_CASH)}.`,

@@ -6,6 +6,7 @@ import type { IPO, PriceHistory, PriceMap, ShareMap, ShortMap, UserData } from '
 /** market/current. Fields are added as typed code reads them. */
 export interface MarketData {
   marketHalted?: boolean;
+  haltReason?: string;
   haltedTickers?: Record<string, unknown>;
   [key: string]: unknown;
 }

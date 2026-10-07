@@ -3,6 +3,10 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
 import { useActiveIPOs } from './useActiveIPOs';
+import type { AppContextValue, LooseDoc, MarketData } from '../context/AppContext';
+import type { PriceHistory, PricePoint, PriceMap } from '../types';
+
+export type MarketStatus = 'loading' | 'ready' | 'unavailable';
 
 // All global market subscriptions: prices/market doc, chart history,
 // dividend tier overrides, IPOs, and predictions.
@@ -15,28 +19,28 @@ export function useMarketData() {
   //
   // A failure AFTER a successful load leaves the status alone. Last-known real
   // prices beat a blank page for a transient blip.
-  const [marketStatus, setMarketStatus] = useState('loading');
-  const [prices, setPrices] = useState({});
-  const [priceHistory, setPriceHistory] = useState({});
-  const [marketData, setMarketData] = useState(null);
-  const [dividendTierOverrides, setDividendTierOverrides] = useState({});
-  const [siteMessages, setSiteMessages] = useState([]);
-  const [launchedTickers, setLaunchedTickers] = useState([]);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus>('loading');
+  const [prices, setPrices] = useState<PriceMap>({});
+  const [priceHistory, setPriceHistory] = useState<PriceHistory>({});
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [dividendTierOverrides, setDividendTierOverrides] = useState<Record<string, string>>({});
+  const [siteMessages, setSiteMessages] = useState<LooseDoc[]>([]);
+  const [launchedTickers, setLaunchedTickers] = useState<string[]>([]);
   // IPOs in their hype or buying phase. Own hook: the phase windows turn over
   // on a clock rather than on a write to the doc, so it needs a ticker of its
   // own and that is a separate concern from these subscriptions.
   const activeIPOs = useActiveIPOs();
-  const [predictions, setPredictions] = useState([]);
-  const [crewStats, setCrewStats] = useState(null); // weekly underdog multipliers + active counts
+  const [predictions, setPredictions] = useState<LooseDoc[]>([]);
+  const [crewStats, setCrewStats] = useState<AppContextValue['crewStats']>(null); // weekly underdog multipliers + active counts
   // What the admin changed during the last chapter review, computed server-side
   // while the price history still covered the window. See reviewChanges.js.
-  const [storedReviewChanges, setStoredReviewChanges] = useState(null);
+  const [storedReviewChanges, setStoredReviewChanges] = useState<AppContextValue['storedReviewChanges']>(null);
 
   // Listen to global market data. Chart history lives in its own doc
   // (market/priceHistory) and is fetched ONCE below — the live subscription
   // only carries the small prices doc, so every price tick no longer pushes
   // the full chart history for every stock to every player.
-  const prevPricesRef = useRef(null);
+  const prevPricesRef = useRef<PriceMap | null>(null);
   useEffect(() => {
     const marketRef = doc(db, 'market', 'current');
 
@@ -45,11 +49,11 @@ export function useMarketData() {
       (snap) => {
         setMarketStatus('ready');
         if (snap.exists()) {
-          const data = snap.data();
+          const data = snap.data() as MarketData & { prices?: PriceMap; launchedTickers?: string[] };
           // Merge stored prices with basePrices for any new characters
           const storedPrices = data.prices || {};
           const launched = data.launchedTickers || [];
-          const mergedPrices = {};
+          const mergedPrices: PriceMap = {};
           CHARACTERS.forEach((c) => {
             const gated = c.ipoRequired && !launched.includes(c.ticker);
             // A gated character is left out so an unlaunched IPO stock can't be
@@ -88,7 +92,7 @@ export function useMarketData() {
         } else {
           // Market doc missing (fresh environment) — show base prices; the
           // backend owns market initialization.
-          const initialPrices = {};
+          const initialPrices: PriceMap = {};
           CHARACTERS.forEach((c) => {
             if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
           });
@@ -154,12 +158,12 @@ export function useMarketData() {
     getDoc(doc(db, 'market', 'priceHistory'))
       .then((snap) => {
         if (cancelled || !snap.exists()) return;
-        const fetched = snap.data() || {};
+        const fetched: Record<string, unknown> = snap.data() || {};
         setPriceHistory((prevLocal) => {
-          const merged = {};
+          const merged: PriceHistory = {};
           const tickers = new Set([...Object.keys(fetched), ...Object.keys(prevLocal)]);
           tickers.forEach((t) => {
-            const base = Array.isArray(fetched[t]) ? fetched[t] : [];
+            const base: PricePoint[] = Array.isArray(fetched[t]) ? (fetched[t] as PricePoint[]) : [];
             const seen = new Set(base.map((p) => p.timestamp));
             const extra = (prevLocal[t] || []).filter((p) => !seen.has(p.timestamp));
             merged[t] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
@@ -179,10 +183,10 @@ export function useMarketData() {
   // either would be wasted reads.
   useEffect(() => {
     let cancelled = false;
-    const once = (id, set) =>
+    const once = <T>(id: string, set: (value: T) => void) =>
       getDoc(doc(db, 'market', id))
         .then((snap) => {
-          if (!cancelled && snap.exists()) set(snap.data());
+          if (!cancelled && snap.exists()) set(snap.data() as T);
         })
         .catch((err) => console.warn(`Failed to load ${id}:`, err?.message));
     once('reviewChanges', setStoredReviewChanges);
