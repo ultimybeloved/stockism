@@ -59,8 +59,8 @@ Tests typecheck under `tsconfig.test.json`, which only relaxes
 `noUncheckedIndexedAccess`.
 
 Remaining, in order:
-3. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
-4. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
+1. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
+2. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 
 ## Phase 3: Backend restructure + TypeScript
 
